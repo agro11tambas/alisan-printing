@@ -1,0 +1,302 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Inventory;
+use App\Models\InventoryItem;
+use App\Models\InventoryStock;
+use App\Models\Products;
+use App\Models\InventoryStockOut;
+use Carbon\Carbon;
+use Yajra\DataTables\Facades\DataTables;
+
+class InventoryController extends Controller
+{
+    public function getStockIn()
+    {
+        return view('erp.pages.inventory.stock-in.stock-in');
+    }
+
+    public function dataStockIn(Request $request)
+    {
+        $inventory = Inventory::with(['items', 'purchase.supplier', 'order.customer'])
+            ->where('status', 'Stock In');
+
+        if ($request->filter) {
+            switch ($request->filter) {
+                case 'today':
+                    $inventory->whereDate('date', Carbon::today());
+                    break;
+                case 'last_7_days':
+                    $inventory->whereBetween('date', [Carbon::now()->subDays(7), Carbon::now()]);
+                    break;
+                case 'this_month':
+                    $inventory->whereMonth('date', Carbon::now()->month)
+                        ->whereYear('date', Carbon::now()->year);
+                    break;
+                case 'last_30_days':
+                    $inventory->whereBetween('date', [Carbon::now()->subDays(30), Carbon::now()]);
+                    break;
+                case 'year_to_date':
+                    $inventory->whereBetween('date', [Carbon::now()->startOfYear(), Carbon::now()]);
+                    break;
+                case 'yearly':
+                    $inventory->whereYear('date', Carbon::now()->year);
+                    break;
+                case 'custom':
+                    if ($request->filled('start_date') && $request->filled('end_date')) {
+                        $inventory->whereBetween('date', [$request->start_date, $request->end_date]);
+                    }
+                    break;
+            }
+        }
+
+        if ($request->search_type && $request->filled('search_keyword')) {
+            if ($request->search_type === 'invoice_number') {
+                $inventory->where(function ($q) use ($request) {
+                    $q->where('purchase_number', 'like', '%' . $request->search_keyword . '%')
+                        ->orWhere('order_number', 'like', '%' . $request->search_keyword . '%');
+                });
+            } elseif ($request->search_type === 'partner') {
+                $inventory->where(function ($q) use ($request) {
+                    $q->whereHas('purchase.supplier', function ($query) use ($request) {
+                        $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    });
+
+                    $q->orWhereHas('saleReturn.customer', function ($query) use ($request) {
+                        $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    });
+                });
+            }
+        } elseif ($request->search_type === 'type' && $request->filled('search_type_dropdown')) {
+            if ($request->search_type_dropdown === 'purchase') {
+                $inventory->where('note', 'Purchase Account');
+            } elseif ($request->search_type_dropdown === 'sale_return') {
+                $inventory->where('note', 'Sale Returns');
+            }
+        }
+
+        if ($request->filled('progress_status')) {
+            if ($request->progress_status === 'completed') {
+                $inventory->whereDoesntHave('items', function ($q) {
+                    $q->whereColumn('stock_in', '<', 'quantity');
+                });
+            } elseif ($request->progress_status === 'progress') {
+                $inventory->whereHas('items', function ($q) {
+                    $q->whereColumn('stock_in', '<', 'quantity');
+                });
+            }
+        }
+
+        $inventory = $inventory->latest()->get();
+
+        return DataTables::of($inventory)
+            ->addIndexColumn()
+            ->addColumn('transaction_number', function ($inventory) {
+                if ($inventory->purchase_id) {
+                    $badge = '<span class="badge bg-soft-success text-success mb-1">Purchase</span><br>';
+                    return $badge . $inventory->purchase->purchase_number ?? '-';
+                } elseif ($inventory->canceled_product_id) {
+                    $badge = '<span class="badge bg-soft-warning text-warning mb-1">Canceled Product</span><br>';
+                    return $badge . 'CP-' . $inventory->date; // atau pakai kode khusus
+                } elseif ($inventory->sale_return_id) {
+                    $badge = '<span class="badge bg-soft-danger text-danger mb-1">Sale Returns</span><br>';
+                    return $badge . ($inventory->order_number ?? '-');
+                }
+                return '-';
+            })
+            ->addColumn('date', function ($inventory) {
+                return $inventory->date;
+            })
+            ->addColumn('partner_name', function ($inventory) {
+                if ($inventory->purchase_id) {
+                    return optional($inventory->purchase->supplier)->name ?? '-';
+                } elseif ($inventory->production_stock_id) {
+                    return 'Production';
+                } elseif ($inventory->sale_return_id) {
+                    return optional($inventory->saleReturn->customer)->name ?? '-';
+                }
+                return '-';
+            })
+            ->addColumn('stock_in', function ($inventory) {
+                return view('erp.pages.inventory.stock-in.partials.product-stock-in', compact('inventory'))->render();
+            })
+            ->addColumn('action', function ($inventory) {
+                return view('erp.pages.inventory.stock-in.partials.action-button-stock-in', compact('inventory'))->render();
+            })
+            ->rawColumns(['action', 'stock_in', 'transaction_number'])
+            ->make(true);
+    }
+
+    public function getStockOut()
+    {
+        return view('erp.pages.inventory.stock-out.stock-out');
+    }
+
+    public function dataStockOut(Request $request)
+    {
+        $inventory = Inventory::with(['items', 'purchaseReturn.supplier', 'order.customer'])
+            ->where('status', 'Stock Out');
+
+        // 🔎 Filter tanggal
+        if ($request->filter) {
+            switch ($request->filter) {
+                case 'today':
+                    $inventory->whereDate('date', Carbon::today());
+                    break;
+                case 'last_7_days':
+                    $inventory->whereBetween('date', [Carbon::now()->subDays(7), Carbon::now()]);
+                    break;
+                case 'this_month':
+                    $inventory->whereMonth('date', Carbon::now()->month)
+                        ->whereYear('date', Carbon::now()->year);
+                    break;
+                case 'last_30_days':
+                    $inventory->whereBetween('date', [Carbon::now()->subDays(30), Carbon::now()]);
+                    break;
+                case 'year_to_date':
+                    $inventory->whereBetween('date', [Carbon::now()->startOfYear(), Carbon::now()]);
+                    break;
+                case 'yearly':
+                    $inventory->whereYear('date', Carbon::now()->year);
+                    break;
+                case 'custom':
+                    if ($request->filled('start_date') && $request->filled('end_date')) {
+                        $inventory->whereBetween('date', [$request->start_date, $request->end_date]);
+                    }
+                    break;
+            }
+        }
+
+        // 🔎 Filter pencarian
+        if ($request->search_type && $request->filled('search_keyword')) {
+            if ($request->search_type === 'invoice_number') {
+                $inventory->where(function ($q) use ($request) {
+                    $q->where('purchase_number', 'like', '%' . $request->search_keyword . '%')
+                        ->orWhere('order_number', 'like', '%' . $request->search_keyword . '%');
+                });
+            } elseif ($request->search_type === 'partner') {
+                $inventory->where(function ($q) use ($request) {
+                    $q->whereHas('purchaseReturn.supplier', function ($query) use ($request) {
+                        $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    });
+
+                    $q->orWhereHas('order.customer', function ($query) use ($request) {
+                        $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    });
+                });
+            }
+        } elseif ($request->search_type === 'type' && $request->filled('search_type_dropdown')) {
+            if ($request->search_type_dropdown === 'purchase_return') {
+                $inventory->whereNotNull('purchase_return_id');
+            } elseif ($request->search_type_dropdown === 'sale') {
+                $inventory->whereNotNull('order_id');
+            }
+        }
+
+        // 🔎 Filter progress status
+        if ($request->filled('progress_status')) {
+            if ($request->progress_status === 'completed') {
+                $inventory->whereDoesntHave('items', function ($q) {
+                    $q->whereColumn('stock_out', '<', 'quantity');
+                });
+            } elseif ($request->progress_status === 'progress') {
+                $inventory->whereHas('items', function ($q) {
+                    $q->whereColumn('stock_out', '<', 'quantity');
+                });
+            }
+        }
+
+        $inventory = $inventory->latest()->get();
+
+        return DataTables::of($inventory)
+            ->addIndexColumn()
+            ->addColumn('transaction_number', function ($inventory) {
+                if ($inventory->purchase_return_id) {
+                    $badge = '<span class="badge bg-soft-danger text-danger mb-1">Purchase Return</span><br>';
+                    return $badge . ($inventory->purchase_number ?? '-');
+                } elseif ($inventory->material_request_id) {
+                    $badge = '<span class="badge bg-soft-warning text-warning mb-1">Request Stock</span><br>';
+                    return $badge . 'RS-' . str_pad($inventory->date, 5, '0', STR_PAD_LEFT);
+                }
+                return '-';
+            })
+            ->addColumn('date', function ($inventory) {
+                return $inventory->date;
+            })
+            ->addColumn('partner_name', function ($inventory) {
+                if ($inventory->purchase_return_id) {
+                    return optional($inventory->purchaseReturn->supplier)->name ?? '-';
+                } elseif ($inventory->material_request_id) {
+                    return optional($inventory->materialRequest->requestedBy)->name ?? '-';
+                }
+                return '-';
+            })
+            ->addColumn('stock_out', function ($inventory) {
+                return view('erp.pages.inventory.stock-out.partials.product-stock-out', compact('inventory'))->render();
+            })
+            ->addColumn('action', function ($inventory) {
+                return view('erp.pages.inventory.stock-out.partials.action-button-stock-out', compact('inventory'))->render();
+            })
+            ->rawColumns(['action', 'stock_out', 'transaction_number'])
+            ->make(true);
+    }
+
+    public function getReportItems()
+    {
+        return view('erp.pages.inventory.report-items');
+    }
+
+    public function dataReportItems(Request $request)
+    {
+        $reportItems = InventoryStock::with('product');
+
+        if ($request->filled('product_name')) {
+            $reportItems->whereHas('product', function ($query) use ($request) {
+                $query->where('name', 'like', '%' . $request->product_name . '%');
+            });
+        }
+
+        $reportItems->orderBy(
+            Products::select('name')
+                ->whereColumn('products.id', 'inventory_stocks.product_id')
+        );
+
+        $reportItems = $reportItems->get();
+
+        return DataTables::of($reportItems)
+            ->addIndexColumn()
+            ->addColumn('name', function ($reportItem) {
+                return $reportItem->product->name;
+            })
+            ->addColumn('purchase_stocks', function ($reportItem) {
+                return $reportItem->purchase_stocks ?? 0;
+            })
+            ->addColumn('inventory_stock', function ($reportItem) {
+                return $reportItem->inventory_stock;
+            })
+            // ->addColumn('stock_after_sales', function ($reportItem) {
+            //     return '<span class="text-danger">' . $reportItem->stock_after_sales . '</span>';
+            // })
+            ->addColumn('stock_after_sales', function ($reportItem) {
+                $stock = $reportItem->stock_after_sales ?? 0;
+
+                // ✅ cek minimum stock
+                if ($stock <= $reportItem->minimum_stock) {
+                    return $stock . ' <span class="text-danger">(Low Stock)</span>';
+                }
+
+                return $stock;
+            })
+            ->addColumn('incoming_stock', function ($reportItem) {
+                return $reportItem->incoming_stock ?? 0;
+            })
+            ->addColumn('avg_cost', function ($reportItem) {
+                return '<span class="text-primary">' . $reportItem->avg_cost . '</span>';
+            })
+            ->rawColumns(['stock_after_sales', 'avg_cost'])
+            ->make(true);
+    }
+}

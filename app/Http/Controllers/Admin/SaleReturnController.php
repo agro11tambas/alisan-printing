@@ -1,0 +1,1332 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\SaleReturn;
+use App\Models\SaleReturnItem;
+use App\Models\Products;
+use App\Models\Customers;
+use Illuminate\Support\Facades\DB;
+use App\Models\CustomerAddresses;
+use Carbon\Carbon;
+use App\Models\Discount;
+use App\Models\Account;
+use App\Models\AccountTransaction;
+use App\Models\Bank;
+use App\Models\CanceledProduct;
+use App\Models\Inventory;
+use App\Models\InventoryItem;
+use App\Models\Invoice;
+use App\Models\ProductionStock;
+use App\Models\SaleReturnEditHistory;
+use Illuminate\Support\Str;
+use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Log;
+use App\Services\ProductCostService;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
+
+class SaleReturnController extends Controller
+{
+    public function getSaleReturns()
+    {
+        $order_number = SaleReturn::first();
+        $transactionTypes = Account::where('name', 'Sale Return')->get();
+        $cashAccounts = Account::where('name', 'Cash')->get();
+        $bankAccounts = Account::where('name', 'Bank')->get();
+
+        return view('erp.pages.sales.sale-return.sale-return', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
+    }
+
+    public function dataSaleReturns(Request $request)
+    {
+        $returns = SaleReturn::with('customer')
+            ->where('status', 'sale returns');
+
+        if ($request->filter) {
+            switch ($request->filter) {
+                case 'today':
+                    $returns->whereDate('return_date', Carbon::today());
+                    break;
+                case 'last_7_days':
+                    $returns->whereBetween('return_date', [Carbon::now()->subDays(7), Carbon::now()]);
+                    break;
+                case 'this_month':
+                    $returns->whereMonth('return_date', Carbon::now()->month)
+                        ->whereYear('return_date', Carbon::now()->year);
+                    break;
+                case 'last_30_days':
+                    $returns->whereBetween('return_date', [Carbon::now()->subDays(30), Carbon::now()]);
+                    break;
+                case 'year_to_date':
+                    $returns->whereBetween('return_date', [Carbon::now()->startOfYear(), Carbon::now()]);
+                    break;
+                case 'yearly':
+                    $returns->whereYear('return_date', Carbon::now()->year);
+                    break;
+                case 'custom':
+                    if ($request->filled('start_date') && $request->filled('end_date')) {
+                        $returns->whereBetween('return_date', [$request->start_date, $request->end_date]);
+                    }
+                    break;
+                default:
+                    // all time -> no filter
+                    break;
+            }
+        }
+
+        if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
+            if ($request->payment_status === 'Paid') {
+                $returns->whereIn('payment_status', ['Paid', 'Over Refunded']);
+            } else {
+                $returns->where('payment_status', $request->payment_status);
+            }
+        } elseif ($request->filled('search_keyword')) {
+            if ($request->search_type === 'customer') {
+                $returns->whereHas('customer', function ($query) use ($request) {
+                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                });
+            } else {
+                $returns->where('order_number', 'like', '%' . $request->search_keyword . '%');
+            }
+        }
+
+        $returns = $returns->latest()->get();
+
+        return DataTables::of($returns)
+            ->addIndexColumn()
+            ->addColumn('order_number', function ($return) {
+                $date = Carbon::parse($return->return_date)->format('j M y');
+
+                $html = '';
+
+                // 🚫 Hilangkan badge Sale Return, sisakan hanya badge Edited
+                if ((int)($return->status_edited ?? 0) === 1) {
+                    $html .= '<div class="mb-1">';
+                    $html .= '<span class="badge bg-soft-primary text-primary">Edited</span>';
+                    $html .= '</div>';
+                }
+
+                $html .= '
+                    <div>
+                        <div>' . e($return->order_number) . '</div>
+                        <small class="text-muted">' . $date . '</small>
+                    </div>
+                ';
+
+                return $html;
+            })
+            ->addColumn('return_date', function ($return) {
+                return Carbon::parse($return->return_date)->format('j M y');
+            })
+            ->addColumn('customer', function ($return) {
+                return $return->customer->name;
+            })
+            ->addColumn('total_amount', function ($return) {
+                return 'Rp ' . number_format($return->total_amount, 0, ',', '.');
+            })
+            ->addColumn('refund_amount', function ($return) {
+                return '<span class="text-success">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</span>';
+            })
+            ->addColumn('remaining_amount', function ($return) {
+                return '<span class="text-danger">Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</span>';
+            })
+            ->addColumn('payment_status', function ($return) {
+                $payment_status = strtolower($return->payment_status);
+                switch ($payment_status) {
+                    case 'refunded':
+                        return '<div class="badge bg-soft-success text-success">' . $return->payment_status . '</div>';
+                    case 'paid':
+                        return '<div class="badge bg-soft-success text-success">' . $return->payment_status . '</div>';
+                    case 'unpaid':
+                        return '<div class="badge bg-soft-danger text-danger">' . $return->payment_status . '</div>';
+                    default:
+                        return '<div class="badge bg-soft-warning text-warning">' . $return->payment_status . '</div>';
+                }
+            })
+            ->addColumn('status', function ($return) {
+                $status = strtolower($return->status);
+                $badgeClass = 'bg-soft-dark text-dark';
+                return '<div class="badge ' . $badgeClass . '">' . ucfirst($status) . '</div>';
+            })
+            // ->addColumn('products', function ($return) {
+            //     return view('erp.pages.sales.sale-return.partials.product-list', compact('return'))->render();
+            // })
+            ->addColumn('products', function ($row) {
+                return $row->items->map(function ($item) {
+                    // Cek apakah item punya product atau productBundle
+                    $name = $item->product ? $item->product->name : ($item->productBundle ? $item->productBundle->name : '-');
+
+                    return [
+                        'name'  => $name,
+                        'sku'   => $item->product ? $item->product->sku : ($item->productBundle ? $item->productBundle->sku : '-'),
+                        'qty'   => $item->quantity,
+                        'price' => number_format($item->price ?? 0, 0, ',', '.')
+                    ];
+                })->toArray();
+            })
+            ->addColumn('account', function ($return) {
+                return $return->account ?? '-';
+            })
+            ->addColumn('action', function ($return) {
+                return view('erp.pages.sales.sale-return.partials.action-button', compact('return'))->render();
+            })
+            ->rawColumns(['order_number', 'refund_amount', 'total_amount', 'remaining_amount', 'payment_status', 'status', 'action', 'products'])
+            ->make(true);
+    }
+
+    public function dataDeletedSaleReturns(Request $request)
+    {
+        $returns = SaleReturn::onlyTrashed() // 🔹 ambil yang soft delete
+            ->with(['customer', 'items.product', 'items.productBundle'])
+            ->where('status', 'sale returns');
+
+        // 🔎 Search customer
+        if ($request->search_type === 'customer' && $request->filled('search_keyword')) {
+            $returns->whereHas('customer', function ($query) use ($request) {
+                $query->where('name', 'like', '%' . $request->search_keyword . '%');
+            });
+        }
+
+        $returns = $returns->latest()->get();
+
+        return DataTables::of($returns)
+            ->addIndexColumn()
+            ->addColumn('order_number', function ($return) {
+                $date = \Carbon\Carbon::parse($return->return_date)->format('j M y');
+                return '<div>
+                <div>' . $return->order_number . '</div>
+                <small class="text-muted">' . $date . '</small>
+            </div>';
+            })
+            ->addColumn('customer', fn($return) => $return->customer->name ?? '-')
+            ->addColumn('total_amount', fn($return) => 'Rp ' . number_format($return->total_amount, 0, ',', '.'))
+            ->addColumn('deleted_at', fn($return) => $return->deleted_at ? $return->deleted_at->format('j M y H:i') : '-')
+            ->addColumn('products', function ($row) {
+                return $row->items->map(function ($item) {
+                    $name = $item->product
+                        ? $item->product->name
+                        : ($item->productBundle ? $item->productBundle->name : '-');
+
+                    return [
+                        'name'  => $name,
+                        'sku'   => $item->product
+                            ? $item->product->sku
+                            : ($item->productBundle ? $item->productBundle->sku : '-'),
+                        'qty'   => $item->quantity,
+                        'price' => number_format($item->price ?? 0, 0, ',', '.')
+                    ];
+                })->toArray();
+            })
+            ->addColumn('delete_notes', fn($return) => $return->delete_notes ?? '-')
+            ->addColumn('deleted_by', fn($return) => $return->deletedByUser->name ?? '-')
+            ->addColumn('action', function ($order) {
+                if (Auth::check() && Auth::user()->role === 'Owner') {
+                    return '
+                    <div class="d-flex gap-2">
+                        <button type="button" 
+                            class="btn btn-success btn-sm me-1"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalRestoreOrder"
+                            data-id="' . $order->id . '" 
+                            data-name="' . $order->order_number . '"
+                            data-url="' . route('sale-returns.restore', $order->id) . '">
+                                Restore
+                        </button>
+                        <button type="button" 
+                            class="btn btn-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalForceDeleteOrder"
+                            data-id="' . $order->id . '" 
+                            data-name="' . $order->order_number . '"
+                            data-url="' . route('sale-returns.forceDelete', $order->id) . '">
+                                Hapus Permanen
+                        </button>
+                    </div>
+                ';
+                }
+
+                return ''; // kalau bukan Owner → kosong
+            })
+            ->rawColumns(['order_number', 'total_amount', 'action', 'products'])
+            ->make(true);
+    }
+
+    public function create($id)
+    {
+        $order = Order::with(['orderItems.product', 'orderItems.productBundle.items.product'])
+            ->findOrFail($id);
+
+        // if (!$order->hasStockOut()) {
+        //     return redirect()->back()->with('error', 'Tidak bisa membuat Sale Return karena barang belum masuk ke warehouse.');
+        // }
+
+        $expandedItems = collect();
+
+        // foreach ($order->orderItems as $item) {
+        //     // Kalau produk satuan
+        //     if ($item->product_id) {
+        //         $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
+        //             ->sum('quantity');
+
+        //         $item->remaining_qty = max(0, $item->quantity - $returnedQty);
+        //         $expandedItems->push($item);
+
+        //         // Kalau produk bundle → pecah ke produk satuan
+        //     } elseif ($item->product_bundle_id) {
+        //         foreach ($item->productBundle->items as $bundleItem) {
+        //             $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
+        //                 ->where('product_id', $bundleItem->product_id)
+        //                 ->sum('quantity');
+
+        //             $expandedItems->push((object) [
+        //                 'id'             => $item->id, // tetap pakai order_item_id dari bundle
+        //                 'order_id'       => $item->order_id,
+        //                 'product_id'     => $bundleItem->product_id,
+        //                 'product'        => $bundleItem->product,
+        //                 'quantity'       => $item->quantity,
+        //                 'remaining_qty'  => max(0, ($item->quantity) - $returnedQty),
+        //                 'price'          => $bundleItem->product->price ?? 0,
+        //             ]);
+        //         }
+        //     }
+        // }
+
+        foreach ($order->orderItems as $item) {
+            // Hitung total sudah dikirim (shipped) untuk item ini
+            $totalShipped = \App\Models\DeliveryOrderItem::where('order_item_id', $item->id)
+                ->sum('shipped_qty');
+
+            if ($item->product_id) {
+                // Hitung total sudah diretur untuk item ini
+                $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
+                    ->sum('quantity');
+
+                // Remaining qty = shipped - returned
+                $item->remaining_qty = max(0, $totalShipped - $returnedQty);
+
+                $expandedItems->push($item);
+            } elseif ($item->product_bundle_id) {
+                foreach ($item->productBundle->items as $bundleItem) {
+                    // Hitung total sudah dikirim untuk bundle item (shipped)
+                    $totalShipped = \App\Models\DeliveryOrderItem::where('order_item_id', $item->id)
+                        ->where('product_id', $bundleItem->product_id)
+                        ->sum('shipped_qty');
+
+                    // Hitung total sudah diretur untuk bundle item ini
+                    $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
+                        ->where('product_id', $bundleItem->product_id)
+                        ->sum('quantity');
+
+                    $expandedItems->push((object) [
+                        'id'            => $item->id,
+                        'order_id'      => $item->order_id,
+                        'product_id'    => $bundleItem->product_id,
+                        'product'       => $bundleItem->product,
+                        'quantity'      => $item->quantity,
+                        'remaining_qty' => max(0, $totalShipped - $returnedQty),
+                        'price'         => $bundleItem->product->price ?? 0,
+                    ]);
+                }
+            }
+        }
+
+        $products     = Products::with(['discounts'])->get();
+        $customers    = Customers::with('addresses')->get();
+        $cashAccounts = Account::where('name', 'Cash')->get();
+        $bankAccounts = Account::where('name', 'Bank')->get();
+        $discount     = Discount::first();
+
+        return view('erp.pages.sales.sale-return.create-order', [
+            'order'         => $order,
+            'products'      => $products,
+            'remainingItems' => $expandedItems,
+            'customers'     => $customers,
+            'cashAccounts'  => $cashAccounts,
+            'bankAccounts'  => $bankAccounts,
+            'discount'      => $discount
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'order_number'      => 'required|string',
+            'sale_order_id'     => 'required|exists:orders,id',
+            'customer_id'       => 'required|exists:customers,id',
+            'return_date'       => 'required|date',
+            'order_item_ids'    => 'required|array',
+            'product_id'        => 'required|array', // wajib hidden input
+            'qty'               => 'required|array',
+            'price'             => 'required|array',
+            'total'             => 'required|array',
+            'sub_total'         => 'required|numeric|min:0',
+            'total_amount'      => 'required|numeric|min:0',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $order = Order::with(['orderItems.product', 'orderItems.productBundle.items.product'])
+                ->findOrFail($request->sale_order_id);
+
+            $address = CustomerAddresses::where('customer_id', $request->customer_id)->first();
+
+            $grandTotal = array_sum($request->total);
+            $paidAmount = $request->refund_amount ?? 0;
+            $remainingAmount = $grandTotal - $paidAmount;
+            $status = 'Sale Returns';
+            $account = 'Sale Return';
+            $paymentStatus = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $grandTotal) ? 'Partially Paid' : 'Refunded');
+
+            // Buat SaleReturn
+            $saleReturn = SaleReturn::create([
+                'sale_order_id'     => $order->id,
+                'customer_id'       => $request->customer_id,
+                'order_number'      => $request->order_number,
+                'return_date'       => $request->return_date,
+                'payment_status'    => $paymentStatus,
+                'status'            => $status,
+                'account'           => $account,
+                'total_amount'      => $grandTotal,
+                'refund_amount'     => $paidAmount,
+                'remaining_amount'  => $remainingAmount,
+                'return_address'    => $address?->address,
+                'google_map'        => $address?->google_maps,
+                'note'              => $request->note,
+            ]);
+
+            // Loop item return (REPLACE seluruh blok lama ini)
+            foreach ($request->order_item_ids as $index => $orderItemId) {
+                if (empty($orderItemId)) continue;
+
+                $orderItem = $order->orderItems->firstWhere('id', (int) $orderItemId);
+                if (!$orderItem) continue;
+
+                $productId = $request->product_id[$index] ?? null;
+                $qty       = (int)($request->qty[$index] ?? 0);
+                $price     = (float)($request->price[$index] ?? 0);
+                $subtotal  = (float)($request->total[$index] ?? ($qty * $price));
+
+                if ($qty <= 0 || !$productId) continue;
+
+                if ($orderItem->product_bundle_id) {
+                    // Cek sisa qty per-produk di dalam bundle
+                    $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)
+                        ->where('product_id', $productId)
+                        ->sum('quantity');
+                    $maxQty = max(0, $orderItem->quantity - $returnedQty);
+                    if ($qty > $maxQty) {
+                        $pname = optional(\App\Models\Products::find($productId))->name ?? 'Produk bundle';
+                        throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
+                    }
+                } else {
+                    // Produk satuan
+                    $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)->sum('quantity');
+                    $maxQty = max(0, $orderItem->quantity - $returnedQty);
+                    if ($qty > $maxQty) {
+                        $pname = optional($orderItem->product)->name ?? 'Produk';
+                        throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
+                    }
+                }
+
+                SaleReturnItem::create([
+                    'sale_return_id' => $saleReturn->id,
+                    'product_id'     => $productId,
+                    'order_item_id'  => $orderItem->id,
+                    'quantity'       => $qty,
+                    'price'          => $price,
+                    'total'          => $subtotal,
+                ]);
+
+                // ✅ Increment canceled_product_stock pada production_stocks
+                $productionStock = ProductionStock::firstOrCreate(
+                    [
+                        'product_id' => $productId,
+                        'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2, // sesuaikan warehouse
+                    ],
+                    [
+                        'opening_stock' => 0,
+                        'finished_product_stock' => 0,
+                        'canceled_product_stock' => 0,
+                        'available_quantity' => 0,
+                    ]
+                );
+
+                $productionStock->increment('canceled_product_stock', $qty);
+
+                CanceledProduct::create([
+                    'production_stock_id' => $productionStock->id,
+                    'product_id'          => $productId,
+                    'warehouse_id'        => $productionStock->production_warehouse_id,
+                    'sale_return_id'      => $saleReturn->id,
+                    'sale_return_item_id' => $saleReturnItem->id ?? null, // isi kalau ada ID setelah create
+                    'order_id'            => $order->id,
+                    'order_item_id'       => $orderItem->id,
+                    'quantity'            => $qty,
+                    'date'                => $request->return_date,
+                    'type'                => 'from_sale_return',
+                    'status'              => 'pending', // default pending
+                    'note'                => 'Canceled product from Sale Return',
+                    'created_by'          => Auth::id(),
+                ]);
+            }
+
+            $groupId = Str::uuid();
+
+            $saleAccount = Account::findOrFail($request->transaction_type);
+
+            // **Transaksi CREDIT (sale return refund ke customer)**
+            AccountTransaction::create([
+                'sale_return_id'      => $saleReturn->id,
+                'order_number'        => $saleReturn->order_number,
+                'transaction_date'    => $request->return_date,
+                'account_id'          => $saleAccount->id,
+                'credit'              => 0,
+                'debit'               => $grandTotal,
+                'note'                => $request->note ?? '',
+                'particular'          => '',
+                'transaction_group_id' => $groupId,
+            ]);
+
+            $saleAccount->closing_balance += $grandTotal;
+            $saleAccount->save();
+
+            DB::commit();
+            return redirect('/erp/sales/sale-returns')->with('success', 'Sale return berhasil disimpan.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sale Return Store Failed', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return redirect()->back()->with('error', 'Gagal menyimpan sale return: ' . $e->getMessage());
+        }
+    }
+
+    public function edit($id)
+    {
+        $saleReturn = SaleReturn::with(['items.product', 'items.orderItem.product', 'items.orderItem.productBundle.items.product'])
+            ->findOrFail($id);
+
+        $order = $saleReturn->saleOrder()->with(['orderItems.product', 'orderItems.productBundle.items.product'])->first();
+
+        $expandedItems = collect();
+
+        foreach ($order->orderItems as $item) {
+            // Qty yang sudah di-return kecuali saleReturn ini
+            $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
+                ->where('sale_return_id', '!=', $saleReturn->id)
+                ->sum('quantity');
+
+            if ($item->product_id) {
+                $item->remaining_qty = max(0, $item->quantity - $returnedQty);
+                $existingItem = $saleReturn->items->where('order_item_id', $item->id)->first();
+                $item->return_qty = $existingItem->quantity ?? 0;
+                $item->return_price = $existingItem->price ?? $item->product->price;
+                $expandedItems->push($item);
+            } elseif ($item->product_bundle_id) {
+                foreach ($item->productBundle->items as $bundleItem) {
+                    $bundleReturnedQty = SaleReturnItem::where('order_item_id', $item->id)
+                        ->where('product_id', $bundleItem->product_id)
+                        ->where('sale_return_id', '!=', $saleReturn->id)
+                        ->sum('quantity');
+
+                    $existingItem = $saleReturn->items
+                        ->where('order_item_id', $item->id)
+                        ->where('product_id', $bundleItem->product_id)
+                        ->first();
+
+                    $expandedItems->push((object) [
+                        'id'            => $item->id, // order_item_id
+                        'order_id'      => $item->order_id,
+                        'product_id'    => $bundleItem->product_id,
+                        'product'       => $bundleItem->product,
+                        'quantity'      => $item->quantity,
+                        'remaining_qty' => max(0, $item->quantity - $bundleReturnedQty),
+                        'return_qty'    => $existingItem->quantity ?? 0,
+                        'return_price'  => $existingItem->price ?? ($bundleItem->product->price ?? 0),
+                    ]);
+                }
+            }
+        }
+
+        $products     = Products::with(['discounts'])->get();
+        $customers    = Customers::with('addresses')->get();
+        $cashAccounts = Account::where('name', 'Cash')->get();
+        $bankAccounts = Account::where('name', 'Bank')->get();
+        $discount     = Discount::first();
+
+        return view('erp.pages.sales.sale-return.edit-order', [
+            'saleReturn'     => $saleReturn,
+            'order'          => $order,
+            'products'       => $products,
+            'remainingItems' => $expandedItems, // jangan filter → tampil semua
+            'customers'      => $customers,
+            'cashAccounts'   => $cashAccounts,
+            'bankAccounts'   => $bankAccounts,
+            'discount'       => $discount
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'order_number'      => 'required|string',
+            'sale_order_id'     => 'required|exists:orders,id',
+            'customer_id'       => 'required|exists:customers,id',
+            'return_date'       => 'required|date',
+            'order_item_ids'    => 'required|array',
+            'product_id'        => 'required|array',
+            'qty'               => 'required|array',
+            'price'             => 'required|array',
+            'total'             => 'required|array',
+            'sub_total'         => 'required|numeric|min:0',
+            'total_amount'      => 'required|numeric|min:0',
+            'edit_note' => 'required|string|max:500',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $saleReturn = SaleReturn::with(['items', 'accountTransactions'])->findOrFail($id);
+            $order      = Order::with(['orderItems.product', 'orderItems.productBundle.items.product'])
+                ->findOrFail($request->sale_order_id);
+            $address    = CustomerAddresses::where('customer_id', $request->customer_id)->first();
+
+            $grandTotal = array_sum($request->total);
+
+            // refund_amount jangan dikosongkan
+            $paidAmount = $request->refund_amount ?? $saleReturn->refund_amount;
+            $remainingAmount = $grandTotal - $paidAmount;
+
+            $status        = 'Sale Returns';
+            $account       = 'Sale Return';
+            $paymentStatus = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $grandTotal) ? 'Partially Paid' : 'Refunded');
+
+            /**
+             * === SNAPSHOT LAMA ===
+             */
+            $oldHeader = Arr::only($saleReturn->toArray(), [
+                'order_number',
+                'customer_id',
+                'return_date',
+                'payment_status',
+                'status',
+                'account',
+                'total_amount',
+                'refund_amount',
+                'remaining_amount',
+                'return_address',
+                'google_map',
+                'note'
+            ]);
+            $mapItems = function ($items) {
+                return $items->mapWithKeys(function ($item) {
+                    return [$item->order_item_id . '_' . $item->product_id => [
+                        'product' => $item->product->name ?? '-',
+                        'qty'     => (int) $item->quantity,
+                        'price'   => (float) $item->price,
+                        'total'   => (float) $item->total,
+                    ]];
+                });
+            };
+            $oldItems = $mapItems($saleReturn->items);
+
+            // Update saleReturn
+            $saleReturn->update([
+                'sale_order_id'     => $order->id,
+                'customer_id'       => $request->customer_id,
+                'order_number'      => $request->order_number,
+                'return_date'       => $request->return_date,
+                'payment_status'    => $paymentStatus,
+                'status'            => $status,
+                'account'           => $account,
+                'total_amount'      => $grandTotal,
+                'refund_amount'     => $paidAmount,
+                'remaining_amount'  => $remainingAmount,
+                'return_address'    => $address?->address,
+                'google_map'        => $address?->google_maps,
+                'note'              => $request->note,
+            ]);
+
+            /**
+             * === Update SaleReturnItem ===
+             */
+            $existingItems = $saleReturn->items->keyBy(fn($i) => $i->order_item_id . '-' . $i->product_id);
+            $requestKeys   = [];
+
+            foreach ($request->order_item_ids as $index => $orderItemId) {
+                if (empty($orderItemId)) continue;
+
+                $orderItem = $order->orderItems->firstWhere('id', (int)$orderItemId);
+                if (!$orderItem) continue;
+
+                $productId = $request->product_id[$index] ?? null;
+                $qty       = (int)($request->qty[$index] ?? 0);
+                $price     = (float)($request->price[$index] ?? 0);
+                $subtotal  = (float)($request->total[$index] ?? ($qty * $price));
+
+                if ($qty <= 0 || !$productId) continue;
+
+                $key = $orderItem->id . '-' . $productId;
+                $requestKeys[] = $key;
+
+                if ($existingItems->has($key)) {
+                    // Update item lama
+                    $item = $existingItems[$key];
+                    $oldQty = $item->quantity;
+
+                    $item->update([
+                        'quantity' => $qty,
+                        'price'    => $price,
+                        'total'    => $subtotal,
+                    ]);
+
+                    $delta = $qty - $oldQty;
+
+                    // ✅ Update canceled_products record
+                    $canceled = CanceledProduct::where('sale_return_id', $saleReturn->id)
+                        ->where('product_id', $productId)
+                        ->where('order_item_id', $orderItem->id)
+                        ->first();
+
+                    if ($canceled) {
+                        $canceled->increment('quantity', $delta);
+                    }
+                } else {
+                    // Tambah item baru
+                    SaleReturnItem::create([
+                        'sale_return_id' => $saleReturn->id,
+                        'product_id'     => $productId,
+                        'order_item_id'  => $orderItem->id,
+                        'quantity'       => $qty,
+                        'price'          => $price,
+                        'total'          => $subtotal,
+                    ]);
+
+                    // ✅ Tambah canceled_product baru
+                    CanceledProduct::create([
+                        'production_stock_id' => null, // bisa diisi kalau mau track
+                        'product_id'          => $productId,
+                        'warehouse_id'        => $orderItem->order->warehouse_id ?? 2,
+                        'sale_return_id'      => $saleReturn->id,
+                        'order_id'            => $order->id,
+                        'order_item_id'       => $orderItem->id,
+                        'quantity'            => $qty,
+                        'date'                => $request->return_date,
+                        'type'                => 'from_sale_return',
+                        'status'              => 'pending',
+                        'note'                => 'Canceled product from sale return update',
+                        'created_by'          => Auth::id(),
+                    ]);
+
+                    $delta = $qty;
+                }
+
+                // ✅ Sync canceled_product_stock
+                $productionStock = ProductionStock::firstOrCreate(
+                    [
+                        'product_id' => $productId,
+                        'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2,
+                    ],
+                    [
+                        'opening_stock' => 0,
+                        'finished_product_stock' => 0,
+                        'canceled_product_stock' => 0,
+                        'available_quantity' => 0,
+                    ]
+                );
+
+                $productionStock->increment('canceled_product_stock', $delta);
+
+                // Update cost & stock produk
+                $product = Products::findOrFail($productId);
+                ProductCostService::updateCostAndStock($product);
+            }
+
+            // Hapus item yang tidak ada di request
+            foreach ($existingItems as $key => $item) {
+                if (!in_array($key, $requestKeys)) {
+                    $productId = $item->product_id;
+                    $qty       = (int) $item->quantity;
+
+                    // langsung decrement
+                    $productionStock = ProductionStock::where('product_id', $productId)->first();
+                    if ($productionStock) {
+                        $productionStock->decrement('canceled_product_stock', $qty);
+                    }
+
+                    // update cost & stock produk
+                    $product = Products::find($productId);
+                    if ($product) {
+                        ProductCostService::updateCostAndStock($product);
+                        $product->stock_after_sales = $product->inventory_stock;
+                        $product->save();
+                    }
+
+                    $item->delete();
+                }
+            }
+
+            /**
+             * === SNAPSHOT BARU ===
+             */
+            $saleReturn->load('items');
+            $newHeader = Arr::only($saleReturn->toArray(), array_keys($oldHeader));
+            $newItems  = $mapItems($saleReturn->items);
+
+            /**
+             * === DIFF ===
+             */
+            $headerDiff = ['old' => [], 'new' => []];
+            foreach ($newHeader as $field => $newVal) {
+                $oldVal = $oldHeader[$field] ?? null;
+                if ($oldVal != $newVal) {
+                    $headerDiff['old'][$field] = $oldVal;
+                    $headerDiff['new'][$field] = $newVal;
+                }
+            }
+
+            $itemsDiff = [];
+            $allKeys = array_unique(array_merge(array_keys($oldItems->toArray()), array_keys($newItems->toArray())));
+            foreach ($allKeys as $key) {
+                $old = $oldItems[$key] ?? null;
+                $new = $newItems[$key] ?? null;
+
+                if ($old && !$new) {
+                    $itemsDiff[] = [
+                        'product'   => $old['product'],
+                        'old_qty'   => $old['qty'],
+                        'new_qty'   => 0,
+                        'old_total' => $old['total'],
+                        'new_total' => 0,
+                        'action'    => 'removed',
+                    ];
+                } elseif (!$old && $new) {
+                    $itemsDiff[] = [
+                        'product'   => $new['product'],
+                        'old_qty'   => 0,
+                        'new_qty'   => $new['qty'],
+                        'old_total' => 0,
+                        'new_total' => $new['total'],
+                        'action'    => 'added',
+                    ];
+                } else {
+                    $changed = [];
+                    foreach (['qty', 'price', 'total'] as $f) {
+                        if ($old[$f] != $new[$f]) {
+                            $changed[$f] = ['old' => $old[$f], 'new' => $new[$f]];
+                        }
+                    }
+                    if (!empty($changed)) {
+                        $itemsDiff[] = [
+                            'product'   => $new['product'],
+                            'action'    => 'updated',
+                            'fields'    => $changed,
+                            'old_qty'   => $old['qty'],
+                            'new_qty'   => $new['qty'],
+                            'old_total' => $old['total'],
+                            'new_total' => $new['total'],
+                        ];
+                    }
+                }
+            }
+
+            $changes = [
+                'header' => $headerDiff,
+                'items'  => $itemsDiff,
+            ];
+
+
+            // ================== HANDLE ACCOUNT TRANSACTIONS ==================
+            $saleReturnAccount = Account::where('type', 'Sale Return')->firstOrFail();
+
+            $existingTx = AccountTransaction::where('sale_return_id', $saleReturn->id)
+                ->where('account_id', $saleReturnAccount->id)
+                ->where('debit', '>', 0)
+                ->first();
+
+            if (!$existingTx) {
+                AccountTransaction::create([
+                    'sale_return_id'      => $saleReturn->id,
+                    'order_number'        => $saleReturn->order_number,
+                    'transaction_date'    => $request->return_date,
+                    'account_id'          => $saleReturnAccount->id,
+                    'debit'               => $grandTotal,
+                    'credit'              => 0,
+                    'note'                => $request->note ?? '',
+                    'particular'          => 'Sale Return',
+                    'transaction_group_id' => Str::uuid(),
+                ]);
+
+                $saleReturnAccount->increment('closing_balance', $grandTotal);
+            } else {
+                $diff = $grandTotal - $existingTx->debit;
+                $existingTx->update([
+                    'transaction_date' => $request->return_date,
+                    'debit'            => $grandTotal,
+                    'note'             => $request->note ?? '',
+                ]);
+
+                if ($diff != 0) {
+                    $saleReturnAccount->increment('closing_balance', $diff);
+                }
+            }
+
+            /**
+             * === SIMPAN HISTORY ===
+             */
+            SaleReturnEditHistory::create([
+                'sale_return_id' => $saleReturn->id,
+                'edited_by'      => Auth::id(),
+                'changes'        => $changes,
+                'text'           => $request->edit_note,
+                'edited_at'      => now(),
+            ]);
+
+            $saleReturn->update([
+                'status_edited' => true,
+            ]);
+
+            DB::commit();
+            return redirect('/erp/sales/sale-returns')->with('success', 'Sale return berhasil diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sale Return Update Failed', [
+                'message' => $e->getMessage(),
+                'line'    => $e->getLine(),
+                'file'    => $e->getFile(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+            return redirect()->back()->with('error', 'Gagal memperbarui sale return: ' . $e->getMessage());
+        }
+    }
+
+    public function delete($id, Request $request)
+    {
+        $request->validate([
+            'delete_notes' => 'required|string|max:1000',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            // Ambil SaleReturn + items
+            $saleReturn = SaleReturn::with('items')->findOrFail($id);
+
+            // 🔎 Cek apakah Sale Return ini sudah masuk ke Warehouse (Stock In)
+            $hasStockIn = Inventory::whereHas('canceledProduct', function ($q) use ($saleReturn) {
+                $q->where('sale_return_id', $saleReturn->id);
+            })
+                ->whereHas('items', function ($q) {
+                    $q->where('stock_in', '>', 0);
+                })
+                ->exists();
+
+            if ($hasStockIn) {
+                DB::rollBack();
+                return back()->with('error', 'Tidak bisa menghapus Sale Return ini karena produk sudah masuk ke Warehouse (Stock In).');
+            }
+
+            // Simpan product_id untuk update stok nanti
+            $items = $saleReturn->items;
+
+            // Handle transaksi terkait
+            $transactions = AccountTransaction::where('sale_return_id', $saleReturn->id)->get();
+
+            foreach ($transactions as $trx) {
+                $account = Account::find($trx->account_id);
+                if (!$account) continue;
+
+                if ($account->type === 'Sale Return') {
+                    // rollback saldo Sale Return Account
+                    if ($trx->debit > 0) {
+                        $account->closing_balance -= $trx->debit;
+                    }
+                    if ($trx->credit > 0) {
+                        $account->closing_balance += $trx->credit;
+                    }
+
+                    $trx->delete(); // soft delete transaksi
+                } else {
+                    // Cash / Bank account: jangan dihapus
+                    $trx->sale_return_id = null;
+                    $trx->note = trim(($trx->note ?? '') . ' [SaleReturn deleted]');
+                    $trx->save();
+                }
+
+                $account->save();
+            }
+
+            // Soft delete SaleReturn → otomatis cascade ke items & editHistories
+            $saleReturn->delete();
+
+            // ✅ Kurangi canceled_product_stock pada production_stocks
+            foreach ($items as $item) {
+                $productId = $item->product_id;
+                $qty       = $item->quantity;
+
+                $productionStock = ProductionStock::where('product_id', $productId)->first();
+                if ($productionStock) {
+                    $productionStock->decrement('canceled_product_stock', $qty);
+                }
+
+                // 🚮 Hapus juga ledger canceled_products untuk sale_return ini
+                CanceledProduct::where('sale_return_id', $saleReturn->id)
+                    ->where('product_id', $productId)
+                    ->where('order_item_id', $item->order_item_id)
+                    ->delete();
+
+                // Update ulang stok & avg_cost produk
+                $product = Products::find($productId);
+                if ($product) {
+                    ProductCostService::updateCostAndStock($product);
+                    $product->stock_after_sales = $product->inventory_stock;
+                    $product->save();
+                }
+            }
+
+            $saleReturn->delete_notes = $request->input('delete_notes'); // catatan hapus dari form
+            $saleReturn->deleted_by = Auth::id(); // user yang login
+            $saleReturn->save();
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Sale return berhasil dihapus.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sale return delete failed: ' . $e->getMessage());
+            return back()->with('error', 'Gagal menghapus sale return: ' . $e->getMessage());
+        }
+    }
+
+    public function getSaleReturnDetail($id)
+    {
+        $return = SaleReturn::with('items')->findOrFail($id);
+        return view('erp.pages.sales.sale-return.detail-order', compact('return'));
+    }
+
+    public function markAsRefund($id, Request $request)
+    {
+        $request->merge([
+            'refund_amount' => str_replace('.', '', $request->refund_amount),
+        ]);
+
+        $request->validate([
+            'sale_return_id'        => 'required|exists:sale_returns,id',
+            'refund_amount'           => 'required|numeric|min:0',
+            'cash_bank_account_id'  => 'required|exists:accounts,id',
+            'transaction_date'      => 'required|date',
+            'transaction_type'      => 'required|exists:accounts,id',
+            'note'                  => 'nullable|string',
+            'particular'            => 'nullable|string',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $saleReturn = SaleReturn::findOrFail($request->sale_return_id);
+
+            // Ambil transaction_group_id yang sudah ada (jika tidak ada, generate baru)
+            $groupId = Str::uuid();
+
+            $saleAccount     = Account::findOrFail($request->transaction_type); // Akun retur penjualan
+            $cashBankAccount = Account::findOrFail($request->cash_bank_account_id); // Akun kas/bank
+
+            // **Transaksi CREDIT (sale return refund ke customer)**
+            // AccountTransaction::create([
+            //     'sale_return_id'      => $saleReturn->id,
+            //     'transaction_date'    => $request->transaction_date,
+            //     'account_id'          => $saleAccount->id,
+            //     'credit'              => 0,
+            //     'debit'               => $request->refund_amount,
+            //     'note'                => $request->note ?? '',
+            //     'particular'          => $cashBankAccount->name . ' - ' . $cashBankAccount->type,
+            //     'transaction_group_id' => $groupId,
+            // ]);
+
+            // $saleAccount->closing_balance += $request->refund_amount;
+            // $saleAccount->save();
+
+            // **Transaksi DEBIT (kas/bank keluar)**
+            AccountTransaction::create([
+                'sale_return_id'      => $saleReturn->id,
+                'order_number'        => $saleReturn->order_number,
+                'transaction_date'    => $request->transaction_date,
+                'account_id'          => $cashBankAccount->id,
+                'debit'               => 0,
+                'credit'              => $request->refund_amount,
+                'note'                => $request->note ?? '',
+                'particular'          => $saleAccount->name . ' - ' . $saleAccount->type,
+                'transaction_group_id' => $groupId,
+            ]);
+
+            $cashBankAccount->closing_balance -= $request->refund_amount;
+            $cashBankAccount->save();
+
+            // **Update refund_amount & remaining_amount di SaleReturn**
+            $saleReturn->refund_amount = ($saleReturn->refund_amount ?? 0) + $request->refund_amount;
+            $saleReturn->remaining_amount = max(0, $saleReturn->total_amount - $saleReturn->refund_amount);
+
+            // **Update Payment Status**
+            if ($saleReturn->refund_amount <= 0) {
+                $saleReturn->payment_status = 'Unpaid';
+            } elseif ($saleReturn->refund_amount == $saleReturn->total_amount) {
+                $saleReturn->payment_status = 'Refunded';
+            } elseif ($saleReturn->refund_amount > $saleReturn->total_amount) {
+                $saleReturn->payment_status = 'Overpaid';
+            } else {
+                $saleReturn->payment_status = 'Partially Paid';
+            }
+
+            // **Simpan transaction_group_id**
+            // $saleReturn->transaction_group_id = $groupId;
+            $saleReturn->save();
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Refund berhasil diproses.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sale Return Refund Failed', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+            ]);
+            return redirect()->back()->with('error', 'Gagal memproses refund: ' . $e->getMessage());
+        }
+    }
+
+    public function getInvoice($id)
+    {
+        $order = SaleReturn::with('items')->findOrFail($id);
+        $invoice = Invoice::with('termAndConditions')->first();
+        return view('erp.pages.sales.invoice.index', compact('order', 'invoice'));
+    }
+
+    public function getPaymentHistory($id)
+    {
+        $saleReturn = SaleReturn::with('customer')->findOrFail($id);
+
+        // Group transaksi per pembayaran
+        $transactions = AccountTransaction::with('account')
+            ->where('sale_return_id', $saleReturn->id)
+            ->orderBy('transaction_date', 'desc')
+            ->get()
+            ->groupBy('transaction_group_id');
+
+        $cashAccounts = Account::where('name', 'Cash')->get();
+        $bankAccounts = Account::where('name', 'Bank')->get();
+
+        return view('erp.pages.sales.sale-return.payment-history', [
+            'saleReturn'   => $saleReturn,
+            'transactions' => $transactions,
+            'cashAccounts' => $cashAccounts,
+            'bankAccounts' => $bankAccounts,
+        ]);
+    }
+
+    public function updatePayment(Request $request, $groupId)
+    {
+        $request->merge([
+            'paid_amount' => str_replace('.', '', $request->paid_amount),
+        ]);
+
+        $request->validate([
+            'transaction_date'      => 'required|date',
+            'paid_amount'           => 'required|numeric|min:1',
+            'cash_bank_account_id'  => 'required|exists:accounts,id',
+            'note'                  => 'nullable|string',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
+            if ($transactions->isEmpty()) {
+                throw new \Exception("Refund not found");
+            }
+
+            $saleReturnId = $transactions->first()->sale_return_id;
+            $saleReturn   = SaleReturn::findOrFail($saleReturnId);
+
+            // cari transaksi credit lama (Cash/Bank)
+            $oldCredit = $transactions->firstWhere('credit', '>', 0);
+            if (!$oldCredit) {
+                throw new \Exception("Credit transaction not found in this group");
+            }
+
+            $oldAccount = $oldCredit->account;
+            $oldAmount  = $oldCredit->credit;
+
+            // rollback saldo akun lama
+            $oldAccount->closing_balance += $oldAmount;
+            $oldAccount->save();
+
+            // update transaksi credit lama → ganti akun/amount/date/note
+            $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
+            $oldCredit->update([
+                'transaction_date' => $request->transaction_date,
+                'account_id'       => $cashBankAccount->id,
+                'credit'           => $request->paid_amount,
+                'note'             => $request->note ?? '',
+            ]);
+
+            // update saldo akun baru
+            $cashBankAccount->closing_balance -= $request->paid_amount;
+            $cashBankAccount->save();
+
+            // update juga tanggal/note untuk baris debit Sale Return biar sinkron
+            $returnTrx = $transactions->firstWhere('debit', '>', 0);
+            if ($returnTrx) {
+                $returnTrx->update([
+                    'transaction_date' => $request->transaction_date,
+                    'note'             => $request->note ?? '',
+                ]);
+            }
+
+            // hitung ulang refund status sale return (sum credit)
+            $totalRefund = AccountTransaction::where('sale_return_id', $saleReturn->id)
+                ->where('credit', '>', 0)
+                ->sum('credit');
+
+            $saleReturn->refund_amount    = $totalRefund;
+            $saleReturn->remaining_amount = max(0, $saleReturn->total_amount - $totalRefund);
+
+            if ($saleReturn->refund_amount == 0) {
+                $saleReturn->payment_status = 'Unpaid';
+            } elseif ($saleReturn->refund_amount < $saleReturn->total_amount) {
+                $saleReturn->payment_status = 'Partially Paid';
+            } elseif ($saleReturn->refund_amount == $saleReturn->total_amount) {
+                $saleReturn->payment_status = 'Refunded';
+            } else {
+                $saleReturn->payment_status = 'Overpaid';
+            }
+
+            $saleReturn->save();
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Refund berhasil diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Gagal update refund: ' . $e->getMessage());
+        }
+    }
+
+    public function getEditHistory($id)
+    {
+        $saleReturn = SaleReturn::findOrFail($id);
+
+        $histories = SaleReturnEditHistory::with('user')
+            ->where('sale_return_id', $id)
+            ->orderBy('edited_at', 'desc')
+            ->get();
+
+        return view('erp.pages.sales.sale-return.edit-order-histories', compact('saleReturn', 'histories'));
+    }
+
+    public function forceDelete($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $saleReturn = SaleReturn::onlyTrashed()->findOrFail($id);
+
+            // 🔥 trigger booted() => otomatis hapus semua relasi
+            $saleReturn->forceDelete();
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Order beserta item & relasinya berhasil dihapus permanen!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Force delete sale return gagal', [
+                'sale_return_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return redirect()->back()->with('error', 'Gagal menghapus permanen order!');
+        }
+    }
+
+    public function restore($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $saleReturn = SaleReturn::onlyTrashed()
+                ->with('items') // ambil items sekalian
+                ->findOrFail($id);
+
+            // ✅ Restore saleReturn + relasi items
+            $saleReturn->restore();
+            if (method_exists($saleReturn, 'items')) {
+                $saleReturn->items()->withTrashed()->restore();
+            }
+
+            // ✅ Restore transaksi terkait
+            $transactions = AccountTransaction::withTrashed()
+                ->where(function ($q) use ($saleReturn) {
+                    $q->where('sale_return_id', $saleReturn->id)
+                        ->orWhere('note', 'like', '%[SaleReturn deleted]%');
+                })
+                ->get();
+
+            foreach ($transactions as $trx) {
+                $account = Account::find($trx->account_id);
+                if (!$account) continue;
+
+                if ($account->type === 'Sale Return') {
+                    // aktifkan kembali transaksi Sale Return Account
+                    if ($trx->trashed()) {
+                        $trx->restore();
+                    }
+
+                    // rollback saldo Sale Return Account
+                    if ($trx->debit > 0) {
+                        $account->closing_balance += $trx->debit;
+                    }
+                    if ($trx->credit > 0) {
+                        $account->closing_balance -= $trx->credit;
+                    }
+                } else {
+                    // Cash / Bank account → balikin sale_return_id
+                    $trx->sale_return_id = $saleReturn->id;
+                    $trx->note = str_replace('[SaleReturn deleted]', '', $trx->note ?? '');
+                    $trx->save();
+                }
+
+                $account->save();
+            }
+
+            // ✅ Tambahkan kembali canceled_product_stock + update cost produk
+            foreach ($saleReturn->items as $item) {
+                $productId = $item->product_id;
+                $qty       = $item->quantity;
+
+                $productionStock = ProductionStock::where('product_id', $productId)->first();
+                if ($productionStock) {
+                    $productionStock->increment('canceled_product_stock', $qty);
+                }
+
+                // Update ulang stok & avg_cost produk
+                $product = Products::find($productId);
+                if ($product) {
+                    ProductCostService::updateCostAndStock($product);
+                    $product->stock_after_sales = $product->inventory_stock;
+                    $product->save();
+                }
+            }
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Sale Return berhasil direstore!');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Restore sale return gagal', [
+                'sale_return_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return redirect()->back()->with('error', 'Gagal mengembalikan sale return!');
+        }
+    }
+}

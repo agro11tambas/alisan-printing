@@ -1,0 +1,42 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('sale_returns', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('sale_order_id')->constrained('orders')->onDelete('cascade');
+            $table->foreignId('customer_id')->constrained('customers')->onDelete('cascade');
+            $table->date('return_date');
+            $table->string('status')->default('Pending');
+            $table->string('account')->nullable();
+            $table->string('payment_status')->default('Unpaid');
+            $table->decimal('total_amount', 15, 2)->default(0);
+            $table->decimal('refund_amount', 15, 2)->default(0);
+            $table->decimal('remaining_amount', 15, 2)->default(0);
+            $table->string('return_address')->nullable();
+            $table->string('google_map')->nullable();
+            $table->string('return_image')->nullable();
+            $table->string('note')->nullable();
+            $table->uuid('transaction_group_id')->nullable();
+            $table->string('reason')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('sale_returns');
+    }
+};
