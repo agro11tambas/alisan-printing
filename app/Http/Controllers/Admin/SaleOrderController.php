@@ -781,24 +781,19 @@ class SaleOrderController extends Controller
                         foreach ($bundle->items as $bundleItem) {
                             $bundleProduct = $bundleItem->product;
                             if ($bundleProduct) {
-                                foreach ($bundle->items as $bundleItem) {
-                                    $bundleProduct = $bundleItem->product;
-                                    if ($bundleProduct) {
-                                        $deductQty = $item->quantity;
+                                $deductQty = $item->quantity;
 
-                                        $inventoryStock = InventoryStock::firstOrCreate(
-                                            [
-                                                'product_id' => $bundleProduct->id,
-                                                'inventory_warehouse_id' => $warehouseId,
-                                            ],
-                                            [
-                                                'stock_after_sales' => 0,
-                                            ]
-                                        );
+                                $inventoryStock = InventoryStock::firstOrCreate(
+                                    [
+                                        'product_id' => $bundleProduct->id,
+                                        'inventory_warehouse_id' => $warehouseId,
+                                    ],
+                                    [
+                                        'stock_after_sales' => 0,
+                                    ]
+                                );
 
-                                        $inventoryStock->decrement('stock_after_sales', $deductQty);
-                                    }
-                                }
+                                $inventoryStock->decrement('stock_after_sales', $deductQty);
                             }
                         }
                     }

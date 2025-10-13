@@ -148,20 +148,20 @@
                                         </div>
                                     </div>
                                     <!-- <div class="row mb-3 align-items-center">
-                                                <div class="col-lg-2">
-                                                    <label for="image" class="fw-semibold">Upload Bond</label>
-                                                </div>
-                                                <div class="col-lg-10 mb-0">
-                                                    <div class="input-group">
-                                                        <input type="file" class="form-control" id="image" name="image" accept="image/*" value="{{ old('image') }}">
+                                                    <div class="col-lg-2">
+                                                        <label for="image" class="fw-semibold">Upload Bond</label>
                                                     </div>
-                                                    @if (isset($purchase->image) && $purchase->image)
+                                                    <div class="col-lg-10 mb-0">
+                                                        <div class="input-group">
+                                                            <input type="file" class="form-control" id="image" name="image" accept="image/*" value="{{ old('image') }}">
+                                                        </div>
+                                                        @if (isset($purchase->image) && $purchase->image)
     <img src="{{ asset('storage/' . $purchase->image) }}"
-                                                        alt="Bond Image"
-                                                        style="max-width: 100px; margin-top: 10px; border-radius: 10px" />
+                                                            alt="Bond Image"
+                                                            style="max-width: 100px; margin-top: 10px; border-radius: 10px" />
     @endif
-                                                </div>
-                                            </div> -->
+                                                    </div>
+                                                </div> -->
                                 </div>
                             </div>
                         </div>
@@ -616,6 +616,12 @@
                     if (next) next.remove();
                 });
             });
+        });
+
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
         });
     </script>
 @endpush

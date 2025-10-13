@@ -208,9 +208,9 @@
                                         </table>
                                     </div>
                                     <!-- <div class="d-flex justify-content-end gap-2 mt-3">
-                                            <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
-                                            <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
-                                        </div> -->
+                                                <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
+                                                <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
+                                            </div> -->
                                 </div>
                                 <div class="col-lg-12 mt-4">
                                     <div class="row justify-content-end">
@@ -446,6 +446,12 @@
                     parent.appendChild(feedback);
                 }
             }
+        });
+
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
         });
     </script>
 @endpush

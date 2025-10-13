@@ -95,74 +95,74 @@ class StockOpnameController extends Controller
     public function create()
     {
         $products = Products::all();
-
         return view('erp.pages.stock-opname.create-stock-opname', compact('products'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'product'  => 'required|exists:products,id',
-            'inventory_warehouse_id' => 'required|exists:inventory_warehouses,id',
-            'date'     => 'required|date',
-            'quantity' => 'required|integer|min:0',
-            'notes'    => 'nullable|string',
+            'items'                              => 'required|array|min:1',
+            'items.*.product_id'                 => 'required|exists:products,id',
+            'items.*.inventory_warehouse_id'     => 'required|exists:inventory_warehouses,id',
+            'items.*.date'                       => 'required|date',
+            'items.*.quantity'                   => 'required|integer|min:0',
+            'items.*.status'                     => 'required|in:Gain,Loss',
+            'items.*.notes'                      => 'nullable|string',
         ]);
 
-        // Ambil produk global
-        $product = Products::findOrFail($request->product);
+        foreach ($request->items as $item) {
+            $product = Products::findOrFail($item['product_id']);
 
-        // Ambil stok per warehouse
-        $inventoryStock = InventoryStock::firstOrCreate(
-            [
-                'product_id'             => $request->product,
-                'inventory_warehouse_id' => $request->inventory_warehouse_id,
-            ],
-            [
-                'opening_stock'     => 0,
-                'opening_rate'      => 0,
-                'inventory_stock'   => 0,
-                'incoming_stock'    => 0,
-                'stock_after_sales' => 0,
-                'avg_cost'          => 0,
-            ]
-        );
+            $inventoryStock = InventoryStock::firstOrCreate(
+                [
+                    'product_id'             => $item['product_id'],
+                    'inventory_warehouse_id' => $item['inventory_warehouse_id'],
+                ],
+                [
+                    'opening_stock'     => 0,
+                    'opening_rate'      => 0,
+                    'inventory_stock'   => 0,
+                    'incoming_stock'    => 0,
+                    'stock_after_sales' => 0,
+                    'avg_cost'          => 0,
+                ]
+            );
 
-        $oldStock = (int) $inventoryStock->inventory_stock;
+            $oldStock = (int) $inventoryStock->inventory_stock;
 
-        if ($request->status === 'Gain') {
-            $diff     = (int) $request->quantity;
-            $newStock = $oldStock + $diff;
-        } else { // Loss
-            $diff     = -(int) $request->quantity;
-            $newStock = max(0, $oldStock + $diff);
+            if ($item['status'] === 'Gain') {
+                $diff = (int) $item['quantity'];
+                $newStock = $oldStock + $diff;
+            } else {
+                $diff = -(int) $item['quantity'];
+                $newStock = max(0, $oldStock + $diff);
+            }
+
+            // Simpan history
+            StockOpname::create([
+                'product_id'             => $item['product_id'],
+                'inventory_warehouse_id' => $item['inventory_warehouse_id'],
+                'date'       => $item['date'],
+                'quantity'   => $item['quantity'],
+                'old_stock'  => $oldStock,
+                'diff'       => $diff,
+                'status'     => $item['status'],
+                'notes'      => $item['notes'] ?? null,
+            ]);
+
+            // Update stok per warehouse
+            $inventoryStock->update([
+                'inventory_stock'   => $newStock,
+                'stock_after_sales' => $newStock,
+            ]);
+
+            // Update total stok produk
+            $totalStock = InventoryStock::where('product_id', $item['product_id'])->sum('inventory_stock');
+            $product->update([
+                'inventory_stock'   => $totalStock,
+                'stock_after_sales' => $totalStock,
+            ]);
         }
-
-        // Simpan history opname
-        StockOpname::create([
-            'product_id'             => $request->product,
-            'inventory_warehouse_id' => $request->inventory_warehouse_id,
-            'date'       => $request->date,
-            'quantity'   => $request->quantity, // jumlah yang diinput (selisih)
-            'old_stock'  => $oldStock,
-            'diff'       => $diff,
-            'status'     => $request->status,
-            'notes'      => $request->notes,
-        ]);
-
-        // Update ke inventory_stocks
-        $inventoryStock->update([
-            'inventory_stock'   => $newStock,
-            'stock_after_sales' => $newStock,
-        ]);
-
-        // Update stok global produk (total semua warehouse)
-        $totalStock = InventoryStock::where('product_id', $request->product)->sum('inventory_stock');
-
-        $product->update([
-            'inventory_stock'   => $totalStock,
-            'stock_after_sales' => $totalStock,
-        ]);
 
         return redirect('/erp/inventory/stock-opname')
             ->with('success', 'Stock Opname created successfully.');

@@ -1,253 +1,291 @@
 @extends('erp.layouts.main')
 
 @section('breadcrumb')
-<div class="page-header sticky-top">
-    <div class="page-header-left d-flex align-items-center">
-        <div class="page-header-title">
-            <h5 class="m-b-10">Products</h5>
-        </div>
-        <ul class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
-            <li class="breadcrumb-item">Products</li>
-            <li class="breadcrumb-item">Create Product Bundles</li>
-        </ul>
-    </div>
-    <div class="page-header-right ms-auto">
-        <div class="page-header-right-items">
-            <div class="d-flex d-md-none">
-                <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                    <i class="feather-arrow-left me-2"></i><span>Back</span>
-                </a>
+    <div class="page-header sticky-top">
+        <div class="page-header-left d-flex align-items-center">
+            <div class="page-header-title">
+                <h5 class="m-b-10">Products</h5>
             </div>
-            <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                <a href="/erp/products/product-bundles" class="btn btn-light-brand">
-                    <i class="feather-arrow-left me-2"></i>
-                    <span>Back</span>
-                </a>
-                <button type="submit" class="btn btn-primary" form="productBundleForm">
-                    <i class="feather-plus me-2"></i>
-                    <span>Add Product Bundles</span>
-                </button>
+            <ul class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
+                <li class="breadcrumb-item">Products</li>
+                <li class="breadcrumb-item">Create Product Bundles</li>
+            </ul>
+        </div>
+        <div class="page-header-right ms-auto">
+            <div class="page-header-right-items">
+                <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
+                    <a href="/erp/products/product-bundles" class="btn btn-light-brand">
+                        <i class="feather-arrow-left me-2"></i>Back
+                    </a>
+                    <button type="submit" class="btn btn-primary" form="productBundleForm">
+                        <i class="feather-plus me-2"></i>Add Product Bundle
+                    </button>
+                </div>
             </div>
         </div>
-        <div class="d-md-none d-flex align-items-center">
-            <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                <i class="feather-align-right fs-20"></i>
-            </a>
-        </div>
     </div>
-</div>
 @endsection
 
 @section('content')
-@if(session('error'))
-<script>
-    Swal.fire({
-        icon: 'error',
-        title: 'Gagal!',
-        text: "{{ session('error') }}",
-    });
-</script>
-@endif
-<div class="main-content">
-    <div class="row">
-        <div class="col-lg-12">
-            <div class="card stretch stretch-full">
-                <form action="/erp/products/product-bundles/store" method="POST" id="productBundleForm">
-                    @csrf
-                    <div class="card-body">
+    @if (session('error'))
+        <script>
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal!',
+                text: "{{ session('error') }}",
+            });
+        </script>
+    @endif
 
-                        {{-- Pilih Produk --}}
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label class="fw-semibold">Pilih Produk:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <div class="input-group">
-                                    <select class="form-select form-control max-select" multiple id="products" name="products[]" data-select2-selector="tag">
-                                        @foreach($products as $product)
-                                        <option value="{{ $product->id }}" data-name="{{ $product->name }}">
-                                            {{ $product->name }} - {{ $product->sku }} (Rp{{ number_format($product->price) }})
-                                        </option>
-                                        @endforeach
-                                    </select>
+    <div class="main-content">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card stretch stretch-full">
+                    <form action="/erp/products/product-bundles/store" method="POST" id="productBundleForm">
+                        @csrf
+                        <div class="card-body">
+
+                            {{-- 🔹 Produk Bundle --}}
+                            <div class="row mb-3">
+                                <div class="col-lg-12">
+                                    <label class="fw-semibold mb-2">Pilih Produk untuk Bundle:</label>
+
+                                    <table class="table table-bordered align-middle" id="productTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="50">#</th>
+                                                <th>Produk</th>
+                                                <th width="100" class="text-center">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="productBody">
+                                            <tr>
+                                                <td>1</td>
+                                                <td>
+                                                    <select class="form-select product-select" name="products[]"
+                                                        data-select2-selector="tag">
+                                                        <option value="" disabled selected hidden>Pilih produk
+                                                        </option>
+                                                        @foreach ($products as $product)
+                                                            <option value="{{ $product->id }}"
+                                                                data-name="{{ $product->name }}">
+                                                                {{ $product->name }} - {{ $product->sku }}
+                                                                (Rp{{ number_format($product->price) }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                                <td class="text-center">
+                                                    <button type="button" class="btn btn-danger btn-sm removeRow">
+                                                        <i class="feather-trash-2"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <button type="button" class="btn btn-outline-primary" id="addRowBtn">
+                                        <i class="feather-plus"></i> Tambah Produk
+                                    </button>
+
+                                    <small class="text-muted d-block mt-2">
+                                        Pilih minimal dua produk untuk membuat bundle
+                                    </small>
                                 </div>
-                                <small class="text-muted">Pilih minimal dua produk untuk bundle</small>
                             </div>
-                        </div>
 
-                        {{-- Nama Bundle (Auto) --}}
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="name" class="fw-semibold">Name:</label>
+                            {{-- 🔹 Nama Bundle (Auto) --}}
+                            <div class="row mb-3 align-items-center">
+                                <div class="col-lg-2">
+                                    <label for="name" class="fw-semibold">Name:</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <input type="text" class="form-control" id="name" name="name" readonly>
+                                </div>
                             </div>
-                            <div class="col-lg-10 mb-0">
-                                <input type="text" class="form-control" id="name" name="name" readonly>
-                            </div>
-                        </div>
 
-                        {{-- SKU --}}
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="sku" class="fw-semibold">SKU</label>
+                            {{-- 🔹 SKU --}}
+                            <div class="row mb-3 align-items-center">
+                                <div class="col-lg-2">
+                                    <label for="sku" class="fw-semibold">SKU</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <input type="text" class="form-control" id="sku" name="sku"
+                                        value="{{ old('sku') }}" placeholder="SKU">
+                                </div>
                             </div>
-                            <div class="col-lg-10 mb-0">
-                                <input type="text" class="form-control" id="sku" name="sku" value="{{ old('sku') }}" placeholder="SKU">
-                            </div>
-                        </div>
 
-                        {{-- Harga --}}
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="price" class="fw-semibold">Price</label>
+                            {{-- 🔹 Harga --}}
+                            <div class="row mb-3 align-items-center">
+                                <div class="col-lg-2">
+                                    <label for="price" class="fw-semibold">Price</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <input type="number" class="form-control" id="price" name="price"
+                                        value="{{ old('price') }}" placeholder="Price">
+                                </div>
                             </div>
-                            <div class="col-lg-10 mb-0">
-                                <input type="number" class="form-control" id="price" name="price" value="{{ old('price') }}" placeholder="Price">
-                            </div>
-                        </div>
 
-                    </div>
-                </form>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
 @endsection
 
 @push('scripts')
-<script>
-    document.getElementById('products').addEventListener('change', function() {
-        let selected = Array.from(this.selectedOptions).map(opt => opt.dataset.name);
-        document.getElementById('name').value = selected.join(' + ');
-    });
+    <script>
+        $(document).ready(function() {
+            let rowIndex = 1;
 
-    $(document).ready(function() {
-        $('#products').select2({
-            placeholder: "Pilih produk",
-            tags: true, // biar bisa masukin text yang gak ada di list
-            createTag: function(params) {
-                let term = $.trim(params.term);
-                if (term === '') {
-                    return null;
-                }
-                return {
-                    id: term,
-                    text: term,
-                    newTag: true // custom property
-                };
-            },
-            matcher: function(params, data) {
-                // Kalau input kosong, tampilkan semua
-                if ($.trim(params.term) === '') {
-                    return data;
-                }
-
-                // Filter pencarian
-                if (data.text.toLowerCase().indexOf(params.term.toLowerCase()) > -1) {
-                    return data;
-                }
-
-                // Tetap return null jika tidak cocok (biar gak double)
-                return null;
+            // ✅ init select2 for all product-select
+            function initSelect2(el) {
+                $(el).select2({
+                    placeholder: 'Pilih produk',
+                    width: '100%',
+                    dropdownParent: $('#productBundleForm'),
+                    matcher: function(params, data) {
+                        if ($.trim(params.term) === '') return data;
+                        if (data.text.toLowerCase().includes(params.term.toLowerCase())) return data;
+                        return null;
+                    }
+                });
             }
-        });
 
-        // Update field name bundle saat produk dipilih
-        $('#products').on('change', function() {
-            let selected = $(this).find(':selected').map(function() {
-                return $(this).data('name') || $(this).text();
-            }).get();
-            $('#name').val(selected.join(' + '));
-        });
-    });
+            initSelect2($('.product-select'));
 
-    $('#products').on('select2:select', function(e) {
-        let data = e.params.data;
-        $(this).find(`option[value="${data.id}"]`).attr('data-name', data.name);
-    });
+            // 🔹 Tambah produk baru
+            $('#addRowBtn').on('click', function() {
+                rowIndex++;
+                const newRow = `
+            <tr>
+                <td>${rowIndex}</td>
+                <td>
+                    <select class="form-select product-select" name="products[]" data-select2-selector="tag">
+                        <option value="" disabled selected hidden>Pilih produk</option>
+                        @foreach ($products as $product)
+                            <option value="{{ $product->id }}" data-name="{{ $product->name }}">
+                                {{ $product->name }} - {{ $product->sku }} (Rp{{ number_format($product->price) }})
+                            </option>
+                        @endforeach
+                    </select>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-danger btn-sm removeRow">
+                        <i class="feather-trash-2"></i>
+                    </button>
+                </td>
+            </tr>`;
+                $('#productBody').append(newRow);
+                initSelect2($('#productBody tr:last .product-select'));
+                refreshDropdownOptions();
+            });
 
-    $('#products').on('select2:select', function(e) {
-        let data = e.params.data;
-        $(this).find(`option[value="${data.id}"]`).attr('data-name', data.name);
-    });
+            // 🔹 Hapus produk
+            $(document).on('click', '.removeRow', function() {
+                $(this).closest('tr').remove();
+                updateRowNumbers();
+                updateBundleName();
+                refreshDropdownOptions();
+            });
 
-    document.getElementById('image').addEventListener('change', function(event) {
-        const file = event.target.files[0];
-        const preview = document.getElementById('preview-image');
+            // 🔹 Update nama bundle otomatis dari pilihan produk
+            $(document).on('change', '.product-select', function() {
+                updateBundleName();
+                refreshDropdownOptions();
+            });
 
-        if (file) {
-            const reader = new FileReader();
-
-            reader.onload = function(e) {
-                preview.src = e.target.result;
-                preview.style.display = 'block';
-            };
-
-            reader.readAsDataURL(file);
-        } else {
-            preview.src = '#';
-            preview.style.display = 'none';
-        }
-    });
-
-    document.getElementById('productBundleForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        const form = this;
-        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-        form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-
-        const rules = [{
-                selector: 'input[name="name"]',
-                message: 'Nama Tag wajib diisi'
-            },
-            {
-                selector: 'input[name="sku"]',
-                message: 'SKU Wajib diisi',
-            },
-            // {
-            //     selector: 'select[name="stock"]',
-            //     message: 'Stock Wajib diisi',
-            // },
-            {
-                selector: 'input[name="price"]',
-                message: 'Price Wajib diisi'
-            },
-            // {
-            //     selector: 'select[name="categories[]"]',
-            //     message: 'Minimal satu kategori harus dipilih'
-            // },
-            // {
-            //     selector: 'select[name="tags[]"]',
-            //     message: 'Minimal satu tag harus dipilih'
-            // }
-        ];
-
-        let isValid = true;
-
-        rules.forEach(rule => {
-            const el = form.querySelector(rule.selector);
-            const val = el?.value ?? '';
-            const valid = rule.validate ? rule.validate(val) : val.trim() !== '';
-
-            if (!valid) {
-                showError(el, rule.message);
-                isValid = false;
+            // 🔹 Re-index nomor urut
+            function updateRowNumbers() {
+                $('#productBody tr').each(function(index) {
+                    $(this).find('td:first').text(index + 1);
+                });
             }
+
+            // 🔹 Generate nama bundle otomatis
+            function updateBundleName() {
+                let names = [];
+                $('.product-select').each(function() {
+                    const selected = $(this).find('option:selected').data('name');
+                    if (selected) names.push(selected);
+                });
+                $('#name').val(names.join(' + '));
+            }
+
+            // 🔹 Refresh dropdown agar tidak tampilkan produk yang sudah dipilih
+            function refreshDropdownOptions() {
+                // ambil semua id produk yang sudah dipilih
+                const selectedProducts = $('.product-select').map(function() {
+                    return $(this).val();
+                }).get().filter(Boolean);
+
+                // iterasi semua select
+                $('.product-select').each(function() {
+                    const currentSelect = $(this);
+                    const currentValue = currentSelect.val();
+
+                    currentSelect.find('option').each(function() {
+                        const val = $(this).attr('value');
+                        if (val && val !== currentValue) {
+                            $(this).prop('disabled', selectedProducts.includes(val));
+                        }
+                    });
+
+                    currentSelect.trigger('change.select2'); // refresh tampilannya
+                });
+            }
+
+            // 🔹 Validasi form sebelum submit
+            $('#productBundleForm').on('submit', function(e) {
+                let productCount = $('.product-select').filter(function() {
+                    return $(this).val() !== null && $(this).val() !== '';
+                }).length;
+
+                $('.is-invalid').removeClass('is-invalid');
+                $('.invalid-feedback').remove();
+
+                let isValid = true;
+
+                if (productCount < 2) {
+                    isValid = false;
+                    const feedback =
+                        `<div class="invalid-feedback d-block">Minimal pilih 2 produk untuk membuat bundle.</div>`;
+                    $('#productTable').after(feedback);
+                }
+
+                if (!$('#sku').val().trim()) {
+                    isValid = false;
+                    showError($('#sku')[0], 'SKU wajib diisi');
+                }
+
+                if (!$('#price').val().trim()) {
+                    isValid = false;
+                    showError($('#price')[0], 'Harga wajib diisi');
+                }
+
+                if (!isValid) e.preventDefault();
+            });
+
+            // 🔹 Fungsi tampilkan error
+            function showError(input, message) {
+                input.classList.add('is-invalid');
+                const parent = input.closest('div');
+                if (!parent) return;
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback';
+                feedback.textContent = message;
+                parent.appendChild(feedback);
+            }
+
+            // ✅ Auto-focus ke search box saat select2 dibuka
+            $(document).on('select2:open', () => {
+                setTimeout(() => {
+                    document.querySelector('.select2-container--open .select2-search__field')
+                        ?.focus();
+                }, 50);
+            });
         });
-
-        if (isValid) form.submit();
-    });
-
-    function showError(input, message) {
-        if (!input) return;
-        input.classList.add('is-invalid');
-        const parent = input.closest('div');
-        if (!parent) return;
-        const feedback = document.createElement('div');
-        feedback.className = 'invalid-feedback';
-        feedback.textContent = message;
-        parent.appendChild(feedback);
-    }
-</script>
+    </script>
 @endpush

@@ -380,5 +380,11 @@
             // Tax berubah
             $(document).on('input', '#tax_percent', calc_total);
         });
+
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
+        });
     </script>
 @endpush

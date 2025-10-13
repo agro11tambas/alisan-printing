@@ -1,229 +1,222 @@
 @extends('erp.layouts.main')
 
 @section('breadcrumb')
-<div class="page-header sticky-top">
-    <div class="page-header-left d-flex align-items-center">
-        <div class="page-header-title">
-            <h5 class="m-b-10">Stock Opname</h5>
-        </div>
-        <ul class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
-            <li class="breadcrumb-item">Production</li>
-            <li class="breadcrumb-item">Stock Opname</li>
-        </ul>
-    </div>
-    <div class="page-header-right ms-auto">
-        <div class="page-header-right-items">
-            <div class="d-flex d-md-none">
-                <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                    <i class="feather-arrow-left me-2"></i><span>Back</span>
-                </a>
+    <div class="page-header sticky-top">
+        <div class="page-header-left d-flex align-items-center">
+            <div class="page-header-title">
+                <h5 class="m-b-10">Stock Opname Production</h5>
             </div>
-            <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                <a href="/erp/shop-manager/owners" class="btn btn-light-brand">
-                    <i class="feather-arrow-left me-2"></i>
-                    <span>Back</span>
-                </a>
-                <button type="submit" class="btn btn-primary" form="stockOpnameForm">
-                    <i class="feather-plus me-2"></i>
-                    <span>Create Stock Opname</span>
-                </button>
+            <ul class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
+                <li class="breadcrumb-item">Production</li>
+                <li class="breadcrumb-item">Stock Opname</li>
+            </ul>
+        </div>
+        <div class="page-header-right ms-auto">
+            <div class="page-header-right-items">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/erp/productions/stock-opname" class="btn btn-light-brand">
+                        <i class="feather-arrow-left me-2"></i>Back
+                    </a>
+                    <button type="submit" class="btn btn-primary" form="stockOpnameForm">
+                        <i class="feather-plus me-2"></i>Create Stock Opname
+                    </button>
+                </div>
             </div>
         </div>
-        <div class="d-md-none d-flex align-items-center">
-            <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                <i class="feather-align-right fs-20"></i>
-            </a>
-        </div>
     </div>
-</div>
 @endsection
 
 @section('content')
-@if(session('error'))
-<script>
-    Swal.fire({
-        icon: 'error',
-        title: 'Gagal!',
-        text: "{{ session('error') }}",
-    });
-</script>
-@endif
-<div class="main-content">
-    <div class="row">
-        <div class="col-lg-12">
-            <div class="card stretch stretch-full">
-                <form action="/erp/productions/stock-opname/store" method="POST" id="stockOpnameForm">
-                    @csrf
-                    @method('POST')
-                    <div class="card-body">
-                        <input type="hidden" name="production_warehouse_id" id="production_warehouse_id" value="2">
+    <div class="main-content">
+        <div class="card stretch">
+            <form action="/erp/productions/stock-opname/store" method="POST" id="stockOpnameForm">
+                @csrf
+                <div class="card-body">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Product</th>
+                                <th>Change Type</th>
+                                <th>Quantity</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Notes</th>
+                                <th width="50"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsBody">
+                            <tr>
+                                <td>
+                                    <select name="items[0][product_id]" class="form-select select2-product">
+                                        <option value="" disabled selected hidden>Select product</option>
+                                        @foreach ($products as $p)
+                                            <option value="{{ $p->id }}">[{{ $p->sku }}] {{ $p->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <input type="hidden" name="items[0][production_warehouse_id]" value="2">
+                                </td>
+                                <td>
+                                    <select name="items[0][change]" class="form-select change-type">
+                                        <option value="" disabled selected hidden>Select</option>
+                                        <option value="available_quantity">Available Quantity</option>
+                                        <option value="finished_product">Finished Product</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <!-- 🧩 tambahkan class yang sesuai di sini -->
+                                    <input type="number" name="items[0][available_quantity]"
+                                        class="form-control qty-field available_quantity d-none"
+                                        placeholder="Available Quantity">
+                                    <input type="number" name="items[0][finished_product]"
+                                        class="form-control qty-field finished_product d-none"
+                                        placeholder="Finished Product">
+                                </td>
+                                <td>
+                                    <select name="items[0][status]" class="form-select">
+                                        <option value="Gain">Gain</option>
+                                        <option value="Loss">Loss</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="date" name="items[0][date]" value="{{ date('Y-m-d') }}"
+                                        class="form-control">
+                                </td>
+                                <td>
+                                    <input type="text" name="items[0][notes]" class="form-control" placeholder="Notes">
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-danger btn-sm removeRow">
+                                        <i class="feather-trash-2"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
 
-                        {{-- Product --}}
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="product" class="fw-semibold">Product:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <select class="form-control" id="product" name="product" data-select2-selector="status">
-                                    <option value="" disabled selected hidden>Pilih produk</option>
-                                    @foreach ($products as $product)
-                                    <option value="{{ $product->id }}">[{{ $product->sku }}] {{ $product->name }}</option>
+                    <template id="rowTemplate">
+                        <tr>
+                            <td>
+                                <select class="form-select select2-product">
+                                    <option value="" disabled selected hidden>Select product</option>
+                                    @foreach ($products as $p)
+                                        <option value="{{ $p->id }}">[{{ $p->sku }}] {{ $p->name }}
+                                        </option>
                                     @endforeach
                                 </select>
-                            </div>
-                        </div>
-
-                        {{-- Date --}}
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="date" class="fw-semibold">Date:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <div class="input-group">
-                                    <div class="input-group-text"><i class="feather-calendar"></i></div>
-                                    <input type="date" class="form-control" id="date" name="date" value="{{ date('Y-m-d') }}">
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Change --}}
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="change" class="fw-semibold">Change:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <select class="form-control" id="change" name="change">
-                                    <option value="" selected disabled hidden>Pilih jenis perubahan</option>
+                                <input type="hidden" value="2" class="warehouse-id">
+                            </td>
+                            <td>
+                                <select class="form-select change-type">
+                                    <option value="" disabled selected hidden>Select</option>
                                     <option value="available_quantity">Available Quantity</option>
                                     <option value="finished_product">Finished Product</option>
                                 </select>
-                            </div>
-                        </div>
-
-                        {{-- Available Quantity --}}
-                        <div class="row mb-3 align-items-center change-field d-none" id="field-available_quantity">
-                            <div class="col-lg-2">
-                                <label for="available_quantity" class="fw-semibold">Available Quantity:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <div class="input-group">
-                                    <div class="input-group-text"><i class="feather-box"></i></div>
-                                    <input type="number" class="form-control" id="available_quantity" name="available_quantity"
-                                        value="{{ old('available_quantity') }}" placeholder="Available Quantity">
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Finished Product --}}
-                        <div class="row mb-3 align-items-center change-field d-none" id="field-finished_product">
-                            <div class="col-lg-2">
-                                <label for="finished_product" class="fw-semibold">Finished Product:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <div class="input-group">
-                                    <div class="input-group-text"><i class="feather-box"></i></div>
-                                    <input type="number" class="form-control" id="finished_product" name="finished_product"
-                                        value="{{ old('finished_product') }}" placeholder="Finished Product">
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Status --}}
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="status" class="fw-semibold">Status:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <select class="form-control" id="status" name="status" data-select2-selector="status">
+                            </td>
+                            <td>
+                                <input type="number" name="items[0][available_quantity]"
+                                    class="form-control qty-field available_quantity d-none"
+                                    placeholder="Available Quantity">
+                                <input type="number" name="items[0][finished_product]"
+                                    class="form-control qty-field finished_product d-none" placeholder="Finished Product">
+                            </td>
+                            <td>
+                                <select class="form-select status">
                                     <option value="Gain">Gain</option>
                                     <option value="Loss">Loss</option>
                                 </select>
-                            </div>
-                        </div>
+                            </td>
+                            <td><input type="date" value="{{ date('Y-m-d') }}" class="form-control date"></td>
+                            <td><input type="text" class="form-control notes" placeholder="Notes"></td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-danger btn-sm removeRow"><i
+                                        class="feather-trash-2"></i></button>
+                            </td>
+                        </tr>
+                    </template>
 
-                        {{-- Notes --}}
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="notes" class="fw-semibold">Notes:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <div class="input-group">
-                                    <div class="input-group-text"><i class="feather-box"></i></div>
-                                    <input type="text" class="form-control" id="notes" name="notes" value="{{ old('notes') }}" placeholder="Notes">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
+                    <button type="button" class="btn btn-outline-primary" id="addRowBtn">
+                        <i class="feather-plus"></i> Add Row
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-</div>
 @endsection
 
 @push('scripts')
-<script>
-    const changeSelect = document.getElementById('change');
-    const fields = document.querySelectorAll('.change-field');
+    <script>
+        function initSelect2(scope) {
+            $(scope).find('.select2-product').each(function() {
+                const $el = $(this);
 
-    changeSelect.addEventListener('change', function() {
-        fields.forEach(field => field.classList.add('d-none'));
-        const selected = this.value;
-        if (selected) {
-            document.getElementById('field-' + selected).classList.remove('d-none');
-        }
-    });
+                // Hindari double init
+                if ($el.hasClass('select2-hidden-accessible')) return;
 
-    document.getElementById('stockOpnameForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        const form = this;
-        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-        form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-
-        let isValid = true;
-
-        // validate product
-        const product = document.getElementById('product');
-        if (!product.value) {
-            showError(product, 'Product wajib dipilih');
-            isValid = false;
+                $el.select2({
+                    width: '100%',
+                    dropdownParent: $(document.body) // ✅ render di body agar gak kepotong card/table
+                });
+            });
         }
 
-        // validate date
-        const date = document.getElementById('date');
-        if (!date.value) {
-            showError(date, 'Tanggal wajib diisi');
-            isValid = false;
-        }
+        $(document).ready(function() {
+            initSelect2(document);
 
-        // validate change
-        const changeVal = changeSelect.value;
-        if (!changeVal) {
-            showError(changeSelect, 'Change wajib dipilih');
-            isValid = false;
-        } else {
-            const input = document.querySelector(`#field-${changeVal} input`);
-            if (!input.value.trim()) {
-                const label = changeVal.replace('_', ' ');
-                showError(input, `${label} wajib diisi`);
-                isValid = false;
+            $(document).on('select2:open', () => {
+                setTimeout(() => {
+                    document.querySelector('.select2-container--open .select2-search__field')
+                        ?.focus();
+                }, 50);
+            });
+
+            let rowIndex = 1;
+
+            $('#addRowBtn').on('click', function() {
+                const tmpl = document.getElementById('rowTemplate');
+                const clone = tmpl.content.cloneNode(true);
+                const $row = $(clone).find('tr');
+
+                $row.find('.select2-product').attr('name', `items[${rowIndex}][product_id]`);
+                $row.find('.warehouse-id').attr('name', `items[${rowIndex}][production_warehouse_id]`);
+                $row.find('.change-type').attr('name', `items[${rowIndex}][change]`);
+                $row.find('.available_quantity').attr('name', `items[${rowIndex}][available_quantity]`);
+                $row.find('.finished_product').attr('name', `items[${rowIndex}][finished_product]`);
+                $row.find('.status').attr('name', `items[${rowIndex}][status]`);
+                $row.find('.date').attr('name', `items[${rowIndex}][date]`);
+                $row.find('.notes').attr('name', `items[${rowIndex}][notes]`);
+
+                $('#itemsBody').append($row);
+                initSelect2($row);
+                rowIndex++;
+
+                updateChangeFields($row);
+            });
+
+            $(document).on('click', '.removeRow', function() {
+                $(this).closest('tr').remove();
+            });
+
+            $(document).on('change', '.change-type', function() {
+                const row = $(this).closest('tr');
+                row.find('.qty-field').addClass('d-none');
+                const val = $(this).val();
+                if (val) row.find(`.${val}`).removeClass('d-none');
+            });
+
+            function updateChangeFields(scope) {
+                $(scope).find('.change-type').each(function() {
+                    const val = $(this).val();
+                    const row = $(this).closest('tr');
+                    row.find('.qty-field').addClass('d-none');
+                    if (val) row.find(`.${val}`).removeClass('d-none');
+                });
             }
-        }
 
-        if (isValid) form.submit();
-    });
-
-    function showError(input, message) {
-        if (!input) return;
-        input.classList.add('is-invalid');
-        const parent = input.closest('div');
-        if (!parent) return;
-        const feedback = document.createElement('div');
-        feedback.className = 'invalid-feedback';
-        feedback.textContent = message;
-        parent.appendChild(feedback);
-    }
-</script>
+            updateChangeFields(document);
+            // 💥 Tambahkan ini
+            $('#itemsBody .change-type').trigger('change');
+        });
+    </script>
 @endpush

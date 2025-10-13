@@ -61,15 +61,15 @@
                             <div class="row">
                                 <div class="col-lg-12">
                                     <!-- <div class="row mb-3 align-items-center">
-                                            <div class="col-lg-2">
-                                                <label for="purchase_number" class="fw-semibold">Paid Amount:</label>
-                                            </div>
-                                            <div class="col-lg-10 mb-0">
-                                                <div class="input-group">
-                                                    <input type="text" class="form-control" id="purchase_number" name="purchase_number" value="{{ old('purchase_number', $purchase->purchase_number) }}">
+                                                <div class="col-lg-2">
+                                                    <label for="purchase_number" class="fw-semibold">Paid Amount:</label>
                                                 </div>
-                                            </div>
-                                        </div> -->
+                                                <div class="col-lg-10 mb-0">
+                                                    <div class="input-group">
+                                                        <input type="text" class="form-control" id="purchase_number" name="purchase_number" value="{{ old('purchase_number', $purchase->purchase_number) }}">
+                                                    </div>
+                                                </div>
+                                            </div> -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="purchase_date" class="fw-semibold">Purchase Date:</label>
@@ -521,6 +521,12 @@
                     parent.appendChild(feedback);
                 }
             }
+        });
+
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
         });
     </script>
 @endpush

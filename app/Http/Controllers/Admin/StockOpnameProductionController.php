@@ -99,87 +99,81 @@ class StockOpnameProductionController extends Controller
     public function create()
     {
         $products = Products::all();
-
         return view('erp.pages.stock-opname-production.create-stock-opname-production', compact('products'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'product'  => 'required|exists:products,id',
-            'production_warehouse_id' => 'required|exists:production_warehouses,id',
-            'date'     => 'required|date',
-            'change'   => 'required|in:available_quantity,finished_product',
-            'status'   => 'required|in:Gain,Loss',
-            'notes'    => 'nullable|string',
+            'items'                              => 'required|array|min:1',
+            'items.*.product_id'                 => 'required|exists:products,id',
+            'items.*.production_warehouse_id'    => 'required|exists:production_warehouses,id',
+            'items.*.date'                       => 'required|date',
+            'items.*.change'                     => 'required|in:available_quantity,finished_product',
+            'items.*.status'                     => 'required|in:Gain,Loss',
+            'items.*.notes'                      => 'nullable|string',
         ]);
 
-        // validasi tambahan sesuai change
-        if ($request->change === 'available_quantity') {
-            $request->validate([
-                'available_quantity' => 'required|integer|min:0',
+        foreach ($request->items as $item) {
+            // validasi tambahan
+            if ($item['change'] === 'available_quantity' && empty($item['available_quantity'])) {
+                continue; // skip jika kosong
+            }
+            if ($item['change'] === 'finished_product' && empty($item['finished_product'])) {
+                continue;
+            }
+
+            $productionStock = ProductionStock::firstOrCreate(
+                [
+                    'product_id'              => $item['product_id'],
+                    'production_warehouse_id' => $item['production_warehouse_id'],
+                ],
+                [
+                    'opening_stock'          => 0,
+                    'finished_product_stock' => 0,
+                    'available_quantity'     => 0,
+                ]
+            );
+
+            $oldAvailable = (int) $productionStock->available_quantity;
+            $oldFinished  = (int) $productionStock->finished_product_stock;
+            $newAvailable = $oldAvailable;
+            $newFinished  = $oldFinished;
+
+            if ($item['change'] === 'available_quantity') {
+                $qty = (int) $item['available_quantity'];
+                $newAvailable = $item['status'] === 'Gain'
+                    ? $oldAvailable + $qty
+                    : max(0, $oldAvailable - $qty);
+            }
+
+            if ($item['change'] === 'finished_product') {
+                $qty = (int) $item['finished_product'];
+                $newFinished = $item['status'] === 'Gain'
+                    ? $oldFinished + $qty
+                    : max(0, $oldFinished - $qty);
+            }
+
+            // Simpan history opname
+            StockOpnameProduction::create([
+                'product_id'              => $item['product_id'],
+                'production_warehouse_id' => $item['production_warehouse_id'],
+                'date'                    => $item['date'],
+                'change'                  => $item['change'],
+                'available_quantity'      => $item['change'] === 'available_quantity' ? $item['available_quantity'] : null,
+                'finished_product'        => $item['change'] === 'finished_product' ? $item['finished_product'] : null,
+                'status'                  => $item['status'],
+                'notes'                   => $item['notes'] ?? null,
+            ]);
+
+            $productionStock->update([
+                'available_quantity'     => $newAvailable,
+                'finished_product_stock' => $newFinished,
             ]);
         }
-
-        if ($request->change === 'finished_product') {
-            $request->validate([
-                'finished_product' => 'required|integer|min:0',
-            ]);
-        }
-
-        // Ambil stok per warehouse
-        $productionStock = ProductionStock::firstOrCreate(
-            [
-                'product_id'              => $request->product,
-                'production_warehouse_id' => $request->production_warehouse_id,
-            ],
-            [
-                'opening_stock'          => 0,
-                'finished_product_stock' => 0,
-                'available_quantity'     => 0,
-            ]
-        );
-
-        $oldAvailable = (int) $productionStock->available_quantity;
-        $oldFinished  = (int) $productionStock->finished_product_stock;
-
-        $newAvailable = $oldAvailable;
-        $newFinished  = $oldFinished;
-
-        if ($request->change === 'available_quantity') {
-            $qty = (int) $request->available_quantity;
-            $newAvailable = $request->status === 'Gain'
-                ? $oldAvailable + $qty
-                : max(0, $oldAvailable - $qty);
-        }
-
-        if ($request->change === 'finished_product') {
-            $qty = (int) $request->finished_product;
-            $newFinished = $request->status === 'Gain'
-                ? $oldFinished + $qty
-                : max(0, $oldFinished - $qty);
-        }
-
-        // Simpan history opname
-        StockOpnameProduction::create([
-            'product_id'              => $request->product,
-            'production_warehouse_id' => $request->production_warehouse_id,
-            'date'        => $request->date,
-            'change'      => $request->change,
-            'available_quantity' => $request->change === 'available_quantity' ? $request->available_quantity : null,
-            'finished_product'   => $request->change === 'finished_product'   ? $request->finished_product   : null,
-            'status'      => $request->status,
-            'notes'       => $request->notes,
-        ]);
-
-        // Update stok
-        $productionStock->update([
-            'available_quantity'     => $newAvailable,
-            'finished_product_stock' => $newFinished,
-        ]);
 
         return redirect('/erp/productions/stock-opname')
-            ->with('success', 'Stock Opname created successfully.');
+            ->with('success', 'Stock Opname Production created successfully.');
     }
 
     public function delete($id)
