@@ -84,6 +84,13 @@ class SaleReturn extends Model
         return $this->hasMany(CanceledProduct::class, 'sale_return_id');
     }
 
+    public function hasStockIn(): bool
+    {
+        return \App\Models\CanceledProduct::where('sale_return_id', $this->id)
+            ->where('completed_quantity', '>', 0)
+            ->exists();
+    }
+
     protected static function booted()
     {
         static::deleting(function ($saleReturn) {

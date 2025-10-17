@@ -19,6 +19,8 @@ class SaleReturnItem extends Model
         'order_item_id',
         'quantity',
         'price',
+        'avg_cost_at_return',
+        'total_cost',
         'total',
         'reason',
     ];

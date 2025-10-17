@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('accounts', function (Blueprint $table) {
-            $table->decimal('opening_balance', 10, 2)->default(0)->after('type');
-            $table->decimal('balance', 10, 2)->default(0)->after('opening_balance');
+            $table->decimal('opening_balance', 15, 2)->default(0)->after('type');
+            $table->decimal('balance', 15, 2)->default(0)->after('opening_balance');
         });
     }
 

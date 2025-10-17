@@ -164,5 +164,72 @@
                 $(this).closest('tr').remove();
             });
         });
+
+        // === VALIDASI FRONTEND ===
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('stockOpnameForm');
+
+            form.addEventListener('submit', function(e) {
+                let isValid = true;
+
+                // hapus error lama
+                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+
+                const rows = form.querySelectorAll('#itemsBody tr');
+                rows.forEach((row, i) => {
+                    const product = row.querySelector('select.select2-product');
+                    const qty = row.querySelector('input[type="number"]');
+                    const date = row.querySelector('input[type="date"]');
+
+                    if (!product.value) {
+                        isValid = false;
+                        showError(product, `Produk baris ${i + 1} wajib dipilih`);
+                    }
+                    if (!qty.value || parseFloat(qty.value) <= 0) {
+                        isValid = false;
+                        showError(qty, 'Quantity minimal 1');
+                    }
+                    if (!date.value.trim()) {
+                        isValid = false;
+                        showError(date, 'Tanggal wajib diisi');
+                    }
+                });
+
+                if (!isValid) e.preventDefault();
+            });
+
+            // Fungsi tampilkan error
+            function showError(el, message) {
+                if ($(el).hasClass('select2-hidden-accessible')) {
+                    const select2Container = $(el).next('.select2');
+                    select2Container.next('.invalid-feedback').remove();
+
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = message;
+                    select2Container[0].after(feedback);
+                } else {
+                    el.classList.add('is-invalid');
+                    const parent = el.closest('.input-group') || el.parentNode;
+                    const existing = parent.querySelector('.invalid-feedback');
+                    if (existing) existing.remove();
+
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = message;
+                    parent.appendChild(feedback);
+                }
+            }
+
+            // Hapus error saat input berubah
+            form.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', () => {
+                    el.classList.remove('is-invalid');
+                    const next = el.parentNode.querySelector('.invalid-feedback');
+                    if (next) next.remove();
+                });
+            });
+        });
     </script>
 @endpush

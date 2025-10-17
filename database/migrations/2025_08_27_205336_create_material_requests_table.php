@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('material_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('production_id')->constrained('order_progresses')->cascadeOnDelete();
             $table->foreignId('requested_by')->constrained('users'); // user yang request
             $table->date('requested_at')->nullable();
             $table->string('status')->default('pending'); // pending, issued, received

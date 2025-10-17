@@ -177,7 +177,7 @@
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="transaction_type"
                                                     name="transaction_type">
-                                                    <option value="11" data-bg="bg-success">Sale Account</option>
+                                                    <option value="6" data-bg="bg-success">Sale Account</option>
                                                 </select>
                                             </div>
                                         </div>

@@ -49,13 +49,10 @@ class CanceledProductController extends Controller
                 return '<span class="text-danger">' . $canceledProduct->canceled_product_stock . '</span>';
             })
             ->addColumn('action', function ($canceledProduct) {
-                if ($canceledProduct->canceled_product_stock > 0) {
-                    return view(
-                        'erp.pages.production.canceled-products.partials.action-button',
-                        compact('canceledProduct')
-                    )->render();
-                }
-                return ''; // kosong kalau stok = 0
+                return view(
+                    'erp.pages.production.canceled-products.partials.action-button',
+                    compact('canceledProduct')
+                )->render();
             })
             ->rawColumns(['canceled_product_stock', 'action'])
             ->make(true);
@@ -107,6 +104,13 @@ class CanceledProductController extends Controller
         DB::beginTransaction();
         try {
             $canceledRecord = CanceledProduct::with('stock')->findOrFail($id);
+
+            $saleReturnOrderNumber = null;
+            if ($canceledRecord->sale_return_id) {
+                $saleReturnOrderNumber = \App\Models\SaleReturn::where('id', $canceledRecord->sale_return_id)
+                    ->value('order_number');
+            }
+
             $productionStock = $canceledRecord->stock;
 
             $qty = (int) $request->canceled_product;
@@ -121,12 +125,14 @@ class CanceledProductController extends Controller
                 // 'order_id'            => $canceledRecord->order_id,
                 // 'sale_return_id'      => $canceledRecord->sale_return_id,
                 'canceled_product_id' => $canceledRecord->id, // ← sudah ditambah di migrations
+                'order_number'       => $saleReturnOrderNumber,
                 'status'              => 'Stock In',
                 'note'                => 'Return Canceled Product to Warehouse',
             ]);
 
             // Buat inventory item
             InventoryItem::create([
+                'inventory_warehouse_id' => $request->warehouse_id ?? 1,
                 'inventory_id'        => $inventory->id,
                 'product_id'          => $canceledRecord->product_id,
                 // 'order_item_id'       => $canceledRecord->order_item_id,
@@ -142,6 +148,7 @@ class CanceledProductController extends Controller
                 $productionStock->decrement('canceled_product_stock', $qty);
             }
             $canceledRecord->decrement('quantity', $qty);
+            $canceledRecord->increment('completed_quantity', $qty);
 
             if ($canceledRecord->quantity <= 0) {
                 $canceledRecord->update([

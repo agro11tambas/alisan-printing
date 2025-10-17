@@ -61,15 +61,15 @@
                             <div class="row">
                                 <div class="col-lg-12">
                                     <!-- <div class="row mb-3 align-items-center">
-                                                <div class="col-lg-2">
-                                                    <label for="purchase_number" class="fw-semibold">Paid Amount:</label>
-                                                </div>
-                                                <div class="col-lg-10 mb-0">
-                                                    <div class="input-group">
-                                                        <input type="text" class="form-control" id="purchase_number" name="purchase_number" value="{{ old('purchase_number', $purchase->purchase_number) }}">
+                                                    <div class="col-lg-2">
+                                                        <label for="purchase_number" class="fw-semibold">Paid Amount:</label>
                                                     </div>
-                                                </div>
-                                            </div> -->
+                                                    <div class="col-lg-10 mb-0">
+                                                        <div class="input-group">
+                                                            <input type="text" class="form-control" id="purchase_number" name="purchase_number" value="{{ old('purchase_number', $purchase->purchase_number) }}">
+                                                        </div>
+                                                    </div>
+                                                </div> -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="purchase_date" class="fw-semibold">Purchase Date:</label>
@@ -521,6 +521,82 @@
                     parent.appendChild(feedback);
                 }
             }
+        });
+
+        // === VALIDASI FRONTEND ===
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('purchaseForm');
+
+            form.addEventListener('submit', function(e) {
+                let isValid = true;
+
+                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+
+                // Supplier wajib dipilih
+                const supplierSelect = $('#suppliers');
+                if (!supplierSelect.val()) {
+                    isValid = false;
+                    showError(supplierSelect[0], 'Supplier wajib dipilih');
+                }
+
+                // Tanggal wajib diisi
+                const purchaseDate = document.getElementById('purchase_date');
+                if (!purchaseDate.value.trim()) {
+                    isValid = false;
+                    showError(purchaseDate, 'Tanggal purchase wajib diisi');
+                }
+
+                // Produk & Qty wajib
+                const rows = form.querySelectorAll('#tab_logic tbody tr');
+                rows.forEach((row, i) => {
+                    const product = row.querySelector('select[name="product[]"]');
+                    const qty = row.querySelector('input[name="qty[]"]');
+
+                    if (!product.value) {
+                        isValid = false;
+                        showError(product, `Produk baris ${i + 1} wajib dipilih`);
+                    }
+                    if (!qty.value || parseFloat(qty.value) < 1) {
+                        isValid = false;
+                        showError(qty, 'Qty minimal 1');
+                    }
+                });
+
+                if (!isValid) e.preventDefault();
+            });
+
+            // Fungsi tampilkan error
+            function showError(el, message) {
+                if ($(el).hasClass('select2-hidden-accessible')) {
+                    const select2Container = $(el).next('.select2');
+                    select2Container.next('.invalid-feedback').remove();
+
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = message;
+                    select2Container[0].after(feedback);
+                } else {
+                    el.classList.add('is-invalid');
+                    const parent = el.closest('.input-group') || el.parentNode;
+                    const existing = parent.querySelector('.invalid-feedback');
+                    if (existing) existing.remove();
+
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = message;
+                    parent.appendChild(feedback);
+                }
+            }
+
+            // Hapus error saat input berubah
+            form.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', () => {
+                    el.classList.remove('is-invalid');
+                    const next = el.parentNode.querySelector('.invalid-feedback');
+                    if (next) next.remove();
+                });
+            });
         });
 
         $(document).on('select2:open', () => {

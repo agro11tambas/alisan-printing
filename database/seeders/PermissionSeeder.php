@@ -31,6 +31,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Customer Module', 'slug' => 'customer'],
             ['name' => 'Supplier Module', 'slug' => 'supplier'],
             ['name' => 'Invoice Module', 'slug' => 'invoice'],
+            ['name' => 'Operator Module', 'slug' => 'operator'],
         ];
 
         foreach ($permissions as $permission) {

@@ -381,6 +381,84 @@
             $(document).on('input', '#tax_percent', calc_total);
         });
 
+        // === VALIDASI FRONTEND ===
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('purchaseForm');
+
+            form.addEventListener('submit', function(e) {
+                let isValid = true;
+
+                // Hapus error lama
+                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+
+                // supplier
+                const supplierSelect = $('#suppliers');
+                if (!supplierSelect.val()) {
+                    isValid = false;
+                    showError(supplierSelect[0], 'Supplier wajib dipilih');
+                }
+
+                // tanggal purchase
+                const purchaseDate = document.getElementById('purchase_date');
+                if (!purchaseDate.value.trim()) {
+                    isValid = false;
+                    showError(purchaseDate, 'Tanggal purchase wajib diisi');
+                }
+
+                // produk + qty
+                const rows = form.querySelectorAll('#tab_logic tbody tr');
+                rows.forEach((row, i) => {
+                    const product = row.querySelector('select[name="product[]"]');
+                    const qty = row.querySelector('input[name="qty[]"]');
+
+                    if (!product.value) {
+                        isValid = false;
+                        showError(product, `Produk pada baris ${i + 1} wajib dipilih`);
+                    }
+                    if (!qty.value || parseFloat(qty.value) < 1) {
+                        isValid = false;
+                        showError(qty, 'Qty minimal 1');
+                    }
+                });
+
+                if (!isValid) e.preventDefault();
+            });
+
+            // fungsi tampil error
+            function showError(el, message) {
+                if ($(el).hasClass('select2-hidden-accessible')) {
+                    const select2Container = $(el).next('.select2');
+                    select2Container.next('.invalid-feedback').remove();
+
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = message;
+                    select2Container[0].after(feedback);
+                } else {
+                    el.classList.add('is-invalid');
+                    const parent = el.closest('.input-group') || el.parentNode;
+                    const existing = parent.querySelector('.invalid-feedback');
+                    if (existing) existing.remove();
+
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = message;
+                    parent.appendChild(feedback);
+                }
+            }
+
+            // hapus error ketika input berubah
+            form.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', () => {
+                    el.classList.remove('is-invalid');
+                    const next = el.parentNode.querySelector('.invalid-feedback');
+                    if (next) next.remove();
+                });
+            });
+        });
+
+
         $(document).on('select2:open', () => {
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();

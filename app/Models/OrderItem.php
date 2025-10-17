@@ -63,6 +63,11 @@ class OrderItem extends Model
         return $this->hasMany(InventoryItem::class, 'order_item_id');
     }
 
+    public function components()
+    {
+        return $this->hasMany(OrderItemComponent::class, 'order_item_id');
+    }
+
     // public function getCompletedQuantityAttribute(): int
     // {
     //     return $this->orderProgress()->sum('completed_quantity');
@@ -74,4 +79,11 @@ class OrderItem extends Model
     //         ? round(($this->completed_quantity / $this->quantity) * 100, 2)
     //         : 0;
     // }
+    
+    protected static function booted()
+    {
+        static::restoring(function ($orderItem) {
+            $orderItem->components()->withTrashed()->restore();
+        });
+    }
 }

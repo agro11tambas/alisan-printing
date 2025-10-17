@@ -8,6 +8,7 @@ use App\Models\Products;
 use App\Models\StockOpname;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class StockOpnameController extends Controller
@@ -153,14 +154,16 @@ class StockOpnameController extends Controller
             // Update stok per warehouse
             $inventoryStock->update([
                 'inventory_stock'   => $newStock,
-                'stock_after_sales' => $newStock,
+                'stock_after_sales' => $inventoryStock->stock_after_sales + $diff,
             ]);
 
             // Update total stok produk
-            $totalStock = InventoryStock::where('product_id', $item['product_id'])->sum('inventory_stock');
+            $totalInventory = InventoryStock::where('product_id', $item['product_id'])->sum('inventory_stock');
+            $totalAfterSales = InventoryStock::where('product_id', $item['product_id'])->sum('stock_after_sales');
+
             $product->update([
-                'inventory_stock'   => $totalStock,
-                'stock_after_sales' => $totalStock,
+                'inventory_stock'   => $totalInventory,
+                'stock_after_sales' => $totalAfterSales,
             ]);
         }
 
@@ -177,81 +180,182 @@ class StockOpnameController extends Controller
         return view('erp.pages.stock-opname.edit-stock-opname', compact('stockOpname', 'products'));
     }
 
+    // public function update(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'product'  => 'required|exists:products,id',
+    //         'inventory_warehouse_id' => 'required|exists:inventory_warehouses,id',
+    //         'date'     => 'required|date',
+    //         'quantity' => 'required|integer|min:0',
+    //         'notes'    => 'nullable|string',
+    //     ]);
+
+    //     // Ambil stock opname lama
+    //     $stockOpname = StockOpname::findOrFail($id);
+
+    //     // Ambil stok per warehouse
+    //     $inventoryStock = InventoryStock::firstOrCreate(
+    //         [
+    //             'product_id'             => $request->product,
+    //             'inventory_warehouse_id' => $request->inventory_warehouse_id,
+    //         ],
+    //         [
+    //             'opening_stock'     => 0,
+    //             'opening_rate'      => 0,
+    //             'inventory_stock'   => 0,
+    //             'incoming_stock'    => 0,
+    //             'stock_after_sales' => 0,
+    //             'avg_cost'          => 0,
+    //         ]
+    //     );
+
+    //     $oldStock = (int) $inventoryStock->inventory_stock;
+
+    //     // 1. Revert efek opname lama
+    //     if ($stockOpname->status === 'Gain') {
+    //         $oldStock -= $stockOpname->quantity;
+    //     } else { // Loss
+    //         $oldStock += $stockOpname->quantity;
+    //     }
+
+    //     // 2. Hitung efek opname baru
+    //     if ($request->status === 'Gain') {
+    //         $newStock = $oldStock + $request->quantity;
+    //         $diff     = $request->quantity;
+    //     } else { // Loss
+    //         $newStock = max(0, $oldStock - $request->quantity);
+    //         $diff     = -$request->quantity;
+    //     }
+
+    //     // 3. Update inventory_stocks
+    //     $inventoryStock->update([
+    //         'inventory_stock'   => $newStock,
+    //         'stock_after_sales' => $newStock,
+    //     ]);
+
+    //     // 4. Update stok global produk
+    //     $totalStock = InventoryStock::where('product_id', $request->product)->sum('inventory_stock');
+    //     $product    = Products::findOrFail($request->product);
+    //     $product->update([
+    //         'inventory_stock'   => $totalStock,
+    //         'stock_after_sales' => $totalStock,
+    //     ]);
+
+    //     // 5. Update record opname
+    //     $stockOpname->update([
+    //         'product_id'             => $request->product,
+    //         'inventory_warehouse_id' => $request->inventory_warehouse_id,
+    //         'date'       => $request->date,
+    //         'quantity'   => $request->quantity,
+    //         'old_stock'  => $oldStock,
+    //         'diff'       => $diff,
+    //         'status'     => $request->status,
+    //         'notes'      => $request->notes,
+    //     ]);
+
+    //     return redirect('/erp/inventory/stock-opname')
+    //         ->with('success', 'Stock Opname updated successfully.');
+    // }
+
     public function update(Request $request, $id)
     {
         $request->validate([
-            'product'  => 'required|exists:products,id',
-            'inventory_warehouse_id' => 'required|exists:inventory_warehouses,id',
-            'date'     => 'required|date',
-            'quantity' => 'required|integer|min:0',
-            'notes'    => 'nullable|string',
+            'product'                 => 'required|exists:products,id',
+            'inventory_warehouse_id'  => 'required|exists:inventory_warehouses,id',
+            'date'                    => 'required|date',
+            'quantity'                => 'required|integer|min:0',
+            'status'                  => 'required|in:Gain,Loss',
+            'notes'                   => 'nullable|string',
         ]);
 
-        // Ambil stock opname lama
-        $stockOpname = StockOpname::findOrFail($id);
+        DB::beginTransaction();
+        try {
+            // Ambil stock opname lama
+            $stockOpname = StockOpname::findOrFail($id);
 
-        // Ambil stok per warehouse
-        $inventoryStock = InventoryStock::firstOrCreate(
-            [
+            // Ambil stok per warehouse
+            $inventoryStock = InventoryStock::firstOrCreate(
+                [
+                    'product_id'             => $request->product,
+                    'inventory_warehouse_id' => $request->inventory_warehouse_id,
+                ],
+                [
+                    'opening_stock'     => 0,
+                    'opening_rate'      => 0,
+                    'inventory_stock'   => 0,
+                    'incoming_stock'    => 0,
+                    'stock_after_sales' => 0,
+                    'avg_cost'          => 0,
+                ]
+            );
+
+            // Simpan stok awal sebelum revert
+            $beforeRevertInventory = (int) $inventoryStock->inventory_stock;
+            $beforeRevertAfterSales = (int) $inventoryStock->stock_after_sales;
+
+            // 1️⃣ Revert efek opname lama
+            if ($stockOpname->status === 'Gain') {
+                $inventoryStock->inventory_stock   -= $stockOpname->quantity;
+                $inventoryStock->stock_after_sales -= $stockOpname->quantity;
+            } else { // Loss
+                $inventoryStock->inventory_stock   += $stockOpname->quantity;
+                $inventoryStock->stock_after_sales += $stockOpname->quantity;
+            }
+
+            // Pastikan gak minus
+            $inventoryStock->inventory_stock   = max(0, $inventoryStock->inventory_stock);
+            $inventoryStock->stock_after_sales = max(0, $inventoryStock->stock_after_sales);
+
+            // Simpan hasil revert
+            $inventoryStock->save();
+
+            $oldStock = (int) $inventoryStock->inventory_stock;
+
+            // 2️⃣ Hitung efek opname baru
+            if ($request->status === 'Gain') {
+                $diff     = (int) $request->quantity;
+                $newStock = $oldStock + $diff;
+            } else { // Loss
+                $diff     = -(int) $request->quantity;
+                $newStock = max(0, $oldStock + $diff);
+            }
+
+            // 3️⃣ Update inventory_stocks
+            $inventoryStock->update([
+                'inventory_stock'   => $newStock,
+                'stock_after_sales' => max(0, $inventoryStock->stock_after_sales + $diff),
+            ]);
+
+            // 4️⃣ Update stok global produk
+            $product = Products::findOrFail($request->product);
+            $totalInventory  = InventoryStock::where('product_id', $request->product)->sum('inventory_stock');
+            $totalAfterSales = InventoryStock::where('product_id', $request->product)->sum('stock_after_sales');
+
+            $product->update([
+                'inventory_stock'   => $totalInventory,
+                'stock_after_sales' => $totalAfterSales,
+            ]);
+
+            // 5️⃣ Update record opname
+            $stockOpname->update([
                 'product_id'             => $request->product,
                 'inventory_warehouse_id' => $request->inventory_warehouse_id,
-            ],
-            [
-                'opening_stock'     => 0,
-                'opening_rate'      => 0,
-                'inventory_stock'   => 0,
-                'incoming_stock'    => 0,
-                'stock_after_sales' => 0,
-                'avg_cost'          => 0,
-            ]
-        );
+                'date'       => $request->date,
+                'quantity'   => $request->quantity,
+                'old_stock'  => $oldStock,
+                'diff'       => $diff,
+                'status'     => $request->status,
+                'notes'      => $request->notes,
+            ]);
 
-        $oldStock = (int) $inventoryStock->inventory_stock;
+            DB::commit();
 
-        // 1. Revert efek opname lama
-        if ($stockOpname->status === 'Gain') {
-            $oldStock -= $stockOpname->quantity;
-        } else { // Loss
-            $oldStock += $stockOpname->quantity;
+            return redirect('/erp/inventory/stock-opname')
+                ->with('success', 'Stock Opname updated successfully.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to update Stock Opname: ' . $e->getMessage());
         }
-
-        // 2. Hitung efek opname baru
-        if ($request->status === 'Gain') {
-            $newStock = $oldStock + $request->quantity;
-            $diff     = $request->quantity;
-        } else { // Loss
-            $newStock = max(0, $oldStock - $request->quantity);
-            $diff     = -$request->quantity;
-        }
-
-        // 3. Update inventory_stocks
-        $inventoryStock->update([
-            'inventory_stock'   => $newStock,
-            'stock_after_sales' => $newStock,
-        ]);
-
-        // 4. Update stok global produk
-        $totalStock = InventoryStock::where('product_id', $request->product)->sum('inventory_stock');
-        $product    = Products::findOrFail($request->product);
-        $product->update([
-            'inventory_stock'   => $totalStock,
-            'stock_after_sales' => $totalStock,
-        ]);
-
-        // 5. Update record opname
-        $stockOpname->update([
-            'product_id'             => $request->product,
-            'inventory_warehouse_id' => $request->inventory_warehouse_id,
-            'date'       => $request->date,
-            'quantity'   => $request->quantity,
-            'old_stock'  => $oldStock,
-            'diff'       => $diff,
-            'status'     => $request->status,
-            'notes'      => $request->notes,
-        ]);
-
-        return redirect('/erp/inventory/stock-opname')
-            ->with('success', 'Stock Opname updated successfully.');
     }
 
     public function delete($id)

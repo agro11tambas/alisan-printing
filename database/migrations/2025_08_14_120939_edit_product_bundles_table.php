@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('product_bundles', function (Blueprint $table) {
             $table->string('image')->nullable()->after('name');
-            $table->decimal('sale_price', 10, 2)->nullable()->after('price');
+            $table->decimal('sale_price', 15, 2)->nullable()->after('price');
             $table->text('description')->nullable()->after('sale_price');
         });
     }

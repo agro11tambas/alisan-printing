@@ -227,6 +227,7 @@ Route::middleware(isLogin::class)->group(function () {
             // Route::put('/erp/mark-as-delivery/{id}', [WaitingListController::class, 'markAsDelivery']);
             Route::get('/erp/productions/waiting-list/add-progress-order/{id}', [HistoryProgressOrderController::class, 'addProgress']);
             Route::post('/erp/productions/waiting-list/progress-order/{id}', [HistoryProgressOrderController::class, 'store']);
+            Route::put('/erp/productions/waiting-list/history-order/update-history/{id}', [HistoryProgressOrderController::class, 'updateHistory']);
             Route::get('/erp/productions/waiting-list/history-order/{id}/data', [HistoryProgressOrderController::class, 'dataOrderHistory']);
             Route::get('/erp/productions/waiting-list/history-order/{id}', [HistoryProgressOrderController::class, 'getOrderHistory']);
             Route::get('/erp/productions/waiting-list/add-request-stocks/{id}', [StockRequestController::class, 'addRequestStocks']);

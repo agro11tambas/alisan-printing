@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('purchases', function (Blueprint $table) {
-            $table->decimal('paid_amount', 10, 2)->default(0)->after('payment_method');
-            $table->decimal('remaining_amount', 10, 2)->default(0)->after('paid_amount');
+            $table->decimal('paid_amount', 15, 2)->default(0)->after('payment_method');
+            $table->decimal('remaining_amount', 15, 2)->default(0)->after('paid_amount');
         });
     }
 

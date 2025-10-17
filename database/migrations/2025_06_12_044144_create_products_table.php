@@ -17,15 +17,11 @@ return new class extends Migration
             $table->string('image')->nullable();
             $table->string('gallery')->nullable();
             $table->string('sku');
-            $table->integer('stock');
-            $table->decimal('price', 10, 2);
-            $table->decimal('sale_price', 10, 2)->nullable();
+            $table->integer('stock')->default(0);
+            $table->decimal('price', 15, 2);
+            $table->decimal('sale_price', 15, 2)->nullable();
             $table->text('description')->nullable();
             $table->text('short_description')->nullable();
-            $table->unsignedBigInteger('category_id');
-            $table->foreign('category_id')->references('id')->on('product_categories')->onDelete('cascade');
-            $table->unsignedBigInteger('tag_id');
-            $table->foreign('tag_id')->references('id')->on('product_tags')->onDelete('cascade');
             $table->timestamps();
         });
     }

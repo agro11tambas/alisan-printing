@@ -28,7 +28,7 @@ class ProductsController extends Controller
 {
     public function index()
     {
-        $products = Products::with('purchaseProduct')->latest()->get();
+        $products = Products::latest()->get();
         $categories = ProductCategory::all();
         $tags = ProductTag::all();
 

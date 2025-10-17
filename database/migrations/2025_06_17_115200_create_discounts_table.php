@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('type'); // 'percentage' atau 'fixed'
-            $table->decimal('amount', 10, 2); // Nilai diskon (misal 10%)
+            $table->decimal('amount', 15, 2); // Nilai diskon (misal 10%)
             $table->integer('min_quantity')->nullable(); // Minimum qty jika ada
-            $table->decimal('min_purchase_amount', 10, 2)->nullable(); // Minimum total belanja jika ada
+            $table->decimal('min_purchase_amount', 15, 2)->nullable(); // Minimum total belanja jika ada
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable();
             $table->boolean('is_active')->default(true);

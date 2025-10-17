@@ -16,6 +16,9 @@ use App\Models\OrderProgressItem;
 use App\Models\ProductionStock;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Container\Attributes\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redirect;
 use Yajra\DataTables\Facades\DataTables;
 
 class HistoryProgressOrderController extends Controller
@@ -201,6 +204,29 @@ class HistoryProgressOrderController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    public function updateHistory(Request $request, $id)
+    {
+        try {
+            // 🔹 Validasi input
+            $validated = $request->validate([
+                'change_quantity' => 'required|numeric|min:0',
+                'note' => 'nullable|string|max:255',
+            ]);
+
+            // 🔹 Cari data yang akan diupdate
+            $history = OrderProgressHistory::findOrFail($id);
+
+            // 🔹 Update kolom
+            $history->change_quantity = $validated['change_quantity'];
+            $history->note = $validated['note'];
+            $history->save();
+
+            return redirect()->back()->with('success', 'History updated successfully.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Something went wrong while updating history: ' . $e->getMessage());
         }
     }
 }

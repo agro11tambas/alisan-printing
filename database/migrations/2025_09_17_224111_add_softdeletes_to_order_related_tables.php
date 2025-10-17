@@ -70,14 +70,6 @@ return new class extends Migration
         Schema::table('material_request_item_histories', function (Blueprint $table) {
             $table->softDeletes();
         });
-
-        Schema::table('deliveries', function (Blueprint $table) {
-            $table->softDeletes();
-        });
-
-        Schema::table('delivery_item_histories', function (Blueprint $table) {
-            $table->softDeletes();
-        });
     }
 
     /**
@@ -142,14 +134,6 @@ return new class extends Migration
         });
 
         Schema::table('material_request_item_histories', function (Blueprint $table) {
-            $table->dropSoftDeletes();
-        });
-
-        Schema::table('deliveries', function (Blueprint $table) {
-            $table->dropSoftDeletes();
-        });
-
-        Schema::table('delivery_item_histories', function (Blueprint $table) {
             $table->dropSoftDeletes();
         });
     }

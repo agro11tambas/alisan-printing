@@ -18,6 +18,7 @@ use App\Models\Account;
 use App\Models\AccountTransaction;
 use App\Models\Bank;
 use App\Models\CanceledProduct;
+use App\Models\FinancialReport;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
@@ -400,6 +401,81 @@ class SaleReturnController extends Controller
             ]);
 
             // Loop item return (REPLACE seluruh blok lama ini)
+            // foreach ($request->order_item_ids as $index => $orderItemId) {
+            //     if (empty($orderItemId)) continue;
+
+            //     $orderItem = $order->orderItems->firstWhere('id', (int) $orderItemId);
+            //     if (!$orderItem) continue;
+
+            //     $productId = $request->product_id[$index] ?? null;
+            //     $qty       = (int)($request->qty[$index] ?? 0);
+            //     $price     = (float)($request->price[$index] ?? 0);
+            //     $subtotal  = (float)($request->total[$index] ?? ($qty * $price));
+
+            //     if ($qty <= 0 || !$productId) continue;
+
+            //     if ($orderItem->product_bundle_id) {
+            //         // Cek sisa qty per-produk di dalam bundle
+            //         $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)
+            //             ->where('product_id', $productId)
+            //             ->sum('quantity');
+            //         $maxQty = max(0, $orderItem->quantity - $returnedQty);
+            //         if ($qty > $maxQty) {
+            //             $pname = optional(\App\Models\Products::find($productId))->name ?? 'Produk bundle';
+            //             throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
+            //         }
+            //     } else {
+            //         // Produk satuan
+            //         $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)->sum('quantity');
+            //         $maxQty = max(0, $orderItem->quantity - $returnedQty);
+            //         if ($qty > $maxQty) {
+            //             $pname = optional($orderItem->product)->name ?? 'Produk';
+            //             throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
+            //         }
+            //     }
+
+            //     SaleReturnItem::create([
+            //         'sale_return_id' => $saleReturn->id,
+            //         'product_id'     => $productId,
+            //         'order_item_id'  => $orderItem->id,
+            //         'quantity'       => $qty,
+            //         'price'          => $price,
+            //         'total'          => $subtotal,
+            //     ]);
+
+            //     // ✅ Increment canceled_product_stock pada production_stocks
+            //     $productionStock = ProductionStock::firstOrCreate(
+            //         [
+            //             'product_id' => $productId,
+            //             'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2, // sesuaikan warehouse
+            //         ],
+            //         [
+            //             'opening_stock' => 0,
+            //             'finished_product_stock' => 0,
+            //             'canceled_product_stock' => 0,
+            //             'available_quantity' => 0,
+            //         ]
+            //     );
+
+            //     $productionStock->increment('canceled_product_stock', $qty);
+
+            //     CanceledProduct::create([
+            //         'production_stock_id' => $productionStock->id,
+            //         'product_id'          => $productId,
+            //         'warehouse_id'        => $productionStock->production_warehouse_id,
+            //         'sale_return_id'      => $saleReturn->id,
+            //         'sale_return_item_id' => $saleReturnItem->id ?? null, // isi kalau ada ID setelah create
+            //         'order_id'            => $order->id,
+            //         'order_item_id'       => $orderItem->id,
+            //         'quantity'            => $qty,
+            //         'date'                => $request->return_date,
+            //         'type'                => 'from_sale_return',
+            //         'status'              => 'pending', // default pending
+            //         'note'                => 'Canceled product from Sale Return',
+            //         'created_by'          => Auth::id(),
+            //     ]);
+            // }
+
             foreach ($request->order_item_ids as $index => $orderItemId) {
                 if (empty($orderItemId)) continue;
 
@@ -413,40 +489,41 @@ class SaleReturnController extends Controller
 
                 if ($qty <= 0 || !$productId) continue;
 
-                if ($orderItem->product_bundle_id) {
-                    // Cek sisa qty per-produk di dalam bundle
-                    $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)
-                        ->where('product_id', $productId)
-                        ->sum('quantity');
-                    $maxQty = max(0, $orderItem->quantity - $returnedQty);
-                    if ($qty > $maxQty) {
-                        $pname = optional(\App\Models\Products::find($productId))->name ?? 'Produk bundle';
-                        throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
-                    }
-                } else {
-                    // Produk satuan
-                    $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)->sum('quantity');
-                    $maxQty = max(0, $orderItem->quantity - $returnedQty);
-                    if ($qty > $maxQty) {
-                        $pname = optional($orderItem->product)->name ?? 'Produk';
-                        throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
-                    }
+                // 🔹 1️⃣ Validasi qty retur
+                $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)
+                    ->where('product_id', $productId)
+                    ->sum('quantity');
+                $maxQty = max(0, $orderItem->quantity - $returnedQty);
+                if ($qty > $maxQty) {
+                    $pname = optional(\App\Models\Products::find($productId))->name ?? 'Produk';
+                    throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
                 }
 
-                SaleReturnItem::create([
+                // 🔹 2️⃣ Ambil avg_cost dari order_item_components
+                $component = \App\Models\OrderItemComponent::where('order_item_id', $orderItem->id)
+                    ->where('product_id', $productId)
+                    ->first();
+
+                $avgCostAtSale = $component?->avg_cost_at_sale ?? 0;
+                $totalCostAtSale = $avgCostAtSale * $qty;
+
+                // 🔹 3️⃣ Simpan SaleReturnItem (tambahkan kolom avg_cost_at_sale kalau belum ada)
+                $saleReturnItem = SaleReturnItem::create([
                     'sale_return_id' => $saleReturn->id,
                     'product_id'     => $productId,
                     'order_item_id'  => $orderItem->id,
                     'quantity'       => $qty,
                     'price'          => $price,
                     'total'          => $subtotal,
+                    'avg_cost_at_return' => $avgCostAtSale,   // <-- tambahkan kolom ini
+                    'total_cost'       => $totalCostAtSale, // <-- kalau mau disimpan juga
                 ]);
 
-                // ✅ Increment canceled_product_stock pada production_stocks
+                // 🔹 4️⃣ Update canceled_product_stock di ProductionStock
                 $productionStock = ProductionStock::firstOrCreate(
                     [
                         'product_id' => $productId,
-                        'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2, // sesuaikan warehouse
+                        'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2,
                     ],
                     [
                         'opening_stock' => 0,
@@ -455,21 +532,23 @@ class SaleReturnController extends Controller
                         'available_quantity' => 0,
                     ]
                 );
-
                 $productionStock->increment('canceled_product_stock', $qty);
 
+                // 🔹 5️⃣ Buat CanceledProduct (simpan avg_cost juga di sini)
                 CanceledProduct::create([
                     'production_stock_id' => $productionStock->id,
                     'product_id'          => $productId,
                     'warehouse_id'        => $productionStock->production_warehouse_id,
                     'sale_return_id'      => $saleReturn->id,
-                    'sale_return_item_id' => $saleReturnItem->id ?? null, // isi kalau ada ID setelah create
+                    'sale_return_item_id' => $saleReturnItem->id,
                     'order_id'            => $order->id,
                     'order_item_id'       => $orderItem->id,
                     'quantity'            => $qty,
+                    'avg_cost_at_cancel'    => $avgCostAtSale,    // 🧩 tambahkan ini
+                    'total_cost'          => $totalCostAtSale,  // 🧩 biar bisa hitung ulang kalau perlu
                     'date'                => $request->return_date,
                     'type'                => 'from_sale_return',
-                    'status'              => 'pending', // default pending
+                    'status'              => 'pending',
                     'note'                => 'Canceled product from Sale Return',
                     'created_by'          => Auth::id(),
                 ]);
@@ -494,6 +573,35 @@ class SaleReturnController extends Controller
 
             $saleAccount->closing_balance += $grandTotal;
             $saleAccount->save();
+
+            // ================== CATAT FINANCIAL REPORT ==================
+            try {
+                $returnDate = Carbon::parse($request->return_date);
+                $returnRevenue = (float) $grandTotal;
+
+                // 🔹 Ambil total COGS dari avg_cost_at_return yang disimpan di sale_return_items
+                $returnCogs = SaleReturnItem::where('sale_return_id', $saleReturn->id)
+                    ->sum(DB::raw('avg_cost_at_return * quantity'));
+
+                // 🔹 Karena ini retur, nilainya negatif (revenue & cogs berkurang)
+                $grossLoss = -1 * ($returnRevenue - $returnCogs);
+                $netLoss   = $grossLoss;
+
+                FinancialReport::create([
+                    'date'             => $returnDate,
+                    'transaction_type' => 'sale_return',
+                    'reference_id'     => $saleReturn->id,
+                    'reference_table'  => 'sale_returns',
+                    'revenue'          => -$returnRevenue,  // pendapatan berkurang
+                    'cogs'             => -$returnCogs,     // cost ikut dikembalikan
+                    'gross_profit'     => $grossLoss,
+                    'expense'          => 0,
+                    'net_profit'       => $netLoss,
+                    'notes'            => 'Auto-generated from Sale Return (based on avg_cost_at_return)',
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Gagal mencatat laporan keuangan Sale Return ID ' . $saleReturn->id . ': ' . $e->getMessage());
+            }
 
             DB::commit();
             return redirect('/erp/sales/sale-returns')->with('success', 'Sale return berhasil disimpan.');
@@ -594,6 +702,15 @@ class SaleReturnController extends Controller
         DB::beginTransaction();
         try {
             $saleReturn = SaleReturn::with(['items', 'accountTransactions'])->findOrFail($id);
+
+            if ($saleReturn->hasStockIn()) {
+                DB::rollBack();
+                return back()->with(
+                    'error',
+                    'Tidak bisa mengubah Sale Return ini karena produk sudah dikembalikan ke Warehouse (completed quantity > 0).'
+                );
+            }
+
             $order      = Order::with(['orderItems.product', 'orderItems.productBundle.items.product'])
                 ->findOrFail($request->sale_order_id);
             $address    = CustomerAddresses::where('customer_id', $request->customer_id)->first();
@@ -706,6 +823,8 @@ class SaleReturnController extends Controller
                         'order_item_id'  => $orderItem->id,
                         'quantity'       => $qty,
                         'price'          => $price,
+                        'avg_cost_at_return' => $orderItem->avg_cost_at_return,
+                        'total_cost'       => $orderItem->avg_cost_at_return * $qty,
                         'total'          => $subtotal,
                     ]);
 
@@ -718,6 +837,8 @@ class SaleReturnController extends Controller
                         'order_id'            => $order->id,
                         'order_item_id'       => $orderItem->id,
                         'quantity'            => $qty,
+                        'avg_cost_at_cancel'    => $orderItem->avg_cost_at_return,
+                        'total_cost'          => $orderItem->avg_cost_at_return * $qty,
                         'date'                => $request->return_date,
                         'type'                => 'from_sale_return',
                         'status'              => 'pending',
@@ -893,6 +1014,59 @@ class SaleReturnController extends Controller
                 'status_edited' => true,
             ]);
 
+            // ================== UPDATE FINANCIAL REPORT ==================
+            try {
+                $returnDate = Carbon::parse($request->return_date);
+                $returnRevenue = (float) $grandTotal;
+                $returnCogs = 0;
+
+                // 🔹 Hitung ulang total COGS berdasarkan produk dan qty baru
+                $saleReturnItems = $saleReturn->items ?? \App\Models\SaleReturnItem::where('sale_return_id', $saleReturn->id)->get();
+
+                foreach ($saleReturnItems as $item) {
+                    $avgCostAtReturn = $item->avg_cost_at_return ?? 0;
+                    $returnCogs += $avgCostAtReturn * $item->quantity;
+                }
+
+                // 🔹 Karena ini retur, nilainya negatif
+                $grossLoss = -1 * ($returnRevenue - $returnCogs);
+                $netLoss = $grossLoss;
+
+                // 🔹 Cek apakah sudah ada record di financial_reports
+                $financialReport = \App\Models\FinancialReport::where('reference_id', $saleReturn->id)
+                    ->where('reference_table', 'sale_returns')
+                    ->first();
+
+                if ($financialReport) {
+                    // Update record lama
+                    $financialReport->update([
+                        'date'          => $returnDate,
+                        'revenue'       => -$returnRevenue,
+                        'cogs'          => -$returnCogs,
+                        'gross_profit'  => $grossLoss,
+                        'expense'       => 0,
+                        'net_profit'    => $netLoss,
+                        'notes'         => 'Updated from Sale Return edit',
+                    ]);
+                } else {
+                    // Kalau belum ada (misalnya record lama hilang)
+                    FinancialReport::create([
+                        'date'             => $returnDate,
+                        'transaction_type' => 'sale_return',
+                        'reference_id'     => $saleReturn->id,
+                        'reference_table'  => 'sale_returns',
+                        'revenue'          => -$returnRevenue,
+                        'cogs'             => -$returnCogs,
+                        'gross_profit'     => $grossLoss,
+                        'expense'          => 0,
+                        'net_profit'       => $netLoss,
+                        'notes'            => 'Auto-created during Sale Return update',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Gagal update laporan keuangan Sale Return ID ' . $saleReturn->id . ': ' . $e->getMessage());
+            }
+
             DB::commit();
             return redirect('/erp/sales/sale-returns')->with('success', 'Sale return berhasil diperbarui.');
         } catch (\Exception $e) {
@@ -994,6 +1168,10 @@ class SaleReturnController extends Controller
             $saleReturn->delete_notes = $request->input('delete_notes'); // catatan hapus dari form
             $saleReturn->deleted_by = Auth::id(); // user yang login
             $saleReturn->save();
+
+            FinancialReport::where('reference_table', 'sale_returns')
+                ->where('reference_id', $saleReturn->id)
+                ->update(['deleted_at' => now()]);
 
             DB::commit();
             return redirect()->back()->with('success', 'Sale return berhasil dihapus.');
@@ -1237,6 +1415,11 @@ class SaleReturnController extends Controller
             // 🔥 trigger booted() => otomatis hapus semua relasi
             $saleReturn->forceDelete();
 
+            FinancialReport::withTrashed()
+                ->where('reference_table', 'sale_returns')
+                ->where('reference_id', $saleReturn->id)
+                ->forceDelete();
+
             DB::commit();
             return redirect()->back()->with('success', 'Order beserta item & relasinya berhasil dihapus permanen!');
         } catch (\Exception $e) {
@@ -1317,6 +1500,11 @@ class SaleReturnController extends Controller
                     $product->save();
                 }
             }
+
+            FinancialReport::withTrashed()
+                ->where('reference_table', 'sale_returns')
+                ->where('reference_id', $saleReturn->id)
+                ->update(['deleted_at' => null]);
 
             DB::commit();
             return redirect()->back()->with('success', 'Sale Return berhasil direstore!');

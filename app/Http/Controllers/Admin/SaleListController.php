@@ -24,9 +24,11 @@ use App\Models\Bank;
 use App\Models\CanceledProduct;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
+use App\Models\FinancialReport;
 use App\Models\InventoryStock;
 use App\Models\Invoice;
 use App\Models\OrderEditHistory;
+use App\Models\OrderItemComponent;
 use App\Models\OrderProgress;
 use App\Models\OrderProgressHistory;
 use App\Models\OrderProgressItem;
@@ -48,10 +50,10 @@ class SaleListController extends Controller
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        $saleReturnAccount = Account::whereIn('type', ['Sale Return'])
-            ->firstOrFail();
+        // $saleReturnAccount = Account::whereIn('type', ['Sale Return'])
+        //     ->firstOrFail();
 
-        return view('erp.pages.sales.sale-list.sale-list', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'saleReturnAccount'));
+        return view('erp.pages.sales.sale-list.sale-list', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
     }
 
     public function dataSaleList(Request $request)
@@ -413,6 +415,7 @@ class SaleListController extends Controller
             $remainingAmount = $request->total_amount - $paidAmount;
             $status = 'Sale List';
             $paymentMethod = 'Sale Account';
+            $warehouseId = $request->inventory_warehouse_id ?? 1;
 
             $orderDate = Carbon::parse($request->order_date);
 
@@ -478,16 +481,18 @@ class SaleListController extends Controller
                 'remaining_amount' => $remainingAmount,
             ]);
 
-            $warehouseId = $request->inventory_warehouse_id ?? 1;
-
+            // === BUAT ORDER ITEMS ===
             foreach ($request->product as $index => $productInputId) {
                 $type = strtolower($request->product_type[$index]);
-                $qty  = (int) $request->qty[$index];
+                $qty  = (float) $request->qty[$index];
 
+                // --- PRODUK SATUAN ---
                 if ($type === 'satuan') {
                     $product = Products::findOrFail($productInputId);
+                    $inventoryStock = InventoryStock::where('product_id', $product->id)->first();
+                    $avgCost = $inventoryStock?->avg_cost ?? 0;
 
-                    OrderItem::create([
+                    $orderItem = OrderItem::create([
                         'order_id'             => $order->id,
                         'product_id'           => $product->id,
                         'product_bundle_id'    => null,
@@ -503,22 +508,27 @@ class SaleListController extends Controller
                         'total_after_discount' => $request->total_after_discount[$index],
                     ]);
 
-                    // ✅ Update stock_after_sales di inventory_stocks
-                    $inventoryStock = InventoryStock::firstOrCreate(
-                        [
-                            'product_id'             => $product->id,
-                            'inventory_warehouse_id' => $warehouseId,
-                        ],
-                        [
-                            'stock_after_sales' => 0, // default kalau belum ada
-                        ]
-                    );
+                    // === Simpan ke components
+                    OrderItemComponent::create([
+                        'order_item_id'    => $orderItem->id,
+                        'product_id'       => $product->id,
+                        'qty'              => $qty,
+                        'avg_cost_at_sale' => $avgCost,
+                        'total_cost'       => $avgCost * $qty,
+                    ]);
 
-                    $inventoryStock->decrement('stock_after_sales', $qty);
-                } elseif ($type === 'bundle') {
-                    $bundle = ProductBundle::findOrFail($productInputId);
+                    // update stok
+                    InventoryStock::updateOrCreate(
+                        ['product_id' => $product->id, 'inventory_warehouse_id' => $warehouseId],
+                        []
+                    )->decrement('stock_after_sales', $qty);
+                }
 
-                    OrderItem::create([
+                // --- PRODUK BUNDLE ---
+                elseif ($type === 'bundle') {
+                    $bundle = ProductBundle::with('items.product')->findOrFail($productInputId);
+
+                    $orderItem = OrderItem::create([
                         'order_id'             => $order->id,
                         'product_id'           => null,
                         'product_bundle_id'    => $bundle->id,
@@ -535,20 +545,25 @@ class SaleListController extends Controller
                     ]);
 
                     foreach ($bundle->items as $bundleItem) {
-                        $bundleProduct = $bundleItem->product;
-                        if ($bundleProduct) {
-                            $inventoryStock = InventoryStock::firstOrCreate(
-                                [
-                                    'product_id'             => $bundleProduct->id,
-                                    'inventory_warehouse_id' => $warehouseId,
-                                ],
-                                [
-                                    'stock_after_sales' => 0,
-                                ]
-                            );
+                        $component = $bundleItem->product;
+                        if (!$component) continue;
 
-                            $inventoryStock->decrement('stock_after_sales', $qty);
-                        }
+                        $stock = InventoryStock::where('product_id', $component->id)->first();
+                        $avgCost = $stock?->avg_cost ?? 0;
+                        $totalQty = $qty; // ✅ ambil dari order item, bukan bundleItem->qty
+
+                        OrderItemComponent::create([
+                            'order_item_id'    => $orderItem->id,
+                            'product_id'       => $component->id,
+                            'qty'              => $totalQty,
+                            'avg_cost_at_sale' => $avgCost,
+                            'total_cost'       => $avgCost * $totalQty,
+                        ]);
+
+                        InventoryStock::updateOrCreate(
+                            ['product_id' => $component->id, 'inventory_warehouse_id' => $warehouseId],
+                            []
+                        )->decrement('stock_after_sales', $totalQty);
                     }
                 }
             }
@@ -634,6 +649,47 @@ class SaleListController extends Controller
 
             $saleAccount->closing_balance += $request->total_amount;
             $saleAccount->save();
+
+            // ================== CATAT FINANCIAL REPORT ==================
+            try {
+                $totalRevenue = $request->total_amount;
+                $totalCogs = 0;
+
+                // Hitung total COGS berdasarkan avg_cost per produk
+                foreach ($order->orderItems as $orderItem) {
+                    if ($orderItem->product_id && !$orderItem->product_bundle_id) {
+                        // Produk satuan
+                        $product = $orderItem->product;
+                        $avgCost = $product->inventoryStock->avg_cost ?? 0;
+                        $totalCogs += $avgCost * $orderItem->quantity;
+                    } elseif ($orderItem->product_bundle_id) {
+                        // Produk bundle
+                        $bundle = $orderItem->productBundle;
+                        $bundleCost = $bundle->items->sum(function ($bundleItem) {
+                            $product = $bundleItem->product;
+                            return $product->inventoryStock->avg_cost ?? 0;
+                        });
+                        $totalCogs += $bundleCost * $orderItem->quantity;
+                    }
+                }
+
+                $grossProfit = $totalRevenue - $totalCogs;
+
+                FinancialReport::create([
+                    'date'             => $order->order_date,
+                    'transaction_type' => 'sale',
+                    'reference_id'     => $order->id,
+                    'reference_table'  => 'orders',
+                    'revenue'          => $totalRevenue,
+                    'cogs'             => $totalCogs,
+                    'gross_profit'     => $grossProfit,
+                    'expense'          => 0,
+                    'net_profit'       => $grossProfit,
+                    'notes'            => 'Auto-generated from Sale List',
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Gagal menyimpan laporan keuangan untuk Order ID ' . $order->id . ': ' . $e->getMessage());
+            }
 
             DB::commit();
             return redirect("/erp/sales/sale-list/")->with('success', 'Order berhasil disimpan.');
@@ -914,6 +970,60 @@ class SaleListController extends Controller
                         'total_after_discount' => $request->total_after_discount[$index],
                     ]);
 
+                    // === HANDLE COMPONENTS ===
+                    if ($type === 'satuan') {
+                        $product = Products::findOrFail($productId);
+                        $stock   = InventoryStock::where('product_id', $product->id)->first();
+                        $avgCost = $stock?->avg_cost ?? 0;
+
+                        // update atau buat component
+                        $component = $orderItem->components()->first();
+                        if ($component) {
+                            $component->update([
+                                'qty'              => $qty,
+                                'avg_cost_at_sale' => $avgCost,
+                                'total_cost'       => $avgCost * $qty,
+                            ]);
+                        } else {
+                            $orderItem->components()->create([
+                                'product_id'       => $product->id,
+                                'qty'              => $qty,
+                                'avg_cost_at_sale' => $avgCost,
+                                'total_cost'       => $avgCost * $qty,
+                            ]);
+                        }
+                    } elseif ($type === 'bundle') {
+                        $bundle = ProductBundle::with('items.product')->findOrFail($productId);
+
+                        foreach ($bundle->items as $bundleItem) {
+                            $component = $bundleItem->product;
+                            if (!$component) continue;
+
+                            $stock   = InventoryStock::where('product_id', $component->id)->first();
+                            $avgCost = $stock?->avg_cost ?? 0;
+                            $totalQty = $qty; // ⚡ ambil dari order item, bukan dari bundleItem->quantity
+
+                            $existing = $orderItem->components()
+                                ->where('product_id', $component->id)
+                                ->first();
+
+                            if ($existing) {
+                                $existing->update([
+                                    'qty'              => $totalQty,
+                                    'avg_cost_at_sale' => $avgCost,
+                                    'total_cost'       => $avgCost * $totalQty,
+                                ]);
+                            } else {
+                                $orderItem->components()->create([
+                                    'product_id'       => $component->id,
+                                    'qty'              => $totalQty,
+                                    'avg_cost_at_sale' => $avgCost,
+                                    'total_cost'       => $avgCost * $totalQty,
+                                ]);
+                            }
+                        }
+                    }
+
                     if ($diffQty !== 0) {
                         if ($type === 'satuan') {
                             $inventoryStock = InventoryStock::firstOrCreate(
@@ -1032,6 +1142,7 @@ class SaleListController extends Controller
                             }
                         }
                     }
+                    $item->components()->delete();
                     $item->forceDelete();
                 }
             }
@@ -1222,6 +1333,67 @@ class SaleListController extends Controller
                 $cashBank->increment('closing_balance', $additionalPay);
             }
 
+            // ================== UPDATE / CREATE FINANCIAL REPORT ==================
+            try {
+                $financialReport = FinancialReport::where('transaction_type', 'sale')
+                    ->where('reference_id', $order->id)
+                    ->where('reference_table', 'orders')
+                    ->first();
+
+                $totalRevenue = $request->total_amount;
+                $totalCogs = 0;
+
+                // Hitung ulang COGS berdasarkan produk dan bundle
+                foreach ($order->orderItems as $orderItem) {
+                    if ($orderItem->product_id && !$orderItem->product_bundle_id) {
+                        // Produk satuan
+                        $product = $orderItem->product;
+                        $avgCost = $product->inventoryStock->avg_cost ?? 0;
+                        $totalCogs += $avgCost * $orderItem->quantity;
+                    } elseif ($orderItem->product_bundle_id) {
+                        // Produk bundle
+                        $bundle = $orderItem->productBundle;
+                        $bundleCost = $bundle->items->sum(function ($bundleItem) {
+                            $product = $bundleItem->product;
+                            return $product->inventoryStock->avg_cost ?? 0;
+                        });
+                        $totalCogs += $bundleCost * $orderItem->quantity;
+                    }
+                }
+
+                $grossProfit = $totalRevenue - $totalCogs;
+                $netProfit   = $grossProfit; // belum ada expense di sini
+
+                if ($financialReport) {
+                    // Update report lama
+                    $financialReport->update([
+                        'date'         => $order->order_date,
+                        'revenue'      => $totalRevenue,
+                        'cogs'         => $totalCogs,
+                        'gross_profit' => $grossProfit,
+                        'expense'      => 0,
+                        'net_profit'   => $netProfit,
+                        'notes'        => 'Auto-updated from Sale List Edit',
+                    ]);
+                } else {
+                    // Buat baru kalau belum ada
+                    FinancialReport::create([
+                        'date'             => $order->order_date,
+                        'transaction_type' => 'sale',
+                        'reference_id'     => $order->id,
+                        'reference_table'  => 'orders',
+                        'revenue'          => $totalRevenue,
+                        'cogs'             => $totalCogs,
+                        'gross_profit'     => $grossProfit,
+                        'expense'          => 0,
+                        'net_profit'       => $netProfit,
+                        'notes'            => 'Auto-generated from Sale List Edit',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Gagal update laporan keuangan untuk Order ID ' . $order->id . ': ' . $e->getMessage());
+            }
+
             // ===== 7) SIMPAN HISTORY & FLAG SUDAH EDIT
             OrderEditHistory::create([
                 'order_id'  => $order->id,
@@ -1373,6 +1545,10 @@ class SaleListController extends Controller
 
             // Soft delete order
             $order->delete();
+
+            FinancialReport::where('reference_table', 'orders')
+                ->where('reference_id', $order->id)
+                ->update(['deleted_at' => now()]);
 
             DB::commit();
             return redirect()->back()->with('success', 'Order berhasil dihapus.');
@@ -1781,6 +1957,11 @@ class SaleListController extends Controller
             // 🔥 trigger booted() => otomatis hapus semua relasi
             $order->forceDelete();
 
+            FinancialReport::withTrashed()
+                ->where('reference_table', 'orders')
+                ->where('reference_id', $order->id)
+                ->forceDelete();
+
             DB::commit();
             return redirect()->back()->with('success', 'Order beserta item & relasinya berhasil dihapus permanen!');
         } catch (\Exception $e) {
@@ -1896,6 +2077,11 @@ class SaleListController extends Controller
                 $trx->order_id = $order->id;
                 $trx->save();
             }
+
+            FinancialReport::withTrashed()
+                ->where('reference_table', 'orders')
+                ->where('reference_id', $order->id)
+                ->update(['deleted_at' => null]);
 
             DB::commit();
             return redirect()->back()->with('success', 'Order berhasil direstore!');

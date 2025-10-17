@@ -8,8 +8,11 @@ use Yajra\DataTables\Facades\DataTables;
 use App\Models\Expense;
 use App\Models\Account;
 use App\Models\AccountTransaction;
+use App\Models\FinancialReport;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ExpenseController extends Controller
 {
@@ -130,6 +133,51 @@ class ExpenseController extends Controller
         $expenseAccount->accountClosingBalance();
         $cashBankAccount->accountClosingBalance();
 
+        // ================== CATAT FINANCIAL REPORT ==================
+        try {
+            $existingReport = FinancialReport::where('transaction_type', 'expense')
+                ->where('reference_table', 'account_transactions')
+                ->where('reference_id', function ($query) use ($groupId) {
+                    $query->select('id')
+                        ->from('account_transactions')
+                        ->where('transaction_group_id', $groupId)
+                        ->where('debit', '>', 0)
+                        ->limit(1);
+                })
+                ->first();
+
+            $transactionDate = Carbon::parse($request->transaction_date);
+            $amount = (float) $amount;
+
+            if ($existingReport) {
+                // Update jika sebelumnya sudah ada laporan (misal edit pengeluaran)
+                $existingReport->update([
+                    'date'         => $transactionDate,
+                    'expense'      => $amount,
+                    'net_profit'   => DB::raw("net_profit - {$amount}"),
+                    'notes'        => 'Auto-updated from Expense module',
+                ]);
+            } else {
+                // Buat record baru untuk laporan keuangan
+                FinancialReport::create([
+                    'date'             => $transactionDate,
+                    'transaction_type' => 'expense',
+                    'reference_id'     => AccountTransaction::where('transaction_group_id', $groupId)
+                        ->where('debit', '>', 0)
+                        ->value('id'),
+                    'reference_table'  => 'account_transactions',
+                    'revenue'          => 0,
+                    'cogs'             => 0,
+                    'gross_profit'     => 0,
+                    'expense'          => $amount,
+                    'net_profit'       => 0 - $amount,
+                    'notes'            => 'Auto-generated from Expense module',
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Gagal mencatat laporan keuangan untuk Expense ID group ' . $groupId . ': ' . $e->getMessage());
+        }
+
         return redirect('/erp/expenses')->with('success', 'Expense created successfully');
     }
 
@@ -235,6 +283,48 @@ class ExpenseController extends Controller
         // Update saldo
         $expenseAccount->accountClosingBalance();
         $cashBankAccount->accountClosingBalance();
+
+        // ================== UPDATE / CREATE FINANCIAL REPORT ==================
+        try {
+            $transactionDate = Carbon::parse($request->transaction_date);
+            $amount = (float) $request->debit;
+
+            // cari record laporan berdasarkan group_id (transaction_group_id)
+            $financialReport = FinancialReport::where('transaction_type', 'expense')
+                ->where('reference_table', 'account_transactions')
+                ->whereIn('reference_id', $transactions->pluck('id'))
+                ->first();
+
+            // ambil transaksi debit (akun biaya)
+            $debitTrx = $transactions->first(fn($trx) => (float) $trx->debit > 0);
+
+            if ($financialReport) {
+                // update existing report
+                $financialReport->update([
+                    'date'         => $transactionDate,
+                    'reference_id' => $debitTrx->id ?? $financialReport->reference_id,
+                    'expense'      => $amount,
+                    'net_profit'   => -$amount,
+                    'notes'        => 'Auto-updated from Expense edit',
+                ]);
+            } else {
+                // create new report (jika sebelumnya belum ada)
+                FinancialReport::create([
+                    'date'             => $transactionDate,
+                    'transaction_type' => 'expense',
+                    'reference_id'     => $debitTrx->id ?? null,
+                    'reference_table'  => 'account_transactions',
+                    'revenue'          => 0,
+                    'cogs'             => 0,
+                    'gross_profit'     => 0,
+                    'expense'          => $amount,
+                    'net_profit'       => -$amount,
+                    'notes'            => 'Auto-generated from Expense edit',
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Gagal memperbarui laporan keuangan untuk Expense (group_id: ' . $id . '): ' . $e->getMessage());
+        }
 
         return redirect('/erp/expenses')->with('success', 'Expense updated successfully');
     }

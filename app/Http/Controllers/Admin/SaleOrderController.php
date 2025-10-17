@@ -20,14 +20,17 @@ use App\Models\InventoryItem;
 use App\Models\Bank;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
+use App\Models\FinancialReport;
 use App\Models\InventoryStock;
 use App\Models\Invoice;
+use App\Models\OrderItemComponent;
 use App\Models\OrderProgress;
 use App\Models\OrderProgressHistory;
 use App\Models\OrderProgressItem;
 use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 
 class SaleOrderController extends Controller
@@ -312,14 +315,23 @@ class SaleOrderController extends Controller
                 'remaining_amount' => $remainingAmount,
             ]);
 
+            // ================== BUAT ORDER ITEMS ==================
             foreach ($request->product as $index => $productInputId) {
                 $type = strtolower($request->product_type[$index]);
-                $qty  = (int) $request->qty[$index];
+                $qty  = (float) $request->qty[$index];
 
+                // ======================================================
+                // PRODUK SATUAN
+                // ======================================================
                 if ($type === 'satuan') {
                     $product = Products::findOrFail($productInputId);
 
-                    OrderItem::create([
+                    // Ambil avg cost dari tabel inventory_stocks
+                    $inventoryStock = \App\Models\InventoryStock::where('product_id', $product->id)->first();
+                    $avgCost = $inventoryStock?->avg_cost ?? 0;
+
+                    // Buat order item utama
+                    $orderItem = OrderItem::create([
                         'order_id'             => $order->id,
                         'product_id'           => $product->id,
                         'product_bundle_id'    => null,
@@ -332,14 +344,38 @@ class SaleOrderController extends Controller
                         'discount_price'       => $request->price_after_discount[$index],
                         'total_after_discount' => $request->total_after_discount[$index],
                     ]);
-                } elseif ($type === 'bundle') {
-                    $bundle = ProductBundle::findOrFail($productInputId);
 
-                    OrderItem::create([
+                    // Simpan juga ke order_item_components (biar struktur seragam)
+                    OrderItemComponent::create([
+                        'order_item_id'    => $orderItem->id,
+                        'product_id'       => $product->id,
+                        'qty'         => $qty,
+                        'avg_cost_at_sale' => $avgCost,
+                        'total_cost'       => $avgCost * $qty,
+                    ]);
+                }
+
+                // ======================================================
+                // PRODUK BUNDLE
+                // ======================================================
+                elseif ($type === 'bundle') {
+                    $bundle = ProductBundle::with('items.product')->findOrFail($productInputId);
+
+                    // Hitung total avg cost bundle (sum dari komponen real di inventory_stocks)
+                    $totalAvgCost = 0;
+                    foreach ($bundle->items as $bundleItem) {
+                        $component = $bundleItem->product;
+                        $componentStock = \App\Models\InventoryStock::where('product_id', $component->id)->first();
+                        $componentAvgCost = $componentStock?->avg_cost ?? 0;
+                        $totalAvgCost += ($componentAvgCost * $bundleItem->quantity);
+                    }
+
+                    // Buat order_item utama untuk bundle
+                    $orderItem = OrderItem::create([
                         'order_id'             => $order->id,
-                        'product_id'           => null,          // karena ini bundle
-                        'product_bundle_id'    => $bundle->id,   // ID bundle
-                        'product_name'         => $bundle->name, // nama bundle
+                        'product_id'           => null,
+                        'product_bundle_id'    => $bundle->id,
+                        'product_name'         => $bundle->name,
                         'satuan'               => 'bundle',
                         'quantity'             => $qty,
                         'completed_quantity'   => 0,
@@ -348,6 +384,21 @@ class SaleOrderController extends Controller
                         'discount_price'       => $request->price_after_discount[$index],
                         'total_after_discount' => $request->total_after_discount[$index],
                     ]);
+
+                    // Simpan semua komponen bundle ke order_item_components
+                    foreach ($bundle->items as $bundleItem) {
+                        $component = $bundleItem->product;
+                        $componentStock = \App\Models\InventoryStock::where('product_id', $component->id)->first();
+                        $componentAvgCost = $componentStock?->avg_cost ?? 0;
+
+                        OrderItemComponent::create([
+                            'order_item_id'    => $orderItem->id,
+                            'product_id'       => $component->id,
+                            'qty'              => $qty, // per bundle × jumlah bundle
+                            'avg_cost_at_sale' => $componentAvgCost,
+                            'total_cost'       => $componentAvgCost * $qty,
+                        ]);
+                    }
                 }
             }
 
@@ -449,6 +500,166 @@ class SaleOrderController extends Controller
         return view('erp.pages.sales.sale-orders.edit-order', compact('order', 'products', 'customers', 'productBundles', 'productsJson', 'productBundlesJson'));
     }
 
+    // public function update(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'order_date'              => 'required|date',
+    //         'customers'               => 'required|array',
+    //         'customers.*'             => 'exists:customers,id',
+    //         'address_id'              => 'required|exists:customer_addresses,id',
+    //         'notes'                   => 'nullable|string',
+    //         'product'                 => 'required|array',
+    //         'product.*'               => 'required',
+    //         'product_type'            => 'required|array',
+    //         'product_type.*'          => 'in:satuan,bundle',
+    //         'qty'                     => 'required|array',
+    //         'qty.*'                   => 'numeric|min:1',
+    //         'price_before_discount'   => 'required|array',
+    //         'price_before_discount.*' => 'numeric|min:0',
+    //         'total_before_discount'   => 'required|array',
+    //         'total_before_discount.*' => 'numeric|min:0',
+    //         'price_after_discount'    => 'required|array',
+    //         'price_after_discount.*'  => 'numeric|min:0',
+    //         'total_after_discount'    => 'required|array',
+    //         'total_after_discount.*'  => 'numeric|min:0',
+    //         'sub_total'               => 'required|numeric|min:0',
+    //         'total_discount'          => 'required|numeric|min:0',
+    //         'total_amount'            => 'required|numeric|min:0',
+    //     ]);
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $order = Order::with('orderItems')->findOrFail($id);
+
+    //         $paidAmount      = $request->paid_amount ?? 0;
+    //         $remainingAmount = $request->total_amount - $paidAmount;
+    //         $status          = 'Sale Order';
+    //         $paymentStatus   = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid');
+
+    //         $addressModel = CustomerAddresses::find($request->address_id);
+
+    //         // ================== BALIKKAN STOK ITEM LAMA ==================
+    //         foreach ($order->orderItems as $oldItem) {
+    //             if ($oldItem->satuan === 'satuan' && $oldItem->product_id) {
+    //                 $product = Products::find($oldItem->product_id);
+    //                 if ($product) {
+    //                     $product->increment('stock_after_sales', $oldItem->quantity);
+    //                 }
+    //             } elseif ($oldItem->satuan === 'bundle' && $oldItem->product_bundle_id) {
+    //                 $bundle = ProductBundle::with('items.product')->find($oldItem->product_bundle_id);
+    //                 if ($bundle) {
+    //                     foreach ($bundle->items as $bundleItem) {
+    //                         if ($bundleItem->product) {
+    //                             $bundleItem->product->increment('stock_after_sales', $bundleItem->quantity * $oldItem->quantity);
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         // ================== UPDATE ORDER HEADER ==================
+    //         $order->update([
+    //             'customer_id'      => $request->customers[0],
+    //             'order_date'       => $request->order_date,
+    //             'status'           => $status,
+    //             'payment_status'   => $paymentStatus,
+    //             'paid_amount'      => $paidAmount,
+    //             'shipping_address' => $addressModel?->address,
+    //             'google_maps'      => $addressModel?->google_maps,
+    //             'notes'            => $request->notes,
+    //             'total_amount'     => $request->sub_total,
+    //             'grand_total'      => $request->total_amount,
+    //             'discount'         => $request->total_discount,
+    //             'remaining_amount' => $remainingAmount,
+    //         ]);
+
+    //         // ================== RE-INSERT ORDER ITEMS BARU ==================
+    //         foreach ($request->product as $index => $productInputId) {
+    //             [$type, $id] = explode('_', $productInputId);
+    //             $type = strtolower($type);
+    //             $qty  = (float) $request->qty[$index];
+
+    //             // ======================================================
+    //             // PRODUK SATUAN
+    //             // ======================================================
+    //             if ($type === 'satuan') {
+    //                 $product = Products::findOrFail($id);
+    //                 $inventoryStock = \App\Models\InventoryStock::where('product_id', $product->id)->first();
+    //                 $avgCost = $inventoryStock?->avg_cost ?? 0;
+
+    //                 $orderItem = OrderItem::create([
+    //                     'order_id'             => $order->id,
+    //                     'product_id'           => $product->id,
+    //                     'product_bundle_id'    => null,
+    //                     'product_name'         => $product->name,
+    //                     'satuan'               => 'satuan',
+    //                     'quantity'             => $qty,
+    //                     'completed_quantity'   => 0,
+    //                     'price'                => $request->price_before_discount[$index],
+    //                     'subtotal'             => $request->total_before_discount[$index],
+    //                     'discount_price'       => $request->price_after_discount[$index],
+    //                     'total_after_discount' => $request->total_after_discount[$index],
+    //                 ]);
+
+    //                 OrderItemComponent::create([
+    //                     'order_item_id'    => $orderItem->id,
+    //                     'product_id'       => $product->id,
+    //                     'qty'              => $qty,
+    //                     'avg_cost_at_sale' => $avgCost,
+    //                     'total_cost'       => $avgCost * $qty,
+    //                 ]);
+
+    //                 $product->decrement('stock_after_sales', $qty);
+    //             }
+
+    //             // ======================================================
+    //             // PRODUK BUNDLE
+    //             // ======================================================
+    //             elseif ($type === 'bundle') {
+    //                 $bundle = ProductBundle::with('items.product')->findOrFail($id);
+
+    //                 $orderItem = OrderItem::create([
+    //                     'order_id'             => $order->id,
+    //                     'product_id'           => null,
+    //                     'product_bundle_id'    => $bundle->id,
+    //                     'product_name'         => $bundle->name,
+    //                     'satuan'               => 'bundle',
+    //                     'quantity'             => $qty,
+    //                     'completed_quantity'   => 0,
+    //                     'price'                => $request->price_before_discount[$index],
+    //                     'subtotal'             => $request->total_before_discount[$index],
+    //                     'discount_price'       => $request->price_after_discount[$index],
+    //                     'total_after_discount' => $request->total_after_discount[$index],
+    //                 ]);
+
+    //                 foreach ($bundle->items as $bundleItem) {
+    //                     $component = $bundleItem->product;
+    //                     $componentStock = \App\Models\InventoryStock::where('product_id', $component->id)->first();
+    //                     $componentAvgCost = $componentStock?->avg_cost ?? 0;
+    //                     $totalComponentQty = $bundleItem->quantity * $qty;
+
+    //                     OrderItemComponent::create([
+    //                         'order_item_id'    => $orderItem->id,
+    //                         'product_id'       => $component->id,
+    //                         'qty'              => $totalComponentQty,
+    //                         'avg_cost_at_sale' => $componentAvgCost,
+    //                         'total_cost'       => $componentAvgCost * $totalComponentQty,
+    //                     ]);
+
+    //                     $component->decrement('stock_after_sales', $totalComponentQty);
+    //                 }
+    //             }
+    //         }
+
+
+    //         DB::commit();
+    //         return redirect("/erp/sales/sale-orders")->with('success', 'Order berhasil diperbarui.');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return back()->with('error', 'Gagal memperbarui order: ' . $e->getMessage());
+    //     }
+    // }
+
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -477,36 +688,30 @@ class SaleOrderController extends Controller
         ]);
 
         DB::beginTransaction();
+
         try {
-            $order = Order::with('orderItems')->findOrFail($id);
+            $order = Order::with('orderItems.components')->findOrFail($id);
 
-            $paidAmount      = $request->paid_amount ?? 0;
-            $remainingAmount = $request->total_amount - $paidAmount;
-            $status          = 'Sale Order';
-            $paymentStatus   = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid');
-
-            $addressModel = CustomerAddresses::find($request->address_id);
-
-            // ================== BALIKKAN STOK ITEM LAMA ==================
+            // === BALIKKAN STOK LAMA ===
             foreach ($order->orderItems as $oldItem) {
-                if ($oldItem->satuan === 'satuan' && $oldItem->product_id) {
-                    $product = Products::find($oldItem->product_id);
+                foreach ($oldItem->components as $component) {
+                    $product = Products::find($component->product_id);
                     if ($product) {
-                        $product->increment('stock_after_sales', $oldItem->quantity);
-                    }
-                } elseif ($oldItem->satuan === 'bundle' && $oldItem->product_bundle_id) {
-                    $bundle = ProductBundle::with('items.product')->find($oldItem->product_bundle_id);
-                    if ($bundle) {
-                        foreach ($bundle->items as $bundleItem) {
-                            if ($bundleItem->product) {
-                                $bundleItem->product->increment('stock_after_sales', $bundleItem->quantity * $oldItem->quantity);
-                            }
-                        }
+                        $product->increment('stock_after_sales', $component->qty);
                     }
                 }
             }
 
-            // ================== UPDATE ORDER HEADER ==================
+            // === UPDATE HEADER ===
+            $paidAmount      = $request->paid_amount ?? 0;
+            $remainingAmount = $request->total_amount - $paidAmount;
+            $status          = 'Sale Order';
+            $paymentStatus   = ($paidAmount <= 0)
+                ? 'Unpaid'
+                : (($paidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid');
+
+            $addressModel = CustomerAddresses::find($request->address_id);
+
             $order->update([
                 'customer_id'      => $request->customers[0],
                 'order_date'       => $request->order_date,
@@ -522,69 +727,166 @@ class SaleOrderController extends Controller
                 'remaining_amount' => $remainingAmount,
             ]);
 
-            // ================== UPDATE / INSERT ITEM BARU ==================
+            // === UPDATE / INSERT ORDER ITEMS BARU ===
             $processedItemIds = [];
 
             foreach ($request->product as $index => $productInputId) {
-                [$prefix, $id] = explode('_', $productInputId);
-                $type = strtolower($prefix);
-                $qty  = (int) $request->qty[$index];
+                [$type, $pid] = explode('_', $productInputId);
+                $type = strtolower($type);
+                $qty  = (float) $request->qty[$index];
 
                 if ($type === 'satuan') {
-                    $product = Products::findOrFail($id);
+                    $product = Products::findOrFail($pid);
+                    $stock = \App\Models\InventoryStock::where('product_id', $pid)->first();
+                    $avgCost = $stock?->avg_cost ?? 0;
 
-                    $item = OrderItem::updateOrCreate(
-                        [
-                            'order_id'   => $order->id,
-                            'product_id' => $product->id,
-                            'satuan'     => 'satuan',
-                        ],
-                        [
-                            'product_bundle_id'    => null,
-                            'product_name'         => $product->name,
-                            'quantity'             => $qty,
-                            'price'                => $request->price_before_discount[$index],
-                            'subtotal'             => $request->total_before_discount[$index],
-                            'discount_price'       => $request->price_after_discount[$index],
-                            'total_after_discount' => $request->total_after_discount[$index],
-                            'deleted_at'           => null, // restore kalau sebelumnya soft delete
-                        ]
-                    );
+                    // cari order item yang sudah ada
+                    $orderItem = $order->orderItems()
+                        ->where('product_id', $pid)
+                        ->whereNull('product_bundle_id')
+                        ->first();
 
-                    $processedItemIds[] = $item->id;
-                    $product->decrement('stock_after_sales', $qty);
-                } elseif ($type === 'bundle') {
-                    $bundle = ProductBundle::with('items.product')->findOrFail($id);
-
-                    $item = OrderItem::updateOrCreate(
-                        [
-                            'order_id'          => $order->id,
-                            'product_bundle_id' => $bundle->id,
-                            'satuan'            => 'bundle',
-                        ],
-                        [
-                            'product_id'           => null,
-                            'product_name'         => $bundle->name,
+                    if ($orderItem) {
+                        // update
+                        $orderItem->update([
                             'quantity'             => $qty,
                             'price'                => $request->price_before_discount[$index],
                             'subtotal'             => $request->total_before_discount[$index],
                             'discount_price'       => $request->price_after_discount[$index],
                             'total_after_discount' => $request->total_after_discount[$index],
                             'deleted_at'           => null,
-                        ]
-                    );
+                        ]);
 
-                    $processedItemIds[] = $item->id;
+                        // update component-nya
+                        $component = $orderItem->components()->first();
+                        if ($component) {
+                            $component->update([
+                                'qty'              => $qty,
+                                'avg_cost_at_sale' => $avgCost,
+                                'total_cost'       => $avgCost * $qty,
+                            ]);
+                        }
+                    } else {
+                        // buat baru kalau belum ada
+                        $orderItem = OrderItem::create([
+                            'order_id'             => $order->id,
+                            'product_id'           => $product->id,
+                            'product_bundle_id'    => null,
+                            'product_name'         => $product->name,
+                            'satuan'               => 'satuan',
+                            'quantity'             => $qty,
+                            'completed_quantity'   => 0,
+                            'price'                => $request->price_before_discount[$index],
+                            'subtotal'             => $request->total_before_discount[$index],
+                            'discount_price'       => $request->price_after_discount[$index],
+                            'total_after_discount' => $request->total_after_discount[$index],
+                        ]);
 
-                    foreach ($bundle->items as $bundleItem) {
-                        if ($bundleItem->product) {
-                            $bundleItem->product->decrement('stock_after_sales', $bundleItem->quantity * $qty);
+                        $orderItem->components()->create([
+                            'product_id'       => $product->id,
+                            'qty'              => $qty,
+                            'avg_cost_at_sale' => $avgCost,
+                            'total_cost'       => $avgCost * $qty,
+                        ]);
+                    }
+
+                    // kurangi stok
+                    $product->decrement('stock_after_sales', $qty);
+                    $processedItemIds[] = $orderItem->id;
+                }
+
+                // === PRODUK BUNDLE ===
+                elseif ($type === 'bundle') {
+                    $bundle = ProductBundle::with('items.product')->findOrFail($pid);
+
+                    // cari order item bundle yang sudah ada
+                    $orderItem = $order->orderItems()
+                        ->where('product_bundle_id', $bundle->id)
+                        ->first();
+
+                    if ($orderItem) {
+                        // update data bundle utama
+                        $orderItem->update([
+                            'quantity'             => $qty,
+                            'price'                => $request->price_before_discount[$index],
+                            'subtotal'             => $request->total_before_discount[$index],
+                            'discount_price'       => $request->price_after_discount[$index],
+                            'total_after_discount' => $request->total_after_discount[$index],
+                            'deleted_at'           => null,
+                        ]);
+
+                        // === UPDATE / BUAT COMPONENT BARU (seperti satuan) ===
+                        foreach ($bundle->items as $bundleItem) {
+                            $component = $bundleItem->product;
+                            if (!$component) continue;
+
+                            $stock = \App\Models\InventoryStock::where('product_id', $component->id)->first();
+                            $avgCost = $stock?->avg_cost ?? 0;
+                            $totalQty = $qty; // ✅ ambil dari order item qty, bukan bundleItem->quantity
+
+                            // cari component yang sudah ada
+                            $componentRow = $orderItem->components()
+                                ->where('product_id', $component->id)
+                                ->first();
+
+                            if ($componentRow) {
+                                $componentRow->update([
+                                    'qty'              => $totalQty,
+                                    'avg_cost_at_sale' => $avgCost,
+                                    'total_cost'       => $avgCost * $totalQty,
+                                ]);
+                            } else {
+                                $orderItem->components()->create([
+                                    'product_id'       => $component->id,
+                                    'qty'              => $totalQty,
+                                    'avg_cost_at_sale' => $avgCost,
+                                    'total_cost'       => $avgCost * $totalQty,
+                                ]);
+                            }
+
+                            $component->decrement('stock_after_sales', $totalQty);
+                        }
+                    } else {
+                        // === BUAT BARU KALAU BUNDLE BELUM ADA ===
+                        $orderItem = OrderItem::create([
+                            'order_id'             => $order->id,
+                            'product_id'           => null,
+                            'product_bundle_id'    => $bundle->id,
+                            'product_name'         => $bundle->name,
+                            'satuan'               => 'bundle',
+                            'quantity'             => $qty,
+                            'completed_quantity'   => 0,
+                            'price'                => $request->price_before_discount[$index],
+                            'subtotal'             => $request->total_before_discount[$index],
+                            'discount_price'       => $request->price_after_discount[$index],
+                            'total_after_discount' => $request->total_after_discount[$index],
+                        ]);
+
+                        // BUAT COMPONENT BARU
+                        foreach ($bundle->items as $bundleItem) {
+                            $component = $bundleItem->product;
+                            if (!$component) continue;
+
+                            $stock = \App\Models\InventoryStock::where('product_id', $component->id)->first();
+                            $avgCost = $stock?->avg_cost ?? 0;
+                            $totalQty = $qty; // ✅ sama, ambil dari order item
+
+                            $orderItem->components()->create([
+                                'product_id'       => $component->id,
+                                'qty'              => $totalQty,
+                                'avg_cost_at_sale' => $avgCost,
+                                'total_cost'       => $avgCost * $totalQty,
+                            ]);
+
+                            $component->decrement('stock_after_sales', $totalQty);
                         }
                     }
+
+                    $processedItemIds[] = $orderItem->id;
                 }
             }
 
-            // ================== HAPUS ITEM YANG SUDAH TIDAK ADA ==================
+            // === HAPUS ITEM YANG TIDAK LAGI ADA DI INPUT ===
             $order->orderItems()
                 ->whereNotIn('id', $processedItemIds)
                 ->delete();
@@ -860,6 +1162,67 @@ class SaleOrderController extends Controller
                     'ready_qty'         => 0,
                     'note'              => null,
                 ]);
+            }
+
+            // ================== CATAT FINANCIAL REPORT ==================
+            try {
+                $financialReport = FinancialReport::where('transaction_type', 'sale')
+                    ->where('reference_id', $order->id)
+                    ->where('reference_table', 'orders')
+                    ->first();
+
+                $totalRevenue = $order->grand_total;
+                $totalCogs = 0;
+
+                // 🔹 Hitung total COGS dari produk dan bundle
+                foreach ($order->orderItems as $orderItem) {
+                    if ($orderItem->product_id && !$orderItem->product_bundle_id) {
+                        // Produk satuan
+                        $product = $orderItem->product;
+                        $avgCost = $product->inventoryStock->avg_cost ?? 0;
+                        $totalCogs += $avgCost * $orderItem->quantity;
+                    } elseif ($orderItem->product_bundle_id) {
+                        // Produk bundle
+                        $bundle = $orderItem->productBundle;
+                        $bundleCost = $bundle->items->sum(function ($bundleItem) {
+                            $product = $bundleItem->product;
+                            return $product->inventoryStock->avg_cost ?? 0;
+                        });
+                        $totalCogs += $bundleCost * $orderItem->quantity;
+                    }
+                }
+
+                $grossProfit = $totalRevenue - $totalCogs;
+                $netProfit = $grossProfit;
+
+                if ($financialReport) {
+                    // Update jika sudah ada record lama
+                    $financialReport->update([
+                        'date'         => $order->order_date,
+                        'revenue'      => $totalRevenue,
+                        'cogs'         => $totalCogs,
+                        'gross_profit' => $grossProfit,
+                        'expense'      => 0,
+                        'net_profit'   => $netProfit,
+                        'notes'        => 'Auto-updated from Mark as Sale List',
+                    ]);
+                } else {
+                    // Buat baru kalau belum ada
+                    FinancialReport::create([
+                        'date'             => $order->order_date,
+                        'transaction_type' => 'sale',
+                        'reference_id'     => $order->id,
+                        'reference_table'  => 'orders',
+                        'revenue'          => $totalRevenue,
+                        'cogs'             => $totalCogs,
+                        'gross_profit'     => $grossProfit,
+                        'expense'          => 0,
+                        'net_profit'       => $netProfit,
+                        'notes'            => 'Auto-generated from Mark as Sale List',
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Gagal mencatat laporan keuangan untuk Order ID ' . $order->id . ': ' . $e->getMessage());
             }
 
             DB::commit();

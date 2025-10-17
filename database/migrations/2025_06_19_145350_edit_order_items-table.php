@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('order_items', function (Blueprint $table) {
-            $table->decimal('discount_price', 10, 2)->default(0)->after('subtotal');
-            $table->decimal('total_after_discount', 10, 2)->default(0)->after('discount_price');
+            $table->decimal('discount_price', 15, 2)->default(0)->after('subtotal');
+            $table->decimal('total_after_discount', 15, 2)->default(0)->after('discount_price');
         });
     }
 

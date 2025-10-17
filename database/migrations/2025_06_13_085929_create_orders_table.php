@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreign('customer_id')->references('id')->on('customers')->onDelete('cascade');
             $table->string('order_number')->unique();
             $table->dateTime('order_date');
-            $table->decimal('total_amount', 10, 2)->default(0);
+            $table->decimal('total_amount', 15, 2)->default(0);
             $table->string('status')->default('pending');
             $table->string('payment_method')->nullable();
             $table->string('payment_status')->default('unpaid');

@@ -100,7 +100,7 @@ class InventoryController extends Controller
                     return $badge . $inventory->purchase->purchase_number ?? '-';
                 } elseif ($inventory->canceled_product_id) {
                     $badge = '<span class="badge bg-soft-warning text-warning mb-1">Canceled Product</span><br>';
-                    return $badge . 'CP-' . $inventory->date; // atau pakai kode khusus
+                    return $badge . ($inventory->order_number ?? '-'); // atau pakai kode khusus
                 } elseif ($inventory->sale_return_id) {
                     $badge = '<span class="badge bg-soft-danger text-danger mb-1">Sale Returns</span><br>';
                     return $badge . ($inventory->order_number ?? '-');

@@ -56,14 +56,12 @@ class ProductCategoriesController extends Controller
             'name' => 'required|string',
             'slug' => 'nullable|string',
             'description' => 'nullable|string',
-            'parent' => 'nullable|integer', // jika ingin membuat subkategori
         ]);
 
         ProductCategory::create([
             'name' => $request->name,
             'slug' => $request->slug ?? Str::slug($request->name),
             'description' => $request->description,
-            'parent' => $request->parent ?? 0,
         ]);
 
         return redirect('/erp/products/categories')->with('success', 'Kategori berhasil ditambahkan.');

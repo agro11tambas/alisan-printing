@@ -11,7 +11,7 @@ class PermissionSubItemUserSeeder extends Seeder
     public function run(): void
     {
         // ambil user dengan id 20
-        $user = User::find(20);
+        $user = User::find(1);
 
         if (!$user) {
             $this->command->warn('User dengan ID 20 tidak ditemukan.');

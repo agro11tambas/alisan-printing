@@ -31,11 +31,6 @@ class Products extends Model
         'opening_rate',
     ];
 
-    public function purchaseProduct()
-    {
-        return $this->hasOne(PurchaseProduct::class, 'product_id');
-    }
-
     public function discounts()
     {
         return $this->belongsToMany(Discount::class, 'discount_products', 'product_id', 'discount_id');

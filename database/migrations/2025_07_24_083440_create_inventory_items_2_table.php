@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('inventory_id')->constrained('inventories_2')->onDelete('cascade');
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade')->nullable();
             $table->integer('quantity');
-            $table->decimal('price', 10, 2)->nullable();
+            $table->decimal('price', 15, 2)->nullable();
             $table->integer('stock_in')->nullable();
             $table->integer('remaining_stock_in')->nullable();
             $table->integer('stock_out')->nullable();

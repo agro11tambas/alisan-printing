@@ -7,6 +7,7 @@ use App\Models\Inventory;
 use App\Models\InventoryStock;
 use Illuminate\Http\Request;
 use App\Models\Products;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class OpeningStockRateController extends Controller
@@ -81,25 +82,51 @@ class OpeningStockRateController extends Controller
             'minimum_stock'  => 'required|array',
         ]);
 
-        foreach ($request->id as $index => $id) {
-            $stock = InventoryStock::find($id);
-            if (!$stock) continue;
+        DB::beginTransaction();
+        try {
+            foreach ($request->id as $index => $id) {
+                $stock = InventoryStock::find($id);
+                if (!$stock) continue;
 
-            $newOpeningStock = (float) $request->opening_stock[$index];
-            $newOpeningRate  = (float) $request->opening_rate[$index];
-            $newMinimumStock = (float) $request->minimum_stock[$index];
+                $oldOpeningStock = (float) $stock->opening_stock;
+                $newOpeningStock = (float) $request->opening_stock[$index];
+                $newOpeningRate  = (float) $request->opening_rate[$index];
+                $newMinimumStock = (float) $request->minimum_stock[$index];
 
-            $stock->update([
-                'opening_stock' => $newOpeningStock,
-                'opening_rate'  => $newOpeningRate,
-                'minimum_stock' => $newMinimumStock,
-            ]);
+                // 🔹 Hitung selisih opening stock
+                $diff = $newOpeningStock - $oldOpeningStock;
 
-            // ✅ Recalculate stok & avg_cost pakai service
-            \App\Services\ProductCostService::updateCostAndStock($stock->product);
+                // 🔹 Update opening_stock + stok terkait
+                $stock->update([
+                    'opening_stock'     => $newOpeningStock,
+                    'opening_rate'      => $newOpeningRate,
+                    'minimum_stock'     => $newMinimumStock,
+                    'inventory_stock'   => max(0, $stock->inventory_stock + $diff),
+                    'stock_after_sales' => max(0, $stock->stock_after_sales + $diff),
+                ]);
+
+                // 🔹 Update total stok di tabel produk
+                $product = $stock->product;
+                if ($product) {
+                    $totalInventory  = InventoryStock::where('product_id', $product->id)->sum('inventory_stock');
+                    $totalAfterSales = InventoryStock::where('product_id', $product->id)->sum('stock_after_sales');
+
+                    $product->update([
+                        'inventory_stock'   => $totalInventory,
+                        'stock_after_sales' => $totalAfterSales,
+                    ]);
+                }
+
+                // 🔹 Update cost (optional)
+                \App\Services\ProductCostService::updateCostAndStock($stock->product);
+            }
+
+            DB::commit();
+            return redirect('/erp/opening-stock-rate')
+                ->with('success', 'Opening Stock Rate updated successfully.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to update Opening Stock Rate: ' . $e->getMessage());
         }
-
-        return redirect('/erp/opening-stock-rate')
-            ->with('success', 'Opening Stock Rate updated successfully.');
     }
 }

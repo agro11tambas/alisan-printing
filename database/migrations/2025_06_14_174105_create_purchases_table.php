@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('purchase_number');
             $table->date('purchase_date');
             $table->string('name');
-            $table->decimal('total_amount', 10, 2);
+            $table->decimal('total_amount', 15, 2);
             $table->text('notes')->nullable();
             $table->string('payment_status')->default('unpaid');
             $table->string('payment_method')->nullable();

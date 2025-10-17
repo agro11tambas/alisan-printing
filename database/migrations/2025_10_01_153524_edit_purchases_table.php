@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('purchases', function (Blueprint $table) {
+            $table->decimal('sub_total', 15, 2)->default(0)->after('due_date');
             $table->integer('tax_percent')->default(0)->after('sub_total');
         });
     }
