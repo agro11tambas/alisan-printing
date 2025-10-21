@@ -137,15 +137,15 @@
                     },
                     dataSrc: function(json) {
                         // Update footer total
-                        $('#totalRevenue').text('Rp ' + new Intl.NumberFormat('id-ID').format(json
+                        $('#totalRevenue').text('Rp ' + new Intl.NumberFormat('en-US').format(json
                             .summary.total_revenue));
-                        $('#totalCogs').text('Rp ' + new Intl.NumberFormat('id-ID').format(json.summary
+                        $('#totalCogs').text('Rp ' + new Intl.NumberFormat('en-US').format(json.summary
                             .total_cogs));
-                        $('#totalGrossProfit').text('Rp ' + new Intl.NumberFormat('id-ID').format(json
+                        $('#totalGrossProfit').text('Rp ' + new Intl.NumberFormat('en-US').format(json
                             .summary.total_gross));
-                        $('#totalExpenses').text('Rp ' + new Intl.NumberFormat('id-ID').format(json
+                        $('#totalExpenses').text('Rp ' + new Intl.NumberFormat('en-US').format(json
                             .summary.total_expense));
-                        $('#totalNetProfit').html('<strong>Rp ' + new Intl.NumberFormat('id-ID').format(
+                        $('#totalNetProfit').html('<strong>Rp ' + new Intl.NumberFormat('en-US').format(
                             json.summary.total_net) + '</strong>');
                         return json.data;
                     }
@@ -156,23 +156,23 @@
                     },
                     {
                         data: 'revenue',
-                        render: d => 'Rp ' + new Intl.NumberFormat('id-ID').format(d)
+                        render: d => 'Rp ' + new Intl.NumberFormat('en-US').format(d)
                     },
                     {
                         data: 'cogs',
-                        render: d => 'Rp ' + new Intl.NumberFormat('id-ID').format(d)
+                        render: d => 'Rp ' + new Intl.NumberFormat('en-US').format(d)
                     },
                     {
                         data: 'grossProfit',
-                        render: d => 'Rp ' + new Intl.NumberFormat('id-ID').format(d)
+                        render: d => 'Rp ' + new Intl.NumberFormat('en-US').format(d)
                     },
                     {
                         data: 'expenses',
-                        render: d => 'Rp ' + new Intl.NumberFormat('id-ID').format(d)
+                        render: d => 'Rp ' + new Intl.NumberFormat('en-US').format(d)
                     },
                     {
                         data: 'netProfit',
-                        render: d => '<strong>Rp ' + new Intl.NumberFormat('id-ID').format(d) +
+                        render: d => '<strong>Rp ' + new Intl.NumberFormat('en-US').format(d) +
                             '</strong>'
                     },
                 ]

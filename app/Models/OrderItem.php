@@ -31,8 +31,6 @@ class OrderItem extends Model
         'deleted_at' => 'datetime',
     ];
 
-    // protected $appends = ['completed_quantity', 'progress_percent'];
-
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
@@ -50,12 +48,12 @@ class OrderItem extends Model
 
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Products::class);
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
 
     public function productBundle(): BelongsTo
     {
-        return $this->belongsTo(ProductBundle::class);
+        return $this->belongsTo(ProductBundle::class, 'product_bundle_id');
     }
 
     public function inventoryItems()
@@ -66,6 +64,11 @@ class OrderItem extends Model
     public function components()
     {
         return $this->hasMany(OrderItemComponent::class, 'order_item_id');
+    }
+
+    public function designItems()
+    {
+        return $this->hasMany(DesignItem::class, 'order_item_id');
     }
 
     // public function getCompletedQuantityAttribute(): int
@@ -79,7 +82,7 @@ class OrderItem extends Model
     //         ? round(($this->completed_quantity / $this->quantity) * 100, 2)
     //         : 0;
     // }
-    
+
     protected static function booted()
     {
         static::restoring(function ($orderItem) {

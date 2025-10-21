@@ -61,15 +61,15 @@
                             <div class="row">
                                 <div class="col-lg-12">
                                     <!-- <div class="row mb-3 align-items-center">
-                                                    <div class="col-lg-2">
-                                                        <label for="purchase_number" class="fw-semibold">Paid Amount:</label>
-                                                    </div>
-                                                    <div class="col-lg-10 mb-0">
-                                                        <div class="input-group">
-                                                            <input type="text" class="form-control" id="purchase_number" name="purchase_number" value="{{ old('purchase_number', $purchase->purchase_number) }}">
-                                                        </div>
-                                                    </div>
-                                                </div> -->
+                                                                                                    <div class="col-lg-2">
+                                                                                                        <label for="purchase_number" class="fw-semibold">Paid Amount:</label>
+                                                                                                    </div>
+                                                                                                    <div class="col-lg-10 mb-0">
+                                                                                                        <div class="input-group">
+                                                                                                            <input type="text" class="form-control" id="purchase_number" name="purchase_number" value="{{ old('purchase_number', $purchase->purchase_number) }}">
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div> -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="purchase_date" class="fw-semibold">Purchase Date:</label>
@@ -161,18 +161,26 @@
                                                                 @endforeach
                                                             </select>
                                                         </td>
-                                                        <td><input type="number" name="qty[]" class="form-control qty"
-                                                                min="1" value="{{ $item->quantity ?? '' }}"></td>
-                                                        <td><input type="number" name="price[]"
-                                                                class="form-control price"
-                                                                value="{{ $item->price ?? '' }}"></td>
-                                                        <td><input type="number" name="freight[]"
-                                                                class="form-control freight"
-                                                                value="{{ $item->freight ?? 0 }}"></td>
-                                                        <td><input type="number" name="total[]"
-                                                                class="form-control total" readonly
-                                                                value="{{ $item->total ?? $item->quantity * $item->price + $item->freight }}">
+                                                        <td><input type="text" inputmode="numeric" pattern="[0-9.,]*"
+                                                                name="qty[]" class="form-control qty"
+                                                                value="{{ number_format($item->quantity ?? 0, 2, ',', '.') }}">
                                                         </td>
+
+                                                        <td><input type="text" inputmode="numeric" pattern="[0-9.,]*"
+                                                                name="price[]" class="form-control price"
+                                                                value="{{ number_format($item->price ?? 0, 2, ',', '.') }}">
+                                                        </td>
+
+                                                        <td><input type="text" inputmode="numeric" pattern="[0-9.,]*"
+                                                                name="freight[]" class="form-control freight"
+                                                                value="{{ number_format($item->freight ?? 0, 2, ',', '.') }}">
+                                                        </td>
+
+                                                        <td><input type="text" inputmode="numeric" pattern="[0-9.,]*"
+                                                                name="total[]" class="form-control total" readonly
+                                                                value="{{ number_format($item->quantity * ($item->price + $item->freight), 2, ',', '.') }}">
+                                                        </td>
+
                                                         <td class="text-center">
                                                             <button type="button" class="btn btn-danger delete-row">
                                                                 <i class="feather-trash-2"></i>
@@ -197,17 +205,27 @@
                                                                 @endforeach
                                                             </select>
                                                         </td>
-                                                        <td><input type="number" name="qty[]" class="form-control qty"
-                                                                min="1"></td>
-                                                        <td><input type="number" name="price[]"
-                                                                class="form-control price"></td>
-                                                        <td><input type="number" name="freight[]"
-                                                                class="form-control freight"
-                                                                value="{{ $item->freight ?? 0 }}"></td>
-                                                        <td><input type="number" name="total[]"
-                                                                class="form-control total" readonly
-                                                                value="{{ $item->subtotal ?? $item->quantity * $item->price + $item->freight }}">
+                                                        <td>
+                                                            <input type="text" inputmode="numeric" name="qty[]"
+                                                                class="form-control qty"
+                                                                value="{{ number_format($item->quantity ?? 0, 2, ',', '.') }}">
                                                         </td>
+                                                        <td>
+                                                            <input type="text" inputmode="numeric" name="price[]"
+                                                                class="form-control price"
+                                                                value="{{ number_format($item->price ?? 0, 2, ',', '.') }}">
+                                                        </td>
+                                                        <td>
+                                                            <input type="text" inputmode="numeric" name="freight[]"
+                                                                class="form-control freight"
+                                                                value="{{ number_format($item->freight ?? 0, 2, ',', '.') }}">
+                                                        </td>
+                                                        <td>
+                                                            <input type="text" inputmode="numeric" name="total[]"
+                                                                class="form-control total" readonly
+                                                                value="{{ number_format($item->quantity * ($item->price + $item->freight), 2, ',', '.') }}">
+                                                        </td>
+
                                                         <td><input type="number" name="total[]"
                                                                 class="form-control total" readonly></td>
                                                         <td class="text-center">
@@ -317,60 +335,69 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA ===
-        function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }).format(num);
+        // === FORMAT ANGKA RIBUAN (INDONESIA STYLE) ===
+        function formatRibuan(angka) {
+            if (angka === null || angka === undefined || isNaN(angka)) return '0';
+            const parts = parseFloat(angka).toFixed(2).split('.');
+            const ribuan = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return ribuan + ',' + parts[1];
         }
 
-        // === PERHITUNGAN TOTAL PER BARIS ===
+        // === UNFORMAT RIBUAN KE ANGKA MURNI ===
+        function unformatRibuan(angka) {
+            if (!angka) return 0;
+            return parseFloat(angka.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        // === PERHITUNGAN TIAP BARIS ===
         function updateRowTotal(row) {
-            const qty = parseFloat(row.find(".qty").val()) || 0;
-            const price = parseFloat(row.find(".price").val()) || 0;
-            const freight = parseFloat(row.find(".freight").val()) || 0;
+            let qty = unformatRibuan(row.find(".qty").val());
+            let price = unformatRibuan(row.find(".price").val());
+            let freight = unformatRibuan(row.find(".freight").val());
+
+            // Pastikan bukan NaN
+            qty = isNaN(qty) ? 0 : qty;
+            price = isNaN(price) ? 0 : price;
+            freight = isNaN(freight) ? 0 : freight;
+
             const total = qty * (price + freight);
 
-            row.find(".total").val(total.toFixed(2));
+            row.find(".total").val(formatRibuan(total || 0));
             calc_total();
         }
+
 
         // === PERHITUNGAN TOTAL AKHIR ===
         function calc_total() {
             let subtotalProduct = 0,
                 subtotalFreight = 0;
 
-            // Loop setiap baris tabel
             $('#tab_logic tbody tr').each(function() {
-                const qty = parseFloat($(this).find('.qty').val()) || 0;
-                const price = parseFloat($(this).find('.price').val()) || 0;
-                const freight = parseFloat($(this).find('.freight').val()) || 0;
-
+                const qty = unformatRibuan($(this).find('.qty').val());
+                const price = unformatRibuan($(this).find('.price').val());
+                const freight = unformatRibuan($(this).find('.freight').val());
                 subtotalProduct += qty * price;
                 subtotalFreight += qty * freight;
             });
 
-            const taxPercent = parseFloat($("#tax_percent").val()) || 0;
+            const taxPercent = unformatRibuan($("#tax_percent").val());
             const taxAmount = (subtotalProduct * taxPercent) / 100;
 
             const totalProduct = subtotalProduct + taxAmount;
-            const subTotal = subtotalProduct + subtotalFreight;
             const grandTotal = totalProduct + subtotalFreight;
+            const subTotal = subtotalProduct + subtotalFreight;
 
-            // Hidden values
             $("#total_amount_product").val(totalProduct.toFixed(2));
             $("#total_amount_freight").val(subtotalFreight.toFixed(2));
             $("#sub_total").val(subTotal.toFixed(2));
             $("#tax_amount").val(taxAmount.toFixed(2));
             $("#total_amount").val(grandTotal.toFixed(2));
 
-            // Display values
-            $("#total_amount_product_display").val(formatNumber(totalProduct));
-            $("#total_amount_freight_display").val(formatNumber(subtotalFreight));
-            $("#sub_total_display").val(formatNumber(subTotal));
-            $("#tax_amount_display").val(formatNumber(taxAmount));
-            $("#total_amount_display").val(formatNumber(grandTotal));
+            $("#total_amount_product_display").val(formatRibuan(totalProduct.toFixed(2)));
+            $("#total_amount_freight_display").val(formatRibuan(subtotalFreight.toFixed(2)));
+            $("#sub_total_display").val(formatRibuan(subTotal.toFixed(2)));
+            $("#tax_amount_display").val(formatRibuan(taxAmount.toFixed(2)));
+            $("#total_amount_display").val(formatRibuan(grandTotal.toFixed(2)));
         }
 
         // === INIT SELECT2 ===
@@ -389,56 +416,17 @@
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
-
-            // Hitung total awal saat edit page dibuka
-            $('#tab_logic tbody tr').each(function() {
-                updateRowTotal($(this));
-            });
             calc_total();
 
-            // Produk berubah → isi harga otomatis
-            $(document).on('change', '.select-product', function() {
-                const row = $(this).closest('tr');
-                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
-                row.find('.price').val(price.toFixed(2));
-                updateRowTotal(row);
-            });
-
-            // Qty / Price / Freight berubah
-            $(document).on('input', '.qty, .price, .freight', function() {
-                updateRowTotal($(this).closest('tr'));
-            });
-
-            // Pajak berubah → update semua harga dan total
-            $(document).on('input', '#tax_percent', function() {
-                const taxPercent = parseFloat($(this).val()) || 0;
-
-                $(".price").each(function() {
-                    const row = $(this).closest('tr');
-                    const originalPrice = parseFloat($(this).data('original')) || parseFloat($(this)
-                        .val()) || 0;
-
-                    // Simpan harga asli satu kali
-                    if (!$(this).data('original')) {
-                        $(this).data('original', originalPrice);
-                    }
-
-                    // Hitung harga baru berdasarkan pajak
-                    const newPrice = originalPrice * (1 + (taxPercent / 100));
-                    $(this).val(newPrice.toFixed(2));
-                    updateRowTotal(row);
-                });
-
-                calc_total();
-            });
-
-            // Tambah baris produk
+            // Tambah row
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
-                const $last = $tbody.find('tr:last');
-                const $newRow = $last.clone();
+                const $newRow = $tbody.find('tr:first').clone();
+                const newIndex = $tbody.find('tr').length;
 
-                $newRow.find('input, select').val('');
+                $newRow.attr('id', 'addr' + newIndex);
+                $newRow.find('td:first').text(newIndex + 1);
+                $newRow.find('input').val('');
                 $newRow.find('.freight').val('0');
                 $newRow.find('.total').val('0.00');
                 $newRow.find('.select2').remove();
@@ -446,163 +434,56 @@
 
                 $tbody.append($newRow);
                 initSelect2($newRow.find('.select-product'));
-                renumberRows();
             });
 
-            // Hapus baris produk
+            // Hapus row
             $(document).on('click', '.delete-row', function() {
                 if ($('#tab_logic tbody tr').length > 1) {
                     $(this).closest('tr').remove();
-                    renumberRows();
                     calc_total();
                 }
             });
 
-            // Fungsi penomoran ulang
-            function renumberRows() {
-                $('#tab_logic tbody tr').each(function(i) {
-                    $(this).find('td:first').text(i + 1);
-                });
-            }
-        });
-
-        // === VALIDASI FRONTEND ===
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('purchaseForm');
-
-            form.addEventListener('submit', function(e) {
-                let isValid = true;
-
-                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-
-                // Validasi supplier
-                const supplierSelect = $('#suppliers');
-                if (!supplierSelect.val()) {
-                    isValid = false;
-                    showError(supplierSelect[0], 'Supplier wajib dipilih');
-                }
-
-                // Validasi tiap baris produk
-                const rows = form.querySelectorAll('#tab_logic tbody tr');
-                rows.forEach((row, i) => {
-                    const product = row.querySelector('select[name="product[]"]');
-                    const qty = row.querySelector('input[name="qty[]"]');
-                    if (!product.value) {
-                        isValid = false;
-                        showError(product, `Produk baris ${i + 1} wajib dipilih`);
-                    }
-                    if (!qty.value || parseFloat(qty.value) < 1) {
-                        isValid = false;
-                        showError(qty, 'Qty minimal 1');
-                    }
-                });
-
-                if (!isValid) e.preventDefault();
+            // Produk berubah → isi harga otomatis
+            $(document).on('change', '.select-product', function() {
+                const row = $(this).closest('tr');
+                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
+                row.find('.price').val(formatRibuan(price.toFixed(2)));
+                updateRowTotal(row);
             });
 
-            // Fungsi tampilkan error
-            function showError(el, message) {
-                if ($(el).hasClass('select2-hidden-accessible')) {
-                    const select2Container = $(el).next('.select2');
-                    select2Container.next('.invalid-feedback').remove();
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback d-block';
-                    feedback.textContent = message;
-                    select2Container[0].after(feedback);
-                } else {
-                    el.classList.add('is-invalid');
-                    const parent = el.closest('.input-group') || el.parentNode;
-                    const existing = parent.querySelector('.invalid-feedback');
-                    if (existing) existing.remove();
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback d-block';
-                    feedback.textContent = message;
-                    parent.appendChild(feedback);
-                }
-            }
-        });
-
-        // === VALIDASI FRONTEND ===
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('purchaseForm');
-
-            form.addEventListener('submit', function(e) {
-                let isValid = true;
-
-                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-
-                // Supplier wajib dipilih
-                const supplierSelect = $('#suppliers');
-                if (!supplierSelect.val()) {
-                    isValid = false;
-                    showError(supplierSelect[0], 'Supplier wajib dipilih');
-                }
-
-                // Tanggal wajib diisi
-                const purchaseDate = document.getElementById('purchase_date');
-                if (!purchaseDate.value.trim()) {
-                    isValid = false;
-                    showError(purchaseDate, 'Tanggal purchase wajib diisi');
-                }
-
-                // Produk & Qty wajib
-                const rows = form.querySelectorAll('#tab_logic tbody tr');
-                rows.forEach((row, i) => {
-                    const product = row.querySelector('select[name="product[]"]');
-                    const qty = row.querySelector('input[name="qty[]"]');
-
-                    if (!product.value) {
-                        isValid = false;
-                        showError(product, `Produk baris ${i + 1} wajib dipilih`);
-                    }
-                    if (!qty.value || parseFloat(qty.value) < 1) {
-                        isValid = false;
-                        showError(qty, 'Qty minimal 1');
-                    }
-                });
-
-                if (!isValid) e.preventDefault();
+            // Qty / Price / Freight berubah
+            // Saat mengetik — hanya hitung total, jangan ubah tampilan
+            $(document).on('input', '.qty, .price, .freight', function() {
+                updateRowTotal($(this).closest('tr'));
             });
 
-            // Fungsi tampilkan error
-            function showError(el, message) {
-                if ($(el).hasClass('select2-hidden-accessible')) {
-                    const select2Container = $(el).next('.select2');
-                    select2Container.next('.invalid-feedback').remove();
-
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback d-block';
-                    feedback.textContent = message;
-                    select2Container[0].after(feedback);
-                } else {
-                    el.classList.add('is-invalid');
-                    const parent = el.closest('.input-group') || el.parentNode;
-                    const existing = parent.querySelector('.invalid-feedback');
-                    if (existing) existing.remove();
-
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback d-block';
-                    feedback.textContent = message;
-                    parent.appendChild(feedback);
-                }
-            }
-
-            // Hapus error saat input berubah
-            form.querySelectorAll('input, select').forEach(el => {
-                el.addEventListener('input', () => {
-                    el.classList.remove('is-invalid');
-                    const next = el.parentNode.querySelector('.invalid-feedback');
-                    if (next) next.remove();
-                });
+            // Saat keluar dari input (blur) — baru format ribuan
+            $(document).on('blur', '.qty, .price, .freight', function() {
+                let val = unformatRibuan($(this).val());
+                $(this).val(formatRibuan(val));
+                updateRowTotal($(this).closest('tr'));
             });
-        });
 
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
+            // Tax berubah
+            $(document).on('input', '#tax_percent', calc_total);
+
+            // Sebelum submit, hapus format koma
+            $('#purchaseForm').on('submit', function(e) {
+                // Pastikan tidak error JS
+                try {
+                    $('.qty, .price, .freight, .total').each(function() {
+                        let val = $(this).val() || '0';
+                        $(this).val(val.toString().replace(/\./g, '').replace(',',
+                        '.')); // ubah ke format angka murni
+                    });
+                } catch (err) {
+                    console.error('Error sebelum submit:', err);
+                }
+                // IZINKAN form tetap submit
+                return true;
+            });
+
         });
     </script>
 @endpush

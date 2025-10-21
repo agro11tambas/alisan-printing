@@ -22,8 +22,12 @@ use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\AccountListController;
 use App\Http\Controllers\Admin\CanceledProductController;
 use App\Http\Controllers\Admin\CapitalTransactionController;
+use App\Http\Controllers\Admin\DefectProductController;
+use App\Http\Controllers\Admin\DefectProductHistoryController;
 use App\Http\Controllers\Admin\DeliveryListController;
 use App\Http\Controllers\Admin\DeliveryOrderController;
+use App\Http\Controllers\Admin\DesignController;
+use App\Http\Controllers\Admin\DesignItemController;
 use App\Http\Controllers\Admin\HistoryRequestStockController;
 use App\Http\Controllers\Admin\HistoryStockInController;
 use App\Http\Controllers\Admin\HistoryStockOutController;
@@ -50,6 +54,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\isLogin;
 use App\Models\CanceledProduct;
+use App\Models\DefectProduct;
 use GuzzleHttp\Psr7\Request;
 use Illuminate\Validation\Rules\Can;
 
@@ -111,6 +116,29 @@ Route::middleware(isLogin::class)->group(function () {
             Route::put('/erp/products/product-bundles/update/{id}', [ProductBundleController::class, 'update']);
             Route::delete('/erp/products/product-bundles/delete/{id}', [ProductBundleController::class, 'delete']);
             Route::get('/search-products', [ProductBundleController::class, 'search']);
+        });
+    });
+
+    Route::middleware(['auth', 'permission:adjustment'])->group(function () {
+        Route::middleware(['auth', 'subpermission:canceled'])->group(function () {
+            Route::get('/erp/adjustment-products/canceled-products', [CanceledProductController::class, 'getCanceledProducts']);
+            Route::get('/erp/adjustment-products/canceled-products/data', [CanceledProductController::class, 'dataCanceledProducts']);
+            Route::post('/erp/adjustment-products/canceled-products/return-to-warehouse/{id}', [CanceledProductController::class, 'returnToWarehouse']);
+            Route::get('/erp/adjustment-products/canceled-products/detail/{id}', [CanceledProductController::class, 'detailCanceledProducts']);
+            Route::get('/erp/adjustment-products/canceled-products/detail/{id}/data', [CanceledProductController::class, 'dataDetailCanceledProducts']);
+            Route::get('/erp/adjustment-products/canceled-products/history/{id}', [CanceledProductController::class, 'getCanceledProductHistory']);
+            Route::get('/erp/adjustment-products/canceled-products/history/{id}/data', [CanceledProductController::class, 'dataCanceledProductHistory']);
+        });
+
+        Route::middleware(['auth', 'subpermission:defect'])->group(function () {
+            Route::get('/erp/adjustment-products/defect-products', [DefectProductController::class, 'getDefectProducts']);
+            Route::get('/erp/adjustment-products/defect-products/data', [DefectProductController::class, 'dataDefectProducts']);
+            Route::get('/erp/adjustment-products/defect-products/detail-defect-products/{id}', [DefectProductController::class, 'detailDefectProducts'])->name('erp.defect-products.details');
+            Route::get('/erp/adjustment-products/defect-products/detail-defect-products/data/{id}', [DefectProductController::class, 'dataDetailDefectProducts']);
+            Route::post('/erp/adjustment-products/defect-products/return-to-supplier/{id}', [DefectProductHistoryController::class, 'returnToSupplier']);
+            Route::post('/erp/adjustment-products/defect-products/eliminate/{id}', [DefectProductHistoryController::class, 'eliminate']);
+            Route::get('/erp/adjustment-products/defect-products/history/{id}', [DefectProductHistoryController::class, 'historyPage'])->name('erp.defect-products.history');
+            Route::get('/erp/adjustment-products/defect-products/history/data/{id}', [DefectProductHistoryController::class, 'dataHistory']);
         });
     });
 
@@ -217,6 +245,13 @@ Route::middleware(isLogin::class)->group(function () {
         });
     });
 
+    Route::middleware(['auth', 'permission:design'])->group(function () {
+        Route::get('/erp/design', [DesignController::class, 'getDesign'])->name('design');
+        Route::get('/erp/design/data', [DesignController::class, 'dataDesign']);
+        Route::post('/erp/design-items/{id}/upload', [DesignItemController::class, 'upload'])->name('design-items.upload');
+        Route::post('/erp/design/{id}/verify', [DesignController::class, 'verify'])->name('design.verify');
+    });
+
     Route::middleware(['auth', 'permission:production'])->group(function () {
         Route::middleware(['auth', 'subpermission:waiting-list'])->group(function () {
             Route::get('/erp/productions/waiting-list/data', [WaitingListController::class, 'dataWaitingList']);
@@ -258,17 +293,17 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/productions/report-items/data', [ReportItemsProductionController::class, 'dataReportItems']);
         });
 
-        Route::middleware(['auth', 'subpermission:canceled-products'])->group(function () {
-            Route::get('/erp/productions/canceled-products', [CanceledProductController::class, 'getCanceledProducts']);
-            Route::get('/erp/productions/canceled-products/data', [CanceledProductController::class, 'dataCanceledProducts']);
-            Route::post('/erp/productions/canceled-products/return-to-warehouse/{id}', [CanceledProductController::class, 'returnToWarehouse']);
+        // Route::middleware(['auth', 'subpermission:canceled-products'])->group(function () {
+        //     Route::get('/erp/productions/canceled-products', [CanceledProductController::class, 'getCanceledProducts']);
+        //     Route::get('/erp/productions/canceled-products/data', [CanceledProductController::class, 'dataCanceledProducts']);
+        //     Route::post('/erp/productions/canceled-products/return-to-warehouse/{id}', [CanceledProductController::class, 'returnToWarehouse']);
 
-            Route::get('/erp/productions/canceled-products/detail/{id}', [CanceledProductController::class, 'detailCanceledProducts']);
-            Route::get('/erp/productions/canceled-products/detail/{id}/data', [CanceledProductController::class, 'dataDetailCanceledProducts']);
+        //     Route::get('/erp/productions/canceled-products/detail/{id}', [CanceledProductController::class, 'detailCanceledProducts']);
+        //     Route::get('/erp/productions/canceled-products/detail/{id}/data', [CanceledProductController::class, 'dataDetailCanceledProducts']);
 
-            Route::get('/erp/productions/canceled-products/history/{id}', [CanceledProductController::class, 'getCanceledProductHistory']);
-            Route::get('/erp/productions/canceled-products/history/{id}/data', [CanceledProductController::class, 'dataCanceledProductHistory']);
-        });
+        //     Route::get('/erp/productions/canceled-products/history/{id}', [CanceledProductController::class, 'getCanceledProductHistory']);
+        //     Route::get('/erp/productions/canceled-products/history/{id}/data', [CanceledProductController::class, 'dataCanceledProductHistory']);
+        // });
 
         // Route::get('/erp/productions/waiting-list/history-order/{id}', [HistoryProgressOrderController::class, 'getOrderHistory']);
         // Route::get('/erp/productions/waiting-list/history-order/{id}/data', [HistoryProgressOrderController::class, 'dataOrderHistory']);
@@ -311,10 +346,12 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/purchases/purchase-orders/edit-purchase/{id}', [PurchaseOrderController::class, 'edit']);
             Route::put('/erp/purchases/purchase-orders/update/{id}', [PurchaseOrderController::class, 'update']);
             Route::delete('/erp/purchases/purchase-orders/delete/{id}', [PurchaseOrderController::class, 'delete']);
-            Route::post('/erp/purchases/purchase-orders/mark-as-purchase-list/{id}', [PurchaseOrderController::class, 'markAsPurchaseList']);
+            Route::get('/erp/purchases/purchase-orders/mark-as-purchase-list/{id}', [PurchaseOrderController::class, 'markAsPurchaseList']);
+            Route::put('/erp/purchases/purchase-orders/mark-as-purchase-list/update/{id}', [PurchaseOrderController::class, 'updatePurchaseList'])->name('purchase-orders.update-purchase-list');
         });
 
         Route::middleware(['auth', 'subpermission:purchase-list'])->group(function () {
+            Route::get('/erp/purchases/get-latest-price/{productId}', [PurchaseListController::class, 'getLatestPrice']);
             Route::get('/erp/purchases/purchase-list/detail-purchase/{id}', [PurchaseDetailController::class, 'getPurchaseListDetail']);
             Route::get('/erp/purchases/purchase-list/data', [PurchaseListController::class, 'dataPurchaseList']);
             Route::get('/erp/purchases/purchase-list', [PurchaseListController::class, 'getPurchaseList']);

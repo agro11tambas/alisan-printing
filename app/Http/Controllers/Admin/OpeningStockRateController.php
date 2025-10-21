@@ -106,16 +106,16 @@ class OpeningStockRateController extends Controller
                 ]);
 
                 // 🔹 Update total stok di tabel produk
-                $product = $stock->product;
-                if ($product) {
-                    $totalInventory  = InventoryStock::where('product_id', $product->id)->sum('inventory_stock');
-                    $totalAfterSales = InventoryStock::where('product_id', $product->id)->sum('stock_after_sales');
+                // $product = $stock->product;
+                // if ($product) {
+                //     $totalInventory  = InventoryStock::where('product_id', $product->id)->sum('inventory_stock');
+                //     $totalAfterSales = InventoryStock::where('product_id', $product->id)->sum('stock_after_sales');
 
-                    $product->update([
-                        'inventory_stock'   => $totalInventory,
-                        'stock_after_sales' => $totalAfterSales,
-                    ]);
-                }
+                //     $product->update([
+                //         'inventory_stock'   => $totalInventory,
+                //         'stock_after_sales' => $totalAfterSales,
+                //     ]);
+                // }
 
                 // 🔹 Update cost (optional)
                 \App\Services\ProductCostService::updateCostAndStock($stock->product);

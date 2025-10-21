@@ -20,6 +20,8 @@ use App\Models\InventoryItem;
 use App\Models\Bank;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
+use App\Models\Design;
+use App\Models\DesignItem;
 use App\Models\FinancialReport;
 use App\Models\InventoryStock;
 use App\Models\Invoice;
@@ -110,13 +112,13 @@ class SaleOrderController extends Controller
                 return $order->customer->name;
             })
             ->addColumn('total_amount', function ($order) {
-                return 'Rp ' . number_format($order->total_amount, 0, ',', '.');
+                return 'Rp ' . number_format($order->total_amount);
             })
             ->addColumn('discount', function ($order) {
-                return '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>';
+                return '<span class="text-warning">Rp ' . number_format($order->discount) . '</span>';
             })
             ->addColumn('grand_total', function ($order) {
-                return '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>';
+                return '<span class="text-primary">Rp ' . number_format($order->grand_total) . '</span>';
             })
             ->addColumn('payment_status', function ($order) {
                 $payment_status = strtolower($order->payment_status);
@@ -144,7 +146,7 @@ class SaleOrderController extends Controller
                         'name'  => $name,
                         'sku'   => $item->product ? $item->product->sku : ($item->productBundle ? $item->productBundle->sku : '-'),
                         'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0, 0, ',', '.')
+                        'price' => number_format($item->price ?? 0)
                     ];
                 })->toArray();
             })
@@ -328,7 +330,8 @@ class SaleOrderController extends Controller
 
                     // Ambil avg cost dari tabel inventory_stocks
                     $inventoryStock = \App\Models\InventoryStock::where('product_id', $product->id)->first();
-                    $avgCost = $inventoryStock?->avg_cost ?? 0;
+                    $avgCost = $product?->avg_cost ?? 0;
+                    $fixedCost = $product->fixed_cost ?? 0;
 
                     // Buat order item utama
                     $orderItem = OrderItem::create([
@@ -351,7 +354,9 @@ class SaleOrderController extends Controller
                         'product_id'       => $product->id,
                         'qty'         => $qty,
                         'avg_cost_at_sale' => $avgCost,
+                        'fixed_cost_at_sale' => $fixedCost,
                         'total_cost'       => $avgCost * $qty,
+                        'total_fixed_cost' => $fixedCost * $qty,
                     ]);
                 }
 
@@ -363,11 +368,14 @@ class SaleOrderController extends Controller
 
                     // Hitung total avg cost bundle (sum dari komponen real di inventory_stocks)
                     $totalAvgCost = 0;
+                    $totalFixedCost = 0;
                     foreach ($bundle->items as $bundleItem) {
                         $component = $bundleItem->product;
-                        $componentStock = \App\Models\InventoryStock::where('product_id', $component->id)->first();
-                        $componentAvgCost = $componentStock?->avg_cost ?? 0;
+                        $component = \App\Models\InventoryStock::where('product_id', $component->id)->first();
+                        $componentAvgCost = $component?->avg_cost ?? 0;
+                        $componentFixedCost = $component?->fixed_cost ?? 0;
                         $totalAvgCost += ($componentAvgCost * $bundleItem->quantity);
+                        $totalFixedCost += ($componentFixedCost * $bundleItem->quantity);
                     }
 
                     // Buat order_item utama untuk bundle
@@ -396,7 +404,9 @@ class SaleOrderController extends Controller
                             'product_id'       => $component->id,
                             'qty'              => $qty, // per bundle × jumlah bundle
                             'avg_cost_at_sale' => $componentAvgCost,
+                            'fixed_cost_at_sale' => $component->fixed_cost ?? 0,
                             'total_cost'       => $componentAvgCost * $qty,
+                            'total_fixed_cost' => ($component->fixed_cost ?? 0) * $qty,
                         ]);
                     }
                 }
@@ -738,7 +748,8 @@ class SaleOrderController extends Controller
                 if ($type === 'satuan') {
                     $product = Products::findOrFail($pid);
                     $stock = \App\Models\InventoryStock::where('product_id', $pid)->first();
-                    $avgCost = $stock?->avg_cost ?? 0;
+                    $avgCost = $product?->avg_cost ?? 0;
+                    $fixedCost = $product?->fixed_cost ?? 0;
 
                     // cari order item yang sudah ada
                     $orderItem = $order->orderItems()
@@ -763,7 +774,9 @@ class SaleOrderController extends Controller
                             $component->update([
                                 'qty'              => $qty,
                                 'avg_cost_at_sale' => $avgCost,
+                                'fixed_cost_at_sale' => $fixedCost,
                                 'total_cost'       => $avgCost * $qty,
+                                'total_fixed_cost' => $fixedCost * $qty,
                             ]);
                         }
                     } else {
@@ -786,7 +799,9 @@ class SaleOrderController extends Controller
                             'product_id'       => $product->id,
                             'qty'              => $qty,
                             'avg_cost_at_sale' => $avgCost,
+                            'fixed_cost_at_sale' => $fixedCost,
                             'total_cost'       => $avgCost * $qty,
+                            'total_fixed_cost' => $fixedCost * $qty,
                         ]);
                     }
 
@@ -821,8 +836,9 @@ class SaleOrderController extends Controller
                             if (!$component) continue;
 
                             $stock = \App\Models\InventoryStock::where('product_id', $component->id)->first();
-                            $avgCost = $stock?->avg_cost ?? 0;
-                            $totalQty = $qty; // ✅ ambil dari order item qty, bukan bundleItem->quantity
+                            $avgCost = $component?->avg_cost ?? 0;
+                            $fixedCost = $component?->fixed_cost ?? 0;
+                            $totalQty = $qty;
 
                             // cari component yang sudah ada
                             $componentRow = $orderItem->components()
@@ -833,14 +849,18 @@ class SaleOrderController extends Controller
                                 $componentRow->update([
                                     'qty'              => $totalQty,
                                     'avg_cost_at_sale' => $avgCost,
+                                    'fixed_cost_at_sale' => $fixedCost,
                                     'total_cost'       => $avgCost * $totalQty,
+                                    'total_fixed_cost' => $fixedCost * $totalQty,
                                 ]);
                             } else {
                                 $orderItem->components()->create([
                                     'product_id'       => $component->id,
                                     'qty'              => $totalQty,
                                     'avg_cost_at_sale' => $avgCost,
+                                    'fixed_cost_at_sale' => $fixedCost,
                                     'total_cost'       => $avgCost * $totalQty,
+                                    'total_fixed_cost' => $fixedCost * $totalQty,
                                 ]);
                             }
 
@@ -868,14 +888,17 @@ class SaleOrderController extends Controller
                             if (!$component) continue;
 
                             $stock = \App\Models\InventoryStock::where('product_id', $component->id)->first();
-                            $avgCost = $stock?->avg_cost ?? 0;
-                            $totalQty = $qty; // ✅ sama, ambil dari order item
+                            $avgCost = $component?->avg_cost ?? 0;
+                            $fixedCost = $component?->fixed_cost ?? 0;
+                            $totalQty = $qty;
 
                             $orderItem->components()->create([
                                 'product_id'       => $component->id,
                                 'qty'              => $totalQty,
                                 'avg_cost_at_sale' => $avgCost,
+                                'fixed_cost_at_sale' => $fixedCost,
                                 'total_cost'       => $avgCost * $totalQty,
+                                'total_fixed_cost' => $fixedCost * $totalQty,
                             ]);
 
                             $component->decrement('stock_after_sales', $totalQty);
@@ -1102,66 +1125,49 @@ class SaleOrderController extends Controller
                 }
             }
 
-            $orderProgress = OrderProgress::create([
-                'order_id' => $order->id,
-                'date'     => now()->format('Y-m-d'),
-                'status'   => 'Pending',
-                'notes'    => null,
-                'invoice_number' => $order->order_number,
+            // ================== BUAT DESIGN DAN DESIGN ITEMS ==================
+            $designNumber = $order->order_number;
 
+            $design = Design::create([
+                'order_id' => $order->id,
+                'design_number' => $designNumber,
+                'date' => now()->format('Y-m-d'),
+                'status' => 'Pending',
+                'notes' => null,
+                'verification_status' => 'pending',
             ]);
 
             foreach ($order->orderItems as $orderItem) {
                 $qty = $orderItem->quantity;
 
                 if ($orderItem->satuan === 'satuan') {
-                    // buat progress biasa
-                    OrderProgressItem::create([
-                        'order_progress_id' => $orderProgress->id,
-                        'order_item_id'     => $orderItem->id,
-                        'product_id'        => $orderItem->product_id,
-                        'quantity'          => $qty,
+                    DesignItem::create([
+                        'design_id' => $design->id,
+                        'order_item_id' => $orderItem->id,
+                        'product_id' => $orderItem->product_id,
+                        'quantity' => $qty,
                         'completed_quantity' => 0,
+                        'design_file' => null,
+                        'preview_image' => null,
+                        'verification_status' => 'pending',
                     ]);
                 } elseif ($orderItem->satuan === 'bundle') {
-                    // buat progress per product dalam bundle
-                    foreach ($orderItem->productBundle->items as $productBundle) {
-                        $bundleProduct = $productBundle->product;
+                    foreach ($orderItem->productBundle->items as $bundleItem) {
+                        $bundleProduct = $bundleItem->product;
                         if (!$bundleProduct) continue;
 
-                        OrderProgressItem::create([
-                            'order_progress_id' => $orderProgress->id,
-                            'order_item_id'     => $orderItem->id,
-                            'product_id'        => $bundleProduct->id,
-                            'quantity'          => $qty,
+                        DesignItem::create([
+                            'design_id' => $design->id,
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $bundleProduct->id,
+                            'quantity' => $qty,
                             'completed_quantity' => 0,
+                            'design_file' => null,
+                            'preview_image' => null,
+                            'verification_status' => 'pending',
                         ]);
                     }
                 }
-            }
-
-            // ================== BUAT DELIVERY ORDER ==================
-            $deliveryOrder = DeliveryOrder::create([
-                'order_id'        => $order->id,
-                'delivery_number' => 'DO/' . $order->order_number,
-                'delivery_date'   => now()->format('Y-m-d'),
-                'note'            => $request->notes,
-                'status'          => 'Draft',
-                'shipping_address' => $order->shipping_address,
-                'created_by'      => Auth::id(),
-            ]);
-
-            foreach ($orderProgress->items as $progressItem) {
-                DeliveryOrderItem::create([
-                    'delivery_order_id' => $deliveryOrder->id,
-                    'order_progress_id' => $orderProgress->id,
-                    'order_item_id'     => $progressItem->order_item_id,
-                    'product_id'        => $progressItem->product_id,
-                    'status'            => $orderProgress->status,
-                    'progress_qty'      => $progressItem->quantity,
-                    'ready_qty'         => 0,
-                    'note'              => null,
-                ]);
             }
 
             // ================== CATAT FINANCIAL REPORT ==================
@@ -1173,27 +1179,38 @@ class SaleOrderController extends Controller
 
                 $totalRevenue = $order->grand_total;
                 $totalCogs = 0;
+                $totalFixedCogs = 0;
 
                 // 🔹 Hitung total COGS dari produk dan bundle
                 foreach ($order->orderItems as $orderItem) {
                     if ($orderItem->product_id && !$orderItem->product_bundle_id) {
                         // Produk satuan
                         $product = $orderItem->product;
-                        $avgCost = $product->inventoryStock->avg_cost ?? 0;
+                        $avgCost = $product->avg_cost ?? 0;
+                        $fixedCost = $product->fixed_cost ?? 0;
                         $totalCogs += $avgCost * $orderItem->quantity;
+                        $totalFixedCogs += $fixedCost * $orderItem->quantity;
                     } elseif ($orderItem->product_bundle_id) {
                         // Produk bundle
                         $bundle = $orderItem->productBundle;
-                        $bundleCost = $bundle->items->sum(function ($bundleItem) {
+
+                        $bundleAvgCost = $bundle->items->sum(function ($bundleItem) {
                             $product = $bundleItem->product;
-                            return $product->inventoryStock->avg_cost ?? 0;
+                            return $product->avg_cost ?? 0;
                         });
-                        $totalCogs += $bundleCost * $orderItem->quantity;
+
+                        $bundleFixedCost = $bundle->items->sum(function ($bundleItem) {
+                            $product = $bundleItem->product;
+                            return $product->fixed_cost ?? 0;
+                        });
+
+                        $totalCogs       += $bundleAvgCost * $orderItem->quantity;
+                        $totalFixedCogs  += $bundleFixedCost * $orderItem->quantity;
                     }
                 }
 
                 $grossProfit = $totalRevenue - $totalCogs;
-                $netProfit = $grossProfit;
+                $grossProfitAtFixedCost = $totalRevenue - $totalFixedCogs;
 
                 if ($financialReport) {
                     // Update jika sudah ada record lama
@@ -1201,9 +1218,12 @@ class SaleOrderController extends Controller
                         'date'         => $order->order_date,
                         'revenue'      => $totalRevenue,
                         'cogs'         => $totalCogs,
+                        'cogs_fixed_cost'   => $totalFixedCogs,
                         'gross_profit' => $grossProfit,
+                        'gross_profit_at_fixed_cost' => $grossProfitAtFixedCost,
                         'expense'      => 0,
-                        'net_profit'   => $netProfit,
+                        'net_profit'   => $grossProfit,
+                        'net_profit_at_fixed_cost' => $grossProfitAtFixedCost,
                         'notes'        => 'Auto-updated from Mark as Sale List',
                     ]);
                 } else {
@@ -1215,9 +1235,12 @@ class SaleOrderController extends Controller
                         'reference_table'  => 'orders',
                         'revenue'          => $totalRevenue,
                         'cogs'             => $totalCogs,
+                        'cogs_fixed_cost'  => $totalFixedCogs,
                         'gross_profit'     => $grossProfit,
+                        'gross_profit_at_fixed_cost' => $grossProfitAtFixedCost,
                         'expense'          => 0,
-                        'net_profit'       => $netProfit,
+                        'net_profit'       => $grossProfit,
+                        'net_profit_at_fixed_cost' => $grossProfitAtFixedCost,
                         'notes'            => 'Auto-generated from Mark as Sale List',
                     ]);
                 }

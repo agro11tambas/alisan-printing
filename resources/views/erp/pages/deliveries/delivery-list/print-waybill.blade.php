@@ -6,90 +6,25 @@
     <title>Surat Jalan - {{ $deliveryList->shipment_number }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
-        :root {
-            --paper: a4;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html,
         body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Courier New', Courier, monospace;
-            color: #111;
-        }
-
-        body {
-            background: #f3f4f6;
-        }
-
-        .sheet {
             background: #fff;
-            margin: 2px auto;
-            box-shadow: 0 2mm 6mm rgba(0, 0, 0, .08);
-            overflow: visible;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
         }
 
-        .sheet.size-a4 {
-            width: 21cm;
-            height: 14cm;
-            padding: 6mm 6mm;
-        }
-
-        @media print {
-            body {
-                background: #fff;
-            }
-
-            .sheet {
-                margin: 0;
-                box-shadow: none;
-                width: 100%;
-                height: 14cm;
-                padding: 8mm;
-            }
-
-            .noprint {
-                display: none !important;
-            }
-
-            * {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
+        pre {
+            font-size: 14px;
+            white-space: pre;
+            margin: 0;
         }
     </style>
 </head>
 
 <body>
-    <div class="noprint" style="text-align:center; padding:10px;">
-        <button onclick="window.print()" style="padding:8px 12px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:6px;">
-            🖨️ Print (Browser)
-        </button>
-        <button id="btnRawPrint" style="padding:8px 12px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:6px;">
-            ⚡ Cetak Direct (RAW LX-310)
-        </button>
-    </div>
-
-    <div class="sheet size-a4">
-        <pre id="rawDoc" style="font:14px/1.25 'Courier New', monospace; white-space:pre; margin:0;"></pre>
-    </div>
-
-    <script>
-        (function () {
-            const s = document.querySelector('.sheet');
-            if (getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() === 'a4') {
-                s.classList.remove('size-a5');
-                s.classList.add('size-a4');
-            }
-        })();
-    </script>
+    <pre id="rawDoc"></pre>
 
     @php
-        // Ambil item dari DeliveryList
         $itemsJs = $deliveryList->items
             ->values()
             ->map(function ($item, $i) {
@@ -99,9 +34,9 @@
                     'sku' => $item->product->sku ?? '-',
                     'qty' => (string) ($item->shipped_quantity ?? 0),
                 ];
-            })->all();
+            })
+            ->all();
 
-        // Ambil data customer
         $customerJs = [
             'name' => $deliveryList->deliveryOrder->order->customer->name ?? '-',
             'address' => $deliveryList->deliveryOrder->shipping_address ?? '-',
@@ -111,114 +46,174 @@
 
     <script src="https://cdn.jsdelivr.net/npm/qz-tray/qz-tray.js"></script>
     <script>
-        // ===== DATA DARI BLADE =====
         const orderNumber = @json($deliveryList->shipment_number);
         const orderDate = @json(\Carbon\Carbon::parse($deliveryList->shipment_date)->format('d-m-Y'));
         const items = @json($itemsJs);
         const customer = @json($customerJs);
 
-        // ===== UTIL =====
         const padR = (s, w) => (String(s) + ' '.repeat(w)).slice(0, w);
         const padL = (s, w) => (' '.repeat(w) + String(s)).slice(-w);
-        const line4 = (a, b, c, d) => padR(a, 4) + ' ' + padR(b, 45) + ' ' + padR(c, 15) + ' ' + padL(d, 8);
+        const line4 = (a, b, c, d) => padR(a, 4) + ' ' + padR(b, 55) + ' ' + padR(c, 15) + ' ' + padL(d, 8);
 
-        // ===== SUMBER TUNGGAL: TEKS 80 KOLOM =====
-        function buildText80() {
-            const width = 88, CRLF = "\r\n";
+        function buildText96() {
+            const width = 96,
+                CRLF = "\r\n";
+            const ITEMS_PER_PAGE = 10;
+            const FIX_LINES = 40;
 
-            // Header 3 kolom
-            const COL1 = 30, COL2 = 28, COL3 = 30;
-            const PAGE_LINES = 30;
-            const SIGN_BLOCK_LINES = 7;
+            const center = t => {
+                const pad = Math.floor((width - String(t).length) / 2);
+                return ' '.repeat(Math.max(pad, 0)) + t;
+            };
+            const padR = (s, w) => (String(s) + ' '.repeat(w)).slice(0, w);
+            const padL = (s, w) => (' '.repeat(w) + String(s)).slice(-w);
 
-            const center = t => ' '.repeat(Math.max(0, Math.floor((width - String(t).length) / 2))) + t;
+            const wrapText = (text, maxLen) => {
+                const words = String(text).split(/\s+/);
+                const lines = [];
+                let line = '';
+                for (const w of words) {
+                    if ((line + w).length > maxLen) {
+                        lines.push(line.trim());
+                        line = w + ' ';
+                    } else line += w + ' ';
+                }
+                if (line.trim() !== '') lines.push(line.trim());
+                return lines.slice(0, 2);
+            };
 
             let out = '';
-            // Title
-            out += center('SURAT JALAN') + CRLF + CRLF;
+            const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
 
-            // ===== HEADER =====
-            out += padR('No Surat : ' + orderNumber, COL1) +
-                padR('', COL2) +
-                padR('Customer : ' + (customer.name || '-'), COL3) + CRLF;
+            for (let page = 0; page < totalPages; page++) {
+                const start = page * ITEMS_PER_PAGE;
+                const end = Math.min(start + ITEMS_PER_PAGE, items.length);
+                const pageItems = items.slice(start, end);
 
-            out += padR('Tanggal : ' + orderDate, COL1) +
-                padR('', COL2) +
-                padR('Alamat   : ' + (customer.address || '-'), COL3) + CRLF;
+                let pageOut = '';
 
-            out += padR('', COL1) +
-                padR('', COL2) +
-                padR('Telp     : ' + (customer.phone || '-'), COL3) + CRLF;
+                // ==== JUDUL PALING ATAS ====
+                pageOut += center('SURAT JALAN') + CRLF;
+                pageOut += center(orderNumber) + CRLF + CRLF;
 
-            out += '-'.repeat(width) + CRLF;
+                // ==== HEADER KIRI (ALISAN) & KANAN (CUSTOMER) ====
+                const kiri = [
+                    'ALISAN PRINTING',
+                    ...wrapText('Jl. Dummy Raya No. 123, Bandung ABC ABC ABC ABC', 30),
+                    'Telp: 0812-3456-7890'
+                ];
+                const kanan = [
+                    ...(wrapText(customer.name || '-', 38)),
+                    ...(wrapText(customer.address || '-', 38)),
+                    customer.phone || '-'
+                ];
+                const max = Math.max(kiri.length, kanan.length);
+                for (let i = 0; i < max; i++) {
+                    const left = padR(kiri[i] || '', 45); // kiri sampai kolom 45
+                    const rightZoneStart = 60; // kanan mulai kolom ke-50
+                    const rightText = kanan[i] || '';
+                    const spacing = ' '.repeat(Math.max(0, rightZoneStart - left.length));
+                    pageOut += left + spacing + rightText + CRLF;
+                }
 
-            // ===== TABEL =====
-            out += line4('No', 'Nama Barang', 'Kode', 'Qty') + CRLF;
-            out += '-'.repeat(width) + CRLF;
 
-            items.forEach(row => {
-                const name = String(row.name).substring(0, 45);
-                const sku = String(row.sku).substring(0, 15);
-                out += line4(row.no, name, sku, row.qty) + CRLF;
-            });
+                // ==== PEMISAH ====
+                pageOut += '-'.repeat(width) + CRLF;
 
-            out += '-'.repeat(width) + CRLF;
+                // ==== KOLOM ITEM ====
+                pageOut += padR('No', 4) + ' ' + padR('Nama Barang', 55) + ' ' + padR('SKU', 15) + ' ' + padL('Qty', 8) +
+                    CRLF;
+                pageOut += '-'.repeat(width) + CRLF;
 
-            // ===== TANDA TANGAN =====
-            const linesNow = out.split(CRLF).length;
-            const minBeforeSign = PAGE_LINES - SIGN_BLOCK_LINES;
-            if (linesNow < minBeforeSign) out += '\r\n'.repeat(minBeforeSign - linesNow);
+                // ==== DAFTAR BARANG ====
+                pageItems.forEach((row) => {
+                    const name = String(row.name).substring(0, 37);
+                    const sku = String(row.sku).substring(0, 10);
+                    pageOut += padR(row.no, 4) + ' ' + padR(name, 55) + ' ' + padR(sku, 15) + ' ' + padL(row.qty,
+                        8) + CRLF;
+                });
 
-            out += padR('Admin', 20) + padR('Kurir', 20) + padR('Customer', 20) + CRLF;
-            out += padR('Nama: _______', 20) + padR('Nama: _______', 20) + padR('Nama: _______', 20) + CRLF;
-            out += padR('Tgl : ____-__-__', 20) + padR('Tgl : ____-__-__', 20) + padR('Tgl : ____-__-__', 20) + CRLF + CRLF;
+                // ==== FOOTER (TANDA TANGAN) ====
+                pageOut += '-'.repeat(width) + CRLF.repeat(2);
+                const linesNow = pageOut.split(/\r\n/).length;
+                const signBlockLines = 17;
+                const remaining = Math.max(0, FIX_LINES - (linesNow + signBlockLines));
+                pageOut += CRLF.repeat(remaining);
+
+                const centerLine = t => {
+                    const pad = Math.floor((width - t.length) / 2);
+                    return ' '.repeat(Math.max(pad, 0)) + t + CRLF;
+                };
+                pageOut += centerLine('   Admin             Kurir           Customer');
+                pageOut += CRLF.repeat(2);
+                pageOut += centerLine('______________    ______________    ______________');
+                pageOut += CRLF.repeat(2);
+                pageOut += center('Halaman ' + (page + 1) + ' dari ' + totalPages);
+
+                out += pageOut;
+                if (page + 1 < totalPages) out += CRLF.repeat(5);
+            }
 
             return out;
         }
 
-        // Preview (sama persis dengan yang akan dicetak)
-        document.getElementById('rawDoc').textContent = buildText80();
-        window.addEventListener('resize', () => {
-            document.getElementById('rawDoc').textContent = buildText80();
-        });
+        document.getElementById('rawDoc').textContent = buildText96();
 
-        // ===== CETAK RAW VIA QZ =====
-        if (window.qz) {
-            if (window.crypto && crypto.subtle) {
-                qz.api.setSha256Type(d => crypto.subtle.digest("SHA-256", new TextEncoder().encode(d)));
-            } else {
-                qz.api.setSha256Type(d => d);
-            }
-            qz.api.setPromiseType(fn => new Promise(fn));
-        }
-
-        async function connectQZ() {
-            if (!window.qz) throw new Error("QZ Tray library belum dimuat.");
-            if (!qz.websocket.isActive()) await qz.websocket.connect();
-        }
-
-        async function rawPrint() {
+        // === AUTO DIRECT PRINT SAAT HALAMAN DIBUKA ===
+        window.addEventListener('load', async () => {
             try {
-                await connectQZ();
+                if (!window.qz) throw new Error("QZ Tray tidak aktif. Jalankan QZ Tray terlebih dahulu.");
+                if (!qz.websocket.isActive()) await qz.websocket.connect();
+
+                // fungsi hitung feed bawah agar tinggi total 14cm
+                function feedToBottom(text, totalHeightMm = 140) {
+                    const lines = text.split(/\r\n/).length;
+                    const printedHeightMm = lines * 3.5; // asumsi 3.5mm/baris
+                    const remainingMm = Math.max(0, totalHeightMm - printedHeightMm);
+                    const feedLines = Math.round(remainingMm / 3.5);
+                    return '\x1B' + 'd' + String.fromCharCode(feedLines > 255 ? 255 : feedLines);
+                }
+
+                const textOut = buildText96();
                 const ESC = '\x1B';
-                const payload = ESC + '@' + ESC + 'P' + buildText80(); // init + 10cpi + teks
+                // === SET PAGE LENGTH 5.5 inch (≈14 cm) ===
+                // ESC C n → n = jumlah baris, 1 baris = 1/6 inch → 33 baris = 5.5 inch
+                const setPageLength = ESC + 'C' + String.fromCharCode(33);
+
+                const payload =
+                    ESC + '@' +
+                    setPageLength +
+                    ESC + 'x' + '\x00' +
+                    ESC + 'U' + '\x01' +
+                    ESC + 'E' + '\x00' +
+                    ESC + 'g' + '\x00' +
+                    ESC + 'M' +
+                    ESC + 'l' + '\x00' +
+                    ESC + 'Q' + '\x00' +
+                    ESC + '2' +
+                    textOut +
+                    feedToBottom(textOut, 140) +
+                    ESC + '2';
+
                 const config = qz.configs.create("EPSON LX-310", {
                     encoding: "CP437",
-                    altPrinting: true
+                    altPrinting: false
                 });
+
                 const data = [{
                     type: 'raw',
                     format: 'command',
                     data: payload
                 }];
+
                 await qz.print(config, data);
-                alert('Dikirim ke LX-310 ✅');
+                window.close(); // tutup tab otomatis setelah print
             } catch (e) {
+                alert('❌ Gagal print:\n' + e.message);
                 console.error(e);
-                alert('Gagal kirim ke printer.\nPastikan QZ Tray aktif & nama printer benar.\n' + e.message);
             }
-        }
-        document.getElementById('btnRawPrint').addEventListener('click', rawPrint);
+        });
     </script>
 </body>
+
 </html>

@@ -31,4 +31,10 @@ class MaterialReceiptItem extends Model
     {
         return $this->belongsTo(MaterialRequestItem::class);
     }
+
+    // Relasi ke produk
+    public function product()
+    {
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
+    }
 }

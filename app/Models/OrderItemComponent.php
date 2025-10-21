@@ -17,7 +17,9 @@ class OrderItemComponent extends Model
         'product_id',
         'qty',
         'avg_cost_at_sale',
+        'fixed_cost_at_sale',
         'total_cost',
+        'total_fixed_cost',
     ];
 
     protected $casts = [
@@ -26,7 +28,7 @@ class OrderItemComponent extends Model
 
     public function product()
     {
-        return $this->belongsTo(Products::class);
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
     public function orderItem()
     {

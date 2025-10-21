@@ -85,8 +85,8 @@
                                         @else
                                         <tr>
                                             <td>{{ ucfirst(str_replace('_', ' ', $field)) }}</td>
-                                            <td class="text-danger">{{ formatChangeVal($returnChanges['old'][$field] ?? '-') }}</td>
-                                            <td class="text-success">{{ formatChangeVal($newValue) }}</td>
+                                            <td class="text-danger">{{ number_format($returnChanges['old'][$field] ?? 0) }}</td>
+                                            <td class="text-success">{{ number_format($newValue) }}</td>
                                         </tr>
                                         @endif
                                         @endforeach
@@ -132,8 +132,8 @@
                                                         @foreach($item['fields'] as $field => $values)
                                                         <tr>
                                                             <td>{{ ucfirst(str_replace('_',' ', $field)) }}</td>
-                                                            <td class="text-danger">{{ formatChangeVal($values['old']) }}</td>
-                                                            <td class="text-success">{{ formatChangeVal($values['new']) }}</td>
+                                                            <td class="text-danger">{{ number_format($values['old']) }}</td>
+                                                            <td class="text-success">{{ number_format($values['new']) }}</td>
                                                         </tr>
                                                         @endforeach
                                                     </tbody>

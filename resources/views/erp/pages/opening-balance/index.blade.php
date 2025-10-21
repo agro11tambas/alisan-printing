@@ -96,8 +96,8 @@
                                 @foreach ($bankAccounts as $bankAccount)
                                 <tr>
                                     <td>{{ $bankAccount->type }}</td>
-                                    <td>{{ number_format($bankAccount->openingBalance->sum('debit'), 0, ',', '.') }}</td>
-                                    <td>{{ number_format($bankAccount->openingBalance->sum('credit'), 0, ',', '.') }}</td>
+                                    <td>{{ number_format($bankAccount->openingBalance->sum('debit')) }}</td>
+                                    <td>{{ number_format($bankAccount->openingBalance->sum('credit')) }}</td>
                                 </tr>
                                 @endforeach
                                 <tr>
@@ -106,8 +106,8 @@
                                 @foreach ($cashAccounts as $cashAccount)
                                 <tr>
                                     <td>{{ $cashAccount->type }}</td>
-                                    <td>{{ number_format($cashAccount->openingBalance->sum('debit'), 0, ',', '.') }}</td>
-                                    <td>{{ number_format($cashAccount->openingBalance->sum('credit'), 0, ',', '.') }}</td>
+                                    <td>{{ number_format($cashAccount->openingBalance->sum('debit')) }}</td>
+                                    <td>{{ number_format($cashAccount->openingBalance->sum('credit')) }}</td>
                                 </tr>
                                 @endforeach
                                 <tr>
@@ -116,8 +116,8 @@
                                 @foreach ($purchaseAccounts as $purchaseAccount)
                                 <tr>
                                     <td>{{ $purchaseAccount->type }}</td>
-                                    <td>{{ number_format($purchaseAccount->openingBalance->sum('debit'), 0, ',', '.') }}</td>
-                                    <td>{{ number_format($purchaseAccount->openingBalance->sum('credit'), 0, ',', '.') }}</td>
+                                    <td>{{ number_format($purchaseAccount->openingBalance->sum('debit')) }}</td>
+                                    <td>{{ number_format($purchaseAccount->openingBalance->sum('credit')) }}</td>
                                 </tr>
                                 @endforeach
                                 <tr>
@@ -126,8 +126,8 @@
                                 @foreach ($saleAccounts as $saleAccount)
                                 <tr>
                                     <td>{{ $saleAccount->type }}</td>
-                                    <td>{{ number_format($saleAccount->openingBalance->sum('debit'), 0, ',', '.') }}</td>
-                                    <td>{{ number_format($saleAccount->openingBalance->sum('credit'), 0, ',', '.') }}</td>
+                                    <td>{{ number_format($saleAccount->openingBalance->sum('debit')) }}</td>
+                                    <td>{{ number_format($saleAccount->openingBalance->sum('credit')) }}</td>
                                 </tr>
                                 @endforeach
                                 <tr>
@@ -136,8 +136,8 @@
                                 @foreach ($expenseAccounts as $expenseAccount)
                                 <tr>
                                     <td>{{ $expenseAccount->type }}</td>
-                                    <td>{{ number_format($expenseAccount->openingBalance->sum('debit'), 0, ',', '.') }}</td>
-                                    <td>{{ number_format($expenseAccount->openingBalance->sum('credit'), 0, ',', '.') }}</td>
+                                    <td>{{ number_format($expenseAccount->openingBalance->sum('debit')) }}</td>
+                                    <td>{{ number_format($expenseAccount->openingBalance->sum('credit')) }}</td>
                                 </tr>
                                 @endforeach
                                 <tr>
@@ -146,8 +146,8 @@
                                 @foreach ($capitalAccounts as $capitalAccount)
                                 <tr>
                                     <td>{{ $capitalAccount->type }}</td>
-                                    <td>{{ number_format($capitalAccount->openingBalance->sum('debit'), 0, ',', '.') }}</td>
-                                    <td>{{ number_format($capitalAccount->openingBalance->sum('credit'), 0, ',', '.') }}</td>
+                                    <td>{{ number_format($capitalAccount->openingBalance->sum('debit')) }}</td>
+                                    <td>{{ number_format($capitalAccount->openingBalance->sum('credit')) }}</td>
                                 </tr>
                                 @endforeach
                             </tbody>

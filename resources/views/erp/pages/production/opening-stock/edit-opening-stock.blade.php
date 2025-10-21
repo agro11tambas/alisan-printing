@@ -106,6 +106,42 @@
 
 @push('scripts')
     <script>
+        // === FORMAT ANGKA DENGAN TITIK RIBUAN ===
+        function formatNumberInput(value) {
+            if (!value) return '';
+            let raw = value.toString().replace(/\D/g, '');
+            if (!raw) return '';
+            return new Intl.NumberFormat('id-ID').format(raw);
+        }
+
+        function parseNumber(str) {
+            if (!str) return 0;
+            return parseFloat(str.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        // === FORMAT INPUT SAAT USER KETIK ===
+        document.addEventListener('input', function(e) {
+            if (e.target.matches('input[name="opening_stock[]"], input[name="opening_finished_product_stock[]"]')) {
+                let raw = e.target.value.replace(/\D/g, '');
+                if (!raw) {
+                    e.target.value = '';
+                    return;
+                }
+                e.target.value = new Intl.NumberFormat('id-ID').format(raw);
+            }
+        });
+
+        // === FORMAT ANGKA SAAT HALAMAN DIBUKA ===
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll(
+                'input[name="opening_stock[]"], input[name="opening_finished_product_stock[]"]').forEach(el => {
+                if (el.value.trim() !== '') {
+                    el.value = new Intl.NumberFormat('id-ID').format(parseNumber(el.value));
+                }
+            });
+        });
+
+        // === VALIDASI DAN SUBMIT ===
         document.getElementById('openingStockRateForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -113,33 +149,52 @@
             form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-            const rules = [];
-
             let isValid = true;
 
-            rules.forEach(rule => {
-                const el = form.querySelector(rule.selector);
-                const val = el?.value ?? '';
-                const valid = rule.validate ? rule.validate(val) : val.trim() !== '';
+            form.querySelectorAll('tbody tr').forEach((row, i) => {
+                const openingStock = row.querySelector('input[name="opening_stock[]"]');
+                const finishedStock = row.querySelector('input[name="opening_finished_product_stock[]"]');
 
-                if (!valid) {
-                    showError(el, rule.message);
+                if (!openingStock.value.trim()) {
+                    showError(openingStock, 'Opening stock wajib diisi');
+                    isValid = false;
+                }
+                if (!finishedStock.value.trim()) {
+                    showError(finishedStock, 'Finished product wajib diisi');
                     isValid = false;
                 }
             });
 
-            if (isValid) form.submit();
+            if (!isValid) return;
+
+            // === HAPUS TITIK SAAT SUBMIT ===
+            form.querySelectorAll('input[name="opening_stock[]"], input[name="opening_finished_product_stock[]"]')
+                .forEach(input => {
+                    input.value = input.value.replace(/\./g, '');
+                });
+
+            form.submit();
         });
 
+        // === TAMPILKAN ERROR ===
         function showError(input, message) {
             if (!input) return;
             input.classList.add('is-invalid');
             const parent = input.closest('div');
             if (!parent) return;
             const feedback = document.createElement('div');
-            feedback.className = 'invalid-feedback';
+            feedback.className = 'invalid-feedback d-block';
             feedback.textContent = message;
             parent.appendChild(feedback);
         }
+
+        // === HAPUS ERROR SAAT USER PERBAIKI INPUT ===
+        document.addEventListener('input', function(e) {
+            if (e.target.matches('input.is-invalid')) {
+                e.target.classList.remove('is-invalid');
+                const feedback = e.target.parentNode.querySelector('.invalid-feedback');
+                if (feedback) feedback.remove();
+            }
+        });
     </script>
 @endpush

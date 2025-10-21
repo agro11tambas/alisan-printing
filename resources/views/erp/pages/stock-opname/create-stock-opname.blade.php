@@ -131,6 +131,25 @@
             });
         }
 
+        // === FORMAT ANGKA DENGAN TITIK RIBUAN ===
+        document.addEventListener('input', function(e) {
+            if (e.target.matches('input[name^="items"][name$="[quantity]"]')) {
+                let raw = e.target.value.replace(/\D/g, '');
+                e.target.value = raw ? new Intl.NumberFormat('id-ID').format(raw) : '';
+            }
+        });
+
+        // === FORMAT ANGKA SAAT HALAMAN DIBUKA ===
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('input[name^="items"][name$="[quantity]"]').forEach(el => {
+                if (el.value.trim() !== '') {
+                    el.value = new Intl.NumberFormat('id-ID').format(
+                        parseFloat(el.value.replace(/\./g, '')) || 0
+                    );
+                }
+            });
+        });
+
         $(document).ready(function() {
             initSelect2(document);
 
@@ -196,7 +215,15 @@
                     }
                 });
 
-                if (!isValid) e.preventDefault();
+                if (!isValid) {
+                    e.preventDefault();
+                    return;
+                }
+
+                // === HAPUS TITIK SAAT SUBMIT ===
+                form.querySelectorAll('input[name^="items"][name$="[quantity]"]').forEach(input => {
+                    input.value = input.value.replace(/\./g, '');
+                });
             });
 
             // Fungsi tampilkan error

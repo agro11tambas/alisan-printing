@@ -93,7 +93,7 @@
                                                     <option value="" disabled selected hidden>Pilih produk</option>
                                                 </select>
                                             </td>
-                                            <td><input type="number" name="qty[]" class="form-control qty" min="1"
+                                            <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" min="1"
                                                     value="1" required></td>
                                             <td class="text-center">
                                                 <div class="d-flex justify-content-center">
@@ -154,6 +154,40 @@
                 initSelect2(el);
             });
 
+            // === FORMAT RIBUAN UNTUK QTY ===
+            function formatNumber(n) {
+                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            }
+
+            // Auto hapus 0 saat fokus
+            $(document).on('focus', '.qty', function() {
+                if ($(this).val() === '0') $(this).val('');
+            });
+
+            // Balikin 0 kalau kosong
+            $(document).on('blur', '.qty', function() {
+                if ($(this).val().trim() === '') $(this).val('0');
+            });
+
+            // Format ribuan realtime
+            $(document).on('input', '.qty', function(e) {
+                const input = e.target;
+                const cursorPos = input.selectionStart;
+                const raw = input.value.replace(/,/g, '');
+                if (raw === '') return;
+                const formatted = formatNumber(raw);
+                const diff = formatted.length - input.value.length;
+                input.value = formatted;
+                input.setSelectionRange(cursorPos + diff, cursorPos + diff);
+            });
+
+            // Hapus koma saat submit
+            $('#requestStockForm').on('submit', function() {
+                $('.qty').each(function() {
+                    this.value = this.value.replace(/,/g, '');
+                });
+            });
+
             // Tambah baris baru
             document.getElementById('add_row').addEventListener('click', function() {
                 const tableBody = document.getElementById('tab_logic_body');
@@ -167,7 +201,9 @@
                     <option value="" disabled selected hidden>Pilih produk</option>
                 </select>
             </td>
-            <td><input type="number" name="qty[]" class="form-control qty" min="1" value="1" required></td>
+            <td>
+                <input type="text" inputmode="numeric" name="qty[]" class="form-control qty text-end" value="1" required>
+            </td>
             <td class="text-center">
                 <div class="d-flex justify-content-center">
                     <button type="button" class="btn btn-danger delete-row">
@@ -193,6 +229,7 @@
             });
         });
 
+        // Autofocus saat select2 dibuka
         $(document).on('select2:open', () => {
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();

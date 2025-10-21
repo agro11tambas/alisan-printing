@@ -16,7 +16,7 @@ return new class extends Migration
         });
 
         Schema::table('order_items', function (Blueprint $table) {
-            $table->foreign('product_bundle_id')->references('id')->on('product_bundles')->onDelete('cascade');
+            $table->foreign('product_bundle_id')->references('id')->on('product_bundles')->onDelete('set null');
         });
     }
 

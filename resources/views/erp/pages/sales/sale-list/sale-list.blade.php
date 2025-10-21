@@ -164,22 +164,6 @@
                             </li>
                         </ul>
                         <div class="table-responsive">
-                            <!-- <table class="table table-hover" id="saleListTable">
-                                <thead>
-                                    <tr>
-                                        <th></th>
-                                        <th>Invoice Number</th>
-                                        <th>Customer</th>
-                                        <th>Grand Total</th>
-                                        <th>Paid Amount</th>
-                                        <th>Remaining Amount</th>
-                                        <th>Payment Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-
-                                </tbody>
-                            </table> -->
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="sale-list" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="saleListTable">
@@ -200,7 +184,7 @@
                                     <table class="table table-hover bg-transparent" id="deletedSaleListTable">
                                         <thead>
                                             <tr>
-                                                <th></th> <!-- 👈 tombol expand -->
+                                                <th></th>
                                                 <th>Invoice Number</th>
                                                 <th>Customer</th>
                                                 <th>Grand Total</th>

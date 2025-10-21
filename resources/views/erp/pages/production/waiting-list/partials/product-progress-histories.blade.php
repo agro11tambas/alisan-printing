@@ -12,7 +12,7 @@
         @foreach ($items as $item)
             <tr>
                 <td>{{ $item->progressItem->product->name }}</td>
-                <td>{{ $item->change_quantity }}</td>
+                <td>{{ number_format($item->change_quantity) }}</td>
                 <td>{{ $item->operators->name ?? '-' }}</td>
                 <td>{{ $item->notes ?? '-' }}</td>
                 <td class="text-center">

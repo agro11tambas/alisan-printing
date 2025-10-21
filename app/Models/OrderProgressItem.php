@@ -16,6 +16,7 @@ class OrderProgressItem extends Model
 
     protected $fillable = [
         'order_progress_id',
+        'design_item_id',
         'order_item_id',
         'product_id',
         'quantity',
@@ -39,7 +40,7 @@ class OrderProgressItem extends Model
 
     public function product()
     {
-        return $this->belongsTo(Products::class);
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
 
     public function orderItem()
@@ -50,5 +51,10 @@ class OrderProgressItem extends Model
     public function operators()
     {
         return $this->belongsTo(Operator::class, 'operator_id', 'id');
+    }
+
+    public function deliveryOrderItems()
+    {
+        return $this->hasMany(DeliveryOrderItem::class, 'order_progress_item_id');
     }
 }

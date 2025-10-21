@@ -43,4 +43,9 @@ class InventoryStockOut extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function defectProducts()
+    {
+        return $this->hasMany(DefectProduct::class, 'inventory_stock_out_id');
+    }
 }

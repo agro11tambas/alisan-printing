@@ -54,7 +54,7 @@ class InventoryItem extends Model
 
     public function product()
     {
-        return $this->belongsTo(Products::class, 'product_id');
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
 
     public function productBundle()
@@ -85,5 +85,10 @@ class InventoryItem extends Model
     public function materialReceiptItem()
     {
         return $this->belongsTo(MaterialReceiptItem::class, 'material_receipt_item_id');
+    }
+
+    public function defectProducts()
+    {
+        return $this->hasMany(DefectProduct::class, 'inventory_item_id');
     }
 }

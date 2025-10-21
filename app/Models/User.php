@@ -83,4 +83,9 @@ class User extends Authenticatable
     {
         return $this->permissionSubItems->contains('slug', $slug);
     }
+
+    public function defectProducts()
+    {
+        return $this->hasMany(DefectProduct::class, 'user_id');
+    }
 }

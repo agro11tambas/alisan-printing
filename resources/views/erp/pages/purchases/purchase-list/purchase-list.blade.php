@@ -235,106 +235,6 @@
         </div>
     </div>
 
-    {{-- <div class="modal fade-scale" id="modalChangeStatus" tabindex="-1" aria-labelledby="modalChangeStatus"
-        aria-hidden="true" data-bs-dismiss="ou">
-        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-            <div class="modal-content">
-                <!--! BEGIN: [modal-header] !-->
-                <div class="modal-header">
-                    <h2 class="d-flex flex-column mb-0">
-                        <span class="fs-18 fw-bold mb-1">Mark As Paid</span>
-                    </h2>
-                    <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger close-icon"
-                        data-bs-dismiss="modal">
-                        <i class="feather-x text-danger"></i>
-                    </a>
-                </div>
-                <!--! BEGIN: [modal-body] !-->
-                <form method="POST" id="markAsPurchaseForm">
-                    @csrf
-                    <input type="hidden" id="purchase_id" name="purchase_id">
-
-                    <div class="modal-body">
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label for="transaction_type" class="fw-semibold">Purchase:</label>
-                                <div class="input-group">
-                                    <select class="form-select form-control max-select" data-select2-selector="tag"
-                                        id="transaction_type" name="transaction_type">
-                                        <option value="12" data-bg="bg-danger">Purchase Account</option>
-                                    </select>
-                                </div>
-                                <small class="text-danger d-none" id="error_transaction_type"></small>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="transaction_date" class="fw-semibold">Transaction Date:</label>
-                                <div class="input-group">
-                                    <input type="date" id="transaction_date" name="transaction_date"
-                                        class="form-control" value="{{ date('Y-m-d') }}">
-                                </div>
-                                <small class="text-danger d-none" id="error_transaction_date"></small>
-                            </div>
-                        </div>
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label for="cash_bank_account_id" class="fw-semibold">Cash/Bank Account:</label>
-                                <div class="input-group">
-                                    @php
-                                        $bgColors = [
-                                            'bg-danger',
-                                            'bg-warning',
-                                            'bg-primary',
-                                            'bg-indigo',
-                                            'bg-success',
-                                        ];
-                                    @endphp
-                                    <select class="form-select form-control max-select" data-select2-selector="tag"
-                                        name="cash_bank_account_id" id="cash_bank_account_id">
-                                        <option value="" disabled selected hidden>Pilih Bank atau Cash Account
-                                        </option>
-                                        @foreach ($cashAccounts as $cash)
-                                            @php
-                                                $bg = $bgColors[$loop->index % count($bgColors)];
-                                            @endphp
-                                            <option value="{{ $cash->id }}" data-bg="{{ $bg }}">Cash -
-                                                {{ $cash->type }}</option>
-                                        @endforeach
-                                        @foreach ($bankAccounts as $bank)
-                                            @php
-                                                $bg = $bgColors[$loop->index % count($bgColors)];
-                                            @endphp
-                                            <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank -
-                                                {{ $bank->type }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <small class="text-danger d-none" id="error_cash_bank_account_id"></small>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="paid_amount" class="fw-semibold">Paid Amount:</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control" id="paid_amount" name="paid_amount"
-                                        value="0">
-                                </div>
-                                <small class="text-danger d-none" id="error_paid_amount"></small>
-                                <span class="fw-semibold fs-12" id="paid_amount_display">Paid: Rp. 0</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer d-flex justify-content-between">
-                        <div>
-                            <div class="col-md-6">
-                                <p class="m-0">Balance:</p>
-                                <h5 class="fw-semibold text-danger" id="total_amount_display">0</h5>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Mark As Paid</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div> --}}
-
     <!-- ========================= -->
     <!-- MARK AS PAID (PRODUCT) -->
     <!-- ========================= -->
@@ -588,7 +488,7 @@
                                 <th>Product</th>
                                 <th>SKU</th>
                                 <th>Qty</th>
-                                <th class="text-end">Price</th>
+                                <th class="text-end">Price + Tax</th>
                                 <th class="text-end">Freight</th>
                                 <th class="text-end">Total</th>
                             </tr>
@@ -897,33 +797,6 @@
         });
 
         document.addEventListener('click', function(e) {
-            // if (e.target.closest('.btn-mark-paid')) {
-            //     const button = e.target.closest('.btn-mark-paid');
-            //     const purchaseId = button.getAttribute('data-id');
-            //     const url = button.getAttribute('data-url');
-            //     const totalAmount = parseFloat(button.getAttribute('data-total-amount')) || 0;
-            //     const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
-            //     const remainingAmount = totalAmount - paidAmount;
-
-            //     // set hidden + form action
-            //     document.getElementById('purchase_id').value = purchaseId;
-            //     document.getElementById('markAsPurchaseForm').setAttribute('action', url);
-
-            //     // tampilkan balance
-            //     document.getElementById('total_amount_display').innerText = new Intl.NumberFormat('id-ID').format(
-            //         remainingAmount);
-
-            //     // isi otomatis input Paid Amount sama dengan balance
-            //     const formatted = new Intl.NumberFormat('id-ID').format(remainingAmount);
-            //     document.getElementById('paid_amount').value = formatted;
-
-            //     // update label "Paid: Rp ..."
-            //     const paidDisplay = document.getElementById('paid_amount_display');
-            //     if (paidDisplay) {
-            //         paidDisplay.innerText = 'Paid: Rp. ' + formatted;
-            //     }
-            // }
-
             // =============================
             // MARK AS PAID — PRODUCT
             // =============================
@@ -994,67 +867,6 @@
             let angka = this.value.replace(/\D/g, "") || "0";
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
-
-        // document.getElementById('markAsPurchaseForm').addEventListener('submit', function(e) {
-        //     e.preventDefault();
-
-        //     // Reset error messages
-        //     document.querySelectorAll('#markAsPurchaseForm small.text-danger').forEach(el => {
-        //         el.classList.add('d-none');
-        //         el.innerText = '';
-        //     });
-
-        //     let valid = true;
-
-        //     let transactionType = document.getElementById('transaction_type').value.trim();
-        //     let transactionDate = document.getElementById('transaction_date').value.trim();
-        //     let cashBankAccount = document.getElementById('cash_bank_account_id').value.trim();
-
-        //     // ambil angka asli (hapus titik)
-        //     let paidAmountRaw = document.getElementById('paid_amount').value.trim();
-        //     let paidAmount = paidAmountRaw.replace(/\./g, "");
-
-        //     // ambil balance (remaining) dari tampilan
-        //     let remainingRaw = document.getElementById('total_amount_display').innerText.trim().replace(/\./g, "");
-        //     let remainingAmount = parseInt(remainingRaw) || 0;
-
-        //     if (!transactionType) {
-        //         document.getElementById('error_transaction_type').innerText = 'Account wajib dipilih';
-        //         document.getElementById('error_transaction_type').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!transactionDate) {
-        //         document.getElementById('error_transaction_date').innerText = 'Tanggal transaksi wajib diisi';
-        //         document.getElementById('error_transaction_date').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!cashBankAccount) {
-        //         document.getElementById('error_cash_bank_account_id').innerText = 'Pilih cash atau bank account';
-        //         document.getElementById('error_cash_bank_account_id').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!paidAmount || isNaN(paidAmount) || parseInt(paidAmount) <= 0) {
-        //         document.getElementById('error_paid_amount').innerText = 'Paid amount harus diisi dan lebih dari 0';
-        //         document.getElementById('error_paid_amount').classList.remove('d-none');
-        //         valid = false;
-        //     } else if (parseInt(paidAmount) > remainingAmount) {
-        //         // ❌ Tidak boleh lebih besar dari balance
-        //         document.getElementById('error_paid_amount').innerText = 'Paid amount tidak boleh melebihi Balance';
-        //         document.getElementById('error_paid_amount').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!valid) return;
-
-        //     // set value bersih sebelum submit
-        //     document.getElementById('paid_amount').value = paidAmount;
-
-        //     // 🚀 submit form biasa (ke route Laravel)
-        //     this.submit();
-        // });
 
         // ===================================================
         // MARK AS PAID (PRODUCT)

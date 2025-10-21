@@ -500,10 +500,10 @@ class PurchaseReturnController extends Controller
 
                 // 💰 Total breakdown
                 'total_amount_product'     => $totalProduct,
-                'paid_amount_product'      => $paidProduct,
+                'refund_amount_product'      => $paidProduct,
                 'remaining_amount_product' => $remainingProduct,
                 'total_amount_freight'     => $totalFreight,
-                'paid_amount_freight'      => $paidFreight,
+                'refund_amount_freight'      => $paidFreight,
                 'remaining_amount_freight' => $remainingFreight,
 
                 // 💰 Grand total summary
@@ -565,11 +565,11 @@ class PurchaseReturnController extends Controller
             }
 
             // 🔹 4️⃣ Update stok dan cost
-            foreach (array_unique($touchedProductIds) as $pid) {
-                if ($product = Products::find($pid)) {
-                    ProductCostService::updateCostAndStock($product);
-                }
-            }
+            // foreach (array_unique($touchedProductIds) as $pid) {
+            //     if ($product = Products::find($pid)) {
+            //         ProductCostService::updateCostAndStock($product);
+            //     }
+            // }
 
             // 🔹 5️⃣ Buat jurnal akuntansi (opsional)
             if (!empty($request->transaction_type)) {
@@ -1176,7 +1176,7 @@ class PurchaseReturnController extends Controller
             ]);
             $newItems = $purchaseReturn->items->mapWithKeys(fn($i) => [
                 $i->product_id => [
-                    'product'  => $i->product_name,
+                    'product'  => $i->product_name ?? $i->product->name ?? 'Unknown Product',
                     'quantity' => $i->quantity,
                     'price'    => $i->price,
                     'freight'  => $i->freight,
@@ -1719,6 +1719,8 @@ class PurchaseReturnController extends Controller
             ->where('purchase_return_id', $id)
             ->orderBy('edited_at', 'desc')
             ->get();
+
+        // dd($histories->toArray());
 
         return view('erp.pages.purchases.purchase-returns.edit-purchase-histories', compact('purchaseReturn', 'histories'));
     }

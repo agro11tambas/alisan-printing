@@ -69,7 +69,7 @@ class ExpenseController extends Controller
                 return $expense->transaction_date;
             })
             ->addColumn('debit', function ($expense) {
-                return 'Rp ' . number_format($expense->debit, 0, ',', '.');
+                return 'Rp ' . number_format($expense->debit);
             })
             ->addColumn('note', function ($expense) {
                 return $expense->note;

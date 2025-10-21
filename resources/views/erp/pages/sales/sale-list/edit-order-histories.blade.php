@@ -77,8 +77,8 @@
                                         @else
                                         <tr>
                                             <td>{{ ucfirst(str_replace('_', ' ', $field)) }}</td>
-                                            <td class="text-danger">{{ $orderChanges['old'][$field] ?? '-' }}</td>
-                                            <td class="text-success">{{ $newValue }}</td>
+                                            <td class="text-danger">{{ number_format($orderChanges['old'][$field]) }}</td>
+                                            <td class="text-success">{{ number_format($newValue) }}</td>
                                         </tr>
                                         @endif
                                         @endforeach
@@ -125,8 +125,8 @@
                                                         @foreach($item['fields'] as $field => $values)
                                                         <tr>
                                                             <td>{{ ucfirst(str_replace('_',' ', $field)) }}</td>
-                                                            <td class="text-danger">{{ $values['old'] }}</td>
-                                                            <td class="text-success">{{ $values['new'] }}</td>
+                                                            <td class="text-danger">{{ number_format($values['old']) }}</td>
+                                                            <td class="text-success">{{ number_format($values['new']) }}</td>
                                                         </tr>
                                                         @endforeach
                                                     </tbody>
@@ -143,13 +143,13 @@
                                                     <tbody>
                                                         <tr>
                                                             <td>Quantity</td>
-                                                            <td class="text-danger">{{ $item['old_quantity'] }}</td>
-                                                            <td class="text-success">{{ $item['new_quantity'] }}</td>
+                                                            <td class="text-danger">{{ number_format($item['old_quantity']) }}</td>
+                                                            <td class="text-success">{{ number_format($item['new_quantity']) }}</td>
                                                         </tr>
                                                         <tr>
                                                             <td>Total</td>
-                                                            <td class="text-danger">{{ number_format($item['old_total'],0,',','.') }}</td>
-                                                            <td class="text-success">{{ number_format($item['new_total'],0,',','.') }}</td>
+                                                            <td class="text-danger">{{ number_format($item['old_total']) }}</td>
+                                                            <td class="text-success">{{ number_format($item['new_total']) }}</td>
                                                         </tr>
                                                     </tbody>
                                                 </table>

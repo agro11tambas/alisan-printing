@@ -267,27 +267,158 @@ class PurchaseOrderController extends Controller
     //     }
     // }
 
+    // public function store(Request $request)
+    // {
+    //     $request->validate([
+    //         'purchase_date'          => 'required|date',
+    //         'suppliers'              => 'required|exists:suppliers,id',
+    //         'product'                => 'required|array',
+    //         'product.*'              => 'exists:products,id',
+    //         'qty'                    => 'required|array',
+    //         'qty.*'                  => 'numeric|min:1',
+    //         'price'                  => 'required|array',
+    //         'price.*'                => 'numeric|min:0',
+    //         'freight'                => 'required|array',
+    //         'freight.*'              => 'numeric|min:0',
+    //         'total'                  => 'required|array',
+    //         'total.*'                => 'numeric|min:0',
+    //         'sub_total'              => 'required|numeric|min:0',
+    //         'tax_percent'            => 'nullable|numeric|min:0',
+    //         'tax_amount'             => 'nullable|numeric|min:0',
+    //         'total_amount_product'   => 'required|numeric|min:0',
+    //         'total_amount_freight'   => 'required|numeric|min:0',
+    //         'total_amount'           => 'required|numeric|min:0',
+    //     ]);
+
+    //     DB::beginTransaction();
+
+    //     try {
+    //         $purchaseDate = Carbon::parse($request->purchase_date);
+    //         $purchaseDateFormatted = $purchaseDate->format('dmy');
+    //         $todayPurchaseCount = Purchase::whereDate('purchase_date', $purchaseDate->toDateString())->count();
+    //         $purchaseSequence = $todayPurchaseCount + 1;
+    //         $prefix = $request->status === 'Purchase Orders' ? 'PO' : ' ';
+    //         $purchaseNumber = $prefix . '/' . $purchaseSequence . '/ALS/' . $purchaseDateFormatted;
+
+    //         // === Hitung Total ===
+    //         $subtotalProduct = 0;
+    //         $subtotalFreight = 0;
+
+    //         foreach ($request->product as $i => $productId) {
+    //             $qty = $request->qty[$i] ?? 0;
+    //             $price = $request->price[$i] ?? 0;
+    //             $freight = $request->freight[$i] ?? 0;
+    //             $subtotalProduct += $qty * $price;
+    //             $subtotalFreight += $qty * $freight;
+    //         }
+
+    //         $taxPercent = $request->tax_percent ?? 0;
+    //         $taxAmount  = $request->tax_amount ?? 0;
+    //         $totalProduct = $subtotalProduct + $taxAmount;
+    //         $totalFreight = $subtotalFreight;
+    //         $grandTotal   = $totalProduct + $totalFreight;
+    //         $subTotal     = $subtotalProduct + $subtotalFreight;
+
+    //         // === Inisialisasi Pembayaran ===
+    //         $paidProduct = 0;
+    //         $paidFreight = 0;
+    //         $remainingProduct = $totalProduct - $paidProduct;
+    //         $remainingFreight = $totalFreight - $paidFreight;
+    //         $remainingAmount  = $remainingProduct + $remainingFreight;
+
+    //         $status = 'Purchase Orders';
+    //         $paymentStatus = 'Pending';
+
+    //         // === Simpan Purchase ===
+    //         $purchase = Purchase::create([
+    //             'purchase_number' => $purchaseNumber,
+    //             'purchase_date'   => $request->purchase_date,
+    //             'supplier_id'     => $request->suppliers,
+    //             'status'          => $status,
+    //             'payment_status'  => $paymentStatus,
+
+    //             'sub_total'       => $subTotal,
+    //             'tax_percent'     => $taxPercent,
+    //             'tax_amount'      => $taxAmount,
+
+    //             'total_amount_product'     => $totalProduct,
+    //             'total_amount_freight'     => $totalFreight,
+    //             'total_amount'             => $grandTotal,
+
+    //             'paid_amount_product'      => $paidProduct,
+    //             'paid_amount_freight'      => $paidFreight,
+    //             'paid_amount'              => 0,
+
+    //             'remaining_amount_product' => $remainingProduct,
+    //             'remaining_amount_freight' => $remainingFreight,
+    //             'remaining_amount'         => $remainingAmount,
+    //         ]);
+
+    //         // === Simpan Item Purchase ===
+    //         foreach ($request->product as $index => $productId) {
+    //             $qty     = $request->qty[$index];
+    //             $price   = $request->price[$index];
+    //             $freight = $request->freight[$index] ?? 0;
+    //             $total   = $request->total[$index];
+
+    //             $product = Products::findOrFail($productId);
+
+    //             PurchaseItem::create([
+    //                 'purchase_id'             => $purchase->id,
+    //                 'product_id'              => $productId,
+    //                 'inventory_warehouse_id'  => $request->inventory_warehouse_id,
+    //                 'product_name'            => $product->name,
+    //                 'quantity'                => $qty,
+    //                 'price'                   => $price,
+    //                 'freight'                 => $freight,
+    //                 'subtotal'                => $total,
+    //             ]);
+    //         }
+
+    //         // === Jika langsung ke Purchase List, buat Inventory ===
+    //         if ($purchase->status === 'Purchase List') {
+    //             $inventory = Inventory::create([
+    //                 'purchase_id'     => $purchase->id,
+    //                 'supplier_id'     => $purchase->supplier_id,
+    //                 'purchase_number' => $purchase->purchase_number,
+    //                 'date'            => $purchase->purchase_date,
+    //             ]);
+
+    //             foreach ($purchase->purchaseItems as $item) {
+    //                 InventoryItem::create([
+    //                     'inventory_id'         => $inventory->id,
+    //                     'product_id'           => $item->product_id,
+    //                     'quantity'             => $item->quantity,
+    //                     'price'                => $item->price,
+    //                     'stock_in'             => 0,
+    //                     'remaining_stock_in'   => $item->quantity,
+    //                     'stock_out'            => 0,
+    //                 ]);
+    //             }
+    //         }
+
+    //         DB::commit();
+    //         return redirect('/erp/purchases/purchase-orders')->with('success', 'Purchase order created successfully');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         Log::error('Purchase store failed', [
+    //             'message' => $e->getMessage(),
+    //             'line'    => $e->getLine(),
+    //             'file'    => $e->getFile(),
+    //         ]);
+    //         return redirect()->back()->with('error', 'Purchase order failed to create: ' . $e->getMessage());
+    //     }
+    // }
+
     public function store(Request $request)
     {
         $request->validate([
-            'purchase_date'          => 'required|date',
-            'suppliers'              => 'required|exists:suppliers,id',
-            'product'                => 'required|array',
-            'product.*'              => 'exists:products,id',
-            'qty'                    => 'required|array',
-            'qty.*'                  => 'numeric|min:1',
-            'price'                  => 'required|array',
-            'price.*'                => 'numeric|min:0',
-            'freight'                => 'required|array',
-            'freight.*'              => 'numeric|min:0',
-            'total'                  => 'required|array',
-            'total.*'                => 'numeric|min:0',
-            'sub_total'              => 'required|numeric|min:0',
-            'tax_percent'            => 'nullable|numeric|min:0',
-            'tax_amount'             => 'nullable|numeric|min:0',
-            'total_amount_product'   => 'required|numeric|min:0',
-            'total_amount_freight'   => 'required|numeric|min:0',
-            'total_amount'           => 'required|numeric|min:0',
+            'purchase_date' => 'required|date',
+            'suppliers'     => 'required|exists:suppliers,id',
+            'product'       => 'required|array',
+            'product.*'     => 'exists:products,id',
+            'qty'           => 'required|array',
+            'qty.*'         => 'numeric|min:1',
         ]);
 
         DB::beginTransaction();
@@ -297,34 +428,7 @@ class PurchaseOrderController extends Controller
             $purchaseDateFormatted = $purchaseDate->format('dmy');
             $todayPurchaseCount = Purchase::whereDate('purchase_date', $purchaseDate->toDateString())->count();
             $purchaseSequence = $todayPurchaseCount + 1;
-            $prefix = $request->status === 'Purchase Orders' ? 'PO' : ' ';
-            $purchaseNumber = $prefix . '/' . $purchaseSequence . '/ALS/' . $purchaseDateFormatted;
-
-            // === Hitung Total ===
-            $subtotalProduct = 0;
-            $subtotalFreight = 0;
-
-            foreach ($request->product as $i => $productId) {
-                $qty = $request->qty[$i] ?? 0;
-                $price = $request->price[$i] ?? 0;
-                $freight = $request->freight[$i] ?? 0;
-                $subtotalProduct += $qty * $price;
-                $subtotalFreight += $qty * $freight;
-            }
-
-            $taxPercent = $request->tax_percent ?? 0;
-            $taxAmount  = $request->tax_amount ?? 0;
-            $totalProduct = $subtotalProduct + $taxAmount;
-            $totalFreight = $subtotalFreight;
-            $grandTotal   = $totalProduct + $totalFreight;
-            $subTotal     = $subtotalProduct + $subtotalFreight;
-
-            // === Inisialisasi Pembayaran ===
-            $paidProduct = 0;
-            $paidFreight = 0;
-            $remainingProduct = $totalProduct - $paidProduct;
-            $remainingFreight = $totalFreight - $paidFreight;
-            $remainingAmount  = $remainingProduct + $remainingFreight;
+            $purchaseNumber = 'PO/' . $purchaseSequence . '/ALS/' . $purchaseDateFormatted;
 
             $status = 'Purchase Orders';
             $paymentStatus = 'Pending';
@@ -336,65 +440,31 @@ class PurchaseOrderController extends Controller
                 'supplier_id'     => $request->suppliers,
                 'status'          => $status,
                 'payment_status'  => $paymentStatus,
-
-                'sub_total'       => $subTotal,
-                'tax_percent'     => $taxPercent,
-                'tax_amount'      => $taxAmount,
-
-                'total_amount_product'     => $totalProduct,
-                'total_amount_freight'     => $totalFreight,
-                'total_amount'             => $grandTotal,
-
-                'paid_amount_product'      => $paidProduct,
-                'paid_amount_freight'      => $paidFreight,
-                'paid_amount'              => 0,
-
-                'remaining_amount_product' => $remainingProduct,
-                'remaining_amount_freight' => $remainingFreight,
-                'remaining_amount'         => $remainingAmount,
+                'sub_total'       => 0,
+                'total_amount'    => 0,
+                'tax_percent'     => 0,
+                'tax_amount'      => 0,
+                'total_amount_product' => 0,
+                'total_amount_freight' => 0,
+                'paid_amount'     => 0,
+                'remaining_amount' => 0,
             ]);
 
             // === Simpan Item Purchase ===
             foreach ($request->product as $index => $productId) {
-                $qty     = $request->qty[$index];
-                $price   = $request->price[$index];
-                $freight = $request->freight[$index] ?? 0;
-                $total   = $request->total[$index];
-
+                $qty = $request->qty[$index];
                 $product = Products::findOrFail($productId);
 
                 PurchaseItem::create([
-                    'purchase_id'             => $purchase->id,
-                    'product_id'              => $productId,
-                    'inventory_warehouse_id'  => $request->inventory_warehouse_id,
-                    'product_name'            => $product->name,
-                    'quantity'                => $qty,
-                    'price'                   => $price,
-                    'freight'                 => $freight,
-                    'subtotal'                => $total,
+                    'purchase_id'            => $purchase->id,
+                    'product_id'             => $productId,
+                    'inventory_warehouse_id' => $request->inventory_warehouse_id,
+                    'product_name'           => $product->name,
+                    'quantity'               => $qty,
+                    'price'                  => 0,
+                    'freight'                => 0,
+                    'subtotal'               => 0,
                 ]);
-            }
-
-            // === Jika langsung ke Purchase List, buat Inventory ===
-            if ($purchase->status === 'Purchase List') {
-                $inventory = Inventory::create([
-                    'purchase_id'     => $purchase->id,
-                    'supplier_id'     => $purchase->supplier_id,
-                    'purchase_number' => $purchase->purchase_number,
-                    'date'            => $purchase->purchase_date,
-                ]);
-
-                foreach ($purchase->purchaseItems as $item) {
-                    InventoryItem::create([
-                        'inventory_id'         => $inventory->id,
-                        'product_id'           => $item->product_id,
-                        'quantity'             => $item->quantity,
-                        'price'                => $item->price,
-                        'stock_in'             => 0,
-                        'remaining_stock_in'   => $item->quantity,
-                        'stock_out'            => 0,
-                    ]);
-                }
             }
 
             DB::commit();
@@ -919,179 +989,389 @@ class PurchaseOrderController extends Controller
     //     }
     // }
 
-    public function markAsPurchaseList($id, Request $request)
+    // public function markAsPurchaseList($id, Request $request)
+    // {
+    //     // 🔹 Bersihkan format angka
+    //     $request->merge([
+    //         'paid_amount_product' => str_replace('.', '', $request->paid_amount_product ?? 0),
+    //         'paid_amount_freight' => str_replace('.', '', $request->paid_amount_freight ?? 0),
+    //     ]);
+
+    //     $rules = [
+    //         'purchase_number'      => 'required',
+    //         'purchase_date'        => 'required|date',
+    //         'notes'                => 'nullable|string',
+    //         'cash_bank_account_id' => 'nullable|exists:accounts,id',
+    //         'transaction_date'     => 'nullable|date',
+    //         'transaction_type'     => 'nullable|exists:accounts,id',
+    //     ];
+
+    //     $request->validate($rules);
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $purchase = Purchase::findOrFail($id);
+    //         $status   = 'Purchase List';
+
+    //         // 🔹 Hitung produk
+    //         $totalProduct     = $purchase->total_amount_product ?? 0;
+    //         $paidProduct      = (float) $request->paid_amount_product ?? 0;
+    //         $remainingProduct = max($totalProduct - $paidProduct, 0);
+
+    //         // 🔹 Hitung freight
+    //         $totalFreight     = $purchase->total_amount_freight ?? 0;
+    //         $paidFreight      = (float) $request->paid_amount_freight ?? 0;
+    //         $remainingFreight = max($totalFreight - $paidFreight, 0);
+
+    //         // 🔹 Status pembayaran
+    //         $paymentStatusProduct = $paidProduct <= 0 ? 'Unpaid' : ($paidProduct < $totalProduct ? 'Partially Paid' : 'Paid');
+    //         $paymentStatusFreight = $paidFreight <= 0 ? 'Unpaid' : ($paidFreight < $totalFreight ? 'Partially Paid' : 'Paid');
+
+    //         // 🔹 Semua transaksi pakai Purchase Account
+    //         $purchaseAccount = Account::findOrFail($request->transaction_type);
+
+    //         // ✅ Transaksi Produk
+    //         if ($totalProduct > 0) {
+    //             $groupId = Str::uuid();
+
+    //             AccountTransaction::create([
+    //                 'purchase_id'          => $purchase->id,
+    //                 'purchase_number'      => $purchase->purchase_number,
+    //                 'transaction_date'     => $request->purchase_date,
+    //                 'account_id'           => $purchaseAccount->id,
+    //                 'debit'                => $totalProduct,
+    //                 'credit'               => 0,
+    //                 'note'                 => 'Purchase Product',
+    //                 'particular'           => 'Purchase Product',
+    //                 'transaction_group_id' => $groupId,
+    //             ]);
+
+    //             $purchaseAccount->increment('closing_balance', $totalProduct);
+
+    //             if ($paidProduct > 0 && $request->cash_bank_account_id) {
+    //                 $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
+
+    //                 AccountTransaction::create([
+    //                     'purchase_id'          => $purchase->id,
+    //                     'purchase_number'      => $purchase->purchase_number,
+    //                     'transaction_date'     => $request->transaction_date,
+    //                     'account_id'           => $cashBankAccount->id,
+    //                     'debit'                => 0,
+    //                     'credit'               => $paidProduct,
+    //                     'note'                 => 'Payment to Supplier',
+    //                     'particular'           => $purchaseAccount->name . ' - Product',
+    //                     'transaction_group_id' => $groupId,
+    //                 ]);
+
+    //                 $cashBankAccount->decrement('closing_balance', $paidProduct);
+    //             }
+    //         }
+
+    //         // ✅ Transaksi Freight (juga pakai Purchase Account)
+    //         if ($totalFreight > 0) {
+    //             $groupId = Str::uuid();
+
+    //             AccountTransaction::create([
+    //                 'purchase_id'          => $purchase->id,
+    //                 'purchase_number'      => $purchase->purchase_number,
+    //                 'transaction_date'     => $request->purchase_date,
+    //                 'account_id'           => $purchaseAccount->id,
+    //                 'debit'                => $totalFreight,
+    //                 'credit'               => 0,
+    //                 'note'                 => 'Purchase Freight',
+    //                 'particular'           => 'Purchase Freight (same account)',
+    //                 'transaction_group_id' => $groupId,
+    //             ]);
+
+    //             $purchaseAccount->increment('closing_balance', $totalFreight);
+
+    //             if ($paidFreight > 0 && $request->cash_bank_account_id) {
+    //                 $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
+
+    //                 AccountTransaction::create([
+    //                     'purchase_id'          => $purchase->id,
+    //                     'purchase_number'      => $purchase->purchase_number,
+    //                     'transaction_date'     => $request->transaction_date,
+    //                     'account_id'           => $cashBankAccount->id,
+    //                     'debit'                => 0,
+    //                     'credit'               => $paidFreight,
+    //                     'note'                 => 'Payment to Expedition',
+    //                     'particular'           => $purchaseAccount->name . ' - Freight',
+    //                     'transaction_group_id' => $groupId,
+    //                 ]);
+
+    //                 $cashBankAccount->decrement('closing_balance', $paidFreight);
+    //             }
+    //         }
+
+    //         // 🔹 Update purchase utama
+    //         $purchase->update([
+    //             'purchase_number'             => $request->purchase_number,
+    //             'status'                      => $status,
+    //             'purchase_date'               => $request->purchase_date,
+    //             'paid_amount_product'         => $paidProduct,
+    //             'remaining_amount_product'    => $remainingProduct,
+    //             'payment_status_product'      => $paymentStatusProduct,
+    //             'paid_amount_freight'         => $paidFreight,
+    //             'remaining_amount_freight'    => $remainingFreight,
+    //             'payment_status_freight'      => $paymentStatusFreight,
+    //             'transaction_type'            => $request->transaction_type,
+    //             'cash_bank_account_id'        => $request->cash_bank_account_id,
+    //             'notes'                       => $request->notes,
+    //         ]);
+
+    //         // 🔹 Simpan inventory (tetap sama)
+    //         if ($purchase->status === 'Purchase List' && !Inventory::where('purchase_id', $purchase->id)->exists()) {
+    //             $inventory = Inventory::create([
+    //                 'purchase_id'       => $purchase->id,
+    //                 'purchase_number'   => $purchase->purchase_number,
+    //                 'date'              => $purchase->purchase_date,
+    //                 'status'            => 'Stock In',
+    //                 'note'              => 'Purchase Account',
+    //             ]);
+
+    //             foreach (PurchaseItem::where('purchase_id', $purchase->id)->get() as $item) {
+    //                 InventoryItem::create([
+    //                     'inventory_id'           => $inventory->id,
+    //                     'product_id'             => $item->product_id,
+    //                     'inventory_warehouse_id' => $item->inventory_warehouse_id,
+    //                     'purchase_item_id'       => $item->id,
+    //                     'quantity'               => $item->quantity,
+    //                     'price'                  => $item->price,
+    //                     'stock_in'               => 0,
+    //                     'remaining_stock_in'     => $item->quantity,
+    //                     'stock_out'              => 0,
+    //                 ]);
+
+    //                 $item->update(['status' => 'Purchase Account']);
+
+    //                 $inventoryStock = InventoryStock::firstOrCreate(
+    //                     [
+    //                         'product_id'             => $item->product_id,
+    //                         'inventory_warehouse_id' => $item->inventory_warehouse_id ?? 2,
+    //                     ],
+    //                     ['incoming_stock' => 0]
+    //                 );
+
+    //                 $inventoryStock->increment('incoming_stock', $item->quantity);
+    //             }
+    //         }
+
+    //         DB::commit();
+    //         return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase Order marked as Purchase List.');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return redirect()->back()->with('error', 'Gagal memperbarui status pembelian: ' . $e->getMessage());
+    //     }
+    // }
+
+    public function markAsPurchaseList($id)
     {
-        // 🔹 Bersihkan format angka
-        $request->merge([
-            'paid_amount_product' => str_replace('.', '', $request->paid_amount_product ?? 0),
-            'paid_amount_freight' => str_replace('.', '', $request->paid_amount_freight ?? 0),
+        $purchase = Purchase::with(['supplier', 'purchaseItems.purchaseProduct'])->findOrFail($id);
+
+        // Ambil semua supplier (kalau ingin dropdown tetap aktif)
+        $suppliers = Supplier::all();
+
+        // Ambil semua produk (kalau ingin bisa tambah produk lain)
+        $products = Products::all();
+
+        return view('erp.pages.purchases.purchase-orders.mark-as-purchase-list', [
+            'purchase'  => $purchase,
+            'suppliers' => $suppliers,
+            'products'  => $products,
+        ]);
+    }
+
+    public function updatePurchaseList(Request $request, $id)
+    {
+        $request->validate([
+            'purchase_number'   => 'required|string|unique:purchases,purchase_number,' . $id,
+            'purchase_date'     => 'required|date',
+            'due_date_option'   => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
+            'custom_due_date'   => 'nullable|date',
+            'suppliers'         => 'required|exists:suppliers,id',
+            'product'           => 'required|array',
+            'product.*'         => 'exists:products,id',
+            'qty'               => 'required|array',
+            'qty.*'             => 'numeric|min:1',
+            'price'             => 'required|array',
+            'price.*'           => 'numeric|min:0',
+            'freight'           => 'required|array',
+            'freight.*'         => 'numeric|min:0',
+            'total'             => 'required|array',
+            'total.*'           => 'numeric|min:0',
+            'sub_total'         => 'required|numeric|min:0',
+            'tax_percent'       => 'nullable|numeric|min:0',
+            'tax_amount'        => 'nullable|numeric|min:0',
+            'total_amount_product'  => 'required|numeric|min:0',
+            'total_amount_freight'  => 'required|numeric|min:0',
+            'total_amount'          => 'required|numeric|min:0',
         ]);
 
-        $rules = [
-            'purchase_number'      => 'required',
-            'purchase_date'        => 'required|date',
-            'notes'                => 'nullable|string',
-            'cash_bank_account_id' => 'nullable|exists:accounts,id',
-            'transaction_date'     => 'nullable|date',
-            'transaction_type'     => 'nullable|exists:accounts,id',
-        ];
-
-        $request->validate($rules);
-
         DB::beginTransaction();
+
         try {
-            $purchase = Purchase::findOrFail($id);
-            $status   = 'Purchase List';
+            $purchase = Purchase::with(['purchaseItems'])->findOrFail($id);
+            $purchaseDate = Carbon::parse($request->purchase_date);
 
-            // 🔹 Hitung produk
-            $totalProduct     = $purchase->total_amount_product ?? 0;
-            $paidProduct      = (float) $request->paid_amount_product ?? 0;
-            $remainingProduct = max($totalProduct - $paidProduct, 0);
+            // ====== DUE DATE ======
+            $dueDate = match ($request->due_date_option) {
+                'today'     => $purchaseDate,
+                '1_week'    => $purchaseDate->copy()->addWeek(),
+                '1_month'   => $purchaseDate->copy()->addMonth(),
+                '3_months'  => $purchaseDate->copy()->addMonths(3),
+                'custom'    => $request->custom_due_date ? Carbon::parse($request->custom_due_date) : null,
+                default     => null
+            };
 
-            // 🔹 Hitung freight
-            $totalFreight     = $purchase->total_amount_freight ?? 0;
-            $paidFreight      = (float) $request->paid_amount_freight ?? 0;
-            $remainingFreight = max($totalFreight - $paidFreight, 0);
+            $status = 'Purchase List';
+            $paymentStatus = 'Unpaid';
 
-            // 🔹 Status pembayaran
-            $paymentStatusProduct = $paidProduct <= 0 ? 'Unpaid' : ($paidProduct < $totalProduct ? 'Partially Paid' : 'Paid');
-            $paymentStatusFreight = $paidFreight <= 0 ? 'Unpaid' : ($paidFreight < $totalFreight ? 'Partially Paid' : 'Paid');
+            // =============== HITUNG TOTAL ===============
+            $totalProduct  = $request->total_amount_product;
+            $totalFreight  = $request->total_amount_freight;
+            $taxPercent    = $request->tax_percent ?? 0;
 
-            // 🔹 Semua transaksi pakai Purchase Account
-            $purchaseAccount = Account::findOrFail($request->transaction_type);
+            // ✅ Pajak hanya dihitung dari product
+            $taxAmount = ($totalProduct * $taxPercent) / 100;
 
-            // ✅ Transaksi Produk
-            if ($totalProduct > 0) {
-                $groupId = Str::uuid();
+            // ✅ Product (sudah termasuk pajak)
+            $totalProductWithTax = $totalProduct + $taxAmount;
 
-                AccountTransaction::create([
-                    'purchase_id'          => $purchase->id,
-                    'purchase_number'      => $purchase->purchase_number,
-                    'transaction_date'     => $request->purchase_date,
-                    'account_id'           => $purchaseAccount->id,
-                    'debit'                => $totalProduct,
-                    'credit'               => 0,
-                    'note'                 => 'Purchase Product',
-                    'particular'           => 'Purchase Product',
-                    'transaction_group_id' => $groupId,
-                ]);
+            // ✅ Grand total = produk (termasuk pajak) + freight
+            $grandTotal = $totalProductWithTax + $totalFreight;
 
-                $purchaseAccount->increment('closing_balance', $totalProduct);
+            // ✅ Semua unpaid
+            $paidProduct       = 0;
+            $remainingProduct  = $totalProductWithTax;
+            $paidFreight       = 0;
+            $remainingFreight  = $totalFreight;
 
-                if ($paidProduct > 0 && $request->cash_bank_account_id) {
-                    $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
-
-                    AccountTransaction::create([
-                        'purchase_id'          => $purchase->id,
-                        'purchase_number'      => $purchase->purchase_number,
-                        'transaction_date'     => $request->transaction_date,
-                        'account_id'           => $cashBankAccount->id,
-                        'debit'                => 0,
-                        'credit'               => $paidProduct,
-                        'note'                 => 'Payment to Supplier',
-                        'particular'           => $purchaseAccount->name . ' - Product',
-                        'transaction_group_id' => $groupId,
-                    ]);
-
-                    $cashBankAccount->decrement('closing_balance', $paidProduct);
-                }
-            }
-
-            // ✅ Transaksi Freight (juga pakai Purchase Account)
-            if ($totalFreight > 0) {
-                $groupId = Str::uuid();
-
-                AccountTransaction::create([
-                    'purchase_id'          => $purchase->id,
-                    'purchase_number'      => $purchase->purchase_number,
-                    'transaction_date'     => $request->purchase_date,
-                    'account_id'           => $purchaseAccount->id,
-                    'debit'                => $totalFreight,
-                    'credit'               => 0,
-                    'note'                 => 'Purchase Freight',
-                    'particular'           => 'Purchase Freight (same account)',
-                    'transaction_group_id' => $groupId,
-                ]);
-
-                $purchaseAccount->increment('closing_balance', $totalFreight);
-
-                if ($paidFreight > 0 && $request->cash_bank_account_id) {
-                    $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
-
-                    AccountTransaction::create([
-                        'purchase_id'          => $purchase->id,
-                        'purchase_number'      => $purchase->purchase_number,
-                        'transaction_date'     => $request->transaction_date,
-                        'account_id'           => $cashBankAccount->id,
-                        'debit'                => 0,
-                        'credit'               => $paidFreight,
-                        'note'                 => 'Payment to Expedition',
-                        'particular'           => $purchaseAccount->name . ' - Freight',
-                        'transaction_group_id' => $groupId,
-                    ]);
-
-                    $cashBankAccount->decrement('closing_balance', $paidFreight);
-                }
-            }
-
-            // 🔹 Update purchase utama
+            // ====== UPDATE HEADER ======
             $purchase->update([
-                'purchase_number'             => $request->purchase_number,
-                'status'                      => $status,
-                'purchase_date'               => $request->purchase_date,
-                'paid_amount_product'         => $paidProduct,
-                'remaining_amount_product'    => $remainingProduct,
-                'payment_status_product'      => $paymentStatusProduct,
-                'paid_amount_freight'         => $paidFreight,
-                'remaining_amount_freight'    => $remainingFreight,
-                'payment_status_freight'      => $paymentStatusFreight,
-                'transaction_type'            => $request->transaction_type,
-                'cash_bank_account_id'        => $request->cash_bank_account_id,
-                'notes'                       => $request->notes,
+                'purchase_number'           => $request->purchase_number,
+                'purchase_date'             => $purchaseDate,
+                'due_date'                  => $dueDate,
+                'supplier_id'               => $request->suppliers,
+                'payment_status'            => $paymentStatus,
+
+                // detail nilai
+                'sub_total'                 => $totalProduct + $totalFreight,
+                'tax_percent'               => $taxPercent,
+                'tax_amount'                => $taxAmount,
+                'freight_total'             => $totalFreight,
+
+                // ✅ Produk (sudah termasuk pajak)
+                'total_amount_product'      => $totalProductWithTax,
+                'paid_amount_product'       => $paidProduct,
+                'remaining_amount_product'  => $remainingProduct,
+
+                // ✅ Freight (tanpa pajak)
+                'total_amount_freight'      => $totalFreight,
+                'paid_amount_freight'       => $paidFreight,
+                'remaining_amount_freight'  => $remainingFreight,
+
+                // ✅ Grand total
+                'total_amount'              => $grandTotal,
+                'paid_amount'               => 0,
+                'remaining_amount'          => $grandTotal,
+                'status'                    => $status,
             ]);
 
-            // 🔹 Simpan inventory (tetap sama)
-            if ($purchase->status === 'Purchase List' && !Inventory::where('purchase_id', $purchase->id)->exists()) {
-                $inventory = Inventory::create([
-                    'purchase_id'       => $purchase->id,
-                    'purchase_number'   => $purchase->purchase_number,
-                    'date'              => $purchase->purchase_date,
-                    'status'            => 'Stock In',
-                    'note'              => 'Purchase Account',
+            // foreach ($purchase->purchaseItems as $oldItem) {
+            //     $oldStock = InventoryStock::where('product_id', $oldItem->product_id)
+            //         ->where('inventory_warehouse_id', $oldItem->inventory_warehouse_id ?? 1)
+            //         ->first();
+            //     if ($oldStock) {
+            //         $oldStock->decrement('incoming_stock', $oldItem->quantity);
+            //     }
+            // }
+
+            // ======= UPDATE / CREATE ITEM ==========
+            foreach ($request->product as $index => $productId) {
+                $qty     = $request->qty[$index];
+                $price   = $request->price[$index];
+                $freight = $request->freight[$index];
+                $total   = $request->total[$index];
+
+                $item = $purchase->purchaseItems[$index] ?? new PurchaseItem(['purchase_id' => $purchase->id]);
+                $item->fill([
+                    'product_id'              => $productId,
+                    'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
+                    'status'                  => 'Purchase Account',
+                    'quantity'                => $qty,
+                    'price'                   => $price,
+                    'freight'                 => $freight,
+                    'subtotal'                => $total,
+                ]);
+                $item->save();
+
+                // === Update atau buat Inventory ===
+                $inventory = Inventory::firstOrCreate(
+                    ['purchase_id' => $purchase->id],
+                    [
+                        'purchase_number' => $purchase->purchase_number,
+                        'supplier_id'     => $purchase->supplier_id,
+                        'date'            => $purchase->purchase_date,
+                        'status'          => 'Stock In',
+                        'note'            => 'Purchase Account',
+                    ]
+                );
+
+                $inventoryItem = InventoryItem::firstOrNew([
+                    'purchase_item_id' => $item->id,
+                    'inventory_id'     => $inventory->id,
                 ]);
 
-                foreach (PurchaseItem::where('purchase_id', $purchase->id)->get() as $item) {
-                    InventoryItem::create([
-                        'inventory_id'           => $inventory->id,
-                        'product_id'             => $item->product_id,
-                        'inventory_warehouse_id' => $item->inventory_warehouse_id,
-                        'purchase_item_id'       => $item->id,
-                        'quantity'               => $item->quantity,
-                        'price'                  => $item->price,
-                        'stock_in'               => 0,
-                        'remaining_stock_in'     => $item->quantity,
-                        'stock_out'              => 0,
-                    ]);
+                $inventoryItem->fill([
+                    'product_id'              => $productId,
+                    'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
+                    'quantity'                => $qty,
+                    'price'                   => $price,
+                    'stock_in'                => 0,
+                    'remaining_stock_in'      => $qty,
+                    'stock_out'               => 0,
+                ]);
+                $inventoryItem->save();
 
-                    $item->update(['status' => 'Purchase Account']);
+                $inventoryStock = InventoryStock::firstOrCreate(
+                    [
+                        'product_id' => $productId,
+                        'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
+                    ],
+                    ['incoming_stock' => 0]
+                );
 
-                    $inventoryStock = InventoryStock::firstOrCreate(
-                        [
-                            'product_id'             => $item->product_id,
-                            'inventory_warehouse_id' => $item->inventory_warehouse_id ?? 2,
-                        ],
-                        ['incoming_stock' => 0]
-                    );
-
-                    $inventoryStock->increment('incoming_stock', $item->quantity);
-                }
+                // ✅ Gunakan increment biar atomic & aman
+                $inventoryStock->increment('incoming_stock', $qty);
             }
 
+            // ======= UPDATE / CREATE TRANSAKSI AKUN ==========
+            $purchaseAccount = Account::where('type', 'Purchase Account')->firstOrFail();
+
+            $trx = AccountTransaction::firstOrNew([
+                'purchase_id' => $purchase->id,
+                'account_id'  => $purchaseAccount->id,
+            ]);
+
+            $trx->fill([
+                'purchase_number'      => $purchase->purchase_number,
+                'transaction_date'     => $purchase->purchase_date,
+                'debit'                => $purchase->total_amount_product,
+                'credit'               => 0,
+                'note'                 => 'Purchase Account Transaction (Updated)',
+                'particular'           => 'Purchase Invoice',
+                'transaction_group_id' => $trx->transaction_group_id ?? Str::uuid(),
+            ]);
+            $trx->save();
+
             DB::commit();
-            return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase Order marked as Purchase List.');
+
+            return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase list berhasil diperbarui tanpa hapus data lama!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal memperbarui status pembelian: ' . $e->getMessage());
+            Log::error('Purchase update failed: ' . $e->getMessage());
+            return back()->with('error', 'Gagal memperbarui purchase list: ' . $e->getMessage());
         }
     }
 }

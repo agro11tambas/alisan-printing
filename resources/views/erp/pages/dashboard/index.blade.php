@@ -226,7 +226,7 @@
 @push('scripts')
 <script>
     function formatRupiah(angka) {
-        return new Intl.NumberFormat('id-ID').format(angka);
+        return new Intl.NumberFormat('en-US').format(angka);
     }
 
     function fetchAccount(filter, start = '', end = '') {

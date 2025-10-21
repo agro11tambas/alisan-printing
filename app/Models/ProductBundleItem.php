@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProductBundleItem extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'product_bundle_items';
 
@@ -15,6 +16,10 @@ class ProductBundleItem extends Model
         'product_id',
         'bundle_id',
         'quantity',
+    ];
+
+    protected $casts = [
+        'deleted_at' => 'datetime',
     ];
     
     public function product()

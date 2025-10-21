@@ -159,7 +159,7 @@ class ProductCostService
         // Update inventory_stock
         $inventoryStock->update([
             'inventory_stock' => $openingStock + $stockInQty - $stockOutQty + $purchaseQty,
-            'incoming_stock'  => 0,
+            // 'incoming_stock'  => 0,
             'avg_cost'        => $avgCost,
         ]);
 

@@ -118,12 +118,13 @@
                                                 <input type="hidden"
                                                     name="items[{{ $index }}][order_progress_item_id]"
                                                     value="{{ $item->id }}">
-                                                <input type="number" name="items[{{ $index }}][change_quantity]"
-                                                    class="form-control" value="0" min="0"
+                                                <input type="text" inputmode="numeric"
+                                                    name="items[{{ $index }}][change_quantity]" class="form-control"
+                                                    value="0" min="0"
                                                     max="{{ $item->quantity - $item->completed_quantity }}"
                                                     placeholder="Jumlah dicetak">
                                                 <small class="text-muted">Sisa:
-                                                    {{ $item->quantity - $item->completed_quantity }}</small>
+                                                    {{ number_format($item->quantity - $item->completed_quantity) }}</small>
                                             </td>
                                             <td>
                                                 <select name="items[{{ $index }}][operator_id]"
@@ -156,14 +157,52 @@
     <script>
         $(document).ready(function() {
 
-            // 🔹 Kalau tombol di luar <form>, kita trigger manual
-            $(document).on('click', 'button[form="orderForm"]', function(e) {
-                e.preventDefault(); // cegah submit langsung
+            // === FORMAT ANGKA DENGAN PEMISAH KOMA (1,000) ===
+            function formatNumber(n) {
+                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            }
+
+            // === SAAT FOKUS: HAPUS 0 OTOMATIS ===
+            $(document).on('focus', 'input[name^="items"][name$="[change_quantity]"]', function() {
+                if ($(this).val() === '0') {
+                    $(this).val('');
+                }
+            });
+
+            // === SAAT KELUAR: KEMBALIKAN 0 JIKA KOSONG ===
+            $(document).on('blur', 'input[name^="items"][name$="[change_quantity]"]', function() {
+                if ($(this).val().trim() === '') {
+                    $(this).val('0');
+                }
+            });
+
+            // Reformat angka saat user mengetik
+            $(document).on('input', 'input[name^="items"][name$="[change_quantity]"]', function(e) {
+                const input = e.target;
+                const cursorPos = input.selectionStart;
+                const raw = input.value.replace(/,/g, '');
+                if (raw === '') return;
+
+                const formatted = formatNumber(raw);
+                const diff = formatted.length - input.value.length;
+                input.value = formatted;
+                input.setSelectionRange(cursorPos + diff, cursorPos + diff);
+            });
+
+            // Hapus koma saat submit
+            $('#orderForm').on('submit', function() {
+                $('input[name^="items"][name$="[change_quantity]"]').each(function() {
+                    this.value = this.value.replace(/,/g, '');
+                });
+            });
+
+            // === VALIDASI & SUBMIT ===
+            $('#btnSubmitForm').on('click', function(e) {
+                e.preventDefault();
 
                 let isValid = true;
-                $('.error-operator').addClass('d-none'); // reset pesan error
+                $('.error-operator').addClass('d-none');
 
-                // 🔍 Validasi semua operator wajib diisi
                 $('.operator-field').each(function() {
                     if ($(this).val() === '') {
                         $(this).closest('td').find('.error-operator').removeClass('d-none');
@@ -171,14 +210,11 @@
                     }
                 });
 
-                // ❌ Jika ada error, jangan submit
                 if (!isValid) return;
 
-                // ✅ Kalau valid, submit form normal (biar controller yang redirect)
-                $('#orderForm').off('submit'); // hapus event handler (kalau ada)
-                $('#orderForm')[0].submit(); // submit normal (reload halaman)
+                // kirim form normal (biar method POST kepanggil)
+                $('#orderForm').trigger('submit');
             });
-
         });
     </script>
 @endpush

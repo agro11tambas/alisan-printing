@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DefectProduct;
 use Illuminate\Http\Request;
 use App\Models\Inventory;
 use App\Models\InventoryStockOut;
@@ -51,6 +52,143 @@ class HistoryStockOutController extends Controller
         return $openingStock + ($stockIn - $stockOut);
     }
 
+    // public function store(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'inventory_id' => 'required|exists:inventories_2,id',
+    //         'change_date'  => 'required|date',
+    //         'notes'        => 'nullable',
+    //         'waybill_number' => 'nullable|string',
+    //         'waybill_image'  => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+    //         'items' => 'required|array',
+    //         'items.*.inventory_item_id' => 'required|exists:inventory_items_2,id',
+    //         'items.*.stock_out'         => 'required|integer|min:1',
+    //     ]);
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $inventory = Inventory::findOrFail($request->inventory_id);
+
+    //         // Upload waybill jika ada
+    //         $waybillImagePath = null;
+    //         if ($request->hasFile('waybill_image')) {
+    //             $image = $request->file('waybill_image');
+    //             $filename = time() . '_' . $image->getClientOriginalName();
+    //             $image->move(public_path('uploads/waybill_image'), $filename);
+    //             $waybillImagePath = 'uploads/waybill_image/' . $filename;
+    //         }
+
+    //         // Simpan header Stock Out
+    //         $stockOut = InventoryStockOut::create([
+    //             'inventory_id'    => $inventory->id,
+    //             'invoice_number'  => $inventory->purchase_return_id
+    //                 ? $inventory->purchase_number
+    //                 : $inventory->order_number,
+    //             'change_date'     => $request->change_date,
+    //             'notes'           => $request->notes,
+    //             'waybill_number'  => $request->waybill_number,
+    //             'waybill_image'   => $waybillImagePath,
+    //             'status'          => 'Add Stock Out',
+    //             'user_id'         => $request->user()->id,
+    //         ]);
+
+    //         $touchedProducts = [];
+
+    //         foreach ($request->items as $item) {
+    //             $inventoryItem = InventoryItem::findOrFail($item['inventory_item_id']);
+
+    //             // Simpan detail Stock Out
+    //             InventoryStockOutHistory::create([
+    //                 'inventory_stock_out_id' => $stockOut->id,
+    //                 'inventory_item_id'      => $item['inventory_item_id'],
+    //                 'stock_out'              => $item['stock_out'],
+    //             ]);
+
+    //             // Update inventory item
+    //             $inventoryItem->increment('stock_out', $item['stock_out']);
+
+    //             // Jika ada material request item
+    //             if ($inventoryItem->material_request_item_id) {
+    //                 $materialRequestItem = MaterialRequestItem::find($inventoryItem->material_request_item_id);
+    //                 if ($materialRequestItem) {
+    //                     $materialRequestItem->increment('issued_qty', $item['stock_out']);
+
+    //                     MaterialRequestItemHistory::create([
+    //                         'material_request_item_id' => $materialRequestItem->id,
+    //                         'quantity' => $item['stock_out'],
+    //                         'date'     => now()->format('Y-m-d'),
+    //                         'status'   => 'pending',
+    //                         'note'     => 'Stock Out #' . $stockOut->id,
+    //                     ]);
+    //                 }
+    //             }
+
+    //             // Jika ada purchase return item
+    //             if ($inventoryItem->purchase_return_item_id) {
+    //                 $purchaseReturnItem = PurchaseReturnItem::find($inventoryItem->purchase_return_item_id);
+    //                 if ($purchaseReturnItem) {
+    //                     $purchaseReturnItem->increment('stock_out', $item['stock_out']);
+    //                 }
+    //             }
+
+    //             // Update ke InventoryStock
+    //             $productId = $inventoryItem->product_id;
+    //             $inventoryStock = InventoryStock::firstOrCreate(
+    //                 [
+    //                     'product_id'             => $productId,
+    //                     'inventory_warehouse_id' => $inventoryItem->inventory_warehouse_id ?? 1,
+    //                 ],
+    //                 [
+    //                     'opening_stock'   => 0,
+    //                     'opening_rate'    => 0,
+    //                     'inventory_stock' => 0,
+    //                     'incoming_stock'  => 0,
+    //                     'avg_cost'        => 0,
+    //                 ]
+    //             );
+
+    //             // Kurangi stok fisik
+    //             $inventoryStock->decrement('inventory_stock', $item['stock_out']);
+
+    //             // Catat produk yang terdampak
+    //             $touchedProducts[] = $productId;
+    //         }
+
+    //         // ✅ Recalculate avg_cost hanya jika stock out berasal dari Purchase Return
+    //         if ($inventory->purchase_return_id) {
+    //             foreach (array_unique($touchedProducts) as $pid) {
+    //                 if ($product = Products::find($pid)) {
+    //                     ProductCostService::updateCostAndStock($product);
+    //                 }
+    //             }
+    //         }
+
+    //         // ✅ Jika berasal dari Material Request → ubah warehouse_status jika semua item sudah issued
+    //         if ($inventory->material_request_id) {
+    //             $materialRequest = MaterialRequest::with('items')->find($inventory->material_request_id);
+
+    //             if ($materialRequest) {
+    //                 // Cek apakah semua item sudah terpenuhi
+    //                 $allIssued = $materialRequest->items->every(function ($item) {
+    //                     return $item->issued_qty >= $item->requested_qty;
+    //                 });
+
+    //                 if ($allIssued) {
+    //                     $materialRequest->update(['warehouse_status' => 'Verified']);
+    //                 } else {
+    //                     $materialRequest->update(['warehouse_status' => 'Partial']);
+    //                 }
+    //             }
+    //         }
+
+    //         DB::commit();
+    //         return redirect('/erp/inventory/stock-out')->with('success', 'Stock Out berhasil ditambahkan');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return back()->with('error', 'Stock Out gagal: ' . $e->getMessage());
+    //     }
+    // }
+
     public function store(Request $request, $id)
     {
         $request->validate([
@@ -91,8 +229,6 @@ class HistoryStockOutController extends Controller
                 'user_id'         => $request->user()->id,
             ]);
 
-            $touchedProducts = [];
-
             foreach ($request->items as $item) {
                 $inventoryItem = InventoryItem::findOrFail($item['inventory_item_id']);
 
@@ -106,7 +242,7 @@ class HistoryStockOutController extends Controller
                 // Update inventory item
                 $inventoryItem->increment('stock_out', $item['stock_out']);
 
-                // Jika ada material request item
+                // Material Request (produksi)
                 if ($inventoryItem->material_request_item_id) {
                     $materialRequestItem = MaterialRequestItem::find($inventoryItem->material_request_item_id);
                     if ($materialRequestItem) {
@@ -122,7 +258,7 @@ class HistoryStockOutController extends Controller
                     }
                 }
 
-                // Jika ada purchase return item
+                // Purchase Return
                 if ($inventoryItem->purchase_return_item_id) {
                     $purchaseReturnItem = PurchaseReturnItem::find($inventoryItem->purchase_return_item_id);
                     if ($purchaseReturnItem) {
@@ -130,7 +266,7 @@ class HistoryStockOutController extends Controller
                     }
                 }
 
-                // Update ke InventoryStock
+                // --- Update ke InventoryStock ---
                 $productId = $inventoryItem->product_id;
                 $inventoryStock = InventoryStock::firstOrCreate(
                     [
@@ -146,37 +282,71 @@ class HistoryStockOutController extends Controller
                     ]
                 );
 
-                // Kurangi stok fisik
-                $inventoryStock->decrement('inventory_stock', $item['stock_out']);
+                if ($inventory->purchase_return_id) {
+                    $purchaseReturnItem = $inventoryItem->purchaseReturnItem ?? null;
+                    if ($purchaseReturnItem) {
+                        $returnCost = $purchaseReturnItem->price + $purchaseReturnItem->freight;
 
-                // Catat produk yang terdampak
-                $touchedProducts[] = $productId;
-            }
+                        // Hitung qty sebelum pengeluaran
+                        $productionQty = \App\Models\ProductionStock::where('product_id', $productId)
+                            ->sum('available_quantity');
 
-            // ✅ Recalculate avg_cost hanya jika stock out berasal dari Purchase Return
-            if ($inventory->purchase_return_id) {
-                foreach (array_unique($touchedProducts) as $pid) {
-                    if ($product = Products::find($pid)) {
-                        ProductCostService::updateCostAndStock($product);
+                        $previousQty  = max(0, $inventoryStock->inventory_stock + $productionQty);
+                        $previousCost = $inventoryStock->avg_cost;
+
+                        // Weighted average seperti di stock in (tapi arah minus)
+                        $inventoryStock->avg_cost = round(
+                            (($previousCost * $previousQty) - ($returnCost * $item['stock_out']))
+                                / max(1, $previousQty - $item['stock_out']),
+                            2
+                        );
                     }
+                }
+
+                $inventoryStock->decrement('inventory_stock', $item['stock_out']);
+                $inventoryStock->decrement('stock_after_sales', $item['stock_out']);
+                $inventoryStock->save();
+
+                // === Sinkronkan ke tabel products ===
+                Products::where('id', $productId)->update([
+                    'avg_cost' => $inventoryStock->avg_cost,
+                ]);
+
+                // === DEFECT PRODUCT ===
+                if ($inventory->purchase_return_id) {
+                    $purchaseReturn = $inventory->purchaseReturn;
+                    $purchase = $inventory->purchase;
+
+                    DefectProduct::create([
+                        'product_id'              => $productId,
+                        'purchase_id'             => $purchase->id ?? null,
+                        'purchase_return_id'      => $purchaseReturn->id ?? null,
+                        'supplier_id'             => $purchaseReturn->supplier_id ?? null,
+                        'inventory_id'            => $inventory->id,
+                        'inventory_stock_out_id'  => $stockOut->id,
+                        'inventory_item_id'       => $inventoryItem->id,
+                        'defect_date'             => $request->change_date,
+                        'quantity'                => $item['stock_out'],
+                        'defect_type'             => 'rusak supplier',
+                        'status'                  => 'pending',
+                        'note'                    => $request->notes ?? 'Stock Out defect (Purchase Return)',
+                        'user_id'                 => $request->user()->id,
+                    ]);
                 }
             }
 
-            // ✅ Jika berasal dari Material Request → ubah warehouse_status jika semua item sudah issued
+            // ✅ Update status material request (kalau dari produksi)
             if ($inventory->material_request_id) {
                 $materialRequest = MaterialRequest::with('items')->find($inventory->material_request_id);
 
                 if ($materialRequest) {
-                    // Cek apakah semua item sudah terpenuhi
                     $allIssued = $materialRequest->items->every(function ($item) {
                         return $item->issued_qty >= $item->requested_qty;
                     });
 
-                    if ($allIssued) {
-                        $materialRequest->update(['warehouse_status' => 'Verified']);
-                    } else {
-                        $materialRequest->update(['warehouse_status' => 'Partial']);
-                    }
+                    $materialRequest->update([
+                        'warehouse_status' => $allIssued ? 'Verified' : 'Partial',
+                    ]);
                 }
             }
 

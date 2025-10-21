@@ -19,9 +19,12 @@ class FinancialReport extends Model
         'reference_table',
         'revenue',
         'cogs',
+        'cogs_fixed_cost',
         'gross_profit',
+        'gross_profit_at_fixed_cost',
         'expense',
         'net_profit',
+        'net_profit_at_fixed_cost',
         'notes',
     ];
 

@@ -18,7 +18,7 @@
                         @endif
                     </span>
                 </td>
-                <td><span class="fw-bold text-success">{{ $item->completed_quantity }}</span>/<span class="fw-bold text-primary">{{ $item->quantity }}</td>
+                <td><span class="fw-bold text-success">{{ $item->completed_quantity }}</span>/<span class="fw-bold text-primary">{{ number_format($item->quantity) }}</span></td>
                 <td><span class="fw-bold text-danger">{{ $item->stock_out }}</span></td>
             </tr>
             @endforeach

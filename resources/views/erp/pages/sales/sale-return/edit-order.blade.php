@@ -182,9 +182,9 @@
                                                             </select>
                                                         </td>
                                                         <td>
-                                                            <input type="number" name="qty[]" class="qty form-control"
+                                                            <input type="text" name="qty[]" class="qty form-control"
                                                                 min="0" max="{{ $item->remaining_qty }}"
-                                                                value="{{ old('qty.' . $index, $item->return_qty ?? 0) }}">
+                                                                value="{{ number_format(old('qty.' . $index, $item->return_qty ?? 0), 0, ',', ',') }}">
                                                             <!-- <small class="text-muted">Sisa max: {{ $item->remaining_qty }}</small> -->
                                                         </td>
                                                         <td>
@@ -207,9 +207,9 @@
                                     </div>
 
                                     <!-- <div class="d-flex justify-content-end gap-2 mt-3">
-                                        <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
-                                        <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
-                                    </div> -->
+                                                    <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
+                                                    <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
+                                                </div> -->
                                 </div>
 
                                 <!-- Grand Total -->
@@ -261,105 +261,114 @@
             }),
         ); ?>;
     </script>
+
     <script>
         $(document).ready(function() {
-            let i = parseInt('{{ count($saleReturn->items) }}');
+            // === init select2 ===
+            $('.select-product').select2({
+                width: '100%',
+                placeholder: 'Pilih produk'
+            });
 
-            function initSelect2() {
-                $('.select-product').select2({
-                    width: '100%',
-                    placeholder: 'Pilih produk'
-                });
-            }
-
-            initSelect2();
-
+            // === formatter tanpa desimal ===
             function formatNumber(num) {
-                return new Intl.NumberFormat('id-ID', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
+                return new Intl.NumberFormat('en-US', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
                 }).format(num);
             }
 
+            // === hitung per baris ===
             function updateRowTotal(row) {
-                let qty = parseFloat(row.find(".qty").val()) || 0;
-                let price = parseFloat(row.find(".price").val()) || 0;
-                let total = qty * price;
+                const qty = parseFloat((row.find('.qty').val() || '0').replace(/,/g, '')) ||
+                0; // ✅ hapus koma, bukan titik
+                const price = parseFloat(row.find('.price').val()) || 0;
+                const total = qty * price;
 
-                // simpan raw (hidden)
-                row.find(".price").val(price.toFixed(2));
-                row.find(".total").val(total.toFixed(2));
+                row.find('.price').val(price.toFixed(0));
+                row.find('.total').val(total.toFixed(0));
 
-                // tampilkan formatted
-                row.find(".price_display").val(formatNumber(price));
-                row.find(".total_display").val(formatNumber(total));
+                row.find('.price_display').val(formatNumber(price));
+                row.find('.total_display').val(formatNumber(total));
 
                 calc_total();
             }
 
+            // === hitung total keseluruhan ===
             function calc_total() {
                 let total = 0;
-                $(".total").each(function() {
+                $('.total').each(function() {
                     total += parseFloat($(this).val()) || 0;
                 });
 
-                // raw hidden
-                $("#sub_total").val(total.toFixed(2));
-                $("#total_amount").val(total.toFixed(2));
-
-                // display formatted
-                $("#sub_total_display").val(formatNumber(total));
-                $("#total_amount_display").val(formatNumber(total));
+                $('#sub_total').val(total.toFixed(0));
+                $('#total_amount').val(total.toFixed(0));
+                $('#total_amount_display').val(formatNumber(total));
             }
 
-            $(document).ready(function() {
-                $('.select-product').select2({
-                    width: '100%',
-                    placeholder: 'Pilih produk'
-                });
+            // === prefill harga & total saat load ===
+            $('#tab_logic tbody tr').each(function() {
+                const row = $(this);
+                const sel = row.find('.select-product');
+                const price = parseFloat(sel.find('option:selected').data('price')) || 0;
 
-                // Prefill row saat load edit
-                $("#tab_logic tbody tr").each(function() {
-                    updateRowTotal($(this));
-                });
-
-                // Qty berubah
-                $(document).on('input', '.qty', function() {
-                    let row = $(this).closest('tr');
-                    let max = parseFloat($(this).attr('max')) || Infinity;
-                    let qty = parseFloat($(this).val()) || 0;
-                    if (qty > max) {
-                        $(this).val(max);
-                        qty = max;
-                    }
-                    updateRowTotal(row);
-                });
-
-                // Product dipilih → update price
-                $(document).on('change', '.select-product', function() {
-                    let row = $(this).closest('tr');
-                    let price = parseFloat($(this).find('option:selected').data('price')) || 0;
-                    row.find('.price').val(price.toFixed(2));
-                    row.find('.price_display').val(formatNumber(price));
-                    updateRowTotal(row);
-                });
-
-                // Price diubah manual
-                $(document).on('input', '.price', function() {
-                    updateRowTotal($(this).closest('tr'));
-                });
-
-                calc_total();
+                row.find('.price').val(price.toFixed(0));
+                row.find('.price_display').val(formatNumber(price));
+                updateRowTotal(row);
             });
 
-            // Google Maps Link Update
+            // === event: ubah produk ===
+            $(document).on('change', '.select-product', function() {
+                const row = $(this).closest('tr');
+                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
+                row.find('.price').val(price.toFixed(0));
+                row.find('.price_display').val(formatNumber(price));
+                updateRowTotal(row);
+            });
+
+            // === event: ubah qty (dengan format ribuan koma) ===
+            $(document).on('input', '.qty', function() {
+                const row = $(this).closest('tr');
+                const max = parseFloat($(this).attr('max')) || Infinity;
+
+                // hapus non-digit, lalu format ribuan koma
+                let raw = $(this).val().replace(/\D/g, '');
+                if (!raw) {
+                    $(this).val('');
+                    updateRowTotal(row);
+                    return;
+                }
+
+                let numeric = parseFloat(raw);
+                if (numeric > max) numeric = max;
+
+                const formatted = new Intl.NumberFormat('en-US').format(numeric);
+                $(this).val(formatted);
+
+                updateRowTotal(row);
+            });
+
+            // === event: ubah price manual ===
+            $(document).on('input', '.price', function() {
+                updateRowTotal($(this).closest('tr'));
+            });
+
+            // === hapus koma sebelum submit form (biar backend dapat angka murni) ===
+            $('#orderForm').on('submit', function() {
+                $('.qty').each(function() {
+                    const raw = $(this).val().replace(/,/g, ''); // ✅ hapus koma
+                    $(this).val(raw);
+                });
+            });
+
+            // === Google Maps Link ===
             function updateGoogleMapsLink() {
                 const selectedOption = $('#addresses').find('option:selected');
                 const mapUrl = selectedOption.data('map');
                 if (mapUrl) {
                     $('#google-maps-link').html(
                         `<a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Google Maps</a>`
-                        );
+                    );
                 } else {
                     $('#google-maps-link').empty();
                 }
@@ -372,50 +381,42 @@
                 $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
                 addresses.forEach(function(address, index) {
                     $addressSelect.append(
-                        `<option value="${address.id}" data-map="${address.google_maps}">Alamat ke-${index+1} - ${address.address}</option>`
-                        );
+                        `<option value="${address.id}" data-map="${address.google_maps}">
+                    Alamat ke-${index + 1} - ${address.address}
+                </option>`
+                    );
                 });
                 updateGoogleMapsLink();
             });
 
             $('#addresses').on('change', updateGoogleMapsLink);
-        });
+            $(document).on('select2:open', () => {
+                setTimeout(() => {
+                    document.querySelector('.select2-container--open .select2-search__field')
+                        ?.focus();
+                }, 50);
+            });
 
-        function showError(element, message) {
-            // Hapus pesan error lama
-            $(element).next(".invalid-feedback").remove();
-
-            // Tambah pesan error baru
-            $(element).after(`<div class="invalid-feedback">${message}</div>`);
-
-            // Tambahkan kelas is-invalid
-            $(element).addClass("is-invalid");
-        }
-
-        // Hapus error kalau user pilih sesuatu
-        $("#edit_note").on("change", function() {
-            $(this).removeClass("is-invalid");
-            $(this).next(".invalid-feedback").remove();
-        });
-
-
-        $("form").on("submit", function(e) {
-            let valid = true;
-
-            if (!$("#edit_note").val()) {
-                showError($("#edit_note"), "Catatan edit wajib diisi");
-                valid = false;
+            // === validasi note edit wajib ===
+            function showError(element, message) {
+                $(element).next('.invalid-feedback').remove();
+                $(element).after(`<div class="invalid-feedback">${message}</div>`);
+                $(element).addClass('is-invalid');
             }
 
-            if (!valid) {
-                e.preventDefault(); // stop submit
-            }
-        });
+            $('#edit_note').on('input', function() {
+                $(this).removeClass('is-invalid');
+                $(this).next('.invalid-feedback').remove();
+            });
 
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
+            $('form').on('submit', function(e) {
+                let valid = true;
+                if (!$('#edit_note').val().trim()) {
+                    showError($('#edit_note'), 'Catatan edit wajib diisi');
+                    valid = false;
+                }
+                if (!valid) e.preventDefault();
+            });
         });
     </script>
 @endpush

@@ -73,6 +73,12 @@ class PermissionSubItemSeeder extends Seeder
                 ['name' => 'Account List - Capital', 'slug' => 'account-capital'],
                 ['name' => 'Manage Opening Balance', 'slug' => 'manage-opening-balance'],
             ],
+
+            // Adjustment Module
+            'adjustment' => [
+                ['name' => 'Canceled', 'slug' => 'canceled'],
+                ['name' => 'Defect', 'slug' => 'defect'],
+            ],
         ];
 
         foreach ($subItems as $parentSlug => $items) {

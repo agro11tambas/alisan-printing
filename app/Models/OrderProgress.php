@@ -16,6 +16,7 @@ class OrderProgress extends Model
 
     protected $fillable = [
         'order_id',
+        'design_id',
         'invoice_number',
         'status',
         'date',

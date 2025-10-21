@@ -38,7 +38,7 @@ class DeliveryListItem extends Model
 
     public function product()
     {
-        return $this->belongsTo(Products::class);
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
 
     protected static function booted()

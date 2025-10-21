@@ -251,7 +251,9 @@ class InventoryController extends Controller
 
     public function dataReportItems(Request $request)
     {
-        $reportItems = InventoryStock::with('product');
+        $reportItems = InventoryStock::whereHas('product', function ($q) {
+            $q->whereNull('products.deleted_at');
+        })->with('product');
 
         if ($request->filled('product_name')) {
             $reportItems->whereHas('product', function ($query) use ($request) {
@@ -275,13 +277,13 @@ class InventoryController extends Controller
                 return $reportItem->purchase_stocks ?? 0;
             })
             ->addColumn('inventory_stock', function ($reportItem) {
-                return $reportItem->inventory_stock;
+                return number_format($reportItem->inventory_stock);
             })
             // ->addColumn('stock_after_sales', function ($reportItem) {
             //     return '<span class="text-danger">' . $reportItem->stock_after_sales . '</span>';
             // })
             ->addColumn('stock_after_sales', function ($reportItem) {
-                $stock = $reportItem->stock_after_sales ?? 0;
+                $stock = number_format($reportItem->stock_after_sales) ?? 0;
 
                 // ✅ cek minimum stock
                 if ($stock <= $reportItem->minimum_stock) {
@@ -291,7 +293,7 @@ class InventoryController extends Controller
                 return $stock;
             })
             ->addColumn('incoming_stock', function ($reportItem) {
-                return $reportItem->incoming_stock ?? 0;
+                return number_format($reportItem->incoming_stock) ?? 0;
             })
             ->addColumn('avg_cost', function ($reportItem) {
                 return '<span class="text-primary">' . $reportItem->avg_cost . '</span>';

@@ -195,13 +195,17 @@
                                                         </td>
 
                                                         <!-- <td>
-                                                        </td> -->
+                                                                        </td> -->
                                                         <input type="hidden" class="form-control product-type"
                                                             name="product_type[]" id="product_type_{{ $index }}"
                                                             value="{{ $item->satuan }}" readonly>
-                                                        <td><input type="number" name="qty[]" class="form-control qty"
-                                                                id="qty_{{ $index }}" min="1"
-                                                                value="{{ $item->quantity }}"></td>
+                                                        <td>
+                                                            <input type="text" inputmode="numeric" name="qty[]"
+                                                                class="form-control qty" id="qty_{{ $index }}"
+                                                                value="{{ number_format($item->quantity) }}">
+                                                        </td>
+
+                                                        </td>
                                                         <td>
                                                             <input type="text"
                                                                 class="form-control price_before_discount_display" readonly
@@ -319,11 +323,11 @@
             }),
         ); ?>;
     </script>
+
     <script>
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
 
-        // Satukan jadi satu array dengan penanda type
         const allProducts = [
             ...products.map(p => ({
                 ...p,
@@ -335,13 +339,21 @@
             })),
         ];
 
-        // Populate dropdown produk
+        // ✅ Format angka dengan koma ribuan (US style)
+        function formatNumber(num) {
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(num);
+        }
+
+        // ✅ Populate produk
         function populateProducts(selectEl, selectedId = null, selectedType = null) {
             $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
             allProducts.forEach(item => {
                 const option = $('<option>', {
                         value: item.type + '_' + item.id,
-                        text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? '' : '')
+                        text: `[${item.sku || '-'}] ${item.name}`
                     })
                     .data('price', item.price)
                     .data('discounts', item.discounts || [])
@@ -356,26 +368,19 @@
             });
         }
 
-        function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }).format(num);
-        }
-
-        // Hitung diskon per baris
+        // ✅ Hitung per baris
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
             const basePrice = parseFloat(selectedOption.data('price')) || 0;
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
-            const qty = parseFloat(row.find('input[name="qty[]"]').val()) || 0;
+            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/,/g, '')) || 0;
 
             const priceBeforeDiscount = basePrice;
             const totalBeforeDiscount = basePrice * qty;
             let finalPrice = priceBeforeDiscount;
-
             let allDiscounts = [...discounts];
+
             categories.forEach(cat => {
                 if (cat.discounts) allDiscounts = allDiscounts.concat(cat.discounts);
             });
@@ -387,7 +392,8 @@
                     if (discount.minimum_based_on === 'Quantity of Items' && qty >= discount.minimum_qty_or_amount)
                         eligible = true;
                     else if (discount.minimum_based_on === 'Purchase Amount' && totalBeforeDiscount >= discount
-                        .minimum_qty_or_amount) eligible = true;
+                        .minimum_qty_or_amount)
+                        eligible = true;
                 } else if (discount.apply_on === 'Category') {
                     let totalQtyCategory = 0;
                     let totalAmountCategory = 0;
@@ -396,7 +402,8 @@
                         const opt = $(el).find('option:selected');
                         const cats = opt.data('categories') || [];
                         const price = parseFloat(opt.data('price')) || 0;
-                        const qtyVal = parseFloat($(`input[name="qty[]"]`).eq(i).val()) || 0;
+                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/,/g, '')) ||
+                            0;
 
                         if (cats.some(c => c.id === discount.category_id)) {
                             totalQtyCategory += qtyVal;
@@ -405,15 +412,18 @@
                     });
 
                     if (discount.minimum_based_on === 'Quantity of Items' && totalQtyCategory >= discount
-                        .minimum_qty_or_amount) eligible = true;
+                        .minimum_qty_or_amount)
+                        eligible = true;
                     else if (discount.minimum_based_on === 'Purchase Amount' && totalAmountCategory >= discount
-                        .minimum_qty_or_amount) eligible = true;
+                        .minimum_qty_or_amount)
+                        eligible = true;
                 }
 
                 if (eligible) {
-                    if (discount.type === 'Percentage') finalPrice = priceBeforeDiscount - (priceBeforeDiscount * (
-                        discount.amount / 100));
-                    else finalPrice = Math.max(0, priceBeforeDiscount - discount.amount);
+                    if (discount.type === 'Percentage')
+                        finalPrice = priceBeforeDiscount - (priceBeforeDiscount * (discount.amount / 100));
+                    else
+                        finalPrice = Math.max(0, priceBeforeDiscount - discount.amount);
                 }
             });
 
@@ -436,13 +446,12 @@
         }
 
         function calcTotalSummary() {
-            let subTotal = 0;
-            let totalAfterDiscount = 0;
+            let subTotal = 0,
+                totalAfterDiscount = 0;
 
             $(".total_before_discount").each(function() {
                 subTotal += parseFloat($(this).val()) || 0;
             });
-
             $(".total_after_discount").each(function() {
                 totalAfterDiscount += parseFloat($(this).val()) || 0;
             });
@@ -453,197 +462,95 @@
             $("#total_discount").val(totalDiscount.toFixed(2));
             $("#total_amount").val(totalAfterDiscount.toFixed(2));
 
-            // display values (yang terlihat user, pakai ribuan + koma)
             $("#sub_total_display").val(formatNumber(subTotal));
             $("#total_discount_display").val(formatNumber(totalDiscount));
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
 
-        // Set product type otomatis & hitung ulang
-        function updateRowTypeAndPrice(row) {
-            const selectedOption = row.find('select[name="product[]"] option:selected');
-            if (!selectedOption.length) return;
-            const type = selectedOption.data('type') || '';
-            row.find('.product-type').val(type);
-            calculateRow(row);
-        }
-
+        // ✅ Select2 init
         function initSelect2() {
             $('[data-select2-selector="status"]').select2({
                 placeholder: 'Pilih produk',
                 width: '100%'
             }).each(function() {
-                if ($(this).hasClass('select-product')) {
-                    const selectedVal = $(this).val();
-                    const selectedType = $(this).closest('tr').find('.product-type').val();
-                    const selectedId = selectedVal ? selectedVal.split('_')[1] : null;
-                    populateProducts(this, selectedId, selectedType);
-                }
+                const selectedVal = $(this).val();
+                const selectedType = $(this).closest('tr').find('.product-type').val();
+                const selectedId = selectedVal ? selectedVal.split('_')[1] : null;
+                populateProducts(this, selectedId, selectedType);
             });
         }
 
-        // Set produk terpilih dari data-selected-id & data-selected-type
-        $('select.select-product').each(function() {
-            const selectedId = $(this).data('selected-id');
-            const selectedType = $(this).data('selected-type');
-            populateProducts(this, selectedId, selectedType);
-        });
-
-
-        document.addEventListener('DOMContentLoaded', function() {
+        $(document).ready(function() {
             initSelect2();
             recalcAllRows();
 
-            let rowCount = document.querySelectorAll('#tab_logic tbody tr').length;
+            let rowCount = $('#tab_logic tbody tr').length;
 
-            // Tambah row baru
+            // ✅ Tambah row baru
             $('#add_row').on('click', function() {
                 const tableBody = $('#tab_logic tbody');
                 const newRow = $(`
-            <tr id="addr${rowCount}">
-                <td>${rowCount + 1}</td>
-                <td>
-                    <select class="form-control select-product" name="product[]" id="product_${rowCount}" data-select2-selector="status">
-                        <option value="" disabled selected hidden>Pilih produk</option>
-                    </select>
-                </td>
-                <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
-                <td><input type="number" name="qty[]" class="form-control qty" min="1" value="1"></td>
-                <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" readonly></td>
-                <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
-                <td class="text-center">
-                    <div class="d-flex justify-content-center">
+                <tr id="addr${rowCount}">
+                    <td>${rowCount + 1}</td>
+                    <td>
+                        <select class="form-control select-product" name="product[]" data-select2-selector="status"></select>
+                    </td>
+                    <input type="hidden" name="product_type[]" class="product-type" readonly>
+                    <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="1"></td>
+                    <td><input type="text" class="form-control price_before_discount_display" readonly>
+                        <input type="hidden" name="price_before_discount[]" class="price_before_discount"></td>
+                    <td><input type="text" class="form-control total_before_discount_display" readonly>
+                        <input type="hidden" name="total_before_discount[]" class="total_before_discount"></td>
+                    <td class="text-center">
                         <button type="button" class="btn btn-danger delete-row">
                             <i class="feather-trash"></i>
                         </button>
-                    </div>
-                </td>
-                <input type="hidden" name="price_after_discount[]" class="form-control price_after_discount" readonly>
-                <input type="hidden" name="total_after_discount[]" class="form-control total_after_discount" readonly>
-            </tr>
-        `);
+                    </td>
+                    <input type="hidden" name="price_after_discount[]" class="price_after_discount">
+                    <input type="hidden" name="total_after_discount[]" class="total_after_discount">
+                </tr>
+            `);
 
                 tableBody.append(newRow);
-                initSelect2(newRow.find('.select-product'));
+                populateProducts(newRow.find('.select-product'));
+                newRow.find('.select-product').select2({
+                    placeholder: 'Pilih produk',
+                    width: '100%'
+                });
                 rowCount++;
             });
 
-            // Hapus row per baris
+            // ✅ Hapus row
             $(document).on('click', '.delete-row', function() {
                 $(this).closest('tr').remove();
-
-                // Re-index nomor urut
                 $('#tab_logic tbody tr').each(function(i, el) {
                     $(el).find('td:first').text(i + 1);
                 });
-
-                rowCount = $('#tab_logic tbody tr').length;
                 recalcAllRows();
             });
 
-            // Event change product
+            // ✅ Ubah produk
             $(document).on('change', 'select[name="product[]"]', function() {
                 const row = $(this).closest('tr');
-                updateRowTypeAndPrice(row);
+                const type = $(this).find('option:selected').data('type') || '';
+                row.find('.product-type').val(type);
                 recalcAllRows();
             });
 
-            // Event input qty
-            $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
-        });
-
-        $(document).ready(function() {
-            // Inisialisasi data alamat berdasarkan customer yang sudah dipilih
-            const initialCustomerId = $('#customers').val();
-            if (initialCustomerId) {
-                updateAddresses(initialCustomerId);
-            }
-
-            $('#customers').on('change', function() {
-                const customerId = $(this).val();
-                updateAddresses(customerId);
+            // ✅ Format qty dengan koma ribuan
+            $(document).on('input', 'input[name="qty[]"]', function() {
+                let rawValue = $(this).val().replace(/\D/g, '');
+                if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
+                $(this).val(new Intl.NumberFormat('en-US').format(rawValue));
+                recalcAllRows();
             });
 
-            $('#addresses').on('change', function() {
-                updateGoogleMapsLink();
-            });
-
-            function updateAddresses(customerId) {
-                const addresses = customerAddresses[customerId] || [];
-                const $addressSelect = $('#addresses');
-                const selectedAddressId = "{{ $order->address_id ?? '' }}";
-
-                $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
-
-                addresses.forEach(function(address, index) {
-                    const isSelected = address.id == selectedAddressId;
-                    $addressSelect.append(
-                        `<option value="${address.id}" data-map="${address.google_maps}" ${isSelected ? 'selected' : ''}>
-                        Alamat ke-${index + 1} - ${address.address}
-                    </option>`
-                    );
+            // ✅ Bersihkan koma sebelum submit (backend terima angka murni)
+            $('#orderForm').on('submit', function() {
+                $('input[name="qty[]"]').each(function() {
+                    $(this).val($(this).val().replace(/,/g, ''));
                 });
-
-                updateGoogleMapsLink();
-            }
-
-            function updateGoogleMapsLink() {
-                const selectedOption = $('#addresses').find('option:selected');
-                const mapUrl = selectedOption.data('map');
-
-                if (mapUrl) {
-                    $('#google-maps-link').html(`
-                    <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
-                        Lihat di Google Maps
-                    </a>
-                `);
-                } else {
-                    $('#google-maps-link').empty();
-                }
-            }
-        });
-
-        // Fungsi tampilkan error bootstrap
-        function showError(element, message) {
-            // Hapus pesan error lama
-            $(element).next(".invalid-feedback").remove();
-
-            // Tambah pesan error baru
-            $(element).after(`<div class="invalid-feedback">${message}</div>`);
-
-            // Tambahkan kelas is-invalid
-            $(element).addClass("is-invalid");
-        }
-
-        // Hapus error kalau user pilih sesuatu
-        $("#customers, #addresses").on("change", function() {
-            $(this).removeClass("is-invalid");
-            $(this).next(".invalid-feedback").remove();
-        });
-
-        // Validasi saat submit form
-        $("form").on("submit", function(e) {
-            let valid = true;
-
-            if (!$("#customers").val()) {
-                showError($("#customers"), "Customer wajib dipilih");
-                valid = false;
-            }
-
-            if (!$("#addresses").val()) {
-                showError($("#addresses"), "Alamat wajib dipilih");
-                valid = false;
-            }
-
-            if (!valid) {
-                e.preventDefault(); // stop submit
-            }
-        });
-
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
+            });
         });
     </script>
 @endpush

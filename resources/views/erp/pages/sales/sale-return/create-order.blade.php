@@ -151,6 +151,21 @@
                                     </div>
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
+                                            <label for="return_type" class="fw-semibold">Return Type:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <select name="return_type" id="return_type" data-select2-selector="tag"
+                                                    class="form-select form-control">
+                                                    <option value="canceled" selected>Dibatalkan (Canceled Product)
+                                                    </option>
+                                                    <option value="defect">Cacat (Defect Product)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
                                             <label for="transaction_type" class="fw-semibold">Sale:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -206,11 +221,11 @@
                                                             </select>
                                                         </td>
                                                         <td>
-                                                            <input type="number" name="qty[]" class="qty form-control"
-                                                                min="0" max="{{ $item->remaining_qty }}"
-                                                                value="0">
+                                                            <input type="text" inputmode="numeric" name="qty[]"
+                                                                class="qty form-control" min="0"
+                                                                max="{{ $item->remaining_qty }}" value="0">
                                                             <small class="text-muted">Sisa max:
-                                                                {{ $item->remaining_qty }}</small>
+                                                                {{ number_format($item->remaining_qty) }}</small>
                                                         </td>
                                                         <td>
                                                             <input type="text" class="price_display form-control"
@@ -230,9 +245,9 @@
                                         </table>
                                     </div>
                                     <!-- <div class="d-flex justify-content-end gap-2 mt-3">
-                                        <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
-                                        <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
-                                    </div> -->
+                                                            <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
+                                                            <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
+                                                        </div> -->
                                 </div>
                                 <div class="col-lg-12 mt-4">
                                     <div class="row justify-content-end">
@@ -251,15 +266,15 @@
                                                                     id="sub_total" readonly=""></td>
                                                         </tr>
                                                         <!-- <tr class="single-item">
-                                                    <th class="fs-10 text-dark text-uppercase">Discount</th>
-                                                    <td class="w-25">
-                                                        <input type="text" readonly class="form-control border-0 bg-transparent p-0" value="{{ $discount['type'] === 'Percentage' ? $discount['amount'] . '%' : 'Rp' . number_format($discount['amount'], 0, ',', '.') }}">
-                                                        <input type="hidden" id="discount_type" value="{{ $discount['type'] }}">
-                                                        <input type="hidden" id="discount_amount_value" value="{{ $discount['amount'] }}">
-                                                        <input type="hidden" id="discount_condition" value="{{ $discount['condition_type'] }}">
-                                                        <input type="hidden" id="discount_minimum" value="{{ $discount['minimum_requirement'] }}">
-                                                    </td>
-                                                </tr> -->
+                                                                        <th class="fs-10 text-dark text-uppercase">Discount</th>
+                                                                        <td class="w-25">
+                                                                            <input type="text" readonly class="form-control border-0 bg-transparent p-0" value="{{ $discount['type'] === 'Percentage' ? $discount['amount'] . '%' : 'Rp' . number_format($discount['amount'], 0, ',', '.') }}">
+                                                                            <input type="hidden" id="discount_type" value="{{ $discount['type'] }}">
+                                                                            <input type="hidden" id="discount_amount_value" value="{{ $discount['amount'] }}">
+                                                                            <input type="hidden" id="discount_condition" value="{{ $discount['condition_type'] }}">
+                                                                            <input type="hidden" id="discount_minimum" value="{{ $discount['minimum_requirement'] }}">
+                                                                        </td>
+                                                                    </tr> -->
                                                         <tr class="single-item">
                                                             <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
                                                                 Total</th>
@@ -284,13 +299,13 @@
             </div>
         </div>
         <!-- <div class="col-lg-12">
-            <div class="card stretch stretch-full">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                    </div>
-                </div>
-            </div>
-        </div> -->
+                                <div class="card stretch stretch-full">
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div> -->
     </div>
 @endsection
 
@@ -310,26 +325,25 @@
             }),
         ); ?>;
     </script>
+
     <script>
-        // === formatter tampilan ===
+        // === formatter tampilan tanpa desimal ===
         function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
             }).format(num);
         }
 
         // === hitung per baris ===
         function updateRowTotal(row) {
-            const qty = parseFloat(row.find('.qty').val()) || 0;
-            const price = parseFloat(row.find('.price').val()) || 0; // HIDDEN (raw)
+            const qty = parseFloat(row.find('.qty').val().replace(/,/g, '')) || 0; // HAPUS KOMA, BUKAN TITIK
+            const price = parseFloat(row.find('.price').val()) || 0;
             const total = qty * price;
 
-            // simpan raw (pakai titik . sebagai decimal)
-            row.find('.price').val(price.toFixed(2));
-            row.find('.total').val(total.toFixed(2));
+            row.find('.price').val(price.toFixed(0));
+            row.find('.total').val(total.toFixed(0));
 
-            // tampilan (pakai format Indonesia -> 1.234,00)
             row.find('.price_display').val(formatNumber(price));
             row.find('.total_display').val(formatNumber(total));
 
@@ -344,10 +358,10 @@
             });
 
             // raw (hidden)
-            $('#sub_total').val(sub.toFixed(2));
-            $('#total_amount').val(sub.toFixed(2));
+            $('#sub_total').val(sub.toFixed(0));
+            $('#total_amount').val(sub.toFixed(0));
 
-            // tampilan
+            // tampilan (tanpa ,00)
             if ($('#sub_total_display').length) {
                 $('#sub_total_display').val(formatNumber(sub));
             }
@@ -361,31 +375,26 @@
                 width: '100%'
             });
 
-            // Prefill harga dari option TERPILIH (biar gak 0 saat load)
+            // Prefill harga awal
             $('#tab_logic_body tr').each(function() {
                 const row = $(this);
                 const sel = row.find('select[name="product_id[]"]');
                 const price = parseFloat(sel.find('option:selected').data('price')) || 0;
 
-                row.find('.price').val(price.toFixed(2));
+                row.find('.price').val(price.toFixed(0));
                 row.find('.price_display').val(formatNumber(price));
                 updateRowTotal(row);
             });
 
-            // Inisialisasi data alamat berdasarkan customer yang sudah dipilih
+            // alamat dinamis
             const initialCustomerId = $('#customers').val();
-            if (initialCustomerId) {
-                updateAddresses(initialCustomerId);
-            }
+            if (initialCustomerId) updateAddresses(initialCustomerId);
 
             $('#customers').on('change', function() {
-                const customerId = $(this).val();
-                updateAddresses(customerId);
+                updateAddresses($(this).val());
             });
 
-            $('#addresses').on('change', function() {
-                updateGoogleMapsLink();
-            });
+            $('#addresses').on('change', updateGoogleMapsLink);
 
             function updateAddresses(customerId) {
                 const addresses = customerAddresses[customerId] || [];
@@ -422,26 +431,46 @@
             }
         });
 
-        // === event: ganti produk → set harga dari option ===
+        // === ganti produk → set harga ===
         $(document).on('change', 'select[name="product_id[]"]', function() {
             const row = $(this).closest('tr');
             const price = parseFloat($(this).find('option:selected').data('price')) || 0;
 
-            row.find('.price').val(price.toFixed(2)); // raw
+            row.find('.price').val(price.toFixed(0)); // raw
             row.find('.price_display').val(formatNumber(price)); // display
             updateRowTotal(row);
         });
 
-        // === event: ubah qty ===
+        // === format ribuan di qty ===
         $(document).on('input', '.qty', function() {
             const row = $(this).closest('tr');
             const max = parseFloat($(this).attr('max')) || Infinity;
-            let qty = parseFloat($(this).val()) || 0;
-            if (qty > max) {
-                qty = max;
-                $(this).val(max);
+            let raw = $(this).val().replace(/\D/g, ''); // hapus non-digit
+
+            if (!raw) {
+                $(this).val('');
+                updateRowTotal(row);
+                return;
             }
+
+            let formatted = new Intl.NumberFormat('en-US').format(raw);
+            let numeric = parseFloat(raw);
+
+            if (numeric > max) {
+                numeric = max;
+                formatted = new Intl.NumberFormat('en-US').format(max);
+            }
+
+            $(this).val(formatted);
             updateRowTotal(row);
+        });
+
+        // === format ribuan saat submit ===
+        $('#orderForm').on('submit', function() {
+            $('.qty').each(function() {
+                const raw = $(this).val().replace(/,/g, ''); // GANTI TITIK JADI KOMA
+                $(this).val(raw);
+            });
         });
 
         $(document).on('input', '.price', function() {

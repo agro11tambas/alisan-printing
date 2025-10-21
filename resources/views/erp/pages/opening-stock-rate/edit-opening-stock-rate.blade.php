@@ -63,14 +63,14 @@
                                 </div>
                             </div>
                             <div class="table-responsive">
-                                <table class="table table" id="openingBalanceList">
+                                <table class="table" id="openingBalanceList">
                                     <thead>
                                         <tr>
                                             <th>No</th>
                                             <th>Product Name</th>
                                             <th>Opening Stock</th>
-                                            <th>Minimum Stock</th>
                                             <th>Opening Rate</th>
+                                            <th>Minimum Stock</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -89,12 +89,12 @@
                                                         value="{{ $openingStockRate->opening_stock }}">
                                                 </td>
                                                 <td>
-                                                    <input type="number" class="form-control" name="minimum_stock[]"
-                                                        value="{{ $openingStockRate->minimum_stock }}">
-                                                </td>
-                                                <td>
                                                     <input type="number" class="form-control" name="opening_rate[]"
                                                         value="{{ $openingStockRate->opening_rate }}">
+                                                </td>
+                                                <td>
+                                                    <input type="number" class="form-control" name="minimum_stock[]"
+                                                        value="{{ $openingStockRate->minimum_stock }}">
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -111,6 +111,33 @@
 
 @push('scripts')
     <script>
+        // === FORMAT ANGKA DENGAN TITIK RIBUAN ===
+        function formatNumberInput(value) {
+            if (!value) return '';
+            let raw = value.toString().replace(/\D/g, '');
+            if (!raw) return '';
+            return new Intl.NumberFormat('id-ID').format(raw);
+        }
+
+        function parseNumber(str) {
+            if (!str) return 0;
+            return parseFloat(str.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        // === SAAT USER KETIK ===
+        document.addEventListener('input', function(e) {
+            if (e.target.matches(
+                    'input[name="opening_stock[]"], input[name="minimum_stock[]"], input[name="opening_rate[]"]')) {
+                let raw = e.target.value.replace(/\D/g, '');
+                if (!raw) {
+                    e.target.value = '';
+                    return;
+                }
+                e.target.value = new Intl.NumberFormat('id-ID').format(raw);
+            }
+        });
+
+        // === SAAT FORM DISUBMIT ===
         document.getElementById('openingStockRateForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -118,33 +145,59 @@
             form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-            const rules = [];
-
             let isValid = true;
 
-            rules.forEach(rule => {
-                const el = form.querySelector(rule.selector);
-                const val = el?.value ?? '';
-                const valid = rule.validate ? rule.validate(val) : val.trim() !== '';
+            // VALIDASI TIAP BARIS
+            form.querySelectorAll('tbody tr').forEach((row, i) => {
+                const openingStock = row.querySelector('input[name="opening_stock[]"]');
+                const minimumStock = row.querySelector('input[name="minimum_stock[]"]');
+                const openingRate = row.querySelector('input[name="opening_rate[]"]');
 
-                if (!valid) {
-                    showError(el, rule.message);
+                if (!openingStock.value.trim()) {
+                    showError(openingStock, 'Opening stock wajib diisi');
+                    isValid = false;
+                }
+                if (!minimumStock.value.trim()) {
+                    showError(minimumStock, 'Minimum stock wajib diisi');
+                    isValid = false;
+                }
+                if (!openingRate.value.trim()) {
+                    showError(openingRate, 'Opening rate wajib diisi');
                     isValid = false;
                 }
             });
 
-            if (isValid) form.submit();
+            if (!isValid) return;
+
+            // === HAPUS TITIK BIAR ANGKA MURNI SAAT SUBMIT ===
+            form.querySelectorAll(
+                    'input[name="opening_stock[]"], input[name="minimum_stock[]"], input[name="opening_rate[]"]')
+                .forEach(input => {
+                    input.value = input.value.replace(/\./g, '');
+                });
+
+            form.submit();
         });
 
+        // === TAMPILKAN ERROR ===
         function showError(input, message) {
             if (!input) return;
             input.classList.add('is-invalid');
             const parent = input.closest('div');
             if (!parent) return;
             const feedback = document.createElement('div');
-            feedback.className = 'invalid-feedback';
+            feedback.className = 'invalid-feedback d-block';
             feedback.textContent = message;
             parent.appendChild(feedback);
         }
+
+        // === HAPUS ERROR SAAT USER BETULIN INPUT ===
+        document.addEventListener('input', function(e) {
+            if (e.target.matches('input.is-invalid')) {
+                e.target.classList.remove('is-invalid');
+                const feedback = e.target.parentNode.querySelector('.invalid-feedback');
+                if (feedback) feedback.remove();
+            }
+        });
     </script>
 @endpush

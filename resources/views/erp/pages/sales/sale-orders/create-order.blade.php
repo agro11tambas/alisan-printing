@@ -155,12 +155,12 @@
                                                     <input type="hidden" name="product_type[]"
                                                         class="form-control product-type" id="product_type_0" readonly>
 
-                                                    <td><input type="number" name="qty[]" class="form-control qty"
-                                                            id="qty_0" min="1" value="1"></td>
+                                                    <td><input type="text" inputmode="numeric" name="qty[]"
+                                                            class="form-control qty" id="qty_0" min="1"></td>
 
                                                     {{-- Price & Total Before Discount --}}
                                                     <!-- <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" id="price_before_discount_0" readonly></td>
-                                                    <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
+                                                                <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
                                                     <td>
                                                         <input type="text"
                                                             class="form-control price_before_discount_display" readonly>
@@ -304,8 +304,8 @@
 
         function formatNumber(num) {
             return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
             }).format(num);
         }
 
@@ -315,7 +315,7 @@
             const basePrice = parseFloat(selectedOption.data('price')) || 0;
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
-            const qty = parseFloat(row.find('input[name="qty[]"]').val()) || 0;
+            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
 
             const priceBeforeDiscount = basePrice;
             const totalBeforeDiscount = basePrice * qty;
@@ -350,7 +350,8 @@
                         const opt = $(el).find('option:selected');
                         const cats = opt.data('categories') || [];
                         const price = parseFloat(opt.data('price')) || 0;
-                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val()) || 0;
+                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
+                            '')) || 0;
 
                         if (cats.some(c => c.id === discount.category_id)) {
                             totalQtyCategory += qtyVal;
@@ -462,9 +463,9 @@
                     </select>
                 </td>
                 <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
-                <td><input type="number" name="qty[]" class="form-control qty" min="1" value="1"></td>
-                <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" readonly></td>
-                <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
+                <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" min="1" value="1"></td>
+                <td><input type="text" inputmode="numeric" name="price_before_discount[]" class="form-control price_before_discount" readonly></td>
+                <td><input type="text" inputmode="numeric" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
                 <td class="text-center">
                     <div class="d-flex justify-content-center">
                         <button type="button" class="btn btn-danger delete-row">
@@ -588,7 +589,7 @@
                 addresses.forEach((address, i) => {
                     $('#addresses').append(
                         `<option value="${address.id}" data-map="${address.google_maps}">Alamat ke-${i+1} - ${address.address}</option>`
-                        );
+                    );
                 });
             });
             $('#addresses').on('change', function() {
@@ -596,7 +597,7 @@
                 if (mapUrl) {
                     $('#google-maps-link').html(
                         `<a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Google Maps</a>`
-                        );
+                    );
                 } else {
                     $('#google-maps-link').empty();
                 }
@@ -607,6 +608,23 @@
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();
             }, 50);
+        });
+
+        $(document).on('input', 'input[name="qty[]"]', function(e) {
+            // hapus non-digit
+            let rawValue = $(this).val().replace(/\D/g, '');
+            // batasi panjang kalau mau (misal 12 digit)
+            if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
+            // format ribuan
+            let formatted = new Intl.NumberFormat('id-ID').format(rawValue);
+            $(this).val(formatted);
+        });
+
+        $('#orderForm').on('submit', function() {
+            $('input[name="qty[]"]').each(function() {
+                const raw = $(this).val().replace(/\./g, '');
+                $(this).val(raw);
+            });
         });
     </script>
 @endpush

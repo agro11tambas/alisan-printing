@@ -20,7 +20,7 @@ class CanceledProductController extends Controller
 {
     public function getCanceledProducts()
     {
-        return view('erp.pages.production.canceled-products.canceled-products');
+        return view('erp.pages.adjustment-products.canceled-products.canceled-products');
     }
 
     public function dataCanceledProducts(Request $request)
@@ -46,11 +46,11 @@ class CanceledProductController extends Controller
                 return $canceledProduct->product->name;
             })
             ->addColumn('canceled_product_stock', function ($canceledProduct) {
-                return '<span class="text-danger">' . $canceledProduct->canceled_product_stock . '</span>';
+                return '<span class="text-danger">' . number_format($canceledProduct->canceled_product_stock) . '</span>';
             })
             ->addColumn('action', function ($canceledProduct) {
                 return view(
-                    'erp.pages.production.canceled-products.partials.action-button',
+                    'erp.pages.adjustment-products.canceled-products.partials.action-button',
                     compact('canceledProduct')
                 )->render();
             })
@@ -62,7 +62,7 @@ class CanceledProductController extends Controller
     {
         $productionStock = ProductionStock::with('product')->findOrFail($id);
 
-        return view('erp.pages.production.canceled-products.detail-canceled-product', compact('productionStock'));
+        return view('erp.pages.adjustment-products.canceled-products.detail-canceled-product', compact('productionStock'));
     }
 
     public function dataDetailCanceledProducts(Request $request, $id)
@@ -74,7 +74,7 @@ class CanceledProductController extends Controller
         return DataTables::of($canceledRecords)
             ->addIndexColumn()
             ->addColumn('date', fn($record) => $record->date->format('Y-m-d'))
-            ->addColumn('quantity', fn($record) => '<span class="text-danger fw-bold">' . $record->quantity . '</span>')
+            ->addColumn('quantity', fn($record) => '<span class="text-danger fw-bold">' . number_format($record->quantity) . '</span>')
             ->addColumn('type', fn($record) => $record->type ?? '-')
             ->addColumn('note', fn($record) => $record->note ?? '-')
             ->addColumn('user', fn($record) => $record->user?->name ?? '-')
@@ -86,7 +86,7 @@ class CanceledProductController extends Controller
             })
             ->addColumn('action', function ($record) {
                 return view(
-                    'erp.pages.production.canceled-products.partials.action-button-detail',
+                    'erp.pages.adjustment-products.canceled-products.partials.action-button-detail',
                     compact('record')
                 )->render();
             })
@@ -168,7 +168,7 @@ class CanceledProductController extends Controller
     public function getCanceledProductHistory($id)
     {
         $productionStock = ProductionStock::with('product')->findOrFail($id);
-        return view('erp.pages.production.canceled-products.history-canceled-products', compact('productionStock'));
+        return view('erp.pages.adjustment-products.canceled-products.history-canceled-products', compact('productionStock'));
     }
 
     public function dataCanceledProductHistory(Request $request, $id)

@@ -44,6 +44,22 @@
                     </ul>
                 </li>
                 @endif
+                @if(Auth::check() && Auth::user()->hasPermission('adjustment'))
+                <li class="nxl-item nxl-hasmenu {{ request()->is('adjustment-products/canceled-products*') || request()->is('adjustment-products/defect-products*') ? 'active' : '' }}">
+                    <a href="javascript:void(0);" class="nxl-link">
+                        <span class="nxl-micon"><i class="feather-briefcase"></i></span>
+                        <span class="nxl-mtext ">Adjustment Products</span><span class="nxl-arrow"><i class="feather-chevron-right"></i></span>
+                    </a>
+                    <ul class="nxl-submenu">
+                        @if (Auth::user()->hasSubPermission('canceled'))
+                        <li class="nxl-item {{ request()->is('adjustment-products/canceled-products*') ? 'active' : '' }}"><a class="nxl-link" href="/erp/adjustment-products/canceled-products"><span class="">Canceled Product</span></a></li>
+                        @endif
+                        @if(Auth::user()->hasSubPermission('defect'))
+                        <li class="nxl-item {{ request()->is('adjustment-products/defect-products*') ? 'active' : '' }}"><a class="nxl-link" href="/erp/adjustment-products/defect-products"><span class="">Defect Product</span></a></li>
+                        @endif
+                    </ul>
+                </li>
+                @endif
                 @if(Auth::check() && Auth::user()->hasPermission('discounts'))
                 <li class="nxl-item nxl-hasmenu">
                     <a href="/erp/discounts" class="nxl-link {{ request()->is('discounts*') ? 'active' : '' }}">
@@ -91,6 +107,14 @@
                         <li class="nxl-item"><a class="nxl-link {{ request()->is('sales/sale-returns*') ? 'active' : '' }}" href="/erp/sales/sale-returns"><span class="">Sale Return</span></a></li>
                         @endif
                     </ul>
+                </li>
+                @endif
+                @if(Auth::check() && Auth::user()->hasPermission('design'))
+                <li class="nxl-item nxl-hasmenu">
+                    <a href="/erp/design" class="nxl-link {{ request()->is('/erp/design') ? 'active' : '' }}">
+                        <span class="nxl-micon"><i class="feather-box"></i></span>
+                        <span class="nxl-mtext ">Design</span><span class="nxl-arrow"></span>
+                    </a>
                 </li>
                 @endif
                 @if(Auth::check() && Auth::user()->hasPermission('production'))

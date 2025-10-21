@@ -126,7 +126,7 @@ class HistoryStockInController extends Controller
                         $inventoryStock->avg_cost = round(
                             (($previousCost * $previousQty) + ($purchaseCost * $item['stock_in']))
                                 / max(1, $previousQty + $item['stock_in']),
-                            2
+                            3
                         );
                         $inventoryStock->save();
                     }
@@ -150,11 +150,15 @@ class HistoryStockInController extends Controller
                     $inventoryStock->avg_cost = round(
                         (($previousCost * $previousQty) + ($avgCostAtCancel * $completedQty))
                             / max(1, $previousQty + $completedQty),
-                        2
+                        3
                     );
 
                     $inventoryStock->save();
                 }
+
+                Products::where('id', $productId)->update([
+                    'avg_cost' => $inventoryStock->avg_cost,
+                ]);
             }
 
             DB::commit();

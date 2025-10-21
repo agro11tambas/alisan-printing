@@ -7,21 +7,7 @@
                 </a>
             </li> -->
         <li>
-            {{-- <button type="button"
-                class="dropdown-item btn-mark-purchase"
-                data-bs-toggle="modal"
-                data-bs-target="#modalChangeStatus"
-                data-id="{{ $purchase->id }}"
-                data-name="{{ $purchase->purchase_number }}"
-                data-total-amount="{{ $purchase->total_amount }}"
-                data-paid-amount="{{ $purchase->paid_amount }}"
-                data-purchase-number="{{ $purchase->purchase_number }}"
-                data-url="{{ url('/erp/purchases/purchase-orders/mark-as-purchase-list/' . $purchase->id) }}">
-                <i class="feather feather-check"></i>
-                <span>Mark as Purchase List</span>
-            </button> --}}
-
-            <button type="button" class="dropdown-item btn-mark-purchase" data-bs-toggle="modal"
+            {{-- <button type="button" class="dropdown-item btn-mark-purchase" data-bs-toggle="modal"
                 data-bs-target="#modalChangeStatus" data-id="{{ $purchase->id }}"
                 data-purchase-number="{{ $purchase->purchase_number }}"
                 data-total-amount-product="{{ $purchase->total_amount_product }}"
@@ -31,8 +17,12 @@
                 data-url="{{ url('/erp/purchases/purchase-orders/mark-as-purchase-list/' . $purchase->id) }}">
                 <i class="feather feather-check"></i>
                 <span>Mark as Purchase List</span>
-            </button>
-
+            </button> --}}
+            <a href="/erp/purchases/purchase-orders/mark-as-purchase-list/{{ $purchase->id }}"
+                class="dropdown-item">
+                <i class="feather feather-check"></i>
+                <span>Mark as Purchase List</span>
+            </a>
         </li>
         <li>
             <a href="/erp/purchases/purchase-orders/detail-purchase/{{ $purchase->id }}" class="dropdown-item">

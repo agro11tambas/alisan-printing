@@ -46,7 +46,7 @@ class ProductBundleController extends Controller
                 return $bundle->sku;
             })
             ->addColumn('price', function ($bundle) {
-                return 'Rp ' . number_format($bundle->price, 0, ',', '.');
+                return 'Rp ' . number_format($bundle->price, 0);
             })
             ->addColumn('products', function ($bundle) {
                 return $bundle->items->map(function ($item) {

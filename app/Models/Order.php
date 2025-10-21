@@ -96,23 +96,10 @@ class Order extends Model
         return $this->hasMany(CanceledProduct::class, 'order_id');
     }
 
-    // Optional: total completed quantity across all items
-    // public function getCompletedQuantityAttribute(): int
-    // {
-    //     return $this->items->sum('completed_quantity');
-    // }
-
-    // public function getTotalQuantityAttribute(): int
-    // {
-    //     return $this->items->sum('quantity');
-    // }
-
-    // public function getProgressPercentAttribute(): float
-    // {
-    //     return $this->total_quantity > 0
-    //         ? round(($this->completed_quantity / $this->total_quantity) * 100, 2)
-    //         : 0;
-    // }
+    public function designs()
+    {
+        return $this->hasMany(Design::class, 'order_id');
+    }
 
     public function updatePaymentStatus()
     {
@@ -169,31 +156,55 @@ class Order extends Model
             if ($order->isForceDeleting()) {
                 // pakai each supaya event anak terpanggil
                 $order->orderItems()->withTrashed()->get()->each->forceDelete();
-                $order->orderProgress()->withTrashed()->get()->each->forceDelete();
-                $order->deliveryOrders()->withTrashed()->get()->each->forceDelete();
+
+                $order->orderProgress()->withTrashed()->get()->each(function ($progress) {
+                    $progress->items()->withTrashed()->get()->each->forceDelete();
+                    $progress->forceDelete();
+                });
+
+                $order->deliveryOrders()->withTrashed()->get()->each(function ($deliveryOrder) {
+                    $deliveryOrder->items()->withTrashed()->get()->each->forceDelete();
+                    $deliveryOrder->forceDelete();
+                });
+
+                $order->designs()->withTrashed()->get()->each(function ($design) {
+                    $design->items()->withTrashed()->get()->each->forceDelete();
+                    $design->forceDelete();
+                });
 
                 $order->orderEditHistories()->forceDelete();
-                $order->saleReturns()->forceDelete();
+                $order->saleReturns()->withTrashed()->get()->each->forceDelete();
                 $order->accountTransactions()->forceDelete();
-                // $order->canceledProducts()->forceDelete();
 
                 $order->Inventories()
-                    ->whereNull('canceled_product_id') // hanya inventory normal
+                    ->whereNull('canceled_product_id')
                     ->get()
                     ->each
                     ->forceDelete();
             } else {
                 $order->orderItems()->get()->each->delete();
-                $order->orderProgress()->get()->each->delete();
-                $order->deliveryOrders()->get()->each->delete();
+
+                $order->orderProgress()->get()->each(function ($progress) {
+                    $progress->items()->get()->each->delete();
+                    $progress->delete();
+                });
+
+                $order->deliveryOrders()->get()->each(function ($deliveryOrder) {
+                    $deliveryOrder->items()->get()->each->delete();
+                    $deliveryOrder->delete();
+                });
+
+                $order->designs()->get()->each(function ($design) {
+                    $design->items()->get()->each->delete();
+                    $design->delete();
+                });
 
                 $order->orderEditHistories()->delete();
-                $order->saleReturns()->delete();
+                $order->saleReturns()->get()->each->delete();
                 $order->accountTransactions()->delete();
-                // $order->canceledProducts()->delete();
 
                 $order->Inventories()
-                    ->whereNull('canceled_product_id') // hanya inventory normal
+                    ->whereNull('canceled_product_id')
                     ->get()
                     ->each
                     ->delete();
@@ -202,12 +213,26 @@ class Order extends Model
 
         static::restoring(function ($order) {
             $order->orderItems()->withTrashed()->get()->each->restore();
-            $order->orderProgress()->withTrashed()->get()->each->restore();
-            $order->deliveryOrders()->withTrashed()->get()->each->restore();
+
+            $order->orderProgress()->withTrashed()->get()->each(function ($progress) {
+                $progress->items()->withTrashed()->get()->each->restore();
+                $progress->restore();
+            });
+
+            $order->deliveryOrders()->withTrashed()->get()->each(function ($deliveryOrder) {
+                $deliveryOrder->items()->withTrashed()->get()->each->restore();
+                $deliveryOrder->restore();
+            });
+
+            $order->designs()->withTrashed()->get()->each(function ($design) {
+                $design->items()->withTrashed()->get()->each->restore();
+                $design->restore();
+            });
 
             $order->orderEditHistories()->withTrashed()->restore();
-            $order->saleReturns()->withTrashed()->restore();
+            $order->saleReturns()->withTrashed()->get()->each->restore();
             $order->accountTransactions()->withTrashed()->restore();
+
             $order->canceledProducts()
                 ->where('type', 'from_order_delete')
                 ->forceDelete();

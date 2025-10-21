@@ -148,20 +148,20 @@
                                         </div>
                                     </div>
                                     <!-- <div class="row mb-3 align-items-center">
-                                                    <div class="col-lg-2">
-                                                        <label for="image" class="fw-semibold">Upload Bond</label>
-                                                    </div>
-                                                    <div class="col-lg-10 mb-0">
-                                                        <div class="input-group">
-                                                            <input type="file" class="form-control" id="image" name="image" accept="image/*" value="{{ old('image') }}">
-                                                        </div>
-                                                        @if (isset($purchase->image) && $purchase->image)
+                                                                                                                                            <div class="col-lg-2">
+                                                                                                                                                <label for="image" class="fw-semibold">Upload Bond</label>
+                                                                                                                                            </div>
+                                                                                                                                            <div class="col-lg-10 mb-0">
+                                                                                                                                                <div class="input-group">
+                                                                                                                                                    <input type="file" class="form-control" id="image" name="image" accept="image/*" value="{{ old('image') }}">
+                                                                                                                                                </div>
+                                                                                                                                                @if (isset($purchase->image) && $purchase->image)
     <img src="{{ asset('storage/' . $purchase->image) }}"
-                                                            alt="Bond Image"
-                                                            style="max-width: 100px; margin-top: 10px; border-radius: 10px" />
+                                                                                                                                                    alt="Bond Image"
+                                                                                                                                                    style="max-width: 100px; margin-top: 10px; border-radius: 10px" />
     @endif
-                                                    </div>
-                                                </div> -->
+                                                                                                                                            </div>
+                                                                                                                                        </div> -->
                                 </div>
                             </div>
                         </div>
@@ -205,12 +205,13 @@
                                                             @endforeach
                                                         </select>
                                                     </td>
-                                                    <td><input type="number" name="qty[]" class="form-control qty"
-                                                            id="qty_0" placeholder="Qty" min="1"></td>
-                                                    <td><input type="number" name="price[]" class="form-control price"
-                                                            id="price_0"></td>
-                                                    <td><input type="number" name="freight[]"
-                                                            class="form-control freight" id="freight_0" value="0">
+                                                    <td><input type="text" inputmode="numeric" name="qty[]"
+                                                            class="form-control qty" id="qty_0" placeholder="Qty"
+                                                            min="1"></td>
+                                                    <td><input type="text" inputmode="numeric" name="price[]"
+                                                            class="form-control price" id="price_0"></td>
+                                                    <td><input type="text" inputmode="numeric" name="freight[]"
+                                                            class="form-control freight" id="freight_0">
                                                     </td>
                                                     <td>
                                                         {{-- hidden raw value (submit) --}}
@@ -331,80 +332,64 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA ===
-        function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }).format(num);
+        // === FORMAT ANGKA RIBUAN (EN-US STYLE) ===
+        function formatRibuan(angka) {
+            if (angka === null || angka === undefined) return '';
+            const str = angka.toString().replace(/[^0-9.-]/g, '');
+            const parts = str.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return parts.join('.');
+        }
+
+        // === HAPUS FORMAT KOMA JADI ANGKA MURNI ===
+        function unformatRibuan(angka) {
+            if (!angka) return 0;
+            return parseFloat(angka.toString().replace(/,/g, '')) || 0;
         }
 
         // === PERHITUNGAN TIAP BARIS ===
         function updateRowTotal(row) {
-            const qty = parseFloat(row.find(".qty").val()) || 0;
-            const price = parseFloat(row.find(".price").val()) || 0;
-            const freight = parseFloat(row.find(".freight").val()) || 0;
+            const qty = parseFloat(unformatRibuan(row.find(".qty").val())) || 0;
+            const price = parseFloat(unformatRibuan(row.find(".price").val())) || 0;
+            const freight = parseFloat(unformatRibuan(row.find(".freight").val())) || 0;
+
             const total = qty * (price + freight);
-
             row.find(".total").val(total.toFixed(2));
-            row.find(".total_display").val(formatNumber(total));
-
-            calc();
+            row.find(".total_display").val(formatRibuan(total.toFixed(2))); // tampilkan format
+            calc_total();
         }
 
         // === PERHITUNGAN TOTAL AKHIR ===
-        // function calc() {
-        //     let subtotal = 0;
-        //     $(".total").each(function() {
-        //         subtotal += parseFloat($(this).val()) || 0;
-        //     });
+        function calc_total() {
+            let subtotalProduct = 0,
+                subtotalFreight = 0;
 
-        //     const taxPercent = parseFloat($("#tax_percent").val()) || 0;
-        //     const taxAmount = (subtotal * taxPercent) / 100;
-        //     const grandTotal = subtotal + taxAmount;
-
-        //     $("#sub_total").val(subtotal.toFixed(2));
-        //     $("#tax_amount").val(taxAmount.toFixed(2));
-        //     $("#total_amount").val(grandTotal.toFixed(2));
-
-        //     $("#sub_total_display").val(formatNumber(subtotal));
-        //     $("#tax_amount_display").val(formatNumber(taxAmount));
-        //     $("#total_amount_display").val(formatNumber(grandTotal));
-        // }
-
-        function calc() {
-            let subtotalProduct = 0;
-            let subtotalFreight = 0;
-
-            $("#tab_logic tbody tr").each(function() {
-                const qty = parseFloat($(this).find(".qty").val()) || 0;
-                const price = parseFloat($(this).find(".price").val()) || 0;
-                const freight = parseFloat($(this).find(".freight").val()) || 0;
-
+            $('#tab_logic tbody tr').each(function() {
+                const qty = parseFloat(unformatRibuan($(this).find('.qty').val())) || 0;
+                const price = parseFloat(unformatRibuan($(this).find('.price').val())) || 0;
+                const freight = parseFloat(unformatRibuan($(this).find('.freight').val())) || 0;
                 subtotalProduct += qty * price;
                 subtotalFreight += qty * freight;
             });
 
-            const taxPercent = parseFloat($("#tax_percent").val()) || 0;
+            const taxPercent = parseFloat(unformatRibuan($("#tax_percent").val())) || 0;
             const taxAmount = (subtotalProduct * taxPercent) / 100;
 
             const totalProduct = subtotalProduct + taxAmount;
-            const totalFreight = subtotalFreight;
-            const grandTotal = totalProduct + totalFreight;
+            const grandTotal = totalProduct + subtotalFreight;
+            const subTotal = subtotalProduct + subtotalFreight;
 
-            // set hidden value
-            $("#sub_total").val(subtotalProduct.toFixed(2));
-            $("#tax_amount").val(taxAmount.toFixed(2));
             $("#total_amount_product").val(totalProduct.toFixed(2));
-            $("#total_amount_freight").val(totalFreight.toFixed(2));
+            $("#total_amount_freight").val(subtotalFreight.toFixed(2));
+            $("#sub_total").val(subTotal.toFixed(2));
+            $("#tax_amount").val(taxAmount.toFixed(2));
             $("#total_amount").val(grandTotal.toFixed(2));
 
-            // tampilkan formatted
-            $("#sub_total_display").val(formatNumber(subtotalProduct));
-            $("#tax_amount_display").val(formatNumber(taxAmount));
-            $("#total_amount_product_display").val(formatNumber(totalProduct));
-            $("#total_amount_freight_display").val(formatNumber(totalFreight));
-            $("#total_amount_display").val(formatNumber(grandTotal));
+            $("#total_amount_product_display").val(formatRibuan(totalProduct.toFixed(2)));
+            $("#total_amount_freight_display").val(formatRibuan(subtotalFreight.toFixed(2)));
+            $("#sub_total_display").val(formatRibuan(subTotal.toFixed(2)));
+            $("#tax_amount_display").val(formatRibuan(taxAmount.toFixed(2)));
+            $("#total_amount_display").val(formatRibuan(grandTotal.toFixed(2)));
         }
 
         // === INIT SELECT2 ===
@@ -421,41 +406,25 @@
 
         // === PAGE READY ===
         $(document).ready(function() {
-            // Inisialisasi semua Select2
-            function initSelect2(el) {
-                $(el).select2({
-                    placeholder: 'Pilih opsi',
-                    width: '100%',
-                    matcher: (params, data) => {
-                        if ($.trim(params.term) === '') return data;
-                        return data.text.toLowerCase().includes(params.term.toLowerCase()) ? data :
-                            null;
-                    },
-                    // templateResult: formatOption,
-                    // templateSelection: formatOption
-                });
-            }
+            initSelect2('.select-product');
+            initSelect2('#suppliers');
+            calc_total();
 
-            $('.select-product').each(function() {
-                initSelect2(this);
-            });
-
-            // Tambah row produk
+            // Tambah row
             $('#add_row').on('click', function() {
-                const tableBody = $('#tab_logic tbody');
-                const rowCount = tableBody.find('tr').length;
-                const $newRow = tableBody.find('tr:first').clone();
+                const $tbody = $('#tab_logic tbody');
+                const $newRow = $tbody.find('tr:first').clone();
+                const newIndex = $tbody.find('tr').length;
 
-                $newRow.attr('id', 'addr' + rowCount);
-                $newRow.find('td:first').text(rowCount + 1);
+                $newRow.attr('id', 'addr' + newIndex);
+                $newRow.find('td:first').text(newIndex + 1);
                 $newRow.find('input').val('');
                 $newRow.find('.freight').val('0');
                 $newRow.find('.total').val('0.00');
-                $newRow.find('.total_display').val('');
                 $newRow.find('.select2').remove();
-
                 $newRow.find('select').removeClass('select2-hidden-accessible').val('');
-                tableBody.append($newRow);
+
+                $tbody.append($newRow);
                 initSelect2($newRow.find('.select-product'));
             });
 
@@ -463,165 +432,210 @@
             $(document).on('click', '.delete-row', function() {
                 if ($('#tab_logic tbody tr').length > 1) {
                     $(this).closest('tr').remove();
-                    calc();
+                    calc_total();
                 }
             });
 
-            // Produk berubah => isi harga
+            // Produk berubah
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
-                const selectedOption = $(this).find('option:selected');
-                const price = parseFloat(selectedOption.data('price')) || 0;
-                row.find('.price').val(price.toFixed(2));
+                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
+                row.find('.price').val(formatRibuan(price.toFixed(2)));
                 updateRowTotal(row);
             });
 
-            // Qty/price/freight berubah
+            // Qty/Price/Freight berubah
             $(document).on('input', '.qty, .price, .freight', function() {
+                let val = $(this).val().replace(/,/g, '');
+                if (val !== '' && !isNaN(val)) {
+                    $(this).val(formatRibuan(val));
+                }
                 updateRowTotal($(this).closest('tr'));
             });
 
             // Tax berubah
-            // $(document).on('input', '#tax_percent', calc);
-            // calc();
+            $(document).on('input', '#tax_percent', calc_total);
 
-            // Tax berubah
-            $(document).on('input', '#tax_percent', function() {
-                const taxPercent = parseFloat($(this).val()) || 0;
+            // Sebelum submit, hapus semua koma
+            $('#purchaseForm').on('submit', function() {
+                $('.qty, .price, .freight, .total').each(function() {
+                    $(this).val($(this).val().replace(/,/g, ''));
+                });
+            });
+        });
 
-                // Ubah semua harga berdasarkan tax
-                $(".price").each(function() {
-                    const row = $(this).closest('tr');
-                    const originalPrice = parseFloat($(this).data('original')) || parseFloat($(this)
-                        .val()) || 0;
+        // === AUTO GET LAST PRICE & FREIGHT ===
+        $(document).on('change', '.select-product', function() {
+            const productId = $(this).val();
+            const row = $(this).closest('tr');
 
-                    // Simpan harga asli pertama kali
-                    if (!$(this).data('original')) {
-                        $(this).data('original', originalPrice);
-                    }
+            if (!productId) {
+                row.find('.price').val('');
+                row.find('.freight').val('');
+                updateRowTotal(row);
+                return;
+            }
 
-                    // Hitung harga baru dengan tax
-                    const newPrice = originalPrice * (1 + (taxPercent / 100));
-                    $(this).val(newPrice.toFixed(2));
+            $.ajax({
+                url: `/erp/purchases/get-latest-price/${productId}`,
+                type: 'GET',
+                success: function(response) {
+                    const price = response.price ? parseFloat(response.price) : 0;
+                    const freight = response.freight ? parseFloat(response.freight) : 0;
+
+                    row.find('.price').val(formatNumberInput(price));
+                    row.find('.freight').val(formatNumberInput(freight));
 
                     updateRowTotal(row);
-                });
-
-                calc();
+                },
+                error: function() {
+                    row.find('.price').val('');
+                    row.find('.freight').val('');
+                    updateRowTotal(row);
+                }
             });
-
-            // AUTO DUE DATE
-            const optionEl = document.getElementById('due_date_option');
-            const dateInput = document.getElementById('custom_due_date');
-            const purchaseDateInput = document.getElementById('purchase_date');
-
-            function updateDueDate() {
-                const val = optionEl.value;
-                let newDate = null;
-                let baseDate = purchaseDateInput.value ? new Date(purchaseDateInput.value) : new Date();
-
-                if (val === 'today') newDate = baseDate;
-                else if (val === '1_week') newDate = new Date(baseDate.setDate(baseDate.getDate() + 7));
-                else if (val === '1_month') newDate = new Date(baseDate.setMonth(baseDate.getMonth() + 1));
-                else if (val === '3_months') newDate = new Date(baseDate.setMonth(baseDate.getMonth() + 3));
-                else if (val === 'custom') {
-                    dateInput.readOnly = false;
-                    dateInput.value = "";
-                    return;
-                }
-
-                dateInput.readOnly = true;
-                if (newDate) {
-                    const yyyy = newDate.getFullYear();
-                    const mm = String(newDate.getMonth() + 1).padStart(2, '0');
-                    const dd = String(newDate.getDate()).padStart(2, '0');
-                    dateInput.value = `${yyyy}-${mm}-${dd}`;
-                }
-            }
-            optionEl.addEventListener('change', updateDueDate);
-            purchaseDateInput.addEventListener('change', updateDueDate);
-            updateDueDate();
         });
 
-        // === VALIDASI FRONTEND ===
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('purchaseForm');
+        // === tampilkan error di bawah field (gaya Sale List) ===
+        function showError(el, message) {
+            if ($(el).hasClass('select2-hidden-accessible')) {
+                const select2Container = $(el).next('.select2');
+                select2Container.next('.invalid-feedback').remove();
 
-            form.addEventListener('submit', function(e) {
-                let isValid = true;
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback d-block';
+                feedback.textContent = message;
+                select2Container[0].after(feedback);
+            } else {
+                el.classList.add('is-invalid');
+                const container = el.closest('.input-group') || el.parentNode;
+                const existing = container.querySelector('.invalid-feedback');
+                if (existing) existing.remove();
 
-                // hapus error lama
-                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback';
+                feedback.textContent = message;
+                feedback.style.display = 'block';
+                container.appendChild(feedback);
+            }
+        }
 
-                // invoice number
-                const purchaseNumber = document.getElementById('purchase_number');
-                if (!purchaseNumber.value.trim()) {
-                    isValid = false;
-                    showError(purchaseNumber, 'Invoice number wajib diisi');
-                }
-
-                // supplier
-                const supplierSelect = $('#suppliers');
-                if (!supplierSelect.val()) {
-                    isValid = false;
-                    showError(supplierSelect[0], 'Supplier wajib dipilih');
-                }
-
-                // produk
-                const rows = form.querySelectorAll('#tab_logic tbody tr');
-                rows.forEach((row, i) => {
-                    const product = row.querySelector('select[name="product[]"]');
-                    const qty = row.querySelector('input[name="qty[]"]');
-                    if (!product.value) {
-                        isValid = false;
-                        showError(product, `Produk pada baris ${i + 1} wajib dipilih`);
-                    }
-                    if (!qty.value || parseFloat(qty.value) < 1) {
-                        isValid = false;
-                        showError(qty, 'Qty minimal 1');
-                    }
-                });
-
-                if (!isValid) e.preventDefault();
-            });
-
-            function showError(el, message) {
-                if ($(el).hasClass('select2-hidden-accessible')) {
-                    const select2Container = $(el).next('.select2');
-                    select2Container.next('.invalid-feedback').remove();
-
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback d-block';
-                    feedback.textContent = message;
-                    select2Container[0].after(feedback);
+        // === hapus error kalau user betulin input ===
+        $(document).on("change input",
+            "#purchase_number, #purchase_date, #suppliers, #transaction_type, select[name='product[]'], input[name='qty[]'], input[name='price[]']",
+            function() {
+                if ($(this).hasClass("select2-hidden-accessible")) {
+                    $(this).next('.select2').next('.invalid-feedback').remove();
                 } else {
-                    el.classList.add('is-invalid');
-                    const parent = el.closest('.input-group') || el.parentNode;
-                    const existing = parent.querySelector('.invalid-feedback');
-                    if (existing) existing.remove();
-
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback d-block';
-                    feedback.textContent = message;
-                    parent.appendChild(feedback);
+                    this.classList.remove("is-invalid");
+                    $(this).siblings(".invalid-feedback").remove();
                 }
+            });
+
+        // === validasi sebelum submit ===
+        $('#purchaseForm').on('submit', function(e) {
+            let isValid = true;
+
+            // reset error lama
+            $(this).find('.is-invalid').removeClass('is-invalid');
+            $(this).find('.invalid-feedback').remove();
+
+            const purchaseNumber = $('#purchase_number');
+            if (!purchaseNumber.val().trim()) {
+                isValid = false;
+                showError(purchaseNumber[0], 'Nomor invoice wajib diisi');
             }
 
-            // Hapus error saat user ubah input
-            form.querySelectorAll('input, select').forEach(el => {
-                el.addEventListener('input', () => {
-                    el.classList.remove('is-invalid');
-                    const next = el.parentNode.querySelector('.invalid-feedback');
-                    if (next) next.remove();
-                });
+            const purchaseDate = $('#purchase_date');
+            if (!purchaseDate.val().trim()) {
+                isValid = false;
+                showError(purchaseDate[0], 'Tanggal pembelian wajib diisi');
+            }
+
+            const supplier = $('#suppliers');
+            if (!supplier.val()) {
+                isValid = false;
+                showError(supplier[0], 'Supplier wajib dipilih');
+            }
+
+            const transactionType = $('#transaction_type');
+            if (!transactionType.val()) {
+                isValid = false;
+                showError(transactionType[0], 'Tipe transaksi wajib dipilih');
+            }
+
+            // validasi tabel produk
+            $('#tab_logic tbody tr').each(function() {
+                const product = $(this).find('select[name="product[]"]');
+                const qty = $(this).find('input[name="qty[]"]');
+                const price = $(this).find('input[name="price[]"]');
+                const freight = $(this).find('input[name="freight[]"]');
+
+                if (!product.val()) {
+                    isValid = false;
+                    showError(product[0], 'Produk wajib dipilih');
+                }
+                if (!qty.val() || parseFloat(qty.val().replace(/\./g, '')) <= 0) {
+                    isValid = false;
+                    showError(qty[0], 'Qty wajib diisi');
+                }
+                if (!price.val() || parseFloat(price.val().replace(/\./g, '')) <= 0) {
+                    isValid = false;
+                    showError(price[0], 'Harga wajib diisi');
+                }
+                if (!freight.val() || isNaN(parseFloat(freight.val().replace(/\./g, '')))) {
+                    isValid = false;
+                    showError(freight[0], 'Freight wajib diisi (isi 0 jika tidak ada)');
+                }
             });
+
+            // hentikan submit kalau tidak valid
+            if (!isValid) {
+                e.preventDefault(); // cukup cegah submit, tidak tampil swal
+            }
         });
 
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
+        $(document).ready(function() {
+            const purchaseDateEl = $('#purchase_date');
+            const dueDateSelect = $('#due_date_option');
+            const customDueDate = $('#custom_due_date');
+
+            function setDueDate() {
+                const option = dueDateSelect.val();
+                const purchaseDate = new Date(purchaseDateEl.val());
+
+                if (!purchaseDate || isNaN(purchaseDate)) return;
+
+                let dueDate = new Date(purchaseDate);
+                switch (option) {
+                    case 'today':
+                        // nothing
+                        break;
+                    case '1_week':
+                        dueDate.setDate(dueDate.getDate() + 7);
+                        break;
+                    case '1_month':
+                        dueDate.setMonth(dueDate.getMonth() + 1);
+                        break;
+                    case '3_months':
+                        dueDate.setMonth(dueDate.getMonth() + 3);
+                        break;
+                    case 'custom':
+                        customDueDate.prop('readonly', false);
+                        return;
+                    default:
+                        customDueDate.val('');
+                        customDueDate.prop('readonly', true);
+                        return;
+                }
+
+                const formatted = dueDate.toISOString().split('T')[0];
+                customDueDate.val(formatted);
+                customDueDate.prop('readonly', true);
+            }
+
+            dueDateSelect.on('change', setDueDate);
+            purchaseDateEl.on('change', setDueDate);
         });
     </script>
 @endpush

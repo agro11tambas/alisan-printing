@@ -15,7 +15,7 @@ return new class extends Migration
             $table->integer('purchase_stock')->nullable()->after('short_description');
             $table->integer('inventory_stock')->nullable()->after('purchase_stock');
             $table->integer('stock_after_sales')->nullable()->after('inventory_stock');
-            $table->decimal('avg_cost')->nullable()->after('stock_after_sales');
+            $table->decimal('avg_cost', 15, 3)->nullable()->after('stock_after_sales');
         });
     }
 

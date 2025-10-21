@@ -222,12 +222,12 @@
                                                                 @endforeach
                                                             </select>
                                                         </td>
-                                                        <td><input type="number" name="qty[]" class="form-control qty"
+                                                        <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty"
                                                                 min="1" value="{{ $item->quantity ?? '' }}"></td>
-                                                        <td><input type="number" name="price[]"
+                                                        <td><input type="text" inputmode="numeric" name="price[]"
                                                                 class="form-control price"
                                                                 value="{{ $item->price ?? '' }}"></td>
-                                                        <td><input type="number" name="freight[]"
+                                                        <td><input type="text" inputmode="numeric" name="freight[]"
                                                                 class="form-control freight"
                                                                 value="{{ $item->freight ?? 0 }}"></td>
                                                         <td>
@@ -301,7 +301,7 @@
                                                     <tbody>
                                                         <tr class="single-item">
                                                             <th class="fs-10 text-dark text-uppercase">Total Produk</th>
-                                                            <td class="w-25">
+                                                            <td class="">
                                                                 <input type="hidden" name="total_amount_product"
                                                                     id="total_amount_product">
                                                                 <input type="text" id="total_amount_product_display"
@@ -311,7 +311,7 @@
                                                         </tr>
                                                         <tr class="single-item">
                                                             <th class="fs-10 text-dark text-uppercase">Total Freight</th>
-                                                            <td class="w-25">
+                                                            <td class="">
                                                                 <input type="hidden" name="total_amount_freight"
                                                                     id="total_amount_freight">
                                                                 <input type="text" id="total_amount_freight_display"
@@ -321,7 +321,7 @@
                                                         </tr>
                                                         <tr class="single-item">
                                                             <th class="fs-10 text-dark text-uppercase">Sub Total</th>
-                                                            <td class="w-25">
+                                                            <td class="">
                                                                 {{-- hidden raw --}}
                                                                 <input type="hidden" name="sub_total" id="sub_total">
                                                                 {{-- display formatted --}}
@@ -375,86 +375,71 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA ===
-        function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }).format(num);
+        // === FORMAT ANGKA RIBUAN ===
+        function formatRibuan(angka) {
+            if (angka === null || angka === undefined) return '';
+            const str = angka.toString().replace(/[^0-9.-]/g, '');
+            const parts = str.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return parts.join('.');
+        }
+
+        // === HAPUS FORMAT KOMA ===
+        function unformatRibuan(angka) {
+            if (!angka) return 0;
+            return parseFloat(angka.toString().replace(/,/g, '')) || 0;
         }
 
         // === UPDATE ROW TOTAL ===
         function updateRowTotal(row) {
-            const qty = parseFloat(row.find('.qty').val()) || 0;
-            const price = parseFloat(row.find('.price').val()) || 0;
-            const freight = parseFloat(row.find('.freight').val()) || 0;
+            const qty = parseFloat(unformatRibuan(row.find('.qty').val())) || 0;
+            const price = parseFloat(unformatRibuan(row.find('.price').val())) || 0;
+            const freight = parseFloat(unformatRibuan(row.find('.freight').val())) || 0;
             const total = qty * (price + freight);
 
             row.find('.total').val(total.toFixed(2));
-            row.find('.total_display').val(formatNumber(total));
+            row.find('.total_display').val(formatRibuan(total.toFixed(2)));
             calc_total();
         }
 
-        // === HITUNG TOTAL ===
-        // function calc_total() {
-        //     let subtotal = 0;
-        //     $('.total').each(function() {
-        //         subtotal += parseFloat($(this).val()) || 0;
-        //     });
-
-        //     const taxPercent = parseFloat($('#tax_percent').val()) || 0;
-        //     const taxAmount = (subtotal * taxPercent) / 100;
-        //     const grandTotal = subtotal + taxAmount;
-
-        //     $('#sub_total').val(subtotal.toFixed(2));
-        //     $('#tax_amount').val(taxAmount.toFixed(2));
-        //     $('#total_amount').val(grandTotal.toFixed(2));
-
-        //     $('#sub_total_display').val(formatNumber(subtotal));
-        //     $('#tax_amount_display').val(formatNumber(taxAmount));
-        //     $('#total_amount_display').val(formatNumber(grandTotal));
-        // }
-
+        // === HITUNG TOTAL KESELURUHAN ===
         function calc_total() {
             let subtotalProduct = 0,
                 subtotalFreight = 0;
 
             $('#tab_logic tbody tr').each(function() {
-                const qty = parseFloat($(this).find('.qty').val()) || 0;
-                const price = parseFloat($(this).find('.price').val()) || 0;
-                const freight = parseFloat($(this).find('.freight').val()) || 0;
+                const qty = parseFloat(unformatRibuan($(this).find('.qty').val())) || 0;
+                const price = parseFloat(unformatRibuan($(this).find('.price').val())) || 0;
+                const freight = parseFloat(unformatRibuan($(this).find('.freight').val())) || 0;
+
                 subtotalProduct += qty * price;
                 subtotalFreight += qty * freight;
             });
 
-            const taxPercent = parseFloat($('#tax_percent').val()) || 0;
+            const taxPercent = parseFloat(unformatRibuan($('#tax_percent').val())) || 0;
             const taxAmount = (subtotalProduct * taxPercent) / 100;
 
             const totalProduct = subtotalProduct + taxAmount;
+            const subTotal = subtotalProduct + subtotalFreight;
             const grandTotal = totalProduct + subtotalFreight;
 
-            // ✅ Tambahkan Subtotal di sini
-            const subTotal = subtotalProduct + subtotalFreight;
-
-            // ===== Simpan ke input hidden =====
             $('#total_amount_product').val(totalProduct.toFixed(2));
             $('#total_amount_freight').val(subtotalFreight.toFixed(2));
+            $('#sub_total').val(subTotal.toFixed(2));
             $('#tax_amount').val(taxAmount.toFixed(2));
             $('#total_amount').val(grandTotal.toFixed(2));
-            $('#sub_total').val(subTotal.toFixed(2));
 
-            // ===== Tampilkan formatted =====
-            $('#total_amount_product_display').val(formatNumber(totalProduct));
-            $('#total_amount_freight_display').val(formatNumber(subtotalFreight));
-            $('#tax_amount_display').val(formatNumber(taxAmount));
-            $('#total_amount_display').val(formatNumber(grandTotal));
-            $('#sub_total_display').val(formatNumber(subTotal));
+            $('#total_amount_product_display').val(formatRibuan(totalProduct.toFixed(2)));
+            $('#total_amount_freight_display').val(formatRibuan(subtotalFreight.toFixed(2)));
+            $('#sub_total_display').val(formatRibuan(subTotal.toFixed(2)));
+            $('#tax_amount_display').val(formatRibuan(taxAmount.toFixed(2)));
+            $('#total_amount_display').val(formatRibuan(grandTotal.toFixed(2)));
         }
 
         // === INIT SELECT2 ===
         function initSelect2(el) {
             $(el).select2({
-                placeholder: 'Pilih opsi',
+                placeholder: 'Pilih produk',
                 width: '100%',
                 matcher: (params, data) => {
                     if ($.trim(params.term) === '') return data;
@@ -464,93 +449,77 @@
         }
 
         $(document).ready(function() {
-            // INIT semua select2
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
-            // Hitung ulang total awal (buat data lama)
+            // === FORMAT SEMUA ANGKA EXISTING (edit mode)
+            $('.qty, .price, .freight').each(function() {
+                const val = $(this).val();
+                if (val && !isNaN(val)) $(this).val(formatRibuan(parseFloat(val).toFixed(2)));
+            });
+
+            // === HITUNG TOTAL AWAL
             $('#tab_logic tbody tr').each(function() {
                 updateRowTotal($(this));
             });
             calc_total();
 
-            // Produk berubah => isi harga otomatis
-            $(document).on('change', '.select-product', function() {
-                const row = $(this).closest('tr');
-                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
-                row.find('.price').val(price.toFixed(2));
-                updateRowTotal(row);
-            });
-
-            // Qty/price/freight berubah
+            // === SAAT INPUT BERUBAH ===
             $(document).on('input', '.qty, .price, .freight', function() {
                 updateRowTotal($(this).closest('tr'));
             });
 
-            // Tax berubah
-            // $(document).on('input', '#tax_percent', calc_total);
-
-            // Tax berubah => update harga produk juga
-            $(document).on('input', '#tax_percent', function() {
-                const taxPercent = parseFloat($(this).val()) || 0;
-
-                // Loop setiap harga produk
-                $(".price").each(function() {
-                    const row = $(this).closest('tr');
-                    const originalPrice = parseFloat($(this).data('original')) || parseFloat($(this)
-                        .val()) || 0;
-
-                    // Simpan harga asli hanya sekali
-                    if (!$(this).data('original')) {
-                        $(this).data('original', originalPrice);
-                    }
-
-                    // Hitung harga baru setelah tax
-                    const newPrice = originalPrice * (1 + (taxPercent / 100));
-                    $(this).val(newPrice.toFixed(2));
-
-                    // Update total baris
-                    updateRowTotal(row);
-                });
-
-                // Recalculate semua total akhir
-                calc_total();
+            // === SAAT KELUAR DARI INPUT BARU FORMAT ===
+            $(document).on('blur', '.qty, .price, .freight', function() {
+                const val = $(this).val().replace(/,/g, '');
+                if (val === '' || isNaN(val)) return;
+                $(this).val(formatRibuan(parseFloat(val)));
+                updateRowTotal($(this).closest('tr'));
             });
 
-            // Tambah row
+            // === SAAT PRODUK DIPILIH ===
+            $(document).on('change', '.select-product', function() {
+                const row = $(this).closest('tr');
+                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
+                row.find('.price').val(formatRibuan(price.toFixed(2)));
+                updateRowTotal(row);
+            });
+
+            // === TAX BERUBAH ===
+            $(document).on('input', '#tax_percent', calc_total);
+
+            // === TAMBAH ROW ===
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
-                const $last = $tbody.find('tr:last');
-                const $newRow = $last.clone();
+                const $newRow = $tbody.find('tr:first').clone();
 
-                $newRow.find('input, select').val('');
+                $newRow.attr('id', 'addr' + $tbody.find('tr').length);
+                $newRow.find('td:first').text($tbody.find('tr').length + 1);
+                $newRow.find('input').val('');
                 $newRow.find('.freight').val('0');
                 $newRow.find('.total').val('0.00');
                 $newRow.find('.total_display').val('');
-
                 $newRow.find('.select2').remove();
                 $newRow.find('select').removeClass('select2-hidden-accessible').val('');
 
                 $tbody.append($newRow);
                 initSelect2($newRow.find('.select-product'));
-                renumberRows();
             });
 
-            // Hapus row
+            // === HAPUS ROW ===
             $(document).on('click', '.delete-row', function() {
                 if ($('#tab_logic tbody tr').length > 1) {
                     $(this).closest('tr').remove();
-                    renumberRows();
                     calc_total();
                 }
             });
 
-            // Renumber baris
-            function renumberRows() {
-                $('#tab_logic tbody tr').each(function(i) {
-                    $(this).find('td:first').text(i + 1);
+            // === SEBELUM SUBMIT, HAPUS KOMA ===
+            $('#purchaseForm').on('submit', function() {
+                $('.qty, .price, .freight, .total').each(function() {
+                    $(this).val($(this).val().replace(/,/g, ''));
                 });
-            }
+            });
 
             // === AUTO DUE DATE ===
             const optionEl = document.getElementById('due_date_option');
@@ -568,7 +537,6 @@
                 else if (val === '3_months') newDate = new Date(baseDate.setMonth(baseDate.getMonth() + 3));
                 else if (val === 'custom') {
                     dateInput.readOnly = false;
-                    dateInput.value = "";
                     return;
                 }
 
@@ -580,6 +548,7 @@
                     dateInput.value = `${yyyy}-${mm}-${dd}`;
                 }
             }
+
             optionEl.addEventListener('change', updateDueDate);
             purchaseDateInput.addEventListener('change', updateDueDate);
             updateDueDate();

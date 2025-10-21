@@ -69,10 +69,10 @@ class StockOpnameProductionController extends Controller
                 return $stockOpname->date;
             })
             ->addColumn('available_quantity', function ($stockOpname) {
-                return $stockOpname->available_quantity;
+                return number_format($stockOpname->available_quantity);
             })
             ->addColumn('finished_product', function ($stockOpname) {
-                return $stockOpname->finished_product;
+                return number_format($stockOpname->finished_product);
             })
             ->addColumn('status', function ($stockOpname) {
                 $status = strtolower($stockOpname->status);

@@ -8,6 +8,7 @@
     <meta name="description" content="">
     <meta name="keyword" content="">
     <meta name="author" content="WRAPCODERS">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <!--! The above 6 meta tags *must* come first in the head; any other head content must come *after* these tags !-->
     <!--! BEGIN: Apps Title-->
     <title>Alisan</title>
@@ -37,9 +38,9 @@
     <!--! HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries !-->
     <!--! WARNING: Respond.js doesn"t work if you view the page via file: !-->
     <!--[if lt IE 9]>
-			<script src="https:oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
-			<script src="https:oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
-		<![endif]-->
+   <script src="https:oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+   <script src="https:oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+  <![endif]-->
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/css/lightbox.min.css" rel="stylesheet">
 
@@ -95,6 +96,15 @@
             }
         }
     </style>
+
+    <style>
+        .select2-container,
+        .select2-dropdown,
+        .select2-container--open {
+            z-index: 1050 !important;
+        }
+    </style>
+
 
     @stack('styles')
 
@@ -190,7 +200,8 @@
                     item.classList.add("open");
 
                     // Tutup hanya submenu di level yg sama
-                    item.parentElement.querySelectorAll(":scope > .nxl-hasmenu.open").forEach(function(other) {
+                    item.parentElement.querySelectorAll(":scope > .nxl-hasmenu.open").forEach(function(
+                        other) {
                         if (other !== item) other.classList.remove("open");
                     });
                 } else {
@@ -211,6 +222,12 @@
                 sidebar.addEventListener("mouseleave", function() {
                     document.documentElement.classList.add("minimenu");
                 });
+            }
+        });
+
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
         });
     </script>

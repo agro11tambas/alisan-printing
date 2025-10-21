@@ -35,6 +35,7 @@ class PurchaseReturn extends Model
         'payment_status',
         'transaction_group_id',
         'note',
+        'return_type',
         'reason',
         'transaction_type',
         'return_image',
@@ -86,6 +87,11 @@ class PurchaseReturn extends Model
         return $this->hasMany(Inventory::class, 'purchase_return_id')->withTrashed();
     }
 
+    public function defectProducts()
+    {
+        return $this->hasMany(DefectProduct::class, 'purchase_return_id');
+    }
+
     public function hasStockOut()
     {
         return $this->inventories()
@@ -100,13 +106,11 @@ class PurchaseReturn extends Model
     {
         static::deleting(function ($return) {
             if ($return->isForceDeleting()) {
-                // 🔥 hapus permanen semua relasi
                 $return->items()->forceDelete();
                 $return->editHistories()->forceDelete();
                 $return->accountTransactions()->forceDelete();
                 $return->inventories()->forceDelete();
             } else {
-                // 🗑 soft delete semua relasi
                 $return->items()->delete();
                 $return->editHistories()->delete();
                 $return->accountTransactions()->delete();
@@ -115,7 +119,6 @@ class PurchaseReturn extends Model
         });
 
         static::restoring(function ($return) {
-            // 🔄 restore relasi yang pakai SoftDeletes
             $return->items()->withTrashed()->restore();
             $return->editHistories()->withTrashed()->restore();
             $return->accountTransactions()->withTrashed()->restore();

@@ -23,7 +23,9 @@ class CanceledProduct extends Model
         'quantity',
         'completed_quantity',
         'avg_cost_at_cancel',
+        'fixed_cost_at_cancel',
         'total_cost',
+        'total_fixed_cost',
         'date',
         'type',
         'status',
@@ -37,7 +39,7 @@ class CanceledProduct extends Model
 
     public function product()
     {
-        return $this->belongsTo(Products::class, 'product_id');
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
 
     public function warehouse()

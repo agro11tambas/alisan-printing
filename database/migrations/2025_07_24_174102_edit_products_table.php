@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('products', function (Blueprint $table) {
             $table->integer('opening_stock')->nullable()->after('short_description');
-            $table->decimal('opening_rate', 15, 2)->nullable()->after('opening_stock');
+            $table->decimal('opening_rate', 15, 3)->nullable()->after('opening_stock');
         });
     }
 

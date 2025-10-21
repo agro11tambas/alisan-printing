@@ -137,6 +137,7 @@
                                     <th>Price</th>
                                     <th>SKU</th>
                                     <th>Avg Cost</th>
+                                    <th>Fixed Cost</th>
                                     <!-- <th class="text-end">Actions</th> -->
                                 </tr>
                             </thead>
@@ -225,6 +226,9 @@
                 },
                 {
                     data: 'avg_cost'
+                },
+                {
+                    data: 'fixed_cost'
                 },
                 // {
                 //     data: 'action',

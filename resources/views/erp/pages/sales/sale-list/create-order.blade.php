@@ -191,22 +191,22 @@
 
                                                     {{-- Product Type --}}
                                                     <!-- <td>
-                                                    </td> -->
+                                                                                                </td> -->
                                                     <input type="hidden" name="product_type[]"
                                                         class="form-control product-type" id="product_type_0" readonly>
 
-                                                    <td><input type="number" name="qty[]" class="form-control qty"
-                                                            id="qty_0" min="1" value="1"></td>
+                                                    <td><input type="text" inputmode="numeric" name="qty[]"
+                                                            class="form-control qty" value=""></td>
 
                                                     {{-- Price & Total Before Discount --}}
                                                     <td>
-                                                        <input type="text"
+                                                        <input type="text" inputmode="numeric"
                                                             class="form-control price_before_discount_display" readonly>
                                                         <input type="hidden" name="price_before_discount[]"
                                                             class="price_before_discount">
                                                     </td>
                                                     <td>
-                                                        <input type="text"
+                                                        <input type="text" inputmode="numeric"
                                                             class="form-control total_before_discount_display" readonly>
                                                         <input type="hidden" name="total_before_discount[]"
                                                             class="total_before_discount">
@@ -259,18 +259,6 @@
                                                                 <input type="hidden" name="sub_total" id="sub_total">
                                                             </td>
                                                         </tr>
-                                                        <!-- <tr>
-                                                            <th class="fs-10 text-dark text-uppercase">Total Discount</th>
-                                                            <td>
-                                                                <input type="text" name="total_discount" id="total_discount" class="form-control text-danger" readonly>
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand Total</th>
-                                                            <td>
-                                                                <input type="text" name="total_amount" id="total_amount" class="form-control bg-gray-100 fw-700 text-success" readonly>
-                                                            </td>
-                                                        </tr> -->
 
                                                         <tr>
                                                             <th class="fs-10 text-dark text-uppercase">Total Discount</th>
@@ -340,9 +328,9 @@
         ];
 
         function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
             }).format(num);
         }
 
@@ -369,7 +357,7 @@
             const basePrice = parseFloat(selectedOption.data('price')) || 0;
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
-            const qty = parseFloat(row.find('input[name="qty[]"]').val()) || 0;
+            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/[.,]/g, '')) || 0;
 
             const priceBeforeDiscount = basePrice;
             const totalBeforeDiscount = basePrice * qty;
@@ -404,7 +392,8 @@
                         const opt = $(el).find('option:selected');
                         const cats = opt.data('categories') || [];
                         const price = parseFloat(opt.data('price')) || 0;
-                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val()) || 0;
+                        const qtyVal = parseFloat(($('input[name="qty[]"]').eq(i).val() || '0').replace(
+                            /[.,]/g, '')) || 0;
 
                         if (cats.some(c => c.id === discount.category_id)) {
                             totalQtyCategory += qtyVal;
@@ -463,9 +452,9 @@
             });
 
             // hidden untuk submit
-            $("#sub_total").val(subTotal.toFixed(2));
-            $("#total_discount").val((subTotal - totalAfterDiscount).toFixed(2));
-            $("#total_amount").val(totalAfterDiscount.toFixed(2));
+            $("#sub_total").val(subTotal.toFixed(0));
+            $("#total_discount").val((subTotal - totalAfterDiscount).toFixed(0));
+            $("#total_amount").val(totalAfterDiscount.toFixed(0));
 
             // display untuk user
             $("#sub_total_display").val(formatNumber(subTotal));
@@ -522,9 +511,9 @@
                 </td>
                 
                 <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
-                <td><input type="number" name="qty[]" class="form-control qty" min="1" value="1"></td>
-                <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" readonly></td>
-                <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
+                <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value=""></td>
+                <td><input type="text" inputmode="numeric" name="price_before_discount[]" class="form-control price_before_discount" readonly></td>
+                <td><input type="text" inputmode="numeric" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
                 <td class="text-center">
                     <div class="d-flex justify-content-center">
                         <button type="button" class="btn btn-danger delete-row">
@@ -594,6 +583,8 @@
 
         // Submit form
         document.getElementById('orderForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // ⛔ cegah reload default
+
             let isValid = true;
 
             // reset error
@@ -630,14 +621,20 @@
                     isValid = false;
                     showError(product, "Produk wajib dipilih");
                 }
-                if (!qty.value || parseInt(qty.value) < 1) {
+                if (!qty.value || parseInt(qty.value.replace(/[.,]/g, '')) < 1) {
                     isValid = false;
                     showError(qty, "Qty minimal 1");
                 }
             });
 
-            if (!isValid) e.preventDefault();
+            $('input[name="qty[]"], #sub_total, #total_discount, #total_amount').each(function() {
+                $(this).val($(this).val().replace(/[.,]/g, ''));
+            });
+
+            // 🚀 kirim form kalau valid
+            if (isValid) this.submit();
         });
+
 
         // alamat dinamis
         $(document).ready(function() {
@@ -648,7 +645,7 @@
                 addresses.forEach((address, i) => {
                     $('#addresses').append(
                         `<option value="${address.id}" data-map="${address.google_maps}">Alamat ke-${i+1} - ${address.address}</option>`
-                        );
+                    );
                 });
             });
             $('#addresses').on('change', function() {
@@ -656,7 +653,7 @@
                 if (mapUrl) {
                     $('#google-maps-link').html(
                         `<a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Google Maps</a>`
-                        );
+                    );
                 } else {
                     $('#google-maps-link').empty();
                 }
@@ -715,6 +712,78 @@
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();
             }, 50);
+        });
+
+        // === FORMAT QTY DENGAN TITIK (1.000) TANPA GANGGU INPUT ===
+        $(document).on('input', 'input[name="qty[]"]', function() {
+            // cuma izinkan angka dan koma
+            let val = $(this).val().replace(/[^\d]/g, '');
+            if (!val) {
+                $(this).val('');
+                return;
+            }
+
+            // format jadi ribuan pakai koma
+            $(this).val(val.replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+        });
+
+        $('#orderForm').on('submit', function(e) {
+            e.preventDefault(); // cegah reload
+
+            let isValid = true;
+            const form = this;
+
+            // reset error lama
+            form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+
+            // validasi tanggal
+            const orderDate = form.querySelector('input[name="order_date"]');
+            if (!orderDate.value.trim()) {
+                isValid = false;
+                showError(orderDate, 'Tanggal order wajib diisi');
+            }
+
+            // validasi customer
+            const customerSelect = $('#customers');
+            if (!customerSelect.val()) {
+                isValid = false;
+                showError(customerSelect[0], 'Customer wajib dipilih');
+            }
+
+            // validasi alamat
+            const addressSelect = $('#addresses');
+            if (!addressSelect.val()) {
+                isValid = false;
+                showError(addressSelect[0], 'Alamat wajib dipilih');
+            }
+
+            // validasi produk & qty
+            $('#tab_logic tbody tr').each(function() {
+                const product = $(this).find('select[name="product[]"]');
+                const qty = $(this).find('input[name="qty[]"]');
+                const cleanQty = qty.val().replace(/[^\d]/g, '');
+
+                if (!product.val()) {
+                    isValid = false;
+                    showError(product[0], 'Produk wajib dipilih');
+                }
+
+                if (!cleanQty || parseInt(cleanQty) < 1) {
+                    isValid = false;
+                    showError(qty[0], 'Qty minimal 1');
+                }
+            });
+
+            // kalau gak valid, stop
+            if (!isValid) return;
+
+            // 🧹 bersihkan koma/titik sebelum kirim ke server
+            $('input[name="qty[]"], #sub_total, #total_discount, #total_amount').each(function() {
+                $(this).val($(this).val().replace(/[.,]/g, ''));
+            });
+
+            form.submit(); // kirim form ke Laravel
         });
     </script>
 @endpush

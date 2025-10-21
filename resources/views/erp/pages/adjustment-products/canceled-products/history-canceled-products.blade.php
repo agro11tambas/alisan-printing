@@ -124,7 +124,7 @@
             info: false,
             pagingType: "simple",
             ajax: {
-                url: "{{ url('/erp/productions/canceled-products/history/'.$productionStock->id.'/data') }}",
+                url: "{{ url('/erp/adjustment-products/canceled-products/history/'.$productionStock->id.'/data') }}",
                 data: function(d) {
                     d.filter = $('#filter').val();
                     d.start_date = $('#start_date').val();

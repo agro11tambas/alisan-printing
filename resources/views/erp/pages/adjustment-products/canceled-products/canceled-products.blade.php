@@ -4,18 +4,18 @@
 <style>
     @media (max-width: 768px) {
 
-        #canceledDetailTable td.desktop-only,
-        #canceledDetailTable th.desktop-only {
+        #reportItemsTable td.desktop-only,
+        #reportItemsTable th.desktop-only {
             display: none !important;
         }
     }
 
-    #canceledDetailTable {
+    #reportItemsTable {
         width: 100% !important;
         min-width: 0;
     }
 
-    #canceledDetailTable_wrapper .dataTables_scrollBody {
+    #reportItemsTable_wrapper .dataTables_scrollBody {
         /* background: #fff !important; */
         background-image: none !important;
     }
@@ -26,13 +26,12 @@
 <div class="page-header sticky-top">
     <div class="page-header-left d-flex align-items-center">
         <div class="page-header-title">
-            <h5 class="m-b-10">Canceled Product Detail</h5>
+            <h5 class="m-b-10">Production</h5>
         </div>
         <ul class="breadcrumb">
             <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
             <li class="breadcrumb-item">Production</li>
-            <li class="breadcrumb-item"><a href="/erp/productions/canceled-products">Canceled Products</a></li>
-            <li class="breadcrumb-item">Detail</li>
+            <li class="breadcrumb-item">Canceled Products</li>
         </ul>
     </div>
     <div class="page-header-right ms-auto">
@@ -40,12 +39,6 @@
             <div class="d-flex d-md-none">
                 <a href="javascript:void(0)" class="page-header-right-close-toggle">
                     <i class="feather-arrow-left me-2"></i><span>Back</span>
-                </a>
-            </div>
-            <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                <a href="/erp/productions/canceled-products" class="btn btn-light-brand">
-                    <i class="feather-arrow-left me-2"></i>
-                    <span>Back</span>
                 </a>
             </div>
         </div>
@@ -82,29 +75,31 @@
         <div class="col-lg-12">
             <div class="card stretch stretch-full">
                 <div class="card-body p-0">
-                    <div class="row g-0 p-4 justify-content-between">
-                        <div class="col-lg-12">
-                            <h5 class="fw-bold mb-3">Product: {{ $productionStock->product->name }}</h5>
-                            <p><strong>Current Canceled Stock:</strong>
-                                <span class="text-danger">{{ $productionStock->canceled_product_stock }}</span>
-                            </p>
+                    <div class="row g-3 p-4 justify-content-between">
+                        <div class="col-lg-4 me-2">
+
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="row g-3 justify-content-end">
+                                <div class="col-lg-6">
+                                    <label for="product_name" class="fw-semibold fs-12">Item Name</label>
+                                    <input type="text" id="product_name" name="product_name" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Item...">
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-hover bg-transparent" id="canceledDetailTable">
+                        <table class="table table-hover bg-transparent" id="reportItemsTable">
                             <thead>
                                 <tr>
                                     <th class="wd-30">No</th>
-                                    <th>Date</th>
-                                    <th>Quantity</th>
-                                    <th>Type</th>
-                                    <th>Note</th>
-                                    <th>Status</th>
-                                    <th>Created By</th>
-                                    <!-- <th>Action</th> -->
+                                    <th>Item Name</th>
+                                    <!-- <th>Purchase Stock</th> -->
+                                    <th>Canceled Product</th>
                                 </tr>
                             </thead>
-                            <tbody></tbody>
+                            <tbody>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -130,7 +125,7 @@
             <!--! BEGIN: [modal-body] !-->
             <form method="POST" id="markAsSaleForm">
                 @csrf
-                <input type="hidden" id="canceled_product_id" name="canceled_product_id">
+                <input type="hidden" id="order_id" name="order_id">
 
                 <div class="modal-body">
                     <div class="row g-3 mb-3">
@@ -169,7 +164,7 @@
 @push('scripts')
 <script>
     $(document).ready(function() {
-        let dataTable = $('#canceledDetailTable').DataTable({
+        let dataTable = $('#reportItemsTable').DataTable({
             processing: true,
             serverSide: true,
             deferRender: true,
@@ -180,7 +175,12 @@
             lengthChange: false,
             info: false,
             pagingType: "simple",
-            ajax: "{{ url('/erp/productions/canceled-products/detail/'.$productionStock->id.'/data') }}",
+            ajax: {
+                url: "{{ url('/erp/adjustment-products/canceled-products/data') }}",
+                data: function(d) {
+                    d.product_name = $('#product_name').val();
+                }
+            },
             columns: [{
                     data: 'DT_RowIndex',
                     name: 'DT_RowIndex',
@@ -188,61 +188,45 @@
                     searchable: false
                 },
                 {
-                    data: 'date',
-                    name: 'date'
+                    data: 'name',
+                    name: 'name'
                 },
                 {
-                    data: 'quantity',
-                    name: 'quantity'
+                    data: 'canceled_product_stock',
+                    name: 'canceled_product_stock'
                 },
-                {
-                    data: 'type',
-                    name: 'type'
-                },
-                {
-                    data: 'note',
-                    name: 'note'
-                },
-                {
-                    data: 'status',
-                    name: 'status'
-                },
-                {
-                    data: 'user',
-                    name: 'user'
-                },
-                // {
-                //     data: 'action',
-                //     name: 'action',
-                //     orderable: false,
-                //     searchable: false
-                // },
             ]
         });
 
-        // expand row untuk action button
-        $('#canceledDetailTable tbody').on('click', 'tr', function(e) {
-            if ($(e.target).closest('td.dt-control').length) return;
+        $('#product_name').on('keyup change', function() {
+            table.ajax.reload();
+        });
+
+        $('#reportItemsTable tbody').on('click', 'tr', function(e) {
+            if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
 
             let $tr = $(this);
             let row = dataTable.row($tr);
 
-            $('#canceledDetailTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+            // tutup semua dulu
+            $('#reportItemsTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
             if ($tr.hasClass('action-shown')) {
                 $tr.removeClass('action-shown');
             } else {
                 let actionHtml = row.data().action;
-                let colCount = $tr.find('td').length;
+
+                // bikin baris tambahan di bawahnya (full colspan)
+                let colCount = $tr.find('td').length; // total kolom yg ada
                 let $actionRow = $(`
-                <tr class="action-row">
-                    <td colspan="${colCount}">
-                        <div class="d-flex justify-content-center">
+                    <tr class="action-row">
+                        <td colspan="${colCount}">
+                            <div class="d-flex justify-content-center">
                             ${actionHtml}
-                        </div>
-                    </td>
-                </tr>
-            `);
+                            </div>
+                        </td>
+                    </tr>
+                `);
 
                 $tr.after($actionRow);
                 $tr.addClass('action-shown');
@@ -250,15 +234,32 @@
         });
 
         $(document).on('click', function(e) {
-            if ($(e.target).closest('#canceledDetailTable').length) return;
-            $('#canceledDetailTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+            // kalau kliknya di dalam tabel, abaikan
+            if ($(e.target).closest('#reportItemsTable').length) return;
+
+            // tutup semua action-row
+            $('#reportItemsTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+        });
+
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#reportItemsTable tbody tr').length) {
+                $('#reportItemsTable tbody tr.shown').each(function() {
+                    var tr = $(this);
+                    var table = tr.closest('table').attr('id') === 'requestStockTable' ? dataTable : dataTableMobile;
+                    var row = table.row(tr);
+                    if (row.child.isShown()) {
+                        row.child.hide();
+                        tr.removeClass('shown');
+                    }
+                });
+            }
         });
     });
 
     document.addEventListener('DOMContentLoaded', function() {
         const modal = document.getElementById('modalChangeStatus');
         const form = document.getElementById('markAsSaleForm');
-        const inputId = document.getElementById('canceled_product_id');
+        const inputId = document.getElementById('order_id');
         const inputQty = document.getElementById('canceled_product');
         const totalHolder = document.getElementById('total_canceled_product');
 
@@ -270,18 +271,25 @@
 
             form.action = url;
             inputId.value = id;
+
+            // set default value 0
             inputQty.value = 0;
 
+            // tampilkan total canceled product
             totalHolder.textContent = total;
+
+            // set max di input agar user tidak bisa lebih besar
             inputQty.setAttribute('max', total);
         });
 
+        // update tampilan total sementara kalau user input jumlah return
         inputQty.addEventListener('input', function() {
             let max = parseInt(this.getAttribute('max')) || 0;
             let val = parseInt(this.value) || 0;
 
             if (val > max) {
-                this.value = max;
+                this.value = max; // paksa ke max
+                val = max;
             }
         });
     });

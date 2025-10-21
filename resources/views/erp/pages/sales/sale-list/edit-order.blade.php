@@ -251,13 +251,13 @@
                                                             </select>
                                                         </td>
                                                         <!-- <td>
-                                                    </td> -->
+                                                        </td> -->
                                                         <input type="hidden" class="form-control product-type"
                                                             name="product_type[]" id="product_type_{{ $index }}"
                                                             value="{{ $item->satuan }}" readonly>
-                                                        <td><input type="number" name="qty[]" class="form-control qty"
+                                                        <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty"
                                                                 id="qty_{{ $index }}" min="1"
-                                                                value="{{ $item->quantity }}"></td>
+                                                                value="{{ number_format($item->quantity, 0, ',', '.') }}"></td>
                                                         <td>
                                                             <input type="text"
                                                                 class="form-control price_before_discount_display" readonly
@@ -417,9 +417,9 @@
         }
 
         function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
+            return new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
             }).format(num);
         }
 
@@ -429,7 +429,7 @@
             const basePrice = parseFloat(selectedOption.data('price')) || 0;
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
-            const qty = parseFloat(row.find('input[name="qty[]"]').val()) || 0;
+            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
 
             const priceBeforeDiscount = basePrice;
             const totalBeforeDiscount = basePrice * qty;
@@ -456,7 +456,7 @@
                         const opt = $(el).find('option:selected');
                         const cats = opt.data('categories') || [];
                         const price = parseFloat(opt.data('price')) || 0;
-                        const qtyVal = parseFloat($(`input[name="qty[]"]`).eq(i).val()) || 0;
+                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g, '')) || 0;
 
                         if (cats.some(c => c.id === discount.category_id)) {
                             totalQtyCategory += qtyVal;
@@ -773,6 +773,25 @@
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();
             }, 50);
+        });
+
+        $(document).on('input', 'input[name="qty[]"]', function(e) {
+            // Hapus semua non-digit
+            let rawValue = $(this).val().replace(/\D/g, '');
+
+            // Format dengan titik ribuan (locale Indonesia)
+            let formatted = new Intl.NumberFormat('id-ID').format(rawValue);
+
+            // Tampilkan format di input
+            $(this).val(formatted);
+        });
+
+        // Saat form disubmit, hapus titik agar backend terima angka murni
+        $('#orderForm').on('submit', function() {
+            $('input[name="qty[]"]').each(function() {
+                const raw = $(this).val().replace(/\./g, '');
+                $(this).val(raw);
+            });
         });
     </script>
 @endpush

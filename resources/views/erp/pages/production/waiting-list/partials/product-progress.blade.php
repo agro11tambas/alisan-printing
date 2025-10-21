@@ -14,11 +14,11 @@
                     <span class="fw-bold text-dark">{{ $item->product->name ?? '-' }}</span><br>
                 </td>
                 <td>
-                    <span class="fw-bold text-success">{{ $item->completed_quantity }}</span> /
-                    <span class="fw-bold text-primary">{{ $item->quantity }}</span><br>
+                    <span class="fw-bold text-success">{{ number_format($item->completed_quantity) }}</span> /
+                    <span class="fw-bold text-primary">{{ number_format($item->quantity) }}</span><br>
                 </td>
                 <td>
-                    <span class="fw-bold text-dark">{{ $item->product->productionStocks->available_quantity }}</span><br>
+                    <span class="fw-bold text-dark">{{ number_format($item->product->productionStocks->available_quantity) }}</span><br>
                 </td>
             </tr>
             @endforeach

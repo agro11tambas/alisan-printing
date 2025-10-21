@@ -18,6 +18,8 @@ class DeliveryOrderItem extends Model
         'delivery_order_id',
         'order_progress_id',
         'order_item_id',
+        'order_progress_item_id',
+        'design_item_id',
         'product_id',
         'status',
         'progress_qty',
@@ -47,12 +49,17 @@ class DeliveryOrderItem extends Model
 
     public function product()
     {
-        return $this->belongsTo(Products::class);
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
 
     public function deliveryListItems()
     {
         return $this->hasMany(DeliveryListItem::class, 'delivery_order_item_id');
+    }
+
+    public function orderProgressItem()
+    {
+        return $this->belongsTo(OrderProgressItem::class, 'order_progress_item_id');
     }
 
     protected static function booted()

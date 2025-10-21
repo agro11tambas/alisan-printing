@@ -8,9 +8,13 @@ use App\Models\ProductCategory;
 use App\Models\ProductTag;
 use App\Models\Discount;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Products extends Model
 {
+    use HasFactory, SoftDeletes;
+
     protected $table = 'products';
 
     protected $fillable = [
@@ -27,8 +31,13 @@ class Products extends Model
         'inventory_stock',
         'stock_after_sales',
         'avg_cost',
+        'fixed_cost',
         'opening_stock',
         'opening_rate',
+    ];
+
+    protected $casts = [
+        'deleted_at' => 'datetime',
     ];
 
     public function discounts()
@@ -94,6 +103,11 @@ class Products extends Model
     public function inventoryStock()
     {
         return $this->hasOne(InventoryStock::class, 'product_id');
+    }
+
+    public function defectProducts()
+    {
+        return $this->hasMany(DefectProduct::class, 'product_id');
     }
 
     public function getApplicableDiscount()

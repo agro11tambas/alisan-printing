@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('canceled_products', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('production_stock_id');
-            $table->unsignedBigInteger('product_id');
+            $table->unsignedBigInteger('product_id')->nullable();
             $table->unsignedBigInteger('warehouse_id')->nullable();
 
             // relasi ke sumber

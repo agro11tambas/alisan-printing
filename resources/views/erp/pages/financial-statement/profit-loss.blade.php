@@ -98,6 +98,51 @@
                     </div>
                 </div>
             </div>
+            <div class="col-lg-12">
+                <div class="card stretch stretch-full">
+                    <div class="card-header text-white">
+                        <h5 class="mb-0">Profit & Loss (Fixed Cost)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Net Revenue</strong></td>
+                                        <td class="text-end" id="RevenueFixedDisplay">Rp {{ number_format($netRevenue, 0) }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Less: COGS (Fixed)</td>
+                                        <td class="text-end" id="COGSFixedDisplay">(Rp
+                                            {{ number_format($cogsFixed ?? 0, 0) }})</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Less: Sale Return</td>
+                                        <td class="text-end" id="SaleReturnFixedDisplay">(Rp
+                                            {{ number_format($saleReturn ?? 0, 0) }})</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Gross Profit (Fixed)</strong></td>
+                                        <td class="text-end" id="GrossProfitFixedDisplay">Rp
+                                            {{ number_format($grossProfitFixed ?? 0, 0) }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Less: Expenses</td>
+                                        <td class="text-end" id="ExpenseFixedDisplay">(Rp
+                                            {{ number_format($expenses ?? 0, 0) }})</td>
+                                    </tr>
+                                    <tr class="table-info">
+                                        <td><strong>Net Profit (Fixed)</strong></td>
+                                        <td class="text-end" id="NetProfitFixedDisplay"><strong>Rp
+                                                {{ number_format($netProfitFixed ?? 0, 0) }}</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 @endsection
@@ -105,7 +150,7 @@
 @push('scripts')
     <script>
         function formatRupiah(angka) {
-            return new Intl.NumberFormat('id-ID').format(angka);
+            return parseFloat(angka).toLocaleString('en-US'); // pakai koma sebagai pemisah ribuan
         }
 
         function fetchProfitLoss(filter, start = '', end = '') {

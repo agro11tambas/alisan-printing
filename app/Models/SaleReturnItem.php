@@ -20,7 +20,9 @@ class SaleReturnItem extends Model
         'quantity',
         'price',
         'avg_cost_at_return',
+        'fixed_cost_at_return',
         'total_cost',
+        'total_fixed_cost',
         'total',
         'reason',
     ];
@@ -38,7 +40,7 @@ class SaleReturnItem extends Model
     // Relasi ke Produk
     public function product()
     {
-        return $this->belongsTo(Products::class, 'product_id');
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
 
     public function orderItem()
@@ -48,6 +50,6 @@ class SaleReturnItem extends Model
 
     public function productBundle()
     {
-        return $this->belongsTo(ProductBundle::class, 'product_bundle_id');
+        return $this->belongsTo(ProductBundle::class, 'product_bundle_id')->withTrashed();
     }
 }

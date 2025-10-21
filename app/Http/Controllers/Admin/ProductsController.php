@@ -102,13 +102,16 @@ class ProductsController extends Controller
                 })->implode(' ');
             })
             ->addColumn('avg_cost', function ($product) {
-                return 'Rp ' . number_format($product->inventoryStock->avg_cost, 2, ',', '.');
+                return 'Rp ' . number_format($product->inventoryStock->avg_cost, 2);
             })
             ->addColumn('price', function ($product) {
-                return 'Rp ' . number_format($product['price'], 0, ',', '.');
+                return 'Rp ' . number_format($product['price'], 0);
             })
             ->addColumn('sku', function ($product) {
                 return $product->sku;
+            })
+            ->addColumn('fixed_cost', function ($product) {
+                return 'Rp ' . number_format($product->fixed_cost, 0);
             })
             ->addColumn('action', function ($product) {
                 return view('erp.pages.products.partials.action-button', compact('product'))->render();
@@ -167,6 +170,7 @@ class ProductsController extends Controller
             'short_description' => $request->short_description,
             // 'stock' => $request->stock,
             'image' => $imagePath,
+            'fixed_cost' => $request->fixed_cost,
         ]);
 
         // Simpan relasi ke pivot table
@@ -280,6 +284,7 @@ class ProductsController extends Controller
             'short_description' => $request->short_description,
             'stock' => $request->stock,
             'image' => $imagePath,
+            'fixed_cost' => $request->fixed_cost,
         ]);
 
         $product->categories()->sync($request->categories);

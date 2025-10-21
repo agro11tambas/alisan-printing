@@ -27,6 +27,17 @@ use Illuminate\Support\Facades\Auth;
 
 class PurchaseListController extends Controller
 {
+    public function getLatestPrice($productId)
+    {
+        $latestPurchase = PurchaseItem::where('product_id', $productId)
+            ->orderByDesc('created_at')
+            ->first();
+
+        $latestPrice = $latestPurchase ? $latestPurchase->price : 0;
+
+        return response()->json(['price' => $latestPrice]);
+    }
+
     public function getPurchaseList()
     {
         $purchase_number = Purchase::first();
@@ -163,13 +174,31 @@ class PurchaseListController extends Controller
                 return $purchase->payment_method;
             })
             ->addColumn('products', function ($purchase) {
-                return $purchase->purchaseItems->map(function ($item) {
+                // ambil ulang purchaseItems + product (termasuk yang soft deleted)
+                $items = $purchase->purchaseItems()->with(['purchaseProduct' => function ($q) {
+                    $q->withTrashed();
+                }])->get();
+
+                $taxPercent = $purchase->tax_percent ?? 0; // ✅ ambil tax dari parent purchase
+
+                return $items->map(function ($item) use ($taxPercent) {
+                    // harga dasar
+                    $price = $item->price ?? 0;
+                    $freight = $item->freight ?? 0;
+
+                    // ✅ hitung harga setelah pajak
+                    $priceWithTax = $price + ($price * ($taxPercent / 100));
+
+                    // total = (price + tax + freight) * qty
+                    $total = ($priceWithTax + $freight) * $item->quantity;
+
                     return [
-                        'name'  => $item->purchaseProduct ? $item->purchaseProduct->name : '-',
-                        'sku'   => $item->purchaseProduct ? $item->purchaseProduct->sku : '-',
-                        'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0, 0, ',', '.'),
-                        'freight' => number_format($item->freight ?? 0, 0, ',', '.')
+                        'name'    => $item->purchaseProduct->name ?? '-',
+                        'sku'     => $item->purchaseProduct->sku ?? '-',
+                        'qty'     => $item->quantity,
+                        'price'   => number_format($priceWithTax, 0, ',', '.'), // ✅ sudah +tax
+                        'freight' => number_format($freight, 0, ',', '.'),
+                        'total'   => number_format($total, 0, ',', '.'),
                     ];
                 })->toArray();
             })
@@ -277,180 +306,6 @@ class PurchaseListController extends Controller
         return view('erp.pages.purchases.purchase-list.create-purchase', compact('products', 'suppliers', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
     }
 
-    // public function store(Request $request)
-    // {
-    //     // dd($request->all());
-    //     $request->validate([
-    //         'purchase_number'   => 'required|string|unique:purchases,purchase_number',
-    //         'purchase_date'     => 'required|date',
-    //         'due_date_option'   => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
-    //         'custom_due_date'   => 'nullable|date',
-    //         'suppliers' => 'required|exists:suppliers,id',
-    //         'product'           => 'required|array',
-    //         'product.*'         => 'exists:products,id',
-    //         'qty'               => 'required|array',
-    //         'qty.*'             => 'numeric|min:1',
-    //         'price'             => 'required|array',
-    //         'price.*'           => 'numeric|min:0',
-    //         'freight'           => 'required|array',
-    //         'freight.*'         => 'numeric|min:0',
-    //         'total'             => 'required|array',
-    //         'total.*'           => 'numeric|min:0',
-    //         'sub_total'         => 'required|numeric|min:0',
-    //         'tax_percent'       => 'nullable|numeric|min:0',
-    //         'tax_amount'        => 'nullable|numeric|min:0',
-    //         'total_amount'      => 'required|numeric|min:0',
-    //     ]);
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         $calculatedTotalAmount = array_sum($request->total);
-    //         $taxAmount = $request->tax_amount ?? 0;
-
-    //         $grandTotal = $calculatedTotalAmount + $taxAmount;
-
-    //         $paidAmount = $request->payment_status === 'Paid' ? $calculatedTotalAmount : $request->paid_amount;
-    //         $remainingAmount = $grandTotal - $paidAmount;
-
-    //         $paidAmount = 0;
-
-    //         $status = 'Purchase List';
-    //         $paymentStatus = 'Unpaid';
-
-    //         $purchaseDate = Carbon::parse($request->purchase_date);
-
-    //         // ====== HITUNG DUE DATE ======
-    //         $dueDate = null;
-    //         switch ($request->due_date_option) {
-    //             case 'today':
-    //                 $dueDate = $purchaseDate;
-    //                 break;
-    //             case '1_week':
-    //                 $dueDate = $purchaseDate->copy()->addWeek();
-    //                 break;
-    //             case '1_month':
-    //                 $dueDate = $purchaseDate->copy()->addMonth();
-    //                 break;
-    //             case '3_months':
-    //                 $dueDate = $purchaseDate->copy()->addMonths(3);
-    //                 break;
-    //             case 'custom':
-    //                 $dueDate = $request->custom_due_date ? Carbon::parse($request->custom_due_date) : null;
-    //                 break;
-    //             default:
-    //                 $dueDate = null; // none
-    //         }
-
-    //         $purchase = Purchase::create([
-    //             'purchase_number' => $request->purchase_number,
-    //             'purchase_date'   => $request->purchase_date,
-    //             'due_date'        => $dueDate,
-    //             'supplier_id'     => $request->suppliers,
-    //             'payment_status'  => $paymentStatus,
-    //             'paid_amount'     => $paidAmount,
-    //             'sub_total'        => $request->sub_total,
-    //             'tax_percent'      => $request->tax_percent,
-    //             'tax_amount'       => $taxAmount,
-    //             'total_amount'    => $grandTotal,
-    //             'remaining_amount' => $remainingAmount,
-    //             'status'          => $status,
-    //         ]);
-
-    //         foreach ($request->product as $index => $productId) {
-    //             $qty   = $request->qty[$index];
-    //             $price = $request->price[$index];
-    //             $freight = $request->freight[$index];
-    //             $total = $request->total[$index];
-
-    //             $product = Products::findOrFail($productId);
-
-    //             // Simpan PurchaseItem dan ambil instance-nya
-    //             $purchaseItem = PurchaseItem::create([
-    //                 'purchase_id'   => $purchase->id,
-    //                 'product_id'    => $productId,
-    //                 'inventory_warehouse_id' => $request->inventory_warehouse_id,
-    //                 'product_name'  => $product->name,
-    //                 'status'        => 'Purchase Account',
-    //                 'quantity'      => $qty,
-    //                 'price'         => $price,
-    //                 'freight'       => $freight,
-    //                 'subtotal'      => $total,
-    //             ]);
-
-    //             // ProductCostService::updateCostAndStock($product);
-
-    //             // Kalau status Purchase List → bikin InventoryItem sekaligus
-    //             if ($purchase->status === 'Purchase List') {
-    //                 $inventory = Inventory::firstOrCreate(
-    //                     [
-    //                         'purchase_id' => $purchase->id,
-    //                     ],
-    //                     [
-    //                         'purchase_number' => $purchase->purchase_number,
-    //                         'supplier_id'     => $purchase->supplier_id,
-    //                         'date'            => $purchase->purchase_date,
-    //                         'status'          => 'Stock In',
-    //                         'note'            => 'Purchase Account',
-    //                     ]
-    //                 );
-
-    //                 InventoryItem::create([
-    //                     'inventory_id'       => $inventory->id,
-    //                     'purchase_item_id'   => $purchaseItem->id, // ← foreign key ke purchase_items
-    //                     'product_id'         => $productId,
-    //                     'inventory_warehouse_id' => $request->inventory_warehouse_id,
-    //                     'quantity'           => $qty,
-    //                     'price'              => $price,
-    //                     'stock_in'           => 0,
-    //                     'remaining_stock_in' => $qty,
-    //                     'stock_out'          => 0,
-    //                 ]);
-
-    //                 $inventoryStock = InventoryStock::firstOrCreate(
-    //                     [
-    //                         'product_id' => $productId,
-    //                         'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 2,
-    //                     ],
-    //                     [
-    //                         'incoming_stock'    => 0,
-    //                     ]
-    //                 );
-
-    //                 // update stok sesuai purchase
-    //                 $inventoryStock->increment('incoming_stock', $qty);
-    //             }
-    //         }
-
-    //         $groupId = Str::uuid();
-
-    //         // ================== HANDLE ACCOUNT TRANSACTIONS ==================
-    //         $purchaseAccount = Account::where('type', 'Purchase Account')->firstOrFail();
-
-    //         // Buat transaksi utama (debit ke purchase account)
-    //         AccountTransaction::create([
-    //             'purchase_id'        => $purchase->id,
-    //             'purchase_number'    => $purchase->purchase_number,
-    //             'transaction_date'   => $purchase->purchase_date,
-    //             'account_id'         => $purchaseAccount->id,
-    //             'debit'              => $purchase->total_amount,
-    //             'credit'             => 0,
-    //             'note'               => $request->note ?? '',
-    //             'particular'         => 'Purchase Invoice',
-    //             'transaction_group_id' => $groupId,
-    //         ]);
-
-    //         $purchaseAccount->increment('closing_balance', $purchase->total_amount);
-
-    //         DB::commit();
-    //         return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase order created successfully');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         Log::error('Purchase store failed: ' . $e->getMessage());
-    //         return redirect()->back()->with('error', 'Purchase order failed to create');
-    //     }
-    // }
-
     public function store(Request $request)
     {
         $request->validate([
@@ -496,15 +351,22 @@ class PurchaseListController extends Controller
             $paymentStatus = 'Unpaid';
 
             // =============== HITUNG TOTAL ===============
-            $taxAmount        = $request->tax_amount ?? 0;
-            $totalProduct     = $request->total_amount_product;
-            $totalFreight     = $request->total_amount_freight;
-            $grandTotal       = $totalProduct + $totalFreight;
+            $totalProduct  = $request->total_amount_product;   // total produk sebelum pajak
+            $totalFreight  = $request->total_amount_freight;   // total ongkir
+            $taxPercent    = $request->tax_percent ?? 0;
+
+            // ✅ Pajak hanya dihitung dari product (bukan freight)
+            $taxAmount = ($totalProduct * $taxPercent) / 100;
+
+            // ✅ Harga product + pajak
+            $totalProductWithTax = $totalProduct + $taxAmount;
+
+            // ✅ Grand total = product (sudah termasuk pajak) + freight
+            $grandTotal = $totalProductWithTax + $totalFreight;
 
             // otomatis semua unpaid
             $paidProduct       = 0;
-            $remainingProduct  = $totalProduct;
-
+            $remainingProduct  = $totalProductWithTax; // ✅ product sudah termasuk tax
             $paidFreight       = 0;
             $remainingFreight  = $totalFreight;
 
@@ -514,22 +376,24 @@ class PurchaseListController extends Controller
                 'due_date'                  => $dueDate,
                 'supplier_id'               => $request->suppliers,
                 'payment_status'            => $paymentStatus,
-                'sub_total'                 => $request->sub_total,
-                'tax_percent'               => $request->tax_percent,
+
+                // detail nilai
+                'sub_total'                 => $totalProduct + $totalFreight, // sebelum pajak
+                'tax_percent'               => $taxPercent,
                 'tax_amount'                => $taxAmount,
                 'freight_total'             => $totalFreight,
 
-                // Produk
-                'total_amount_product'      => $totalProduct,
+                // ✅ Produk (sudah termasuk pajak)
+                'total_amount_product'      => $totalProductWithTax,
                 'paid_amount_product'       => $paidProduct,
                 'remaining_amount_product'  => $remainingProduct,
 
-                // Freight
+                // ✅ Freight (tetap tanpa pajak)
                 'total_amount_freight'      => $totalFreight,
                 'paid_amount_freight'       => $paidFreight,
                 'remaining_amount_freight'  => $remainingFreight,
 
-                // Grand total untuk summary
+                // ✅ Grand total
                 'total_amount'              => $grandTotal,
                 'paid_amount'               => 0,
                 'remaining_amount'          => $grandTotal,
@@ -1108,10 +972,10 @@ class PurchaseListController extends Controller
                 DB::rollBack();
                 return back()->with('error', 'Purchase ini memiliki Purchase Return dan tidak bisa diedit lagi.');
             }
-            if ($purchase->hasStockIn()) {
-                DB::rollBack();
-                return back()->with('error', 'Purchase ini sudah memiliki Stock In dan tidak bisa diedit lagi.');
-            }
+            // if ($purchase->hasStockIn()) {
+            //     DB::rollBack();
+            //     return back()->with('error', 'Purchase ini sudah memiliki Stock In dan tidak bisa diedit lagi.');
+            // }
 
             // ===== 1️⃣ SNAPSHOT LAMA
             $oldPurchase = $purchase->only([
@@ -1202,7 +1066,8 @@ class PurchaseListController extends Controller
                         'subtotal' => $total,
                     ]);
                 } else {
-                    PurchaseItem::create([
+                    $oldQty = 0;
+                    $item = PurchaseItem::create([ // ✅ assign ke $item
                         'purchase_id'             => $purchase->id,
                         'product_id'              => $productId,
                         'inventory_warehouse_id'  => $request->inventory_warehouse_id,
@@ -1215,19 +1080,63 @@ class PurchaseListController extends Controller
                     ]);
                 }
 
-                // 🔁 Update Inventory Stock
+                // 🧩 Sinkronisasi Inventory
+                $inventory = Inventory::firstOrCreate(
+                    ['purchase_id' => $purchase->id],
+                    [
+                        'purchase_number' => $purchase->purchase_number,
+                        'supplier_id'     => $purchase->supplier_id,
+                        'date'            => $purchase->purchase_date,
+                        'status'          => 'Stock In',
+                        'note'            => 'Purchase Account',
+                    ]
+                );
+
+                $invItem = InventoryItem::firstOrNew([
+                    'inventory_id' => $inventory->id,
+                    'purchase_item_id' => $item->id,
+                    'product_id' => $productId,
+                ]);
+
+                if ($invItem->exists) {
+                    // update normal tanpa ganggu stock_in lama
+                    $invItem->fill([
+                        'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
+                        'quantity'               => $qty,
+                        'price'                  => $price,
+                        'remaining_stock_in'     => $qty,
+                    ]);
+                } else {
+                    // item baru, buat awal
+                    $invItem->fill([
+                        'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
+                        'quantity'               => $qty,
+                        'price'                  => $price,
+                        'remaining_stock_in'     => $qty,
+                        'stock_in'               => 0,
+                        'stock_out'              => 0,
+                    ]);
+                }
+
+                $invItem->save();
+
+                // 🧩 Update InventoryStock
                 $invStock = InventoryStock::firstOrCreate(
-                    ['product_id' => $productId, 'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 2],
+                    [
+                        'product_id' => $productId,
+                        'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
+                    ],
                     ['incoming_stock' => 0]
                 );
+
                 $difference = $qty - $oldQty;
-                $invStock->update(['incoming_stock' => max(0, $invStock->incoming_stock + $difference)]);
+                $invStock->increment('incoming_stock', $difference);
             }
 
-            // Hapus item yang dihapus dari request
             foreach ($existingItems as $pid => $item) {
                 if (!in_array($pid, $requestKeys)) {
                     $item->forceDelete();
+                    InventoryItem::where('purchase_item_id', $item->id)->delete();
                     $invStock = InventoryStock::where('product_id', $pid)->first();
                     if ($invStock) {
                         $totalPurchasedQty = PurchaseItem::where('product_id', $pid)->sum('quantity');
@@ -1789,6 +1698,8 @@ class PurchaseListController extends Controller
             ->orderBy('edited_at', 'desc')
             ->get();
 
+        // dd($histories->toArray());
+
         return view('erp.pages.purchases.purchase-list.edit-purchase-histories', compact('purchase', 'histories'));
     }
 
@@ -1820,6 +1731,17 @@ class PurchaseListController extends Controller
             // ✅ Restore purchase items kalau ikut soft delete
             if (method_exists($purchase, 'purchaseItems')) {
                 $purchase->purchaseItems()->withTrashed()->restore();
+            }
+
+            foreach ($purchase->purchaseItems as $item) {
+                $warehouseId = $item->inventory_warehouse_id ?? 1;
+
+                $inventoryStock = InventoryStock::firstOrCreate(
+                    ['product_id' => $item->product_id, 'inventory_warehouse_id' => $warehouseId],
+                    ['incoming_stock' => 0]
+                );
+
+                $inventoryStock->increment('incoming_stock', $item->quantity);
             }
 
             // ✅ Restore transaksi akun

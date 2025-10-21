@@ -20,11 +20,11 @@
                 <td><span class="fw-bold text-danger">{{ $item->requested_qty - $item->issued_qty }}</span></td> -->
                 <td>
                     <span class="fw-bold text-success">
-                        {{ $item->issued_qty }}
+                        {{ number_format($item->issued_qty) }}
                     </span>
                     /
                     <span class="fw-bold text-primary">
-                        {{ $item->requested_qty }}
+                        {{ number_format($item->requested_qty) }}
                     </span>
                 </td>
             </tr>

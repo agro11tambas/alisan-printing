@@ -18,6 +18,7 @@ use App\Models\Account;
 use App\Models\AccountTransaction;
 use App\Models\Bank;
 use App\Models\CanceledProduct;
+use App\Models\DefectProduct;
 use App\Models\FinancialReport;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
@@ -128,13 +129,13 @@ class SaleReturnController extends Controller
                 return $return->customer->name;
             })
             ->addColumn('total_amount', function ($return) {
-                return 'Rp ' . number_format($return->total_amount, 0, ',', '.');
+                return 'Rp ' . number_format($return->total_amount);
             })
             ->addColumn('refund_amount', function ($return) {
-                return '<span class="text-success">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</span>';
+                return '<span class="text-success">Rp ' . number_format($return->refund_amount) . '</span>';
             })
             ->addColumn('remaining_amount', function ($return) {
-                return '<span class="text-danger">Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</span>';
+                return '<span class="text-danger">Rp ' . number_format($return->remaining_amount) . '</span>';
             })
             ->addColumn('payment_status', function ($return) {
                 $payment_status = strtolower($return->payment_status);
@@ -166,7 +167,7 @@ class SaleReturnController extends Controller
                         'name'  => $name,
                         'sku'   => $item->product ? $item->product->sku : ($item->productBundle ? $item->productBundle->sku : '-'),
                         'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0, 0, ',', '.')
+                        'price' => number_format($item->price ?? 0)
                     ];
                 })->toArray();
             })
@@ -205,7 +206,7 @@ class SaleReturnController extends Controller
             </div>';
             })
             ->addColumn('customer', fn($return) => $return->customer->name ?? '-')
-            ->addColumn('total_amount', fn($return) => 'Rp ' . number_format($return->total_amount, 0, ',', '.'))
+            ->addColumn('total_amount', fn($return) => 'Rp ' . number_format($return->total_amount))
             ->addColumn('deleted_at', fn($return) => $return->deleted_at ? $return->deleted_at->format('j M y H:i') : '-')
             ->addColumn('products', function ($row) {
                 return $row->items->map(function ($item) {
@@ -219,7 +220,7 @@ class SaleReturnController extends Controller
                             ? $item->product->sku
                             : ($item->productBundle ? $item->productBundle->sku : '-'),
                         'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0, 0, ',', '.')
+                        'price' => number_format($item->price ?? 0)
                     ];
                 })->toArray();
             })
@@ -361,12 +362,13 @@ class SaleReturnController extends Controller
             'customer_id'       => 'required|exists:customers,id',
             'return_date'       => 'required|date',
             'order_item_ids'    => 'required|array',
-            'product_id'        => 'required|array', // wajib hidden input
+            'product_id'        => 'required|array',
             'qty'               => 'required|array',
             'price'             => 'required|array',
             'total'             => 'required|array',
             'sub_total'         => 'required|numeric|min:0',
             'total_amount'      => 'required|numeric|min:0',
+            'return_type'       => 'required|string|in:canceled,defect',
         ]);
 
         DB::beginTransaction();
@@ -400,81 +402,7 @@ class SaleReturnController extends Controller
                 'note'              => $request->note,
             ]);
 
-            // Loop item return (REPLACE seluruh blok lama ini)
-            // foreach ($request->order_item_ids as $index => $orderItemId) {
-            //     if (empty($orderItemId)) continue;
-
-            //     $orderItem = $order->orderItems->firstWhere('id', (int) $orderItemId);
-            //     if (!$orderItem) continue;
-
-            //     $productId = $request->product_id[$index] ?? null;
-            //     $qty       = (int)($request->qty[$index] ?? 0);
-            //     $price     = (float)($request->price[$index] ?? 0);
-            //     $subtotal  = (float)($request->total[$index] ?? ($qty * $price));
-
-            //     if ($qty <= 0 || !$productId) continue;
-
-            //     if ($orderItem->product_bundle_id) {
-            //         // Cek sisa qty per-produk di dalam bundle
-            //         $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)
-            //             ->where('product_id', $productId)
-            //             ->sum('quantity');
-            //         $maxQty = max(0, $orderItem->quantity - $returnedQty);
-            //         if ($qty > $maxQty) {
-            //             $pname = optional(\App\Models\Products::find($productId))->name ?? 'Produk bundle';
-            //             throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
-            //         }
-            //     } else {
-            //         // Produk satuan
-            //         $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)->sum('quantity');
-            //         $maxQty = max(0, $orderItem->quantity - $returnedQty);
-            //         if ($qty > $maxQty) {
-            //             $pname = optional($orderItem->product)->name ?? 'Produk';
-            //             throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
-            //         }
-            //     }
-
-            //     SaleReturnItem::create([
-            //         'sale_return_id' => $saleReturn->id,
-            //         'product_id'     => $productId,
-            //         'order_item_id'  => $orderItem->id,
-            //         'quantity'       => $qty,
-            //         'price'          => $price,
-            //         'total'          => $subtotal,
-            //     ]);
-
-            //     // ✅ Increment canceled_product_stock pada production_stocks
-            //     $productionStock = ProductionStock::firstOrCreate(
-            //         [
-            //             'product_id' => $productId,
-            //             'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2, // sesuaikan warehouse
-            //         ],
-            //         [
-            //             'opening_stock' => 0,
-            //             'finished_product_stock' => 0,
-            //             'canceled_product_stock' => 0,
-            //             'available_quantity' => 0,
-            //         ]
-            //     );
-
-            //     $productionStock->increment('canceled_product_stock', $qty);
-
-            //     CanceledProduct::create([
-            //         'production_stock_id' => $productionStock->id,
-            //         'product_id'          => $productId,
-            //         'warehouse_id'        => $productionStock->production_warehouse_id,
-            //         'sale_return_id'      => $saleReturn->id,
-            //         'sale_return_item_id' => $saleReturnItem->id ?? null, // isi kalau ada ID setelah create
-            //         'order_id'            => $order->id,
-            //         'order_item_id'       => $orderItem->id,
-            //         'quantity'            => $qty,
-            //         'date'                => $request->return_date,
-            //         'type'                => 'from_sale_return',
-            //         'status'              => 'pending', // default pending
-            //         'note'                => 'Canceled product from Sale Return',
-            //         'created_by'          => Auth::id(),
-            //     ]);
-            // }
+            $returnType = $request->return_type; // satu kali di atas foreach
 
             foreach ($request->order_item_ids as $index => $orderItemId) {
                 if (empty($orderItemId)) continue;
@@ -489,7 +417,7 @@ class SaleReturnController extends Controller
 
                 if ($qty <= 0 || !$productId) continue;
 
-                // 🔹 1️⃣ Validasi qty retur
+                // Validasi retur
                 $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)
                     ->where('product_id', $productId)
                     ->sum('quantity');
@@ -499,59 +427,79 @@ class SaleReturnController extends Controller
                     throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
                 }
 
-                // 🔹 2️⃣ Ambil avg_cost dari order_item_components
+                // Ambil avg_cost
                 $component = \App\Models\OrderItemComponent::where('order_item_id', $orderItem->id)
                     ->where('product_id', $productId)
                     ->first();
 
                 $avgCostAtSale = $component?->avg_cost_at_sale ?? 0;
+                $fixedCostAtSale = $component?->fixed_cost_at_sale ?? 0;
+
                 $totalCostAtSale = $avgCostAtSale * $qty;
+                $totalFixedCostAtSale = $fixedCostAtSale * $qty;
 
-                // 🔹 3️⃣ Simpan SaleReturnItem (tambahkan kolom avg_cost_at_sale kalau belum ada)
+                // Simpan SaleReturnItem
                 $saleReturnItem = SaleReturnItem::create([
-                    'sale_return_id' => $saleReturn->id,
-                    'product_id'     => $productId,
-                    'order_item_id'  => $orderItem->id,
-                    'quantity'       => $qty,
-                    'price'          => $price,
-                    'total'          => $subtotal,
-                    'avg_cost_at_return' => $avgCostAtSale,   // <-- tambahkan kolom ini
-                    'total_cost'       => $totalCostAtSale, // <-- kalau mau disimpan juga
+                    'sale_return_id'     => $saleReturn->id,
+                    'product_id'         => $productId,
+                    'order_item_id'      => $orderItem->id,
+                    'quantity'           => $qty,
+                    'price'              => $price,
+                    'total'              => $subtotal,
+                    'avg_cost_at_return' => $avgCostAtSale,
+                    'fixed_cost_at_return' => $fixedCostAtSale,
+                    'total_cost'         => $totalCostAtSale,
+                    'total_fixed_cost'   => $totalFixedCostAtSale,
                 ]);
 
-                // 🔹 4️⃣ Update canceled_product_stock di ProductionStock
-                $productionStock = ProductionStock::firstOrCreate(
-                    [
-                        'product_id' => $productId,
-                        'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2,
-                    ],
-                    [
-                        'opening_stock' => 0,
-                        'finished_product_stock' => 0,
-                        'canceled_product_stock' => 0,
-                        'available_quantity' => 0,
-                    ]
-                );
-                $productionStock->increment('canceled_product_stock', $qty);
+                // === 🔹 Pisahkan logika berdasarkan return_type ===
+                if ($returnType === 'defect') {
+                    // 🧩 Simpan ke DefectProduct
+                    DefectProduct::create([
+                        'product_id'     => $productId,
+                        'quantity'       => $qty,
+                        'defect_date'    => $request->return_date,
+                        'defect_type'    => 'from_sale_return',
+                        'status'         => 'pending',
+                        'note'           => 'Defect product from Sale Return',
+                        'user_id'        => Auth::id(),
+                    ]);
+                } else {
+                    // 🧩 Simpan ke CanceledProduct
+                    $productionStock = ProductionStock::firstOrCreate(
+                        [
+                            'product_id' => $productId,
+                            'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2,
+                        ],
+                        [
+                            'opening_stock' => 0,
+                            'finished_product_stock' => 0,
+                            'canceled_product_stock' => 0,
+                            'available_quantity' => 0,
+                        ]
+                    );
+                    $productionStock->increment('canceled_product_stock', $qty);
 
-                // 🔹 5️⃣ Buat CanceledProduct (simpan avg_cost juga di sini)
-                CanceledProduct::create([
-                    'production_stock_id' => $productionStock->id,
-                    'product_id'          => $productId,
-                    'warehouse_id'        => $productionStock->production_warehouse_id,
-                    'sale_return_id'      => $saleReturn->id,
-                    'sale_return_item_id' => $saleReturnItem->id,
-                    'order_id'            => $order->id,
-                    'order_item_id'       => $orderItem->id,
-                    'quantity'            => $qty,
-                    'avg_cost_at_cancel'    => $avgCostAtSale,    // 🧩 tambahkan ini
-                    'total_cost'          => $totalCostAtSale,  // 🧩 biar bisa hitung ulang kalau perlu
-                    'date'                => $request->return_date,
-                    'type'                => 'from_sale_return',
-                    'status'              => 'pending',
-                    'note'                => 'Canceled product from Sale Return',
-                    'created_by'          => Auth::id(),
-                ]);
+                    CanceledProduct::create([
+                        'production_stock_id' => $productionStock->id,
+                        'product_id'          => $productId,
+                        'warehouse_id'        => $productionStock->production_warehouse_id,
+                        'sale_return_id'      => $saleReturn->id,
+                        'sale_return_item_id' => $saleReturnItem->id,
+                        'order_id'            => $order->id,
+                        'order_item_id'       => $orderItem->id,
+                        'quantity'            => $qty,
+                        'avg_cost_at_cancel'  => $avgCostAtSale,
+                        'fixed_cost_at_cancel' => $fixedCostAtSale,
+                        'total_cost'          => $totalCostAtSale,
+                        'total_fixed_cost'    => $totalFixedCostAtSale,
+                        'date'                => $request->return_date,
+                        'type'                => 'from_sale_return',
+                        'status'              => 'pending',
+                        'note'                => 'Canceled product from Sale Return',
+                        'created_by'          => Auth::id(),
+                    ]);
+                }
             }
 
             $groupId = Str::uuid();

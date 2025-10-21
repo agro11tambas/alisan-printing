@@ -188,9 +188,15 @@ class HistoryProgressOrderController extends Controller
                     $ps->increment('finished_product_stock', $changeQty);
 
                     // ✅ Update ready_qty di DeliveryOrderItem
-                    $deliveryItem = DeliveryOrderItem::where('order_progress_id', $progressItem->order_progress_id)
-                        ->where('product_id', $progressItem->product_id)
-                        ->first();
+                    // $deliveryItem = DeliveryOrderItem::where('order_progress_id', $progressItem->order_progress_id)
+                    //     ->where('product_id', $progressItem->product_id)
+                    //     ->first();
+
+                    // if ($deliveryItem) {
+                    //     $deliveryItem->increment('ready_qty', $changeQty);
+                    // }
+
+                    $deliveryItem = DeliveryOrderItem::where('order_progress_item_id', $progressItem->id)->first();
 
                     if ($deliveryItem) {
                         $deliveryItem->increment('ready_qty', $changeQty);

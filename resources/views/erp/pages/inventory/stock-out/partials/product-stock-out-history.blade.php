@@ -9,7 +9,7 @@
         @foreach ($items as $item)
         <tr>
             <td>{{ $item->inventoryItem->product->name ?? '-' }}</td>
-            <td>{{ number_format($item->stock_out, 0, ',', '.') }} pcs</td>
+            <td>{{ number_format($item->stock_out) }} pcs</td>
         </tr>
         @endforeach
     </tbody>

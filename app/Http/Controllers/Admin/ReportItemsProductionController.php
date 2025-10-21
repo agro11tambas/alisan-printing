@@ -20,7 +20,9 @@ class ReportItemsProductionController extends Controller
 
     public function dataReportItems(Request $request)
     {
-        $reportItems = ProductionStock::with('product');
+        $reportItems = ProductionStock::whereHas('product', function ($q) {
+            $q->whereNull('products.deleted_at');
+        })->with('product');
 
         if ($request->filled('product_name')) {
             $reportItems->whereHas('product', function ($q) use ($request) {
@@ -41,15 +43,15 @@ class ReportItemsProductionController extends Controller
                 return $reportItem->product->name;
             })
             ->addColumn('available_quantity', function ($reportItem) {
-                return '<span class="text-danger">' . $reportItem->available_quantity . '</span>';
+                return '<span class="text-danger">' . number_format($reportItem->available_quantity) . '</span>';
             })
             ->addColumn('finished_product_stock', function ($reportItem) {
-                return '<span class="text-primary">' . $reportItem->finished_product_stock . '</span>';
+                return '<span class="text-primary">' . number_format($reportItem->finished_product_stock) . '</span>';
             })
             ->addColumn(
                 'order_progress_remaining',
                 fn($reportItem) =>
-                '<span class="text-success">' . $reportItem->remaining_quantity . '</span>'
+                '<span class="text-success">' . number_format($reportItem->remaining_quantity) . '</span>'
             )
             ->rawColumns(['available_quantity', 'finished_product_stock', 'order_progress_remaining'])
             ->make(true);

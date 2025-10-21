@@ -55,11 +55,6 @@ class Purchase extends Model
         return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 
-    // public function inventory()
-    // {
-    //     return $this->hasOne(Inventory::class, 'purchase_id', 'id');
-    // }
-
     public function purchaseItems()
     {
         return $this->hasMany(PurchaseItem::class, 'purchase_id')->withTrashed();
@@ -95,6 +90,11 @@ class Purchase extends Model
         return $this->belongsTo(User::class, 'deleted_by');
     }
 
+    public function defectProducts()
+    {
+        return $this->hasMany(DefectProduct::class, 'purchase_id');
+    }
+
     public function hasStockIn()
     {
         return $this->inventories()
@@ -104,15 +104,6 @@ class Purchase extends Model
             })
             ->exists();
     }
-
-    // public function hasStockIn()
-    // {
-    //     return InventoryItem::whereHas('inventory', function ($q) {
-    //         $q->where('purchase_id', $this->id)
-    //             ->where('status', 'Stock In');
-    //     })->where('stock_in', '>', 0)->exists();
-    // }
-
     public function getIsFullyReturnedAttribute()
     {
         // ambil total qty purchase
@@ -136,12 +127,14 @@ class Purchase extends Model
                 $purchase->purchaseEditHistories()->forceDelete();
                 $purchase->accountTransactions()->forceDelete();
                 $purchase->inventories()->forceDelete();
+                $purchase->defectProducts()->forceDelete();
             } else {
                 $purchase->purchaseItems()->delete();
                 $purchase->purchaseReturn()->delete();
                 $purchase->purchaseEditHistories()->delete();
                 $purchase->accountTransactions()->delete();
                 $purchase->inventories()->delete();
+                $purchase->defectProducts()->delete();
             }
         });
 
@@ -151,6 +144,7 @@ class Purchase extends Model
             $purchase->purchaseEditHistories()->withTrashed()->restore();
             $purchase->accountTransactions()->withTrashed()->restore();
             $purchase->inventories()->withTrashed()->restore();
+            $purchase->defectProducts()->withTrashed()->restore();
         });
     }
 }
