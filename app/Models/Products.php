@@ -110,6 +110,11 @@ class Products extends Model
         return $this->hasMany(DefectProduct::class, 'product_id');
     }
 
+    public function rejectProducts()
+    {
+        return $this->hasMany(RejectProduct::class, 'product_id');
+    }
+
     public function getApplicableDiscount()
     {
         $now = Carbon::now();

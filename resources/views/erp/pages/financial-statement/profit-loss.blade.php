@@ -66,31 +66,31 @@
                             <table class="table table-hover">
                                 <tbody>
                                     <tr>
-                                        <td><strong>Net Revenue</strong></td>
-                                        <td class="text-end" id="RevenueDisplay">Rp {{ number_format($netRevenue, 0) }}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Less: COGS</td>
-                                        <td class="text-end" id="COGSDisplay">(Rp {{ number_format($cogs, 0) }})</td>
+                                        <td><strong>Sale</strong></td>
+                                        <td class="text-end" id="RevenueDisplay">Rp {{ number_format($netRevenue, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr>
                                         <td>Less: Sale Return</td>
                                         <td class="text-end" id="SaleReturnDisplay">(Rp
-                                            {{ number_format($saleReturn ?? 0, 0) }})</td>
+                                            {{ number_format($saleReturn ?? 0, 0, ',', '.') }})</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Less: COGS</td>
+                                        <td class="text-end" id="COGSDisplay">(Rp {{ number_format($cogs, 0, ',', '.') }})</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Gross Profit</strong></td>
-                                        <td class="text-end" id="GrossProfitDisplay">Rp {{ number_format($grossProfit, 0) }}
+                                        <td class="text-end" id="GrossProfitDisplay">Rp {{ number_format($grossProfit, 0, ',', '.') }}
                                         </td>
                                     </tr>
                                     <tr>
                                         <td>Less: Expenses</td>
-                                        <td class="text-end" id="ExpenseDisplay">(Rp {{ number_format($expenses, 0) }})</td>
+                                        <td class="text-end" id="ExpenseDisplay">Rp {{ number_format($expenses, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr class="table-success">
                                         <td><strong>Net Profit</strong></td>
                                         <td class="text-end" id="NetProfitDisplay"><strong>Rp
-                                                {{ number_format($netProfit, 0) }}</strong></td>
+                                                {{ number_format($netProfit, 0, ',', '.') }}</strong></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -108,34 +108,34 @@
                             <table class="table table-hover">
                                 <tbody>
                                     <tr>
-                                        <td><strong>Net Revenue</strong></td>
-                                        <td class="text-end" id="RevenueFixedDisplay">Rp {{ number_format($netRevenue, 0) }}
+                                        <td><strong>Sale</strong></td>
+                                        <td class="text-end" id="RevenueFixedDisplay">Rp {{ number_format($netRevenue, 0, ',', '.') }}
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td>Less: COGS (Fixed)</td>
-                                        <td class="text-end" id="COGSFixedDisplay">(Rp
-                                            {{ number_format($cogsFixed ?? 0, 0) }})</td>
+                                        <td>Less: Sale Return</td>
+                                        <td class="text-end" id="SaleReturnFixedDisplay">Rp
+                                            {{ number_format($saleReturn ?? 0, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr>
-                                        <td>Less: Sale Return</td>
-                                        <td class="text-end" id="SaleReturnFixedDisplay">(Rp
-                                            {{ number_format($saleReturn ?? 0, 0) }})</td>
+                                        <td>Less: COGS (Fixed)</td>
+                                        <td class="text-end" id="COGSFixedDisplay">Rp
+                                            {{ number_format($cogsFixed ?? 0, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Gross Profit (Fixed)</strong></td>
                                         <td class="text-end" id="GrossProfitFixedDisplay">Rp
-                                            {{ number_format($grossProfitFixed ?? 0, 0) }}</td>
+                                            {{ number_format($grossProfitFixed ?? 0, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr>
                                         <td>Less: Expenses</td>
-                                        <td class="text-end" id="ExpenseFixedDisplay">(Rp
-                                            {{ number_format($expenses ?? 0, 0) }})</td>
+                                        <td class="text-end" id="ExpenseFixedDisplay">Rp
+                                            {{ number_format($expenses ?? 0, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr class="table-info">
                                         <td><strong>Net Profit (Fixed)</strong></td>
                                         <td class="text-end" id="NetProfitFixedDisplay"><strong>Rp
-                                                {{ number_format($netProfitFixed ?? 0, 0) }}</strong></td>
+                                                {{ number_format($netProfitFixed ?? 0, 0, ',', '.') }}</strong></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -150,7 +150,7 @@
 @push('scripts')
     <script>
         function formatRupiah(angka) {
-            return parseFloat(angka).toLocaleString('en-US'); // pakai koma sebagai pemisah ribuan
+            return parseFloat(angka).toLocaleString('id-ID');
         }
 
         function fetchProfitLoss(filter, start = '', end = '') {
@@ -164,10 +164,10 @@
                 },
                 success: function(res) {
                     $('#RevenueDisplay').text('Rp ' + formatRupiah(res.netRevenue));
-                    $('#COGSDisplay').text('(Rp ' + formatRupiah(res.cogs) + ')');
-                    $('#SaleReturnDisplay').text('(Rp ' + formatRupiah(res.saleReturn) + ')');
+                    $('#COGSDisplay').text('Rp ' + formatRupiah(res.cogs));
+                    $('#SaleReturnDisplay').text('Rp ' + formatRupiah(res.saleReturn));
                     $('#GrossProfitDisplay').text('Rp ' + formatRupiah(res.grossProfit));
-                    $('#ExpenseDisplay').text('(Rp ' + formatRupiah(res.expenses) + ')');
+                    $('#ExpenseDisplay').text('Rp ' + formatRupiah(res.expenses));
                     $('#NetProfitDisplay').html('<strong>Rp ' + formatRupiah(res.netProfit) + '</strong>');
                 }
             });

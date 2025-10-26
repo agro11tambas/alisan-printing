@@ -57,6 +57,16 @@ class OrderProgress extends Model
         return $this->hasMany(OrderProgressBatch::class, 'order_progress_id');
     }
 
+    public function assignBatches()
+    {
+        return $this->hasMany(OrderProgressAssignBatch::class, 'order_progress_id');
+    }
+
+    public function rejectProducts()
+    {
+        return $this->hasMany(RejectProduct::class, 'order_progress_id');
+    }
+
     protected static function booted()
     {
         static::deleting(function ($progress) {

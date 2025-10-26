@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\MaterialRequestController;
 use App\Http\Controllers\Admin\OpeningStockProductionController;
 use App\Http\Controllers\Admin\OpeningStockRateController;
 use App\Http\Controllers\Admin\OperatorController;
+use App\Http\Controllers\Admin\OrderProgressAssignController;
 use App\Http\Controllers\Admin\ProductBundleController;
 use App\Http\Controllers\Admin\PurchaseDetailController;
 use App\Http\Controllers\Admin\PurchaseListController;
@@ -43,6 +44,8 @@ use App\Http\Controllers\Admin\PurchaseOrderController;
 use App\Http\Controllers\Admin\WelcomeController;
 use App\Http\Controllers\Admin\PurchaseProductController;
 use App\Http\Controllers\Admin\PurchaseReturnController;
+use App\Http\Controllers\Admin\RejectProductController;
+use App\Http\Controllers\Admin\RejectProductHistoryController;
 use App\Http\Controllers\Admin\ReportItemsProductionController;
 use App\Http\Controllers\Admin\SaleOrderController;
 use App\Http\Controllers\Admin\SaleReturnController;
@@ -55,7 +58,8 @@ use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\isLogin;
 use App\Models\CanceledProduct;
 use App\Models\DefectProduct;
-use GuzzleHttp\Psr7\Request;
+use App\Services\InvoiceNumberService;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Can;
 
 Route::get('/', function () {
@@ -140,6 +144,16 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/adjustment-products/defect-products/history/{id}', [DefectProductHistoryController::class, 'historyPage'])->name('erp.defect-products.history');
             Route::get('/erp/adjustment-products/defect-products/history/data/{id}', [DefectProductHistoryController::class, 'dataHistory']);
         });
+
+        Route::middleware(['auth', 'subpermission:reject'])->group(function () {
+            Route::get('/erp/adjustment-products/reject-products', [RejectProductController::class, 'getRejectProducts']);
+            Route::get('/erp/adjustment-products/reject-products/data', [RejectProductController::class, 'dataRejectProducts']);
+            Route::get('/erp/adjustment-products/reject-products/detail-reject-products/{id}', [RejectProductController::class, 'detailRejectProducts'])->name('erp.reject-products.details');
+            Route::get('/erp/adjustment-products/reject-products/detail-reject-products/data/{id}', [RejectProductController::class, 'dataDetailRejectProducts']);
+            Route::post('/erp/adjustment-products/reject-products/return-to-warehouse/{id}', [RejectProductController::class, 'returnToWarehouse']);
+            Route::get('/erp/adjustment-products/reject-products/history/{id}', [RejectProductHistoryController::class, 'rejectHistoryPage'])->name('erp.reject-products.history');
+            Route::get('/erp/adjustment-products/reject-products/history/data/{id}', [RejectProductHistoryController::class, 'dataRejectHistory']);
+        });
     });
 
     Route::middleware(['auth', 'permission:discounts'])->group(function () {
@@ -202,6 +216,11 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/sales/sale-orders/detail-order/{id}', [SaleOrderController::class, 'getSaleOrderDetail']);
             Route::post('/erp/sales/mark-as-sale-list/{id}', [SaleOrderController::class, 'markAsSaleList']);
             Route::get('/erp/sales/sale-orders/invoice/{id}', [SaleOrderController::class, 'getInvoice']);
+            Route::get('/erp/sales/generate-invoice-number', function (Request $request) {
+                $date = $request->query('date');
+                $invoice = InvoiceNumberService::generate('INV', $date);
+                return response()->json(['invoice_number' => $invoice]);
+            });
         });
 
         Route::middleware(['auth', 'subpermission:sale-list'])->group(function () {
@@ -260,8 +279,27 @@ Route::middleware(isLogin::class)->group(function () {
             // Route::get('/erp/complete-list', [WaitingListController::class, 'getCompleteList']);
             // Route::put('/erp/mark-as-complete-list/{id}', [WaitingListController::class, 'markAsCompleteList']);
             // Route::put('/erp/mark-as-delivery/{id}', [WaitingListController::class, 'markAsDelivery']);
-            Route::get('/erp/productions/waiting-list/add-progress-order/{id}', [HistoryProgressOrderController::class, 'addProgress']);
-            Route::post('/erp/productions/waiting-list/progress-order/{id}', [HistoryProgressOrderController::class, 'store']);
+            Route::get('/erp/productions/waiting-list/add-assign/{id}', [OrderProgressAssignController::class, 'create']);
+            Route::post('/erp/productions/waiting-list/assign/{id}', [OrderProgressAssignController::class, 'store']);
+            Route::get('/erp/productions/assign-list/edit-assign/{batch_id}', [OrderProgressAssignController::class, 'edit']);
+            Route::put('/erp/productions/assign-list/assign/update/{batch_id}', [OrderProgressAssignController::class, 'update']);
+
+            Route::get('/erp/productions/assign-list/add-progress/{batch_id}', [HistoryProgressOrderController::class, 'create']);
+            Route::post('/erp/productions/assign-list/add-progress/{batch_id}', [HistoryProgressOrderController::class, 'store']);
+
+            // Route::get('/erp/productions/waiting-list/add-progress/{assignId}', [HistoryProgressOrderController::class, 'create']);
+            // Route::post('/erp/productions/waiting-list/progress/{assignId}', [HistoryProgressOrderController::class, 'store']);
+            // Route::get('/erp/productions/waiting-list/add-progress-order/{id}', [HistoryProgressOrderController::class, 'addProgress']);
+            // Route::post('/erp/productions/waiting-list/progress-order/{id}', [HistoryProgressOrderController::class, 'store']);
+
+            // Route::get('/erp/productions/waiting-list/assign-list/{id}/batches', [OrderProgressAssignController::class, 'dataAssignBatch']);
+
+            Route::get('/erp/productions/waiting-list/assign-list/data', [OrderProgressAssignController::class, 'dataAssignList']);
+            Route::get('/erp/productions/waiting-list/assign-list', [OrderProgressAssignController::class, 'getAssignList']);
+            Route::get('/erp/productions/waiting-list/assign-batch/{batch}/assigns', [OrderProgressAssignController::class, 'getAssignsByBatch']);
+
+            Route::get('/erp/productions/waiting-list/history-order/{id}', [HistoryProgressOrderController::class, 'getHistory']);
+
             Route::put('/erp/productions/waiting-list/history-order/update-history/{id}', [HistoryProgressOrderController::class, 'updateHistory']);
             Route::get('/erp/productions/waiting-list/history-order/{id}/data', [HistoryProgressOrderController::class, 'dataOrderHistory']);
             Route::get('/erp/productions/waiting-list/history-order/{id}', [HistoryProgressOrderController::class, 'getOrderHistory']);
@@ -351,6 +389,7 @@ Route::middleware(isLogin::class)->group(function () {
         });
 
         Route::middleware(['auth', 'subpermission:purchase-list'])->group(function () {
+            Route::get('/erp/purchases/check-number', [PurchaseOrderController::class, 'checkNumber'])->name('purchases.check-number');
             Route::get('/erp/purchases/get-latest-price/{productId}', [PurchaseListController::class, 'getLatestPrice']);
             Route::get('/erp/purchases/purchase-list/detail-purchase/{id}', [PurchaseDetailController::class, 'getPurchaseListDetail']);
             Route::get('/erp/purchases/purchase-list/data', [PurchaseListController::class, 'dataPurchaseList']);

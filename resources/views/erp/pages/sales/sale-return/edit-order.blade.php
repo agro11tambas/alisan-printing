@@ -272,7 +272,7 @@
 
             // === formatter tanpa desimal ===
             function formatNumber(num) {
-                return new Intl.NumberFormat('en-US', {
+                return new Intl.NumberFormat('id-ID', {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0
                 }).format(num);
@@ -342,7 +342,7 @@
                 let numeric = parseFloat(raw);
                 if (numeric > max) numeric = max;
 
-                const formatted = new Intl.NumberFormat('en-US').format(numeric);
+                const formatted = new Intl.NumberFormat('id-ID').format(numeric);
                 $(this).val(formatted);
 
                 updateRowTotal(row);

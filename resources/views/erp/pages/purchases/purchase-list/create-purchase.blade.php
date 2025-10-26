@@ -147,21 +147,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <!-- <div class="row mb-3 align-items-center">
-                                                                                                                                            <div class="col-lg-2">
-                                                                                                                                                <label for="image" class="fw-semibold">Upload Bond</label>
-                                                                                                                                            </div>
-                                                                                                                                            <div class="col-lg-10 mb-0">
-                                                                                                                                                <div class="input-group">
-                                                                                                                                                    <input type="file" class="form-control" id="image" name="image" accept="image/*" value="{{ old('image') }}">
-                                                                                                                                                </div>
-                                                                                                                                                @if (isset($purchase->image) && $purchase->image)
-    <img src="{{ asset('storage/' . $purchase->image) }}"
-                                                                                                                                                    alt="Bond Image"
-                                                                                                                                                    style="max-width: 100px; margin-top: 10px; border-radius: 10px" />
-    @endif
-                                                                                                                                            </div>
-                                                                                                                                        </div> -->
                                 </div>
                             </div>
                         </div>
@@ -305,7 +290,6 @@
                                                                     id="total_amount">
                                                             </td>
                                                         </tr>
-
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -332,20 +316,37 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA RIBUAN (EN-US STYLE) ===
+        // === FORMAT ANGKA RIBUAN (INDONESIA STYLE 1.000,00) ===
         function formatRibuan(angka) {
-            if (angka === null || angka === undefined) return '';
-            const str = angka.toString().replace(/[^0-9.-]/g, '');
-            const parts = str.split('.');
-            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            return parts.join('.');
+            if (angka === null || angka === undefined || angka === '') return '';
+
+            // pastikan jadi float
+            const num = parseFloat(angka.toString().replace(/[^0-9,.-]/g, '').replace(',', '.')) || 0;
+
+            // pisah integer dan desimal
+            let [integer, decimal] = num.toFixed(2).split('.');
+            integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // titik setiap 3 digit
+            return `${integer},${decimal}`; // gabung lagi
         }
 
-        // === HAPUS FORMAT KOMA JADI ANGKA MURNI ===
         function unformatRibuan(angka) {
             if (!angka) return 0;
-            return parseFloat(angka.toString().replace(/,/g, '')) || 0;
+            const str = angka.toString().trim();
+
+            // Format Indonesia 1.234,56 → 1234.56
+            if (str.includes(',')) {
+                return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+            }
+
+            // Format ribuan tanpa desimal: 1.234 → 1234
+            if (str.includes('.')) {
+                return parseFloat(str.replace(/\./g, '')) || 0;
+            }
+
+            // Format biasa angka mentah
+            return parseFloat(str) || 0;
         }
+
 
         // === PERHITUNGAN TIAP BARIS ===
         function updateRowTotal(row) {
@@ -408,6 +409,17 @@
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
+
+            $('.price, .freight').each(function() {
+                const val = $(this).val();
+                if (val && !isNaN(val)) {
+                    $(this).val(formatRibuan(parseFloat(val)));
+                }
+            });
+
+            $('#tab_logic tbody tr').each(function() {
+                updateRowTotal($(this));
+            });
             calc_total();
 
             // Tambah row
@@ -444,24 +456,50 @@
                 updateRowTotal(row);
             });
 
-            // Qty/Price/Freight berubah
-            $(document).on('input', '.qty, .price, .freight', function() {
-                let val = $(this).val().replace(/,/g, '');
-                if (val !== '' && !isNaN(val)) {
-                    $(this).val(formatRibuan(val));
+            $(document).on('input', '.qty', function() {
+                let val = $(this).val().replace(/\D/g, ''); // hanya digit
+                if (val) {
+                    val = val.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // titik tiap 3 digit
+                    $(this).val(val);
+                } else {
+                    $(this).val('');
                 }
+
+                updateRowTotal($(this).closest('tr')); // realtime
+            });
+
+            $(document).on('blur', '.qty', function() {
+                let val = $(this).val().replace(/\D/g, '');
+                $(this).val(val ? val.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
+            });
+
+            // === PRICE & FREIGHT: support desimal dan format Indonesia ===
+            $(document).on('input', '.price, .freight', function() {
+                let val = $(this).val().replace(/[^\d,]/g, ''); // angka dan koma
+                let [intPart, decPart] = val.split(',');
+                intPart = intPart ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+                if (decPart) decPart = decPart.slice(0, 2); // batasi 2 angka di belakang koma
+                $(this).val(decPart ? `${intPart},${decPart}` : intPart);
+
+                updateRowTotal($(this).closest('tr')); // realtime
+            });
+
+            $(document).on('blur', '.price, .freight', function() {
+                const num = unformatRibuan($(this).val());
+                $(this).val(formatRibuan(num));
                 updateRowTotal($(this).closest('tr'));
             });
 
             // Tax berubah
             $(document).on('input', '#tax_percent', calc_total);
 
-            // Sebelum submit, hapus semua koma
             $('#purchaseForm').on('submit', function() {
                 $('.qty, .price, .freight, .total').each(function() {
-                    $(this).val($(this).val().replace(/,/g, ''));
+                    const cleanVal = unformatRibuan($(this).val());
+                    $(this).val(cleanVal); // kirim float murni, bukan string ribuan
                 });
             });
+
         });
 
         // === AUTO GET LAST PRICE & FREIGHT ===
@@ -556,6 +594,12 @@
             if (!supplier.val()) {
                 isValid = false;
                 showError(supplier[0], 'Supplier wajib dipilih');
+            }
+
+            const editNote = document.getElementById('edit_note');
+            if (editNote && !editNote.value.trim()) {
+                isValid = false;
+                showError(editNote, 'Catatan edit wajib diisi');
             }
 
             const transactionType = $('#transaction_type');

@@ -19,7 +19,8 @@ class DefectProductController extends Controller
     {
         $query = DefectProduct::with('product')
             ->selectRaw('product_id, SUM(quantity) as total_defect')
-            ->groupBy('product_id');
+            ->groupBy('product_id')
+            ->having('total_defect', '>', 0);
 
         if ($request->filled('product_name')) {
             $query->whereHas('product', fn($q) =>
@@ -51,20 +52,27 @@ class DefectProductController extends Controller
             ->where('product_id', $id)
             ->orderBy('defect_date', 'desc');
 
+        // 🔥 Tambahkan filter berdasarkan status
+        if ($request->filled('status')) {
+            $defectRecords->where('status', $request->status);
+        }
+
         return DataTables::of($defectRecords)
             ->addIndexColumn()
             ->addColumn('defect_date', fn($record) => $record->defect_date?->format('Y-m-d') ?? '-')
             ->addColumn('supplier', fn($record) => $record->supplier?->name ?? '-')
-            ->addColumn('quantity', fn($record) => '<span class="text-danger fw-bold">' . number_format($record->quantity) . '</span>')
+            ->addColumn(
+                'quantity',
+                fn($record) =>
+                '<span class="text-danger fw-bold">' . number_format($record->quantity) . '</span>'
+            )
             ->addColumn('defect_type', fn($record) => ucfirst($record->defect_type ?? '-'))
             ->addColumn('note', fn($record) => $record->note ?? '-')
             ->addColumn('status', function ($record) {
                 return match ($record->status) {
-                    'pending'  => '<span class="badge bg-soft-warning text-warning">Pending</span>',
-                    'returned' => '<span class="badge bg-soft-success text-success">Returned</span>',
-                    'disposed' => '<span class="badge bg-soft-danger text-danger">Disposed</span>',
-                    'repaired' => '<span class="badge bg-soft-info text-info">Repaired</span>',
-                    default    => '<span class="badge bg-soft-secondary text-muted">' . ucfirst($record->status) . '</span>',
+                    'pending'   => '<span class="badge bg-soft-warning text-warning">Pending</span>',
+                    'completed' => '<span class="badge bg-soft-success text-success">Completed</span>',
+                    default     => '<span class="badge bg-soft-secondary text-muted">' . ucfirst($record->status) . '</span>',
                 };
             })
             ->addColumn('user', fn($record) => $record->user?->name ?? '-')

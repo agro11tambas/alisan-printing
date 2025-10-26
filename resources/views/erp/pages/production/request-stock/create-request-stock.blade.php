@@ -156,7 +156,7 @@
 
             // === FORMAT RIBUAN UNTUK QTY ===
             function formatNumber(n) {
-                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             // Auto hapus 0 saat fokus
@@ -173,7 +173,7 @@
             $(document).on('input', '.qty', function(e) {
                 const input = e.target;
                 const cursorPos = input.selectionStart;
-                const raw = input.value.replace(/,/g, '');
+                const raw = input.value.replace(/\./g, '');
                 if (raw === '') return;
                 const formatted = formatNumber(raw);
                 const diff = formatted.length - input.value.length;
@@ -184,7 +184,7 @@
             // Hapus koma saat submit
             $('#requestStockForm').on('submit', function() {
                 $('.qty').each(function() {
-                    this.value = this.value.replace(/,/g, '');
+                    this.value = this.value.replace(/\./g, '');
                 });
             });
 
@@ -202,7 +202,7 @@
                 </select>
             </td>
             <td>
-                <input type="text" inputmode="numeric" name="qty[]" class="form-control qty text-end" value="1" required>
+                <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="1" required>
             </td>
             <td class="text-center">
                 <div class="d-flex justify-content-center">

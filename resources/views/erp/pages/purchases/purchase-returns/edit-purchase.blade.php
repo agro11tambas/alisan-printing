@@ -165,7 +165,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody id="tab_logic">
-                                                @foreach ($purchaseReturn->items as $index => $item)
+                                                @foreach ($remainingItems as $index => $item)
                                                     <tr id="addr{{ $index }}">
                                                         <td>{{ $index + 1 }}</td>
                                                         <input type="hidden" name="purchase_item_ids[]"
@@ -189,10 +189,10 @@
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="qty[]"
                                                                 class="form-control qty" id="qty_{{ $index }}"
-                                                                placeholder="Qty" min="1"
-                                                                max="{{ $item->remaining_qty }}"
-                                                                value="{{ $item->quantity }}">
-                                                            <!-- <small class="text-muted">Sisa max: {{ $item->remaining_qty }}</small> -->
+                                                                min="1" max="{{ $item->remaining_qty }}"
+                                                                value="{{ $item->return_qty }}">
+                                                            <small class="text-muted">Sisa max:
+                                                                {{ number_format($item->remaining_qty) }}</small>
                                                         </td>
                                                         <td><input type="text" inputmode="numeric" name="price[]"
                                                                 class="form-control price" id="price_{{ $index }}"
@@ -214,9 +214,9 @@
                                         </table>
                                     </div>
                                     <!-- <div class="d-flex justify-content-end gap-2 mt-3">
-                                                        <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
-                                                        <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
-                                                    </div> -->
+                                                                                    <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
+                                                                                    <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
+                                                                                </div> -->
                                 </div>
                                 <div class="col-lg-12 mt-4">
                                     <div class="row justify-content-end">
@@ -281,40 +281,47 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA RIBUAN ===
-        function formatRibuan(angka) {
+        // === FORMAT ANGKA INDONESIA ===
+        function formatRibuanID(angka, withDecimal = true) {
             if (angka === null || angka === undefined || angka === '') return '';
-            const str = angka.toString().replace(/[^0-9]/g, '');
-            return str.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            const num = parseFloat(angka.toString().replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+
+            if (!withDecimal) {
+                // untuk qty (integer, tanpa desimal)
+                const ribuan = Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                return ribuan;
+            }
+
+            // untuk harga/freight/total (2 desimal)
+            const parts = num.toFixed(2).split('.');
+            const ribuan = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return `${ribuan},${parts[1]}`;
         }
 
-        // === HAPUS FORMAT KOMA ===
-        function unformatRibuan(angka) {
+        // === UNFORMAT ANGKA INDONESIA ===
+        function unformatRibuanID(angka) {
             if (!angka) return 0;
-            return parseFloat(angka.toString().replace(/,/g, '')) || 0;
+            return parseFloat(angka.toString().replace(/\./g, '').replace(',', '.')) || 0;
         }
 
         // === PERHITUNGAN TOTAL PER BARIS ===
         function updateRowTotal(row) {
-            const qty = unformatRibuan(row.find('.qty').val());
-            const price = unformatRibuan(row.find('.price').val());
-            const freight = unformatRibuan(row.find('.freight').val());
+            const qty = unformatRibuanID(row.find('.qty').val());
+            const price = unformatRibuanID(row.find('.price').val());
+            const freight = unformatRibuanID(row.find('.freight').val());
             const total = qty * (price + freight);
-
-            row.find('.total').val(formatRibuan(total.toFixed(0)));
+            row.find('.total').val(formatRibuanID(total, true));
             calc_total();
         }
 
-        // === HITUNG TOTAL KESELURUHAN ===
+        // === HITUNG TOTAL AKHIR ===
         function calc_total() {
             let subtotalProduct = 0,
                 subtotalFreight = 0;
-
             $('#tab_logic tbody tr').each(function() {
-                const qty = unformatRibuan($(this).find('.qty').val());
-                const price = unformatRibuan($(this).find('.price').val());
-                const freight = unformatRibuan($(this).find('.freight').val());
-
+                const qty = unformatRibuanID($(this).find('.qty').val());
+                const price = unformatRibuanID($(this).find('.price').val());
+                const freight = unformatRibuanID($(this).find('.freight').val());
                 subtotalProduct += qty * price;
                 subtotalFreight += qty * freight;
             });
@@ -322,15 +329,15 @@
             const subTotal = subtotalProduct + subtotalFreight;
             const grandTotal = subTotal;
 
-            // === Set hidden field (tanpa koma)
             $('#total_amount_product').val(subtotalProduct.toFixed(2));
             $('#total_amount_freight').val(subtotalFreight.toFixed(2));
+            $('#sub_total').val(subTotal.toFixed(2));
             $('#total_amount').val(grandTotal.toFixed(2));
 
-            // === Set tampilan display (pakai koma)
-            $('#total_amount_product_display').val(formatRibuan(subtotalProduct.toFixed(0)));
-            $('#total_amount_freight_display').val(formatRibuan(subtotalFreight.toFixed(0)));
-            $('#total_amount_display').val(formatRibuan(grandTotal.toFixed(0)));
+            $('#total_amount_product_display').val(formatRibuanID(subtotalProduct, true));
+            $('#total_amount_freight_display').val(formatRibuanID(subtotalFreight, true));
+            $('#sub_total_display').val(formatRibuanID(subTotal, true));
+            $('#total_amount_display').val(formatRibuanID(grandTotal, true));
         }
 
         // === INIT SELECT2 ===
@@ -346,33 +353,66 @@
         }
 
         $(document).ready(function() {
-            // === INIT SEMUA SELECT2 ===
             initSelect2('.select-product');
             initSelect2('#suppliers');
             initSelect2('#transaction_type');
 
-            // === FORMAT SEMUA ANGKA SAAT LOAD (EDIT MODE) ===
-            $('.qty, .price, .freight, .total').each(function() {
+            // === FORMAT SAAT LOAD ===
+            $('.qty').each(function() {
                 const val = $(this).val();
-                if (val && !isNaN(val)) {
-                    $(this).val(formatRibuan(parseFloat(val)));
-                }
+                if (val && !isNaN(val)) $(this).val(formatRibuanID(parseFloat(val), false));
+            });
+            $('.price, .freight, .total').each(function() {
+                const val = $(this).val();
+                if (val && !isNaN(val)) $(this).val(formatRibuanID(parseFloat(val), true));
             });
 
             // === PRODUK DIPILIH ===
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
                 const price = parseFloat($(this).find('option:selected').data('price')) || 0;
-                row.find('.price').val(formatRibuan(price.toFixed(0)));
+                row.find('.price').val(formatRibuanID(price, true));
                 updateRowTotal(row);
             });
 
-            // === INPUT LANGSUNG FORMAT DAN HITUNG TOTAL ===
-            $(document).on('input', '.qty, .price, .freight', function() {
-                const el = $(this);
-                const val = el.val().replace(/[^0-9]/g, '');
-                el.val(formatRibuan(val));
-                updateRowTotal(el.closest('tr'));
+            // === FORMAT & VALIDASI QTY REALTIME ===
+            $(document).on('input', '.qty', function() {
+                const input = $(this);
+                let raw = input.val().replace(/\./g, '').replace(/\D/g, '');
+                if (raw === '') return;
+
+                let value = parseInt(raw) || 0;
+                const max = parseInt(input.attr('max')) || 0;
+
+                if (value > max) {
+                    value = max;
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'warning',
+                        title: 'Qty tidak boleh melebihi sisa maksimum (' + max.toLocaleString(
+                            'id-ID') + ')',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                }
+
+                // langsung format ribuan realtime
+                input.val(formatRibuanID(value.toString(), false));
+
+                // update total per baris
+                updateRowTotal(input.closest('tr'));
+            });
+
+            $(document).on('paste', '.qty', function() {
+                setTimeout(() => $(this).trigger('input'), 10);
+            });
+
+            // === INPUT PRICE & FREIGHT DENGAN DESIMAL ===
+            $(document).on('input', '.price, .freight', function() {
+                const raw = $(this).val().replace(/\./g, '').replace(/[^0-9,]/g, '');
+                $(this).val(formatRibuanID(raw, true));
+                updateRowTotal($(this).closest('tr'));
             });
 
             // === HITUNG TOTAL AWAL ===
@@ -381,15 +421,14 @@
             });
             calc_total();
 
-            // === SEBELUM SUBMIT, HAPUS FORMAT KOMA ===
+            // === SEBELUM SUBMIT: BERSIHKAN FORMAT ===
             $('#purchaseForm').on('submit', function() {
                 $('.qty, .price, .freight, .total').each(function() {
-                    $(this).val(unformatRibuan($(this).val()));
+                    $(this).val(unformatRibuanID($(this).val()));
                 });
             });
         });
 
-        // === VALIDASI FRONTEND ===
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('purchaseForm');
             form.addEventListener('submit', function(e) {

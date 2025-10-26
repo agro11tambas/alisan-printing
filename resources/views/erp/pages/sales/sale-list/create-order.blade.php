@@ -328,7 +328,7 @@
         ];
 
         function formatNumber(num) {
-            return new Intl.NumberFormat('en-US', {
+            return new Intl.NumberFormat('id-ID', {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0
             }).format(num);
@@ -724,7 +724,7 @@
             }
 
             // format jadi ribuan pakai koma
-            $(this).val(val.replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+            $(this).val(val.replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
         });
 
         $('#orderForm').on('submit', function(e) {

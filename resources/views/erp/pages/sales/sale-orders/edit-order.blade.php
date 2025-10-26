@@ -195,14 +195,14 @@
                                                         </td>
 
                                                         <!-- <td>
-                                                                        </td> -->
+                                                                            </td> -->
                                                         <input type="hidden" class="form-control product-type"
                                                             name="product_type[]" id="product_type_{{ $index }}"
                                                             value="{{ $item->satuan }}" readonly>
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="qty[]"
                                                                 class="form-control qty" id="qty_{{ $index }}"
-                                                                value="{{ number_format($item->quantity) }}">
+                                                                value="{{ number_format($item->quantity, 0, ',', '.') }}">
                                                         </td>
 
                                                         </td>
@@ -341,7 +341,7 @@
 
         // ✅ Format angka dengan koma ribuan (US style)
         function formatNumber(num) {
-            return new Intl.NumberFormat('en-US', {
+            return new Intl.NumberFormat('id-ID', {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0
             }).format(num);
@@ -374,7 +374,7 @@
             const basePrice = parseFloat(selectedOption.data('price')) || 0;
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
-            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/,/g, '')) || 0;
+            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
 
             const priceBeforeDiscount = basePrice;
             const totalBeforeDiscount = basePrice * qty;
@@ -402,7 +402,7 @@
                         const opt = $(el).find('option:selected');
                         const cats = opt.data('categories') || [];
                         const price = parseFloat(opt.data('price')) || 0;
-                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/,/g, '')) ||
+                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g, '')) || 0;
                             0;
 
                         if (cats.some(c => c.id === discount.category_id)) {
@@ -539,16 +539,17 @@
 
             // ✅ Format qty dengan koma ribuan
             $(document).on('input', 'input[name="qty[]"]', function() {
-                let rawValue = $(this).val().replace(/\D/g, '');
-                if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
-                $(this).val(new Intl.NumberFormat('en-US').format(rawValue));
+                let val = $(this).val().replace(/\D/g, '');
+                if (val.length > 12) val = val.substring(0, 12);
+                // tambahkan titik setiap 3 digit
+                $(this).val(val.replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
                 recalcAllRows();
             });
 
             // ✅ Bersihkan koma sebelum submit (backend terima angka murni)
             $('#orderForm').on('submit', function() {
                 $('input[name="qty[]"]').each(function() {
-                    $(this).val($(this).val().replace(/,/g, ''));
+                    $(this).val($(this).val().replace(/\./g, ''));
                 });
             });
         });

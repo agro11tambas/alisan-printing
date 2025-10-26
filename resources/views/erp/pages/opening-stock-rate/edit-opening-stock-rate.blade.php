@@ -85,16 +85,15 @@
                                                         value="{{ $openingStockRate->id }}">
                                                 </td>
                                                 <td>
-                                                    <input type="number" class="form-control" name="opening_stock[]"
-                                                        value="{{ $openingStockRate->opening_stock }}">
+                                                    <input type="text" class="form-control" name="opening_stock[]" value="{{ number_format($openingStockRate->opening_stock, 0, ',', '.') }}">
                                                 </td>
                                                 <td>
-                                                    <input type="number" class="form-control" name="opening_rate[]"
-                                                        value="{{ $openingStockRate->opening_rate }}">
+                                                    <input type="text" class="form-control" name="opening_rate[]"
+                                                        value="{{ number_format($openingStockRate->opening_rate, 2, ',', '.') }}">
                                                 </td>
                                                 <td>
-                                                    <input type="number" class="form-control" name="minimum_stock[]"
-                                                        value="{{ $openingStockRate->minimum_stock }}">
+                                                    <input type="text" class="form-control" name="minimum_stock[]"
+                                                        value="{{ number_format($openingStockRate->minimum_stock, 0, ',', '.') }}">
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -111,17 +110,16 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA DENGAN TITIK RIBUAN ===
-        function formatNumberInput(value) {
+        // === FORMAT ANGKA DENGAN TITIK RIBUAN (STYLE INDONESIA TANPA KOMA) ===
+        function formatNumberID(value) {
             if (!value) return '';
-            let raw = value.toString().replace(/\D/g, '');
-            if (!raw) return '';
-            return new Intl.NumberFormat('id-ID').format(raw);
+            const num = value.toString().replace(/\D/g, ''); // Hapus semua non-digit
+            return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // Tambah titik setiap 3 digit
         }
 
-        function parseNumber(str) {
-            if (!str) return 0;
-            return parseFloat(str.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        // === HAPUS TITIK UNTUK DIKIRIM KE BACKEND ===
+        function unformatNumberID(value) {
+            return value ? value.toString().replace(/\./g, '') : '';
         }
 
         // === SAAT USER KETIK ===
@@ -133,7 +131,7 @@
                     e.target.value = '';
                     return;
                 }
-                e.target.value = new Intl.NumberFormat('id-ID').format(raw);
+                e.target.value = formatNumberID(raw); // ⬅️ ubah ke fungsi baru
             }
         });
 
@@ -148,7 +146,7 @@
             let isValid = true;
 
             // VALIDASI TIAP BARIS
-            form.querySelectorAll('tbody tr').forEach((row, i) => {
+            form.querySelectorAll('tbody tr').forEach((row) => {
                 const openingStock = row.querySelector('input[name="opening_stock[]"]');
                 const minimumStock = row.querySelector('input[name="minimum_stock[]"]');
                 const openingRate = row.querySelector('input[name="opening_rate[]"]');
@@ -171,10 +169,10 @@
 
             // === HAPUS TITIK BIAR ANGKA MURNI SAAT SUBMIT ===
             form.querySelectorAll(
-                    'input[name="opening_stock[]"], input[name="minimum_stock[]"], input[name="opening_rate[]"]')
-                .forEach(input => {
-                    input.value = input.value.replace(/\./g, '');
-                });
+                'input[name="opening_stock[]"], input[name="minimum_stock[]"], input[name="opening_rate[]"]'
+            ).forEach(input => {
+                input.value = unformatNumberID(input.value); // ⬅️ pakai fungsi baru juga
+            });
 
             form.submit();
         });

@@ -9,6 +9,7 @@ use App\Models\Inventory;
 use App\Models\InventoryItem;
 use App\Models\ProductionStock;
 use App\Models\Products;
+use App\Models\SaleReturn;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,33 +26,34 @@ class CanceledProductController extends Controller
 
     public function dataCanceledProducts(Request $request)
     {
-        $canceledProducts = ProductionStock::with('product');
+        $query = CanceledProduct::with('product')
+            ->selectRaw('product_id, SUM(quantity) as total_canceled')
+            ->groupBy('product_id')
+            ->having('total_canceled', '>', 0);
 
         if ($request->filled('product_name')) {
-            $canceledProducts->whereHas('product', function ($q) use ($request) {
+            $query->whereHas('product', function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->product_name . '%');
             });
         }
 
-        $canceledProducts->orderBy(
+        $query->orderBy(
             Products::select('name')
-                ->whereColumn('products.id', 'production_stocks.product_id')
+                ->whereColumn('products.id', 'canceled_products.product_id')
         );
 
-        $canceledProducts = $canceledProducts->get();
-
-        return DataTables::of($canceledProducts)
+        return DataTables::of($query)
             ->addIndexColumn()
-            ->addColumn('name', function ($canceledProduct) {
-                return $canceledProduct->product->name;
+            ->addColumn('name', fn($row) => optional($row->product)->name ?? '-')
+            ->addColumn('canceled_product_stock', function ($row) {
+                return '<span class="text-danger fw-semibold">'
+                    . number_format($row->total_canceled)
+                    . '</span>';
             })
-            ->addColumn('canceled_product_stock', function ($canceledProduct) {
-                return '<span class="text-danger">' . number_format($canceledProduct->canceled_product_stock) . '</span>';
-            })
-            ->addColumn('action', function ($canceledProduct) {
+            ->addColumn('action', function ($row) {
                 return view(
                     'erp.pages.adjustment-products.canceled-products.partials.action-button',
-                    compact('canceledProduct')
+                    compact('row')
                 )->render();
             })
             ->rawColumns(['canceled_product_stock', 'action'])
@@ -60,37 +62,49 @@ class CanceledProductController extends Controller
 
     public function detailCanceledProducts($id)
     {
-        $productionStock = ProductionStock::with('product')->findOrFail($id);
+        $product = Products::findOrFail($id);
 
-        return view('erp.pages.adjustment-products.canceled-products.detail-canceled-product', compact('productionStock'));
+        return view(
+            'erp.pages.adjustment-products.canceled-products.detail-canceled-products',
+            compact('product')
+        );
     }
 
     public function dataDetailCanceledProducts(Request $request, $id)
     {
-        $canceledRecords = CanceledProduct::with('user')
-            ->where('production_stock_id', $id)
+        $canceledRecords = CanceledProduct::with(['user'])
+            ->where('product_id', $id)
             ->orderBy('date', 'desc');
+
+        if ($request->filled('status')) {
+            $canceledRecords->where('status', $request->status);
+        }
 
         return DataTables::of($canceledRecords)
             ->addIndexColumn()
-            ->addColumn('date', fn($record) => $record->date->format('Y-m-d'))
-            ->addColumn('quantity', fn($record) => '<span class="text-danger fw-bold">' . number_format($record->quantity) . '</span>')
-            ->addColumn('type', fn($record) => $record->type ?? '-')
+            ->addColumn('date', fn($record) => $record->date?->format('Y-m-d') ?? '-')
+            ->addColumn(
+                'quantity',
+                fn($record) =>
+                '<span class="text-danger fw-bold">' . number_format($record->quantity) . '</span>'
+            )
+            ->addColumn('type', fn($record) => ucfirst($record->type ?? '-'))
             ->addColumn('note', fn($record) => $record->note ?? '-')
-            ->addColumn('user', fn($record) => $record->user?->name ?? '-')
             ->addColumn('status', function ($record) {
-                if ($record->status === 'completed') {
-                    return '<span class="badge bg-soft-success text-success">Completed</span>';
-                }
-                return '<span class="badge bg-soft-warning text-warning">Pending</span>';
+                return match ($record->status) {
+                    'pending'   => '<span class="badge bg-soft-warning text-warning">Pending</span>',
+                    'completed' => '<span class="badge bg-soft-success text-success">Completed</span>',
+                    default     => '<span class="badge bg-soft-secondary text-muted">' . ucfirst($record->status) . '</span>',
+                };
             })
+            ->addColumn('user', fn($record) => $record->user?->name ?? '-')
             ->addColumn('action', function ($record) {
                 return view(
                     'erp.pages.adjustment-products.canceled-products.partials.action-button-detail',
                     compact('record')
                 )->render();
             })
-            ->rawColumns(['quantity', 'action', 'status'])
+            ->rawColumns(['quantity', 'status', 'action'])
             ->make(true);
     }
 
@@ -107,7 +121,7 @@ class CanceledProductController extends Controller
 
             $saleReturnOrderNumber = null;
             if ($canceledRecord->sale_return_id) {
-                $saleReturnOrderNumber = \App\Models\SaleReturn::where('id', $canceledRecord->sale_return_id)
+                $saleReturnOrderNumber = SaleReturn::where('id', $canceledRecord->sale_return_id)
                     ->value('order_number');
             }
 

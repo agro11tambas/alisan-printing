@@ -44,19 +44,28 @@ class OpeningBalanceController extends Controller
         ]);
 
         foreach ($request->accounts as $data) {
+            // Bersihkan format ribuan (hapus titik)
+            $debit = isset($data['debit']) ? str_replace('.', '', $data['debit']) : 0;
+            $credit = isset($data['credit']) ? str_replace('.', '', $data['credit']) : 0;
+
+            // Pastikan angka murni (bukan string kosong)
+            $debit = is_numeric($debit) ? $debit : 0;
+            $credit = is_numeric($credit) ? $credit : 0;
+
             // Simpan ke tabel manage_opening_balance
             ManageOpeningBalance::create([
                 'account_id' => $data['account'],
-                'debit' => $data['debit'] ?? 0,
-                'credit' => $data['credit'] ?? 0,
+                'debit' => $debit,
+                'credit' => $credit,
             ]);
 
             // Update opening_balance di table accounts
             $account = Account::find($data['account']);
-            $account->accountOpeningBalance(); // method yang sudah kamu buat sebelumnya
+            $account->accountOpeningBalance(); // method existing lo
         }
 
-        return redirect('/erp/accounts/opening-balance')->with('success', 'Opening Balance berhasil ditambahkan.');
+        return redirect('/erp/accounts/opening-balance')
+            ->with('success', 'Opening Balance berhasil ditambahkan.');
     }
 
     public function edit()
@@ -114,29 +123,38 @@ class OpeningBalanceController extends Controller
         ]);
 
         foreach ($request->accounts as $data) {
-            // Cari apakah sudah ada opening balance untuk akun ini
+            // 🧹 Bersihkan format ribuan
+            $debit = isset($data['debit']) ? str_replace('.', '', $data['debit']) : 0;
+            $credit = isset($data['credit']) ? str_replace('.', '', $data['credit']) : 0;
+
+            // Pastikan angka valid
+            $debit = is_numeric($debit) ? $debit : 0;
+            $credit = is_numeric($credit) ? $credit : 0;
+
+            // 🔍 Cek apakah sudah ada opening balance untuk akun ini
             $opening = ManageOpeningBalance::where('account_id', $data['account'])->first();
 
             if ($opening) {
                 // update
                 $opening->update([
-                    'debit' => $data['debit'] ?? 0,
-                    'credit' => $data['credit'] ?? 0,
+                    'debit' => $debit,
+                    'credit' => $credit,
                 ]);
             } else {
                 // insert baru
                 ManageOpeningBalance::create([
                     'account_id' => $data['account'],
-                    'debit' => $data['debit'] ?? 0,
-                    'credit' => $data['credit'] ?? 0,
+                    'debit' => $debit,
+                    'credit' => $credit,
                 ]);
             }
 
-            // Hitung ulang saldo opening
+            // 🔄 Hitung ulang saldo opening
             $account = Account::find($data['account']);
             $account->accountOpeningBalance();
         }
 
-        return redirect('/erp/accounts/opening-balance')->with('success', 'Opening Balance berhasil diperbarui.');
+        return redirect('/erp/accounts/opening-balance')
+            ->with('success', 'Opening Balance berhasil diperbarui.');
     }
 }

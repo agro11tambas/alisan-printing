@@ -57,4 +57,9 @@ class OrderProgressItem extends Model
     {
         return $this->hasMany(DeliveryOrderItem::class, 'order_progress_item_id');
     }
+
+    public function assigns()
+    {
+        return $this->hasMany(OrderProgressAssign::class, 'order_progress_item_id');
+    }
 }

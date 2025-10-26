@@ -85,15 +85,15 @@ class DesignController extends Controller
                 $date = $design->date ? Carbon::parse($design->date)->format('j M y') : '-';
 
                 $verifiedBadge = '';
-                if ($design->verification_status === 'verified') {
+                if ($design->status === 'Verified') {
                     $verifiedBadge = '<span class="badge bg-soft-success text-success ms-1">Verified</span>';
-                } elseif ($design->verification_status === 'rejected') {
-                    $verifiedBadge = '<span class="badge bg-soft-danger text-danger ms-1">Rejected</span>';
+                } elseif ($design->status === 'Pending') {
+                    $verifiedBadge = '<span class="badge bg-soft-warning text-warning ms-1">Pending</span>';
                 }
 
                 return '
                 <div>
-                    <div>' . e($design->design_number) . $verifiedBadge . '</div>
+                    <div><span class="me-2">' . e($design->design_number) . '</span>' . $verifiedBadge . '</div>
                     <small class="text-muted">' . $date . '</small>
                 </div>';
             })
@@ -114,7 +114,11 @@ class DesignController extends Controller
                 return view('erp.pages.designs.partials.product-list', compact('design'))->render();
             })
             ->addColumn('action', function ($design) {
-                return view('erp.pages.designs.partials.action-button', compact('design'))->render();
+                $allUploaded = $design->items->every(function ($item) {
+                    return !empty($item->preview_image);
+                });
+
+                return view('erp.pages.designs.partials.action-button', compact('design', 'allUploaded'))->render();
             })
             ->rawColumns(['design_number', 'status', 'products', 'action'])
             ->make(true);
@@ -165,7 +169,9 @@ class DesignController extends Controller
                 'delivery_date'   => now()->format('Y-m-d'),
                 'note'            => $design->notes ?? '',
                 'status'          => 'Ongoing',
+                'customer'       => $order->customer->name,
                 'shipping_address' => $order->shipping_address,
+                'google_map_link'  => $order->google_maps,
                 'created_by'      => Auth::id(),
             ]);
 

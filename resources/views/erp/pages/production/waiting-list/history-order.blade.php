@@ -13,25 +13,25 @@
             </ul>
         </div>
         <!-- <div class="page-header-right ms-auto">
-                        <div class="page-header-right-items">
-                            <div class="d-flex d-md-none">
-                                <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                                    <i class="feather-arrow-left me-2"></i><span>Back</span>
+                            <div class="page-header-right-items">
+                                <div class="d-flex d-md-none">
+                                    <a href="javascript:void(0)" class="page-header-right-close-toggle">
+                                        <i class="feather-arrow-left me-2"></i><span>Back</span>
+                                    </a>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
+                                    <a href="/erp/orders/create-order" class="btn btn-primary">
+                                        <i class="feather-plus me-2"></i>
+                                        <span>Create Order</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="d-md-none d-flex align-items-center">
+                                <a href="javascript:void(0)" class="page-header-right-open-toggle">
+                                    <i class="feather-align-right fs-20"></i>
                                 </a>
                             </div>
-                            <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                                <a href="/erp/orders/create-order" class="btn btn-primary">
-                                    <i class="feather-plus me-2"></i>
-                                    <span>Create Order</span>
-                                </a>
-                            </div>
-                        </div>
-                        <div class="d-md-none d-flex align-items-center">
-                            <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                                <i class="feather-align-right fs-20"></i>
-                            </a>
-                        </div>
-                    </div> -->
+                        </div> -->
     </div>
 @endsection
 
@@ -76,8 +76,11 @@
                                     @foreach ($progress->items as $item)
                                         <tr>
                                             <td>{{ $item->product->name ?? '-' }}</td>
-                                            <td><span class="fw-bold text-primary">{{ number_format($item->quantity) }}</span></td>
-                                            <td><span class="fw-bold text-success">{{ number_format($item->completed_quantity) }}</span>
+                                            <td><span
+                                                    class="fw-bold text-primary">{{ number_format($item->quantity) }}</span>
+                                            </td>
+                                            <td><span
+                                                    class="fw-bold text-success">{{ number_format($item->completed_quantity) }}</span>
                                             </td>
                                             <td>
                                                 <span class="fw-bold text-danger">
@@ -181,14 +184,14 @@
                                 </div>
                             </div>
                             <!-- <div class="row align-items-center mb-3 task-list-row">
-                                            <div class="col-6">
-                                                <i class="feather-dollar-sign me-2"></i>
-                                                <span class="fw-semibold">Total Amount:</span>
-                                            </div>
-                                            <div class="col-6 d-flex">
-                                                <span class="border-bottom border-bottom-dashed border-gray-5">Rp. {{ number_format($progress->total_amount, 0, ',', '.') }}</span>
-                                            </div>
-                                        </div> -->
+                                                <div class="col-6">
+                                                    <i class="feather-dollar-sign me-2"></i>
+                                                    <span class="fw-semibold">Total Amount:</span>
+                                                </div>
+                                                <div class="col-6 d-flex">
+                                                    <span class="border-bottom border-bottom-dashed border-gray-5">Rp. {{ number_format($progress->total_amount, 0, ',', '.') }}</span>
+                                                </div>
+                                            </div> -->
                         </div>
                     </div>
                 </div>
@@ -274,8 +277,18 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Change Quantity</label>
-                            <input type="number" id="change_quantity" name="change_quantity" class="form-control">
+                            <label class="form-label">Completed Quantity</label>
+                            <input type="number" id="completed_quantity" name="completed_quantity" class="form-control">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Defect</label>
+                            <input type="number" id="defect_quantity" name="defect_quantity" class="form-control">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Reject</label>
+                            <input type="number" id="reject_quantity" name="reject_quantity" class="form-control">
                         </div>
 
                         <div class="mb-3">
@@ -365,7 +378,9 @@
             const id = $(this).data('id');
             $('#history_id').val(id);
             $('#product_name').val($(this).data('product'));
-            $('#change_quantity').val($(this).data('quantity'));
+            $('#completed_quantity').val($(this).data('quantity'));
+            $('#defect_quantity').val($(this).data('defect'));
+            $('#reject_quantity').val($(this).data('reject'));
             $('#operator_name').val($(this).data('operator'));
             $('#notes').val($(this).data('note'));
             $('#editHistoryModal').modal('show');

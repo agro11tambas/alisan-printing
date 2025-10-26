@@ -129,13 +129,13 @@ class SaleReturnController extends Controller
                 return $return->customer->name;
             })
             ->addColumn('total_amount', function ($return) {
-                return 'Rp ' . number_format($return->total_amount);
+                return 'Rp ' . number_format($return->total_amount, 0, ',', '.');
             })
             ->addColumn('refund_amount', function ($return) {
-                return '<span class="text-success">Rp ' . number_format($return->refund_amount) . '</span>';
+                return '<span class="text-success">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</span>';
             })
             ->addColumn('remaining_amount', function ($return) {
-                return '<span class="text-danger">Rp ' . number_format($return->remaining_amount) . '</span>';
+                return '<span class="text-danger">Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</span>';
             })
             ->addColumn('payment_status', function ($return) {
                 $payment_status = strtolower($return->payment_status);

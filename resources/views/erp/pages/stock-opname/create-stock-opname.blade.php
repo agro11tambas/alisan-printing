@@ -55,12 +55,13 @@
                                     </select>
                                     <input type="hidden" name="items[0][inventory_warehouse_id]" value="1">
                                 </td>
-                                <td><input type="number" name="items[0][quantity]" class="form-control" min="0">
+                                <td><input type="text" inputmode="numeric" name="items[0][quantity]"
+                                        class="form-control quantity" min="0">
                                 </td>
                                 <td>
-                                    <select name="items[0][status]" class="form-select">
-                                        <option value="Gain">Gain</option>
-                                        <option value="Loss">Loss</option>
+                                    <select name="items[0][status]" class="form-select" data-select2-selector="tag">
+                                        <option value="Gain" data-bg="bg-success">Gain</option>
+                                        <option value="Loss" data-bg="bg-danger">Loss</option>
                                     </select>
                                 </td>
                                 <td><input type="date" name="items[0][date]" value="{{ date('Y-m-d') }}"
@@ -89,11 +90,11 @@
                                 </select>
                                 <input type="hidden" value="1" class="warehouse-id">
                             </td>
-                            <td><input type="number" class="form-control quantity" min="0"></td>
+                            <td><input type="text" inputmode="numeric" class="form-control quantity" min="0"></td>
                             <td>
-                                <select class="form-select status">
-                                    <option value="Gain">Gain</option>
-                                    <option value="Loss">Loss</option>
+                                <select class="form-select status" data-select2-selector="tag">
+                                    <option value="Gain" data-bg="bg-success">Gain</option>
+                                    <option value="Loss" data-bg="bg-danger">Loss</option>
                                 </select>
                             </td>
                             <td><input type="date" value="{{ date('Y-m-d') }}" class="form-control date"></td>
@@ -117,40 +118,85 @@
 
 @push('scripts')
     <script>
+        // 🔹 Helper: ubah angka ke format ribuan (5.766)
+        function numberFormat(num) {
+            if (!num) return '';
+            return new Intl.NumberFormat('id-ID').format(num);
+        }
+
+        // 🔹 Helper: ubah string formatted jadi angka murni (5.766 → 5766)
+        function parseNumber(str) {
+            if (!str) return 0;
+            return parseFloat(str.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
         function initSelect2(scope) {
+            // === Produk ===
             $(scope).find('.select2-product').each(function() {
                 const $el = $(this);
-
-                // Hindari double init
                 if ($el.hasClass('select2-hidden-accessible')) return;
 
                 $el.select2({
                     width: '100%',
-                    dropdownParent: $(document.body) // ✅ render di body agar gak kepotong card/table
+                    dropdownParent: $(document.body)
+                });
+            });
+
+            // === Status (Gain/Loss) ===
+            $(scope).find('select[data-select2-selector="tag"]').each(function() {
+                const $el = $(this);
+                if ($el.hasClass('select2-hidden-accessible')) return;
+
+                $el.select2({
+                    width: '100%',
+                    dropdownParent: $(document.body),
+                    minimumResultsForSearch: Infinity,
+                    templateResult: formatStatusOption,
+                    templateSelection: formatStatusOption
                 });
             });
         }
 
-        // === FORMAT ANGKA DENGAN TITIK RIBUAN ===
-        document.addEventListener('input', function(e) {
-            if (e.target.matches('input[name^="items"][name$="[quantity]"]')) {
-                let raw = e.target.value.replace(/\D/g, '');
-                e.target.value = raw ? new Intl.NumberFormat('id-ID').format(raw) : '';
-            }
-        });
+        function formatStatusOption(state) {
+            if (!state.id) return state.text;
 
-        // === FORMAT ANGKA SAAT HALAMAN DIBUKA ===
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('input[name^="items"][name$="[quantity]"]').forEach(el => {
-                if (el.value.trim() !== '') {
-                    el.value = new Intl.NumberFormat('id-ID').format(
-                        parseFloat(el.value.replace(/\./g, '')) || 0
-                    );
+            const $option = $(state.element);
+            const bgClass = $option.data('bg');
+
+            // Tentukan warna dot
+            let dotColor = '';
+            if (bgClass === 'bg-success') dotColor = '#16a34a'; // hijau
+            else if (bgClass === 'bg-danger') dotColor = '#dc2626'; // merah
+
+            // Bikin elemen <span> dengan dot + teks
+            const $container = $('<span>', {
+                css: {
+                    'display': 'flex',
+                    'align-items': 'center',
+                    'gap': '8px'
                 }
             });
-        });
+
+            const $dot = $('<span>', {
+                css: {
+                    'display': 'inline-block',
+                    'width': '7px',
+                    'height': '7px',
+                    'border-radius': '50%',
+                    'background-color': dotColor
+                }
+            });
+
+            const $text = $('<span>', {
+                text: state.text
+            });
+
+            $container.append($dot).append($text);
+            return $container;
+        }
 
         $(document).ready(function() {
+            // === INIT SELECT2 ===
             initSelect2(document);
 
             $(document).on('select2:open', () => {
@@ -160,8 +206,22 @@
                 }, 50);
             });
 
-            let rowIndex = 1;
+            // === FORMAT ANGKA DENGAN TITIK RIBUAN (REALTIME) ===
+            $(document).on('input', 'input[name^="items"][name$="[quantity]"]', function() {
+                let raw = this.value.replace(/\D/g, '');
+                this.value = raw ? new Intl.NumberFormat('id-ID').format(raw) : '';
+            });
 
+            // === FORMAT ULANG SAAT HALAMAN DIBUKA ===
+            $('input[name^="items"][name$="[quantity]"]').each(function() {
+                if (this.value.trim() !== '') {
+                    this.value = new Intl.NumberFormat('id-ID').format(parseFloat(this.value.replace(/\./g,
+                        '')) || 0);
+                }
+            });
+
+            // === ADD ROW ===
+            let rowIndex = 1;
             $('#addRowBtn').on('click', function() {
                 const tmpl = document.getElementById('rowTemplate');
                 const clone = tmpl.content.cloneNode(true);
@@ -179,13 +239,12 @@
                 rowIndex++;
             });
 
+            // === REMOVE ROW ===
             $(document).on('click', '.removeRow', function() {
                 $(this).closest('tr').remove();
             });
-        });
 
-        // === VALIDASI FRONTEND ===
-        document.addEventListener('DOMContentLoaded', function() {
+            // === VALIDASI FRONTEND + FORMAT & CLEANSING ===
             const form = document.getElementById('stockOpnameForm');
 
             form.addEventListener('submit', function(e) {
@@ -198,14 +257,16 @@
                 const rows = form.querySelectorAll('#itemsBody tr');
                 rows.forEach((row, i) => {
                     const product = row.querySelector('select.select2-product');
-                    const qty = row.querySelector('input[type="number"]');
+                    const qty = row.querySelector('input[name^="items"][name$="[quantity]"]');
                     const date = row.querySelector('input[type="date"]');
+
+                    const numericQty = parseFloat(qty.value.replace(/\./g, '')) || 0;
 
                     if (!product.value) {
                         isValid = false;
                         showError(product, `Produk baris ${i + 1} wajib dipilih`);
                     }
-                    if (!qty.value || parseFloat(qty.value) <= 0) {
+                    if (numericQty <= 0) {
                         isValid = false;
                         showError(qty, 'Quantity minimal 1');
                     }

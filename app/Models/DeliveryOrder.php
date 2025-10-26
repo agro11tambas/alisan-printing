@@ -21,7 +21,9 @@ class DeliveryOrder extends Model
         'delivery_date',
         'note',
         'status',
+        'customer',
         'shipping_address',
+        'google_map_link',
         'created_by',
     ];
 

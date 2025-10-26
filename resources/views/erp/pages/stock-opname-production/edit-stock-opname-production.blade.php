@@ -99,8 +99,8 @@
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
                                         <div class="input-group-text"><i class="feather-box"></i></div>
-                                        <input type="number" class="form-control" id="available_quantity"
-                                            name="available_quantity"
+                                        <input type="text" inputmode="numeric" class="form-control"
+                                            id="available_quantity" name="available_quantity"
                                             value="{{ old('available_quantity', $stockOpname->available_quantity) }}"
                                             placeholder="Available Quantity">
                                     </div>
@@ -116,7 +116,7 @@
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
                                         <div class="input-group-text"><i class="feather-box"></i></div>
-                                        <input type="number" class="form-control" id="finished_product"
+                                        <input type="text" inputmode="numeric" class="form-control" id="finished_product"
                                             name="finished_product"
                                             value="{{ old('finished_product', $stockOpname->finished_product) }}"
                                             placeholder="Finished Product">
@@ -163,7 +163,19 @@
 
 @push('scripts')
     <script>
-        // === HANDLE TOGGLE FIELD BERDASARKAN CHANGE TYPE ===
+        // === Helper: Format & parse angka ribuan ===
+        const formatID = new Intl.NumberFormat('id-ID');
+
+        function formatNumberInput(el) {
+            let raw = el.value.replace(/\D/g, '');
+            el.value = raw ? formatID.format(raw) : '';
+        }
+
+        function parseNumberValue(str) {
+            return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        // === TOGGLE FIELD BERDASARKAN CHANGE TYPE ===
         document.addEventListener('DOMContentLoaded', function() {
             const changeSelect = document.getElementById('change');
             const fields = document.querySelectorAll('.change-field');
@@ -177,10 +189,26 @@
             }
 
             changeSelect.addEventListener('change', toggleFields);
-            toggleFields(); // Jalankan saat halaman dibuka
+            toggleFields();
         });
 
-        // === VALIDASI FRONTEND ===
+        // === FORMAT ANGKA RIBUAN SAAT KETIK ===
+        document.addEventListener('input', function(e) {
+            if (e.target.matches('#available_quantity, #finished_product')) {
+                formatNumberInput(e.target);
+            }
+        });
+
+        // === FORMAT ULANG SAAT HALAMAN DIBUKA ===
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('#available_quantity, #finished_product').forEach(el => {
+                if (el.value.trim() !== '') {
+                    el.value = formatID.format(parseNumberValue(el.value));
+                }
+            });
+        });
+
+        // === VALIDASI FRONTEND + CLEANSING DATA ===
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('stockOpnameForm');
 
@@ -196,6 +224,9 @@
                 const change = form.querySelector('#change');
                 const availableQty = form.querySelector('#available_quantity');
                 const finishedQty = form.querySelector('#finished_product');
+
+                const availableVal = parseNumberValue(availableQty.value);
+                const finishedVal = parseNumberValue(finishedQty.value);
 
                 // Validasi product
                 if (!product.value) {
@@ -217,18 +248,26 @@
 
                 // Validasi quantity aktif
                 if (change.value === 'available_quantity') {
-                    if (!availableQty.value || parseFloat(availableQty.value) <= 0) {
+                    if (availableVal <= 0) {
                         isValid = false;
                         showError(availableQty, 'Available quantity minimal 1');
                     }
                 } else if (change.value === 'finished_product') {
-                    if (!finishedQty.value || parseFloat(finishedQty.value) <= 0) {
+                    if (finishedVal <= 0) {
                         isValid = false;
                         showError(finishedQty, 'Finished product minimal 1');
                     }
                 }
 
-                if (!isValid) e.preventDefault();
+                if (!isValid) {
+                    e.preventDefault();
+                    return;
+                }
+
+                // 🧹 Bersihkan titik sebelum submit
+                form.querySelectorAll('#available_quantity, #finished_product').forEach(el => {
+                    el.value = el.value.replace(/\./g, '');
+                });
             });
 
             // === FUNGSI TAMPIL ERROR ===

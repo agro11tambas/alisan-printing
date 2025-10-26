@@ -24,7 +24,9 @@ class PurchaseItem extends Model
         'status',
         'quantity',
         'price',
+        'price_after_tax',
         'freight',
+        'final_price',
         'subtotal',
         'stock_in',
     ];

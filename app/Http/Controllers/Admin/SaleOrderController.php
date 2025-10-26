@@ -31,6 +31,7 @@ use App\Models\OrderProgressHistory;
 use App\Models\OrderProgressItem;
 use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
+use App\Services\InvoiceNumberService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -112,13 +113,13 @@ class SaleOrderController extends Controller
                 return $order->customer->name;
             })
             ->addColumn('total_amount', function ($order) {
-                return 'Rp ' . number_format($order->total_amount);
+                return 'Rp ' . number_format($order->total_amount, 0, ',', '.');
             })
             ->addColumn('discount', function ($order) {
-                return '<span class="text-warning">Rp ' . number_format($order->discount) . '</span>';
+                return '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>';
             })
             ->addColumn('grand_total', function ($order) {
-                return '<span class="text-primary">Rp ' . number_format($order->grand_total) . '</span>';
+                return '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>';
             })
             ->addColumn('payment_status', function ($order) {
                 $payment_status = strtolower($order->payment_status);
@@ -279,24 +280,7 @@ class SaleOrderController extends Controller
 
             $orderDate = Carbon::parse($request->order_date);
 
-            $lastOrder = Order::whereDate('order_date', $orderDate)
-                ->orderByDesc('id')
-                ->first();
-
-            $lastSequence = 0;
-
-            if ($lastOrder) {
-                // Ambil nomor terakhir, misalnya "INV/5/ALS/150925"
-                if (preg_match('/INV\/(\d+)\/ALS/', $lastOrder->order_number, $matches)) {
-                    $lastSequence = (int) $matches[1];
-                }
-            }
-
-            $orderNumber = sprintf(
-                "INV/%d/ALS/%s",
-                $lastSequence + 1,
-                $orderDate->format('dmy')
-            );
+            $orderNumber = InvoiceNumberService::generate('SO', $orderDate);
 
             $addressModel = CustomerAddresses::find($request->addresses[0]);
 
@@ -987,9 +971,16 @@ class SaleOrderController extends Controller
 
         try {
             $order = Order::findOrFail($id);
+
             $status = 'Sale List';
 
             $orderDate = Carbon::parse($request->order_date);
+
+            if (str_starts_with($order->order_number, 'SO/')) {
+                $newInvoiceNumber = InvoiceNumberService::generate('INV', $orderDate);
+                $order->order_number = $newInvoiceNumber;
+                $order->save(); // simpan langsung di sini
+            }
 
             $dueDate = null;
             switch ($request->due_date_option) {
@@ -1029,7 +1020,7 @@ class SaleOrderController extends Controller
 
             AccountTransaction::create([
                 'order_id' => $order->id,
-                'order_number' => $order->order_number,
+                'order_number' => $request->order_number,
                 'transaction_date' => $request->transaction_date,
                 'account_id' => $saleAccount->id,
                 'debit' => 0,
@@ -1066,7 +1057,6 @@ class SaleOrderController extends Controller
             }
 
             $order->update([
-                'order_number' => $request->order_number,
                 'status' => $status,
                 'order_date' => $request->order_date,
                 'due_date' => $dueDate,

@@ -68,11 +68,8 @@
                                     <div class="col-lg-3">
                                         <label for="status" class="fw-semibold fs-12">Status</label>
                                         <select id="status" class="form-control">
-                                            <option value="">All</option>
-                                            <option value="draft">Draft</option>
-                                            <option value="in_progress">In Progress</option>
-                                            <option value="completed">Completed</option>
-                                            <option value="verified">Verified</option>
+                                            <option value="Pending">Pending</option>
+                                            <option value="Verified">Verified</option>
                                         </select>
                                     </div>
                                     <div class="col-lg-6">
@@ -99,11 +96,9 @@
                             <table class="table table-hover bg-transparent" id="designListTable">
                                 <thead>
                                     <tr>
-                                        <th>No</th>
-                                        <th>Design Number</th>
-                                        <th>Customer</th>
-                                        <th>Status</th>
-                                        <th>Products</th>
+                                        <th class="w-30">Design Number</th>
+                                        <th class="w-20">Customer</th>
+                                        <th class="w-50">Products</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -201,21 +196,12 @@
                     }
                 },
                 columns: [{
-                        data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
-                        orderable: false
-                    },
-                    {
                         data: 'design_number',
                         name: 'design_number'
                     },
                     {
                         data: 'customer',
                         name: 'customer'
-                    },
-                    {
-                        data: 'status',
-                        name: 'status'
                     },
                     {
                         data: 'products',
@@ -276,13 +262,42 @@
                 table.ajax.reload();
             });
 
-
             // 🔥🔥🔥 KEMBALIKAN BAGIAN INI — TIDAK DIHAPUS 🔥🔥🔥
 
-            // 👉 open modal upload
+            // 👉 Saat tombol Upload diklik
             $(document).on('click', '.upload-btn', function() {
-                let id = $(this).data('id');
+                const id = $(this).data('id');
+                const previewUrl = $(this).data('preview');
+                const note = $(this).data('note');
+
+                // Set ID ke input hidden
                 $('#design_item_id').val(id);
+
+                // Isi note lama (kalau ada)
+                $('#note').val(note || '');
+
+                // Reset input file (biar bersih)
+                $('#preview_image').val('');
+
+                // Kalau ada gambar lama, tampilkan di modal
+                const previewContainer = $('#uploadModal .modal-body .old-preview');
+                if (previewUrl) {
+                    if (previewContainer.length === 0) {
+                        $('#uploadModal .modal-body').prepend(`
+                            <div class="old-preview mb-3 text-center">
+                                <p class="text-muted small mb-1">Current Preview:</p>
+                                    <img src="${previewUrl}" width="120" height="90"
+                                        style="border-radius:8px;object-fit:cover;object-position:center;border:1px solid #ddd;">
+                                <hr>
+                            </div>
+                        `);
+                    } else {
+                        previewContainer.find('img').attr('src', previewUrl);
+                    }
+                } else {
+                    // hapus preview lama kalau tidak ada
+                    previewContainer.remove();
+                }
             });
 
             // 👉 submit upload form via ajax

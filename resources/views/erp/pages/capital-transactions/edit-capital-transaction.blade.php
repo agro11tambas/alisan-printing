@@ -160,46 +160,47 @@
 
             const creditField = document.getElementById('credit');
 
-            // === Fungsi format angka tanpa desimal ===
+            // === Fungsi format angka ribuan (pakai titik, tanpa desimal) ===
             function formatNumber(n) {
-                n = n.toString().replace(/[^0-9.]/g, ''); // sisakan angka & titik
-                n = n.split('.')[0]; // ambil angka sebelum titik (hilangkan .00)
+                if (n === null || n === undefined || n === '') return '0';
+
+                // ubah ke string dan buang desimal (contoh: 2000000.00 → 2000000)
+                n = n.toString().split('.')[0].replace(/[^0-9]/g, '');
+
                 if (n === '') return '0';
-                return n.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+                // tambahkan titik setiap 3 digit dari belakang
+                return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === Format awal dari server (hindari double format) ===
+            // === Normalisasi nilai awal dari server (misal: 2000000.00) ===
             if (creditField && creditField.value) {
-                if (!creditField.value.includes(',')) {
-                    creditField.value = formatNumber(creditField.value);
-                } else {
-                    // Kalau sudah ada koma tapi ada .00 di belakang, hapus juga
-                    creditField.value = creditField.value.split('.')[0];
-                }
+                creditField.value = formatNumber(creditField.value);
+            } else {
+                creditField.value = '0';
             }
 
-            // === Saat fokus: hapus 0 ===
+            // === Saat fokus: hapus nol ===
             creditField.addEventListener('focus', function() {
                 if (this.value === '0') this.value = '';
             });
 
-            // === Saat blur: jika kosong balik ke 0 ===
+            // === Saat blur: kalau kosong balik ke 0 ===
             creditField.addEventListener('blur', function() {
                 if (this.value.trim() === '') this.value = '0';
             });
 
-            // === Format ribuan secara realtime ===
+            // === Format realtime ===
             creditField.addEventListener('input', function() {
-                const cursorPos = this.selectionStart;
+                const pos = this.selectionStart;
                 const raw = this.value.replace(/[^\d]/g, '');
                 this.value = formatNumber(raw);
                 const diff = this.value.length - raw.length;
-                this.setSelectionRange(cursorPos + diff, cursorPos + diff);
+                this.setSelectionRange(pos + diff, pos + diff);
             });
 
-            // === VALIDASI DAN HAPUS KOMA SEBELUM SUBMIT ===
+            // === Validasi & hapus titik sebelum submit ===
             const form = document.getElementById('capitalTransactionsForm');
-
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
 
@@ -207,53 +208,48 @@
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-                // Validasi form
-                const rules = [{
-                        selector: 'input[name="transaction_date"]',
-                        message: 'Tanggal Transaksi wajib diisi'
+                const required = [{
+                        selector: '#transaction_date',
+                        msg: 'Tanggal Transaksi wajib diisi'
                     },
                     {
-                        selector: 'input[name="credit"]',
-                        message: 'Amount wajib diisi'
+                        selector: '#credit',
+                        msg: 'Amount wajib diisi'
                     },
                     {
-                        selector: 'select[name="transaction_type"]',
-                        message: 'Account Type wajib dipilih'
+                        selector: '#transaction_type',
+                        msg: 'Account Type wajib dipilih'
                     },
                     {
-                        selector: 'select[name="cash_bank_account_id"]',
-                        message: 'Cash/Bank Account wajib dipilih'
-                    }
+                        selector: '[name="cash_bank_account_id"]',
+                        msg: 'Cash/Bank Account wajib dipilih'
+                    },
                 ];
 
-                let isValid = true;
-
-                rules.forEach(rule => {
-                    const el = form.querySelector(rule.selector);
-                    const val = el?.value ?? '';
-                    if (!val.trim()) {
-                        showError(el, rule.message);
-                        isValid = false;
+                let ok = true;
+                required.forEach(r => {
+                    const el = form.querySelector(r.selector);
+                    if (!el || el.value.trim() === '') {
+                        showError(el, r.msg);
+                        ok = false;
                     }
                 });
 
-                if (!isValid) return;
+                if (!ok) return;
 
-                // === Bersihkan koma sebelum submit ===
-                creditField.value = creditField.value.replace(/,/g, '').split('.')[0];
+                // Hapus titik sebelum submit (ubah jadi angka murni)
+                creditField.value = creditField.value.replace(/\./g, '');
 
                 form.submit();
             });
 
-            function showError(input, message) {
-                if (!input) return;
-                input.classList.add('is-invalid');
-                const parent = input.closest('.input-group') || input.closest('div');
-                if (!parent) return;
-                const feedback = document.createElement('div');
-                feedback.className = 'invalid-feedback';
-                feedback.textContent = message;
-                parent.appendChild(feedback);
+            function showError(el, msg) {
+                if (!el) return;
+                el.classList.add('is-invalid');
+                const fb = document.createElement('div');
+                fb.className = 'invalid-feedback';
+                fb.textContent = msg;
+                (el.closest('.input-group') || el.parentNode).appendChild(fb);
             }
 
         });

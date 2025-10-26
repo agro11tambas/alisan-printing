@@ -63,7 +63,7 @@
                                 </div>
                             </div>
                             <div class="table-responsive">
-                                <table class="table table" id="openingBalanceList">
+                                <table class="table" id="openingBalanceList">
                                     <thead>
                                         <tr>
                                             <th>No</th>
@@ -83,13 +83,14 @@
                                                     <input type="hidden" name="id[]" value="{{ $stock->id }}">
                                                 </td>
                                                 <td>
-                                                    <input type="number" class="form-control" name="opening_stock[]"
-                                                        value="{{ $stock->opening_stock }}">
+                                                    <input type="text" class="form-control"
+                                                        name="opening_stock[]"
+                                                        value="{{ number_format($stock->opening_stock, 0, ',', '.') }}">
                                                 </td>
                                                 <td>
-                                                    <input type="number" class="form-control"
+                                                    <input type="text" class="form-control"
                                                         name="opening_finished_product_stock[]"
-                                                        value="{{ $stock->opening_finished_product_stock }}">
+                                                        value="{{ number_format($stock->opening_finished_product_stock, 0, ',', '.') }}">
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -106,42 +107,35 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA DENGAN TITIK RIBUAN ===
-        function formatNumberInput(value) {
+        // === FORMAT ANGKA DENGAN TITIK RIBUAN (STYLE INDONESIA TANPA KOMA) ===
+        function formatNumberID(value) {
             if (!value) return '';
-            let raw = value.toString().replace(/\D/g, '');
-            if (!raw) return '';
-            return new Intl.NumberFormat('id-ID').format(raw);
+            const num = value.toString().replace(/\D/g, ''); // Hapus semua non-digit
+            return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // Tambah titik tiap 3 digit
         }
 
-        function parseNumber(str) {
-            if (!str) return 0;
-            return parseFloat(str.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        // === HAPUS TITIK SAAT KIRIM KE BACKEND ===
+        function unformatNumberID(value) {
+            return value ? value.toString().replace(/\./g, '') : '';
         }
 
         // === FORMAT INPUT SAAT USER KETIK ===
         document.addEventListener('input', function(e) {
             if (e.target.matches('input[name="opening_stock[]"], input[name="opening_finished_product_stock[]"]')) {
-                let raw = e.target.value.replace(/\D/g, '');
-                if (!raw) {
-                    e.target.value = '';
-                    return;
-                }
-                e.target.value = new Intl.NumberFormat('id-ID').format(raw);
+                const raw = e.target.value.replace(/\D/g, '');
+                e.target.value = formatNumberID(raw);
             }
         });
 
-        // === FORMAT ANGKA SAAT HALAMAN DIBUKA ===
+        // === FORMAT ANGKA SAAT HALAMAN DIBUKA (INITIALLY) ===
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll(
                 'input[name="opening_stock[]"], input[name="opening_finished_product_stock[]"]').forEach(el => {
-                if (el.value.trim() !== '') {
-                    el.value = new Intl.NumberFormat('id-ID').format(parseNumber(el.value));
-                }
+                if (el.value.trim() !== '') el.value = formatNumberID(el.value);
             });
         });
 
-        // === VALIDASI DAN SUBMIT ===
+        // === VALIDASI & SUBMIT ===
         document.getElementById('openingStockRateForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -151,7 +145,7 @@
 
             let isValid = true;
 
-            form.querySelectorAll('tbody tr').forEach((row, i) => {
+            form.querySelectorAll('tbody tr').forEach(row => {
                 const openingStock = row.querySelector('input[name="opening_stock[]"]');
                 const finishedStock = row.querySelector('input[name="opening_finished_product_stock[]"]');
 
@@ -167,10 +161,10 @@
 
             if (!isValid) return;
 
-            // === HAPUS TITIK SAAT SUBMIT ===
+            // === HAPUS TITIK BIAR ANGKA MURNI SAAT SUBMIT ===
             form.querySelectorAll('input[name="opening_stock[]"], input[name="opening_finished_product_stock[]"]')
                 .forEach(input => {
-                    input.value = input.value.replace(/\./g, '');
+                    input.value = unformatNumberID(input.value);
                 });
 
             form.submit();
@@ -178,14 +172,11 @@
 
         // === TAMPILKAN ERROR ===
         function showError(input, message) {
-            if (!input) return;
             input.classList.add('is-invalid');
-            const parent = input.closest('div');
-            if (!parent) return;
             const feedback = document.createElement('div');
             feedback.className = 'invalid-feedback d-block';
             feedback.textContent = message;
-            parent.appendChild(feedback);
+            input.closest('div').appendChild(feedback);
         }
 
         // === HAPUS ERROR SAAT USER PERBAIKI INPUT ===

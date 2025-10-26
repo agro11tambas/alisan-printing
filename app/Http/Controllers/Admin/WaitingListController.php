@@ -84,10 +84,22 @@ class WaitingListController extends Controller
         return DataTables::of($progresses)
             ->addIndexColumn()
             ->addColumn('invoice_number', function ($progress) {
-                return $progress->invoice_number;
-            })
-            ->addColumn('date', function ($progress) {
-                return Carbon::parse($progress->date)->format('j M y');
+                $date = Carbon::parse($progress->date)->format('j M y');
+
+                $editedBadge = $progress->status_edited == 1
+                    ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
+                    : '';
+
+                // Contoh tambahan badge jika progress sudah complete
+                $completeBadge = $progress->items->every(fn($item) => $item->completed_quantity >= $item->quantity)
+                    ? '<div><span class="badge bg-soft-success text-success mb-1">Completed</span></div>'
+                    : '';
+
+                return $completeBadge . '
+            <div>
+                <div>' . e($progress->invoice_number) . $editedBadge . '</div>
+                <small class="text-muted">' . $date . '</small>
+            </div>';
             })
             ->addColumn('customer', function ($progress) {
                 return $progress->order->customer->name;
@@ -102,9 +114,13 @@ class WaitingListController extends Controller
             //     return $progress->notes;
             // })
             ->addColumn('action', function ($progress) {
-                return view('erp.pages.production.waiting-list.partials.action-button', compact('progress'))->render();
+                $allCompleted = $progress->items->every(function ($item) {
+                    return ($item->completed_quantity ?? 0) >= ($item->quantity ?? 0);
+                });
+
+                return view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();
             })
-            ->rawColumns(['payment_status', 'progress', 'status', 'action', 'sale_list'])
+            ->rawColumns(['invoice_number', 'payment_status', 'progress', 'status', 'action', 'sale_list'])
             ->make(true);
     }
 

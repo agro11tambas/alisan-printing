@@ -163,11 +163,11 @@
                                                     value="{{ $item->id }}">
                                                 <input type="text" inputmode="numeric"
                                                     name="items[{{ $index }}][stock_out]" class="form-control"
-                                                    value="{{ number_format($item->quantity - $item->stock_out) }}"
+                                                    value="{{ number_format($item->quantity - $item->stock_out, 0, ',', '.') }}"
                                                     min="0" max="{{ $item->quantity - $item->stock_out }}"
                                                     placeholder="Jumlah dikirim" readonly>
                                                 <small class="text-muted">Sisa:
-                                                    {{ number_format($item->quantity - $item->stock_out) }}</small>
+                                                    {{ number_format($item->quantity - $item->stock_out, 0, ',', '.') }}</small>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -197,7 +197,7 @@
 
             // === FORMAT ANGKA RIBUAN DENGAN KOMA (1,000) ===
             function formatNumber(n) {
-                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             // Hapus 0 otomatis saat fokus
@@ -214,7 +214,7 @@
             $(document).on('input', 'input[name^="items"][name$="[stock_out]"]', function(e) {
                 const input = e.target;
                 const cursorPos = input.selectionStart;
-                const raw = input.value.replace(/,/g, '');
+                const raw = input.value.replace(/\./g, '');
                 if (raw === '') return;
                 const formatted = formatNumber(raw);
                 const diff = formatted.length - input.value.length;
@@ -225,7 +225,7 @@
             // Hapus koma saat submit
             $('#stockOutForm').on('submit', function() {
                 $('input[name^="items"][name$="[stock_out]"]').each(function() {
-                    this.value = this.value.replace(/,/g, '');
+                    this.value = this.value.replace(/\./g, '');
                 });
             });
         });

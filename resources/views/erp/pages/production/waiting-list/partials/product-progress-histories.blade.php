@@ -3,6 +3,8 @@
         <tr>
             <th>Produk</th>
             <th>Jumlah</th>
+            <th>Rusak</th>
+            <th>Ditolak</th>
             <th>Operator</th>
             <th>Note</th>
             <th style="width: 60px;">Aksi</th>
@@ -12,13 +14,16 @@
         @foreach ($items as $item)
             <tr>
                 <td>{{ $item->progressItem->product->name }}</td>
-                <td>{{ number_format($item->change_quantity) }}</td>
+                <td>{{ number_format($item->completed_quantity, 0, ',', '.') }}</td>
+                <td>{{ number_format($item->defect_quantity, 0, ',', '.') }}</td>
+                <td>{{ number_format($item->reject_quantity, 0, ',', '.') }}</td>
                 <td>{{ $item->operators->name ?? '-' }}</td>
                 <td>{{ $item->notes ?? '-' }}</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-primary btn-edit-history"
                         data-id="{{ $item->id }}" data-product="{{ $item->progressItem->product->name }}"
-                        data-quantity="{{ $item->change_quantity }}" data-operator="{{ $item->operators->name ?? '' }}"
+                        data-quantity="{{ $item->completed_quantity }}" data-defect="{{ $item->defect_quantity }}"
+                        data-reject="{{ $item->reject_quantity }}" data-operator="{{ $item->operators->name ?? '' }}"
                         data-note="{{ $item->notes ?? '' }}">
                         Edit
                     </button>

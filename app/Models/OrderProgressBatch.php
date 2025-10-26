@@ -40,6 +40,11 @@ class OrderProgressBatch extends Model
         return $this->hasMany(OrderProgressHistory::class, 'order_progress_batch_id', 'id');
     }
 
+    public function rejectProducts()
+    {
+        return $this->hasMany(RejectProduct::class, 'order_progress_batch_id');
+    }
+
     protected static function booted()
     {
         static::deleting(function ($batch) {

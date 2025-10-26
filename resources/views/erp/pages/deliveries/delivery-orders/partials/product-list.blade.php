@@ -35,13 +35,13 @@
                     </span>
                 </td>
                 <td>
-                    <span>{{ number_format($completed) }}</span>
+                    <span>{{ number_format($completed, 0, ',', '.') }}</span>
                 </td>
                 <td>
-                    <span class="fw-bold text-success">{{ number_format($finishedQty) }}</span> / {{ number_format($item->progress_qty) }}
+                    <span class="fw-bold text-success">{{ number_format($finishedQty, 0, ',', '.') }}</span> / {{ number_format($item->progress_qty, 0, ',', '.') }}
                 </td>
                 <td>
-                    <span class="fw-bold text-warning">{{ number_format($notFinishedQty) }}</span>
+                    <span class="fw-bold text-warning">{{ number_format($notFinishedQty, 0, ',', '.') }}</span>
                 </td>
             </tr>
             @endforeach

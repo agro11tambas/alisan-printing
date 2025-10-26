@@ -26,12 +26,12 @@
 <div class="page-header sticky-top">
     <div class="page-header-left d-flex align-items-center">
         <div class="page-header-title">
-            <h5 class="m-b-10">Delivery Orders</h5>
+            <h5 class="m-b-10">Delivery List</h5>
         </div>
         <ul class="breadcrumb">
             <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
             <li class="breadcrumb-item">Deliveries</li>
-            <li class="breadcrumb-item">Delivery Orders</li>
+            <li class="breadcrumb-item">Delivery List</li>
         </ul>
     </div>
 </div>
@@ -116,10 +116,10 @@
                         </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table table-hover bg-transparent table-hover" id="deliveryOrderTable">
+                        <table class="table table-hover bg-transparent table-hover" id="deliveryOrderTable">
                             <thead>
                                 <tr>
-                                    <th>No</th>
+                                    {{-- <th>No</th> --}}
                                     <th>Delivery Number</th>
                                     <!-- <th>Delivery Date</th> -->
                                     <th>Customer</th>
@@ -274,11 +274,12 @@
                     alert(xhr.responseJSON.message);
                 }
             },
-            columns: [{
-                    data: 'DT_RowIndex',
-                    orderable: false,
-                    searchable: false
-                },
+            columns: [
+                // {
+                //     data: 'DT_RowIndex',
+                //     orderable: false,
+                //     searchable: false
+                // },
                 {
                     data: 'delivery_number',
                     name: 'delivery_number'

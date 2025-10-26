@@ -94,10 +94,10 @@ class AccountListController extends Controller
                 return \Carbon\Carbon::parse($expense->transaction_date)->format('d F Y');
             })
             ->addColumn('debit', function ($expense) {
-                return 'Rp ' . number_format($expense->debit);
+                return 'Rp ' . number_format($expense->debit, 0, ',', '.');
             })
             ->addColumn('credit', function ($expense) {
-                return 'Rp ' . number_format($expense->credit);
+                return 'Rp ' . number_format($expense->credit, 0, ',', '.');
             })
             ->addColumn('note', function ($expense) {
                 return $expense->note ?? '-';
@@ -151,10 +151,10 @@ class AccountListController extends Controller
                 return \Carbon\Carbon::parse($bank->transaction_date)->format('d F Y');
             })
             ->addColumn('debit', function ($bank) {
-                return 'Rp ' . number_format($bank->debit);
+                return 'Rp ' . number_format($bank->debit, 0, ',', '.');
             })
             ->addColumn('credit', function ($bank) {
-                return 'Rp ' . number_format($bank->credit);
+                return 'Rp ' . number_format($bank->credit, 0, ',', '.');
             })
             ->addColumn('note', function ($bank) {
                 return $bank->note ?? '-';
@@ -208,10 +208,10 @@ class AccountListController extends Controller
                 return \Carbon\Carbon::parse($cash->transaction_date)->format('d F Y');
             })
             ->addColumn('debit', function ($cash) {
-                return 'Rp ' . number_format($cash->debit);
+                return 'Rp ' . number_format($cash->debit, 0, ',', '.');
             })
             ->addColumn('credit', function ($cash) {
-                return 'Rp ' . number_format($cash->credit);
+                return 'Rp ' . number_format($cash->credit, 0, ',', '.');
             })
             ->addColumn('note', function ($cash) {
                 return $cash->note ?? '-';
@@ -265,10 +265,10 @@ class AccountListController extends Controller
                 return \Carbon\Carbon::parse($sale->transaction_date)->format('d F Y');
             })
             ->addColumn('debit', function ($sale) {
-                return 'Rp ' . number_format($sale->debit);
+                return 'Rp ' . number_format($sale->debit, 0, ',', '.');
             })
             ->addColumn('credit', function ($sale) {
-                return 'Rp ' . number_format($sale->credit);
+                return 'Rp ' . number_format($sale->credit, 0, ',', '.');
             })
             ->addColumn('note', function ($sale) {
                 return $sale->note ?? '-';
@@ -322,10 +322,10 @@ class AccountListController extends Controller
                 return \Carbon\Carbon::parse($purchase->transaction_date)->format('d F Y');
             })
             ->addColumn('debit', function ($purchase) {
-                return 'Rp ' . number_format($purchase->debit);
+                return 'Rp ' . number_format($purchase->debit, 0, ',', '.');
             })
             ->addColumn('credit', function ($purchase) {
-                return 'Rp ' . number_format($purchase->credit);
+                return 'Rp ' . number_format($purchase->credit, 0, ',', '.');
             })
             ->addColumn('note', function ($purchase) {
                 return $purchase->note ?? '-';
@@ -379,10 +379,10 @@ class AccountListController extends Controller
                 return \Carbon\Carbon::parse($capital->transaction_date)->format('d F Y');
             })
             ->addColumn('debit', function ($capital) {
-                return 'Rp ' . number_format($capital->debit);
+                return 'Rp ' . number_format($capital->debit, 0, ',', '.');
             })
             ->addColumn('credit', function ($capital) {
-                return 'Rp ' . number_format($capital->credit);
+                return 'Rp ' . number_format($capital->credit, 0, ',', '.');
             })
             ->addColumn('note', function ($capital) {
                 return $capital->note ?? '-';

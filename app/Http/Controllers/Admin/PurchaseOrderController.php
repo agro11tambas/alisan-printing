@@ -1287,12 +1287,17 @@ class PurchaseOrderController extends Controller
             //     }
             // }
 
-            // ======= UPDATE / CREATE ITEM ==========
+            // ======= UPDATE / CREATE ITEM ==========  
             foreach ($request->product as $index => $productId) {
                 $qty     = $request->qty[$index];
                 $price   = $request->price[$index];
                 $freight = $request->freight[$index];
                 $total   = $request->total[$index];
+
+                // ✅ Hitung price_after_tax & final_price
+                $taxPercent = $request->tax_percent ?? 0;
+                $priceAfterTax = $price + ($price * $taxPercent / 100);
+                $finalPrice = $priceAfterTax + $freight;
 
                 $item = $purchase->purchaseItems[$index] ?? new PurchaseItem(['purchase_id' => $purchase->id]);
                 $item->fill([
@@ -1301,7 +1306,9 @@ class PurchaseOrderController extends Controller
                     'status'                  => 'Purchase Account',
                     'quantity'                => $qty,
                     'price'                   => $price,
+                    'price_after_tax'         => $priceAfterTax,
                     'freight'                 => $freight,
+                    'final_price'             => $finalPrice,
                     'subtotal'                => $total,
                 ]);
                 $item->save();
@@ -1342,7 +1349,6 @@ class PurchaseOrderController extends Controller
                     ['incoming_stock' => 0]
                 );
 
-                // ✅ Gunakan increment biar atomic & aman
                 $inventoryStock->increment('incoming_stock', $qty);
             }
 

@@ -89,9 +89,9 @@
                                                             <tr>
                                                                 <td>{{ ucfirst(str_replace('_', ' ', $field)) }}</td>
                                                                 <td class="text-danger">
-                                                                    {{ number_format($purchaseChanges['old'][$field] ?? '-') }}
+                                                                    {{ number_format($purchaseChanges['old'][$field], 0, ',', '.') }}
                                                                 </td>
-                                                                <td class="text-success">{{ number_format($newValue) }}</td>
+                                                                <td class="text-success">{{ number_format($newValue, 0, ',', '.') }}</td>
                                                             </tr>
                                                         @endif
                                                     @endforeach
@@ -144,10 +144,10 @@
                                                                                         <td>{{ ucfirst(str_replace('_', ' ', $field)) }}
                                                                                         </td>
                                                                                         <td class="text-danger">
-                                                                                            {{ isset($item['old'][$field]) ? number_format((float) $item['old'][$field]) : '-' }}
+                                                                                            {{ isset($item['old'][$field]) ? number_format((float) $item['old'][$field], 0, ',', '.') : '-' }}
                                                                                         </td>
                                                                                         <td class="text-success">
-                                                                                            {{ number_format((float) $newValue) }}
+                                                                                            {{ number_format((float) $newValue, 0, ',', '.') }}
                                                                                         </td>
                                                                                     </tr>
                                                                                 @endif
@@ -169,7 +169,7 @@
                                                                                         <td>{{ ucfirst(str_replace('_', ' ', $field)) }}
                                                                                         </td>
                                                                                         <td class="text-success">
-                                                                                            {{ number_format((float) $val) }}
+                                                                                            {{ number_format((float) $val, 0, ',', '.') }}
                                                                                         </td>
                                                                                     </tr>
                                                                                 @endif
@@ -191,7 +191,7 @@
                                                                                         <td>{{ ucfirst(str_replace('_', ' ', $field)) }}
                                                                                         </td>
                                                                                         <td class="text-danger">
-                                                                                            {{ number_format((float) $val) }}
+                                                                                            {{ number_format((float) $val, 0, ',', '.') }}
                                                                                         </td>
                                                                                     </tr>
                                                                                 @endif

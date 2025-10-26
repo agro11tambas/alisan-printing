@@ -180,9 +180,10 @@
 
 @push('scripts')
     <script>
+        // === INIT SELECT2 ===
         function initSelect2(el) {
             $(el).select2({
-                placeholder: 'Pilih produk',
+                placeholder: 'Pilih opsi',
                 width: '100%',
                 matcher: (params, data) => {
                     if ($.trim(params.term) === '') return data;
@@ -191,11 +192,63 @@
             });
         }
 
+        // === FORMAT & UNFORMAT ANGKA ===
+        function formatRibuan(num) {
+            if (num === null || num === undefined || num === '') return '';
+            num = num.toString().replace(/\D/g, '');
+            return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+
+        function unformatRibuan(str) {
+            if (!str) return 0;
+            return parseFloat(str.toString().replace(/\./g, '')) || 0;
+        }
+
+        // === tampilkan error di bawah field (fix untuk Select2 & input biasa) ===
+        function showError(el, message) {
+            const $el = $(el);
+            if ($el.hasClass('select2-hidden-accessible')) {
+                const $container = $el.siblings('.select2');
+                $container.next('.invalid-feedback').remove();
+
+                const feedback = $('<div class="invalid-feedback d-block"></div>').text(message);
+                $container.after(feedback);
+            } else {
+                $el.addClass('is-invalid');
+                let $container = $el.closest('.input-group');
+                if ($container.length === 0) $container = $el.parent();
+                $container.find('.invalid-feedback').remove();
+
+                const feedback = $('<div class="invalid-feedback d-block"></div>').text(message);
+                $container.append(feedback);
+            }
+        }
+
+        // === HAPUS ERROR SAAT USER EDIT FIELD ===
+        $(document).on("change input",
+            "#purchase_date, #suppliers, select[name='product[]'], input[name='qty[]']",
+            function() {
+                if ($(this).hasClass("select2-hidden-accessible")) {
+                    $(this).siblings('.select2').next('.invalid-feedback').remove();
+                } else {
+                    this.classList.remove("is-invalid");
+                    $(this).siblings(".invalid-feedback").remove();
+                }
+            }
+        );
+
+        // === PAGE READY ===
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
-            // Tambah row
+            // === Format Qty saat user ketik ===
+            $(document).on('input', '.qty', function() {
+                const val = $(this).val().replace(/\D/g, '');
+                $(this).val(formatRibuan(val));
+            });
+
+            // === Tambah row ===
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
                 const $newRow = $tbody.find('tr:first').clone();
@@ -211,10 +264,56 @@
                 initSelect2($newRow.find('.select-product'));
             });
 
-            // Hapus row
+            // === Hapus row ===
             $(document).on('click', '.delete-row', function() {
                 if ($('#tab_logic tbody tr').length > 1) {
                     $(this).closest('tr').remove();
+                }
+            });
+
+            // === VALIDASI SEBELUM SUBMIT ===
+            $('#purchaseForm').on('submit', function(e) {
+                let isValid = true;
+
+                // reset error lama
+                $(this).find('.is-invalid').removeClass('is-invalid');
+                $(this).find('.invalid-feedback').remove();
+
+                const purchaseDate = $('#purchase_date');
+                if (!purchaseDate.val().trim()) {
+                    isValid = false;
+                    showError(purchaseDate[0], 'Tanggal pembelian wajib diisi');
+                }
+
+                const supplier = $('#suppliers');
+                if (!supplier.val()) {
+                    isValid = false;
+                    showError(supplier[0], 'Supplier wajib dipilih');
+                }
+
+                // validasi tabel produk
+                $('#tab_logic tbody tr').each(function() {
+                    const product = $(this).find('select[name="product[]"]');
+                    const qty = $(this).find('input[name="qty[]"]');
+                    const qtyValue = unformatRibuan(qty.val());
+
+                    if (!product.val()) {
+                        isValid = false;
+                        showError(product[0], 'Produk wajib dipilih');
+                    }
+                    if (!qty.val().trim() || qtyValue <= 0) {
+                        isValid = false;
+                        showError(qty[0], 'Qty wajib diisi');
+                    }
+                });
+
+                // ubah format ribuan jadi angka murni sebelum submit
+                $('.qty').each(function() {
+                    $(this).val(unformatRibuan($(this).val()));
+                });
+
+                if (!isValid) {
+                    e.preventDefault();
                 }
             });
         });

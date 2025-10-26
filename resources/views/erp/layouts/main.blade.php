@@ -101,7 +101,7 @@
         .select2-container,
         .select2-dropdown,
         .select2-container--open {
-            z-index: 1050 !important;
+            z-index: 2050 !important;
         }
     </style>
 

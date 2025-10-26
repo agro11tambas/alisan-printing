@@ -306,6 +306,15 @@ class PurchaseListController extends Controller
         return view('erp.pages.purchases.purchase-list.create-purchase', compact('products', 'suppliers', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
     }
 
+    public function checkNumber(Request $request)
+    {
+        $exists = \App\Models\Purchase::where('purchase_number', $request->purchase_number)
+            ->where('id', '!=', $request->id)
+            ->exists();
+
+        return response()->json(['exists' => $exists]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -376,24 +385,16 @@ class PurchaseListController extends Controller
                 'due_date'                  => $dueDate,
                 'supplier_id'               => $request->suppliers,
                 'payment_status'            => $paymentStatus,
-
-                // detail nilai
                 'sub_total'                 => $totalProduct + $totalFreight, // sebelum pajak
                 'tax_percent'               => $taxPercent,
                 'tax_amount'                => $taxAmount,
                 'freight_total'             => $totalFreight,
-
-                // ✅ Produk (sudah termasuk pajak)
                 'total_amount_product'      => $totalProductWithTax,
                 'paid_amount_product'       => $paidProduct,
                 'remaining_amount_product'  => $remainingProduct,
-
-                // ✅ Freight (tetap tanpa pajak)
                 'total_amount_freight'      => $totalFreight,
                 'paid_amount_freight'       => $paidFreight,
                 'remaining_amount_freight'  => $remainingFreight,
-
-                // ✅ Grand total
                 'total_amount'              => $grandTotal,
                 'paid_amount'               => 0,
                 'remaining_amount'          => $grandTotal,
@@ -407,17 +408,25 @@ class PurchaseListController extends Controller
                 $freight = $request->freight[$index];
                 $total   = $request->total[$index];
 
+                $taxPercent = $request->tax_percent ?? 0;
+
+                // ✅ Hitung price_after_tax & final_price
+                $priceAfterTax = $price + ($price * $taxPercent / 100);
+                $finalPrice    = $priceAfterTax + $freight;
+
                 $product = Products::findOrFail($productId);
 
                 $purchaseItem = PurchaseItem::create([
-                    'purchase_id'   => $purchase->id,
-                    'product_id'    => $productId,
-                    'inventory_warehouse_id' => $request->inventory_warehouse_id,
-                    'status'        => 'Purchase Account',
-                    'quantity'      => $qty,
-                    'price'         => $price,
-                    'freight'       => $freight,
-                    'subtotal'      => $total,
+                    'purchase_id'              => $purchase->id,
+                    'product_id'               => $productId,
+                    'inventory_warehouse_id'   => $request->inventory_warehouse_id ?? 1,
+                    'status'                   => 'Purchase Account',
+                    'quantity'                 => $qty,
+                    'price'                    => $price,
+                    'price_after_tax'          => $priceAfterTax,
+                    'freight'                  => $freight,
+                    'final_price'              => $finalPrice,
+                    'subtotal'                 => $total,
                 ]);
 
                 // Jika Purchase List → buat stock in
@@ -434,15 +443,15 @@ class PurchaseListController extends Controller
                     );
 
                     InventoryItem::create([
-                        'inventory_id'       => $inventory->id,
-                        'purchase_item_id'   => $purchaseItem->id,
-                        'product_id'         => $productId,
-                        'inventory_warehouse_id' => $request->inventory_warehouse_id,
-                        'quantity'           => $qty,
-                        'price'              => $price,
-                        'stock_in'           => 0,
-                        'remaining_stock_in' => $qty,
-                        'stock_out'          => 0,
+                        'inventory_id'            => $inventory->id,
+                        'purchase_item_id'        => $purchaseItem->id,
+                        'product_id'              => $productId,
+                        'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
+                        'quantity'                => $qty,
+                        'price'                   => $price,
+                        'stock_in'                => 0,
+                        'remaining_stock_in'      => $qty,
+                        'stock_out'               => 0,
                     ]);
 
                     $inventoryStock = InventoryStock::firstOrCreate(
@@ -1055,27 +1064,52 @@ class PurchaseListController extends Controller
                 $product = Products::findOrFail($productId);
                 $requestKeys[] = $productId;
 
+                // ✅ Hitung price_after_tax & final_price per item
+                $taxPercent = $request->tax_percent ?? 0;
+                $priceAfterTax = $price + ($price * $taxPercent / 100);
+                $finalPrice = $priceAfterTax + $freight;
+
+                // 🔎 Cek apakah qty baru < stock_in yang sudah tercatat di inventory_items
+                $existingItem = $purchase->purchaseItems->firstWhere('product_id', $productId);
+
+                if ($existingItem) {
+                    $invItem = \App\Models\InventoryItem::where('purchase_item_id', $existingItem->id)->first();
+
+                    if ($invItem && $qty < $invItem->stock_in) {
+                        DB::rollBack();
+                        return back()->with(
+                            'error',
+                            "Gagal mengupdate purchase {$purchase->purchase_number}: Quantity untuk produk {$product->name} (" . number_format($qty) . ") tidak boleh lebih kecil dari jumlah stock in (" . number_format($invItem->stock_in) . ")."
+                        );
+                    }
+                }
+
                 $oldQty = 0;
                 if ($existingItems->has($productId)) {
                     $item = $existingItems[$productId];
                     $oldQty = $item->quantity;
+
                     $item->update([
-                        'quantity' => $qty,
-                        'price'    => $price,
-                        'freight'  => $freight,
-                        'subtotal' => $total,
+                        'quantity'        => $qty,
+                        'price'           => $price,
+                        'price_after_tax' => $priceAfterTax,
+                        'freight'         => $freight,
+                        'final_price'     => $finalPrice,
+                        'subtotal'        => $total,
                     ]);
                 } else {
                     $oldQty = 0;
-                    $item = PurchaseItem::create([ // ✅ assign ke $item
+                    $item = PurchaseItem::create([
                         'purchase_id'             => $purchase->id,
                         'product_id'              => $productId,
-                        'inventory_warehouse_id'  => $request->inventory_warehouse_id,
+                        'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
                         'status'                  => 'Purchase Account',
                         'product_name'            => $product->name,
                         'quantity'                => $qty,
                         'price'                   => $price,
+                        'price_after_tax'         => $priceAfterTax,
                         'freight'                 => $freight,
+                        'final_price'             => $finalPrice,
                         'subtotal'                => $total,
                     ]);
                 }
@@ -1099,7 +1133,6 @@ class PurchaseListController extends Controller
                 ]);
 
                 if ($invItem->exists) {
-                    // update normal tanpa ganggu stock_in lama
                     $invItem->fill([
                         'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
                         'quantity'               => $qty,
@@ -1107,7 +1140,6 @@ class PurchaseListController extends Controller
                         'remaining_stock_in'     => $qty,
                     ]);
                 } else {
-                    // item baru, buat awal
                     $invItem->fill([
                         'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
                         'quantity'               => $qty,

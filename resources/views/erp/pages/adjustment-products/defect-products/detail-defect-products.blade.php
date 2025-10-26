@@ -78,12 +78,20 @@
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
                         <div class="row g-0 p-4 justify-content-between">
-                            <div class="col-lg-12">
+                            <div class="col-lg-6">
                                 <h5 class="fw-bold mb-3">Product: {{ $product->name }}</h5>
-                                <p><strong>Total Defect Stock:</strong>
-                                    <span
-                                        class="text-danger">{{ number_format($product->defectProducts()->sum('quantity')) }}</span>
-                                </p>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="row justify-content-end">
+                                    <div class="col-lg-3">
+                                        <label for="progress_status" class="fw-semibold fs-12">Progress Status</label>
+                                        <select id="progress_status" class="form-control"
+                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            <option value="pending">Pending</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="table-responsive">
@@ -184,7 +192,12 @@
                 lengthChange: false,
                 info: false,
                 pagingType: "simple",
-                ajax: "{{ url('/erp/adjustment-products/defect-products/detail-defect-products/data/' . $product->id) }}",
+                ajax: {
+                    url: "{{ url('/erp/adjustment-products/defect-products/detail-defect-products/data/' . $product->id) }}",
+                    data: function(d) {
+                        d.status = $('#progress_status').val();
+                    }
+                },
                 columns: [{
                         data: 'DT_RowIndex',
                         name: 'DT_RowIndex',
@@ -220,6 +233,10 @@
                         name: 'user'
                     },
                 ]
+            });
+
+            $('#progress_status').on('change', function() {
+                dataTable.ajax.reload();
             });
 
             $('#defectDetailTable tbody').on('click', 'tr', function(e) {

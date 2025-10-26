@@ -69,7 +69,7 @@ class StockOpnameController extends Controller
                 return $stockOpname->date;
             })
             ->addColumn('quantity', function ($stockOpname) {
-                return number_format($stockOpname->quantity);
+                return number_format($stockOpname->quantity, 0, ',', '.');
             })
             ->addColumn('status', function ($stockOpname) {
                 $status = strtolower($stockOpname->status);

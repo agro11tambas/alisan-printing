@@ -67,11 +67,11 @@
                                 @foreach ($stockIn->items as $item)
                                 <tr>
                                     <td>{{ $item->product->name ?? '-' }}</td>
-                                    <td><span class="fw-bold text-primary">{{ number_format($item->quantity) }}</span></td>
-                                    <td><span class="fw-bold text-success">{{ number_format($item->stock_in) }}</span></td>
+                                    <td><span class="fw-bold text-primary">{{ number_format($item->quantity, 0, ',', '.') }}</span></td>
+                                    <td><span class="fw-bold text-success">{{ number_format($item->stock_in, 0, ',', '.') }}</span></td>
                                     <td>
                                         <span class="fw-bold text-danger">
-                                            {{ number_format($item->quantity - $item->stock_in) }}
+                                            {{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}
                                         </span>
                                     </td>
                                 </tr>

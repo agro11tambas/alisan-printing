@@ -66,17 +66,17 @@
                                 </td>
                                 <td>
                                     <!-- 🧩 tambahkan class yang sesuai di sini -->
-                                    <input type="number" name="items[0][available_quantity]"
+                                    <input type="text" inputmode="numeric" name="items[0][available_quantity]"
                                         class="form-control qty-field available_quantity d-none"
                                         placeholder="Available Quantity">
-                                    <input type="number" name="items[0][finished_product]"
+                                    <input type="text" inputmode="numeric" name="items[0][finished_product]"
                                         class="form-control qty-field finished_product d-none"
                                         placeholder="Finished Product">
                                 </td>
                                 <td>
-                                    <select name="items[0][status]" class="form-select">
-                                        <option value="Gain">Gain</option>
-                                        <option value="Loss">Loss</option>
+                                    <select name="items[0][status]" class="form-select" data-select2-selector="tag">
+                                        <option value="Gain" data-bg="bg-success">Gain</option>
+                                        <option value="Loss" data-bg="bg-danger">Loss</option>
                                     </select>
                                 </td>
                                 <td>
@@ -115,16 +115,16 @@
                                 </select>
                             </td>
                             <td>
-                                <input type="number" name="items[0][available_quantity]"
+                                <input type="text" inputmode="numeric" name="items[0][available_quantity]"
                                     class="form-control qty-field available_quantity d-none"
                                     placeholder="Available Quantity">
-                                <input type="number" name="items[0][finished_product]"
+                                <input type="text" inputmode="numeric" name="items[0][finished_product]"
                                     class="form-control qty-field finished_product d-none" placeholder="Finished Product">
                             </td>
                             <td>
-                                <select class="form-select status">
-                                    <option value="Gain">Gain</option>
-                                    <option value="Loss">Loss</option>
+                                <select class="form-select status" data-select2-selector="tag">
+                                    <option value="Gain" data-bg="bg-success">Gain</option>
+                                    <option value="Loss" data-bg="bg-danger">Loss</option>
                                 </select>
                             </td>
                             <td><input type="date" value="{{ date('Y-m-d') }}" class="form-control date"></td>
@@ -147,27 +147,90 @@
 
 @push('scripts')
     <script>
+        // 🔹 Helper: format angka ke ribuan
+        function numberFormat(num) {
+            if (!num) return '';
+            return new Intl.NumberFormat('id-ID').format(num);
+        }
+
+        // 🔹 Helper: ubah "5.766" → 5766
+        function parseNumber(str) {
+            if (!str) return 0;
+            return parseFloat(str.toString().replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
         function initSelect2(scope) {
+            // === Produk ===
             $(scope).find('.select2-product').each(function() {
                 const $el = $(this);
-
-                // Hindari double init
                 if ($el.hasClass('select2-hidden-accessible')) return;
 
                 $el.select2({
                     width: '100%',
-                    dropdownParent: $(document.body) // ✅ render di body agar gak kepotong card/table
+                    dropdownParent: $(document.body)
+                });
+            });
+
+            // === Status (Gain/Loss) ===
+            $(scope).find('select[data-select2-selector="tag"]').each(function() {
+                const $el = $(this);
+                if ($el.hasClass('select2-hidden-accessible')) return;
+
+                $el.select2({
+                    width: '100%',
+                    dropdownParent: $(document.body),
+                    minimumResultsForSearch: Infinity,
+                    templateResult: formatStatusOption,
+                    templateSelection: formatStatusOption
                 });
             });
         }
 
-        // === FORMAT ANGKA DENGAN TITIK RIBUAN ===
+        function formatStatusOption(state) {
+            if (!state.id) return state.text;
+
+            const $option = $(state.element);
+            const bgClass = $option.data('bg');
+
+            // Tentukan warna dot
+            let dotColor = '';
+            if (bgClass === 'bg-success') dotColor = '#16a34a'; // hijau
+            else if (bgClass === 'bg-danger') dotColor = '#dc2626'; // merah
+
+            // Bikin elemen <span> dengan dot + teks
+            const $container = $('<span>', {
+                css: {
+                    'display': 'flex',
+                    'align-items': 'center',
+                    'gap': '8px'
+                }
+            });
+
+            const $dot = $('<span>', {
+                css: {
+                    'display': 'inline-block',
+                    'width': '7px',
+                    'height': '7px',
+                    'border-radius': '50%',
+                    'background-color': dotColor
+                }
+            });
+
+            const $text = $('<span>', {
+                text: state.text
+            });
+
+            $container.append($dot).append($text);
+            return $container;
+        }
+
+        // === FORMAT ANGKA DENGAN TITIK RIBUAN (REALTIME) ===
         document.addEventListener('input', function(e) {
             if (e.target.matches(
                     'input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]'
                 )) {
                 let raw = e.target.value.replace(/\D/g, '');
-                e.target.value = raw ? new Intl.NumberFormat('id-ID').format(raw) : '';
+                e.target.value = raw ? numberFormat(raw) : '';
             }
         });
 
@@ -177,9 +240,7 @@
                 'input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]'
             ).forEach(el => {
                 if (el.value.trim() !== '') {
-                    el.value = new Intl.NumberFormat('id-ID').format(
-                        parseFloat(el.value.replace(/\./g, '')) || 0
-                    );
+                    el.value = numberFormat(parseFloat(el.value.replace(/\./g, '')) || 0);
                 }
             });
         });
@@ -196,16 +257,27 @@
 
             let rowIndex = 1;
 
+            // === ADD ROW ===
             $('#addRowBtn').on('click', function() {
                 const tmpl = document.getElementById('rowTemplate');
                 const clone = tmpl.content.cloneNode(true);
                 const $row = $(clone).find('tr');
 
+                // 🔥 Ubah type ke text + inputmode numeric
                 $row.find('.select2-product').attr('name', `items[${rowIndex}][product_id]`);
                 $row.find('.warehouse-id').attr('name', `items[${rowIndex}][production_warehouse_id]`);
                 $row.find('.change-type').attr('name', `items[${rowIndex}][change]`);
-                $row.find('.available_quantity').attr('name', `items[${rowIndex}][available_quantity]`);
-                $row.find('.finished_product').attr('name', `items[${rowIndex}][finished_product]`);
+
+                $row.find('.available_quantity')
+                    .attr('name', `items[${rowIndex}][available_quantity]`)
+                    .attr('type', 'text')
+                    .attr('inputmode', 'numeric');
+
+                $row.find('.finished_product')
+                    .attr('name', `items[${rowIndex}][finished_product]`)
+                    .attr('type', 'text')
+                    .attr('inputmode', 'numeric');
+
                 $row.find('.status').attr('name', `items[${rowIndex}][status]`);
                 $row.find('.date').attr('name', `items[${rowIndex}][date]`);
                 $row.find('.notes').attr('name', `items[${rowIndex}][notes]`);
@@ -217,10 +289,12 @@
                 updateChangeFields($row);
             });
 
+            // === REMOVE ROW ===
             $(document).on('click', '.removeRow', function() {
                 $(this).closest('tr').remove();
             });
 
+            // === HANDLE CHANGE TYPE ===
             $(document).on('change', '.change-type', function() {
                 const row = $(this).closest('tr');
                 row.find('.qty-field').addClass('d-none');
@@ -238,14 +312,15 @@
             }
 
             updateChangeFields(document);
-            // 💥 Tambahkan ini
             $('#itemsBody .change-type').trigger('change');
 
+            // === SUBMIT FORM (BERSIHKAN TITIK) ===
             $('#stockOpnameForm').on('submit', function() {
-                $('input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]')
-                    .each(function() {
-                        $(this).val($(this).val().replace(/\./g, ''));
-                    });
+                $(this).find(
+                    'input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]'
+                ).each(function() {
+                    this.value = this.value.replace(/\./g, '');
+                });
             });
         });
     </script>

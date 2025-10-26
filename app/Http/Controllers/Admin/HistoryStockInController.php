@@ -109,20 +109,16 @@ class HistoryStockInController extends Controller
                     $inventoryStock->increment('inventory_stock', $item['stock_in']);
                     $inventoryStock->increment('stock_after_sales', $item['stock_in']);
 
-                    // 🔹 Hitung ulang avg_cost (weighted average, tanpa sync total stok lama)
+                    // 🔹 Hitung ulang avg_cost (weighted average pakai stock_after_sales)
                     $purchaseItem = $inventoryItem->purchaseItem ?? null;
                     if ($purchaseItem) {
-                        $purchaseCost = $purchaseItem->price + $purchaseItem->freight;
+                        $purchaseCost = $purchaseItem->final_price;
 
-                        // Weighted average formula
-                        // Hitung stok total sebelum pembelian = stok inventory lama + production stock available
-                        $productionQty = \App\Models\ProductionStock::where('product_id', $productId)
-                            ->sum('available_quantity');
-
-                        $previousQty  = max(0, ($inventoryStock->inventory_stock - $item['stock_in']) + $productionQty);
+                        // Hitung stok total sebelum pembelian dari stock_after_sales
+                        $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
                         $previousCost = $inventoryStock->avg_cost;
 
-                        // Weighted average dengan stok company-wide
+                        // Weighted average formula
                         $inventoryStock->avg_cost = round(
                             (($previousCost * $previousQty) + ($purchaseCost * $item['stock_in']))
                                 / max(1, $previousQty + $item['stock_in']),
@@ -139,17 +135,14 @@ class HistoryStockInController extends Controller
                     $canceledProduct = \App\Models\CanceledProduct::find($inventory->canceled_product_id);
                     $avgCostAtCancel = $canceledProduct?->avg_cost_at_cancel ?? 0;
 
-                    // Ambil completed_quantity dari canceled_products (total barang retur yang selesai diproses)
-                    $completedQty = \App\Models\CanceledProduct::where('product_id', $productId)
-                        ->sum('completed_quantity');
-
-                    // Hitung weighted average baru
-                    $previousQty  = max(0, $inventoryStock->inventory_stock - $item['stock_in']);
+                    // Ambil total stok sebelumnya dari stock_after_sales (bukan inventory_stock)
+                    $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
                     $previousCost = $inventoryStock->avg_cost;
 
+                    // Weighted average baru berdasarkan stock_after_sales
                     $inventoryStock->avg_cost = round(
-                        (($previousCost * $previousQty) + ($avgCostAtCancel * $completedQty))
-                            / max(1, $previousQty + $completedQty),
+                        (($previousCost * $previousQty) + ($avgCostAtCancel * $item['stock_in']))
+                            / max(1, $previousQty + $item['stock_in']),
                         3
                     );
 

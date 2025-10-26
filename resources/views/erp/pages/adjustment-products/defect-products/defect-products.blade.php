@@ -62,7 +62,7 @@
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
                         <div class="row g-3 p-4 justify-content-between">
-                            <div class="col-lg-4">
+                            <div class="col-lg-2">
                                 <label for="product_name" class="fw-semibold fs-12">Product Name</label>
                                 <input type="text" id="product_name" name="product_name" class="form-control"
                                     placeholder="Search Product..." style="padding: 0.5rem 1rem; font-size: 0.875rem;">
@@ -73,7 +73,7 @@
                             <table class="table table-hover bg-transparent" id="defectProductsTable">
                                 <thead>
                                     <tr>
-                                        <th>No</th>
+                                        <th class="wd-30">No</th>
                                         <th>Product</th>
                                         <th>Total Defect</th>
                                     </tr>

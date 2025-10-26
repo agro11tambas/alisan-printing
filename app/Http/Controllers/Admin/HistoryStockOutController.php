@@ -282,29 +282,33 @@ class HistoryStockOutController extends Controller
                     ]
                 );
 
-                if ($inventory->purchase_return_id) {
-                    $purchaseReturnItem = $inventoryItem->purchaseReturnItem ?? null;
-                    if ($purchaseReturnItem) {
-                        $returnCost = $purchaseReturnItem->price + $purchaseReturnItem->freight;
+                // if ($inventory->purchase_return_id) {
+                //     $purchaseReturnItem = $inventoryItem->purchaseReturnItem ?? null;
+                //     if ($purchaseReturnItem) {
+                //         $returnCost = $purchaseReturnItem->price + $purchaseReturnItem->freight;
 
-                        // Hitung qty sebelum pengeluaran
-                        $productionQty = \App\Models\ProductionStock::where('product_id', $productId)
-                            ->sum('available_quantity');
+                //         // Hitung qty sebelum pengeluaran
+                //         $productionQty = \App\Models\ProductionStock::where('product_id', $productId)
+                //             ->sum('available_quantity');
 
-                        $previousQty  = max(0, $inventoryStock->inventory_stock + $productionQty);
-                        $previousCost = $inventoryStock->avg_cost;
+                //         $previousQty  = max(0, $inventoryStock->inventory_stock + $productionQty);
+                //         $previousCost = $inventoryStock->avg_cost;
 
-                        // Weighted average seperti di stock in (tapi arah minus)
-                        $inventoryStock->avg_cost = round(
-                            (($previousCost * $previousQty) - ($returnCost * $item['stock_out']))
-                                / max(1, $previousQty - $item['stock_out']),
-                            2
-                        );
-                    }
-                }
+                //         // Weighted average seperti di stock in (tapi arah minus)
+                //         $inventoryStock->avg_cost = round(
+                //             (($previousCost * $previousQty) - ($returnCost * $item['stock_out']))
+                //                 / max(1, $previousQty - $item['stock_out']),
+                //             2
+                //         );
+                //     }
+                // }
 
                 $inventoryStock->decrement('inventory_stock', $item['stock_out']);
-                $inventoryStock->decrement('stock_after_sales', $item['stock_out']);
+
+                if ($inventory->purchase_return_id) {
+                    $inventoryStock->decrement('stock_after_sales', $item['stock_out']);
+                }
+                
                 $inventoryStock->save();
 
                 // === Sinkronkan ke tabel products ===

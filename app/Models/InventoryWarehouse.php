@@ -20,4 +20,9 @@ class InventoryWarehouse extends Model
     {
         return $this->hasMany(InventoryStock::class, 'inventory_warehouse_id');
     }
+
+    public function rejectHistories()
+    {
+        return $this->hasMany(RejectProductHistory::class, 'inventory_warehouse_id');
+    }
 }

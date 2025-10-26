@@ -24,8 +24,7 @@ class DeliveryListController extends Controller
 
     public function dataDeliveryList(Request $request)
     {
-        $deliveryLists = DeliveryList::with(['deliveryOrder', 'items.product'])
-            ->orderByDesc('id');
+        $deliveryLists = DeliveryList::with(['deliveryOrder', 'items.product']);
 
         // 🔎 Filter by date
         if ($request->filter) {
@@ -72,9 +71,7 @@ class DeliveryListController extends Controller
             }
         }
 
-        $deliveryLists = $deliveryLists->latest()->get();
-
-        return DataTables::of($deliveryLists)
+        return DataTables::of($deliveryLists->latest())
             ->addIndexColumn()
             ->addColumn('shipment_number', function ($dl) {
                 $date = Carbon::parse($dl->shipment_date)->format('j M y');
@@ -91,6 +88,15 @@ class DeliveryListController extends Controller
             })
             ->addColumn('vehicle', function ($dl) {
                 return $dl->vehicle ?? '-';
+            })
+            ->addColumn('customer', function ($dl) {
+                return $dl->deliveryOrder->customer ?? '-';
+            })
+            ->addColumn('address', function ($dl) {
+                return '<div class="d-flex flex-column align-items-start">
+                    <div>' . $dl->deliveryOrder->shipping_address . '</div>
+                    <a href="' . $dl->deliveryOrder->google_map_link . '"  target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Maps</a>
+                </div>';
             })
             ->addColumn('status', function ($dl) {
                 $status = strtolower($dl->status);
@@ -145,7 +151,7 @@ class DeliveryListController extends Controller
             ->addColumn('action', function ($dl) {
                 return view('erp.pages.deliveries.delivery-list.partials.action-button', compact('dl'))->render();
             })
-            ->rawColumns(['shipment_number', 'status', 'items', 'action', 'waybill_proof', 'delivery_proof'])
+            ->rawColumns(['shipment_number', 'status', 'address', 'items', 'action', 'waybill_proof', 'delivery_proof'])
             ->make(true);
     }
 
@@ -179,70 +185,6 @@ class DeliveryListController extends Controller
             'drivers' // ✅ kirim ke view
         ));
     }
-
-    // public function store(Request $request, $doId)
-    // {
-    //     $request->validate([
-    //         'shipment_number' => 'required|string|max:255|unique:delivery_lists,shipment_number',
-    //         'shipment_date'   => 'required|date',
-    //         'driver'          => 'required|string|max:255',
-    //         'vehicle'         => 'nullable|string|max:255',
-    //         'note'            => 'nullable|string',
-    //         'items'           => 'required|array',
-    //         'items.*.shipped_quantity' => 'nullable|numeric|min:0',
-    //     ]);
-
-    //     $deliveryOrder = DeliveryOrder::findOrFail($doId);
-
-    //     $deliveryList = DeliveryList::create([
-    //         'delivery_order_id' => $deliveryOrder->id,
-    //         'shipment_number'   => $request->shipment_number,
-    //         'shipment_date'     => $request->shipment_date,
-    //         'driver'            => $request->driver,
-    //         'vehicle'           => $request->vehicle,
-    //         'note'              => $request->note,
-    //         'status'            => 'Ongoing',
-    //     ]);
-
-    //     foreach ($request->items as $item) {
-    //         if (($item['shipped_quantity'] ?? 0) > 0) {
-    //             $deliveryList->items()->create([
-    //                 'delivery_order_item_id' => $item['delivery_order_item_id'],
-    //                 'product_id'             => $item['product_id'],
-    //                 'shipped_quantity'       => $item['shipped_quantity'],
-    //                 'note'                   => $item['note'] ?? null,
-    //             ]);
-
-    //             // ✅ Update DeliveryOrderItem
-    //             $doItem = DeliveryOrderItem::find($item['delivery_order_item_id']);
-    //             if ($doItem) {
-    //                 $newReadyQty   = max(0, $doItem->ready_qty - $item['shipped_quantity']);
-    //                 $newShippedQty = $doItem->shipped_qty + $item['shipped_quantity'];
-
-    //                 $doItem->update([
-    //                     'ready_qty'   => $newReadyQty,
-    //                     'shipped_qty' => $newShippedQty,
-    //                     'status'      => $newShippedQty >= $doItem->progress_qty ? 'Shipped' : $doItem->status,
-    //                 ]);
-    //             }
-
-    //             // ✅ Decrement finished_product_stock di ProductionStock
-    //             $productionStock = ProductionStock::where('product_id', $item['product_id'])->first();
-    //             if ($productionStock) {
-    //                 $productionStock->decrement('finished_product_stock', $item['shipped_quantity']);
-    //             }
-    //         }
-    //     }
-
-    //     // ✅ Kalau semua item DO sudah shipped, update status DO
-    //     $allShipped = $deliveryOrder->items()->where('status', '!=', 'Shipped')->count() === 0;
-    //     if ($allShipped) {
-    //         $deliveryOrder->update(['status' => 'Shipped']);
-    //     }
-
-    //     return redirect('/erp/deliveries/delivery-list')
-    //         ->with('success', "Delivery List {$deliveryList->shipment_number} berhasil dibuat!");
-    // }
 
     public function store(Request $request, $doId)
     {
@@ -312,13 +254,6 @@ class DeliveryListController extends Controller
             ->with('success', "Delivery List {$deliveryList->shipment_number} berhasil dibuat!");
     }
 
-    // public function edit($id)
-    // {
-    //     $deliveryList = DeliveryList::with(['items.deliveryOrderItem.product'])->findOrFail($id);
-
-    //     return view('erp.pages.deliveries.delivery-list.edit-delivery-list', compact('deliveryList'));
-    // }
-
     public function edit($id)
     {
         $deliveryList = DeliveryList::with(['items.deliveryOrderItem.product'])->findOrFail($id);
@@ -330,125 +265,6 @@ class DeliveryListController extends Controller
 
         return view('erp.pages.deliveries.delivery-list.edit-delivery-list', compact('deliveryList', 'drivers'));
     }
-
-    // public function update(Request $request, $id)
-    // {
-    //     $request->validate([
-    //         'shipment_date'   => 'required|date',
-    //         'driver'          => 'required|string|max:255',
-    //         'vehicle'         => 'nullable|string|max:255',
-    //         'note'            => 'nullable|string',
-    //         'items'           => 'required|array',
-    //         'items.*.shipped_quantity' => 'nullable|numeric|min:0',
-    //     ]);
-
-    //     $deliveryList  = DeliveryList::with('items.deliveryOrderItem')->findOrFail($id);
-    //     $deliveryOrder = $deliveryList->deliveryOrder;
-
-    //     // Update header
-    //     $deliveryList->update([
-    //         'shipment_date' => $request->shipment_date,
-    //         'driver'        => $request->driver,
-    //         'vehicle'       => $request->vehicle,
-    //         'note'          => $request->note,
-    //     ]);
-
-    //     // Ambil semua item lama dalam bentuk koleksi keyed by delivery_order_item_id
-    //     $existingItems = $deliveryList->items->keyBy('delivery_order_item_id');
-
-    //     // Loop semua item dari request
-    //     foreach ($request->items as $itemData) {
-    //         $deliveryOrderItemId = $itemData['delivery_order_item_id'];
-    //         $newQty = $itemData['shipped_quantity'] ?? 0;
-
-    //         if ($newQty <= 0) {
-    //             // kalau 0, skip aja
-    //             continue;
-    //         }
-
-    //         /** @var \App\Models\DeliveryListItem|null $existing */
-    //         $existing = $existingItems->get($deliveryOrderItemId);
-    //         $doItem   = DeliveryOrderItem::find($deliveryOrderItemId);
-
-    //         if ($existing) {
-    //             // ✅ update qty lama ke qty baru
-    //             $oldQty = $existing->shipped_quantity;
-
-    //             if ($newQty != $oldQty) {
-    //                 // hitung selisih
-    //                 $diff = $newQty - $oldQty;
-
-    //                 // update DeliveryListItem
-    //                 $existing->update([
-    //                     'shipped_quantity' => $newQty,
-    //                     'note'             => $itemData['note'] ?? null,
-    //                 ]);
-
-    //                 // update DeliveryOrderItem qty sesuai selisih
-    //                 if ($doItem) {
-    //                     $doItem->shipped_qty += $diff;
-    //                     $doItem->ready_qty   = max(0, $doItem->ready_qty - $diff);
-    //                     $doItem->status      = $doItem->shipped_qty >= $doItem->progress_qty ? 'Shipped' : 'Ongoing';
-    //                     $doItem->save();
-    //                 }
-
-    //                 // update ProductionStock
-    //                 $productionStock = ProductionStock::where('product_id', $itemData['product_id'])->first();
-    //                 if ($productionStock) {
-    //                     $productionStock->decrement('finished_product_stock', $diff);
-    //                 }
-    //             }
-    //         } else {
-    //             // ✅ item baru
-    //             $deliveryList->items()->create([
-    //                 'delivery_order_item_id' => $deliveryOrderItemId,
-    //                 'product_id'             => $itemData['product_id'],
-    //                 'shipped_quantity'       => $newQty,
-    //                 'note'                   => $itemData['note'] ?? null,
-    //             ]);
-
-    //             if ($doItem) {
-    //                 $doItem->shipped_qty += $newQty;
-    //                 $doItem->ready_qty   = max(0, $doItem->ready_qty - $newQty);
-    //                 $doItem->status      = $doItem->shipped_qty >= $doItem->progress_qty ? 'Shipped' : 'Ongoing';
-    //                 $doItem->save();
-    //             }
-
-    //             $productionStock = ProductionStock::where('product_id', $itemData['product_id'])->first();
-    //             if ($productionStock) {
-    //                 $productionStock->decrement('finished_product_stock', $newQty);
-    //             }
-    //         }
-    //     }
-
-    //     // 🔁 Cek kalau ada item lama yang gak dikirim lagi → hapus & rollback qty
-    //     $requestIds = collect($request->items)->pluck('delivery_order_item_id');
-    //     $deletedItems = $deliveryList->items->whereNotIn('delivery_order_item_id', $requestIds);
-
-    //     foreach ($deletedItems as $deletedItem) {
-    //         $doItem = $deletedItem->deliveryOrderItem;
-    //         if ($doItem) {
-    //             $doItem->shipped_qty = max(0, $doItem->shipped_qty - $deletedItem->shipped_quantity);
-    //             $doItem->ready_qty   += $deletedItem->shipped_quantity;
-    //             $doItem->status      = $doItem->shipped_qty >= $doItem->progress_qty ? 'Shipped' : 'Ongoing';
-    //             $doItem->save();
-    //         }
-
-    //         $productionStock = ProductionStock::where('product_id', $deletedItem->product_id)->first();
-    //         if ($productionStock) {
-    //             $productionStock->increment('finished_product_stock', $deletedItem->shipped_quantity);
-    //         }
-
-    //         $deletedItem->delete();
-    //     }
-
-    //     // 🔁 Update status DO
-    //     $allShipped = $deliveryOrder->items()->where('status', '!=', 'Shipped')->count() === 0;
-    //     $deliveryOrder->update(['status' => $allShipped ? 'Shipped' : 'Ongoing']);
-
-    //     return redirect('/erp/deliveries/delivery-list')
-    //         ->with('success', "Delivery List {$deliveryList->shipment_number} berhasil diupdate!");
-    // }
 
     public function update(Request $request, $id)
     {

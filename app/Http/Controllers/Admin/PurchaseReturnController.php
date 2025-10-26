@@ -1101,6 +1101,20 @@ class PurchaseReturnController extends Controller
                 $requestProductIds[] = $productId;
                 $touchedProducts[]   = $productId;
 
+                $existingItem = $purchaseReturn->items->firstWhere('product_id', $productId);
+
+                if ($existingItem) {
+                    $invItem = \App\Models\InventoryItem::where('purchase_return_item_id', $existingItem->id)->first();
+
+                    if ($invItem && $qty < $invItem->stock_out) {
+                        DB::rollBack();
+                        return back()->with(
+                            'error',
+                            "Gagal mengupdate Purchase Return {$purchaseReturn->purchase_number}: Quantity untuk produk {$product->name} (" . number_format($qty) . ") tidak boleh lebih kecil dari jumlah stock_out (" . number_format($invItem->stock_out) . ")."
+                        );
+                    }
+                }
+
                 if ($existingItems->has($productId)) {
                     $item = $existingItems[$productId];
                     $item->update([

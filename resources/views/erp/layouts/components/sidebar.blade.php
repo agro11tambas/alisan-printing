@@ -57,6 +57,9 @@
                         @if(Auth::user()->hasSubPermission('defect'))
                         <li class="nxl-item {{ request()->is('adjustment-products/defect-products*') ? 'active' : '' }}"><a class="nxl-link" href="/erp/adjustment-products/defect-products"><span class="">Defect Product</span></a></li>
                         @endif
+                        @if(Auth::user()->hasSubPermission('reject'))
+                        <li class="nxl-item {{ request()->is('adjustment-products/reject-products*') ? 'active' : '' }}"><a class="nxl-link" href="/erp/adjustment-products/reject-products"><span class="">Reject Product</span></a></li>
+                        @endif
                     </ul>
                 </li>
                 @endif
@@ -127,14 +130,14 @@
                         @if (Auth::user()->hasSubPermission('waiting-list'))
                         <li class="nxl-item"><a class="nxl-link {{ request()->is('productions/waiting-list*') ? 'active' : '' }}" href="/erp/productions/waiting-list"><span class="">Waiting List</span></a></li>                            
                         @endif
+                        @if (Auth::user()->hasSubPermission('assign-list'))
+                        <li class="nxl-item"><a class="nxl-link {{ request()->is('productions/waiting-list/assign-list*') ? 'active' : '' }}" href="/erp/productions/waiting-list/assign-list"><span class="">Assign List</span></a></li>
+                        @endif
                         @if (Auth::user()->hasSubPermission('request-stocks'))
                         <li class="nxl-item "><a class="nxl-link {{ request()->is('productions/request-stocks*') ? 'active' : '' }}" href="/erp/productions/material-request"><span class="">Request Stocks</span></a></li>
                         @endif
                         @if (Auth::user()->hasSubPermission('report-items'))
                         <li class="nxl-item"><a class="nxl-link {{ request()->is('productions/report-items*') ? 'active' : '' }}" href="/erp/productions/report-items"><span class="">Report Items</span></a></li>
-                        @endif
-                        @if (Auth::user()->hasSubPermission('canceled-products'))
-                        <li class="nxl-item"><a class="nxl-link {{ request()->is('productions/canceled-products*') ? 'active' : '' }}" href="/erp/productions/canceled-products"><span class="">Canceled Products</span></a></li>
                         @endif
                     </ul>
                 </li>
@@ -147,10 +150,10 @@
                     </a>
                     <ul class="nxl-submenu">
                         @if (Auth::user()->hasSubPermission('delivery-orders'))
-                        <li class="nxl-item "><a class="nxl-link {{ request()->is('deliveries/delivery-orders*') ? 'active' : '' }}" href="/erp/deliveries/delivery-orders"><span class="">Delivery Orders</span></a></li>
+                        <li class="nxl-item "><a class="nxl-link {{ request()->is('deliveries/delivery-orders*') ? 'active' : '' }}" href="/erp/deliveries/delivery-orders"><span class="">Delivery List</span></a></li>
                         @endif
                         @if (Auth::user()->hasSubPermission('delivery-list'))
-                        <li class="nxl-item "><a class="nxl-link {{ request()->is('deliveries/delivery-list*') ? 'active' : '' }}" href="/erp/deliveries/delivery-list"><span class="">Delivery List</span></a></li>
+                        <li class="nxl-item "><a class="nxl-link {{ request()->is('deliveries/delivery-list*') ? 'active' : '' }}" href="/erp/deliveries/delivery-list"><span class="">Delivery Order</span></a></li>
                         @endif
                     </ul>
                 </li>

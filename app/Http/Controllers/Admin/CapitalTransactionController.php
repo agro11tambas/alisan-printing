@@ -66,7 +66,7 @@ class CapitalTransactionController extends Controller
                 return $capitalTransactions->transaction_date;
             })
             ->addColumn('credit', function ($capitalTransactions) {
-                return 'Rp ' . number_format($capitalTransactions->credit);
+                return 'Rp ' . number_format($capitalTransactions->credit, 0, ',', '.');
             })
             ->addColumn('note', function ($capitalTransactions) {
                 return $capitalTransactions->note;

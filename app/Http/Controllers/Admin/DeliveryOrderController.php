@@ -81,8 +81,8 @@ class DeliveryOrderController extends Controller
             ->addColumn('status', function ($do) {
                 $status = strtolower($do->status);
                 switch ($status) {
-                    case 'draft':
-                        $badgeClass = 'bg-soft-dark text-dark';
+                    case 'pending':
+                        $badgeClass = 'bg-soft-warning text-warning';
                         break;
                     case 'finished':
                         $badgeClass = 'bg-soft-primary text-primary';

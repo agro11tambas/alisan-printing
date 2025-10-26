@@ -40,6 +40,7 @@ class PermissionSubItemSeeder extends Seeder
                 ['name' => 'Request Stocks', 'slug' => 'request-stocks'],
                 ['name' => 'Report Items', 'slug' => 'report-items'],
                 ['name' => 'Canceled Products', 'slug' => 'canceled-products'],
+                ['name' => 'Assign List', 'slug' => 'assign-list'],
             ],
 
             // Delivery Module
@@ -78,6 +79,7 @@ class PermissionSubItemSeeder extends Seeder
             'adjustment' => [
                 ['name' => 'Canceled', 'slug' => 'canceled'],
                 ['name' => 'Defect', 'slug' => 'defect'],
+                ['name' => 'Reject', 'slug' => 'reject'],
             ],
         ];
 

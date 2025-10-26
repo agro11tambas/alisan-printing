@@ -98,9 +98,9 @@
                                         <tr>
                                             <td>{{ $no++ }}</td>
                                             <td>{{ $openingStockProduction->product->name }}</td>
-                                            <td>{{ number_format($openingStockProduction->opening_stock) }}
+                                            <td>{{ number_format($openingStockProduction->opening_stock, 0, ',', '.') }}
                                             </td>
-                                            <td>{{ number_format($openingStockProduction->opening_finished_product_stock) }}
+                                            <td>{{ number_format($openingStockProduction->opening_finished_product_stock, 0, ',', '.') }}
                                             </td>
                                         </tr>
                                     @endforeach

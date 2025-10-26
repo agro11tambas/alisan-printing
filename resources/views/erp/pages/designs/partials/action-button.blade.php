@@ -1,6 +1,6 @@
 <div class="dropdown">
     <ul class="dropdown-menu show static-action-menu">
-        @if ($design->status !== 'Verified')
+        @if ($design->status !== 'Verified' && $allUploaded)
             <li>
                 <button type="button" class="dropdown-item btn-verify" data-bs-toggle="modal"
                     data-bs-target="#verifyDesignModal" data-id="{{ $design->id }}"

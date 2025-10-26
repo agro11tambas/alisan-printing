@@ -157,8 +157,9 @@
                                             <div class="input-group">
                                                 <select name="return_type" id="return_type" data-select2-selector="tag"
                                                     class="form-select form-control">
-                                                    <option value="canceled" selected>Dibatalkan (Canceled Product)
+                                                    <option disabled selected hidden value="">Pilih jenis return
                                                     </option>
+                                                    <option value="canceled">Dibatalkan (Canceled Product)</option>
                                                     <option value="defect">Cacat (Defect Product)</option>
                                                 </select>
                                             </div>
@@ -245,9 +246,9 @@
                                         </table>
                                     </div>
                                     <!-- <div class="d-flex justify-content-end gap-2 mt-3">
-                                                            <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
-                                                            <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
-                                                        </div> -->
+                                                                        <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
+                                                                        <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
+                                                                    </div> -->
                                 </div>
                                 <div class="col-lg-12 mt-4">
                                     <div class="row justify-content-end">
@@ -266,15 +267,15 @@
                                                                     id="sub_total" readonly=""></td>
                                                         </tr>
                                                         <!-- <tr class="single-item">
-                                                                        <th class="fs-10 text-dark text-uppercase">Discount</th>
-                                                                        <td class="w-25">
-                                                                            <input type="text" readonly class="form-control border-0 bg-transparent p-0" value="{{ $discount['type'] === 'Percentage' ? $discount['amount'] . '%' : 'Rp' . number_format($discount['amount'], 0, ',', '.') }}">
-                                                                            <input type="hidden" id="discount_type" value="{{ $discount['type'] }}">
-                                                                            <input type="hidden" id="discount_amount_value" value="{{ $discount['amount'] }}">
-                                                                            <input type="hidden" id="discount_condition" value="{{ $discount['condition_type'] }}">
-                                                                            <input type="hidden" id="discount_minimum" value="{{ $discount['minimum_requirement'] }}">
-                                                                        </td>
-                                                                    </tr> -->
+                                                                                    <th class="fs-10 text-dark text-uppercase">Discount</th>
+                                                                                    <td class="w-25">
+                                                                                        <input type="text" readonly class="form-control border-0 bg-transparent p-0" value="{{ $discount['type'] === 'Percentage' ? $discount['amount'] . '%' : 'Rp' . number_format($discount['amount'], 0, ',', '.') }}">
+                                                                                        <input type="hidden" id="discount_type" value="{{ $discount['type'] }}">
+                                                                                        <input type="hidden" id="discount_amount_value" value="{{ $discount['amount'] }}">
+                                                                                        <input type="hidden" id="discount_condition" value="{{ $discount['condition_type'] }}">
+                                                                                        <input type="hidden" id="discount_minimum" value="{{ $discount['minimum_requirement'] }}">
+                                                                                    </td>
+                                                                                </tr> -->
                                                         <tr class="single-item">
                                                             <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
                                                                 Total</th>
@@ -299,13 +300,13 @@
             </div>
         </div>
         <!-- <div class="col-lg-12">
-                                <div class="card stretch stretch-full">
-                                    <div class="card-body p-0">
-                                        <div class="table-responsive">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div> -->
+                                            <div class="card stretch stretch-full">
+                                                <div class="card-body p-0">
+                                                    <div class="table-responsive">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div> -->
     </div>
 @endsection
 
@@ -329,7 +330,7 @@
     <script>
         // === formatter tampilan tanpa desimal ===
         function formatNumber(num) {
-            return new Intl.NumberFormat('en-US', {
+            return new Intl.NumberFormat('id-ID', {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0
             }).format(num);
@@ -431,6 +432,59 @@
             }
         });
 
+        // === showError versi Sale Order ===
+        function showError(el, message) {
+            if ($(el).hasClass('select2-hidden-accessible')) {
+                const select2Container = $(el).next('.select2');
+                select2Container.next('.invalid-feedback').remove();
+
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback d-block';
+                feedback.textContent = message;
+                select2Container[0].after(feedback);
+            } else {
+                el.classList.add('is-invalid');
+                const container = el.closest('.input-group') || el.parentNode;
+                const existing = container.querySelector('.invalid-feedback');
+                if (existing) existing.remove();
+
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback';
+                feedback.textContent = message;
+                feedback.style.display = 'block';
+                container.appendChild(feedback);
+            }
+        }
+
+        // === hapus error saat input berubah ===
+        $(document).on("change input", "#return_type", function() {
+            if ($(this).hasClass("select2-hidden-accessible")) {
+                $(this).next('.select2').next('.invalid-feedback').remove();
+            } else {
+                this.classList.remove("is-invalid");
+                $(this).siblings(".invalid-feedback").remove();
+            }
+        });
+
+        // === validasi di submit ===
+        $('#orderForm').on('submit', function(e) {
+            let isValid = true;
+
+            // reset error
+            this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+            this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+
+            // cek return_type
+            const returnType = $('#return_type');
+            if (!returnType.val()) {
+                isValid = false;
+                showError(returnType[0], "Jenis retur wajib dipilih");
+            }
+
+            if (!isValid) e.preventDefault();
+        });
+
+
         // === ganti produk → set harga ===
         $(document).on('change', 'select[name="product_id[]"]', function() {
             const row = $(this).closest('tr');
@@ -453,12 +507,12 @@
                 return;
             }
 
-            let formatted = new Intl.NumberFormat('en-US').format(raw);
+            let formatted = new Intl.NumberFormat('id-ID').format(raw);
             let numeric = parseFloat(raw);
 
             if (numeric > max) {
                 numeric = max;
-                formatted = new Intl.NumberFormat('en-US').format(max);
+                formatted = new Intl.NumberFormat('id-ID').format(max);
             }
 
             $(this).val(formatted);

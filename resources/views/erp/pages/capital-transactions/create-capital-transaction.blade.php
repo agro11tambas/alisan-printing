@@ -177,13 +177,13 @@
                 n = n.toString().replace(/[^0-9.]/g, ''); // sisakan angka & titik
                 n = n.split('.')[0]; // ambil angka sebelum titik aja
                 if (n === '') return '0';
-                return n.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             // === Normalisasi nilai awal (hindari double-format) ===
             if (creditField && creditField.value) {
-                // kalau dari server udah ada koma, jangan format lagi
-                if (!creditField.value.includes(',')) {
+                // kalau dari server udah ada titik, jangan format lagi
+                if (!creditField.value.includes('.')) {
                     creditField.value = formatNumber(creditField.value);
                 }
             }
@@ -247,8 +247,8 @@
 
                 if (!isValid) return;
 
-                // === Hapus koma sebelum submit ke server ===
-                creditField.value = creditField.value.replace(/,/g, '');
+                // === Hapus titik sebelum submit ke server ===
+                creditField.value = creditField.value.replace(/\./g, '');
 
                 form.submit();
             });

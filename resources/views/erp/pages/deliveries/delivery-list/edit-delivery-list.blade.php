@@ -4,13 +4,13 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Delivery List</h5>
+                <h5 class="m-b-10">Delivery Order</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Deliveries</li>
-                <li class="breadcrumb-item">Delivery List</li>
-                <li class="breadcrumb-item active">Edit Delivery List</li>
+                <li class="breadcrumb-item">Delivery Order</li>
+                <li class="breadcrumb-item active">Edit Delivery Order</li>
             </ul>
         </div>
         <div class="page-header-right ms-auto">
@@ -75,7 +75,7 @@
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label class="fw-semibold">Driver</label>
-                                    <select name="driver_id" class="form-control" required>
+                                    <select name="driver_id" id="driver_id" class="form-control">
                                         <option value="">-- Pilih Driver --</option>
                                         @foreach ($drivers as $driver)
                                             <option value="{{ $driver->id }}"
@@ -141,9 +141,12 @@
                                                 <td><span class="text-danger">{{ $doItem->ready_qty }}</span></td>
                                                 <td><span class="text-success">{{ $alreadyShipped }}</span></td>
                                                 <td>
-                                                    <input type="number" class="form-control"
+                                                    <input type="text" inputmode="numeric" class="form-control"
                                                         name="items[{{ $dlItem->id }}][shipped_quantity]" min="0"
-                                                        max="{{ $maxQty }}" value="{{ $dlItem->shipped_quantity }}">
+                                                        max="{{ $maxQty }}" {{-- ✅ tambahkan ini --}}
+                                                        data-initial="{{ $dlItem->shipped_quantity }}"
+                                                        data-ready="{{ $doItem->ready_qty }}"
+                                                        value="{{ number_format($dlItem->shipped_quantity, 0, ',', '.') }}">
                                                 </td>
                                                 <td>
                                                     <input type="text" class="form-control"
@@ -162,3 +165,119 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function() {
+
+            // === FORMAT ANGKA DENGAN TITIK RIBUAN (INDONESIA STYLE) ===
+            function formatNumberID(value) {
+                return value.replace(/\D/g, '') // hapus semua non-digit
+                    .replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // tambah titik setiap 3 digit
+            }
+
+            // === TOAST WARNING ===
+            function showToast(msg) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'warning',
+                    title: msg,
+                    showConfirmButton: false,
+                    timer: 1500
+                });
+            }
+
+            // === VALIDASI BATAS MAKSIMUM SHIPPED QTY ===
+            $(document).on('input', 'input[name^="items"][name$="[shipped_quantity]"]', function() {
+                const input = $(this);
+                const raw = input.val().replace(/\./g, '');
+                if (raw === '') return;
+
+                let value = parseInt(raw);
+                const max = parseInt(input.attr('max')) || 0;
+
+                // 🔹 Jika lebih dari max → batasi dan tampilkan toast
+                if (value > max) {
+                    value = max;
+                    showToast('Jumlah pengiriman tidak boleh melebihi Ready Qty (' + max.toLocaleString(
+                        'id-ID') + ')');
+                }
+
+                input.val(formatNumberID(value.toString()));
+            });
+
+            // === showError versi FINAL fix untuk Select2 & input biasa ===
+            function showError(el, message) {
+                // pastikan select2 udah terinisialisasi
+                if ($(el).data('select2')) {
+                    const select2Container = $(el).next('.select2');
+                    select2Container.next('.invalid-feedback').remove();
+
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = message;
+
+                    select2Container.after(feedback);
+                    select2Container.find('.select2-selection').css('border-color', '#dc3545'); // merah bootstrap
+                } else {
+                    // input biasa
+                    el.classList.add('is-invalid');
+                    const container = el.closest('.input-group') || el.parentNode;
+                    const existing = container.querySelector('.invalid-feedback');
+                    if (existing) existing.remove();
+
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = message;
+                    container.appendChild(feedback);
+                }
+            }
+
+
+            $(document).on("change input", "#driver_id", function() {
+                if ($(this).hasClass("select2-hidden-accessible")) {
+                    $(this).next('.select2').next('.invalid-feedback').remove();
+                } else {
+                    this.classList.remove("is-invalid");
+                    $(this).siblings(".invalid-feedback").remove();
+                }
+            });
+
+            // === VALIDASI DRIVER WAJIB + HAPUS TITIK ===
+            $('#deliveryListForm').on('submit', function(e) {
+                e.preventDefault();
+
+                let isValid = true;
+
+                // reset semua error
+                this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+
+                // validasi driver
+                const driverSelect = document.querySelector('#driver_id');
+                if (!driverSelect.value) {
+                    isValid = false;
+                    showError(driverSelect, 'Driver wajib dipilih');
+                }
+
+                // hapus titik sebelum submit
+                $('input[name^="items"][name$="[shipped_quantity]"]').each(function() {
+                    $(this).val($(this).val().replace(/\./g, ''));
+                });
+
+                // kirim form kalau valid
+                if (isValid) this.submit();
+            });
+
+            // === OPSIONAL: SAAT FOKUS DAN BLUR ===
+            $(document).on('focus', 'input[name^="items"][name$="[shipped_quantity]"]', function() {
+                if ($(this).val() === '0') $(this).val('');
+            });
+
+            $(document).on('blur', 'input[name^="items"][name$="[shipped_quantity]"]', function() {
+                if ($(this).val().trim() === '') $(this).val('0');
+            });
+        });
+    </script>
+@endpush

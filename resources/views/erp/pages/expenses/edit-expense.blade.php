@@ -172,7 +172,7 @@
                 if (n === '') return '0';
 
                 // Tambahkan koma ribuan
-                return n.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             // === Normalisasi nilai awal dari server ===
@@ -240,8 +240,8 @@
 
                 if (!ok) return;
 
-                // Hapus koma sebelum submit
-                debitField.value = debitField.value.replace(/,/g, '');
+                // Hapus titik sebelum submit
+                debitField.value = debitField.value.replace(/\./g, '');
 
                 form.submit();
             });

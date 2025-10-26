@@ -160,12 +160,13 @@
                                                 <input type="hidden"
                                                     name="items[{{ $index }}][inventory_item_id]"
                                                     value="{{ $item->id }}">
-                                                <input type="text" inputmode="numeric" name="items[{{ $index }}][stock_in]"
-                                                    class="form-control" value="0" min="0"
+                                                <input type="text" inputmode="numeric"
+                                                    name="items[{{ $index }}][stock_in]" class="form-control"
+                                                    value="0" min="0"
                                                     max="{{ $item->quantity - $item->stock_in }}"
                                                     placeholder="Jumlah dikirim">
                                                 <small class="text-muted">Sisa:
-                                                    {{ number_format($item->quantity - $item->stock_in) }}</small>
+                                                    {{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}</small>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -195,7 +196,7 @@
 
             // === FORMAT ANGKA RIBUAN DENGAN KOMA (1,000) ===
             function formatNumber(n) {
-                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             // Hapus 0 otomatis saat fokus
@@ -208,22 +209,37 @@
                 if ($(this).val().trim() === '') $(this).val('0');
             });
 
-            // Format ribuan real-time saat diketik
-            $(document).on('input', 'input[name^="items"][name$="[stock_in]"]', function(e) {
-                const input = e.target;
-                const cursorPos = input.selectionStart;
-                const raw = input.value.replace(/,/g, '');
+            $(document).on('input', 'input[name^="items"][name$="[stock_in]"]', function() {
+                const input = $(this);
+                const raw = input.val().replace(/\./g, '');
                 if (raw === '') return;
-                const formatted = formatNumber(raw);
-                const diff = formatted.length - input.value.length;
-                input.value = formatted;
-                input.setSelectionRange(cursorPos + diff, cursorPos + diff);
+
+                let value = parseInt(raw) || 0;
+                const max = parseInt(input.attr('max')) || 0;
+
+                // kalau lebih dari max → batasi dan munculkan toast
+                if (value > max) {
+                    value = max;
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'warning',
+                        title: 'Jumlah tidak boleh melebihi total sisa (' + max.toLocaleString(
+                            'id-ID') + ')',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                }
+
+                // tampilkan format ribuan langsung
+                input.val(value.toLocaleString('id-ID'));
             });
+
 
             // Hapus koma saat submit
             $('#stockInForm').on('submit', function() {
                 $('input[name^="items"][name$="[stock_in]"]').each(function() {
-                    this.value = this.value.replace(/,/g, '');
+                    this.value = this.value.replace(/\./g, '');
                 });
             });
         });

@@ -124,7 +124,7 @@
                                                     max="{{ $item->quantity - $item->completed_quantity }}"
                                                     placeholder="Jumlah dicetak">
                                                 <small class="text-muted">Sisa:
-                                                    {{ number_format($item->quantity - $item->completed_quantity) }}</small>
+                                                    {{ number_format($item->quantity - $item->completed_quantity, 0, ',', '.') }}</small>
                                             </td>
                                             <td>
                                                 <select name="items[{{ $index }}][operator_id]"
@@ -159,7 +159,7 @@
 
             // === FORMAT ANGKA DENGAN PEMISAH KOMA (1,000) ===
             function formatNumber(n) {
-                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             // === SAAT FOKUS: HAPUS 0 OTOMATIS ===
@@ -180,7 +180,7 @@
             $(document).on('input', 'input[name^="items"][name$="[change_quantity]"]', function(e) {
                 const input = e.target;
                 const cursorPos = input.selectionStart;
-                const raw = input.value.replace(/,/g, '');
+                const raw = input.value.replace(/\./g, '');
                 if (raw === '') return;
 
                 const formatted = formatNumber(raw);
@@ -192,7 +192,7 @@
             // Hapus koma saat submit
             $('#orderForm').on('submit', function() {
                 $('input[name^="items"][name$="[change_quantity]"]').each(function() {
-                    this.value = this.value.replace(/,/g, '');
+                    this.value = this.value.replace(/\./g, '');
                 });
             });
 

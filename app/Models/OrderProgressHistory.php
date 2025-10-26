@@ -17,7 +17,11 @@ class OrderProgressHistory extends Model
     protected $fillable = [
         'order_progress_batch_id',
         'order_progress_item_id',
+        'order_progress_assign_id',
         'change_quantity',
+        'completed_quantity',
+        'defect_quantity',
+        'reject_quantity',
         'operator_id',
         'note'
     ];
@@ -39,5 +43,10 @@ class OrderProgressHistory extends Model
     public function operators()
     {
         return $this->belongsTo(Operator::class, 'operator_id', 'id');
+    }
+
+    public function assign()
+    {
+        return $this->belongsTo(OrderProgressAssign::class, 'order_progress_assign_id');
     }
 }

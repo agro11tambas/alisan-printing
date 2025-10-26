@@ -26,11 +26,12 @@
 <div class="page-header sticky-top">
     <div class="page-header-left d-flex align-items-center">
         <div class="page-header-title">
-            <h5 class="m-b-10">Order</h5>
+            <h5 class="m-b-10">Waiting List</h5>
         </div>
         <ul class="breadcrumb">
             <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
-            <li class="breadcrumb-item">Order</li>
+            <li class="breadcrumb-item">Production</li>
+            <li class="breadcrumb-item">Waiting List</li>
         </ul>
     </div>
 </div>
@@ -120,7 +121,7 @@
                                 <tr>
                                     <th class="wd-30">No</th>
                                     <th>Order Number</th>
-                                    <th>Order Date</th>
+                                    {{-- <th>Order Date</th> --}}
                                     <th>Customer</th>
                                     <th>Progress</th>
                                     <!-- <th class="text-end">Actions</th> -->
@@ -225,10 +226,10 @@
                     data: 'invoice_number',
                     name: 'invoice_number'
                 },
-                {
-                    data: 'date',
-                    name: 'date'
-                },
+                // {
+                //     data: 'date',
+                //     name: 'date'
+                // },
                 {
                     data: 'customer',
                     name: 'customer'

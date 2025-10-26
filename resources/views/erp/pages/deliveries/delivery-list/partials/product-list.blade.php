@@ -19,7 +19,7 @@
                     <span>{{ $item->deliveryOrderItem?->quantity ?? 0 }}</span>
                 </td> -->
                 <td>
-                    <span class="fw-bold text-success">{{ number_format($item->shipped_quantity) }}</span>
+                    <span class="fw-bold text-success">{{ number_format($item->shipped_quantity, 0, ',', '.') }}</span>
                 </td>
             </tr>
             @endforeach

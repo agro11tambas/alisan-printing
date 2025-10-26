@@ -22,6 +22,7 @@ class Inventory extends Model
         'material_request_id',
         'production_stock_id',
         'canceled_product_id',
+        'reject_product_id',
         'material_receipt_id',
         'purchase_number',
         'order_number',
@@ -89,5 +90,10 @@ class Inventory extends Model
     public function canceledProduct()
     {
         return $this->belongsTo(CanceledProduct::class, 'canceled_product_id');
+    }
+
+    public function rejectProduct()
+    {
+        return $this->belongsTo(RejectProduct::class, 'reject_product_id');
     }
 }

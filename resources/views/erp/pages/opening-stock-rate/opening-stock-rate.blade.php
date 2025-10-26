@@ -99,9 +99,9 @@
                                         <tr>
                                             <td>{{ $no++ }}</td>
                                             <td>{{ $openingStockRate->product ? $openingStockRate->product->name : '-' }}</td>
-                                            <td>{{ number_format($openingStockRate->opening_stock) }}</td>
-                                            <td>{{ number_format($openingStockRate->opening_rate, 2) }}</td>
-                                            <td>{{ number_format($openingStockRate->minimum_stock) }}</td>
+                                            <td>{{ number_format($openingStockRate->opening_stock, 0, ',', '.') }}</td>
+                                            <td>{{ number_format($openingStockRate->opening_rate, 2, ',', '.') }}</td>
+                                            <td>{{ number_format($openingStockRate->minimum_stock, 0, ',', '.') }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>

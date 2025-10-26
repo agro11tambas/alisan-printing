@@ -172,7 +172,7 @@
 
             // === FORMAT ANGKA DENGAN PEMISAH KOMA (1,000) ===
             function formatNumber(n) {
-                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             const debitField = document.getElementById('debit');
@@ -190,7 +190,7 @@
             // Format ribuan realtime
             debitField.addEventListener('input', function(e) {
                 const cursorPos = this.selectionStart;
-                const raw = this.value.replace(/,/g, '');
+                const raw = this.value.replace(/\./g, '');
                 if (raw === '') return;
                 const formatted = formatNumber(raw);
                 const diff = formatted.length - this.value.length;
@@ -241,8 +241,8 @@
 
                 if (!isValid) return; // stop submit
 
-                // === Hapus koma sebelum kirim ke Laravel ===
-                debitField.value = debitField.value.replace(/,/g, '');
+                // === Hapus titik sebelum kirim ke Laravel ===
+                debitField.value = debitField.value.replace(/\./g, '');
 
                 // Submit form beneran
                 form.submit();

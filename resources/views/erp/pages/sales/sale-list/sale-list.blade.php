@@ -928,7 +928,7 @@
 
             if (!transactionDate) {
                 document.getElementById('error_return_transaction_date').innerText =
-                'Tanggal transaksi wajib diisi';
+                    'Tanggal transaksi wajib diisi';
                 document.getElementById('error_return_transaction_date').classList.remove('d-none');
                 valid = false;
             }
