@@ -42,10 +42,21 @@ class ProductionStock extends Model
         return $this->hasMany(CanceledProduct::class, 'production_stock_id');
     }
 
+    public function designItems()
+    {
+        return $this->hasMany(DesignItem::class, 'product_id', 'product_id');
+    }
+
     public function getRemainingQuantityAttribute()
     {
-        return $this->orderProgressItems()
-            ->select(DB::raw('COALESCE(SUM(quantity - completed_quantity), 0) as remaining'))
-            ->value('remaining') ?? 0;
+        $totalDesignQty = $this->designItems()
+            ->select(DB::raw('COALESCE(SUM(quantity), 0) as total'))
+            ->value('total') ?? 0;
+
+        $totalCompletedQty = $this->orderProgressItems()
+            ->select(DB::raw('COALESCE(SUM(completed_quantity), 0) as total'))
+            ->value('total') ?? 0;
+
+        return max($totalDesignQty - $totalCompletedQty, 0);
     }
 }

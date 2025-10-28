@@ -38,7 +38,7 @@
                 <div class="card-body">
                     @forelse($transactions as $groupId => $trxGroup)
                     @php
-                    // untuk refund (uang kembali dari supplier), ambil DEBIT (Cash/Bank masuk)
+                   
                     $debitGroup = $trxGroup->where('debit', '>', 0);
                     @endphp
 

@@ -1,19 +1,16 @@
-<!--! [Start] Navigation Manu !-->
-<!--! ================================================================ !-->
 <nav class="nxl-navigation">
     <div class="navbar-wrapper">
         <div class="m-header">
             <a href="index.html" class="b-brand">
-                <!-- ========   change your logo hear   ============ -->
                 <img src="#" alt="" class="logo logo-lg">
                 <img src="#" alt="" class="logo logo-sm">
             </a>
         </div>
         <div class="navbar-content">
             <ul class="nxl-navbar">
-                <!-- <li class="nxl-item nxl-caption">
+                <li class="nxl-item nxl-caption">
                     <label>Navigation</label>
-                </li> -->
+                </li>
                 @if(Auth::check() && Auth::user()->hasPermission('dashboard'))
                 <li class="nxl-item nxl-hasmenu">
                     <a href="/erp/dashboard" class="nxl-link {{ request()->is('/erp/dashboard') ? 'active' : '' }}">
@@ -52,13 +49,13 @@
                     </a>
                     <ul class="nxl-submenu">
                         @if (Auth::user()->hasSubPermission('canceled'))
-                        <li class="nxl-item {{ request()->is('adjustment-products/canceled-products*') ? 'active' : '' }}"><a class="nxl-link" href="/erp/adjustment-products/canceled-products"><span class="">Canceled Product</span></a></li>
+                        <li class="nxl-item {{ request()->is('adjustment-products/canceled-products*') ? 'active' : '' }}"><a class="nxl-link" href="/erp/adjustment-products/canceled-products"><span class="">Recoverable Product</span></a></li>
                         @endif
                         @if(Auth::user()->hasSubPermission('defect'))
                         <li class="nxl-item {{ request()->is('adjustment-products/defect-products*') ? 'active' : '' }}"><a class="nxl-link" href="/erp/adjustment-products/defect-products"><span class="">Defect Product</span></a></li>
                         @endif
                         @if(Auth::user()->hasSubPermission('reject'))
-                        <li class="nxl-item {{ request()->is('adjustment-products/reject-products*') ? 'active' : '' }}"><a class="nxl-link" href="/erp/adjustment-products/reject-products"><span class="">Reject Product</span></a></li>
+                        <li class="nxl-item {{ request()->is('adjustment-products/reject-products*') ? 'active' : '' }}"><a class="nxl-link" href="/erp/adjustment-products/reject-products"><span class="">QC Reject Product</span></a></li>
                         @endif
                     </ul>
                 </li>
@@ -79,16 +76,16 @@
                     </a>
                     <ul class="nxl-submenu">
                         @if (Auth::user()->hasSubPermission('opening-stock-rate'))
-                        <li class="nxl-item "><a class="nxl-link" href="/erp/opening-stock-rate">Opening Stock & Rate</a></li>
-                        @endif
-                        @if (Auth::user()->hasSubPermission('opening-stock-production'))
-                        <li class="nxl-item"><a class="nxl-link {{ request()->is('productions/opening-stock*') ? 'active' : '' }}" href="/erp/productions/opening-stock">Opening Stock Production</a></li>
+                        <li class="nxl-item"><a class="nxl-link" href="/erp/opening-stock">Opening Stock & Rate</a></li>
                         @endif
                         @if (Auth::user()->hasSubPermission('stock-opname'))                            
-                        <li class="nxl-item"><a class="nxl-link" href="/erp/inventory/stock-opname">Stock Opname</a></li>
+                        <li class="nxl-item"><a class="nxl-link" href="/erp/inventory/stock-opname">Stock Opname Warehouse</a></li>
                         @endif
                         @if (Auth::user()->hasSubPermission('stock-opname-production'))
                         <li class="nxl-item"><a class="nxl-link" href="/erp/productions/stock-opname">Stock Opname Production</a></li>
+                        @endif
+                        @if (Auth::user()->hasSubPermission('inventory-report-items'))
+                        <li class="nxl-item"><a class="nxl-link" href="/erp/report-items">Report Items</a></li>
                         @endif
                     </ul>
                 </li>
@@ -309,6 +306,3 @@
         </div>
     </div>
 </nav>
-<!--! ================================================================ !-->
-<!--! [End]  Navigation Manu !-->
-<!--! ================================================================ !-->

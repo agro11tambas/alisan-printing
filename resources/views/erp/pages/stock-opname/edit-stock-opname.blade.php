@@ -48,7 +48,6 @@
                         <div class="card-body">
                             <input type="hidden" name="inventory_warehouse_id" value="1">
 
-                            {{-- PRODUCT --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="product" class="fw-semibold">Product:</label>
@@ -66,7 +65,6 @@
                                 </div>
                             </div>
 
-                            {{-- DATE --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="date" class="fw-semibold">Date:</label>
@@ -80,7 +78,6 @@
                                 </div>
                             </div>
 
-                            {{-- QUANTITY --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="quantity" class="fw-semibold">Quantity:</label>
@@ -96,7 +93,6 @@
                                 </div>
                             </div>
 
-                            {{-- STATUS --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="status" class="fw-semibold">Status:</label>
@@ -111,7 +107,6 @@
                                 </div>
                             </div>
 
-                            {{-- NOTES --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="notes" class="fw-semibold">Notes:</label>
@@ -135,7 +130,6 @@
 
 @push('scripts')
     <script>
-        // === Helper: Format & Parse Angka ===
         const formatID = new Intl.NumberFormat('id-ID');
 
         function formatNumberInput(el) {
@@ -147,7 +141,6 @@
             return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        // === INIT SELECT2 ===
         function initSelect2(el) {
             $(el).select2({
                 width: '100%',
@@ -160,18 +153,15 @@
             initSelect2('#product');
             initSelect2('#status');
 
-            // === Format angka realtime ===
             $(document).on('input', '#quantity', function() {
                 formatNumberInput(this);
             });
 
-            // === Hapus titik sebelum submit ===
             $('#stockOpnameForm').on('submit', function(e) {
                 const qty = document.getElementById('quantity');
                 qty.value = parseNumberValue(qty.value);
             });
 
-            // Autofocus search saat Select2 dibuka
             $(document).on('select2:open', () => {
                 setTimeout(() => {
                     document.querySelector('.select2-container--open .select2-search__field')
@@ -180,14 +170,12 @@
             });
         });
 
-        // === VALIDASI FRONTEND ===
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('stockOpnameForm');
 
             form.addEventListener('submit', function(e) {
                 let isValid = true;
 
-                // hapus error lama
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 

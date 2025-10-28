@@ -58,13 +58,11 @@
                     @csrf
                     @method('POST')
 
-                    {{-- === HEADER === --}}
                     <div class="card">
                         <div class="card-header">
                             <h4 class="card-title">Invoice Number : <span>{{ $progress->order_number }}</span></h4>
                         </div>
                         <div class="card-body">
-                            {{-- form fields seperti sebelumnya --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="change_date" class="fw-semibold">Change Date:</label>
@@ -86,7 +84,6 @@
                         </div>
                     </div>
 
-                    {{-- === TABLE PROGRESS === --}}
                     <div class="card">
                         <div class="card-header">
                             <h4 class="card-title">Add Progress</h4>
@@ -157,26 +154,22 @@
     <script>
         $(document).ready(function() {
 
-            // === FORMAT ANGKA DENGAN PEMISAH KOMA (1,000) ===
             function formatNumber(n) {
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === SAAT FOKUS: HAPUS 0 OTOMATIS ===
             $(document).on('focus', 'input[name^="items"][name$="[change_quantity]"]', function() {
                 if ($(this).val() === '0') {
                     $(this).val('');
                 }
             });
 
-            // === SAAT KELUAR: KEMBALIKAN 0 JIKA KOSONG ===
             $(document).on('blur', 'input[name^="items"][name$="[change_quantity]"]', function() {
                 if ($(this).val().trim() === '') {
                     $(this).val('0');
                 }
             });
 
-            // Reformat angka saat user mengetik
             $(document).on('input', 'input[name^="items"][name$="[change_quantity]"]', function(e) {
                 const input = e.target;
                 const cursorPos = input.selectionStart;
@@ -189,14 +182,12 @@
                 input.setSelectionRange(cursorPos + diff, cursorPos + diff);
             });
 
-            // Hapus koma saat submit
             $('#orderForm').on('submit', function() {
                 $('input[name^="items"][name$="[change_quantity]"]').each(function() {
                     this.value = this.value.replace(/\./g, '');
                 });
             });
 
-            // === VALIDASI & SUBMIT ===
             $('#btnSubmitForm').on('click', function(e) {
                 e.preventDefault();
 
@@ -212,7 +203,6 @@
 
                 if (!isValid) return;
 
-                // kirim form normal (biar method POST kepanggil)
                 $('#orderForm').trigger('submit');
             });
         });

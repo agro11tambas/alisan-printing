@@ -157,11 +157,10 @@
                                     href="#deleted-purchase-list" role="tab">Deleted Purchase List</a>
                             </li>
                         </ul>
-                        <div class="table-responsive">
-                            <!-- <table class="table table-hover" id="purchaseListTable"></table> -->
+                        <div class="table-responsive">                            
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="purchase-list" role="tabpanel">
-                                    <table class="table bg-transparent table-hover bg-transparent" id="purchaseListTable">
+                                    <table class="table table-hover bg-transparent" id="purchaseListTable">
                                         <thead>
                                             <tr>
                                                 <th></th>
@@ -235,9 +234,6 @@
         </div>
     </div>
 
-    <!-- ========================= -->
-    <!-- MARK AS PAID (PRODUCT) -->
-    <!-- ========================= -->
     <div class="modal fade-scale" id="modalChangeStatusProduct" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -329,9 +325,6 @@
         </div>
     </div>
 
-    <!-- ========================= -->
-    <!-- MARK AS PAID (FREIGHT) -->
-    <!-- ========================= -->
     <div class="modal fade-scale" id="modalChangeStatusFreight" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -474,7 +467,6 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // 🔹 Render child row berisi produk
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
@@ -517,7 +509,6 @@
                 return html;
             }
 
-            // 🔹 Init DataTables
             const dataTable = $('#purchaseListTable').DataTable({
                 processing: true,
                 serverSide: true,
@@ -601,7 +592,6 @@
                                     className: 'dt-control text-center',
                                     orderable: false,
                                     data: null,
-                                    // boleh kosong, penting ada kolomnya
                                     defaultContent: '',
                                     width: "20px"
                                 },
@@ -633,7 +623,6 @@
                             ]
                         });
 
-                        // 👇 Pindahkan event handler ke sini biar binding setelah tabel ada
                         $('#deletedPurchaseListTable tbody').on('click', 'td.dt-control', function() {
                             let tr = $(this).closest('tr');
                             let row = deletedTable.row(tr);
@@ -652,19 +641,16 @@
                 }
             });
 
-            // Expand/collapse child row khusus kolom "dt-control"
             $('#purchaseListTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
                 let icon = $(this).find('i');
 
                 if (row.child.isShown()) {
-                    // Tutup
                     row.child.hide();
                     tr.removeClass('shown');
                     icon.removeClass('feather-minus').addClass('feather-plus');
                 } else {
-                    // Buka child row isi produk
                     row.child(formatProducts(row.data().products)).show();
                     tr.addClass('shown');
                     icon.removeClass('feather-plus').addClass('feather-minus');
@@ -672,12 +658,11 @@
             });
 
             $('#purchaseListTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+                if ($(e.target).closest('td.dt-control').length) return
 
                 let $tr = $(this);
                 let row = dataTable.row($tr);
 
-                // tutup semua dulu
                 $('#purchaseListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
@@ -685,8 +670,7 @@
                 } else {
                     let actionHtml = row.data().action;
 
-                    // bikin baris tambahan di bawahnya (full colspan)
-                    let colCount = $tr.find('td').length; // total kolom yg ada
+                    let colCount = $tr.find('td').length;
                     let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -719,14 +703,11 @@
             });
 
             $(document).on('click', function(e) {
-                // kalau kliknya di dalam tabel, abaikan
                 if ($(e.target).closest('#purchaseListTable').length) return;
 
-                // tutup semua action-row
                 $('#purchaseListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // 🔹 Filter by date
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -740,7 +721,6 @@
                 dataTable.ajax.reload();
             });
 
-            // 🔹 Filter by type
             $('#search_type').on('change', function() {
                 const selected = $(this).val();
 
@@ -751,7 +731,7 @@
                 } else if (selected === 'due_date') {
                     $('#search_keyword').addClass('d-none').val('');
                     $('#search_payment_status').addClass('d-none').val('');
-                    $('#due_date_order').removeClass('d-none'); // 🔹 tampilkan ASC/DESC
+                    $('#due_date_order').removeClass('d-none');
                 } else {
                     $('#search_keyword').removeClass('d-none');
                     $('#search_payment_status').addClass('d-none').val('');
@@ -763,7 +743,7 @@
 
             $('#due_date_order').on('change', function() {
                 if ($('#search_type').val() === 'due_date') {
-                    dataTable.ajax.reload(); // atau dataTable.ajax.reload(null, false);
+                    dataTable.ajax.reload();
                 }
             });
 
@@ -797,9 +777,6 @@
         });
 
         document.addEventListener('click', function(e) {
-            // =============================
-            // MARK AS PAID — PRODUCT
-            // =============================
             if (e.target.closest('.btn-mark-paid-product')) {
                 const btn = e.target.closest('.btn-mark-paid-product');
 
@@ -820,10 +797,7 @@
                 const paidDisplay = document.getElementById('paid_amount_display_product');
                 if (paidDisplay) paidDisplay.innerText = 'Paid: Rp. ' + fmt.format(paidAmount);
             }
-
-            // =============================
-            // MARK AS PAID — FREIGHT
-            // =============================
+            
             if (e.target.closest('.btn-mark-paid-freight')) {
                 const btn = e.target.closest('.btn-mark-paid-freight');
 
@@ -847,34 +821,27 @@
 
         });
 
-        // Format otomatis ke rupiah
         // const paidInput = document.getElementById("paid_amount");
         // paidInput.addEventListener("input", function() {
         //     let angka = this.value.replace(/\D/g, "") || "0";
         //     this.value = new Intl.NumberFormat('id-ID').format(angka);
         // });
 
-        // PRODUCT
         const paidInputProduct = document.getElementById("paid_amount_product");
         paidInputProduct.addEventListener("input", function() {
             let angka = this.value.replace(/\D/g, "") || "0";
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
 
-        // FREIGHT
         const paidInputFreight = document.getElementById("paid_amount_freight");
         paidInputFreight.addEventListener("input", function() {
             let angka = this.value.replace(/\D/g, "") || "0";
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
 
-        // ===================================================
-        // MARK AS PAID (PRODUCT)
-        // ===================================================
         document.getElementById('markAsPurchaseFormProduct').addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Reset semua error text
             document.querySelectorAll('#markAsPurchaseFormProduct small.text-danger').forEach(el => {
                 el.classList.add('d-none');
                 el.innerText = '';
@@ -886,16 +853,13 @@
             const transactionDate = document.getElementById('transaction_date_product')?.value.trim() || '';
             const cashBankAccount = document.getElementById('cash_bank_account_id_product')?.value.trim() || '';
 
-            // ambil angka asli (hapus titik)
             const paidAmountRaw = document.getElementById('paid_amount_product')?.value.trim() || '0';
             const paidAmount = paidAmountRaw.replace(/\./g, "");
 
-            // ambil balance (remaining) dari tampilan
             const remainingRaw = document.getElementById('total_amount_display_product')?.innerText.trim().replace(
                 /\./g, "") || '0';
             const remainingAmount = parseInt(remainingRaw) || 0;
 
-            // 🔻 Validasi
             if (!transactionType) {
                 const el = document.getElementById('error_transaction_type_product');
                 if (el) {
@@ -941,20 +905,14 @@
 
             if (!valid) {
                 console.log('❌ Form invalid, tidak disubmit');
-                return false; // <--- pastikan STOP DI SINI
+                return false;
             }
 
-            // Bersihkan titik sebelum submit
             document.getElementById('paid_amount_product').value = paidAmount;
 
-            // 🚀 submit form normal ke Laravel
             this.submit();
         });
 
-
-        // ===================================================
-        // MARK AS PAID (FREIGHT)
-        // ===================================================
         document.getElementById('markAsPurchaseFormFreight').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -1026,9 +984,6 @@
             this.submit();
         });
 
-        // ===================================================
-        // FORMAT RUPIAH DISPLAY
-        // ===================================================
         ['product', 'freight'].forEach(type => {
             const input = document.getElementById(`paid_amount_${type}`);
             const display = document.getElementById(`paid_amount_display_${type}`);
@@ -1039,7 +994,6 @@
             });
         });
 
-        // Saat submit, kirim value polos
         // document.querySelector("form").addEventListener("submit", function() {
         //     paidInput.value = paidInput.value.replace(/\./g, "");
         // });

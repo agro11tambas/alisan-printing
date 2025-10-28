@@ -105,7 +105,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <!--  -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customers" class="fw-semibold">Customer:</label>
@@ -221,7 +220,6 @@
                                                 @foreach ($order->orderItems as $index => $item)
                                                     <tr id="addr{{ $index }}">
                                                         <td>{{ $index + 1 }}</td>
-                                                        {{-- Product --}}
                                                         <td>
                                                             <select class="form-control select-product" name="product[]"
                                                                 id="product_{{ $index }}"
@@ -250,17 +248,20 @@
                                                                 @endforeach
                                                             </select>
                                                         </td>
-                                                        <!-- <td>
-                                                        </td> -->
                                                         <input type="hidden" class="form-control product-type"
                                                             name="product_type[]" id="product_type_{{ $index }}"
                                                             value="{{ $item->satuan }}" readonly>
-                                                        <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty"
-                                                                id="qty_{{ $index }}" min="1"
-                                                                value="{{ number_format($item->quantity, 0, ',', '.') }}"></td>
+                                                        <td><input type="text" inputmode="numeric" name="qty[]"
+                                                                class="form-control qty" id="qty_{{ $index }}"
+                                                                min="1"
+                                                                value="{{ number_format($item->quantity, 0, ',', '.') }}">
+                                                        </td>
                                                         <td>
+                                                            @php
+                                                                $isOwner = Auth::user()->role === 'Owner';
+                                                            @endphp
                                                             <input type="text"
-                                                                class="form-control price_before_discount_display" readonly
+                                                                class="form-control price_before_discount_display" @if(!$isOwner) readonly @endif
                                                                 value="{{ number_format($item->price, 2, ',', '.') }}">
                                                             <input type="hidden" name="price_before_discount[]"
                                                                 class="price_before_discount"
@@ -283,8 +284,6 @@
                                                                 </button>
                                                             </div>
                                                         </td>
-
-                                                        {{-- Hidden fields --}}
                                                         <input type="hidden" name="price_after_discount[]"
                                                             class="form-control price_after_discount"
                                                             id="price_after_discount_{{ $index }}"
@@ -378,12 +377,10 @@
                 ];
             }),
         ); ?>;
-    </script>
-    <script>
+
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
 
-        // Satukan jadi satu array dengan penanda type
         const allProducts = [
             ...products.map(p => ({
                 ...p,
@@ -423,7 +420,6 @@
             }).format(num);
         }
 
-        // Hitung diskon per baris
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
             const basePrice = parseFloat(selectedOption.data('price')) || 0;
@@ -456,7 +452,8 @@
                         const opt = $(el).find('option:selected');
                         const cats = opt.data('categories') || [];
                         const price = parseFloat(opt.data('price')) || 0;
-                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g, '')) || 0;
+                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
+                            '')) || 0;
 
                         if (cats.some(c => c.id === discount.category_id)) {
                             totalQtyCategory += qtyVal;
@@ -520,7 +517,6 @@
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
 
-        // Set product type otomatis & hitung ulang
         function updateRowTypeAndPrice(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
             if (!selectedOption.length) return;
@@ -549,7 +545,6 @@
 
             let rowCount = document.querySelectorAll('#tab_logic tbody tr').length;
 
-            // Tambah row baru
             $('#add_row').on('click', function() {
                 const tableBody = $('#tab_logic tbody');
                 const newRow = $(`
@@ -581,11 +576,9 @@
                 rowCount++;
             });
 
-            // Hapus row per baris
             $(document).on('click', '.delete-row', function() {
                 $(this).closest('tr').remove();
 
-                // Re-index nomor urut
                 $('#tab_logic tbody tr').each(function(i, el) {
                     $(el).find('td:first').text(i + 1);
                 });
@@ -594,19 +587,16 @@
                 recalcAllRows();
             });
 
-            // Event change product
             $(document).on('change', 'select[name="product[]"]', function() {
                 const row = $(this).closest('tr');
                 updateRowTypeAndPrice(row);
                 recalcAllRows();
             });
 
-            // Event input qty
             $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
         });
 
         $(document).ready(function() {
-            // Inisialisasi data alamat berdasarkan customer yang sudah dipilih
             const initialCustomerId = $('#customers').val();
             if (initialCustomerId) {
                 updateAddresses(initialCustomerId);
@@ -656,25 +646,19 @@
             }
         });
 
-        // Fungsi tampilkan error bootstrap
         function showError(element, message) {
-            // Hapus pesan error lama
             $(element).next(".invalid-feedback").remove();
 
-            // Tambah pesan error baru
             $(element).after(`<div class="invalid-feedback">${message}</div>`);
 
-            // Tambahkan kelas is-invalid
             $(element).addClass("is-invalid");
         }
 
-        // Hapus error kalau user pilih sesuatu
         $("#customers, #addresses, #edit_note").on("change", function() {
             $(this).removeClass("is-invalid");
             $(this).next(".invalid-feedback").remove();
         });
 
-        // Validasi saat submit form
         $("form").on("submit", function(e) {
             let valid = true;
 
@@ -694,7 +678,7 @@
             }
 
             if (!valid) {
-                e.preventDefault(); // stop submit
+                e.preventDefault();
             }
         });
 
@@ -702,7 +686,6 @@
             const optionEl = document.getElementById('due_date_option');
             const dateInput = document.getElementById('custom_due_date');
 
-            // ambil due_date dari blade
             const savedDate = dateInput.value ? new Date(dateInput.value) : null;
             const today = new Date();
             let defaultOption = 'custom';
@@ -765,7 +748,6 @@
 
             optionEl.addEventListener('change', updateDueDate);
 
-            // jalankan sekali di awal untuk sync readonly / value
             updateDueDate();
         });
 
@@ -776,17 +758,13 @@
         });
 
         $(document).on('input', 'input[name="qty[]"]', function(e) {
-            // Hapus semua non-digit
             let rawValue = $(this).val().replace(/\D/g, '');
 
-            // Format dengan titik ribuan (locale Indonesia)
             let formatted = new Intl.NumberFormat('id-ID').format(rawValue);
 
-            // Tampilkan format di input
             $(this).val(formatted);
         });
 
-        // Saat form disubmit, hapus titik agar backend terima angka murni
         $('#orderForm').on('submit', function() {
             $('input[name="qty[]"]').each(function() {
                 const raw = $(this).val().replace(/\./g, '');

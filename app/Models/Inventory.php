@@ -26,6 +26,7 @@ class Inventory extends Model
         'material_receipt_id',
         'purchase_number',
         'order_number',
+        'material_request_number',
         'date',
         'waybill_number',
         'waybill_image',

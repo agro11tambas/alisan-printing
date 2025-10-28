@@ -128,7 +128,6 @@
         aria-hidden="true" data-bs-dismiss="ou">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
-                <!--! BEGIN: [modal-header] !-->
                 <div class="modal-header">
                     <h2 class="d-flex flex-column mb-0">
                         <span class="fs-18 fw-bold mb-1">Return to Warehouse</span>
@@ -138,7 +137,6 @@
                         <i class="feather-x text-danger"></i>
                     </a>
                 </div>
-                <!--! BEGIN: [modal-body] !-->
                 <form method="POST" id="markAsSaleForm">
                     @csrf
                     <input type="hidden" id="canceled_product_id" name="canceled_product_id">
@@ -231,12 +229,10 @@
                 ]
             });
 
-            // 🔥 Reload DataTables ketika dropdown status berubah
             $('#progress_status').on('change', function() {
                 dataTable.ajax.reload();
             });
 
-            // === (kode expand row tetap sama seperti sebelumnya) ===
             $('#canceledDetailTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 

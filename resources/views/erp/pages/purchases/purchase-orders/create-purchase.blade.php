@@ -71,7 +71,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <!--  -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="suppliers" class="fw-semibold">Supplier:</label>
@@ -180,7 +179,6 @@
 
 @push('scripts')
     <script>
-        // === INIT SELECT2 ===
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih opsi',
@@ -192,7 +190,6 @@
             });
         }
 
-        // === FORMAT & UNFORMAT ANGKA ===
         function formatRibuan(num) {
             if (num === null || num === undefined || num === '') return '';
             num = num.toString().replace(/\D/g, '');
@@ -204,7 +201,6 @@
             return parseFloat(str.toString().replace(/\./g, '')) || 0;
         }
 
-        // === tampilkan error di bawah field (fix untuk Select2 & input biasa) ===
         function showError(el, message) {
             const $el = $(el);
             if ($el.hasClass('select2-hidden-accessible')) {
@@ -224,7 +220,6 @@
             }
         }
 
-        // === HAPUS ERROR SAAT USER EDIT FIELD ===
         $(document).on("change input",
             "#purchase_date, #suppliers, select[name='product[]'], input[name='qty[]']",
             function() {
@@ -237,18 +232,15 @@
             }
         );
 
-        // === PAGE READY ===
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
-            // === Format Qty saat user ketik ===
             $(document).on('input', '.qty', function() {
                 const val = $(this).val().replace(/\D/g, '');
                 $(this).val(formatRibuan(val));
             });
 
-            // === Tambah row ===
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
                 const $newRow = $tbody.find('tr:first').clone();
@@ -264,18 +256,15 @@
                 initSelect2($newRow.find('.select-product'));
             });
 
-            // === Hapus row ===
             $(document).on('click', '.delete-row', function() {
                 if ($('#tab_logic tbody tr').length > 1) {
                     $(this).closest('tr').remove();
                 }
             });
 
-            // === VALIDASI SEBELUM SUBMIT ===
             $('#purchaseForm').on('submit', function(e) {
                 let isValid = true;
 
-                // reset error lama
                 $(this).find('.is-invalid').removeClass('is-invalid');
                 $(this).find('.invalid-feedback').remove();
 
@@ -291,7 +280,6 @@
                     showError(supplier[0], 'Supplier wajib dipilih');
                 }
 
-                // validasi tabel produk
                 $('#tab_logic tbody tr').each(function() {
                     const product = $(this).find('select[name="product[]"]');
                     const qty = $(this).find('input[name="qty[]"]');
@@ -307,7 +295,6 @@
                     }
                 });
 
-                // ubah format ribuan jadi angka murni sebelum submit
                 $('.qty').each(function() {
                     $(this).val(unformatRibuan($(this).val()));
                 });

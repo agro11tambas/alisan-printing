@@ -25,10 +25,8 @@ class DesignController extends Controller
 
     public function dataDesign(Request $request)
     {
-        $designs = Design::with(['order.customer', 'items.product'])
-            ->latest();
+        $designs = Design::with(['order.customer', 'items.product']);
 
-        // === Filter tanggal ===
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -56,12 +54,10 @@ class DesignController extends Controller
                     }
                     break;
                 default:
-                    // all time
                     break;
             }
         }
 
-        // === Filter pencarian ===
         if ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
                 $designs->whereHas('order.customer', function ($q) use ($request) {
@@ -72,12 +68,11 @@ class DesignController extends Controller
             }
         }
 
-        // === Filter status ===
         if ($request->filled('status')) {
             $designs->where('status', $request->status);
         }
 
-        $designs = $designs->get();
+        $designs = $designs->latest();
 
         return DataTables::of($designs)
             ->addIndexColumn()
@@ -131,7 +126,6 @@ class DesignController extends Controller
             $design = Design::with(['order', 'items.product'])->findOrFail($id);
             $order = $design->order;
 
-            // 1️⃣ Update status Design
             $design->update([
                 'verification_status' => 'approved',
                 'status'              => 'Verified',
@@ -139,7 +133,6 @@ class DesignController extends Controller
                 'verified_at'         => now(),
             ]);
 
-            // 2️⃣ Buat OrderProgress
             $orderProgress = OrderProgress::create([
                 'order_id'       => $order->id,
                 'design_id'     => $design->id,
@@ -149,7 +142,6 @@ class DesignController extends Controller
                 'invoice_number' => $order->order_number,
             ]);
 
-            // 3️⃣ Buat OrderProgressItem berdasarkan DesignItem
             foreach ($design->items as $designItem) {
                 OrderProgressItem::create([
                     'order_progress_id'  => $orderProgress->id,
@@ -161,7 +153,6 @@ class DesignController extends Controller
                 ]);
             }
 
-            // 4️⃣ Buat DeliveryOrder
             $deliveryOrder = DeliveryOrder::create([
                 'order_id'        => $order->id,
                 'design_id'      => $design->id,
@@ -175,7 +166,6 @@ class DesignController extends Controller
                 'created_by'      => Auth::id(),
             ]);
 
-            // 5️⃣ Isi DeliveryOrderItem dari OrderProgressItem
             foreach ($orderProgress->items as $progressItem) {
                 DeliveryOrderItem::create([
                     'delivery_order_id'     => $deliveryOrder->id,

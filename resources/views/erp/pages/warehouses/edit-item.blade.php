@@ -157,10 +157,8 @@
             }
         }
 
-        // Jalankan saat halaman dimuat
         toggleForm();
 
-        // Jalankan saat select diubah
         selectTipe.addEventListener('change', toggleForm);
     });
 

@@ -32,13 +32,29 @@ class DiscountController extends Controller
                 return $discount->type;
             })
             ->addColumn('amount', function ($discount) {
-                return $discount->amount;
+                if ($discount->type === 'Fixed Amount') {
+                    // Jika tipe fixed amount, tampilkan dalam format rupiah
+                    return 'Rp ' . number_format($discount->amount, 0, ',', '.');
+                } elseif ($discount->type === 'Percentage') {
+                    // Jika tipe persentase, tambahkan tanda %
+                    return number_format($discount->amount, 0, ',', '.') . ' %';
+                } else {
+                    return '-';
+                }
             })
             ->addColumn('minimum_based_on', function ($discount) {
                 return $discount->minimum_based_on;
             })
             ->addColumn('minimum_qty_or_amount', function ($discount) {
-                return $discount->minimum_qty_or_amount;
+                if ($discount->minimum_based_on === 'Quantity of Items') {
+                    // Jika berdasarkan jumlah item
+                    return number_format($discount->minimum_qty_or_amount, 0, ',', '.');
+                } elseif ($discount->minimum_based_on === 'Purchase Amount') {
+                    // Jika berdasarkan total pembelian
+                    return 'Rp ' . number_format($discount->minimum_qty_or_amount, 0, ',', '.');
+                } else {
+                    return '-';
+                }
             })
             ->addColumn('start_date', function ($discount) {
                 return $discount->start_date;

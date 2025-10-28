@@ -44,7 +44,6 @@
                 <form action="/erp/productions/waiting-list/assign/{{ $progress->id }}" method="POST" id="assignForm">
                     @csrf
                     @method('POST')
-                    {{-- === INFORMASI UMUM === --}}
                     <div class="card mb-4">
                         <div class="card-header">
                             <h4 class="card-title">Sale Info</h4>
@@ -60,14 +59,12 @@
                             </div>
                         </div>
                     </div>
-
-                    {{-- === DETAIL BATCH === --}}
                     <div class="card mb-4">
                         <div class="card-header">
                             <h4 class="card-title">Assign Batch Details</h4>
                         </div>
                         <div class="card-body">
-                            <div class="row mb-3">
+                            {{-- <div class="row mb-3">
                                 <div class="col-lg-2">
                                     <label for="assign_code" class="fw-semibold">Assign Code:</label>
                                 </div>
@@ -75,7 +72,7 @@
                                     <input type="text" class="form-control" id="assign_code" name="assign_code"
                                         value="{{ $assignCode }}" readonly>
                                 </div>
-                            </div>
+                            </div> --}}
 
                             <div class="row mb-3">
                                 <div class="col-lg-2">
@@ -97,8 +94,6 @@
                             </div>
                         </div>
                     </div>
-
-                    {{-- === TABEL ASSIGN PER PRODUK === --}}
                     <div class="card">
                         <div class="card-header">
                             <h4 class="card-title">Assign Operator per Product</h4>
@@ -110,7 +105,7 @@
                                         <tr>
                                             <th>Product</th>
                                             <th class="text-center">Total Qty</th>
-                                            <th class="text-center">Already Assigned</th>
+                                            <th class="text-center">Completed Waiting List</th>
                                             <th class="text-center">Assign Now</th>
                                             <th>Operator</th>
                                             <th>Note</th>
@@ -123,7 +118,7 @@
                                                 <td class="text-start">{{ number_format($item->quantity, 0, ',', '.') }}
                                                 </td>
                                                 <td class="text-start">
-                                                    {{ number_format($item->assigns->sum('assigned_quantity'), 0, ',', '.') }}
+                                                    {{ number_format($item->completed_quantity, 0, ',', '.') }}
                                                 </td>
                                                 <td class="text-start">
                                                     <input type="hidden"
@@ -172,22 +167,18 @@
     <script>
         $(document).ready(function() {
 
-            // === FORMAT ANGKA DENGAN TITIK (1.000) ===
             function formatNumber(n) {
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === HAPUS 0 SAAT FOKUS ===
             $(document).on('focus', 'input[name^="items"][name$="[assigned_quantity]"]', function() {
                 if ($(this).val() === '0') $(this).val('');
             });
 
-            // === KEMBALIKAN 0 JIKA KOSONG ===
             $(document).on('blur', 'input[name^="items"][name$="[assigned_quantity]"]', function() {
                 if ($(this).val().trim() === '') $(this).val('0');
             });
 
-            // === FORMAT ANGKA OTOMATIS + BATAS MAX ===
             $(document).on('input', 'input[name^="items"][name$="[assigned_quantity]"]', function(e) {
                 const input = $(this);
                 const raw = input.val().replace(/\./g, '');
@@ -196,10 +187,9 @@
                 let value = parseInt(raw);
                 const max = parseInt(input.attr('max')) || 0;
 
-                // 🔹 Batasi agar tidak lebih dari max
                 if (value > max) {
                     value = max;
-                    // opsional: beri notifikasi kecil
+
                     Swal.fire({
                         toast: true,
                         position: 'top-end',
@@ -214,14 +204,12 @@
                 input.val(formatted);
             });
 
-            // === BERSIHKAN TITIK SEBELUM SUBMIT ===
             $('#assignForm').on('submit', function() {
                 $('input[name^="items"][name$="[assigned_quantity]"]').each(function() {
                     this.value = this.value.replace(/\./g, '');
                 });
             });
 
-            // === VALIDASI OPERATOR WAJIB ===
             $('#btnSubmitForm').on('click', function(e) {
                 e.preventDefault();
                 let valid = true;

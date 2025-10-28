@@ -127,18 +127,15 @@
                                                 $assignedQty = $assign->assigned_quantity ?? 0;
                                                 $operatorId = $assign->operator_id ?? '';
                                                 $note = $assign->note ?? '';
-                                                $alreadyAssigned = $item
-                                                    ->assigns()
-                                                    ->where('assign_batch_id', '!=', $batch->id)
-                                                    ->sum('assigned_quantity');
-                                                $remaining = $item->quantity - $alreadyAssigned;
+                                                $completedWaitingList = $item->completed_quantity ?? 0;
+                                                $remaining = $item->quantity - $completedWaitingList;
                                             @endphp
 
                                             <tr>
                                                 <td>{{ $item->product->name }}</td>
                                                 <td class="text-center">{{ number_format($item->quantity, 0, ',', '.') }}
                                                 </td>
-                                                <td class="text-center">{{ number_format($alreadyAssigned, 0, ',', '.') }}
+                                                <td class="text-center">{{ number_format($completedWaitingList, 0, ',', '.') }}
                                                 </td>
                                                 <td>
                                                     <input type="hidden" name="items[{{ $index }}][id]"
@@ -187,43 +184,48 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-
-            // === FORMAT ANGKA DENGAN TITIK (1.000) ===
             function formatNumber(n) {
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === HAPUS 0 SAAT FOKUS ===
             $(document).on('focus', 'input[name^="items"][name$="[assigned_quantity]"]', function() {
                 if ($(this).val() === '0') $(this).val('');
             });
 
-            // === KEMBALIKAN 0 JIKA KOSONG ===
             $(document).on('blur', 'input[name^="items"][name$="[assigned_quantity]"]', function() {
                 if ($(this).val().trim() === '') $(this).val('0');
             });
 
-            // === FORMAT ANGKA OTOMATIS ===
             $(document).on('input', 'input[name^="items"][name$="[assigned_quantity]"]', function(e) {
-                const input = e.target;
-                const pos = input.selectionStart;
-                const raw = input.value.replace(/\./g, '');
+                const input = $(this);
+                const raw = input.val().replace(/\./g, '');
                 if (raw === '') return;
 
-                const formatted = formatNumber(raw);
-                const diff = formatted.length - input.value.length;
-                input.value = formatted;
-                input.setSelectionRange(pos + diff, pos + diff);
+                let value = parseInt(raw);
+                const max = parseInt(input.attr('max')) || 0;
+
+                if (value > max) {
+                    value = max;
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'warning',
+                        title: 'Jumlah melebihi batas maksimum',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                }
+
+                const formatted = formatNumber(value.toString());
+                input.val(formatted);
             });
 
-            // === BERSIHKAN TITIK SEBELUM SUBMIT ===
             $('#assignForm').on('submit', function() {
                 $('input[name^="items"][name$="[assigned_quantity]"]').each(function() {
                     this.value = this.value.replace(/\./g, '');
                 });
             });
 
-            // === VALIDASI OPERATOR WAJIB ===
             $('#btnSubmitForm').on('click', function(e) {
                 e.preventDefault();
                 let valid = true;

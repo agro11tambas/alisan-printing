@@ -90,8 +90,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        {{-- Table --}}
                         <div class="table-responsive">
                             <table class="table table-hover bg-transparent" id="designListTable">
                                 <thead>
@@ -212,7 +210,6 @@
                 ]
             });
 
-            // 🔥 BARIS ACTION FIXED
             $('#designListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -241,13 +238,11 @@
                 }
             });
 
-            // klik luar tabel = tutup action
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#designListTable').length) return;
                 $('#designListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // 🔎 FILTERS
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') $('.custom-range').removeClass('d-none');
                 else {
@@ -262,24 +257,17 @@
                 table.ajax.reload();
             });
 
-            // 🔥🔥🔥 KEMBALIKAN BAGIAN INI — TIDAK DIHAPUS 🔥🔥🔥
-
-            // 👉 Saat tombol Upload diklik
             $(document).on('click', '.upload-btn', function() {
                 const id = $(this).data('id');
                 const previewUrl = $(this).data('preview');
                 const note = $(this).data('note');
 
-                // Set ID ke input hidden
                 $('#design_item_id').val(id);
 
-                // Isi note lama (kalau ada)
                 $('#note').val(note || '');
 
-                // Reset input file (biar bersih)
                 $('#preview_image').val('');
 
-                // Kalau ada gambar lama, tampilkan di modal
                 const previewContainer = $('#uploadModal .modal-body .old-preview');
                 if (previewUrl) {
                     if (previewContainer.length === 0) {
@@ -295,12 +283,10 @@
                         previewContainer.find('img').attr('src', previewUrl);
                     }
                 } else {
-                    // hapus preview lama kalau tidak ada
                     previewContainer.remove();
                 }
             });
 
-            // 👉 submit upload form via ajax
             $('#uploadForm').on('submit', function(e) {
                 e.preventDefault();
                 const formData = new FormData(this);
@@ -330,7 +316,6 @@
                 });
             });
 
-            // 👉 verify design modal
             $(document).on('click', '.btn-verify', function() {
                 let id = $(this).data('id');
                 let name = $(this).data('name');
@@ -340,7 +325,6 @@
                 $('#formVerifyDesign').attr('action', url);
             });
 
-            // 👉 submit verify form
             $('#formVerifyDesign').on('submit', function(e) {
                 e.preventDefault();
                 const url = $(this).attr('action');

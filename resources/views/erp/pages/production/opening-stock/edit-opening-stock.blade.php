@@ -107,19 +107,16 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA DENGAN TITIK RIBUAN (STYLE INDONESIA TANPA KOMA) ===
         function formatNumberID(value) {
             if (!value) return '';
-            const num = value.toString().replace(/\D/g, ''); // Hapus semua non-digit
-            return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // Tambah titik tiap 3 digit
+            const num = value.toString().replace(/\D/g, '');
+            return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         }
 
-        // === HAPUS TITIK SAAT KIRIM KE BACKEND ===
         function unformatNumberID(value) {
             return value ? value.toString().replace(/\./g, '') : '';
         }
 
-        // === FORMAT INPUT SAAT USER KETIK ===
         document.addEventListener('input', function(e) {
             if (e.target.matches('input[name="opening_stock[]"], input[name="opening_finished_product_stock[]"]')) {
                 const raw = e.target.value.replace(/\D/g, '');
@@ -127,7 +124,6 @@
             }
         });
 
-        // === FORMAT ANGKA SAAT HALAMAN DIBUKA (INITIALLY) ===
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll(
                 'input[name="opening_stock[]"], input[name="opening_finished_product_stock[]"]').forEach(el => {
@@ -135,7 +131,6 @@
             });
         });
 
-        // === VALIDASI & SUBMIT ===
         document.getElementById('openingStockRateForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -161,7 +156,6 @@
 
             if (!isValid) return;
 
-            // === HAPUS TITIK BIAR ANGKA MURNI SAAT SUBMIT ===
             form.querySelectorAll('input[name="opening_stock[]"], input[name="opening_finished_product_stock[]"]')
                 .forEach(input => {
                     input.value = unformatNumberID(input.value);
@@ -170,7 +164,6 @@
             form.submit();
         });
 
-        // === TAMPILKAN ERROR ===
         function showError(input, message) {
             input.classList.add('is-invalid');
             const feedback = document.createElement('div');
@@ -179,7 +172,6 @@
             input.closest('div').appendChild(feedback);
         }
 
-        // === HAPUS ERROR SAAT USER PERBAIKI INPUT ===
         document.addEventListener('input', function(e) {
             if (e.target.matches('input.is-invalid')) {
                 e.target.classList.remove('is-invalid');

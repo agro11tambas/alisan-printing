@@ -56,6 +56,10 @@ class DeliveryListController extends Controller
             }
         }
 
+        if ($request->filled('status') && strtolower($request->status) != 'all') {
+            $deliveryLists->where('status', $request->status);
+        }
+
         // 🔎 Search
         if ($request->filled('search_keyword')) {
             switch ($request->search_type) {

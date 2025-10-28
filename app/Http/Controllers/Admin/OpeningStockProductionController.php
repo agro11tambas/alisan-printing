@@ -73,6 +73,15 @@ class OpeningStockProductionController extends Controller
                 'available_quantity'             => $oldAvailable + $diffOpening,
                 'finished_product_stock'         => $oldFinishedStock + $diffOpeningFinished,
             ]);
+
+            // 🔹 Sinkronisasi ke InventoryStock (increment stock_after_sales)
+            $inventoryStock = \App\Models\InventoryStock::where('product_id', $productionStock->product_id)->first();
+
+            if ($inventoryStock) {
+                $inventoryStock->update([
+                    'stock_after_sales' => $inventoryStock->stock_after_sales + $diffOpening,
+                ]);
+            }
         }
 
         return redirect('/erp/productions/opening-stock')

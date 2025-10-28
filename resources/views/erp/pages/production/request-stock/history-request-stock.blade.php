@@ -182,14 +182,11 @@
             } else {
                 $('.custom-range').addClass('d-none');
                 dataTable.ajax.reload();
-                // dataTableMobile.ajax.reload();
             }
         });
 
-        // Apply custom date range
         $('#apply-filter').on('click', function() {
             dataTable.ajax.reload();
-            // dataTableMobile.ajax.reload();
         });
     });
 </script>

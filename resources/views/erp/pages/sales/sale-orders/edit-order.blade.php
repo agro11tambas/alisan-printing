@@ -161,8 +161,6 @@
                                                 @foreach ($order->orderItems as $index => $item)
                                                     <tr id="addr{{ $index }}">
                                                         <td>{{ $index + 1 }}</td>
-
-                                                        {{-- Product --}}
                                                         <td>
                                                             <select class="form-control select-product" name="product[]"
                                                                 id="product_{{ $index }}"
@@ -185,7 +183,7 @@
                                                                     <option value="bundle_{{ $bundle->id }}"
                                                                         {{ $item->satuan == 'bundle' && $item->product_bundle_id == $bundle->id ? 'selected' : '' }}
                                                                         data-price="{{ $bundle->price }}"
-                                                                        data-discounts='@json($bundle->discounts ?? [])'
+                                                                        data-discounts='@json(.$bundle->discounts ?? [])'
                                                                         data-categories='@json($bundle->categories ?? [])'
                                                                         data-type="bundle">
                                                                         {{ $bundle->name }} (Bundle)
@@ -193,9 +191,6 @@
                                                                 @endforeach
                                                             </select>
                                                         </td>
-
-                                                        <!-- <td>
-                                                                            </td> -->
                                                         <input type="hidden" class="form-control product-type"
                                                             name="product_type[]" id="product_type_{{ $index }}"
                                                             value="{{ $item->satuan }}" readonly>
@@ -207,8 +202,12 @@
 
                                                         </td>
                                                         <td>
+                                                            @php
+                                                                $isOwner = Auth::user()->role === 'Owner';
+                                                            @endphp
                                                             <input type="text"
-                                                                class="form-control price_before_discount_display" readonly
+                                                                class="form-control price_before_discount_display"
+                                                                @if (!$isOwner) readonly @endif
                                                                 value="{{ number_format($item->price, 2, ',', '.') }}">
                                                             <input type="hidden" name="price_before_discount[]"
                                                                 class="price_before_discount"
@@ -233,7 +232,6 @@
                                                             </div>
                                                         </td>
 
-                                                        {{-- Hidden fields --}}
                                                         <input type="hidden" name="price_after_discount[]"
                                                             class="form-control price_after_discount"
                                                             id="price_after_discount_{{ $index }}"
@@ -322,9 +320,7 @@
                 ];
             }),
         ); ?>;
-    </script>
 
-    <script>
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
 
@@ -339,7 +335,6 @@
             })),
         ];
 
-        // ✅ Format angka dengan koma ribuan (US style)
         function formatNumber(num) {
             return new Intl.NumberFormat('id-ID', {
                 minimumFractionDigits: 0,
@@ -347,7 +342,6 @@
             }).format(num);
         }
 
-        // ✅ Populate produk
         function populateProducts(selectEl, selectedId = null, selectedType = null) {
             $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
             allProducts.forEach(item => {
@@ -368,7 +362,6 @@
             });
         }
 
-        // ✅ Hitung per baris
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
             const basePrice = parseFloat(selectedOption.data('price')) || 0;
@@ -402,8 +395,9 @@
                         const opt = $(el).find('option:selected');
                         const cats = opt.data('categories') || [];
                         const price = parseFloat(opt.data('price')) || 0;
-                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g, '')) || 0;
-                            0;
+                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
+                            '')) || 0;
+                        0;
 
                         if (cats.some(c => c.id === discount.category_id)) {
                             totalQtyCategory += qtyVal;
@@ -467,7 +461,6 @@
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
 
-        // ✅ Select2 init
         function initSelect2() {
             $('[data-select2-selector="status"]').select2({
                 placeholder: 'Pilih produk',
@@ -486,7 +479,6 @@
 
             let rowCount = $('#tab_logic tbody tr').length;
 
-            // ✅ Tambah row baru
             $('#add_row').on('click', function() {
                 const tableBody = $('#tab_logic tbody');
                 const newRow = $(`
@@ -520,7 +512,6 @@
                 rowCount++;
             });
 
-            // ✅ Hapus row
             $(document).on('click', '.delete-row', function() {
                 $(this).closest('tr').remove();
                 $('#tab_logic tbody tr').each(function(i, el) {
@@ -529,7 +520,6 @@
                 recalcAllRows();
             });
 
-            // ✅ Ubah produk
             $(document).on('change', 'select[name="product[]"]', function() {
                 const row = $(this).closest('tr');
                 const type = $(this).find('option:selected').data('type') || '';
@@ -537,16 +527,13 @@
                 recalcAllRows();
             });
 
-            // ✅ Format qty dengan koma ribuan
             $(document).on('input', 'input[name="qty[]"]', function() {
                 let val = $(this).val().replace(/\D/g, '');
                 if (val.length > 12) val = val.substring(0, 12);
-                // tambahkan titik setiap 3 digit
                 $(this).val(val.replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
                 recalcAllRows();
             });
 
-            // ✅ Bersihkan koma sebelum submit (backend terima angka murni)
             $('#orderForm').on('submit', function() {
                 $('input[name="qty[]"]').each(function() {
                     $(this).val($(this).val().replace(/\./g, ''));

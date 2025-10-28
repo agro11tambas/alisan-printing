@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DefectProduct;
 use Illuminate\Http\Request;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
@@ -10,6 +11,8 @@ use App\Models\InventoryStock;
 use App\Models\Products;
 use App\Models\InventoryStockOut;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class InventoryController extends Controller
@@ -104,6 +107,9 @@ class InventoryController extends Controller
                 } elseif ($inventory->sale_return_id) {
                     $badge = '<span class="badge bg-soft-danger text-danger mb-1">Sale Returns</span><br>';
                     return $badge . ($inventory->order_number ?? '-');
+                } elseif ($inventory->material_request_id) {
+                    $badge = '<span class="badge bg-soft-primary text-primary mb-1">Material Request</span><br>';
+                    return $badge . ($inventory->material_request_number ?? '-');
                 }
                 return '-';
             })
@@ -219,7 +225,7 @@ class InventoryController extends Controller
                     return $badge . ($inventory->purchase_number ?? '-');
                 } elseif ($inventory->material_request_id) {
                     $badge = '<span class="badge bg-soft-warning text-warning mb-1">Request Stock</span><br>';
-                    return $badge . 'RS-' . str_pad($inventory->date, 5, '0', STR_PAD_LEFT);
+                    return $badge . ($inventory->material_request_number ?? '-');
                 }
                 return '-';
             })
@@ -298,7 +304,71 @@ class InventoryController extends Controller
             ->addColumn('avg_cost', function ($reportItem) {
                 return '<span class="text-primary">' . $reportItem->avg_cost . '</span>';
             })
-            ->rawColumns(['stock_after_sales', 'avg_cost'])
+            ->addColumn('action', function ($row) {
+                return '
+                    <button type="button" class="btn btn-sm btn-outline-danger btnDefect" 
+                        data-id="' . $row->product_id . '" 
+                        data-name="' . e($row->product->name) . '">
+                        <i class="feather-alert-triangle me-1"></i> Defect
+                    </button>
+                ';
+            })
+
+            ->rawColumns(['stock_after_sales', 'avg_cost', 'action'])
             ->make(true);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'quantity'   => 'required|numeric|min:1',
+            'note'       => 'nullable|string|max:255',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $productId = $request->product_id;
+            $quantity  = (int) $request->quantity;
+
+            // 🔹 Ambil stok inventory
+            $inventory = \App\Models\InventoryStock::where('product_id', $productId)->first();
+
+            if (!$inventory) {
+                throw new \Exception('Inventory stock record not found for this product.');
+            }
+
+            // 🔹 Cek stok cukup atau tidak
+            if ($inventory->inventory_stock < $quantity) {
+                throw new \Exception('Insufficient inventory stock for defect input.');
+            }
+
+            // 🔹 Simpan defect product
+            $defect = \App\Models\DefectProduct::create([
+                'product_id'   => $productId,
+                'quantity'     => $quantity,
+                'defect_date'  => now(),
+                'status'       => 'pending',
+                'type'         => 'Inventory',
+                'note'         => $request->note,
+                'user_id'      => Auth::id(),
+                // 'inventory_id' => $inventory->id,
+            ]);
+
+            // 🔹 Kurangi stok di inventory
+            $inventory->decrement('inventory_stock', $quantity);
+            $inventory->decrement('stock_after_sales', $quantity);
+
+            DB::commit();
+            return response()->json([
+                'message' => 'Defect product successfully recorded and stock updated.',
+                'data'    => $defect
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to store defect product: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

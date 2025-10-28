@@ -1003,6 +1003,32 @@ class SaleListController extends Controller
                 $key = "{$type}_{$productId}";
                 $newKeys[] = $key;
 
+                // 🔎 CEK COMPLETED QUANTITY — pastikan quantity baru tidak lebih kecil dari completed_quantity
+                if ($type === 'satuan') {
+                    $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $existingItems[$key]->id ?? null)
+                        ->where('product_id', $productId)
+                        ->first();
+
+                    if ($progressItem && $qty < $progressItem->completed_quantity) {
+                        DB::rollBack();
+                        return back()->with('error', "Gagal mengupdate order {$order->order_number}: Quantity (" . number_format($qty) . ") tidak boleh lebih kecil dari Completed Quantity (" . number_format($progressItem->completed_quantity) . ").");
+                    }
+                } elseif ($type === 'bundle') {
+                    $bundle = \App\Models\ProductBundle::with('items')->find($productId);
+                    if ($bundle) {
+                        foreach ($bundle->items as $bundleItem) {
+                            $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $existingItems[$key]->id ?? null)
+                                ->where('product_id', $bundleItem->product_id)
+                                ->first();
+
+                            if ($progressItem && $qty < $progressItem->completed_quantity) {
+                                DB::rollBack();
+                                return back()->with('error', "Gagal mengupdate order {$order->order_number}: Quantity untuk produk bundle ID {$bundleItem->product_id} (" . number_format($qty) . ") tidak boleh lebih kecil dari Completed Quantity (" . number_format($progressItem->completed_quantity) . ").");
+                            }
+                        }
+                    }
+                }
+
                 $warehouseId = $request->inventory_warehouse_id ?? 1;
 
                 // 🔎 CEK PROGRESS HISTORY — pastikan qty baru tidak < total change_quantity
@@ -1493,74 +1519,40 @@ class SaleListController extends Controller
             }
 
             // ================== SYNC DELIVERY ORDER & ITEMS ==================
-            $deliveryOrder = $order->deliveryOrders()->with('items')->first();
+            $orderProgress = $order->orderProgress()->first(); // ambil progress di awal
+            if ($orderProgress) {
+                $deliveryOrder = $order->deliveryOrders()->with('items')->first();
 
-            if ($deliveryOrder) {
-                // Ambil data customer & alamat terbaru dari order
-                $customerName     = $order->customer?->name ?? $deliveryOrder->customer;
-                $shippingAddress  = $order->shipping_address ?? $deliveryOrder->shipping_address;
-                $googleMapLink    = $order->google_maps ?? $deliveryOrder->google_map_link;
+                if ($deliveryOrder) {
+                    // Ambil data customer & alamat terbaru dari order
+                    $customerName     = $order->customer?->name ?? $deliveryOrder->customer;
+                    $shippingAddress  = $order->shipping_address ?? $deliveryOrder->shipping_address;
+                    $googleMapLink    = $order->google_maps ?? $deliveryOrder->google_map_link;
 
-                // ✅ Update header Delivery Order
-                $deliveryOrder->update([
-                    'delivery_date'     => now()->format('Y-m-d'),
-                    'note'              => $request->notes ?? $deliveryOrder->note,
-                    'status'            => 'Pending', // bisa kamu ubah ke 'In Progress' kalau mau
-                    'customer'          => $customerName,
-                    'shipping_address'  => $shippingAddress,
-                    'google_map_link'   => $googleMapLink,
-                ]);
+                    // ✅ Update header Delivery Order
+                    $deliveryOrder->update([
+                        'delivery_date'     => now()->format('Y-m-d'),
+                        'note'              => $request->notes ?? $deliveryOrder->note,
+                        'status'            => 'Pending',
+                        'customer'          => $customerName,
+                        'shipping_address'  => $shippingAddress,
+                        'google_map_link'   => $googleMapLink,
+                    ]);
 
-                // data lama
-                $existingDoItems = $deliveryOrder->items->keyBy(function ($item) {
-                    return $item->order_progress_id . '_' . $item->product_id;
-                });
+                    // data lama
+                    $existingDoItems = $deliveryOrder->items->keyBy(function ($item) {
+                        return $item->order_progress_id . '_' . $item->product_id;
+                    });
 
-                $newDoKeys = [];
+                    $newDoKeys = [];
 
-                // loop semua orderItems untuk sinkronisasi
-                $orderProgress = $order->orderProgress()->first();
+                    foreach ($order->orderItems as $orderItem) {
+                        $qty = $orderItem->quantity;
 
-                foreach ($order->orderItems as $orderItem) {
-                    $qty = $orderItem->quantity;
+                        if ($orderItem->satuan === 'satuan') {
+                            $productId = $orderItem->product_id;
+                            $progressId = $orderProgress->id;
 
-                    if ($orderItem->satuan === 'satuan') {
-                        $productId = $orderItem->product_id;
-                        $progressId = $orderProgress?->id;
-
-                        $key = "{$progressId}_{$productId}";
-                        $newDoKeys[] = $key;
-
-                        if ($existingDoItems->has($key)) {
-                            // update item lama
-                            $existingDoItems[$key]->update([
-                                'progress_qty' => $qty,
-                                'note'         => $request->notes ?? $existingDoItems[$key]->note,
-                            ]);
-                        } else {
-                            // buat baru
-                            \App\Models\DeliveryOrderItem::create([
-                                'delivery_order_id'   => $deliveryOrder->id,
-                                'order_progress_id'   => $progressId,
-                                'order_item_id'       => $orderItem->id,
-                                'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $progressId)
-                                    ->where('order_item_id', $orderItem->id)
-                                    ->where('product_id', $productId)
-                                    ->value('id'),
-                                'product_id'          => $productId,
-                                'status'              => 'pending',
-                                'progress_qty'        => $qty,
-                                'ready_qty'           => 0,
-                                'shipped_qty'         => 0,
-                                'note'                => $request->notes ?? null,
-                            ]);
-                        }
-                    } elseif ($orderItem->satuan === 'bundle') {
-                        foreach ($orderItem->productBundle->items as $bundleItem) {
-                            $productId = $bundleItem->product_id;
-                            if (!$productId) continue;
-
-                            $progressId = $orderProgress?->id;
                             $key = "{$progressId}_{$productId}";
                             $newDoKeys[] = $key;
 
@@ -1586,74 +1578,107 @@ class SaleListController extends Controller
                                     'note'                => $request->notes ?? null,
                                 ]);
                             }
+                        } elseif ($orderItem->satuan === 'bundle') {
+                            foreach ($orderItem->productBundle->items as $bundleItem) {
+                                $productId = $bundleItem->product_id;
+                                if (!$productId) continue;
+
+                                $progressId = $orderProgress->id;
+                                $key = "{$progressId}_{$productId}";
+                                $newDoKeys[] = $key;
+
+                                if ($existingDoItems->has($key)) {
+                                    $existingDoItems[$key]->update([
+                                        'progress_qty' => $qty,
+                                        'note'         => $request->notes ?? $existingDoItems[$key]->note,
+                                    ]);
+                                } else {
+                                    \App\Models\DeliveryOrderItem::create([
+                                        'delivery_order_id'   => $deliveryOrder->id,
+                                        'order_progress_id'   => $progressId,
+                                        'order_item_id'       => $orderItem->id,
+                                        'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $progressId)
+                                            ->where('order_item_id', $orderItem->id)
+                                            ->where('product_id', $productId)
+                                            ->value('id'),
+                                        'product_id'          => $productId,
+                                        'status'              => 'pending',
+                                        'progress_qty'        => $qty,
+                                        'ready_qty'           => 0,
+                                        'shipped_qty'         => 0,
+                                        'note'                => $request->notes ?? null,
+                                    ]);
+                                }
+                            }
                         }
                     }
-                }
 
-                // hapus item DO lama yang sudah tidak ada di order
-                foreach ($existingDoItems as $key => $doItem) {
-                    if (!in_array($key, $newDoKeys)) {
-                        $doItem->delete();
+                    // hapus item DO lama yang sudah tidak ada di order
+                    foreach ($existingDoItems as $key => $doItem) {
+                        if (!in_array($key, $newDoKeys)) {
+                            $doItem->delete();
+                        }
                     }
-                }
-            } else {
-                // kalau belum ada DO, buat baru
-                $deliveryOrder = \App\Models\DeliveryOrder::create([
-                    'order_id'          => $order->id,
-                    'delivery_number'   => 'DO-' . now()->format('YmdHis'),
-                    'delivery_date'     => now()->format('Y-m-d'),
-                    'note'              => $request->notes ?? null,
-                    'status'            => 'Pending',
-                    'customer'          => $order->customer->name ?? '-',
-                    'shipping_address'  => $order->shipping_address,
-                    'google_map_link'   => $order->google_maps,
-                    'created_by'        => Auth::id(),
-                ]);
+                } else {
+                    // ❗Jika belum ada Delivery Order, tapi progress ada, boleh buat baru
+                    $deliveryOrder = \App\Models\DeliveryOrder::create([
+                        'order_id'          => $order->id,
+                        'delivery_number'   => 'DO-' . now()->format('YmdHis'),
+                        'delivery_date'     => now()->format('Y-m-d'),
+                        'note'              => $request->notes ?? null,
+                        'status'            => 'Pending',
+                        'customer'          => $order->customer->name ?? '-',
+                        'shipping_address'  => $order->shipping_address,
+                        'google_map_link'   => $order->google_maps,
+                        'created_by'        => Auth::id(),
+                    ]);
 
-                $orderProgress = $order->orderProgress()->first();
+                    foreach ($order->orderItems as $orderItem) {
+                        $qty = $orderItem->quantity;
 
-                foreach ($order->orderItems as $orderItem) {
-                    $qty = $orderItem->quantity;
-
-                    if ($orderItem->satuan === 'satuan') {
-                        \App\Models\DeliveryOrderItem::create([
-                            'delivery_order_id'   => $deliveryOrder->id,
-                            'order_progress_id'   => $orderProgress?->id,
-                            'order_item_id'       => $orderItem->id,
-                            'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $orderProgress?->id)
-                                ->where('order_item_id', $orderItem->id)
-                                ->where('product_id', $orderItem->product_id)
-                                ->value('id'),
-                            'product_id'          => $orderItem->product_id,
-                            'status'              => 'pending',
-                            'progress_qty'        => $qty,
-                            'ready_qty'           => 0,
-                            'shipped_qty'         => 0,
-                            'note'                => $request->notes ?? null,
-                        ]);
-                    } elseif ($orderItem->satuan === 'bundle') {
-                        foreach ($orderItem->productBundle->items as $bundleItem) {
-                            $productId = $bundleItem->product_id;
-                            if (!$productId) continue;
-
+                        if ($orderItem->satuan === 'satuan') {
                             \App\Models\DeliveryOrderItem::create([
                                 'delivery_order_id'   => $deliveryOrder->id,
-                                'order_progress_id'   => $orderProgress?->id,
+                                'order_progress_id'   => $orderProgress->id,
                                 'order_item_id'       => $orderItem->id,
-                                'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $orderProgress?->id)
+                                'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $orderProgress->id)
                                     ->where('order_item_id', $orderItem->id)
-                                    ->where('product_id', $productId)
+                                    ->where('product_id', $orderItem->product_id)
                                     ->value('id'),
-                                'product_id'          => $productId,
+                                'product_id'          => $orderItem->product_id,
                                 'status'              => 'pending',
                                 'progress_qty'        => $qty,
                                 'ready_qty'           => 0,
                                 'shipped_qty'         => 0,
                                 'note'                => $request->notes ?? null,
                             ]);
+                        } elseif ($orderItem->satuan === 'bundle') {
+                            foreach ($orderItem->productBundle->items as $bundleItem) {
+                                $productId = $bundleItem->product_id;
+                                if (!$productId) continue;
+
+                                \App\Models\DeliveryOrderItem::create([
+                                    'delivery_order_id'   => $deliveryOrder->id,
+                                    'order_progress_id'   => $orderProgress->id,
+                                    'order_item_id'       => $orderItem->id,
+                                    'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $orderProgress->id)
+                                        ->where('order_item_id', $orderItem->id)
+                                        ->where('product_id', $productId)
+                                        ->value('id'),
+                                    'product_id'          => $productId,
+                                    'status'              => 'pending',
+                                    'progress_qty'        => $qty,
+                                    'ready_qty'           => 0,
+                                    'shipped_qty'         => 0,
+                                    'note'                => $request->notes ?? null,
+                                ]);
+                            }
                         }
                     }
                 }
+            } else {
+                // ❌ Tidak ada OrderProgress → skip update DO
+                Log::info("Skip sinkronisasi Delivery Order karena OrderProgress belum ada untuk Order ID {$order->id}");
             }
 
             // ================== HANDLE ACCOUNT TRANSACTIONS ==================

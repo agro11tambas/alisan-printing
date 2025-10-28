@@ -92,11 +92,9 @@
 
                 let pageOut = '';
 
-                // ==== JUDUL PALING ATAS ====
                 pageOut += center('SURAT JALAN') + CRLF;
                 pageOut += center(orderNumber) + CRLF + CRLF;
 
-                // ==== HEADER KIRI (ALISAN) & KANAN (CUSTOMER) ====
                 const kiri = [
                     'ALISAN PRINTING',
                     ...wrapText('Jl. Dummy Raya No. 123, Bandung ABC ABC ABC ABC', 30),
@@ -109,23 +107,19 @@
                 ];
                 const max = Math.max(kiri.length, kanan.length);
                 for (let i = 0; i < max; i++) {
-                    const left = padR(kiri[i] || '', 45); // kiri sampai kolom 45
-                    const rightZoneStart = 60; // kanan mulai kolom ke-50
+                    const left = padR(kiri[i] || '', 45);
+                    const rightZoneStart = 60;
                     const rightText = kanan[i] || '';
                     const spacing = ' '.repeat(Math.max(0, rightZoneStart - left.length));
                     pageOut += left + spacing + rightText + CRLF;
                 }
 
-
-                // ==== PEMISAH ====
                 pageOut += '-'.repeat(width) + CRLF;
 
-                // ==== KOLOM ITEM ====
                 pageOut += padR('No', 4) + ' ' + padR('Nama Barang', 55) + ' ' + padR('SKU', 15) + ' ' + padL('Qty', 8) +
                     CRLF;
                 pageOut += '-'.repeat(width) + CRLF;
 
-                // ==== DAFTAR BARANG ====
                 pageItems.forEach((row) => {
                     const name = String(row.name).substring(0, 37);
                     const sku = String(row.sku).substring(0, 10);
@@ -133,7 +127,6 @@
                         8) + CRLF;
                 });
 
-                // ==== FOOTER (TANDA TANGAN) ====
                 pageOut += '-'.repeat(width) + CRLF.repeat(2);
                 const linesNow = pageOut.split(/\r\n/).length;
                 const signBlockLines = 17;
@@ -159,16 +152,14 @@
 
         document.getElementById('rawDoc').textContent = buildText96();
 
-        // === AUTO DIRECT PRINT SAAT HALAMAN DIBUKA ===
         window.addEventListener('load', async () => {
             try {
                 if (!window.qz) throw new Error("QZ Tray tidak aktif. Jalankan QZ Tray terlebih dahulu.");
                 if (!qz.websocket.isActive()) await qz.websocket.connect();
 
-                // fungsi hitung feed bawah agar tinggi total 14cm
                 function feedToBottom(text, totalHeightMm = 140) {
                     const lines = text.split(/\r\n/).length;
-                    const printedHeightMm = lines * 3.5; // asumsi 3.5mm/baris
+                    const printedHeightMm = lines * 3.5;
                     const remainingMm = Math.max(0, totalHeightMm - printedHeightMm);
                     const feedLines = Math.round(remainingMm / 3.5);
                     return '\x1B' + 'd' + String.fromCharCode(feedLines > 255 ? 255 : feedLines);
@@ -176,8 +167,7 @@
 
                 const textOut = buildText96();
                 const ESC = '\x1B';
-                // === SET PAGE LENGTH 5.5 inch (≈14 cm) ===
-                // ESC C n → n = jumlah baris, 1 baris = 1/6 inch → 33 baris = 5.5 inch
+
                 const setPageLength = ESC + 'C' + String.fromCharCode(33);
 
                 const payload =
@@ -207,9 +197,9 @@
                 }];
 
                 await qz.print(config, data);
-                window.close(); // tutup tab otomatis setelah print
+                window.close();
             } catch (e) {
-                alert('❌ Gagal print:\n' + e.message);
+                alert('Gagal print:\n' + e.message);
                 console.error(e);
             }
         });

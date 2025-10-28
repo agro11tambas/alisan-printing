@@ -36,8 +36,9 @@ class OrderProgressAssignController extends Controller
 
     public function store(Request $request, $id)
     {
+        // dd($request->all());
         $request->validate([
-            'assign_code' => 'required|string',
+            // 'assign_code' => 'required|string',
             'assign_date' => 'required|date',
             'note'        => 'nullable|string',
             'items'       => 'required|array',
@@ -54,41 +55,54 @@ class OrderProgressAssignController extends Controller
             // 🟩 1. Buat satu batch assign baru
             $batch = OrderProgressAssignBatch::create([
                 'order_progress_id' => $progress->id,
-                'assign_code'       => $request->assign_code,
+                'assign_code'       => $progress->order->order_number,
                 'assign_date'       => $request->assign_date,
                 'note'              => $request->note,
                 'created_by'        => Auth::id(),
             ]);
 
             // 🟩 2. Loop produk yang diassign
-            foreach ($request->items as $data) {
-                if (empty($data['assigned_quantity']) || $data['assigned_quantity'] <= 0) {
+            foreach ($request->items as $idx => $data) {
+                if (empty($data['assigned_quantity']) || (int)$data['assigned_quantity'] <= 0) {
                     continue;
                 }
 
-                $item = OrderProgressItem::findOrFail($data['order_progress_item_id']);
-                $alreadyAssigned = $item->assigns()->sum('assigned_quantity');
-                $remaining = $item->quantity - $alreadyAssigned;
-                $assignedQty = min($data['assigned_quantity'], $remaining);
+                /** @var \App\Models\OrderProgressItem $item */
+                $item = OrderProgressItem::query()
+                    ->withSum('assigns as total_completed', 'completed_quantity') // alias total_completed
+                    ->findOrFail($data['order_progress_item_id']);
 
-                if ($assignedQty <= 0) {
-                    continue; // skip kalau udah penuh
+                $quantity          = (int) $item->quantity;
+                $completed         = (int) ($item->total_completed ?? 0); // total completed dari semua assign
+                $remainingAllowed  = max($quantity - $completed, 0);      // <= inilah batas yang boleh di-assign lagi
+                $requested         = (int) $data['assigned_quantity'];
+
+                // ❗ HARD RULE: tidak boleh lebih dari remaining
+                if ($requested > $remainingAllowed) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi remaining ($remainingAllowed) untuk produk {$item->product->name}.",
+                    ]);
+                }
+
+                // kalau remaining 0, skip
+                if ($remainingAllowed <= 0) {
+                    continue;
                 }
 
                 OrderProgressAssign::create([
-                    'assign_batch_id'         => $batch->id,
-                    'order_progress_item_id'  => $item->id,
-                    'operator_id'             => $data['operator_id'],
-                    'assigned_quantity'       => $assignedQty,
-                    'completed_quantity'      => 0,
-                    'defect_quantity'         => $data['defect_quantity'] ?? 0,
-                    'note'                    => $data['note'] ?? null,
+                    'assign_batch_id'        => $batch->id,
+                    'order_progress_item_id' => $item->id,
+                    'operator_id'            => (int) $data['operator_id'],
+                    'assigned_quantity'      => $requested, // aman karena <= remaining
+                    'completed_quantity'     => 0,
+                    // ❌ defect_quantity jangan disimpan di tabel assign (itu milik progress)
+                    'note'                   => $data['note'] ?? null,
                 ]);
             }
 
             DB::commit();
 
-            return redirect('/erp/productions/waiting-list')
+            return redirect('/erp/productions/waiting-list/assign-list')
                 ->with('success', "Assign batch {$batch->assign_code} berhasil ditambahkan.");
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -166,7 +180,7 @@ class OrderProgressAssignController extends Controller
             }
 
             DB::commit();
-            return redirect('/erp/productions/waiting-list')
+            return redirect('/erp/productions/waiting-list/assign-list')
                 ->with('success', "Assign batch {$batch->assign_code} berhasil diperbarui.");
         } catch (\Throwable $e) {
             DB::rollBack();

@@ -86,13 +86,6 @@
                                 </table>
                             </div>
                         </div>
-                        <!-- <div class="card-footer">
-                            <div class="row justify-content-end">
-                                <div class="col-sm-3">
-                                    <a href="/orders/invoice-order/{{ $purchase->id }}" class="btn btn-primary">Print Invoice</a>
-                                </div>
-                            </div>
-                        </div> -->
                     </div>
                 </div>
                 <div class="col-xxl-4 col-xl-6">

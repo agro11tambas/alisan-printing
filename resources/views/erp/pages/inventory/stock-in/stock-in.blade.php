@@ -113,13 +113,11 @@
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
-                                                <!-- Search input -->
                                                 <input type="text" id="search_keyword" name="search_keyword"
                                                     class="form-control search-input"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;"
                                                     placeholder="Search..." />
 
-                                                <!-- Dropdown type (hidden by default) -->
                                                 <select id="search_type_dropdown" class="form-control search-input d-none"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;">
                                                     <option value="">All</option>
@@ -249,12 +247,11 @@
             });
 
             $('#inventoryTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+                if ($(e.target).closest('td.dt-control').length) return;
 
                 let $tr = $(this);
                 let row = dataTable.row($tr);
 
-                // tutup semua dulu
                 $('#inventoryTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
@@ -262,8 +259,7 @@
                 } else {
                     let actionHtml = row.data().action;
 
-                    // bikin baris tambahan di bawahnya (full colspan)
-                    let colCount = $tr.find('td').length; // total kolom yg ada
+                    let colCount = $tr.find('td').length;
                     let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -280,10 +276,8 @@
             });
 
             $(document).on('click', function(e) {
-                // kalau kliknya di dalam tabel, abaikan
                 if ($(e.target).closest('#inventoryTable').length) return;
 
-                // tutup semua action-row
                 $('#inventoryTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 

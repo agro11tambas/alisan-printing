@@ -108,7 +108,6 @@
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
-                <!--! BEGIN: [modal-header] !-->
                 <div class="modal-header">
                     <h2 class="d-flex flex-column mb-0">
                         <span class="fs-18 fw-bold mb-1">Return to Warehouse</span>
@@ -118,8 +117,6 @@
                         <i class="feather-x text-danger"></i>
                     </a>
                 </div>
-
-                <!--! BEGIN: [modal-body] !-->
                 <form method="POST" id="rejectReturnForm">
                     @csrf
                     <input type="hidden" id="reject_product_id" name="reject_product_id">
@@ -159,8 +156,6 @@
                             </div>
                         </div> --}}
                     </div>
-
-                    <!--! BEGIN: [modal-footer] !-->
                     <div class="modal-footer d-flex justify-content-between">
                         <div>
                             <div class="col-md-6">
@@ -233,7 +228,6 @@
             });
 
             $('#rejectDetailTable tbody').on('click', 'tr', function(e) {
-                // Cegah event kalau klik tombol di dropdown / action
                 if ($(e.target).closest('.dropdown-item, .btn, button').length) return;
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -286,11 +280,9 @@
                 inputQty.value = 0;
                 inputQty.setAttribute('max', total);
 
-                // ⚡️ tampilkan total stok tersedia dan JANGAN diubah lagi
                 totalHolder.textContent = total;
             });
 
-            // ⚙️ hanya validasi input, tidak mengubah total
             inputQty.addEventListener('input', function() {
                 const max = parseInt(this.getAttribute('max')) || 0;
                 const val = parseInt(this.value) || 0;

@@ -7,12 +7,12 @@
                     <span>Add Progress</span>
                 </a>
             </li>
+            <li>
+                <a class="dropdown-item" href="/erp/productions/assign-list/edit-assign/{{ $batch->id }}">
+                    <i class="feather-edit"></i>
+                    <span>Edit</span>
+                </a>
+            </li>
         @endunless
-        <li>
-            <a class="dropdown-item" href="/erp/productions/assign-list/edit-assign/{{ $batch->id }}">
-                <i class="feather-edit"></i>
-                <span>Edit</span>
-            </a>
-        </li>
     </ul>
 </div>

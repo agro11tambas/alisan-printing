@@ -172,33 +172,27 @@
 
             const creditField = document.getElementById('credit');
 
-            // === Fungsi format angka tanpa desimal ===
             function formatNumber(n) {
-                n = n.toString().replace(/[^0-9.]/g, ''); // sisakan angka & titik
-                n = n.split('.')[0]; // ambil angka sebelum titik aja
+                n = n.toString().replace(/[^0-9.]/g, '');
+                n = n.split('.')[0];
                 if (n === '') return '0';
                 return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === Normalisasi nilai awal (hindari double-format) ===
             if (creditField && creditField.value) {
-                // kalau dari server udah ada titik, jangan format lagi
                 if (!creditField.value.includes('.')) {
                     creditField.value = formatNumber(creditField.value);
                 }
             }
 
-            // === Hapus nol otomatis saat fokus ===
             creditField.addEventListener('focus', function() {
                 if (this.value === '0') this.value = '';
             });
 
-            // === Balik ke nol kalau kosong ===
             creditField.addEventListener('blur', function() {
                 if (this.value.trim() === '') this.value = '0';
             });
 
-            // === Format ribuan realtime ===
             creditField.addEventListener('input', function() {
                 const cursorPos = this.selectionStart;
                 const raw = this.value.replace(/[^\d]/g, '');
@@ -207,16 +201,13 @@
                 this.setSelectionRange(cursorPos + diff, cursorPos + diff);
             });
 
-            // === VALIDASI DAN HAPUS KOMA SAAT SUBMIT ===
             const form = document.getElementById('capitalTransactionsForm');
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
 
-                // Hapus error lama
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-                // Validasi wajib isi
                 const rules = [{
                         selector: 'input[name="transaction_date"]',
                         message: 'Tanggal Transaksi wajib diisi'
@@ -247,7 +238,6 @@
 
                 if (!isValid) return;
 
-                // === Hapus titik sebelum submit ke server ===
                 creditField.value = creditField.value.replace(/\./g, '');
 
                 form.submit();

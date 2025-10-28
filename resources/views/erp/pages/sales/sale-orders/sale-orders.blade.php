@@ -13,7 +13,6 @@
         #saleOrderTable {
             width: 100% !important;
             min-width: 0;
-            /* supaya responsive */
         }
 
         #saleOrderTable td.action-cell {
@@ -209,9 +208,7 @@
                         <div class="row g-3 mb-3">
                             <div class="col-md-12">
                                 <label for="order_number" class="fw-semibold fs-12">Invoice Number</label>
-                                <!-- tampilkan versi INV hanya untuk tampilan -->
                                 <input type="text" id="modal_order_number_display" class="form-control" readonly>
-                                <!-- kirim nilai asli ke backend -->
                                 <input type="hidden" id="modal_order_number" name="order_number">
                             </div>
                         </div>
@@ -324,7 +321,6 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // 🔹 Render child row berisi produk
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
@@ -363,7 +359,6 @@
                 return html;
             }
 
-            // 🔹 Init DataTables
             const dataTable = $('#saleOrderTable').DataTable({
                 processing: true,
                 serverSide: true,
@@ -419,19 +414,16 @@
                 ]
             });
 
-            // Expand/collapse child row khusus kolom "dt-control"
             $('#saleOrderTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
                 let icon = $(this).find('i');
 
                 if (row.child.isShown()) {
-                    // Tutup
                     row.child.hide();
                     tr.removeClass('shown');
                     icon.removeClass('feather-minus').addClass('feather-plus');
                 } else {
-                    // Buka child row isi produk
                     row.child(formatProducts(row.data().products)).show();
                     tr.addClass('shown');
                     icon.removeClass('feather-plus').addClass('feather-minus');
@@ -439,12 +431,11 @@
             });
 
             $('#saleOrderTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+                if ($(e.target).closest('td.dt-control').length) return;
 
                 let $tr = $(this);
                 let row = dataTable.row($tr);
 
-                // tutup semua dulu
                 $('#saleOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
@@ -452,8 +443,7 @@
                 } else {
                     let actionHtml = row.data().action;
 
-                    // bikin baris tambahan di bawahnya (full colspan)
-                    let colCount = $tr.find('td').length; // total kolom yg ada
+                    let colCount = $tr.find('td').length;
                     let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -470,14 +460,11 @@
             });
 
             $(document).on('click', function(e) {
-                // kalau kliknya di dalam tabel, abaikan
                 if ($(e.target).closest('#saleOrderTable').length) return;
 
-                // tutup semua action-row
                 $('#saleOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // 🔹 Filter by date
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -491,7 +478,6 @@
                 dataTable.ajax.reload();
             });
 
-            // 🔹 Filter by type
             $('#search_type').on('change', function() {
                 const selected = $(this).val();
                 if (selected === 'payment_status') {
@@ -534,7 +520,7 @@
         });
 
         $(document).on('shown.bs.modal', '#modalChangeStatus', function() {
-            $('#payment_status').trigger('change'); // auto-toggle saat modal dibuka
+            $('#payment_status').trigger('change');
         });
 
         document.addEventListener('click', async function(e) {
@@ -546,14 +532,11 @@
                 const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
                 const remainingAmount = totalAmount - paidAmount;
 
-                // Ambil tanggal order
                 const orderDate = document.getElementById('order_date').value;
 
-                // 🔥 Ambil nomor invoice terbaru langsung dari backend
                 const response = await fetch(`/erp/sales/generate-invoice-number?date=${orderDate}`);
                 const data = await response.json();
 
-                // tampilkan nomor INV real
                 document.getElementById('modal_order_number_display').value = data.invoice_number;
                 document.getElementById('modal_order_number').value = button.getAttribute('data-order-number');
                 document.getElementById('order_id').value = orderId;
@@ -566,7 +549,6 @@
         $(document).on('click', '.btn-share-invoice', function() {
             const url = $(this).data('url');
             window.open(url, '_blank');
-            // buka invoice di tab baru, dari situ script share yang ada di invoice.blade.php bakal jalan
         });
 
         const paidInput = document.getElementById("paid_amount");
@@ -576,7 +558,6 @@
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
 
-        // Saat submit, kirim value polos
         document.querySelector("form").addEventListener("submit", function() {
             paidInput.value = paidInput.value.replace(/\./g, "");
         });

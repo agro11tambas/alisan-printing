@@ -199,7 +199,6 @@
             }
         });
 
-        // Validasi semua alamat
         const addressGroups = form.querySelectorAll('.address-group');
         addressGroups.forEach((group, index) => {
             const addressInput = group.querySelector(`input[name^="addresses"][name$="[address]"]`);

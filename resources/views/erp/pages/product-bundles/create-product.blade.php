@@ -45,8 +45,6 @@
                     <form action="/erp/products/product-bundles/store" method="POST" id="productBundleForm">
                         @csrf
                         <div class="card-body">
-
-                            {{-- 🔹 Produk Bundle --}}
                             <div class="row mb-3">
                                 <div class="col-lg-12">
                                     <label class="fw-semibold mb-2">Pilih Produk untuk Bundle:</label>
@@ -95,7 +93,6 @@
                                 </div>
                             </div>
 
-                            {{-- 🔹 Nama Bundle (Auto) --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="name" class="fw-semibold">Name:</label>
@@ -105,7 +102,6 @@
                                 </div>
                             </div>
 
-                            {{-- 🔹 SKU --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="sku" class="fw-semibold">SKU</label>
@@ -116,7 +112,6 @@
                                 </div>
                             </div>
 
-                            {{-- 🔹 Harga --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="price" class="fw-semibold">Price</label>
@@ -140,7 +135,6 @@
         $(document).ready(function() {
             let rowIndex = 1;
 
-            // ✅ init select2 for all product-select
             function initSelect2(el) {
                 $(el).select2({
                     placeholder: 'Pilih produk',
@@ -156,7 +150,6 @@
 
             initSelect2($('.product-select'));
 
-            // 🔹 Tambah produk baru
             $('#addRowBtn').on('click', function() {
                 rowIndex++;
                 const newRow = `
@@ -183,7 +176,6 @@
                 refreshDropdownOptions();
             });
 
-            // 🔹 Hapus produk
             $(document).on('click', '.removeRow', function() {
                 $(this).closest('tr').remove();
                 updateRowNumbers();
@@ -191,20 +183,17 @@
                 refreshDropdownOptions();
             });
 
-            // 🔹 Update nama bundle otomatis dari pilihan produk
             $(document).on('change', '.product-select', function() {
                 updateBundleName();
                 refreshDropdownOptions();
             });
 
-            // 🔹 Re-index nomor urut
             function updateRowNumbers() {
                 $('#productBody tr').each(function(index) {
                     $(this).find('td:first').text(index + 1);
                 });
             }
 
-            // 🔹 Generate nama bundle otomatis
             function updateBundleName() {
                 let names = [];
                 $('.product-select').each(function() {
@@ -214,14 +203,12 @@
                 $('#name').val(names.join(' + '));
             }
 
-            // 🔹 Refresh dropdown agar tidak tampilkan produk yang sudah dipilih
             function refreshDropdownOptions() {
-                // ambil semua id produk yang sudah dipilih
+
                 const selectedProducts = $('.product-select').map(function() {
                     return $(this).val();
                 }).get().filter(Boolean);
 
-                // iterasi semua select
                 $('.product-select').each(function() {
                     const currentSelect = $(this);
                     const currentValue = currentSelect.val();
@@ -233,11 +220,10 @@
                         }
                     });
 
-                    currentSelect.trigger('change.select2'); // refresh tampilannya
+                    currentSelect.trigger('change.select2');
                 });
             }
 
-            // 🔹 Validasi form sebelum submit
             $('#productBundleForm').on('submit', function(e) {
                 let productCount = $('.product-select').filter(function() {
                     return $(this).val() !== null && $(this).val() !== '';
@@ -268,7 +254,6 @@
                 if (!isValid) e.preventDefault();
             });
 
-            // 🔹 Fungsi tampilkan error
             function showError(input, message) {
                 input.classList.add('is-invalid');
                 const parent = input.closest('div');
@@ -279,7 +264,6 @@
                 parent.appendChild(feedback);
             }
 
-            // ✅ Auto-focus ke search box saat select2 dibuka
             $(document).on('select2:open', () => {
                 setTimeout(() => {
                     document.querySelector('.select2-container--open .select2-search__field')

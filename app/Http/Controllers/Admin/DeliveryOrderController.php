@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DeliveryList;
+use App\Models\DeliveryListItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use App\Models\DeliveryOrder;
@@ -48,6 +50,10 @@ class DeliveryOrderController extends Controller
                     }
                     break;
             }
+        }
+
+        if ($request->filled('status') && strtolower($request->status) != 'all') {
+            $deliveryOrders->where('status', $request->status);
         }
 
         // 🔎 Search
@@ -140,6 +146,96 @@ class DeliveryOrderController extends Controller
 
         return response()->json([
             'number' => $shipmentNumber
+        ]);
+    }
+
+    public function getDeliveryHistory($id)
+    {
+        $delivery = DeliveryOrder::with(['items.product', 'shipments.items.product', 'user'])->findOrFail($id);
+        return view('erp.pages.deliveries.delivery-orders.history-delivery-order', compact('delivery'));
+    }
+
+    public function dataDeliveryHistory(Request $request, $id)
+    {
+        $query = DeliveryList::with(['driverUser', 'items.product'])
+            ->where('delivery_order_id', $id)
+            ->latest();
+
+        if ($request->filter) {
+            $query->when(true, function ($q) use ($request) {
+                switch ($request->filter) {
+                    case 'today':
+                        $q->whereDate('shipment_date', Carbon::today());
+                        break;
+                    case 'last_7_days':
+                        $q->whereBetween('shipment_date', [Carbon::now()->subDays(7), Carbon::now()]);
+                        break;
+                    case 'this_month':
+                        $q->whereMonth('shipment_date', Carbon::now()->month)
+                            ->whereYear('shipment_date', Carbon::now()->year);
+                        break;
+                    case 'last_30_days':
+                        $q->whereBetween('shipment_date', [Carbon::now()->subDays(30), Carbon::now()]);
+                        break;
+                    case 'year_to_date':
+                        $q->whereBetween('shipment_date', [Carbon::now()->startOfYear(), Carbon::now()]);
+                        break;
+                    case 'yearly':
+                        $q->whereYear('shipment_date', Carbon::now()->year);
+                        break;
+                    case 'custom':
+                        if ($request->filled('start_date') && $request->filled('end_date')) {
+                            $q->whereBetween('shipment_date', [$request->start_date, $request->end_date]);
+                        }
+                        break;
+                }
+            });
+        }
+
+        $shipments = $query->get();
+
+        return DataTables::of($shipments)
+            ->addIndexColumn()
+            ->addColumn('driver_name', fn($row) => $row->driverUser?->name ?? $row->driver ?? '-')
+            ->addColumn('shipment_date', fn($row) => \Carbon\Carbon::parse($row->shipment_date)->format('d M Y'))
+            ->addColumn('products', function ($row) {
+                $items = $row->items;
+                return view('erp.pages.deliveries.delivery-orders.partials.shipment-products', compact('items'))->render();
+            })
+            ->rawColumns(['products'])
+            ->make(true);
+    }
+
+    public function updateDeliveryHistory(Request $request, $id)
+    {
+        $request->validate([
+            'shipped_quantity' => 'required|integer|min:0',
+            'note'             => 'nullable|string|max:255',
+        ]);
+
+        $item = DeliveryListItem::with('deliveryOrderItem')->findOrFail($id);
+
+        // 🔹 Simpan nilai lama untuk hitung selisih
+        $oldQty = $item->shipped_quantity ?? 0;
+        $newQty = (int) $request->shipped_quantity;
+        $difference = $newQty - $oldQty; // bisa positif atau negatif
+
+        // 🔹 Update item shipment
+        $item->update([
+            'shipped_quantity' => $newQty,
+            'note'             => $request->note,
+        ]);
+
+        // 🔹 Update shipped_qty di tabel delivery_order_items
+        if ($item->deliveryOrderItem) {
+            $parent = $item->deliveryOrderItem;
+            $updatedShipped = max(0, ($parent->shipped_qty ?? 0) + $difference); // pastikan tidak minus
+            $parent->update(['shipped_qty' => $updatedShipped]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Shipment item updated successfully and delivery item updated.'
         ]);
     }
 }

@@ -108,7 +108,6 @@
         aria-hidden="true" data-bs-dismiss="ou">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
-                <!--! BEGIN: [modal-header] !-->
                 <div class="modal-header">
                     <h2 class="d-flex flex-column mb-0">
                         <span class="fs-18 fw-bold mb-1">Return to Warehouse</span>
@@ -118,7 +117,6 @@
                         <i class="feather-x text-danger"></i>
                     </a>
                 </div>
-                <!--! BEGIN: [modal-body] !-->
                 <form method="POST" id="markAsSaleForm">
                     @csrf
                     <input type="hidden" id="order_id" name="order_id">
@@ -201,12 +199,11 @@
             });
 
             $('#reportItemsTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+                if ($(e.target).closest('td.dt-control').length) return;
 
                 let $tr = $(this);
                 let row = dataTable.row($tr);
 
-                // tutup semua dulu
                 $('#reportItemsTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
@@ -214,8 +211,7 @@
                 } else {
                     let actionHtml = row.data().action;
 
-                    // bikin baris tambahan di bawahnya (full colspan)
-                    let colCount = $tr.find('td').length; // total kolom yg ada
+                    let colCount = $tr.find('td').length;
                     let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -232,10 +228,8 @@
             });
 
             $(document).on('click', function(e) {
-                // kalau kliknya di dalam tabel, abaikan
                 if ($(e.target).closest('#reportItemsTable').length) return;
 
-                // tutup semua action-row
                 $('#reportItemsTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
@@ -271,23 +265,19 @@
                 form.action = url;
                 inputId.value = id;
 
-                // set default value 0
                 inputQty.value = 0;
 
-                // tampilkan total canceled product
                 totalHolder.textContent = total;
 
-                // set max di input agar user tidak bisa lebih besar
                 inputQty.setAttribute('max', total);
             });
 
-            // update tampilan total sementara kalau user input jumlah return
             inputQty.addEventListener('input', function() {
                 let max = parseInt(this.getAttribute('max')) || 0;
                 let val = parseInt(this.value) || 0;
 
                 if (val > max) {
-                    this.value = max; // paksa ke max
+                    this.value = max;
                     val = max;
                 }
             });

@@ -15,6 +15,7 @@ class MaterialRequest extends Model
     protected $table = 'material_requests';
 
     protected $fillable = [
+        'material_request_number',
         'requested_by',
         'requested_at',
         'status',

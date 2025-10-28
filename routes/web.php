@@ -46,6 +46,7 @@ use App\Http\Controllers\Admin\PurchaseProductController;
 use App\Http\Controllers\Admin\PurchaseReturnController;
 use App\Http\Controllers\Admin\RejectProductController;
 use App\Http\Controllers\Admin\RejectProductHistoryController;
+use App\Http\Controllers\Admin\ReportItemsProductionAndWarehouseController;
 use App\Http\Controllers\Admin\ReportItemsProductionController;
 use App\Http\Controllers\Admin\SaleOrderController;
 use App\Http\Controllers\Admin\SaleReturnController;
@@ -168,20 +169,31 @@ Route::middleware(isLogin::class)->group(function () {
 
     Route::middleware(['auth', 'permission:inventory'])->group(function () {
         Route::middleware(['auth', 'subpermission:opening-stock-rate'])->group(function () {
-            Route::get('/erp/opening-stock-rate/data', [OpeningStockRateController::class, 'dataOpeningStockRate']);
-            Route::get('/erp/opening-stock-rate', [OpeningStockRateController::class, 'getOpeningStockRate']);
-            Route::get('/erp/opening-stock-rate/create-opening-stock-rate', [OpeningStockRateController::class, 'create']);
-            Route::post('/erp/opening-stock-rate/store', [OpeningStockRateController::class, 'store']);
-            Route::get('/erp/opening-stock-rate/edit-opening-stock-rate', [OpeningStockRateController::class, 'edit']);
-            Route::put('/erp/opening-stock-rate/update', [OpeningStockRateController::class, 'update']);
-            Route::delete('/erp/opening-stock-rate/delete/{id}', [OpeningStockRateController::class, 'delete']);
+            // Route::get('/erp/opening-stock-rate/data', [OpeningStockRateController::class, 'dataOpeningStockRate']);
+            // Route::get('/erp/opening-stock-rate', [OpeningStockRateController::class, 'getOpeningStockRate']);
+            // Route::get('/erp/opening-stock-rate/create-opening-stock-rate', [OpeningStockRateController::class, 'create']);
+            // Route::post('/erp/opening-stock-rate/store', [OpeningStockRateController::class, 'store']);
+            // Route::get('/erp/opening-stock-rate/edit-opening-stock-rate', [OpeningStockRateController::class, 'edit']);
+            // Route::put('/erp/opening-stock-rate/update', [OpeningStockRateController::class, 'update']);
+            // Route::delete('/erp/opening-stock-rate/delete/{id}', [OpeningStockRateController::class, 'delete']);
+
+            Route::get('/erp/opening-stock', [OpeningStockRateController::class, 'index'])
+                ->name('erp.opening-stock.index');
+            Route::get('/erp/opening-stock/data', [OpeningStockRateController::class, 'dataOpeningStockOverview'])
+                ->name('erp.opening-stock.data');
+
+            Route::get('/erp/opening-stock/edit', [OpeningStockRateController::class, 'edit'])
+                ->name('erp.opening-stock.edit');
+
+            Route::put('/erp/opening-stock/update', [OpeningStockRateController::class, 'update'])
+                ->name('erp.opening-stock.update');
         });
 
-        Route::middleware(['auth', 'subpermission:opening-stock-production'])->group(function () {
-            Route::get('/erp/productions/opening-stock', [OpeningStockProductionController::class, 'getOpeningStockProduction']);
-            Route::get('/erp/productions/opening-stock/edit-opening-stock', [OpeningStockProductionController::class, 'edit']);
-            Route::put('/erp/productions/opening-stock/update', [OpeningStockProductionController::class, 'update']);
-        });
+        // Route::middleware(['auth', 'subpermission:opening-stock-production'])->group(function () {
+        //     Route::get('/erp/productions/opening-stock', [OpeningStockProductionController::class, 'getOpeningStockProduction']);
+        //     Route::get('/erp/productions/opening-stock/edit-opening-stock', [OpeningStockProductionController::class, 'edit']);
+        //     Route::put('/erp/productions/opening-stock/update', [OpeningStockProductionController::class, 'update']);
+        // });
 
         Route::middleware(['auth', 'subpermission:stock-opname'])->group(function () {
             Route::get('/erp/inventory/stock-opname', [StockOpnameController::class, 'getStockOpname']);
@@ -201,6 +213,11 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/productions/stock-opname/edit-stock-opname/{id}', [StockOpnameProductionController::class, 'edit']);
             Route::put('/erp/productions/stock-opname/update/{id}', [StockOpnameProductionController::class, 'update']);
             Route::delete('/erp/productions/stock-opname/delete/{id}', [StockOpnameProductionController::class, 'delete']);
+        });
+
+        Route::middleware(['auth', 'subpermission:inventory-report-items'])->group(function () {
+            Route::get('/erp/report-items', [ReportItemsProductionAndWarehouseController::class, 'getCombinedReportItems']);
+            Route::get('/erp/report-items/data', [ReportItemsProductionAndWarehouseController::class, 'dataCombinedReportItems']);
         });
     });
 
@@ -329,6 +346,9 @@ Route::middleware(isLogin::class)->group(function () {
         Route::middleware(['auth', 'subpermission:report-items'])->group(function () {
             Route::get('/erp/productions/report-items', [ReportItemsProductionController::class, 'getReportItems']);
             Route::get('/erp/productions/report-items/data', [ReportItemsProductionController::class, 'dataReportItems']);
+
+            Route::post('/erp/defect-product/store-production', [ReportItemsProductionController::class, 'storeProduction'])
+                ->name('erp.defect-product.store-production');
         });
 
         // Route::middleware(['auth', 'subpermission:canceled-products'])->group(function () {
@@ -361,6 +381,9 @@ Route::middleware(isLogin::class)->group(function () {
             Route::post('/erp/deliveries/delivery-list/store/{doId}', [DeliveryListController::class, 'store']);
             Route::get('/erp/deliveries/delivery-list/edit-delivery-list/{id}', [DeliveryListController::class, 'edit']);
             Route::put('/erp/deliveries/delivery-list/update/{id}', [DeliveryListController::class, 'update']);
+            Route::get('/erp/deliveries/delivery-orders/history-delivery-order/{id}', [DeliveryOrderController::class, 'getDeliveryHistory']);
+            Route::get('/erp/deliveries/delivery-orders/history-delivery-order/{id}/data', [DeliveryOrderController::class, 'dataDeliveryHistory']);
+            Route::post('/erp/deliveries/delivery-orders/update-history/{id}', [DeliveryOrderController::class, 'updateDeliveryHistory']);
         });
 
         Route::middleware(['auth', 'subpermission:delivery-list'])->group(function () {
@@ -458,6 +481,9 @@ Route::middleware(isLogin::class)->group(function () {
         Route::middleware(['auth', 'subpermission:warehouse-report-items'])->group(function () {
             Route::get('/erp/inventory/report-items/data', [InventoryController::class, 'dataReportItems']);
             Route::get('/erp/inventory/report-items', [InventoryController::class, 'getReportItems']);
+
+            Route::post('/erp/defect-product/store', [InventoryController::class, 'store'])
+                ->name('erp.defect-product.store');
         });
     });
 
@@ -537,7 +563,7 @@ Route::middleware(isLogin::class)->group(function () {
     Route::middleware(['auth', 'permission:financial-report'])->group(function () {
         Route::get('/erp/financial-report/profit-loss', [FinancialStatementController::class, 'profitLoss']);
         Route::get('/erp/financial-report/profit-loss/summary', [FinancialStatementController::class, 'profitLossSummary']);
-        // Daily report
+
         Route::get('/erp/financial-report/profit-loss/daily', [FinancialStatementController::class, 'profitLossDailyView']);
         Route::get('/erp/financial-report/profit-loss/daily/data', [FinancialStatementController::class, 'profitLossDaily']);
     });

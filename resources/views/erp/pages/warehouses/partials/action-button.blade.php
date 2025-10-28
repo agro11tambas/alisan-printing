@@ -4,12 +4,6 @@
             <i class="feather feather-more-horizontal"></i>
         </a>
         <ul class="dropdown-menu">
-            <!-- <li>
-                <a class="dropdown-item" href="/warehouses/history-warehouse/{{ $warehouse->id }}">
-                    <i class="feather feather-info me-3"></i>
-                    <span>History</span>
-                </a>
-            </li> -->
             <li>
                 <a class="dropdown-item" href="/erp/warehouses/edit-item/{{ $warehouse->id }}">
                     <i class="feather feather-edit-3 me-3"></i>

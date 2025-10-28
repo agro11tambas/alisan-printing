@@ -131,7 +131,6 @@
                 dataTable.ajax.reload();
             });
 
-            // Expand row logic kayak canceled products
             $('#defectProductsTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
                 let $tr = $(this);

@@ -93,7 +93,6 @@
                                         </div>
                                     </div>
 
-                                    <!--  -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customers" class="fw-semibold">Customer:</label>
@@ -178,8 +177,6 @@
                                             <tbody id="tab_logic_body">
                                                 <tr id="addr0">
                                                     <td>1</td>
-
-                                                    {{-- Product --}}
                                                     <td>
                                                         <select class="form-control select-product"
                                                             data-select2-selector="status" name="product[]"
@@ -189,19 +186,19 @@
                                                         </select>
                                                     </td>
 
-                                                    {{-- Product Type --}}
-                                                    <!-- <td>
-                                                                                                </td> -->
                                                     <input type="hidden" name="product_type[]"
                                                         class="form-control product-type" id="product_type_0" readonly>
 
                                                     <td><input type="text" inputmode="numeric" name="qty[]"
                                                             class="form-control qty" value=""></td>
 
-                                                    {{-- Price & Total Before Discount --}}
                                                     <td>
+                                                        @php
+                                                            $isOwner = Auth::user()->role === 'Owner';
+                                                        @endphp
                                                         <input type="text" inputmode="numeric"
-                                                            class="form-control price_before_discount_display" readonly>
+                                                            class="form-control price_before_discount_display"
+                                                            @if (!$isOwner) readonly @endif>
                                                         <input type="hidden" name="price_before_discount[]"
                                                             class="price_before_discount">
                                                     </td>
@@ -212,8 +209,6 @@
                                                             class="total_before_discount">
                                                     </td>
 
-
-                                                    {{-- Delete Row --}}
                                                     <td class="text-center">
                                                         <div class="d-flex justify-content-center">
                                                             <button type="button" class="btn btn-danger delete-row">
@@ -221,8 +216,7 @@
                                                             </button>
                                                         </div>
                                                     </td>
-
-                                                    {{-- Hidden for after discount --}}
+                                                    
                                                     <input type="hidden" name="price_after_discount[]"
                                                         class="form-control price_after_discount"
                                                         id="price_after_discount_0" readonly>
@@ -310,12 +304,10 @@
                 ];
             }),
         ); ?>;
-    </script>
-    <script>
+
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
 
-        // Satukan jadi satu array dengan penanda type
         const allProducts = [
             ...products.map(p => ({
                 ...p,
@@ -334,7 +326,6 @@
             }).format(num);
         }
 
-        // Populate produk ke dalam <select>
         function populateProducts(selectEl) {
             $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
             allProducts.forEach(item => {
@@ -351,7 +342,6 @@
             });
         }
 
-        // Hitung diskon per baris
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
             const basePrice = parseFloat(selectedOption.data('price')) || 0;
@@ -365,14 +355,12 @@
             let finalPrice = priceBeforeDiscount;
             let allDiscounts = [...discounts];
 
-            // gabungkan diskon kategori
             categories.forEach(cat => {
                 if (cat.discounts) {
                     allDiscounts = allDiscounts.concat(cat.discounts);
                 }
             });
 
-            // cek eligibility diskon
             allDiscounts.forEach(discount => {
                 let eligible = false;
 
@@ -426,7 +414,6 @@
             row.find('input.price_after_discount').val(finalPrice.toFixed(2));
             row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
 
-            // tampilkan format di input display
             row.find('input.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
             row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
             row.find('input.price_after_discount_display').val(formatNumber(finalPrice));
@@ -451,19 +438,15 @@
                 totalAfterDiscount += parseFloat($(this).val()) || 0;
             });
 
-            // hidden untuk submit
             $("#sub_total").val(subTotal.toFixed(0));
             $("#total_discount").val((subTotal - totalAfterDiscount).toFixed(0));
             $("#total_amount").val(totalAfterDiscount.toFixed(0));
 
-            // display untuk user
             $("#sub_total_display").val(formatNumber(subTotal));
             $("#total_discount_display").val(formatNumber(subTotal - totalAfterDiscount));
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
 
-
-        // Event produk
         $(document).on('change', 'select[name="product[]"]', function() {
             const row = $(this).closest('tr');
             const type = $(this).find('option:selected').data('type') || '';
@@ -471,10 +454,8 @@
             recalcAllRows();
         });
 
-        // Event qty
         $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
 
-        // Init Select2
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih produk',
@@ -490,11 +471,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             let rowCount = 1;
 
-            // init select awal
             document.querySelectorAll('select.select-product').forEach(el => initSelect2(el));
 
-            // tambah row
-            // tambah row
             document.getElementById('add_row').addEventListener('click', function() {
                 const tableBody = document.querySelector('#tab_logic_body');
                 const rowCount = tableBody.querySelectorAll('tr').length;
@@ -530,12 +508,10 @@
             });
 
 
-            // Hapus row per baris
             $(document).on('click', '.delete-row', function() {
                 const row = $(this).closest('tr');
                 row.remove();
 
-                // Re-index nomor urut
                 $('#tab_logic_body tr').each(function(i, el) {
                     $(el).find('td:first').text(i + 1);
                 });
@@ -545,7 +521,6 @@
 
         });
 
-        // === showError versi fix ===
         function showError(el, message) {
             if ($(el).hasClass('select2-hidden-accessible')) {
                 const select2Container = $(el).next('.select2');
@@ -569,7 +544,6 @@
             }
         }
 
-        // Hapus error kalau user betulin input
         $(document).on("change input",
             "#customers, #addresses, select[name='product[]'], input[name='qty[]'], input[name='order_date']",
             function() {
@@ -581,38 +555,32 @@
                 }
             });
 
-        // Submit form
         document.getElementById('orderForm').addEventListener('submit', function(e) {
-            e.preventDefault(); // ⛔ cegah reload default
+            e.preventDefault();
 
             let isValid = true;
 
-            // reset error
             this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-            // order date
             const orderDate = this.querySelector('input[name="order_date"]');
             if (!orderDate.value.trim()) {
                 isValid = false;
                 showError(orderDate, "Tanggal order wajib diisi");
             }
 
-            // customer
             const customerSelect = $('#customers');
             if (!customerSelect.val() || customerSelect.val().length === 0) {
                 isValid = false;
                 showError(customerSelect[0], "Customer wajib dipilih");
             }
 
-            // address
             const addressSelect = $('#addresses');
             if (!addressSelect.val() || addressSelect.val().length === 0) {
                 isValid = false;
                 showError(addressSelect[0], "Alamat wajib dipilih");
             }
 
-            // produk
             const rows = this.querySelectorAll('#tab_logic tbody tr');
             rows.forEach(row => {
                 const product = row.querySelector('select[name="product[]"]');
@@ -631,12 +599,9 @@
                 $(this).val($(this).val().replace(/[.,]/g, ''));
             });
 
-            // 🚀 kirim form kalau valid
             if (isValid) this.submit();
         });
 
-
-        // alamat dinamis
         $(document).ready(function() {
             $('#customers').on('change', function() {
                 const customerId = $(this).val();
@@ -686,7 +651,7 @@
                 } else if (val === 'custom') {
                     newDate = null;
                     dateInput.readOnly = false;
-                    dateInput.value = ""; // biar kosong
+                    dateInput.value = "";
                 } else {
                     newDate = null;
                     dateInput.readOnly = true;
@@ -694,7 +659,6 @@
                 }
 
                 if (newDate) {
-                    // format YYYY-MM-DD
                     const yyyy = newDate.getFullYear();
                     const mm = String(newDate.getMonth() + 1).padStart(2, '0');
                     const dd = String(newDate.getDate()).padStart(2, '0');
@@ -704,7 +668,6 @@
 
             optionEl.addEventListener('change', updateDueDate);
 
-            // jalanin sekali di awal
             updateDueDate();
         });
 
@@ -714,51 +677,43 @@
             }, 50);
         });
 
-        // === FORMAT QTY DENGAN TITIK (1.000) TANPA GANGGU INPUT ===
         $(document).on('input', 'input[name="qty[]"]', function() {
-            // cuma izinkan angka dan koma
             let val = $(this).val().replace(/[^\d]/g, '');
             if (!val) {
                 $(this).val('');
                 return;
             }
 
-            // format jadi ribuan pakai koma
             $(this).val(val.replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
         });
 
         $('#orderForm').on('submit', function(e) {
-            e.preventDefault(); // cegah reload
+            e.preventDefault();
 
             let isValid = true;
             const form = this;
 
-            // reset error lama
             form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-            // validasi tanggal
             const orderDate = form.querySelector('input[name="order_date"]');
             if (!orderDate.value.trim()) {
                 isValid = false;
                 showError(orderDate, 'Tanggal order wajib diisi');
             }
 
-            // validasi customer
             const customerSelect = $('#customers');
             if (!customerSelect.val()) {
                 isValid = false;
                 showError(customerSelect[0], 'Customer wajib dipilih');
             }
 
-            // validasi alamat
             const addressSelect = $('#addresses');
             if (!addressSelect.val()) {
                 isValid = false;
                 showError(addressSelect[0], 'Alamat wajib dipilih');
             }
 
-            // validasi produk & qty
             $('#tab_logic tbody tr').each(function() {
                 const product = $(this).find('select[name="product[]"]');
                 const qty = $(this).find('input[name="qty[]"]');
@@ -775,15 +730,13 @@
                 }
             });
 
-            // kalau gak valid, stop
             if (!isValid) return;
 
-            // 🧹 bersihkan koma/titik sebelum kirim ke server
             $('input[name="qty[]"], #sub_total, #total_discount, #total_amount').each(function() {
                 $(this).val($(this).val().replace(/[.,]/g, ''));
             });
 
-            form.submit(); // kirim form ke Laravel
+            form.submit();
         });
     </script>
 @endpush

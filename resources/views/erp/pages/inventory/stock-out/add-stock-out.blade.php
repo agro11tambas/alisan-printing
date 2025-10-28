@@ -185,7 +185,6 @@
     <script>
         $(document).ready(function() {
 
-            // === PREVIEW IMAGE WAYBILL ===
             $('#waybill_image').on('change', function() {
                 const [file] = this.files;
                 if (file) {
@@ -195,22 +194,18 @@
                 }
             });
 
-            // === FORMAT ANGKA RIBUAN DENGAN KOMA (1,000) ===
             function formatNumber(n) {
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // Hapus 0 otomatis saat fokus
             $(document).on('focus', 'input[name^="items"][name$="[stock_out]"]', function() {
                 if ($(this).val() === '0') $(this).val('');
             });
 
-            // Balik ke 0 kalau kosong
             $(document).on('blur', 'input[name^="items"][name$="[stock_out]"]', function() {
                 if ($(this).val().trim() === '') $(this).val('0');
             });
 
-            // Format ribuan real-time saat diketik
             $(document).on('input', 'input[name^="items"][name$="[stock_out]"]', function(e) {
                 const input = e.target;
                 const cursorPos = input.selectionStart;
@@ -222,7 +217,6 @@
                 input.setSelectionRange(cursorPos + diff, cursorPos + diff);
             });
 
-            // Hapus koma saat submit
             $('#stockOutForm').on('submit', function() {
                 $('input[name^="items"][name$="[stock_out]"]').each(function() {
                     this.value = this.value.replace(/\./g, '');

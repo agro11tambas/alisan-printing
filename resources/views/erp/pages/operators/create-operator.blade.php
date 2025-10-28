@@ -48,7 +48,6 @@
                     @csrf
                     <div class="card-body">
 
-                        {{-- Name --}}
                         <div class="row mb-3 align-items-center">
                             <div class="col-lg-2">
                                 <label for="name" class="fw-semibold">Name:</label>
@@ -64,7 +63,6 @@
                             </div>
                         </div>
 
-                        {{-- Status --}}
                         <div class="row mb-3 align-items-center">
                             <div class="col-lg-2">
                                 <label for="active" class="fw-semibold">Status:</label>

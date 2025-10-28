@@ -147,7 +147,6 @@
         selectTipe.addEventListener('change', function() {
             const value = this.value;
 
-            // Reset
             formMasuk.classList.add('d-none');
             formKeluar.classList.add('d-none');
 

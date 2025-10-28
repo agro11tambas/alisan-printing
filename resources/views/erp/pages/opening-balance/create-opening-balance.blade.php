@@ -241,7 +241,6 @@
             parent.appendChild(feedback);
         }
 
-        // === 🔽 Tambahan: Format angka ribuan Indonesia untuk debit & credit ===
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('openingBalanceForm');
 
@@ -251,7 +250,6 @@
                 return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // Format awal nilai dari server
             document.querySelectorAll('input[name*="[debit]"], input[name*="[credit]"]').forEach(input => {
                 if (input.value && !input.value.includes('.')) {
                     input.value = formatNumber(input.value);
@@ -260,21 +258,18 @@
                 }
             });
 
-            // Fokus: hapus nol biar langsung bisa ngetik
             document.addEventListener('focusin', function(e) {
                 if (e.target.matches('input[name*="[debit]"], input[name*="[credit]"]')) {
                     if (e.target.value === '0') e.target.value = '';
                 }
             });
 
-            // Blur: kalau kosong isi lagi 0
             document.addEventListener('focusout', function(e) {
                 if (e.target.matches('input[name*="[debit]"], input[name*="[credit]"]')) {
                     if (e.target.value.trim() === '') e.target.value = '0';
                 }
             });
 
-            // Format realtime saat diketik
             document.addEventListener('input', function(e) {
                 if (e.target.matches('input[name*="[debit]"], input[name*="[credit]"]')) {
                     const pos = e.target.selectionStart;
@@ -285,7 +280,6 @@
                 }
             });
 
-            // Sebelum submit, hapus titik biar angka murni
             form.addEventListener('submit', function() {
                 document.querySelectorAll('input[name*="[debit]"], input[name*="[credit]"]').forEach(
                     input => {

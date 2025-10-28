@@ -25,6 +25,7 @@ class PermissionSubItemSeeder extends Seeder
                 ['name' => 'Opening Stock Production', 'slug' => 'opening-stock-production'],
                 ['name' => 'Stock Opname', 'slug' => 'stock-opname'],
                 ['name' => 'Stock Opname Production', 'slug' => 'stock-opname-production'],
+                ['name' => 'Inventory Report Items', 'slug' => 'inventory-report-items'],
             ],
 
             // Sales Module

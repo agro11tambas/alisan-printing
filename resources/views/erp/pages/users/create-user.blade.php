@@ -46,7 +46,6 @@
                 <form action="/erp/shop-manager/store" method="POST" id="ShopManagerForm">
                     @csrf
                     <div class="card-body">
-                        {{-- Name --}}
                         <div class="row mb-3 align-items-center">
                             <div class="col-lg-2">
                                 <label for="name" class="fw-semibold">Name:</label>
@@ -57,8 +56,6 @@
                                 @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>
-
-                        {{-- Username --}}
                         <div class="row mb-3 align-items-center">
                             <div class="col-lg-2">
                                 <label for="username" class="fw-semibold">Username:</label>
@@ -69,8 +66,6 @@
                                 @error('username') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>
-
-                        {{-- Password --}}
                         <div class="row mb-3 align-items-center">
                             <div class="col-lg-2">
                                 <label for="password" class="fw-semibold">Password:</label>
@@ -81,8 +76,6 @@
                                 @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>
-
-                        {{-- Role --}}
                         <div class="row mb-3 align-items-center">
                             <div class="col-lg-2">
                                 <label for="role" class="fw-semibold">Role:</label>
@@ -99,8 +92,6 @@
                                 @enderror
                             </div>
                         </div>
-
-                        {{-- Permissions --}}
                         <div class="row mb-3">
                             <div class="col-lg-2">
                                 <label class="fw-semibold">Hak Akses:</label>
@@ -110,7 +101,6 @@
                                     @foreach($permissions as $permission)
                                     <div class="col-md-4 mb-3">
                                         <div class="card p-2 h-100">
-                                            {{-- Parent Checkbox --}}
                                             <div class="form-check mb-2">
                                                 <input class="form-check-input parent-permission"
                                                     type="checkbox"
@@ -122,8 +112,6 @@
                                                     {{ $permission->name }}
                                                 </label>
                                             </div>
-
-                                            {{-- Sub Items --}}
                                             @if($permission->subItems->count())
                                             <div class="ms-3">
                                                 @foreach($permission->subItems as $sub)
@@ -169,7 +157,7 @@
                 subItems.forEach(function(sub) {
                     sub.disabled = !parentCheckbox.checked;
                     if (!parentCheckbox.checked) {
-                        sub.checked = false; // uncheck kalau parent dicabut
+                        sub.checked = false;
                     }
                 });
             });

@@ -154,27 +154,6 @@
                                 </select>
                             </div>
                         </div>
-
-                        <!-- <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="start_date" class="fw-semibold">Start Date:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <div class="input-group">
-                                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ old('start_date', $discount->start_date) }}">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="end_date" class="fw-semibold">End Date:</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <div class="input-group">
-                                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ old('end_date', $discount->end_date) }}">
-                                </div>
-                            </div>
-                        </div> -->
                         <div class="row mb-3 align-items-center">
                             <div class="col-lg-2">
                                 <label for="status" class="fw-semibold">Status:</label>
@@ -255,7 +234,7 @@
             {
                 selector: 'select[name="status"]',
                 message: 'Status wajib dipilih'
-            }, // ✅ ditambahkan
+            },
         ];
 
         let isValid = true;

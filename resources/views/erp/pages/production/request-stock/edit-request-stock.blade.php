@@ -153,7 +153,6 @@
     <script>
         const products = @json($productsJson);
 
-        // init select2
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih produk',
@@ -168,12 +167,10 @@
         document.addEventListener('DOMContentLoaded', function() {
             let rowCount = <?php echo json_encode(count($materialRequest->items)); ?>;
 
-            // init select2 untuk row yang sudah ada
             document.querySelectorAll('select.select-product').forEach(el => {
                 initSelect2(el);
             });
 
-            // tambah row baru
             document.getElementById('add_row').addEventListener('click', function() {
                 const tableBody = document.querySelector('#tab_logic_body');
                 const newRow = document.createElement('tr');
@@ -205,7 +202,6 @@
                 rowCount++;
             });
 
-            // hapus row terakhir
             document.getElementById('delete_row').addEventListener('click', function() {
                 if (rowCount > 1) {
                     rowCount--;

@@ -324,7 +324,6 @@
                             </div>
                         </div>
 
-                        {{-- 🔹 Product Payment --}}
                         <div class="border rounded p-3 mb-4">
                             <h6 class="fw-bold text-primary mb-3">Product Payment (to Supplier)</h6>
 
@@ -341,7 +340,6 @@
                             </div>
                         </div>
 
-                        {{-- 🔹 Freight Payment --}}
                         <div class="border rounded p-3 mb-4">
                             <h6 class="fw-bold text-primary mb-3">Freight Payment (to Expedition)</h6>
 
@@ -358,7 +356,6 @@
                             </div>
                         </div>
 
-                        {{-- 🔹 Account Selection --}}
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label for="transaction_type" class="fw-semibold">Transaction Type:</label>
@@ -423,7 +420,6 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // 🔹 Render child row berisi produk
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
@@ -466,7 +462,6 @@
                 return html;
             }
 
-            // 🔹 Init DataTables
             const dataTable = $('#purchaseOrderTable').DataTable({
                 processing: true,
                 serverSide: true,
@@ -519,19 +514,16 @@
                 ]
             });
 
-            // Expand/collapse child row khusus kolom "dt-control"
             $('#purchaseOrderTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
                 let icon = $(this).find('i');
 
                 if (row.child.isShown()) {
-                    // Tutup
                     row.child.hide();
                     tr.removeClass('shown');
                     icon.removeClass('feather-minus').addClass('feather-plus');
                 } else {
-                    // Buka child row isi produk
                     row.child(formatProducts(row.data().products)).show();
                     tr.addClass('shown');
                     icon.removeClass('feather-plus').addClass('feather-minus');
@@ -544,7 +536,6 @@
                 let $tr = $(this);
                 let row = dataTable.row($tr);
 
-                // tutup semua dulu
                 $('#purchaseOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
@@ -552,8 +543,7 @@
                 } else {
                     let actionHtml = row.data().action;
 
-                    // bikin baris tambahan di bawahnya (full colspan)
-                    let colCount = $tr.find('td').length; // total kolom yg ada
+                    let colCount = $tr.find('td').length;
                     let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -570,14 +560,11 @@
             });
 
             $(document).on('click', function(e) {
-                // kalau kliknya di dalam tabel, abaikan
                 if ($(e.target).closest('#purchaseOrderTable').length) return;
 
-                // tutup semua action-row
                 $('#purchaseOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // 🔹 Filter by date
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -591,7 +578,6 @@
                 dataTable.ajax.reload();
             });
 
-            // 🔹 Filter by type
             $('#search_type').on('change', function() {
                 const selected = $(this).val();
                 if (selected === 'payment_status') {
@@ -634,7 +620,7 @@
         });
 
         $(document).on('shown.bs.modal', '#modalChangeStatus', function() {
-            $('#paid_amount').trigger('input'); // auto-toggle saat modal dibuka
+            $('#paid_amount').trigger('input');
         });
 
         // document.addEventListener('click', function(e) {
@@ -661,7 +647,6 @@
                 const purchaseId = button.getAttribute('data-id');
                 const purchaseNumber = button.getAttribute('data-purchase-number') || '';
 
-                // Data produk & freight
                 const totalProduct = parseFloat(button.getAttribute('data-total-amount-product')) || 0;
                 const paidProduct = parseFloat(button.getAttribute('data-paid-amount-product')) || 0;
                 const remainingProduct = totalProduct - paidProduct;
@@ -670,7 +655,6 @@
                 const paidFreight = parseFloat(button.getAttribute('data-paid-amount-freight')) || 0;
                 const remainingFreight = totalFreight - paidFreight;
 
-                // Isi modal
                 document.getElementById('modal_purchase_number').value = purchaseNumber;
                 document.getElementById('purchase_id').value = purchaseId;
 
@@ -679,7 +663,6 @@
                 document.getElementById('remaining_freight_display').innerText = new Intl.NumberFormat('id-ID')
                     .format(remainingFreight);
 
-                // Set action URL
                 document.getElementById('markAsPurchaseForm').setAttribute('action', button.getAttribute(
                     'data-url'));
             }
@@ -692,18 +675,15 @@
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
 
-        // Saat submit, kirim value polos
         // document.querySelector("form").addEventListener("submit", function() {
         //     paidInput.value = paidInput.value.replace(/\./g, "");
         // });
 
-        // Format input angka
         $(document).on('input', '.format-number', function() {
             let angka = this.value.replace(/\D/g, '') || '0';
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
 
-        // Bersihkan titik sebelum submit
         $('#markAsPurchaseForm').on('submit', function() {
             $('.format-number').each(function() {
                 this.value = this.value.replace(/\./g, '');

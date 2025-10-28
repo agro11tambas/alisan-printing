@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
 use App\Models\InventoryStock;
+use App\Models\InventoryStockIn;
+use App\Models\InventoryStockInHistory;
 use App\Models\MaterialRequest;
 use App\Models\MaterialRequestItem;
 use App\Models\ProductionStock;
 use App\Models\Products;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Contracts\DataTable;
@@ -231,7 +234,10 @@ class MaterialRequestController extends Controller
         DB::beginTransaction();
 
         try {
+            $materialRequestNumber = \App\Services\MaterialRequestService::generateRequestNumber();
+
             $requestStock = MaterialRequest::create([
+                'material_request_number' => $materialRequestNumber,
                 'requested_by' => $request->user()->id,
                 'requested_at' => $request->requested_at,
             ]);
@@ -239,6 +245,7 @@ class MaterialRequestController extends Controller
             foreach ($request->product as $key => $productId) {
                 MaterialRequestItem::create([
                     'material_request_id' => $requestStock->id,
+                    'material_request_number' => $materialRequestNumber,
                     'product_id' => $productId,
                     'requested_qty' => $request->qty[$key],
                 ]);
@@ -246,6 +253,7 @@ class MaterialRequestController extends Controller
 
             $inventory = Inventory::create([
                 'material_request_id'     => $requestStock->id,
+                'material_request_number' => $materialRequestNumber,
                 'date'         => $request->requested_at,
                 'status'       => 'Stock Out',
             ]);
@@ -254,6 +262,7 @@ class MaterialRequestController extends Controller
                 InventoryItem::create([
                     'inventory_id'      => $inventory->id,
                     'product_id'        => $item->product_id,
+                    'inventory_warehouse_id' => 1,
                     'material_request_item_id'     => $item->id,
                     'quantity'          => $item->requested_qty,
                     'stock_in'          => 0,
@@ -276,69 +285,64 @@ class MaterialRequestController extends Controller
         DB::beginTransaction();
 
         try {
-            $requestStock = MaterialRequest::with(['items.product', 'inventory.items'])->findOrFail($id);
+            $requestStock = MaterialRequest::with(['items.product'])->findOrFail($id);
 
-            if ($requestStock->hasStockOut()) {
+            // ✅ Semua item sudah di-issued penuh
+            $isFullyIssued = $requestStock->items->every(function ($item) {
+                return $item->issued_qty >= $item->requested_qty;
+            });
+
+            // ✅ Semua item sudah di-received penuh
+            $isFullyReceived = $requestStock->items->every(function ($item) {
+                return $item->received_qty >= $item->requested_qty;
+            });
+
+            // Kalau belum fully issued/received → nggak boleh delete
+            if (!($isFullyIssued || $isFullyReceived)) {
                 DB::rollBack();
-                return back()->with('error', 'Request Stock ini sudah memiliki Stock Out dan tidak dapat dihapus lagi.');
+                return back()->with('error', 'Request Stock belum selesai issued atau received, tidak dapat dihapus.');
             }
 
-            // Kembalikan stok ke production_stocks
+            // 🔹 Buat Stock In otomatis (karena barang dikembalikan ke gudang)
+            $inventory = Inventory::create([
+                'material_request_id'     => $requestStock->id,
+                'material_request_number' => $requestStock->material_request_number, // ✅ tetap pakai nomor MR
+                'inventory_type'          => 'stock_in',
+                'date'                    => now(),
+                'note'                    => 'Auto Stock In (Delete Material Request)',
+                'status'                  => 'Stock In',
+                'user_id'                 => Auth::id(),
+            ]);
+
+            // 🔹 Tambah semua item ke InventoryItem
             foreach ($requestStock->items as $item) {
-                $productionStock = ProductionStock::where('product_id', $item->product_id)->first();
+                InventoryItem::create([
+                    'inventory_id'             => $inventory->id,
+                    'product_id'               => $item->product_id,
+                    'material_request_item_id' => $item->id,
+                    'inventory_warehouse_id'   => 1,
+                    'quantity'                 => $item->requested_qty,
+                    'price'                    => 0,
+                    'stock_in'                 => 0,
+                    'remaining_stock_in'       => $item->requested_qty,
+                    'stock_out'                => 0,
+                ]);
 
-                foreach ($requestStock->items as $item) {
-                    $productionStock = ProductionStock::where('product_id', $item->product_id)->first();
-
-                    if ($productionStock && $item->received_qty > 0) {
-                        // hanya rollback kalau sudah ada barang yang keluar
-                        $productionStock->available_quantity -= $item->received_qty;
-                        $productionStock->save();
-                    }
-                }
-            }
-
-            foreach ($requestStock->items as $item) {
-                $inventoryStock = InventoryStock::where('product_id', $item->product_id)->first();
-                if ($inventoryStock) {
-                    $inventoryStock->inventory_stock += $item->issued_qty;
-                    $inventoryStock->stock_after_sales += $item->issued_qty;
-                    $inventoryStock->save();
-                }
-
-                // Jika ingin juga update stok di tabel products
-                $product = $item->product;
-                if ($product) {
-                    $product->inventory_stock += $item->issued_qty;
-                    $product->stock_after_sales += $item->issued_qty;
-                    $product->save();
-                }
-            }
-
-            // Hapus inventory items
-            if ($requestStock->inventory) {
-                foreach ($requestStock->inventory->items as $invItem) {
-                    $invItem->delete();
-                }
-                $requestStock->inventory->delete();
-            }
-
-            // Hapus material request items
-            foreach ($requestStock->items as $item) {
+                // 🔹 Soft delete tiap item
                 $item->delete();
             }
 
-            // Hapus material request
+            // 🔹 Soft delete Material Request
             $requestStock->delete();
 
             DB::commit();
 
             return redirect("/erp/productions/material-request")
-                ->with('success', 'Order berhasil dihapus.');
+                ->with('success', 'Request Stock dihapus dan Stock In otomatis berhasil dibuat.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error delete order: ' . $e->getMessage());
-            return back()->with('error', 'Gagal menghapus order: ' . $e->getMessage());
+            Log::error('Error delete material request: ' . $e->getMessage());
+            return back()->with('error', 'Gagal menghapus Request Stock: ' . $e->getMessage());
         }
     }
 
@@ -358,6 +362,105 @@ class MaterialRequestController extends Controller
 
         return view('erp.pages.production.request-stock.edit-request-stock', compact('materialRequest', 'productsJson'));
     }
+
+    // public function update(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'requested_by' => 'required',
+    //         'requested_at' => 'required|date',
+    //         'product'      => 'required|array',
+    //         'product.*'    => 'required|exists:products,id',
+    //         'qty'          => 'required|array',
+    //         'qty.*'        => 'numeric|min:1',
+    //     ]);
+
+    //     DB::beginTransaction();
+
+    //     try {
+    //         $materialRequest = MaterialRequest::with(['items', 'inventory.items'])->findOrFail($id);
+
+    //         if ($materialRequest->hasStockOut()) {
+    //             DB::rollBack();
+    //             return back()->with('error', 'Request Stock ini sudah memiliki Stock Out dan tidak dapat diubah lagi.');
+    //         }
+
+    //         // Update header MaterialRequest
+    //         $materialRequest->update([
+    //             'requested_by' => $request->user()->id,
+    //             'requested_at' => $request->requested_at,
+    //         ]);
+
+    //         // Update Inventory header
+    //         $inventory = $materialRequest->inventory;
+    //         if ($inventory) {
+    //             $inventory->update([
+    //                 'date'   => $request->requested_at,
+    //                 'status' => 'Stock Out',
+    //             ]);
+    //         }
+
+    //         // Tandai item lama yang tidak ada di request → soft delete
+    //         $existingItemIds = $materialRequest->items->pluck('id')->toArray();
+    //         $incomingItemIds = $request->item_id ?? []; // item_id hidden input di form
+    //         $itemsToDelete   = array_diff($existingItemIds, $incomingItemIds);
+
+    //         if (!empty($itemsToDelete)) {
+    //             MaterialRequestItem::whereIn('id', $itemsToDelete)->delete();
+    //             InventoryItem::whereIn('material_request_item_id', $itemsToDelete)->delete();
+    //         }
+
+    //         // Loop item baru & update/insert
+    //         foreach ($request->product as $key => $productId) {
+    //             $qty = $request->qty[$key];
+
+    //             if (isset($incomingItemIds[$key]) && $incomingItemIds[$key]) {
+    //                 // Update item lama
+    //                 $reqItem = MaterialRequestItem::find($incomingItemIds[$key]);
+    //                 if ($reqItem) {
+    //                     $reqItem->update([
+    //                         'product_id'    => $productId,
+    //                         'requested_qty' => $qty,
+    //                     ]);
+
+    //                     $invItem = InventoryItem::where('material_request_item_id', $reqItem->id)->first();
+    //                     if ($invItem) {
+    //                         $invItem->update([
+    //                             'product_id'         => $productId,
+    //                             'quantity'           => $qty,
+    //                             'remaining_stock_in' => $qty - $invItem->stock_out, // jaga konsistensi
+    //                         ]);
+    //                     }
+    //                 }
+    //             } else {
+    //                 // Insert item baru
+    //                 $newReqItem = MaterialRequestItem::create([
+    //                     'material_request_id' => $materialRequest->id,
+    //                     'product_id'          => $productId,
+    //                     'requested_qty'       => $qty,
+    //                 ]);
+
+    //                 if ($inventory) {
+    //                     InventoryItem::create([
+    //                         'inventory_id'             => $inventory->id,
+    //                         'product_id'               => $productId,
+    //                         'material_request_item_id' => $newReqItem->id,
+    //                         'quantity'                 => $qty,
+    //                         'stock_in'                 => 0,
+    //                         'remaining_stock_in'       => $qty,
+    //                         'stock_out'                => 0,
+    //                     ]);
+    //                 }
+    //             }
+    //         }
+
+    //         DB::commit();
+    //         return redirect("/erp/productions/material-request")->with('success', 'Request Stock berhasil diperbarui.');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         Log::error('Error update request stock: ' . $e->getMessage());
+    //         return back()->with('error', 'Gagal update request stock: ' . $e->getMessage());
+    //     }
+    // }
 
     public function update(Request $request, $id)
     {
@@ -380,24 +483,31 @@ class MaterialRequestController extends Controller
                 return back()->with('error', 'Request Stock ini sudah memiliki Stock Out dan tidak dapat diubah lagi.');
             }
 
-            // Update header MaterialRequest
+            // ✅ Pastikan nomor tetap ada (kalau belum, buat baru)
+            if (!$materialRequest->material_request_number) {
+                $materialRequest->material_request_number = \App\Services\MaterialRequestService::generateRequestNumber();
+                $materialRequest->save();
+            }
+
+            // 🔹 Update header Material Request
             $materialRequest->update([
                 'requested_by' => $request->user()->id,
                 'requested_at' => $request->requested_at,
             ]);
 
-            // Update Inventory header
+            // 🔹 Update Inventory header
             $inventory = $materialRequest->inventory;
             if ($inventory) {
                 $inventory->update([
-                    'date'   => $request->requested_at,
-                    'status' => 'Stock Out',
+                    'material_request_number' => $materialRequest->material_request_number, // ✅ sinkron nomor
+                    'date'                    => $request->requested_at,
+                    'status'                  => 'Stock Out',
                 ]);
             }
 
-            // Tandai item lama yang tidak ada di request → soft delete
+            // 🔹 Hapus item lama yang tidak ada di form
             $existingItemIds = $materialRequest->items->pluck('id')->toArray();
-            $incomingItemIds = $request->item_id ?? []; // item_id hidden input di form
+            $incomingItemIds = $request->item_id ?? [];
             $itemsToDelete   = array_diff($existingItemIds, $incomingItemIds);
 
             if (!empty($itemsToDelete)) {
@@ -405,12 +515,12 @@ class MaterialRequestController extends Controller
                 InventoryItem::whereIn('material_request_item_id', $itemsToDelete)->delete();
             }
 
-            // Loop item baru & update/insert
+            // 🔹 Loop item baru & update/insert
             foreach ($request->product as $key => $productId) {
                 $qty = $request->qty[$key];
 
                 if (isset($incomingItemIds[$key]) && $incomingItemIds[$key]) {
-                    // Update item lama
+                    // 🔸 Update item lama
                     $reqItem = MaterialRequestItem::find($incomingItemIds[$key]);
                     if ($reqItem) {
                         $reqItem->update([
@@ -421,14 +531,15 @@ class MaterialRequestController extends Controller
                         $invItem = InventoryItem::where('material_request_item_id', $reqItem->id)->first();
                         if ($invItem) {
                             $invItem->update([
-                                'product_id'         => $productId,
-                                'quantity'           => $qty,
-                                'remaining_stock_in' => $qty - $invItem->stock_out, // jaga konsistensi
+                                'product_id'               => $productId,
+                                'quantity'                 => $qty,
+                                'remaining_stock_in'       => $qty - $invItem->stock_out,
+                                'material_request_number'  => $materialRequest->material_request_number, // ✅ tambah ini
                             ]);
                         }
                     }
                 } else {
-                    // Insert item baru
+                    // 🔸 Insert item baru
                     $newReqItem = MaterialRequestItem::create([
                         'material_request_id' => $materialRequest->id,
                         'product_id'          => $productId,
@@ -444,6 +555,7 @@ class MaterialRequestController extends Controller
                             'stock_in'                 => 0,
                             'remaining_stock_in'       => $qty,
                             'stock_out'                => 0,
+                            'material_request_number'  => $materialRequest->material_request_number, // ✅ simpan juga di item baru
                         ]);
                     }
                 }

@@ -80,7 +80,6 @@
                                                 <td>{{ $no++ }}</td>
                                                 <td>
                                                     {{ $openingStockRate->product->name }}
-                                                    {{-- Tambahkan hidden input ID --}}
                                                     <input type="hidden" name="id[]"
                                                         value="{{ $openingStockRate->id }}">
                                                 </td>
@@ -110,19 +109,16 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA DENGAN TITIK RIBUAN (STYLE INDONESIA TANPA KOMA) ===
         function formatNumberID(value) {
             if (!value) return '';
-            const num = value.toString().replace(/\D/g, ''); // Hapus semua non-digit
-            return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // Tambah titik setiap 3 digit
+            const num = value.toString().replace(/\D/g, '');
+            return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         }
 
-        // === HAPUS TITIK UNTUK DIKIRIM KE BACKEND ===
         function unformatNumberID(value) {
             return value ? value.toString().replace(/\./g, '') : '';
         }
 
-        // === SAAT USER KETIK ===
         document.addEventListener('input', function(e) {
             if (e.target.matches(
                     'input[name="opening_stock[]"], input[name="minimum_stock[]"], input[name="opening_rate[]"]')) {
@@ -131,11 +127,10 @@
                     e.target.value = '';
                     return;
                 }
-                e.target.value = formatNumberID(raw); // ⬅️ ubah ke fungsi baru
+                e.target.value = formatNumberID(raw);
             }
         });
 
-        // === SAAT FORM DISUBMIT ===
         document.getElementById('openingStockRateForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -145,7 +140,6 @@
 
             let isValid = true;
 
-            // VALIDASI TIAP BARIS
             form.querySelectorAll('tbody tr').forEach((row) => {
                 const openingStock = row.querySelector('input[name="opening_stock[]"]');
                 const minimumStock = row.querySelector('input[name="minimum_stock[]"]');
@@ -167,17 +161,15 @@
 
             if (!isValid) return;
 
-            // === HAPUS TITIK BIAR ANGKA MURNI SAAT SUBMIT ===
             form.querySelectorAll(
                 'input[name="opening_stock[]"], input[name="minimum_stock[]"], input[name="opening_rate[]"]'
             ).forEach(input => {
-                input.value = unformatNumberID(input.value); // ⬅️ pakai fungsi baru juga
+                input.value = unformatNumberID(input.value);
             });
 
             form.submit();
         });
 
-        // === TAMPILKAN ERROR ===
         function showError(input, message) {
             if (!input) return;
             input.classList.add('is-invalid');
@@ -189,7 +181,6 @@
             parent.appendChild(feedback);
         }
 
-        // === HAPUS ERROR SAAT USER BETULIN INPUT ===
         document.addEventListener('input', function(e) {
             if (e.target.matches('input.is-invalid')) {
                 e.target.classList.remove('is-invalid');

@@ -192,14 +192,11 @@ class HistoryStockOutController extends Controller
     public function store(Request $request, $id)
     {
         $request->validate([
-            'inventory_id' => 'required|exists:inventories_2,id',
-            'change_date'  => 'required|date',
-            'notes'        => 'nullable',
-            'waybill_number' => 'nullable|string',
-            'waybill_image'  => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'items' => 'required|array',
-            'items.*.inventory_item_id' => 'required|exists:inventory_items_2,id',
-            'items.*.stock_out'         => 'required|integer|min:1',
+            'inventory_id'    => 'required|exists:inventories_2,id',
+            'change_date'     => 'required|date',
+            'notes'           => 'nullable|string',
+            'waybill_number'  => 'nullable|string',
+            'waybill_image'   => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         DB::beginTransaction();
@@ -229,28 +226,40 @@ class HistoryStockOutController extends Controller
                 'user_id'         => $request->user()->id,
             ]);
 
-            foreach ($request->items as $item) {
-                $inventoryItem = InventoryItem::findOrFail($item['inventory_item_id']);
+            // 🔹 Ambil semua item dari inventory_items_2
+            $inventoryItems = \App\Models\InventoryItem::where('inventory_id', $inventory->id)->get();
 
-                // Simpan detail Stock Out
+            // 🔹 Pastikan masih ada item yang bisa di-stock out
+            if ($inventoryItems->isEmpty()) {
+                DB::rollBack();
+                return back()->with('error', 'Tidak ada item di inventory ini.');
+            }
+
+            // 🔹 Loop semua item dan keluarkan sisa qty-nya
+            foreach ($inventoryItems as $inventoryItem) {
+                $remainingQty = max(0, $inventoryItem->quantity - $inventoryItem->stock_out);
+
+                if ($remainingQty <= 0) continue; // skip kalau sudah habis
+
+                // Simpan history
                 InventoryStockOutHistory::create([
                     'inventory_stock_out_id' => $stockOut->id,
-                    'inventory_item_id'      => $item['inventory_item_id'],
-                    'stock_out'              => $item['stock_out'],
+                    'inventory_item_id'      => $inventoryItem->id,
+                    'stock_out'              => $remainingQty,
                 ]);
 
-                // Update inventory item
-                $inventoryItem->increment('stock_out', $item['stock_out']);
+                // Update qty di inventory_items_2
+                $inventoryItem->increment('stock_out', $remainingQty);
 
                 // Material Request (produksi)
                 if ($inventoryItem->material_request_item_id) {
                     $materialRequestItem = MaterialRequestItem::find($inventoryItem->material_request_item_id);
                     if ($materialRequestItem) {
-                        $materialRequestItem->increment('issued_qty', $item['stock_out']);
+                        $materialRequestItem->increment('issued_qty', $remainingQty);
 
                         MaterialRequestItemHistory::create([
                             'material_request_item_id' => $materialRequestItem->id,
-                            'quantity' => $item['stock_out'],
+                            'quantity' => $remainingQty,
                             'date'     => now()->format('Y-m-d'),
                             'status'   => 'pending',
                             'note'     => 'Stock Out #' . $stockOut->id,
@@ -262,7 +271,7 @@ class HistoryStockOutController extends Controller
                 if ($inventoryItem->purchase_return_item_id) {
                     $purchaseReturnItem = PurchaseReturnItem::find($inventoryItem->purchase_return_item_id);
                     if ($purchaseReturnItem) {
-                        $purchaseReturnItem->increment('stock_out', $item['stock_out']);
+                        $purchaseReturnItem->increment('stock_out', $remainingQty);
                     }
                 }
 
@@ -282,36 +291,15 @@ class HistoryStockOutController extends Controller
                     ]
                 );
 
-                // if ($inventory->purchase_return_id) {
-                //     $purchaseReturnItem = $inventoryItem->purchaseReturnItem ?? null;
-                //     if ($purchaseReturnItem) {
-                //         $returnCost = $purchaseReturnItem->price + $purchaseReturnItem->freight;
-
-                //         // Hitung qty sebelum pengeluaran
-                //         $productionQty = \App\Models\ProductionStock::where('product_id', $productId)
-                //             ->sum('available_quantity');
-
-                //         $previousQty  = max(0, $inventoryStock->inventory_stock + $productionQty);
-                //         $previousCost = $inventoryStock->avg_cost;
-
-                //         // Weighted average seperti di stock in (tapi arah minus)
-                //         $inventoryStock->avg_cost = round(
-                //             (($previousCost * $previousQty) - ($returnCost * $item['stock_out']))
-                //                 / max(1, $previousQty - $item['stock_out']),
-                //             2
-                //         );
-                //     }
-                // }
-
-                $inventoryStock->decrement('inventory_stock', $item['stock_out']);
+                $inventoryStock->decrement('inventory_stock', $remainingQty);
 
                 if ($inventory->purchase_return_id) {
-                    $inventoryStock->decrement('stock_after_sales', $item['stock_out']);
+                    $inventoryStock->decrement('stock_after_sales', $remainingQty);
                 }
-                
+
                 $inventoryStock->save();
 
-                // === Sinkronkan ke tabel products ===
+                // Sinkronkan ke tabel products
                 Products::where('id', $productId)->update([
                     'avg_cost' => $inventoryStock->avg_cost,
                 ]);
@@ -330,7 +318,7 @@ class HistoryStockOutController extends Controller
                         'inventory_stock_out_id'  => $stockOut->id,
                         'inventory_item_id'       => $inventoryItem->id,
                         'defect_date'             => $request->change_date,
-                        'quantity'                => $item['stock_out'],
+                        'quantity'                => $remainingQty,
                         'defect_type'             => 'rusak supplier',
                         'status'                  => 'pending',
                         'note'                    => $request->notes ?? 'Stock Out defect (Purchase Return)',

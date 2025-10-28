@@ -246,14 +246,11 @@
             } else {
                 $('.custom-range').addClass('d-none');
                 dataTable.ajax.reload();
-                // dataTableMobile.ajax.reload();
             }
         });
 
-        // Apply custom date range
         $('#apply-filter').on('click', function() {
             dataTable.ajax.reload();
-            // dataTableMobile.ajax.reload();
         });
 
         $('#statusFilter').change(function() {
@@ -261,12 +258,11 @@
         });
 
         $('#stockOpnameTable tbody').on('click', 'tr', function(e) {
-            if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+            if ($(e.target).closest('td.dt-control').length) return;
 
             let $tr = $(this);
             let row = dataTable.row($tr);
 
-            // tutup semua dulu
             $('#stockOpnameTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
             if ($tr.hasClass('action-shown')) {
@@ -274,8 +270,7 @@
             } else {
                 let actionHtml = row.data().action;
 
-                // bikin baris tambahan di bawahnya (full colspan)
-                let colCount = $tr.find('td').length; // total kolom yg ada
+                let colCount = $tr.find('td').length;
                 let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -292,10 +287,8 @@
         });
 
         $(document).on('click', function(e) {
-            // kalau kliknya di dalam tabel, abaikan
             if ($(e.target).closest('#stockOpnameTable').length) return;
 
-            // tutup semua action-row
             $('#stockOpnameTable tbody tr').removeClass('action-shown').next('.action-row').remove();
         });
 

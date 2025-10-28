@@ -4,18 +4,6 @@
             <i class="feather feather-more-horizontal"></i>
         </a>
         <ul class="dropdown-menu">
-            <!-- <li>
-                <button type="button"
-                    class="dropdown-item"
-                    data-bs-toggle="modal"
-                    data-bs-target="#modalChangeStatus"
-                    data-id="{{ $order->id }}"
-                    data-name="{{ $order->order_number }}"
-                    data-url="{{ url('/orders/mark-as-waiting-list/' . $order->id) }}">
-                    <i class="feather feather-check"></i>
-                    <span>Mark as Waiting List</span>
-                </button>
-            </li> -->
             @if ($order->payment_status !== 'Paid')
             <li>
                 <button type="button"

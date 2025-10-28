@@ -85,7 +85,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <!--  -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customers" class="fw-semibold">Customer:</label>
@@ -246,9 +245,9 @@
                                         </table>
                                     </div>
                                     <!-- <div class="d-flex justify-content-end gap-2 mt-3">
-                                                                        <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
-                                                                        <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
-                                                                    </div> -->
+                                                                            <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
+                                                                            <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
+                                                                        </div> -->
                                 </div>
                                 <div class="col-lg-12 mt-4">
                                     <div class="row justify-content-end">
@@ -260,22 +259,11 @@
                                                 <table class="table table-bordered" id="tab_logic_total">
                                                     <tbody>
                                                         <tr class="single-item">
-                                                            <!-- <th class="fs-10 text-dark text-uppercase">Sub Total</th> -->
                                                             <td class="w-25"><input type="hidden" name="sub_total"
                                                                     placeholder="0.00"
                                                                     class="form-control border-0 bg-transparent p-0"
                                                                     id="sub_total" readonly=""></td>
                                                         </tr>
-                                                        <!-- <tr class="single-item">
-                                                                                    <th class="fs-10 text-dark text-uppercase">Discount</th>
-                                                                                    <td class="w-25">
-                                                                                        <input type="text" readonly class="form-control border-0 bg-transparent p-0" value="{{ $discount['type'] === 'Percentage' ? $discount['amount'] . '%' : 'Rp' . number_format($discount['amount'], 0, ',', '.') }}">
-                                                                                        <input type="hidden" id="discount_type" value="{{ $discount['type'] }}">
-                                                                                        <input type="hidden" id="discount_amount_value" value="{{ $discount['amount'] }}">
-                                                                                        <input type="hidden" id="discount_condition" value="{{ $discount['condition_type'] }}">
-                                                                                        <input type="hidden" id="discount_minimum" value="{{ $discount['minimum_requirement'] }}">
-                                                                                    </td>
-                                                                                </tr> -->
                                                         <tr class="single-item">
                                                             <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
                                                                 Total</th>
@@ -299,14 +287,6 @@
                 </form>
             </div>
         </div>
-        <!-- <div class="col-lg-12">
-                                            <div class="card stretch stretch-full">
-                                                <div class="card-body p-0">
-                                                    <div class="table-responsive">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div> -->
     </div>
 @endsection
 
@@ -325,10 +305,7 @@
                 ];
             }),
         ); ?>;
-    </script>
 
-    <script>
-        // === formatter tampilan tanpa desimal ===
         function formatNumber(num) {
             return new Intl.NumberFormat('id-ID', {
                 minimumFractionDigits: 0,
@@ -336,7 +313,6 @@
             }).format(num);
         }
 
-        // === hitung per baris ===
         function updateRowTotal(row) {
             const qty = parseFloat(row.find('.qty').val().replace(/,/g, '')) || 0; // HAPUS KOMA, BUKAN TITIK
             const price = parseFloat(row.find('.price').val()) || 0;
@@ -351,18 +327,15 @@
             calcTotal();
         }
 
-        // === hitung ringkasan ===
         function calcTotal() {
             let sub = 0;
             $('.total').each(function() {
                 sub += parseFloat($(this).val()) || 0;
             });
 
-            // raw (hidden)
             $('#sub_total').val(sub.toFixed(0));
             $('#total_amount').val(sub.toFixed(0));
 
-            // tampilan (tanpa ,00)
             if ($('#sub_total_display').length) {
                 $('#sub_total_display').val(formatNumber(sub));
             }
@@ -370,13 +343,11 @@
         }
 
         $(document).ready(function() {
-            // Select2
             $('.select-product').select2({
                 placeholder: 'Pilih produk',
                 width: '100%'
             });
 
-            // Prefill harga awal
             $('#tab_logic_body tr').each(function() {
                 const row = $(this);
                 const sel = row.find('select[name="product_id[]"]');
@@ -387,7 +358,6 @@
                 updateRowTotal(row);
             });
 
-            // alamat dinamis
             const initialCustomerId = $('#customers').val();
             if (initialCustomerId) updateAddresses(initialCustomerId);
 
@@ -432,7 +402,6 @@
             }
         });
 
-        // === showError versi Sale Order ===
         function showError(el, message) {
             if ($(el).hasClass('select2-hidden-accessible')) {
                 const select2Container = $(el).next('.select2');
@@ -456,7 +425,6 @@
             }
         }
 
-        // === hapus error saat input berubah ===
         $(document).on("change input", "#return_type", function() {
             if ($(this).hasClass("select2-hidden-accessible")) {
                 $(this).next('.select2').next('.invalid-feedback').remove();
@@ -466,15 +434,12 @@
             }
         });
 
-        // === validasi di submit ===
         $('#orderForm').on('submit', function(e) {
             let isValid = true;
 
-            // reset error
             this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-            // cek return_type
             const returnType = $('#return_type');
             if (!returnType.val()) {
                 isValid = false;
@@ -484,22 +449,19 @@
             if (!isValid) e.preventDefault();
         });
 
-
-        // === ganti produk → set harga ===
         $(document).on('change', 'select[name="product_id[]"]', function() {
             const row = $(this).closest('tr');
             const price = parseFloat($(this).find('option:selected').data('price')) || 0;
 
-            row.find('.price').val(price.toFixed(0)); // raw
-            row.find('.price_display').val(formatNumber(price)); // display
+            row.find('.price').val(price.toFixed(0));
+            row.find('.price_display').val(formatNumber(price));
             updateRowTotal(row);
         });
 
-        // === format ribuan di qty ===
         $(document).on('input', '.qty', function() {
             const row = $(this).closest('tr');
             const max = parseFloat($(this).attr('max')) || Infinity;
-            let raw = $(this).val().replace(/\D/g, ''); // hapus non-digit
+            let raw = $(this).val().replace(/\D/g, '');
 
             if (!raw) {
                 $(this).val('');
@@ -519,10 +481,9 @@
             updateRowTotal(row);
         });
 
-        // === format ribuan saat submit ===
         $('#orderForm').on('submit', function() {
             $('.qty').each(function() {
-                const raw = $(this).val().replace(/,/g, ''); // GANTI TITIK JADI KOMA
+                const raw = $(this).val().replace(/,/g, '');
                 $(this).val(raw);
             });
         });

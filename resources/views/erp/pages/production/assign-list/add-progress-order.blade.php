@@ -36,7 +36,6 @@
                     @csrf
                     @method('POST')
 
-                    {{-- === INFORMASI UMUM === --}}
                     <div class="card mb-4">
                         <div class="card-header">
                             <h4 class="card-title">Sale Info</h4>
@@ -78,7 +77,6 @@
                         </div>
                     </div>
 
-                    {{-- === TABLE ASSIGN ITEMS === --}}
                     <div class="card">
                         <div class="card-header">
                             <h4 class="card-title">Assign Details</h4>
@@ -145,12 +143,10 @@
         $(document).ready(function() {
             let toastActive = false;
 
-            // === FORMAT ANGKA DENGAN TITIK (1.000) ===
             function formatNumber(n) {
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === Fungsi Toast Singkat ===
             function showToast(msg) {
                 Swal.fire({
                     toast: true,
@@ -172,7 +168,6 @@
                 const total = completed + reject + defect;
                 const wasOver = row.data('wasOver') || false;
 
-                // ✅ kalau baru melebihi batas → tampilkan toast & kunci nilai
                 if (total > assigned) {
                     if (!wasOver) {
                         showToast('Total tidak boleh melebihi jumlah assigned (' + assigned.toLocaleString(
@@ -180,7 +175,6 @@
                         row.data('wasOver', true);
                     }
 
-                    // hitung selisih & kunci agar pas di batas assigned
                     const lastInput = row.find('input:focus');
                     if (lastInput.length) {
                         const othersTotal = total - parseInt(lastInput.val().replace(/\./g, ''));
@@ -189,13 +183,11 @@
                     }
                 }
 
-                // 🧹 reset flag kalau total sudah valid lagi
                 if (total <= assigned && wasOver) {
                     row.data('wasOver', false);
                 }
             }
 
-            // === EVENT INPUT UNTUK SEMUA KOLOM (completed / reject / defect) ===
             $(document).on('input',
                 'input[name$="[completed_quantity]"], input[name$="[reject_quantity]"], input[name$="[defect_quantity]"]',
                 function(e) {
@@ -210,21 +202,18 @@
                     checkLimit(row);
                 });
 
-            // === HAPUS 0 SAAT FOKUS ===
             $(document).on('focus',
                 'input[name$="[completed_quantity]"], input[name$="[reject_quantity]"], input[name$="[defect_quantity]"]',
                 function() {
                     if ($(this).val() === '0') $(this).val('');
                 });
 
-            // === KEMBALIKAN 0 JIKA KOSONG ===
             $(document).on('blur',
                 'input[name$="[completed_quantity]"], input[name$="[reject_quantity]"], input[name$="[defect_quantity]"]',
                 function() {
                     if ($(this).val().trim() === '') $(this).val('0');
                 });
 
-            // === BERSIHKAN TITIK SEBELUM SUBMIT ===
             $('#progressForm').on('submit', function() {
                 $('input[name$="[completed_quantity]"], input[name$="[reject_quantity]"], input[name$="[defect_quantity]"]')
                     .each(function() {

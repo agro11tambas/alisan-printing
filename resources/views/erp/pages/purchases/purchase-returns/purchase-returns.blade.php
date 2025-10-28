@@ -292,9 +292,6 @@
     </div>
 </div> --}}
 
-    <!-- ========================= -->
-    <!-- MARK AS REFUND (PRODUCT) -->
-    <!-- ========================= -->
     <div class="modal fade-scale" id="modalRefundProduct" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -372,9 +369,6 @@
         </div>
     </div>
 
-    <!-- ========================= -->
-    <!-- MARK AS REFUND (FREIGHT) -->
-    <!-- ========================= -->
     <div class="modal fade-scale" id="modalRefundFreight" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -504,7 +498,6 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // 🔹 Render child row berisi produk
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
@@ -547,7 +540,6 @@
                 return html;
             }
 
-            // 🔹 Init DataTables
             const dataTable = $('#purchaseReturnTable').DataTable({
                 processing: true,
                 serverSide: true,
@@ -630,7 +622,6 @@
                                     className: 'dt-control text-center',
                                     orderable: false,
                                     data: null,
-                                    // boleh kosong, penting ada kolomnya
                                     defaultContent: '',
                                     width: "20px"
                                 },
@@ -662,7 +653,6 @@
                             ]
                         });
 
-                        // 👇 Pindahkan event handler ke sini biar binding setelah tabel ada
                         $('#deletedPurchaseReturnTable tbody').on('click', 'td.dt-control', function() {
                             let tr = $(this).closest('tr');
                             let row = deletedTable.row(tr);
@@ -681,19 +671,16 @@
                 }
             });
 
-            // Expand/collapse child row khusus kolom "dt-control"
             $('#purchaseReturnTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
                 let icon = $(this).find('i');
 
                 if (row.child.isShown()) {
-                    // Tutup
                     row.child.hide();
                     tr.removeClass('shown');
                     icon.removeClass('feather-minus').addClass('feather-plus');
                 } else {
-                    // Buka child row isi produk
                     row.child(formatProducts(row.data().products)).show();
                     tr.addClass('shown');
                     icon.removeClass('feather-plus').addClass('feather-minus');
@@ -701,12 +688,11 @@
             });
 
             $('#purchaseReturnTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+                if ($(e.target).closest('td.dt-control').length) return;
 
                 let $tr = $(this);
                 let row = dataTable.row($tr);
 
-                // tutup semua dulu
                 $('#purchaseReturnTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
@@ -714,8 +700,7 @@
                 } else {
                     let actionHtml = row.data().action;
 
-                    // bikin baris tambahan di bawahnya (full colspan)
-                    let colCount = $tr.find('td').length; // total kolom yg ada
+                    let colCount = $tr.find('td').length;
                     let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -748,14 +733,11 @@
             });
 
             $(document).on('click', function(e) {
-                // kalau kliknya di dalam tabel, abaikan
                 if ($(e.target).closest('#purchaseReturnTable').length) return;
 
-                // tutup semua action-row
                 $('#purchaseReturnTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // 🔹 Filter by date
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -769,7 +751,6 @@
                 dataTable.ajax.reload();
             });
 
-            // 🔹 Filter by type
             $('#search_type').on('change', function() {
                 const selected = $(this).val();
                 if (selected === 'payment_status') {
@@ -849,17 +830,11 @@
 
                 const fmt = new Intl.NumberFormat('id-ID');
 
-                // isi form & tampilkan angka
                 document.getElementById('purchase_return_id_product').value = id;
                 document.getElementById('refundFormProduct').action = url;
-
-                // tampilkan balance (sisa refund)
                 document.getElementById('total_amount_display_product').innerText = fmt.format(remaining);
-
-                // isi input refund amount otomatis dengan sisa
                 document.getElementById('refund_amount_product').value = fmt.format(remaining);
 
-                // tampilkan label "Refunded: Rp ..."
                 const display = document.getElementById('refund_amount_display_product');
                 if (display) display.innerText = 'Refunded: Rp. ' + fmt.format(refunded);
             }
@@ -885,14 +860,12 @@
 
         });
 
-        // 🔥 Format otomatis ke rupiah
         // const paidInput = document.getElementById("paid_amount");
         // paidInput.addEventListener("input", function() {
         //     let angka = this.value.replace(/\D/g, "") || "0";
         //     this.value = new Intl.NumberFormat('id-ID').format(angka);
         // });
 
-        // PRODUCT
         const refundInputProduct = document.getElementById("refund_amount_product");
         refundInputProduct.addEventListener("input", function() {
             let angka = this.value.replace(/\D/g, "") || "0";
@@ -902,7 +875,6 @@
             if (display) display.innerText = 'Refund: Rp. ' + this.value;
         });
 
-        // FREIGHT
         const refundInputFreight = document.getElementById("refund_amount_freight");
         refundInputFreight.addEventListener("input", function() {
             let angka = this.value.replace(/\D/g, "") || "0";
@@ -915,7 +887,6 @@
         // document.getElementById('markAsPurchaseForm').addEventListener('submit', function(e) {
         //     e.preventDefault();
 
-        //     // Reset error messages
         //     document.querySelectorAll('#markAsPurchaseForm small.text-danger').forEach(el => {
         //         el.classList.add('d-none');
         //         el.innerText = '';
@@ -927,7 +898,6 @@
         //     let transactionDate = document.getElementById('transaction_date').value.trim();
         //     let cashBankAccount = document.getElementById('cash_bank_account_id').value.trim();
 
-        //     // ambil angka asli (hapus titik)
         //     let paidAmountRaw = document.getElementById('paid_amount').value.trim();
         //     let paidAmount = paidAmountRaw.replace(/\./g, "");
 
@@ -958,7 +928,6 @@
         //         document.getElementById('error_paid_amount').classList.remove('d-none');
         //         valid = false;
         //     } else if (parseInt(paidAmount) > remainingAmount) {
-        //         // ❌ Tidak boleh lebih besar dari balance
         //         document.getElementById('error_paid_amount').innerText = 'Paid amount tidak boleh melebihi Balance';
         //         document.getElementById('error_paid_amount').classList.remove('d-none');
         //         valid = false;
@@ -966,20 +935,14 @@
 
         //     if (!valid) return;
 
-        //     // set value bersih sebelum submit
         //     document.getElementById('paid_amount').value = paidAmount;
 
-        //     // 🚀 submit form biasa (ke controller Laravel)
         //     this.submit();
         // });
 
-        // ===================================================
-        // MARK AS REFUND (PRODUCT)
-        // ===================================================
         document.getElementById('refundFormProduct').addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Reset error messages
             document.querySelectorAll('#refundFormProduct small.text-danger').forEach(el => {
                 el.classList.add('d-none');
                 el.innerText = '';
@@ -996,7 +959,6 @@
                 /\./g, '');
             const remainingAmount = parseInt(remainingRaw) || 0;
 
-            // ==== VALIDASI ====
             if (!transactionType) {
                 const el = document.getElementById('error_transaction_type_product');
                 el.innerText = 'Purchase Return Account wajib dipilih';
@@ -1036,16 +998,11 @@
 
             if (!valid) return;
 
-            // Set nilai bersih
             document.getElementById('refund_amount_product').value = refundAmount;
 
-            // 🚀 Submit ke controller
             this.submit();
         });
 
-        // ===================================================
-        // MARK AS REFUND (FREIGHT)
-        // ===================================================
         document.getElementById('refundFormFreight').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -1108,16 +1065,12 @@
             this.submit();
         });
 
-        // ===================================================
-        // FORMAT RUPIAH DISPLAY + PRE-SUBMIT FIX
-        // ===================================================
         ['product', 'freight'].forEach(type => {
             const input = document.getElementById(`refund_amount_${type}`);
             const display = document.getElementById(`refund_amount_display_${type}`);
             const form = document.getElementById(`refundForm${type.charAt(0).toUpperCase() + type.slice(1)}`);
 
             if (input) {
-                // Auto-format ke Rupiah saat input
                 input.addEventListener('input', function() {
                     let angka = this.value.replace(/\D/g, '') || '0';
                     this.value = new Intl.NumberFormat('id-ID').format(angka);
@@ -1126,14 +1079,12 @@
             }
 
             if (form && input) {
-                // Bersihkan titik sebelum submit (biar angka gak jadi double)
                 form.addEventListener('submit', function() {
                     input.value = input.value.replace(/\./g, '');
                 });
             }
         });
 
-        // Saat submit, kirim value polos
         // document.querySelector("form").addEventListener("submit", function() {
         //     paidInput.value = paidInput.value.replace(/\./g, "");
         // });

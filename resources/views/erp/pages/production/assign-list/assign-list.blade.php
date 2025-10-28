@@ -160,7 +160,6 @@
                 }
             });
 
-            // 🔹 Klik baris → tampilkan action row
             $('#assignBatchTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
                 let $tr = $(this);
@@ -189,7 +188,6 @@
                 $('#assignBatchTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // 🔹 Filter date
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -203,12 +201,10 @@
                 batchTable.ajax.reload();
             });
 
-            // 🔹 Filter progress status
             $('#progress_status').on('change', function() {
                 batchTable.ajax.reload();
             });
 
-            // 🔹 Search assign code (langsung reload saat mengetik)
             let searchTimeout;
             $('#search_keyword').on('input', function() {
                 clearTimeout(searchTimeout);

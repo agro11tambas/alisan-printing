@@ -160,37 +160,30 @@
 
             const creditField = document.getElementById('credit');
 
-            // === Fungsi format angka ribuan (pakai titik, tanpa desimal) ===
             function formatNumber(n) {
                 if (n === null || n === undefined || n === '') return '0';
 
-                // ubah ke string dan buang desimal (contoh: 2000000.00 → 2000000)
                 n = n.toString().split('.')[0].replace(/[^0-9]/g, '');
 
                 if (n === '') return '0';
 
-                // tambahkan titik setiap 3 digit dari belakang
                 return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === Normalisasi nilai awal dari server (misal: 2000000.00) ===
             if (creditField && creditField.value) {
                 creditField.value = formatNumber(creditField.value);
             } else {
                 creditField.value = '0';
             }
 
-            // === Saat fokus: hapus nol ===
             creditField.addEventListener('focus', function() {
                 if (this.value === '0') this.value = '';
             });
 
-            // === Saat blur: kalau kosong balik ke 0 ===
             creditField.addEventListener('blur', function() {
                 if (this.value.trim() === '') this.value = '0';
             });
 
-            // === Format realtime ===
             creditField.addEventListener('input', function() {
                 const pos = this.selectionStart;
                 const raw = this.value.replace(/[^\d]/g, '');
@@ -199,12 +192,10 @@
                 this.setSelectionRange(pos + diff, pos + diff);
             });
 
-            // === Validasi & hapus titik sebelum submit ===
             const form = document.getElementById('capitalTransactionsForm');
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
 
-                // Hapus error lama
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
@@ -237,7 +228,6 @@
 
                 if (!ok) return;
 
-                // Hapus titik sebelum submit (ubah jadi angka murni)
                 creditField.value = creditField.value.replace(/\./g, '');
 
                 form.submit();
@@ -251,7 +241,6 @@
                 fb.textContent = msg;
                 (el.closest('.input-group') || el.parentNode).appendChild(fb);
             }
-
         });
     </script>
 @endpush

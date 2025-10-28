@@ -85,7 +85,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <!-- Customer & Address -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customer_id" class="fw-semibold">Customer:</label>
@@ -143,8 +142,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Product Table -->
                     <div class="card stretch stretch-full">
                         <div class="card-body">
                             <div class="row">
@@ -205,14 +202,7 @@
 
                                         </table>
                                     </div>
-
-                                    <!-- <div class="d-flex justify-content-end gap-2 mt-3">
-                                                    <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
-                                                    <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
-                                                </div> -->
                                 </div>
-
-                                <!-- Grand Total -->
                                 <div class="col-lg-12 mt-4">
                                     <div class="row justify-content-end">
                                         <div class="col-lg-4">
@@ -235,7 +225,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                             </div>
                         </div>
                     </div>
@@ -260,17 +249,14 @@
                 ];
             }),
         ); ?>;
-    </script>
 
-    <script>
         $(document).ready(function() {
-            // === init select2 ===
+
             $('.select-product').select2({
                 width: '100%',
                 placeholder: 'Pilih produk'
             });
 
-            // === formatter tanpa desimal ===
             function formatNumber(num) {
                 return new Intl.NumberFormat('id-ID', {
                     minimumFractionDigits: 0,
@@ -278,10 +264,9 @@
                 }).format(num);
             }
 
-            // === hitung per baris ===
             function updateRowTotal(row) {
                 const qty = parseFloat((row.find('.qty').val() || '0').replace(/,/g, '')) ||
-                0; // ✅ hapus koma, bukan titik
+                0;
                 const price = parseFloat(row.find('.price').val()) || 0;
                 const total = qty * price;
 
@@ -294,7 +279,6 @@
                 calc_total();
             }
 
-            // === hitung total keseluruhan ===
             function calc_total() {
                 let total = 0;
                 $('.total').each(function() {
@@ -306,7 +290,6 @@
                 $('#total_amount_display').val(formatNumber(total));
             }
 
-            // === prefill harga & total saat load ===
             $('#tab_logic tbody tr').each(function() {
                 const row = $(this);
                 const sel = row.find('.select-product');
@@ -317,7 +300,6 @@
                 updateRowTotal(row);
             });
 
-            // === event: ubah produk ===
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
                 const price = parseFloat($(this).find('option:selected').data('price')) || 0;
@@ -326,12 +308,10 @@
                 updateRowTotal(row);
             });
 
-            // === event: ubah qty (dengan format ribuan koma) ===
             $(document).on('input', '.qty', function() {
                 const row = $(this).closest('tr');
                 const max = parseFloat($(this).attr('max')) || Infinity;
 
-                // hapus non-digit, lalu format ribuan koma
                 let raw = $(this).val().replace(/\D/g, '');
                 if (!raw) {
                     $(this).val('');
@@ -348,20 +328,17 @@
                 updateRowTotal(row);
             });
 
-            // === event: ubah price manual ===
             $(document).on('input', '.price', function() {
                 updateRowTotal($(this).closest('tr'));
             });
 
-            // === hapus koma sebelum submit form (biar backend dapat angka murni) ===
             $('#orderForm').on('submit', function() {
                 $('.qty').each(function() {
-                    const raw = $(this).val().replace(/,/g, ''); // ✅ hapus koma
+                    const raw = $(this).val().replace(/,/g, '');
                     $(this).val(raw);
                 });
             });
 
-            // === Google Maps Link ===
             function updateGoogleMapsLink() {
                 const selectedOption = $('#addresses').find('option:selected');
                 const mapUrl = selectedOption.data('map');
@@ -397,7 +374,6 @@
                 }, 50);
             });
 
-            // === validasi note edit wajib ===
             function showError(element, message) {
                 $(element).next('.invalid-feedback').remove();
                 $(element).after(`<div class="invalid-feedback">${message}</div>`);

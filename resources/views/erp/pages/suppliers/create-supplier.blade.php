@@ -119,7 +119,7 @@
         });
 
         if (isValid) {
-            form.submit(); // <- AKHIRNYA kirim ke controller
+            form.submit();
         }
     });
 

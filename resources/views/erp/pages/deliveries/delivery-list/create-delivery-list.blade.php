@@ -158,13 +158,11 @@
     <script>
         $(document).ready(function() {
 
-            // === FORMAT ANGKA DENGAN TITIK RIBUAN (INDONESIA STYLE) ===
             function formatNumberID(value) {
-                return value.replace(/\D/g, '') // hapus semua non-digit
-                    .replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // tambah titik setiap 3 digit
+                return value.replace(/\D/g, '')
+                    .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === TOAST WARNING ===
             function showToast(msg) {
                 Swal.fire({
                     toast: true,
@@ -176,7 +174,6 @@
                 });
             }
 
-            // === VALIDASI BATAS MAKSIMUM SHIPPED QTY ===
             $(document).on('input', 'input[name^="items"][name$="[shipped_quantity]"]', function() {
                 const input = $(this);
                 const raw = input.val().replace(/\./g, '');
@@ -185,7 +182,6 @@
                 let value = parseInt(raw);
                 const max = parseInt(input.attr('max')) || 0;
 
-                // 🔹 Jika lebih dari max → batasi dan tampilkan toast
                 if (value > max) {
                     value = max;
                     showToast('Jumlah pengiriman tidak boleh melebihi Ready Qty (' + max.toLocaleString(
@@ -195,9 +191,7 @@
                 input.val(formatNumberID(value.toString()));
             });
 
-            // === showError versi FINAL fix untuk Select2 & input biasa ===
             function showError(el, message) {
-                // pastikan select2 udah terinisialisasi
                 if ($(el).data('select2')) {
                     const select2Container = $(el).next('.select2');
                     select2Container.next('.invalid-feedback').remove();
@@ -207,9 +201,8 @@
                     feedback.textContent = message;
 
                     select2Container.after(feedback);
-                    select2Container.find('.select2-selection').css('border-color', '#dc3545'); // merah bootstrap
+                    select2Container.find('.select2-selection').css('border-color', '#dc3545');
                 } else {
-                    // input biasa
                     el.classList.add('is-invalid');
                     const container = el.closest('.input-group') || el.parentNode;
                     const existing = container.querySelector('.invalid-feedback');
@@ -232,33 +225,27 @@
                 }
             });
 
-            // === VALIDASI DRIVER WAJIB + HAPUS TITIK ===
             $('#deliveryListForm').on('submit', function(e) {
                 e.preventDefault();
 
                 let isValid = true;
 
-                // reset semua error
                 this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-                // validasi driver
                 const driverSelect = document.querySelector('#driver_id');
                 if (!driverSelect.value) {
                     isValid = false;
                     showError(driverSelect, 'Driver wajib dipilih');
                 }
 
-                // hapus titik sebelum submit
                 $('input[name^="items"][name$="[shipped_quantity]"]').each(function() {
                     $(this).val($(this).val().replace(/\./g, ''));
                 });
 
-                // kirim form kalau valid
                 if (isValid) this.submit();
             });
 
-            // === OPSIONAL: SAAT FOKUS DAN BLUR ===
             $(document).on('focus', 'input[name^="items"][name$="[shipped_quantity]"]', function() {
                 if ($(this).val() === '0') $(this).val('');
             });

@@ -13,25 +13,25 @@
             </ul>
         </div>
         <!-- <div class="page-header-right ms-auto">
-                            <div class="page-header-right-items">
-                                <div class="d-flex d-md-none">
-                                    <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                                        <i class="feather-arrow-left me-2"></i><span>Back</span>
+                                <div class="page-header-right-items">
+                                    <div class="d-flex d-md-none">
+                                        <a href="javascript:void(0)" class="page-header-right-close-toggle">
+                                            <i class="feather-arrow-left me-2"></i><span>Back</span>
+                                        </a>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
+                                        <a href="/erp/orders/create-order" class="btn btn-primary">
+                                            <i class="feather-plus me-2"></i>
+                                            <span>Create Order</span>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="d-md-none d-flex align-items-center">
+                                    <a href="javascript:void(0)" class="page-header-right-open-toggle">
+                                        <i class="feather-align-right fs-20"></i>
                                     </a>
                                 </div>
-                                <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                                    <a href="/erp/orders/create-order" class="btn btn-primary">
-                                        <i class="feather-plus me-2"></i>
-                                        <span>Create Order</span>
-                                    </a>
-                                </div>
-                            </div>
-                            <div class="d-md-none d-flex align-items-center">
-                                <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                                    <i class="feather-align-right fs-20"></i>
-                                </a>
-                            </div>
-                        </div> -->
+                            </div> -->
     </div>
 @endsection
 
@@ -184,14 +184,14 @@
                                 </div>
                             </div>
                             <!-- <div class="row align-items-center mb-3 task-list-row">
-                                                <div class="col-6">
-                                                    <i class="feather-dollar-sign me-2"></i>
-                                                    <span class="fw-semibold">Total Amount:</span>
-                                                </div>
-                                                <div class="col-6 d-flex">
-                                                    <span class="border-bottom border-bottom-dashed border-gray-5">Rp. {{ number_format($progress->total_amount, 0, ',', '.') }}</span>
-                                                </div>
-                                            </div> -->
+                                                    <div class="col-6">
+                                                        <i class="feather-dollar-sign me-2"></i>
+                                                        <span class="fw-semibold">Total Amount:</span>
+                                                    </div>
+                                                    <div class="col-6 d-flex">
+                                                        <span class="border-bottom border-bottom-dashed border-gray-5">Rp. {{ number_format($progress->total_amount, 0, ',', '.') }}</span>
+                                                    </div>
+                                                </div> -->
                         </div>
                     </div>
                 </div>
@@ -278,7 +278,8 @@
 
                         <div class="mb-3">
                             <label class="form-label">Completed Quantity</label>
-                            <input type="number" id="completed_quantity" name="completed_quantity" class="form-control">
+                            <input type="number" id="completed_quantity" name="completed_quantity"
+                                class="form-control">
                         </div>
 
                         <div class="mb-3">
@@ -363,14 +364,11 @@
                 } else {
                     $('.custom-range').addClass('d-none');
                     dataTable.ajax.reload();
-                    // dataTableMobile.ajax.reload();
                 }
             });
 
-            // Apply custom date range
             $('#apply-filter').on('click', function() {
                 dataTable.ajax.reload();
-                // dataTableMobile.ajax.reload();
             });
         });
 
@@ -386,7 +384,6 @@
             $('#editHistoryModal').modal('show');
         });
 
-        // Submit edit form
         $('#editHistoryForm').on('submit', function(e) {
             e.preventDefault();
             const id = $('#history_id').val();

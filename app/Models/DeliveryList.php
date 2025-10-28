@@ -64,19 +64,38 @@ class DeliveryList extends Model
         });
 
         // 🔎 Pantau setiap kali DeliveryList disimpan
+        // Pantau setiap kali DeliveryList disimpan
         static::saved(function ($deliveryList) {
             $deliveryOrder = $deliveryList->deliveryOrder;
-            if ($deliveryOrder) {
-                // cek apakah semua delivery list pada DO ini sudah Finished
-                $allFinished = $deliveryOrder->shipments()
-                    ->where('status', '!=', 'Finished')
-                    ->count() === 0;
 
-                if ($allFinished) {
-                    $deliveryOrder->status = 'Finished';
-                    $deliveryOrder->saveQuietly(); // pakai saveQuietly biar ga trigger event lain
-                }
+            if (!$deliveryOrder) {
+                return;
             }
+
+            // 🔹 Ambil semua item di DeliveryOrder
+            $items = $deliveryOrder->items;
+
+            if ($items->isEmpty()) {
+                return;
+            }
+
+            // 🔹 Cek apakah semua item sudah dikirim penuh
+            $allShipped = $items->every(function ($item) {
+                $progressQty = (int) $item->progress_qty;
+                $shippedQty  = (int) $item->shipped_qty;
+
+                // hanya dianggap selesai jika progress_qty > 0 dan shipped_qty >= progress_qty
+                return $progressQty > 0 && $shippedQty >= $progressQty;
+            });
+
+            // 🔹 Update status DeliveryOrder berdasarkan kondisi item
+            if ($allShipped) {
+                $deliveryOrder->status = 'Finished';
+            } else {
+                $deliveryOrder->status = 'Ongoing';
+            }
+
+            $deliveryOrder->saveQuietly();
         });
     }
 }

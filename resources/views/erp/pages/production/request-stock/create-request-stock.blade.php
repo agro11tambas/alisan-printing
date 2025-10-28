@@ -148,28 +148,23 @@
         document.addEventListener('DOMContentLoaded', function() {
             let rowCount = 1;
 
-            // Inisialisasi awal
             document.querySelectorAll('select.select-product').forEach(el => {
                 populateProducts(el);
                 initSelect2(el);
             });
 
-            // === FORMAT RIBUAN UNTUK QTY ===
             function formatNumber(n) {
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // Auto hapus 0 saat fokus
             $(document).on('focus', '.qty', function() {
                 if ($(this).val() === '0') $(this).val('');
             });
 
-            // Balikin 0 kalau kosong
             $(document).on('blur', '.qty', function() {
                 if ($(this).val().trim() === '') $(this).val('0');
             });
 
-            // Format ribuan realtime
             $(document).on('input', '.qty', function(e) {
                 const input = e.target;
                 const cursorPos = input.selectionStart;
@@ -181,14 +176,12 @@
                 input.setSelectionRange(cursorPos + diff, cursorPos + diff);
             });
 
-            // Hapus koma saat submit
             $('#requestStockForm').on('submit', function() {
                 $('.qty').each(function() {
                     this.value = this.value.replace(/\./g, '');
                 });
             });
 
-            // Tambah baris baru
             document.getElementById('add_row').addEventListener('click', function() {
                 const tableBody = document.getElementById('tab_logic_body');
                 const newRow = document.createElement('tr');
@@ -218,18 +211,15 @@
                 rowCount++;
             });
 
-            // Hapus baris
             $(document).on('click', '.delete-row', function() {
                 $(this).closest('tr').remove();
 
-                // reindex
                 $('#tab_logic_body tr').each(function(index) {
                     $(this).find('td:first').text(index + 1);
                 });
             });
         });
 
-        // Autofocus saat select2 dibuka
         $(document).on('select2:open', () => {
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();

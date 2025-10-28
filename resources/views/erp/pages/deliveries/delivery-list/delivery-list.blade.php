@@ -62,7 +62,6 @@
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        {{-- Filter --}}
                         <div class="row g-3 p-4 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <label class="fw-semibold fs-12">Date</label>
@@ -96,9 +95,8 @@
                                     <div class="col-lg-3">
                                         <label for="status" class="fw-semibold fs-12">Status</label>
                                         <select id="status" class="form-control">
-                                            <option value="">All</option>
                                             <option value="Ongoing">Ongoing</option>
-                                            <option value="Completed">Completed</option>
+                                            <option value="finished">Finished</option>
                                         </select>
                                     </div>
                                     <div class="col-lg-6">
@@ -120,8 +118,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        {{-- Table --}}
                         <div class="table-responsive">
                             <table class="table table-hover bg-transparent" id="deliveryListTable">
                                 <thead>
@@ -148,7 +144,6 @@
 @endsection
 
 @push('styles')
-    {{-- Modal Upload Delivery Proof --}}
     <div class="modal fade" id="modalUploadDelivery" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <form method="POST" enctype="multipart/form-data" id="formUploadDelivery">
@@ -170,7 +165,6 @@
         </div>
     </div>
 
-    {{-- Modal Upload Waybill Proof --}}
     <div class="modal fade" id="modalUploadWaybill" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <form method="POST" enctype="multipart/form-data" id="formUploadWaybill">
@@ -343,14 +337,12 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Modal Upload Delivery Proof
             $(document).on('click', '.btn-upload-delivery', function() {
                 const url = $(this).data('url');
                 $('#formUploadDelivery').attr('action', url);
                 $('#modalUploadDelivery').modal('show');
             });
-
-            // Modal Upload Waybill Proof
+            
             $(document).on('click', '.btn-upload-waybill', function() {
                 const url = $(this).data('url');
                 $('#formUploadWaybill').attr('action', url);

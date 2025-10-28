@@ -60,16 +60,6 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-lg-12">
-                                    <!-- <div class="row mb-3 align-items-center">
-                                                                                                    <div class="col-lg-2">
-                                                                                                        <label for="purchase_number" class="fw-semibold">Paid Amount:</label>
-                                                                                                    </div>
-                                                                                                    <div class="col-lg-10 mb-0">
-                                                                                                        <div class="input-group">
-                                                                                                            <input type="text" class="form-control" id="purchase_number" name="purchase_number" value="{{ old('purchase_number', $purchase->purchase_number) }}">
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                </div> -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="purchase_date" class="fw-semibold">Purchase Date:</label>
@@ -82,7 +72,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <!--  -->
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="suppliers" class="fw-semibold">Supplier:</label>
@@ -335,7 +324,6 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA RIBUAN (INDONESIA STYLE) ===
         function formatRibuan(angka) {
             if (angka === null || angka === undefined || isNaN(angka)) return '0';
             const parts = parseFloat(angka).toFixed(2).split('.');
@@ -343,19 +331,16 @@
             return ribuan + ',' + parts[1];
         }
 
-        // === UNFORMAT RIBUAN KE ANGKA MURNI ===
         function unformatRibuan(angka) {
             if (!angka) return 0;
             return parseFloat(angka.toString().replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        // === PERHITUNGAN TIAP BARIS ===
         function updateRowTotal(row) {
             let qty = unformatRibuan(row.find(".qty").val());
             let price = unformatRibuan(row.find(".price").val());
             let freight = unformatRibuan(row.find(".freight").val());
 
-            // Pastikan bukan NaN
             qty = isNaN(qty) ? 0 : qty;
             price = isNaN(price) ? 0 : price;
             freight = isNaN(freight) ? 0 : freight;
@@ -366,8 +351,6 @@
             calc_total();
         }
 
-
-        // === PERHITUNGAN TOTAL AKHIR ===
         function calc_total() {
             let subtotalProduct = 0,
                 subtotalFreight = 0;
@@ -400,7 +383,6 @@
             $("#total_amount_display").val(formatRibuan(grandTotal.toFixed(2)));
         }
 
-        // === INIT SELECT2 ===
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih opsi',
@@ -412,13 +394,11 @@
             });
         }
 
-        // === PAGE READY ===
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
             calc_total();
 
-            // Tambah row
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
                 const $newRow = $tbody.find('tr:first').clone();
@@ -436,7 +416,6 @@
                 initSelect2($newRow.find('.select-product'));
             });
 
-            // Hapus row
             $(document).on('click', '.delete-row', function() {
                 if ($('#tab_logic tbody tr').length > 1) {
                     $(this).closest('tr').remove();
@@ -444,7 +423,6 @@
                 }
             });
 
-            // Produk berubah → isi harga otomatis
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
                 const price = parseFloat($(this).find('option:selected').data('price')) || 0;
@@ -452,35 +430,28 @@
                 updateRowTotal(row);
             });
 
-            // Qty / Price / Freight berubah
-            // Saat mengetik — hanya hitung total, jangan ubah tampilan
             $(document).on('input', '.qty, .price, .freight', function() {
                 updateRowTotal($(this).closest('tr'));
             });
 
-            // Saat keluar dari input (blur) — baru format ribuan
             $(document).on('blur', '.qty, .price, .freight', function() {
                 let val = unformatRibuan($(this).val());
                 $(this).val(formatRibuan(val));
                 updateRowTotal($(this).closest('tr'));
             });
 
-            // Tax berubah
             $(document).on('input', '#tax_percent', calc_total);
 
-            // Sebelum submit, hapus format koma
             $('#purchaseForm').on('submit', function(e) {
-                // Pastikan tidak error JS
                 try {
                     $('.qty, .price, .freight, .total').each(function() {
                         let val = $(this).val() || '0';
                         $(this).val(val.toString().replace(/\./g, '').replace(',',
-                        '.')); // ubah ke format angka murni
+                            '.'));
                     });
                 } catch (err) {
                     console.error('Error sebelum submit:', err);
                 }
-                // IZINKAN form tetap submit
                 return true;
             });
 

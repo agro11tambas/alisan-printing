@@ -118,20 +118,17 @@
 
 @push('scripts')
     <script>
-        // 🔹 Helper: ubah angka ke format ribuan (5.766)
         function numberFormat(num) {
             if (!num) return '';
             return new Intl.NumberFormat('id-ID').format(num);
         }
 
-        // 🔹 Helper: ubah string formatted jadi angka murni (5.766 → 5766)
         function parseNumber(str) {
             if (!str) return 0;
             return parseFloat(str.toString().replace(/\./g, '').replace(',', '.')) || 0;
         }
 
         function initSelect2(scope) {
-            // === Produk ===
             $(scope).find('.select2-product').each(function() {
                 const $el = $(this);
                 if ($el.hasClass('select2-hidden-accessible')) return;
@@ -142,7 +139,6 @@
                 });
             });
 
-            // === Status (Gain/Loss) ===
             $(scope).find('select[data-select2-selector="tag"]').each(function() {
                 const $el = $(this);
                 if ($el.hasClass('select2-hidden-accessible')) return;
@@ -163,12 +159,10 @@
             const $option = $(state.element);
             const bgClass = $option.data('bg');
 
-            // Tentukan warna dot
             let dotColor = '';
-            if (bgClass === 'bg-success') dotColor = '#16a34a'; // hijau
-            else if (bgClass === 'bg-danger') dotColor = '#dc2626'; // merah
+            if (bgClass === 'bg-success') dotColor = '#16a34a';
+            else if (bgClass === 'bg-danger') dotColor = '#dc2626';
 
-            // Bikin elemen <span> dengan dot + teks
             const $container = $('<span>', {
                 css: {
                     'display': 'flex',
@@ -196,7 +190,6 @@
         }
 
         $(document).ready(function() {
-            // === INIT SELECT2 ===
             initSelect2(document);
 
             $(document).on('select2:open', () => {
@@ -206,13 +199,11 @@
                 }, 50);
             });
 
-            // === FORMAT ANGKA DENGAN TITIK RIBUAN (REALTIME) ===
             $(document).on('input', 'input[name^="items"][name$="[quantity]"]', function() {
                 let raw = this.value.replace(/\D/g, '');
                 this.value = raw ? new Intl.NumberFormat('id-ID').format(raw) : '';
             });
 
-            // === FORMAT ULANG SAAT HALAMAN DIBUKA ===
             $('input[name^="items"][name$="[quantity]"]').each(function() {
                 if (this.value.trim() !== '') {
                     this.value = new Intl.NumberFormat('id-ID').format(parseFloat(this.value.replace(/\./g,
@@ -220,7 +211,6 @@
                 }
             });
 
-            // === ADD ROW ===
             let rowIndex = 1;
             $('#addRowBtn').on('click', function() {
                 const tmpl = document.getElementById('rowTemplate');
@@ -239,18 +229,15 @@
                 rowIndex++;
             });
 
-            // === REMOVE ROW ===
             $(document).on('click', '.removeRow', function() {
                 $(this).closest('tr').remove();
             });
 
-            // === VALIDASI FRONTEND + FORMAT & CLEANSING ===
             const form = document.getElementById('stockOpnameForm');
 
             form.addEventListener('submit', function(e) {
                 let isValid = true;
 
-                // hapus error lama
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
@@ -281,13 +268,11 @@
                     return;
                 }
 
-                // === HAPUS TITIK SAAT SUBMIT ===
                 form.querySelectorAll('input[name^="items"][name$="[quantity]"]').forEach(input => {
                     input.value = input.value.replace(/\./g, '');
                 });
             });
 
-            // Fungsi tampilkan error
             function showError(el, message) {
                 if ($(el).hasClass('select2-hidden-accessible')) {
                     const select2Container = $(el).next('.select2');
@@ -310,7 +295,6 @@
                 }
             }
 
-            // Hapus error saat input berubah
             form.querySelectorAll('input, select').forEach(el => {
                 el.addEventListener('input', () => {
                     el.classList.remove('is-invalid');

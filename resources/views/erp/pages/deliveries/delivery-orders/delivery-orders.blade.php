@@ -93,9 +93,8 @@
                                 <div class="col-lg-3">
                                     <label for="status" class="fw-semibold fs-12">DO Status</label>
                                     <select id="status" class="form-control">
-                                        <option value="">All</option>
                                         <option value="Ongoing">Ongoing</option>
-                                        <option value="Completed">Completed</option>
+                                        <option value="Finished">Finished</option>
                                     </select>
                                 </div>
                                 <div class="col-lg-6">
@@ -165,7 +164,6 @@
 <div class="modal fade-scale" id="modalAddDeliveryList" tabindex="-1" aria-labelledby="modalAddDeliveryListLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
         <div class="modal-content">
-            {{-- Header --}}
             <div class="modal-header">
                 <h2 class="d-flex flex-column mb-0">
                     <span class="fs-18 fw-bold mb-1">Add Delivery List</span>
@@ -175,13 +173,11 @@
                 </a>
             </div>
 
-            {{-- Body --}}
             <form method="POST" id="formAddDeliveryList">
                 @csrf
                 <input type="hidden" id="delivery_order_id" name="delivery_order_id">
 
                 <div class="modal-body">
-                    {{-- Header --}}
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label class="fw-semibold">Shipment Number</label>
@@ -204,7 +200,6 @@
                         </div>
                     </div>
 
-                    {{-- Items --}}
                     <div class="row g-3 mb-3">
                         <div class="col-12">
                             <label class="fw-semibold">Items</label>
@@ -220,7 +215,6 @@
                                         </tr>
                                     </thead>
                                     <tbody id="delivery_items_body">
-                                        {{-- JS akan isi di sini --}}
                                     </tbody>
                                 </table>
                             </div>
@@ -393,7 +387,6 @@
             const doId = button.getAttribute('data-id');
             const url = button.getAttribute('data-url');
 
-            // isi form
             inputDOId.value = doId;
             form.action = url;
         });
@@ -414,14 +407,12 @@
             inputDOId.value = doId;
             form.action = url;
 
-            // 1. generate shipment number
             fetch(`/erp/deliveries/delivery-list/generate-number/${doId}`)
                 .then(res => res.json())
                 .then(data => {
                     shipmentNumberInput.value = data.number;
                 });
 
-            // 2. load DO items
             fetch(`/erp/deliveries/delivery-orders/${doId}/items`)
                 .then(res => res.json())
                 .then(data => {

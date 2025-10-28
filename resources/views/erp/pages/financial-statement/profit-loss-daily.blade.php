@@ -136,7 +136,6 @@
                         d.end_date = $('#end_date').val();
                     },
                     dataSrc: function(json) {
-                        // Update footer total
                         $('#totalRevenue').text('Rp ' + new Intl.NumberFormat('en-US').format(json
                             .summary.total_revenue));
                         $('#totalCogs').text('Rp ' + new Intl.NumberFormat('en-US').format(json.summary
@@ -178,7 +177,6 @@
                 ]
             });
 
-            // 🔹 Filter dropdown
             $('#filter').change(function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -190,7 +188,6 @@
                 }
             });
 
-            // 🔹 Apply custom range
             $('#apply-filter').click(function() {
                 table.ajax.reload();
             });

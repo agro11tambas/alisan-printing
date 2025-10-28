@@ -174,7 +174,7 @@
         }
 
         $(document).ready(function() {
-            fetchProfitLoss('all'); // load awal
+            fetchProfitLoss('all');
 
             $('#filter').change(function() {
                 const filter = $(this).val();

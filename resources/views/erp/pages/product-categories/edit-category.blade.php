@@ -106,9 +106,9 @@
         nameInput.addEventListener('input', function() {
             const slug = nameInput.value
                 .toLowerCase()
-                .replace(/[^\w\s-]/g, '') // hapus karakter aneh
+                .replace(/[^\w\s-]/g, '') 
                 .trim()
-                .replace(/\s+/g, '-'); // ganti spasi dengan -
+                .replace(/\s+/g, '-');
 
             slugInput.value = slug;
         });

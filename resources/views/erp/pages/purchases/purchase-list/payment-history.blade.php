@@ -38,7 +38,7 @@
                 <div class="card-body">
                     @forelse($transactions as $groupId => $trxGroup)
                     @php
-                    // filter hanya credit (Cash/Bank keluar uang untuk bayar Purchase)
+                   
                     $creditGroup = $trxGroup->where('credit', '>', 0);
                     @endphp
 

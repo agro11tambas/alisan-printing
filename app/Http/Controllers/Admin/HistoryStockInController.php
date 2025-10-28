@@ -147,6 +147,11 @@ class HistoryStockInController extends Controller
                     );
 
                     $inventoryStock->save();
+                } elseif ($inventoryItem->material_request_item_id) {
+                    // hanya update stok fisik gudang
+                    $inventoryStock->increment('inventory_stock', $item['stock_in']);
+                    // ❌ tidak update stock_after_sales
+                    $inventoryStock->save();
                 }
 
                 Products::where('id', $productId)->update([

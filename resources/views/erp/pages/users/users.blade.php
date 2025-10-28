@@ -144,7 +144,6 @@
 @push('scripts')
 <script>
     $(document).ready(function() {
-        // Cegah reinitialisasi
         if ($.fn.DataTable.isDataTable('#ShopManagerList')) {
             $('#ShopManagerList').DataTable().clear().destroy();
         }
@@ -199,12 +198,11 @@
         });
 
         $('#ShopManagerList tbody').on('click', 'tr', function(e) {
-            if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+            if ($(e.target).closest('td.dt-control').length) return;
 
             let $tr = $(this);
             let row = dataTable.row($tr);
 
-            // tutup semua dulu
             $('#ShopManagerList tbody tr').removeClass('action-shown').next('.action-row').remove();
 
             if ($tr.hasClass('action-shown')) {
@@ -212,8 +210,7 @@
             } else {
                 let actionHtml = row.data().action;
 
-                // bikin baris tambahan di bawahnya (full colspan)
-                let colCount = $tr.find('td').length; // total kolom yg ada
+                let colCount = $tr.find('td').length;
                 let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -230,10 +227,8 @@
         });
 
         $(document).on('click', function(e) {
-            // kalau kliknya di dalam tabel, abaikan
             if ($(e.target).closest('#ShopManagerList').length) return;
 
-            // tutup semua action-row
             $('#ShopManagerList tbody tr').removeClass('action-shown').next('.action-row').remove();
         });
 

@@ -1,11 +1,5 @@
 <div class="dropdown">
     <ul class="dropdown-menu show static-action-menu">
-        <!-- <li>
-                <a class="dropdown-item" href="/erp/purchases/history-purchase/{{ $purchase->id }}">
-                    <i class="feather feather-info me-3"></i>
-                    <span>History</span>
-                </a>
-            </li> -->
         @if ($purchase->payment_status !== 'Paid')
             {{-- <li>
             <button type="button"

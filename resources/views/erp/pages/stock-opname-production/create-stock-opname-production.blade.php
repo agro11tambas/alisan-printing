@@ -65,7 +65,6 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <!-- 🧩 tambahkan class yang sesuai di sini -->
                                     <input type="text" inputmode="numeric" name="items[0][available_quantity]"
                                         class="form-control qty-field available_quantity d-none"
                                         placeholder="Available Quantity">
@@ -147,20 +146,17 @@
 
 @push('scripts')
     <script>
-        // 🔹 Helper: format angka ke ribuan
         function numberFormat(num) {
             if (!num) return '';
             return new Intl.NumberFormat('id-ID').format(num);
         }
 
-        // 🔹 Helper: ubah "5.766" → 5766
         function parseNumber(str) {
             if (!str) return 0;
             return parseFloat(str.toString().replace(/\./g, '').replace(',', '.')) || 0;
         }
 
         function initSelect2(scope) {
-            // === Produk ===
             $(scope).find('.select2-product').each(function() {
                 const $el = $(this);
                 if ($el.hasClass('select2-hidden-accessible')) return;
@@ -171,7 +167,6 @@
                 });
             });
 
-            // === Status (Gain/Loss) ===
             $(scope).find('select[data-select2-selector="tag"]').each(function() {
                 const $el = $(this);
                 if ($el.hasClass('select2-hidden-accessible')) return;
@@ -192,12 +187,10 @@
             const $option = $(state.element);
             const bgClass = $option.data('bg');
 
-            // Tentukan warna dot
             let dotColor = '';
-            if (bgClass === 'bg-success') dotColor = '#16a34a'; // hijau
-            else if (bgClass === 'bg-danger') dotColor = '#dc2626'; // merah
+            if (bgClass === 'bg-success') dotColor = '#16a34a';
+            else if (bgClass === 'bg-danger') dotColor = '#dc2626';
 
-            // Bikin elemen <span> dengan dot + teks
             const $container = $('<span>', {
                 css: {
                     'display': 'flex',
@@ -224,7 +217,6 @@
             return $container;
         }
 
-        // === FORMAT ANGKA DENGAN TITIK RIBUAN (REALTIME) ===
         document.addEventListener('input', function(e) {
             if (e.target.matches(
                     'input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]'
@@ -234,7 +226,6 @@
             }
         });
 
-        // === FORMAT ANGKA SAAT HALAMAN DIBUKA ===
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll(
                 'input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]'
@@ -257,13 +248,11 @@
 
             let rowIndex = 1;
 
-            // === ADD ROW ===
             $('#addRowBtn').on('click', function() {
                 const tmpl = document.getElementById('rowTemplate');
                 const clone = tmpl.content.cloneNode(true);
                 const $row = $(clone).find('tr');
 
-                // 🔥 Ubah type ke text + inputmode numeric
                 $row.find('.select2-product').attr('name', `items[${rowIndex}][product_id]`);
                 $row.find('.warehouse-id').attr('name', `items[${rowIndex}][production_warehouse_id]`);
                 $row.find('.change-type').attr('name', `items[${rowIndex}][change]`);
@@ -289,12 +278,10 @@
                 updateChangeFields($row);
             });
 
-            // === REMOVE ROW ===
             $(document).on('click', '.removeRow', function() {
                 $(this).closest('tr').remove();
             });
 
-            // === HANDLE CHANGE TYPE ===
             $(document).on('change', '.change-type', function() {
                 const row = $(this).closest('tr');
                 row.find('.qty-field').addClass('d-none');
@@ -314,7 +301,6 @@
             updateChangeFields(document);
             $('#itemsBody .change-type').trigger('change');
 
-            // === SUBMIT FORM (BERSIHKAN TITIK) ===
             $('#stockOpnameForm').on('submit', function() {
                 $(this).find(
                     'input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]'

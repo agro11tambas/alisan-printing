@@ -1,7 +1,5 @@
 <div class="dropdown">
     <ul class="dropdown-menu show static-action-menu">
-
-        {{-- ===================== ADMIN ===================== --}}
         @if (Auth::user()->role === 'Admin' || Auth::user()->role === 'Owner')
             <li>
                 <a href="/erp/deliveries/delivery-list/print-waybill/{{ $dl->id }}" target="_blank"
@@ -31,8 +29,6 @@
                 </a>
             </li>
         @endif
-
-        {{-- ===================== KURIR ===================== --}}
         @if (Auth::user()->role === 'Kurir' || Auth::user()->role === 'Owner')
             @if (!$dl->proof_delivery)
                 <li>

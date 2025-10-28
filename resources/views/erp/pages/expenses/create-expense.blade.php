@@ -170,24 +170,20 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
 
-            // === FORMAT ANGKA DENGAN PEMISAH KOMA (1,000) ===
             function formatNumber(n) {
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             const debitField = document.getElementById('debit');
 
-            // Hapus 0 otomatis saat fokus
             debitField.addEventListener('focus', function() {
                 if (this.value === '0') this.value = '';
             });
 
-            // Balik ke 0 kalau kosong
             debitField.addEventListener('blur', function() {
                 if (this.value.trim() === '') this.value = '0';
             });
 
-            // Format ribuan realtime
             debitField.addEventListener('input', function(e) {
                 const cursorPos = this.selectionStart;
                 const raw = this.value.replace(/\./g, '');
@@ -198,17 +194,14 @@
                 this.setSelectionRange(cursorPos + diff, cursorPos + diff);
             });
 
-            // === VALIDASI FORM + HAPUS KOMA SEBELUM SUBMIT ===
             const form = document.getElementById('expenseForm');
 
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
 
-                // Hapus semua error lama
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-                // Daftar validasi
                 const rules = [{
                         selector: 'input[name="transaction_date"]',
                         message: 'Tanggal Transaksi wajib diisi'
@@ -229,7 +222,6 @@
 
                 let isValid = true;
 
-                // Jalankan validasi manual
                 rules.forEach(rule => {
                     const el = form.querySelector(rule.selector);
                     const val = el?.value ?? '';
@@ -239,12 +231,10 @@
                     }
                 });
 
-                if (!isValid) return; // stop submit
+                if (!isValid) return;
 
-                // === Hapus titik sebelum kirim ke Laravel ===
                 debitField.value = debitField.value.replace(/\./g, '');
 
-                // Submit form beneran
                 form.submit();
             });
 

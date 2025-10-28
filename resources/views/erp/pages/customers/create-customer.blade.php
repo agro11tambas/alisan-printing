@@ -122,7 +122,7 @@
         allItems.forEach((item, idx) => {
             const removeBtn = item.querySelector('.btn-remove');
             if (idx === 0) {
-                removeBtn.classList.add('d-none'); // address pertama tidak bisa dihapus
+                removeBtn.classList.add('d-none');
             } else {
                 removeBtn.classList.remove('d-none');
             }
@@ -193,7 +193,6 @@
             }
         });
 
-        // Validasi semua alamat
         const addressGroups = form.querySelectorAll('.address-group');
         addressGroups.forEach((group, index) => {
             const addressInput = group.querySelector(`input[name^="addresses"][name$="[address]"]`);

@@ -176,12 +176,11 @@
         });
 
         $('#OperatorList tbody').on('click', 'tr', function(e) {
-            if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+            if ($(e.target).closest('td.dt-control').length) return;
 
             let $tr = $(this);
             let row = dataTable.row($tr);
 
-            // tutup semua dulu
             $('#OperatorList tbody tr').removeClass('action-shown').next('.action-row').remove();
 
             if ($tr.hasClass('action-shown')) {
@@ -189,8 +188,7 @@
             } else {
                 let actionHtml = row.data().action;
 
-                // bikin baris tambahan di bawahnya (full colspan)
-                let colCount = $tr.find('td').length; // total kolom yg ada
+                let colCount = $tr.find('td').length;
                 let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -207,10 +205,8 @@
         });
 
         $(document).on('click', function(e) {
-            // kalau kliknya di dalam tabel, abaikan
             if ($(e.target).closest('#OperatorList').length) return;
 
-            // tutup semua action-row
             $('#OperatorList tbody tr').removeClass('action-shown').next('.action-row').remove();
         });
     });
@@ -225,7 +221,7 @@
             const name = button.getAttribute('data-name');
             const url = button.getAttribute('data-url');
 
-            form.action = url; // <-- harusnya ke /erp/shop-manager/operators/delete/{id}
+            form.action = url;
             nameHolder.textContent = name;
         });
     });

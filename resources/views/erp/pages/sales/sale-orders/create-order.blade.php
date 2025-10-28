@@ -142,7 +142,6 @@
                                                 <tr id="addr0">
                                                     <td>1</td>
 
-                                                    {{-- Product --}}
                                                     <td>
                                                         <select class="form-control select-product"
                                                             data-select2-selector="status" name="product[]" id="product_0">
@@ -151,19 +150,21 @@
                                                         </select>
                                                     </td>
 
-                                                    {{-- Product Type --}}
                                                     <input type="hidden" name="product_type[]"
                                                         class="form-control product-type" id="product_type_0" readonly>
 
                                                     <td><input type="text" inputmode="numeric" name="qty[]"
                                                             class="form-control qty" id="qty_0" min="1"></td>
 
-                                                    {{-- Price & Total Before Discount --}}
                                                     <!-- <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" id="price_before_discount_0" readonly></td>
-                                                                <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
+                                                                            <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
                                                     <td>
+                                                        @php
+                                                            $isOwner = Auth::user()->role === 'Owner';
+                                                        @endphp
                                                         <input type="text"
-                                                            class="form-control price_before_discount_display" readonly>
+                                                            class="form-control price_before_discount_display"
+                                                            @if (!$isOwner) readonly @endif>
                                                         <input type="hidden" name="price_before_discount[]"
                                                             class="price_before_discount">
                                                     </td>
@@ -174,7 +175,6 @@
                                                             class="total_before_discount">
                                                     </td>
 
-                                                    {{-- Delete Row --}}
                                                     <td class="text-center">
                                                         <div class="d-flex justify-content-center">
                                                             <button type="button" class="btn btn-danger delete-row">
@@ -183,7 +183,6 @@
                                                         </div>
                                                     </td>
 
-                                                    {{-- Hidden for after discount --}}
                                                     <input type="hidden" name="price_after_discount[]"
                                                         class="price_after_discount">
                                                     <input type="hidden" name="total_after_discount[]"
@@ -268,12 +267,10 @@
                 ];
             }),
         ); ?>;
-    </script>
-    <script>
+
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
 
-        // Satukan jadi satu array dengan penanda type
         const allProducts = [
             ...products.map(p => ({
                 ...p,
@@ -285,7 +282,6 @@
             })),
         ];
 
-        // Populate produk ke dalam <select>
         function populateProducts(selectEl) {
             $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
             allProducts.forEach(item => {
@@ -309,7 +305,6 @@
             }).format(num);
         }
 
-        // Hitung diskon per baris
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
             const basePrice = parseFloat(selectedOption.data('price')) || 0;
@@ -323,14 +318,12 @@
             let finalPrice = priceBeforeDiscount;
             let allDiscounts = [...discounts];
 
-            // gabungkan diskon kategori
             categories.forEach(cat => {
                 if (cat.discounts) {
                     allDiscounts = allDiscounts.concat(cat.discounts);
                 }
             });
 
-            // cek eligibility diskon
             allDiscounts.forEach(discount => {
                 let eligible = false;
 
@@ -416,7 +409,6 @@
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
 
-        // Event produk
         $(document).on('change', 'select[name="product[]"]', function() {
             const row = $(this).closest('tr');
             const type = $(this).find('option:selected').data('type') || '';
@@ -424,10 +416,8 @@
             recalcAllRows();
         });
 
-        // Event qty
         $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
 
-        // Init Select2
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih produk',
@@ -443,11 +433,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             let rowCount = 1;
 
-            // init select awal
             document.querySelectorAll('select.select-product').forEach(el => initSelect2(el));
 
-            // tambah row
-            // tambah row
             document.getElementById('add_row').addEventListener('click', function() {
                 const tableBody = document.querySelector('#tab_logic_body');
                 const rowCount = tableBody.querySelectorAll('tr').length;
@@ -463,7 +450,7 @@
                     </select>
                 </td>
                 <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
-                <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" min="1" value="1"></td>
+                <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" min="1"></td>
                 <td><input type="text" inputmode="numeric" name="price_before_discount[]" class="form-control price_before_discount" readonly></td>
                 <td><input type="text" inputmode="numeric" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
                 <td class="text-center">
@@ -481,13 +468,10 @@
                 initSelect2(newRow.querySelector('.select-product'));
             });
 
-
-            // Hapus row per baris
             $(document).on('click', '.delete-row', function() {
                 const row = $(this).closest('tr');
                 row.remove();
 
-                // Re-index nomor urut
                 $('#tab_logic_body tr').each(function(i, el) {
                     $(el).find('td:first').text(i + 1);
                 });
@@ -497,7 +481,6 @@
 
         });
 
-        // === showError versi fix ===
         function showError(el, message) {
             if ($(el).hasClass('select2-hidden-accessible')) {
                 const select2Container = $(el).next('.select2');
@@ -521,7 +504,6 @@
             }
         }
 
-        // Hapus error kalau user betulin input
         $(document).on("change input",
             "#customers, #addresses, select[name='product[]'], input[name='qty[]'], input[name='order_date']",
             function() {
@@ -533,36 +515,30 @@
                 }
             });
 
-        // Submit form
         document.getElementById('orderForm').addEventListener('submit', function(e) {
             let isValid = true;
 
-            // reset error
             this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-            // order date
             const orderDate = this.querySelector('input[name="order_date"]');
             if (!orderDate.value.trim()) {
                 isValid = false;
                 showError(orderDate, "Tanggal order wajib diisi");
             }
 
-            // customer
             const customerSelect = $('#customers');
             if (!customerSelect.val() || customerSelect.val().length === 0) {
                 isValid = false;
                 showError(customerSelect[0], "Customer wajib dipilih");
             }
 
-            // address
             const addressSelect = $('#addresses');
             if (!addressSelect.val() || addressSelect.val().length === 0) {
                 isValid = false;
                 showError(addressSelect[0], "Alamat wajib dipilih");
             }
 
-            // produk
             const rows = this.querySelectorAll('#tab_logic tbody tr');
             rows.forEach(row => {
                 const product = row.querySelector('select[name="product[]"]');
@@ -580,7 +556,6 @@
             if (!isValid) e.preventDefault();
         });
 
-        // alamat dinamis
         $(document).ready(function() {
             $('#customers').on('change', function() {
                 const customerId = $(this).val();
@@ -611,11 +586,8 @@
         });
 
         $(document).on('input', 'input[name="qty[]"]', function(e) {
-            // hapus non-digit
             let rawValue = $(this).val().replace(/\D/g, '');
-            // batasi panjang kalau mau (misal 12 digit)
             if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
-            // format ribuan
             let formatted = new Intl.NumberFormat('id-ID').format(rawValue);
             $(this).val(formatted);
         });

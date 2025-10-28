@@ -160,40 +160,29 @@
 
             const debitField = document.getElementById('debit');
 
-            // === Fungsi format angka dengan koma ===
             function formatNumber(n) {
-                // Bersihkan semua kecuali digit dan titik
                 n = n.toString().replace(/[^0-9.]/g, '');
-
-                // Ambil hanya bagian sebelum titik (tanpa desimal)
                 n = n.split('.')[0];
 
-                // Kalau kosong, kembalikan 0
                 if (n === '') return '0';
 
-                // Tambahkan koma ribuan
                 return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === Normalisasi nilai awal dari server ===
             if (debitField && debitField.value) {
-                // kalau sudah ada koma (sudah diformat), biarkan saja
                 if (!debitField.value.includes(',')) {
                     debitField.value = formatNumber(debitField.value);
                 }
             }
 
-            // === Saat fokus: hapus nol ===
             debitField.addEventListener('focus', function() {
                 if (this.value === '0') this.value = '';
             });
 
-            // === Saat blur: kalau kosong balik ke 0 ===
             debitField.addEventListener('blur', function() {
                 if (this.value.trim() === '') this.value = '0';
             });
 
-            // === Format realtime ===
             debitField.addEventListener('input', function() {
                 const pos = this.selectionStart;
                 const raw = this.value.replace(/[^\d]/g, '');
@@ -202,12 +191,10 @@
                 this.setSelectionRange(pos + diff, pos + diff);
             });
 
-            // === Validasi dan hapus koma sebelum submit ===
             const form = document.getElementById('expenseForm');
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
 
-                // Hapus error lama
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
@@ -240,7 +227,6 @@
 
                 if (!ok) return;
 
-                // Hapus titik sebelum submit
                 debitField.value = debitField.value.replace(/\./g, '');
 
                 form.submit();
@@ -254,7 +240,6 @@
                 fb.textContent = msg;
                 (el.closest('.input-group') || el.parentNode).appendChild(fb);
             }
-
         });
     </script>
 @endpush

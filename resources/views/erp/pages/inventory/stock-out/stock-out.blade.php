@@ -35,25 +35,25 @@
             </ul>
         </div>
         <!-- <div class="page-header-right ms-auto">
-            <div class="page-header-right-items">
-                <div class="d-flex d-md-none">
-                    <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                        <i class="feather-arrow-left me-2"></i><span>Back</span>
-                    </a>
-                </div>
-                <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="/erp/inventory/stock-out/add-stock-out/" class="btn btn-primary">
-                        <i class="feather-plus me-2"></i>
-                        <span>Add Stock Out</span>
-                    </a>
-                </div>
-            </div>
-            <div class="d-md-none d-flex align-items-center">
-                <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                    <i class="feather-align-right fs-20"></i>
-                </a>
-            </div>
-        </div> -->
+                    <div class="page-header-right-items">
+                        <div class="d-flex d-md-none">
+                            <a href="javascript:void(0)" class="page-header-right-close-toggle">
+                                <i class="feather-arrow-left me-2"></i><span>Back</span>
+                            </a>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
+                            <a href="/erp/inventory/stock-out/add-stock-out/" class="btn btn-primary">
+                                <i class="feather-plus me-2"></i>
+                                <span>Add Stock Out</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="d-md-none d-flex align-items-center">
+                        <a href="javascript:void(0)" class="page-header-right-open-toggle">
+                            <i class="feather-align-right fs-20"></i>
+                        </a>
+                    </div>
+                </div> -->
     </div>
 @endsection
 
@@ -133,13 +133,11 @@
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
-                                                <!-- Search input -->
                                                 <input type="text" id="search_keyword" name="search_keyword"
                                                     class="form-control search-input"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;"
                                                     placeholder="Search..." />
 
-                                                <!-- Dropdown type (hidden by default) -->
                                                 <select id="search_type_dropdown" class="form-control search-input d-none"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;">
                                                     <option value="">All</option>
@@ -196,6 +194,36 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-danger btn-md">Hapus</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalAddStockOut" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="formAddStockOut" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title text-white">Verifikasi Stock Out</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="fw-semibold">Tanggal Stock Out</label>
+                            <input type="date" name="change_date" id="change_date" class="form-control"
+                                value="{{ now()->format('Y-m-d') }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="fw-semibold">Catatan</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Catatan optional..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="btnConfirmStockOut">Konfirmasi Stock
+                            Out</button>
                     </div>
                 </div>
             </form>
@@ -295,12 +323,11 @@
             });
 
             $('#inventoryTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+                if ($(e.target).closest('td.dt-control').length) return;
 
                 let $tr = $(this);
                 let row = dataTable.row($tr);
 
-                // tutup semua dulu
                 $('#inventoryTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
@@ -308,8 +335,7 @@
                 } else {
                     let actionHtml = row.data().action;
 
-                    // bikin baris tambahan di bawahnya (full colspan)
-                    let colCount = $tr.find('td').length; // total kolom yg ada
+                    let colCount = $tr.find('td').length;
                     let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -326,10 +352,8 @@
             });
 
             $(document).on('click', function(e) {
-                // kalau kliknya di dalam tabel, abaikan
                 if ($(e.target).closest('#inventoryTable').length) return;
 
-                // tutup semua action-row
                 $('#inventoryTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
@@ -337,16 +361,16 @@
                 if (!$(e.target).closest('#inventoryTable tbody tr, #inventoryTableMobile tbody tr')
                     .length) {
                     $('#inventoryTable tbody tr.shown, #inventoryTableMobile tbody tr.shown').each(
-                    function() {
-                        var tr = $(this);
-                        var table = tr.closest('table').attr('id') === 'inventoryTable' ?
-                            dataTable : dataTableMobile;
-                        var row = table.row(tr);
-                        if (row.child.isShown()) {
-                            row.child.hide();
-                            tr.removeClass('shown');
-                        }
-                    });
+                        function() {
+                            var tr = $(this);
+                            var table = tr.closest('table').attr('id') === 'inventoryTable' ?
+                                dataTable : dataTableMobile;
+                            var row = table.row(tr);
+                            if (row.child.isShown()) {
+                                row.child.hide();
+                                tr.removeClass('shown');
+                            }
+                        });
                 }
             });
         });
@@ -364,6 +388,55 @@
 
                 form.action = url;
                 nameHolder.textContent = name;
+            });
+        });
+
+        $(document).ready(function() {
+            let selectedInventoryId = null;
+
+            $(document).on('click', '.btn-open-stockout-modal', function() {
+                selectedInventoryId = $(this).data('id');
+                const number = $(this).data('number');
+                $('#modalOrderNumber').text(number);
+                $('#modalAddStockOut').modal('show');
+            });
+
+            $('#formAddStockOut').on('submit', function(e) {
+                e.preventDefault();
+                const form = $(this);
+                const changeDate = $('#change_date').val();
+                const notes = form.find('textarea[name="notes"]').val();
+
+                $.ajax({
+                    url: `/erp/inventory/stock-out/store/${selectedInventoryId}`,
+                    method: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        inventory_id: selectedInventoryId,
+                        change_date: changeDate,
+                        notes: notes
+                    },
+                    success: function(response) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: 'Stock Out berhasil ditambahkan.',
+                        }).then(() => {
+                            $('#modalAddStockOut').modal('hide');
+                            $('#inventoryTable').DataTable().ajax.reload();
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ||
+                                'Terjadi kesalahan saat membuat Stock Out.',
+                        });
+                    }
+                });
             });
         });
     </script>

@@ -213,10 +213,6 @@
                                             </tbody>
                                         </table>
                                     </div>
-                                    <!-- <div class="d-flex justify-content-end gap-2 mt-3">
-                                                                                    <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
-                                                                                    <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
-                                                                                </div> -->
                                 </div>
                                 <div class="col-lg-12 mt-4">
                                     <div class="row justify-content-end">
@@ -281,30 +277,25 @@
 
 @push('scripts')
     <script>
-        // === FORMAT ANGKA INDONESIA ===
         function formatRibuanID(angka, withDecimal = true) {
             if (angka === null || angka === undefined || angka === '') return '';
             const num = parseFloat(angka.toString().replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
 
             if (!withDecimal) {
-                // untuk qty (integer, tanpa desimal)
                 const ribuan = Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                 return ribuan;
             }
 
-            // untuk harga/freight/total (2 desimal)
             const parts = num.toFixed(2).split('.');
             const ribuan = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             return `${ribuan},${parts[1]}`;
         }
 
-        // === UNFORMAT ANGKA INDONESIA ===
         function unformatRibuanID(angka) {
             if (!angka) return 0;
             return parseFloat(angka.toString().replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        // === PERHITUNGAN TOTAL PER BARIS ===
         function updateRowTotal(row) {
             const qty = unformatRibuanID(row.find('.qty').val());
             const price = unformatRibuanID(row.find('.price').val());
@@ -314,7 +305,6 @@
             calc_total();
         }
 
-        // === HITUNG TOTAL AKHIR ===
         function calc_total() {
             let subtotalProduct = 0,
                 subtotalFreight = 0;
@@ -340,7 +330,6 @@
             $('#total_amount_display').val(formatRibuanID(grandTotal, true));
         }
 
-        // === INIT SELECT2 ===
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih produk',
@@ -357,7 +346,6 @@
             initSelect2('#suppliers');
             initSelect2('#transaction_type');
 
-            // === FORMAT SAAT LOAD ===
             $('.qty').each(function() {
                 const val = $(this).val();
                 if (val && !isNaN(val)) $(this).val(formatRibuanID(parseFloat(val), false));
@@ -367,7 +355,6 @@
                 if (val && !isNaN(val)) $(this).val(formatRibuanID(parseFloat(val), true));
             });
 
-            // === PRODUK DIPILIH ===
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
                 const price = parseFloat($(this).find('option:selected').data('price')) || 0;
@@ -375,7 +362,6 @@
                 updateRowTotal(row);
             });
 
-            // === FORMAT & VALIDASI QTY REALTIME ===
             $(document).on('input', '.qty', function() {
                 const input = $(this);
                 let raw = input.val().replace(/\./g, '').replace(/\D/g, '');
@@ -397,10 +383,8 @@
                     });
                 }
 
-                // langsung format ribuan realtime
                 input.val(formatRibuanID(value.toString(), false));
 
-                // update total per baris
                 updateRowTotal(input.closest('tr'));
             });
 
@@ -408,20 +392,17 @@
                 setTimeout(() => $(this).trigger('input'), 10);
             });
 
-            // === INPUT PRICE & FREIGHT DENGAN DESIMAL ===
             $(document).on('input', '.price, .freight', function() {
                 const raw = $(this).val().replace(/\./g, '').replace(/[^0-9,]/g, '');
                 $(this).val(formatRibuanID(raw, true));
                 updateRowTotal($(this).closest('tr'));
             });
 
-            // === HITUNG TOTAL AWAL ===
             $('#tab_logic tbody tr').each(function() {
                 updateRowTotal($(this));
             });
             calc_total();
 
-            // === SEBELUM SUBMIT: BERSIHKAN FORMAT ===
             $('#purchaseForm').on('submit', function() {
                 $('.qty, .price, .freight, .total').each(function() {
                     $(this).val(unformatRibuanID($(this).val()));

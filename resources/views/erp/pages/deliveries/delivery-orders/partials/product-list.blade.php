@@ -10,40 +10,37 @@
         </thead>
         <tbody>
             @foreach ($do->items as $item)
-            @php
-            // ✅ ambil progress dari relasi orderProgressItem
-            $completed = optional(
-            $item->orderProgress->items
-            ->where('product_id', $item->product_id)
-            ->first()
-            )->completed_quantity ?? 0;
+                @php
+                    $completed =
+                        optional($item->orderProgress->items->where('product_id', $item->product_id)->first())
+                            ->completed_quantity ?? 0;
 
-            // ✅ hitung total shipped_qty berdasarkan status shipment
-            $finishedQty = $item->deliveryListItems
-            ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
-            ->sum('shipped_quantity');
+                    $finishedQty = $item->deliveryListItems
+                        ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
+                        ->sum('shipped_quantity');
 
-            $notFinishedQty = $item->deliveryListItems
-            ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
-            ->sum('shipped_quantity');
-            @endphp
+                    $notFinishedQty = $item->deliveryListItems
+                        ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
+                        ->sum('shipped_quantity');
+                @endphp
 
-            <tr>
-                <td>
-                    <span class="fw-bold text-primary">
-                        {{ $item->product?->name ?? '-' }}
-                    </span>
-                </td>
-                <td>
-                    <span>{{ number_format($completed, 0, ',', '.') }}</span>
-                </td>
-                <td>
-                    <span class="fw-bold text-success">{{ number_format($finishedQty, 0, ',', '.') }}</span> / {{ number_format($item->progress_qty, 0, ',', '.') }}
-                </td>
-                <td>
-                    <span class="fw-bold text-warning">{{ number_format($notFinishedQty, 0, ',', '.') }}</span>
-                </td>
-            </tr>
+                <tr>
+                    <td>
+                        <span class="fw-bold text-primary">
+                            {{ $item->product?->name ?? '-' }}
+                        </span>
+                    </td>
+                    <td>
+                        <span>{{ number_format($completed, 0, ',', '.') }}</span>
+                    </td>
+                    <td>
+                        <span class="fw-bold text-success">{{ number_format($finishedQty, 0, ',', '.') }}</span> /
+                        {{ number_format($item->progress_qty, 0, ',', '.') }}
+                    </td>
+                    <td>
+                        <span class="fw-bold text-warning">{{ number_format($notFinishedQty, 0, ',', '.') }}</span>
+                    </td>
+                </tr>
             @endforeach
         </tbody>
     </table>

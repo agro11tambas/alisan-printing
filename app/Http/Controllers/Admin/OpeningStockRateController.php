@@ -5,54 +5,34 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Inventory;
 use App\Models\InventoryStock;
+use App\Models\ProductionStock;
 use Illuminate\Http\Request;
 use App\Models\Products;
+use App\Services\ProductCostService;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class OpeningStockRateController extends Controller
 {
-    public function getOpeningStockRate()
+    public function index()
     {
-        $openingStockRates = InventoryStock::with('product')
-            ->whereHas('product')
-            ->orderBy(
-                Products::select('name')
-                    ->whereColumn('products.id', 'inventory_stocks.product_id')
-            )
-            ->get();
-
-        return view('erp.pages.opening-stock-rate.opening-stock-rate', compact('openingStockRates'));
+        return view('erp.pages.opening-stock-rate.index');
     }
 
-    public function dataOpeningStockRate()
+    public function dataOpeningStockOverview(Request $request)
     {
-        $openingStockRate = InventoryStock::with('product')
-            ->whereHas('product')
-            ->orderBy(
-                Products::select('name')
-                    ->whereColumn('products.id', 'inventory_stocks.product_id')
-            )
+        $products = Products::with(['inventoryStock', 'productionStocks'])
+            ->orderBy('name')
             ->get();
 
-        return DataTables::of($openingStockRate)
+        return DataTables::of($products)
             ->addIndexColumn()
-            ->addColumn('name', function ($row) {
-                return $row->product ? $row->product->name : '-';
-            })
-            ->addColumn('inventory_stock', function ($row) {
-                return $row->inventory_stock;
-            })
-            ->addColumn('minimum_stock', function ($row) {
-                return $row->minimum_stock;
-            })
-            ->addColumn('avg_cost', function ($row) {
-                return $row->avg_cost;
-            })
-            ->addColumn('action', function ($row) {
-                return view('erp.pages.opening-stock-rate.partials.action-button', compact('row'));
-            })
-            ->rawColumns(['action'])
+            ->addColumn('product_name', fn($row) => $row->name)
+            ->addColumn('inventory_stock', fn($row) => number_format($row->inventoryStock->inventory_stock ?? 0, 0, ',', '.'))
+            ->addColumn('avg_cost', fn($row) => number_format($row->inventoryStock->avg_cost ?? 0, 2, ',', '.'))
+            ->addColumn('minimum_stock', fn($row) => number_format($row->inventoryStock->minimum_stock ?? 0, 0, ',', '.'))
+            ->addColumn('production_stock', fn($row) => number_format($row->productionStocks->opening_stock ?? 0, 0, ',', '.'))
+            ->rawColumns(['product_name'])
             ->make(true);
     }
 
@@ -66,37 +46,48 @@ class OpeningStockRateController extends Controller
             )
             ->get();
 
-        foreach ($openingStockRates as $product) {
-            $product->opening_stock = $product->opening_stock;
-            $product->opening_rate = $product->opening_rate;
-        }
-        return view('erp.pages.opening-stock-rate.edit-opening-stock-rate', compact('openingStockRates'));
+        $openingStockProductions = ProductionStock::with('product')
+            ->whereHas('product')
+            ->orderBy(
+                Products::select('name')
+                    ->whereColumn('products.id', 'production_stocks.product_id')
+            )
+            ->get();
+
+        return view('erp.pages.opening-stock-rate.edit-opening-stock-overview', compact(
+            'openingStockRates',
+            'openingStockProductions'
+        ));
     }
 
     public function update(Request $request)
     {
         $request->validate([
-            'id'             => 'required|array',
-            'opening_stock'  => 'required|array',
-            'opening_rate'   => 'required|array',
-            'minimum_stock'  => 'required|array',
+            // Inventory validation
+            'inv_id'           => 'required|array',
+            'opening_stock'    => 'required|array',
+            'opening_rate'     => 'required|array',
+            'minimum_stock'    => 'required|array',
+
+            // Production validation (nullable biar gak error)
+            'prod_id'                  => 'nullable|array',
+            'opening_stock_production' => 'nullable|array',
         ]);
 
         DB::beginTransaction();
         try {
-            foreach ($request->id as $index => $id) {
+            // 🔹 Update INVENTORY STOCK
+            foreach ($request->inv_id as $index => $id) {
                 $stock = InventoryStock::find($id);
                 if (!$stock) continue;
 
                 $oldOpeningStock = (float) $stock->opening_stock;
-                $newOpeningStock = (float) $request->opening_stock[$index];
-                $newOpeningRate  = (float) $request->opening_rate[$index];
-                $newMinimumStock = (float) $request->minimum_stock[$index];
+                $newOpeningStock = (float) ($request->opening_stock[$index] ?? 0);
+                $newOpeningRate  = (float) ($request->opening_rate[$index] ?? 0);
+                $newMinimumStock = (float) ($request->minimum_stock[$index] ?? 0);
 
-                // 🔹 Hitung selisih opening stock
                 $diff = $newOpeningStock - $oldOpeningStock;
 
-                // 🔹 Update opening_stock + stok terkait
                 $stock->update([
                     'opening_stock'     => $newOpeningStock,
                     'opening_rate'      => $newOpeningRate,
@@ -105,28 +96,44 @@ class OpeningStockRateController extends Controller
                     'stock_after_sales' => max(0, $stock->stock_after_sales + $diff),
                 ]);
 
-                // 🔹 Update total stok di tabel produk
-                // $product = $stock->product;
-                // if ($product) {
-                //     $totalInventory  = InventoryStock::where('product_id', $product->id)->sum('inventory_stock');
-                //     $totalAfterSales = InventoryStock::where('product_id', $product->id)->sum('stock_after_sales');
+                // 🔹 Update average cost
+                ProductCostService::updateCostAndStock($stock->product);
+            }
 
-                //     $product->update([
-                //         'inventory_stock'   => $totalInventory,
-                //         'stock_after_sales' => $totalAfterSales,
-                //     ]);
-                // }
+            // 🔹 Update PRODUCTION STOCK
+            if ($request->filled('prod_id')) {
+                foreach ($request->prod_id as $index => $id) {
+                    if (!$id) continue; // skip kalau kosong (karena mungkin belum punya record)
+                    $productionStock = ProductionStock::find($id);
+                    if (!$productionStock) continue;
 
-                // 🔹 Update cost (optional)
-                \App\Services\ProductCostService::updateCostAndStock($stock->product);
+                    $newOpeningStock = (int) ($request->opening_stock_production[$index] ?? 0);
+                    $oldOpeningStock = (int) $productionStock->opening_stock;
+                    $oldAvailable    = (int) $productionStock->available_quantity;
+
+                    $diffOpening = $newOpeningStock - $oldOpeningStock;
+
+                    $productionStock->update([
+                        'opening_stock'      => $newOpeningStock,
+                        'available_quantity' => $oldAvailable + $diffOpening,
+                    ]);
+
+                    // 🔹 Sinkron ke inventory (update stok akhir)
+                    $inventoryStock = InventoryStock::where('product_id', $productionStock->product_id)->first();
+                    if ($inventoryStock) {
+                        $inventoryStock->update([
+                            'stock_after_sales' => $inventoryStock->stock_after_sales + $diffOpening,
+                        ]);
+                    }
+                }
             }
 
             DB::commit();
-            return redirect('/erp/opening-stock-rate')
-                ->with('success', 'Opening Stock Rate updated successfully.');
+            return redirect('/erp/opening-stock')
+                ->with('success', 'Opening Stock Overview updated successfully.');
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to update Opening Stock Rate: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update Opening Stock: ' . $e->getMessage());
         }
     }
 }

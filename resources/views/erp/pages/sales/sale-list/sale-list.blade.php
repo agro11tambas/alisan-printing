@@ -13,7 +13,6 @@
         #saleListTable {
             width: 100% !important;
             min-width: 0;
-            /* supaya responsive */
         }
 
         #saleListTable td.action-cell {
@@ -243,7 +242,6 @@
         aria-hidden="true" data-bs-dismiss="ou">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
-                <!--! BEGIN: [modal-header] !-->
                 <div class="modal-header">
                     <h2 class="d-flex flex-column mb-0">
                         <span class="fs-18 fw-bold mb-1">Mark As Paid</span>
@@ -253,7 +251,6 @@
                         <i class="feather-x text-danger"></i>
                     </a>
                 </div>
-                <!--! BEGIN: [modal-body] !-->
                 <form method="POST" id="markAsSaleForm">
                     @csrf
                     <input type="hidden" id="order_id" name="order_id">
@@ -390,7 +387,6 @@
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">
-                <!--! BEGIN: [modal-header] !-->
                 <div class="modal-header">
                     <h2 class="d-flex flex-column mb-0">
                         <span class="fs-18 fw-bold mb-1">Return Money</span>
@@ -400,7 +396,6 @@
                         <i class="feather-x text-danger"></i>
                     </a>
                 </div>
-                <!--! BEGIN: [modal-body] !-->
                 <form method="POST" id="formReturnMoney">
                     @csrf
                     <input type="hidden" id="return_order_id" name="order_id">
@@ -483,7 +478,6 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // 🔹 Render child row berisi produk
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
@@ -522,7 +516,6 @@
                 return html;
             }
 
-            // 🔹 Init DataTables
             const dataTable = $('#saleListTable').DataTable({
                 processing: true,
                 serverSide: true,
@@ -609,7 +602,6 @@
                                     className: 'dt-control text-center',
                                     orderable: false,
                                     data: null,
-                                    // boleh kosong, penting ada kolomnya
                                     defaultContent: '',
                                     width: "20px"
                                 },
@@ -641,7 +633,6 @@
                             ]
                         });
 
-                        // 👇 Pindahkan event handler ke sini biar binding setelah tabel ada
                         $('#deletedSaleListTable tbody').on('click', 'td.dt-control', function() {
                             let tr = $(this).closest('tr');
                             let row = deletedTable.row(tr);
@@ -660,19 +651,16 @@
                 }
             });
 
-            // Expand/collapse child row khusus kolom "dt-control"
             $('#saleListTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
                 let icon = $(this).find('i');
 
                 if (row.child.isShown()) {
-                    // Tutup
                     row.child.hide();
                     tr.removeClass('shown');
                     icon.removeClass('feather-minus').addClass('feather-plus');
                 } else {
-                    // Buka child row isi produk
                     row.child(formatProducts(row.data().products)).show();
                     tr.addClass('shown');
                     icon.removeClass('feather-plus').addClass('feather-minus');
@@ -680,12 +668,12 @@
             });
 
             $('#saleListTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return; // skip tombol +
+                if ($(e.target).closest('td.dt-control').length) return;
 
                 let $tr = $(this);
                 let row = dataTable.row($tr);
 
-                // tutup semua dulu
+
                 $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
@@ -693,8 +681,7 @@
                 } else {
                     let actionHtml = row.data().action;
 
-                    // bikin baris tambahan di bawahnya (full colspan)
-                    let colCount = $tr.find('td').length; // total kolom yg ada
+                    let colCount = $tr.find('td').length;
                     let $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}">
@@ -710,7 +697,6 @@
                 }
             });
 
-            // Expand/collapse child row khusus kolom "dt-control" di Deleted Sale List
             $('#deletedSaleListTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = deletedTable.row(tr);
@@ -728,14 +714,11 @@
             });
 
             $(document).on('click', function(e) {
-                // kalau kliknya di dalam tabel, abaikan
                 if ($(e.target).closest('#saleListTable').length) return;
 
-                // tutup semua action-row
                 $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // 🔹 Filter by date
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -749,7 +732,6 @@
                 dataTable.ajax.reload();
             });
 
-            // 🔹 Filter by type
             $('#search_type').on('change', function() {
                 const selected = $(this).val();
 
@@ -772,7 +754,7 @@
 
             $('#due_date_order').on('change', function() {
                 if ($('#search_type').val() === 'due_date') {
-                    dataTable.ajax.reload(); // atau dataTable.ajax.reload(null, false);
+                    dataTable.ajax.reload();
                 }
             });
 
@@ -830,19 +812,15 @@
                 const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
                 const remainingAmount = totalAmount - paidAmount;
 
-                // set form action & order id
                 document.getElementById('order_id').value = orderId;
                 document.getElementById('markAsSaleForm').setAttribute('action', url);
 
-                // tampilkan balance (sisa)
                 document.getElementById('total_amount_display').innerText = new Intl.NumberFormat('id-ID').format(
                     remainingAmount);
 
-                // isi otomatis input paid_amount dengan balance
                 const formatted = new Intl.NumberFormat('id-ID').format(remainingAmount);
                 document.getElementById('paid_amount').value = formatted;
 
-                // update label Paid: Rp xxx
                 document.getElementById('paid_amount_display').innerText = 'Paid: Rp. ' + formatted;
             }
         });
@@ -850,7 +828,6 @@
 
         const paidInput = document.getElementById("paid_amount");
 
-        // auto format rupiah saat input
         paidInput.addEventListener("input", function() {
             let angka = this.value.replace(/\D/g, "") || "0";
             this.value = new Intl.NumberFormat('id-ID').format(angka);
@@ -859,7 +836,6 @@
         document.getElementById('markAsSaleForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // Reset error messages
             document.querySelectorAll('#markAsSaleForm small.text-danger').forEach(el => {
                 el.classList.add('d-none');
                 el.innerText = '';
@@ -871,7 +847,6 @@
             let transactionDate = document.getElementById('transaction_date').value.trim();
             let cashBankAccount = document.getElementById('cash_bank_account_id').value.trim();
 
-            // ambil angka asli (hapus titik)
             let paidAmountRaw = document.getElementById('paid_amount').value.trim();
             let paidAmount = paidAmountRaw.replace(/\./g, "");
 
@@ -901,17 +876,14 @@
 
             if (!valid) return;
 
-            // set value bersih ke input sebelum kirim
             document.getElementById('paid_amount').value = paidAmount;
 
-            // 🚀 submit form setelah validasi sukses
             this.submit();
         });
 
         document.getElementById('formReturnMoney').addEventListener('submit', function(e) {
             e.preventDefault();
 
-            // reset error messages
             document.querySelectorAll('#formReturnMoney small.text-danger').forEach(el => {
                 el.classList.add('d-none');
                 el.innerText = '';
@@ -922,7 +894,6 @@
             let transactionDate = document.getElementById('return_transaction_date').value.trim();
             let cashBankAccount = document.getElementById('return_cash_bank_account_id').value.trim();
 
-            // ambil angka asli (hapus titik)
             let returnAmountRaw = document.getElementById('return_amount').value.trim();
             let returnAmount = returnAmountRaw.replace(/\./g, "");
 
@@ -949,7 +920,6 @@
 
             if (!valid) return;
 
-            // set value bersih (tanpa titik) sebelum submit
             document.getElementById('return_amount').value = returnAmount;
 
             this.submit();
@@ -959,7 +929,6 @@
         $(document).on('click', '.btn-share-invoice', function() {
             const url = $(this).data('url');
             window.open(url, '_blank');
-            // buka invoice di tab baru, dari situ script share yang ada di invoice.blade.php bakal jalan
         });
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -1002,16 +971,13 @@
             $('#return_order_id').val(orderId);
             $('#formReturnMoney').attr('action', url);
 
-            // isi amount awal
             const formatted = new Intl.NumberFormat('id-ID').format(overpaidAmount);
             $('#return_amount').val(formatted);
             $('#overpaid_display').text(formatted);
 
-            // tampilkan juga di balance footer
             $('#return_balance_display').text(formatted);
         });
 
-        // auto format rupiah saat input manual
         $('#return_amount').on('input', function() {
             let angka = this.value.replace(/\D/g, "") || "0";
             this.value = new Intl.NumberFormat('id-ID').format(angka);

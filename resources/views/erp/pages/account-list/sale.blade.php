@@ -140,11 +140,6 @@
 @push('scripts')
 <script>
     $(document).ready(function() {
-        // // Cegah reinitialisasi
-        // if ($.fn.DataTable.isDataTable('#accountList')) {
-        //     $('#accountList').DataTable().clear().destroy();
-        // }
-
         const table = $('#accountList').DataTable({
             processing: true,
             serverSide: true,
@@ -195,10 +190,6 @@
             ]
         });
 
-        // $('#name, #type').on('change keyup', function() {
-        //     table.ajax.reload();
-        // });
-
         $('#filter').on('change', function() {
             if ($(this).val() === 'custom') {
                 $('.custom-range').removeClass('d-none');
@@ -206,11 +197,10 @@
                 $('.custom-range').addClass('d-none');
                 $('#start_date').val('');
                 $('#end_date').val('');
-                table.ajax.reload(); // reload langsung saat non-custom dipilih
+                table.ajax.reload();
             }
         });
 
-        // Tombol apply untuk filter custom
         $('#apply-filter').on('click', function() {
             table.ajax.reload();
         });

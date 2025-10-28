@@ -35,7 +35,6 @@
                                 </button>
                             </div>
                         @else
-                            {{-- Belum ada gambar --}}
                             <button class="btn btn-sm btn-outline-primary upload-btn" data-id="{{ $item->id }}"
                                 data-bs-toggle="modal" data-bs-target="#uploadModal">
                                 <i class="feather-upload"></i> Upload
@@ -43,7 +42,6 @@
                         @endif
                     </td>
 
-                    {{-- 🗒️ NOTE --}}
                     <td>
                         {{ $item->note ?? '-' }}
                     </td>

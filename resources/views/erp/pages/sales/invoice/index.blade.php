@@ -186,7 +186,6 @@
     async function captureInvoice() {
         const original = document.getElementById('invoiceContent');
 
-        // Clone invoice
         const clone = original.cloneNode(true);
         clone.id = 'invoiceCloneForShare';
         clone.style.width = '768px';
@@ -208,7 +207,6 @@
         return canvas.toDataURL('image/png');
     }
 
-    // Tombol Share ke WhatsApp
     document.getElementById('shareInvoiceBtn').addEventListener('click', async function() {
         const dataUrl = await captureInvoice();
         const response = await fetch(dataUrl);
@@ -236,7 +234,6 @@
         }
     });
 
-    // Tombol Download PNG
     document.getElementById('downloadInvoiceBtn').addEventListener('click', async function() {
         const dataUrl = await captureInvoice();
         const link = document.createElement('a');

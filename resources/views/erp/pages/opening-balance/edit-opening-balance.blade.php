@@ -251,40 +251,34 @@
             parent.appendChild(feedback);
         }
 
-        // === 🔽 Tambahan: Format angka ribuan Indonesia untuk debit & credit ===
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('openingBalanceForm');
 
-            // === Fungsi format ribuan Indonesia ===
             function formatNumber(n) {
                 if (n === null || n === undefined) return '0';
-                n = n.toString().split('.')[0]; // 🧠 hilangkan .00 dari angka DB
+                n = n.toString().split('.')[0];
                 n = n.replace(/[^0-9]/g, '');
                 if (n === '') return '0';
                 return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // === Format awal nilai dari server ===
             document.querySelectorAll('input[name*="[debit]"], input[name*="[credit]"]').forEach(input => {
-                const raw = input.value ? input.value.toString().split('.')[0] : '0'; // buang .00
+                const raw = input.value ? input.value.toString().split('.')[0] : '0';
                 input.value = formatNumber(raw);
             });
 
-            // === Fokus: hapus nol biar langsung bisa ngetik ===
             document.addEventListener('focusin', function(e) {
                 if (e.target.matches('input[name*="[debit]"], input[name*="[credit]"]')) {
                     if (e.target.value === '0') e.target.value = '';
                 }
             });
 
-            // === Blur: kalau kosong isi lagi 0 ===
             document.addEventListener('focusout', function(e) {
                 if (e.target.matches('input[name*="[debit]"], input[name*="[credit]"]')) {
                     if (e.target.value.trim() === '') e.target.value = '0';
                 }
             });
 
-            // === Format realtime saat diketik ===
             document.addEventListener('input', function(e) {
                 if (e.target.matches('input[name*="[debit]"], input[name*="[credit]"]')) {
                     const pos = e.target.selectionStart;
@@ -295,9 +289,7 @@
                 }
             });
 
-            // === Sebelum submit, hapus titik biar angka murni ===
             form.addEventListener('submit', function(e) {
-                // Hapus titik sebelum form benar-benar dikirim
                 document.querySelectorAll('input[name*="[debit]"], input[name*="[credit]"]').forEach(
                     input => {
                         input.value = input.value.replace(/\./g, '');

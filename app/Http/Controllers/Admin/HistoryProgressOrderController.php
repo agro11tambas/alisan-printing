@@ -402,6 +402,33 @@ class HistoryProgressOrderController extends Controller
         }
     }
 
+    // public function updateHistory(Request $request, $id)
+    // {
+    //     try {
+    //         // 🔹 Validasi input
+    //         $validated = $request->validate([
+    //             'completed_quantity' => 'required|numeric|min:0',
+    //             'defect_quantity' => 'nullable|numeric|min:0',
+    //             'reject_quantity' => 'nullable|numeric|min:0',
+    //             'note' => 'nullable|string|max:255',
+    //         ]);
+
+    //         // 🔹 Cari data yang akan diupdate
+    //         $history = OrderProgressHistory::findOrFail($id);
+
+    //         // 🔹 Update kolom
+    //         $history->completed_quantity = $validated['completed_quantity'];
+    //         $history->defect_quantity = $validated['defect_quantity'] ?? 0;
+    //         $history->reject_quantity = $validated['reject_quantity'] ?? 0;
+    //         $history->note = $validated['note'];
+    //         $history->save();
+
+    //         return redirect()->back()->with('success', 'History updated successfully.');
+    //     } catch (\Throwable $e) {
+    //         return redirect()->back()->with('error', 'Something went wrong while updating history: ' . $e->getMessage());
+    //     }
+    // }
+
     public function updateHistory(Request $request, $id)
     {
         try {
@@ -413,19 +440,91 @@ class HistoryProgressOrderController extends Controller
                 'note' => 'nullable|string|max:255',
             ]);
 
-            // 🔹 Cari data yang akan diupdate
-            $history = OrderProgressHistory::findOrFail($id);
+            // 🔹 Ambil data history + relasi
+            $history = OrderProgressHistory::with(['progressItem', 'assign'])->findOrFail($id);
+            $progressItem = $history->progressItem;
+            $assign = $history->assign; // relasi ke order_progress_assigns
 
-            // 🔹 Update kolom
-            $history->completed_quantity = $validated['completed_quantity'];
-            $history->defect_quantity = $validated['defect_quantity'] ?? 0;
-            $history->reject_quantity = $validated['reject_quantity'] ?? 0;
-            $history->note = $validated['note'];
-            $history->save();
+            if (!$progressItem || !$assign) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Relasi progress item atau assign tidak ditemukan.'
+                ], 404);
+            }
 
-            return redirect()->back()->with('success', 'History updated successfully.');
+            // 🔹 Hitung selisih nilai lama vs baru
+            $oldCompleted = $history->completed_quantity ?? 0;
+            $newCompleted = (int) $validated['completed_quantity'];
+            $deltaCompleted = $newCompleted - $oldCompleted;
+
+            $oldDefect = $history->defect_quantity ?? 0;
+            $newDefect = (int) ($validated['defect_quantity'] ?? 0);
+            $deltaDefect = $newDefect - $oldDefect;
+
+            $oldReject = $history->reject_quantity ?? 0;
+            $newReject = (int) ($validated['reject_quantity'] ?? 0);
+            $deltaReject = $newReject - $oldReject;
+
+            $deltaChange = $deltaCompleted + $deltaDefect + $deltaReject;
+
+            // 🔹 Validasi batas maksimum quantity
+            $totalCompletedNow = ($progressItem->completed_quantity ?? 0) + $deltaCompleted;
+            if ($totalCompletedNow > $progressItem->quantity) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Jumlah selesai melebihi total quantity produk (' . number_format($progressItem->quantity) . ').'
+                ], 422);
+            }
+
+            DB::beginTransaction();
+
+            // ===============================
+            // 🟩 1. Update HISTORY
+            // ===============================
+            $history->update([
+                'completed_quantity' => $newCompleted,
+                'defect_quantity' => $newDefect,
+                'reject_quantity' => $newReject,
+                'note' => $validated['note'] ?? null,
+            ]);
+
+            // ===============================
+            // 🟩 2. Update ORDER_PROGRESS_ITEMS
+            // ===============================
+            $progressItem->completed_quantity += $deltaCompleted;
+            // $progressItem->defect_quantity += $deltaDefect;
+            // $progressItem->reject_quantity += $deltaReject;
+            // $progressItem->change_quantity += $deltaChange;
+            $progressItem->save();
+
+            // ===============================
+            // 🟩 3. Update ORDER_PROGRESS_ASSIGNS
+            // ===============================
+            $assign->completed_quantity += $deltaCompleted;
+            $assign->assigned_quantity += $deltaChange;
+            $assign->defect_quantity += $deltaDefect;
+            $assign->reject_quantity += $deltaReject;
+            $assign->change_quantity += $deltaChange;
+
+            // 🔹 Update assigned_quantity (berkurang jika completed naik)
+            // $assign->assigned_quantity -= $deltaCompleted;
+            // if ($assign->assigned_quantity < 0) $assign->assigned_quantity = 0;
+
+            $assign->save();
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'History, progress item, dan assign berhasil diperbarui.'
+            ]);
         } catch (\Throwable $e) {
-            return redirect()->back()->with('error', 'Something went wrong while updating history: ' . $e->getMessage());
+            DB::rollBack();
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

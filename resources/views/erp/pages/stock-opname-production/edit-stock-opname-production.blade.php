@@ -39,8 +39,6 @@
                         <div class="card-body">
                             <input type="hidden" name="production_warehouse_id"
                                 value="{{ $stockOpname->production_warehouse_id ?? 1 }}">
-
-                            {{-- Product --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="product" class="fw-semibold">Product:</label>
@@ -57,8 +55,6 @@
                                     </select>
                                 </div>
                             </div>
-
-                            {{-- Date --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="date" class="fw-semibold">Date:</label>
@@ -71,8 +67,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            {{-- Change --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="change" class="fw-semibold">Change:</label>
@@ -89,8 +83,6 @@
                                     </select>
                                 </div>
                             </div>
-
-                            {{-- Available Quantity --}}
                             <div class="row mb-3 align-items-center change-field {{ $stockOpname->change == 'available_quantity' ? '' : 'd-none' }}"
                                 id="field-available_quantity">
                                 <div class="col-lg-2">
@@ -106,8 +98,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            {{-- Finished Product --}}
                             <div class="row mb-3 align-items-center change-field {{ $stockOpname->change == 'finished_product' ? '' : 'd-none' }}"
                                 id="field-finished_product">
                                 <div class="col-lg-2">
@@ -123,8 +113,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            {{-- Status --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="status" class="fw-semibold">Status:</label>
@@ -138,8 +126,6 @@
                                     </select>
                                 </div>
                             </div>
-
-                            {{-- Notes --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="notes" class="fw-semibold">Notes:</label>
@@ -152,7 +138,6 @@
                                     </div>
                                 </div>
                             </div>
-
                         </div>
                     </form>
                 </div>
@@ -163,7 +148,7 @@
 
 @push('scripts')
     <script>
-        // === Helper: Format & parse angka ribuan ===
+
         const formatID = new Intl.NumberFormat('id-ID');
 
         function formatNumberInput(el) {
@@ -175,7 +160,6 @@
             return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        // === TOGGLE FIELD BERDASARKAN CHANGE TYPE ===
         document.addEventListener('DOMContentLoaded', function() {
             const changeSelect = document.getElementById('change');
             const fields = document.querySelectorAll('.change-field');
@@ -192,14 +176,12 @@
             toggleFields();
         });
 
-        // === FORMAT ANGKA RIBUAN SAAT KETIK ===
         document.addEventListener('input', function(e) {
             if (e.target.matches('#available_quantity, #finished_product')) {
                 formatNumberInput(e.target);
             }
         });
 
-        // === FORMAT ULANG SAAT HALAMAN DIBUKA ===
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('#available_quantity, #finished_product').forEach(el => {
                 if (el.value.trim() !== '') {
@@ -208,14 +190,12 @@
             });
         });
 
-        // === VALIDASI FRONTEND + CLEANSING DATA ===
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('stockOpnameForm');
 
             form.addEventListener('submit', function(e) {
                 let isValid = true;
 
-                // Hapus error lama
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
@@ -228,25 +208,21 @@
                 const availableVal = parseNumberValue(availableQty.value);
                 const finishedVal = parseNumberValue(finishedQty.value);
 
-                // Validasi product
                 if (!product.value) {
                     isValid = false;
                     showError(product, 'Produk wajib dipilih');
                 }
 
-                // Validasi tanggal
                 if (!date.value.trim()) {
                     isValid = false;
                     showError(date, 'Tanggal wajib diisi');
                 }
 
-                // Validasi change
                 if (!change.value) {
                     isValid = false;
                     showError(change, 'Jenis perubahan wajib dipilih');
                 }
 
-                // Validasi quantity aktif
                 if (change.value === 'available_quantity') {
                     if (availableVal <= 0) {
                         isValid = false;
@@ -264,13 +240,11 @@
                     return;
                 }
 
-                // 🧹 Bersihkan titik sebelum submit
                 form.querySelectorAll('#available_quantity, #finished_product').forEach(el => {
                     el.value = el.value.replace(/\./g, '');
                 });
             });
 
-            // === FUNGSI TAMPIL ERROR ===
             function showError(el, message) {
                 if (!el) return;
                 el.classList.add('is-invalid');
@@ -284,7 +258,6 @@
                 parent.appendChild(feedback);
             }
 
-            // === HAPUS ERROR OTOMATIS SAAT INPUT BERUBAH ===
             form.querySelectorAll('input, select').forEach(el => {
                 el.addEventListener('input', () => {
                     el.classList.remove('is-invalid');

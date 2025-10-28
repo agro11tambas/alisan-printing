@@ -36,7 +36,6 @@
                 <div class="card-body">
                     @forelse($transactions as $groupId => $trxGroup)
                     @php
-                    // filter hanya debit
                     $debitGroup = $trxGroup->where('debit', '>', 0);
                     @endphp
 
