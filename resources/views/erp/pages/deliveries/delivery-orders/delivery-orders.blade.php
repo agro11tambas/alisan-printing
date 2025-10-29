@@ -122,7 +122,7 @@
                                     <th>Delivery Number</th>
                                     <!-- <th>Delivery Date</th> -->
                                     <th>Customer</th>
-                                    <th>Status</th>
+                                    {{-- <th>Status</th> --}}
                                     <th>Products</th>
                                     <!-- <th class="text-end">Actions</th> -->
                                 </tr>
@@ -286,10 +286,10 @@
                     data: 'customer',
                     name: 'customer'
                 },
-                {
-                    data: 'status',
-                    name: 'status'
-                },
+                // {
+                //     data: 'status',
+                //     name: 'status'
+                // },
                 {
                     data: 'products',
                     name: 'products'

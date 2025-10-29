@@ -68,15 +68,6 @@
                             <h4 class="card-title">Assign Batch Details</h4>
                         </div>
                         <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-lg-2">
-                                    <label for="assign_code" class="fw-semibold">Assign Code:</label>
-                                </div>
-                                <div class="col-lg-10">
-                                    <input type="text" class="form-control" id="assign_code" name="assign_code"
-                                        value="{{ $batch->assign_code }}" readonly>
-                                </div>
-                            </div>
 
                             <div class="row mb-3">
                                 <div class="col-lg-2">
@@ -110,13 +101,15 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th>Product</th>
-                                            <th class="text-center">Total Qty</th>
-                                            <th class="text-center">Already Assigned</th>
-                                            <th class="text-center">Assign Now</th>
+                                            <th>Progress</th>
+                                            <th>Assigning</th>
+                                            <th>Available</th>
+                                            <th>Assign Now</th>
                                             <th>Operator</th>
                                             <th>Note</th>
                                         </tr>
                                     </thead>
+                                    <tbody>
                                     <tbody>
                                         @foreach ($batch->orderProgress->items as $index => $item)
                                             @php
@@ -127,19 +120,22 @@
                                                 $assignedQty = $assign->assigned_quantity ?? 0;
                                                 $operatorId = $assign->operator_id ?? '';
                                                 $note = $assign->note ?? '';
-                                                $completedWaitingList = $item->completed_quantity ?? 0;
-                                                $remaining = $item->quantity - $completedWaitingList;
                                             @endphp
-
                                             <tr>
+                                                <input type="hidden" name="items[{{ $index }}][id]"
+                                                    value="{{ $assign->id ?? '' }}">
                                                 <td>{{ $item->product->name }}</td>
-                                                <td class="text-center">{{ number_format($item->quantity, 0, ',', '.') }}
+                                                <td class="text-start">
+                                                    {{ number_format($item->completed_quantity, 0, ',', '.') }} /
+                                                    {{ number_format($item->quantity, 0, ',', '.') }}
                                                 </td>
-                                                <td class="text-center">{{ number_format($completedWaitingList, 0, ',', '.') }}
+                                                <td class="text-danger fw-semibold">
+                                                    {{ number_format($item->active_assign, 0, ',', '.') }}
                                                 </td>
-                                                <td>
-                                                    <input type="hidden" name="items[{{ $index }}][id]"
-                                                        value="{{ $assign->id ?? '' }}">
+                                                <td class="text-primary fw-semibold">
+                                                    {{ number_format($item->available_quantity, 0, ',', '.') }}
+                                                </td>
+                                                <td class="text-start">
                                                     <input type="hidden"
                                                         name="items[{{ $index }}][order_progress_item_id]"
                                                         value="{{ $item->id }}">
@@ -147,13 +143,17 @@
                                                         name="items[{{ $index }}][assigned_quantity]"
                                                         class="form-control text-start"
                                                         value="{{ number_format($assignedQty, 0, ',', '.') }}"
-                                                        min="0" max="{{ $remaining }}">
-                                                    <small class="text-muted d-block mt-1">Remaining:
-                                                        {{ number_format($remaining, 0, ',', '.') }}</small>
+                                                        min="0" max="{{ $item->remaining_quantity }}"
+                                                        placeholder="Qty">
+
+                                                    <small class="text-muted d-block mt-1">
+                                                        Remaining:
+                                                        {{ number_format($item->remaining_quantity, 0, ',', '.') }}
+                                                    </small>
                                                 </td>
                                                 <td>
                                                     <select name="items[{{ $index }}][operator_id]"
-                                                        class="form-select operator-field">
+                                                        class="form-select operator-field" data-select2-selector="tag">
                                                         <option value="">-- Choose Operator --</option>
                                                         @foreach ($operators as $op)
                                                             <option value="{{ $op->id }}"
@@ -162,6 +162,9 @@
                                                             </option>
                                                         @endforeach
                                                     </select>
+                                                    <small class="text-danger error-operator d-none">
+                                                        Operator wajib dipilih
+                                                    </small>
                                                 </td>
                                                 <td>
                                                     <input type="text" name="items[{{ $index }}][note]"

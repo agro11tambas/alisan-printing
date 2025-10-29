@@ -108,8 +108,9 @@
                                         <tr>
                                             <th>Product</th>
                                             <th>Total Qty</th>
-                                            <th>Ready Qty</th>
-                                            <th>Already Shipped</th>
+                                            <th>Delivered</th>
+                                            <th>Shipping</th>
+                                            <th>Available</th>
                                             <th>Shipped Qty (Now)</th>
                                             <th>Note</th>
                                         </tr>
@@ -117,8 +118,18 @@
                                     <tbody>
                                         @foreach ($deliveryOrder->items as $item)
                                             @php
-                                                $alreadyShipped = $item->deliveryListItems()->sum('shipped_quantity');
-                                                $remaining = $item->ready_qty - $alreadyShipped;
+                                                // ambil semua delivery_list_items berdasarkan status
+                                                $delivered = $item
+                                                    ->deliveryListItems()
+                                                    ->whereHas('shipment', fn($q) => $q->where('status', 'Finished'))
+                                                    ->sum('shipped_quantity');
+
+                                                $shipping = $item
+                                                    ->deliveryListItems()
+                                                    ->whereHas('shipment', fn($q) => $q->where('status', 'Ongoing'))
+                                                    ->sum('shipped_quantity');
+
+                                                $available = max($item->ready_qty - ($delivered + $shipping), 0);
                                             @endphp
                                             <tr>
                                                 <td>
@@ -129,13 +140,25 @@
                                                     <input type="hidden" name="items[{{ $item->id }}][product_id]"
                                                         value="{{ $item->product_id }}">
                                                 </td>
-                                                <td><span class="text-primary">{{ $item->progress_qty }}</span></td>
-                                                <td><span class="text-danger">{{ $item->ready_qty }}</span></td>
-                                                <td><span class="text-success">{{ $alreadyShipped }}</span></td>
+                                                <td><span
+                                                        class="text-primary">{{ number_format($item->ready_qty, 0, ',', '.') }}</span>
+                                                    / <span>{{ number_format($item->progress_qty, 0, ',', '.') }}</span>
+                                                </td>
+                                                <td><span
+                                                        class="text-success">{{ number_format($delivered, 0, ',', '.') }}</span>
+                                                </td>
+                                                <td><span
+                                                        class="text-warning">{{ number_format($shipping, 0, ',', '.') }}</span>
+                                                </td>
+                                                <td><span
+                                                        class="text-danger">{{ number_format($available, 0, ',', '.') }}</span>
+                                                </td>
                                                 <td>
                                                     <input type="text" inputmode="numeric" class="form-control"
                                                         name="items[{{ $item->id }}][shipped_quantity]" min="0"
-                                                        max="{{ $item->ready_qty }}" value="0">
+                                                        max="{{ $available }}" value="0">
+                                                    <small class="text-muted remaining-info">Remaining:
+                                                        {{ number_format($available, 0, ',', '.') }}</small>
                                                 </td>
                                                 <td>
                                                     <input type="text" class="form-control"

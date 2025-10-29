@@ -13,6 +13,7 @@ use App\Services\DeliveryListService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class DeliveryListController extends Controller
@@ -230,11 +231,11 @@ class DeliveryListController extends Controller
                 // ✅ Update DeliveryOrderItem
                 $doItem = DeliveryOrderItem::find($item['delivery_order_item_id']);
                 if ($doItem) {
-                    $newReadyQty   = max(0, $doItem->ready_qty - $item['shipped_quantity']);
+                    // $newReadyQty   = max(0, $doItem->ready_qty - $item['shipped_quantity']);
                     $newShippedQty = $doItem->shipped_qty + $item['shipped_quantity'];
 
                     $doItem->update([
-                        'ready_qty'   => $newReadyQty,
+                        // 'ready_qty'   => $newReadyQty,
                         'shipped_qty' => $newShippedQty,
                         'status'      => $newShippedQty >= $doItem->progress_qty ? 'Shipped' : $doItem->status,
                     ]);
@@ -309,11 +310,11 @@ class DeliveryListController extends Controller
             // ✅ Update ready_qty dan shipped_qty di DeliveryOrderItem
             $doItem = $item->deliveryOrderItem;
             if ($doItem && $difference != 0) {
-                $newReadyQty   = $doItem->ready_qty - $difference; // kurangi / tambahkan berdasarkan selisih
+                // $newReadyQty   = $doItem->ready_qty - $difference; // kurangi / tambahkan berdasarkan selisih
                 $newShippedQty = $doItem->shipped_qty + $difference;
 
                 $doItem->update([
-                    'ready_qty'   => max(0, $newReadyQty),
+                    // 'ready_qty'   => max(0, $newReadyQty),
                     'shipped_qty' => max(0, $newShippedQty),
                 ]);
             }
@@ -354,32 +355,29 @@ class DeliveryListController extends Controller
         return view('erp.pages.deliveries.delivery-list.print-waybill', compact('deliveryList', 'order'));
     }
 
-    public function uploadProof(Request $request, $id, $type)
+    public function uploadProof(Request $request, $id)
     {
         $deliveryList = DeliveryList::findOrFail($id);
 
-        if ($type === 'delivery') {
-            $request->validate([
-                'proof_delivery' => 'required|image|mimes:jpg,jpeg,png|max:2048',
-            ]);
+        $request->validate([
+            'proof_waybill'  => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'proof_delivery' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
 
-            $fileName = 'delivery_' . time() . '.' . $request->file('proof_delivery')->extension();
-            $path = $request->file('proof_delivery')->storeAs('uploads/delivery-proofs', $fileName, 'public');
-            $deliveryList->proof_delivery = $path;
-        }
-
-        if ($type === 'waybill') {
-            $request->validate([
-                'proof_waybill' => 'required|image|mimes:jpg,jpeg,png|max:2048',
-            ]);
-
+        if ($request->hasFile('proof_waybill')) {
             $fileName = 'waybill_' . time() . '.' . $request->file('proof_waybill')->extension();
             $path = $request->file('proof_waybill')->storeAs('uploads/waybill-proofs', $fileName, 'public');
             $deliveryList->proof_waybill = $path;
         }
 
-        // ✅ Jika keduanya sudah ada → status Finished
-        // if ($deliveryList->proof_delivery && $deliveryList->proof_waybill) {
+        if ($request->hasFile('proof_delivery')) {
+            $fileName = 'delivery_' . time() . '.' . $request->file('proof_delivery')->extension();
+            $path = $request->file('proof_delivery')->storeAs('uploads/delivery-proofs', $fileName, 'public');
+            $deliveryList->proof_delivery = $path;
+        }
+
+        // ✅ Kalau dua-duanya sudah ada, ubah status jadi finished
+        // if ($deliveryList->proof_waybill && $deliveryList->proof_delivery) {
         //     $deliveryList->status = 'Finished';
         // }
 
@@ -403,5 +401,61 @@ class DeliveryListController extends Controller
         $deliveryList->save();
 
         return redirect()->back()->with('success', 'Delivery List berhasil diverifikasi!');
+    }
+
+    public function destroy($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $deliveryList = DeliveryList::withTrashed()->findOrFail($id);
+
+            // 🔹 Ambil semua item delivery list (termasuk soft deleted)
+            $items = DeliveryListItem::withTrashed()
+                ->where('delivery_list_id', $deliveryList->id)
+                ->get();
+
+            // 🔹 Rollback shipped_qty ke delivery_order_items
+            foreach ($items as $item) {
+                if ($item->delivery_order_item_id && $item->shipped_quantity > 0) {
+                    DB::table('delivery_order_items')
+                        ->where('id', $item->delivery_order_item_id)
+                        ->decrement('shipped_qty', $item->shipped_quantity);
+                }
+
+                // 🔹 Hapus permanen item
+                $item->forceDelete();
+            }
+
+            // 🔹 Hapus parent list
+            $deliveryList->forceDelete();
+
+            // 🔹 Cek dan update status DeliveryOrder jika masih ada
+            if ($deliveryList->delivery_order_id) {
+                $deliveryOrder = DB::table('delivery_orders')
+                    ->where('id', $deliveryList->delivery_order_id)
+                    ->first();
+
+                if ($deliveryOrder) {
+                    // Cek apakah masih ada list aktif untuk order ini
+                    $remainingLists = DB::table('delivery_lists')
+                        ->where('delivery_order_id', $deliveryOrder->id)
+                        ->count();
+
+                    // Jika semua list sudah dihapus, ubah status jadi Ongoing
+                    if ($remainingLists === 0) {
+                        DB::table('delivery_orders')
+                            ->where('id', $deliveryOrder->id)
+                            ->update(['status' => 'Ongoing']);
+                    }
+                }
+            }
+
+            DB::commit();
+            return back()->with('success', "Delivery List {$deliveryList->shipment_number} berhasil dihapus dan stok terkoreksi.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal menghapus Delivery List: ' . $e->getMessage());
+        }
     }
 }

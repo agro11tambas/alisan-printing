@@ -2,9 +2,10 @@
     <table class="table table-sm table-bordered">
         <thead>
             <tr>
-                <th style="width: 33%;">Operator</th>
-                <th style="width: 33%;">Progress</th>
-                <th style="width: 33%;">Defect Product</th>
+                <th style="width: 25%;">Operator</th>
+                <th style="width: 25%;">Progress</th>
+                <th style="width: 25%;">Defect Product</th>
+                <th style="width: 25%;">Reject Product</th>
             </tr>
         </thead>
         <tbody>
@@ -18,8 +19,9 @@
                         @endif
                     </span>
                 </td>
-                <td><span class="fw-bold text-success">{{ $assign->change_quantity }}</span>/<span class="fw-bold text-primary">{{ number_format($assign->assigned_quantity) }}</span></td>
-                <td><span class="fw-bold text-danger">{{ $assign->defect_quantity }}</span></td>
+                <td><span class="fw-bold text-success">{{ number_format($assign->change_quantity, 0, ',', '.') }}</span>/<span class="fw-bold text-primary">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span></td>
+                <td><span class="fw-bold text-danger">{{ number_format($assign->defect_quantity, 0, ',', '.') }}</span></td>
+                <td><span class="fw-bold text-warning">{{ number_format($assign->reject_quantity, 0, ',', '.') }}</span></td>
             </tr>
             @endforeach
         </tbody>

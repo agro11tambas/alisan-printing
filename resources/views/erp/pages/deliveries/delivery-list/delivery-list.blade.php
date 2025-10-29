@@ -144,39 +144,32 @@
 @endsection
 
 @push('styles')
-    <div class="modal fade" id="modalUploadDelivery" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="modalUploadProof" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
-            <form method="POST" enctype="multipart/form-data" id="formUploadDelivery">
+            <form method="POST" enctype="multipart/form-data" id="formUploadProof">
                 @csrf
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Upload Bukti Pengantaran</h5>
+                        <h5 class="modal-title">Upload Bukti Waybill & Pengantaran</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="modal-body">
-                        <input type="file" name="proof_delivery" class="form-control" required>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary btn-md">Upload</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    <div class="modal fade" id="modalUploadWaybill" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <form method="POST" enctype="multipart/form-data" id="formUploadWaybill">
-                @csrf
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Upload Bukti Waybill / Surat Jalan</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
                     <div class="modal-body">
-                        <input type="file" name="proof_waybill" class="form-control" required>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Bukti Waybill / Surat Jalan</label>
+                            <input type="file" name="proof_waybill" class="form-control" accept="image/*"
+                                capture="environment">
+                            <div class="invalid-feedback d-block text-danger" id="error-proof_waybill"></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Bukti Pengantaran</label>
+                            <input type="file" name="proof_delivery" class="form-control" accept="image/*"
+                                capture="environment">
+                            <div class="invalid-feedback d-block text-danger" id="error-proof_delivery"></div>
+                        </div>
                     </div>
+
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary btn-md">Upload</button>
@@ -204,6 +197,34 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-primary btn-md">Verifikasi</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalDeleteDelivery" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" id="formDeleteDelivery">
+                @csrf
+                @method('DELETE')
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title text-white">Hapus Delivery List</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Apakah Anda yakin ingin menghapus Delivery List
+                            <strong id="deleteDeliveryName"></strong>?
+                        </p>
+                        <p class="text-danger mb-0">
+                            *Tindakan ini akan menghapus semua item di dalamnya secara permanen.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger btn-md">Hapus</button>
                     </div>
                 </div>
             </form>
@@ -237,16 +258,10 @@
                     },
                     error: function(xhr) {
                         console.error('Error response:', xhr.responseJSON);
-                        alert(xhr.responseJSON.message);
+                        alert(xhr.responseJSON?.message || 'Terjadi kesalahan saat memuat data.');
                     }
                 },
-                columns: [
-                    // {
-                    //     data: 'DT_RowIndex',
-                    //     orderable: false,
-                    //     searchable: false
-                    // },
-                    {
+                columns: [{
                         data: 'shipment_number',
                         name: 'shipment_number'
                     },
@@ -281,7 +296,7 @@
                 ],
             });
 
-            $('#status').on('change', function() {
+            $('#status, #search_type').on('change', function() {
                 dataTable.ajax.reload();
             });
             $('#filter').on('change', function() {
@@ -295,16 +310,12 @@
             $('#apply-filter').on('click', function() {
                 dataTable.ajax.reload();
             });
-            $('#search_type').on('change', function() {
-                dataTable.ajax.reload();
-            });
             $('#search_keyword').on('keyup', function() {
                 dataTable.ajax.reload();
             });
 
             $('#deliveryListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
-
                 let $tr = $(this);
                 let row = dataTable.row($tr);
 
@@ -316,15 +327,14 @@
                     let actionHtml = row.data().action;
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-            <tr class="action-row">
-                <td colspan="${colCount}">
-                    <div class="d-flex justify-content-start">
-                        ${actionHtml}
-                    </div>
-                </td>
-            </tr>
-        `);
-
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-start">
+                            ${actionHtml}
+                        </div>
+                    </td>
+                </tr>
+            `);
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
                 }
@@ -334,29 +344,53 @@
                 if ($(e.target).closest('#deliveryListTable').length) return;
                 $('#deliveryListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
-        });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            $(document).on('click', '.btn-upload-delivery', function() {
+            $(document).on('click', '.btn-upload-proof', function() {
                 const url = $(this).data('url');
-                $('#formUploadDelivery').attr('action', url);
-                $('#modalUploadDelivery').modal('show');
+                $('#formUploadProof').attr('action', url);
+                $('#modalUploadProof').modal('show');
+
+                $('#formUploadProof')[0].reset();
+                $('#error-proof_waybill, #error-proof_delivery').text('');
             });
-            
-            $(document).on('click', '.btn-upload-waybill', function() {
+
+            $('#formUploadProof').on('submit', function(e) {
+                let valid = true;
+                $('#error-proof_waybill, #error-proof_delivery').text('');
+
+                const waybill = $('input[name="proof_waybill"]').val();
+                const delivery = $('input[name="proof_delivery"]').val();
+
+                if (!waybill) {
+                    valid = false;
+                    $('#error-proof_waybill').text('Bukti surat jalan wajib diupload.');
+                }
+                if (!delivery) {
+                    valid = false;
+                    $('#error-proof_delivery').text('Bukti pengantaran wajib diupload.');
+                }
+
+                if (!valid) e.preventDefault();
+            });
+
+            $(document).on('click', '.btn-verify', function() {
+                let name = $(this).data('name');
+                let url = $(this).data('url');
+
+                $('#DeliveryListName').text(name);
+                $('#formChangeStatus').attr('action', url);
+                $('#modalChangeStatus').modal('show');
+            });
+
+            // 🗑️ Delete delivery list
+            $(document).on('click', '.btn-delete-delivery', function() {
+                const name = $(this).data('name');
                 const url = $(this).data('url');
-                $('#formUploadWaybill').attr('action', url);
-                $('#modalUploadWaybill').modal('show');
+
+                $('#deleteDeliveryName').text(name);
+                $('#formDeleteDelivery').attr('action', url);
+                $('#modalDeleteDelivery').modal('show');
             });
-        });
-
-        $(document).on('click', '.btn-verify', function() {
-            let id = $(this).data('id');
-            let name = $(this).data('name');
-            let url = $(this).data('url');
-
-            $('#DeliveryListName').text(name);
-            $('#formChangeStatus').attr('action', url);
         });
     </script>
 @endpush

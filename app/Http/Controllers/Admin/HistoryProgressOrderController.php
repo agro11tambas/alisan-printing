@@ -262,6 +262,23 @@ class HistoryProgressOrderController extends Controller
                 'note'              => $request->note,
             ]);
 
+            // 🔹 Validasi jumlah progress harus sama dengan assigned qty
+            foreach ($request->items as $data) {
+                $assign = OrderProgressAssign::findOrFail($data['assign_id']);
+
+                $completed = (int) ($data['completed_quantity'] ?? 0);
+                $reject    = (int) ($data['reject_quantity'] ?? 0);
+                $defect    = (int) ($data['defect_quantity'] ?? 0);
+
+                $totalInput = $completed + $reject + $defect;
+
+                if ($totalInput !== (int) $assign->assigned_quantity) {
+                    DB::rollBack(); 
+                    return back()
+                        ->with('error', "Total progress untuk produk {$assign->progressItem->product->name} harus sama dengan Assigned Qty (" . number_format($assign->assigned_quantity, 0, ',', '.') . ").");
+                }
+            }
+
             foreach ($request->items as $data) {
                 $assign = OrderProgressAssign::with('progressItem.product')->findOrFail($data['assign_id']);
                 $progressItem = $assign->progressItem;

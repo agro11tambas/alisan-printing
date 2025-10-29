@@ -104,9 +104,10 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th>Product</th>
-                                            <th class="text-center">Total Qty</th>
-                                            <th class="text-center">Completed Waiting List</th>
-                                            <th class="text-center">Assign Now</th>
+                                            <th>Progress</th>                                            
+                                            <th>Assigning</th>
+                                            <th>Available</th>
+                                            <th>Assign Now</th>
                                             <th>Operator</th>
                                             <th>Note</th>
                                         </tr>
@@ -115,10 +116,15 @@
                                         @foreach ($progress->items as $index => $item)
                                             <tr>
                                                 <td>{{ $item->product->name }}</td>
-                                                <td class="text-start">{{ number_format($item->quantity, 0, ',', '.') }}
-                                                </td>
                                                 <td class="text-start">
-                                                    {{ number_format($item->completed_quantity, 0, ',', '.') }}
+                                                    {{ number_format($item->completed_quantity, 0, ',', '.') }} /
+                                                    {{ number_format($item->quantity, 0, ',', '.') }}
+                                                </td>
+                                                <td class="text-danger fw-semibold">
+                                                    {{ number_format($item->active_assign, 0, ',', '.') }}
+                                                </td>
+                                                <td class="text-primary fw-semibold">
+                                                    {{ number_format($item->available_quantity, 0, ',', '.') }}
                                                 </td>
                                                 <td class="text-start">
                                                     <input type="hidden"
@@ -127,11 +133,11 @@
                                                     <input type="text"
                                                         name="items[{{ $index }}][assigned_quantity]"
                                                         class="form-control text-start" value="0" min="0"
-                                                        max="{{ $item->quantity - $item->completed_quantity }}"
-                                                        placeholder="Qty">
+                                                        max="{{ $item->remaining_quantity }}" placeholder="Qty">
+
                                                     <small class="text-muted d-block mt-1">
                                                         Remaining:
-                                                        {{ number_format($item->quantity - $item->completed_quantity, 0, ',', '.') }}
+                                                        {{ number_format($item->remaining_quantity, 0, ',', '.') }}
                                                     </small>
                                                 </td>
                                                 <td>

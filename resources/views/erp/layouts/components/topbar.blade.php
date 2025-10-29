@@ -1,11 +1,6 @@
-<!--! ================================================================ !-->
-<!--! [Start] Header !-->
-<!--! ================================================================ !-->
 <header class="nxl-header">
     <div class="header-wrapper">
-        <!--! [Start] Header Left !-->
         <div class="header-left d-flex align-items-center gap-4">
-            <!--! [Start] nxl-head-mobile-toggler !-->
             <a href="javascript:void(0);" class="nxl-head-mobile-toggler" id="mobile-collapse">
                 <div class="hamburger hamburger--arrowturn">
                     <div class="hamburger-box">
@@ -13,8 +8,6 @@
                     </div>
                 </div>
             </a>
-            <!--! [Start] nxl-head-mobile-toggler !-->
-            <!--! [Start] nxl-navigation-toggle !-->
             <div class="nxl-navigation-toggle">
                 <a href="javascript:void(0);" id="menu-mini-button" style="display: none">
                     <i class="feather-align-left"></i>
@@ -23,10 +16,7 @@
                     <i class="feather-arrow-right"></i>
                 </a>
             </div>
-            <!--! [End] nxl-navigation-toggle !-->
         </div>
-        <!--! [End] Header Left !-->
-        <!--! [Start] Header Right !-->
         <div class="header-right ms-auto">
             <div class="d-flex align-items-center">
                 <div class="nxl-h-item d-none d-sm-flex">
@@ -133,9 +123,5 @@
                 </div>
             </div>
         </div>
-        <!--! [End] Header Right !-->
     </div>
 </header>
-<!--! ================================================================ !-->
-<!--! [End] Header !-->
-<!--! ================================================================ !-->

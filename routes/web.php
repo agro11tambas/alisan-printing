@@ -313,6 +313,8 @@ Route::middleware(isLogin::class)->group(function () {
 
             Route::get('/erp/productions/waiting-list/assign-list/data', [OrderProgressAssignController::class, 'dataAssignList']);
             Route::get('/erp/productions/waiting-list/assign-list', [OrderProgressAssignController::class, 'getAssignList']);
+            Route::delete('/erp/productions/assign-list/delete/{id}', [OrderProgressAssignController::class, 'delete']);
+
             Route::get('/erp/productions/waiting-list/assign-batch/{batch}/assigns', [OrderProgressAssignController::class, 'getAssignsByBatch']);
 
             Route::get('/erp/productions/waiting-list/history-order/{id}', [HistoryProgressOrderController::class, 'getHistory']);
@@ -390,10 +392,14 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/deliveries/delivery-list/data', [DeliveryListController::class, 'dataDeliveryList']);
             Route::get('/erp/deliveries/delivery-list', [DeliveryListController::class, 'getDeliveryList']);
             Route::get('/erp/deliveries/delivery-list/print-waybill/{id}', [DeliveryListController::class, 'printWaybill']);
-            Route::post('/erp/deliveries/delivery-list/{id}/upload-proof/{type}', [DeliveryListController::class, 'uploadProof'])->name('delivery-list.upload-proof');
+            Route::post('/erp/deliveries/delivery-list/{id}/upload-proof', [DeliveryListController::class, 'uploadProof'])
+                ->name('delivery-list.upload-proof');
 
             Route::put('/erp/deliveries/delivery-list/{id}/verify', [DeliveryListController::class, 'verify'])
                 ->name('delivery-list.verify');
+                
+            Route::delete('/erp/deliveries/delivery-list/{id}/destroy', [App\Http\Controllers\Admin\DeliveryListController::class, 'destroy'])
+                ->name('delivery-list.destroy');
         });
     });
 

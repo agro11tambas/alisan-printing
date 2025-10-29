@@ -125,9 +125,18 @@
                         <input type="hidden" id="design_item_id" name="design_item_id">
 
                         <div class="mb-3">
-                            <label for="preview_image" class="form-label">Select Image</label>
-                            <input type="file" class="form-control" id="preview_image" name="preview_image"
-                                accept="image/*" required>
+                            <label class="form-label">Upload / Paste Screenshot (Multiple)</label>
+
+                            <div id="pasteArea" class="border rounded p-3 text-center"
+                                style="min-height: 120px; cursor: pointer;">
+                                <p class="text-muted small mb-2">
+                                    Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot
+                                </p>
+                                <div id="previewContainer" class="d-flex flex-wrap justify-content-center gap-2"></div>
+                            </div>
+
+                            <input type="file" class="form-control mt-2" id="preview_image" name="preview_image[]"
+                                accept="image/*" multiple>
                         </div>
 
                         <div class="mb-3">
@@ -268,6 +277,9 @@
 
                 $('#preview_image').val('');
 
+                pastedImageBlobs = [];
+                $('#previewContainer').empty();
+
                 const previewContainer = $('#uploadModal .modal-body .old-preview');
                 if (previewUrl) {
                     if (previewContainer.length === 0) {
@@ -289,7 +301,25 @@
 
             $('#uploadForm').on('submit', function(e) {
                 e.preventDefault();
+
+                if (pastedImageBlobs.length === 0 && !$('#preview_image')[0].files.length) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No image selected',
+                        text: 'Silakan upload atau paste minimal 1 gambar.',
+                    });
+                    return;
+                }
+
                 const formData = new FormData(this);
+
+                // Jika user paste beberapa screenshot, tambahkan semua ke form
+                if (pastedImageBlobs.length > 0) {
+                    formData.delete('preview_image[]'); // hapus input file default
+                    pastedImageBlobs.forEach((blob, index) => {
+                        formData.append('preview_image[]', blob, `screenshot_${index + 1}.png`);
+                    });
+                }
 
                 $.ajax({
                     url: '/erp/design-items/' + $('#design_item_id').val() + '/upload',
@@ -353,6 +383,56 @@
                         });
                     }
                 });
+            });
+
+            // === Multi Paste & Upload Support ===
+            let pastedImageBlobs = [];
+
+            // Handle paste screenshot
+            $('#pasteArea').on('paste', function(e) {
+                const items = (e.originalEvent.clipboardData || e.clipboardData).items;
+                for (const item of items) {
+                    if (item.type.indexOf('image') === 0) {
+                        const blob = item.getAsFile();
+                        pastedImageBlobs.push(blob); // simpan semua hasil paste
+
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            $('#previewContainer').append(`
+                    <div class="position-relative d-inline-block">
+                        <img src="${event.target.result}" class="rounded border" 
+                             style="width:100px;height:80px;object-fit:cover;">
+                    </div>
+                `);
+                        };
+                        reader.readAsDataURL(blob);
+
+                        $('#preview_image').val(''); // reset input file
+                    }
+                }
+            });
+
+            // Klik area untuk fokus (biar bisa langsung paste)
+            $('#pasteArea').on('click', function() {
+                $(this).focus();
+            });
+
+            // Saat user pilih file manual, tampilkan preview-nya juga
+            $('#preview_image').on('change', function(e) {
+                $('#previewContainer').empty();
+                pastedImageBlobs = []; // reset hasil paste
+                for (const file of e.target.files) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        $('#previewContainer').append(`
+                <div class="position-relative d-inline-block">
+                    <img src="${event.target.result}" class="rounded border" 
+                         style="width:100px;height:80px;object-fit:cover;">
+                </div>
+            `);
+                    };
+                    reader.readAsDataURL(file);
+                }
             });
         });
     </script>

@@ -4,8 +4,8 @@
             <tr>
                 <th>Product</th>
                 <th>Completed Waiting List</th>
-                <th>Delivered (Finished)</th>
-                <th>On Delivery (Not Finished)</th>
+                <th>Delivered</th>
+                <th>On Delivery</th>
             </tr>
         </thead>
         <tbody>
@@ -14,6 +14,10 @@
                     $completed =
                         optional($item->orderProgress->items->where('product_id', $item->product_id)->first())
                             ->completed_quantity ?? 0;
+
+                    $waitingListQty = 
+                        optional($item->orderProgress->items->where('product_id', $item->product_id)->first())
+                            ->quantity ?? 0;
 
                     $finishedQty = $item->deliveryListItems
                         ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
@@ -31,11 +35,10 @@
                         </span>
                     </td>
                     <td>
-                        <span>{{ number_format($completed, 0, ',', '.') }}</span>
+                        <span>{{ number_format($completed, 0, ',', '.') }} / {{ number_format($waitingListQty, 0, ',', '.') }}</span>
                     </td>
                     <td>
-                        <span class="fw-bold text-success">{{ number_format($finishedQty, 0, ',', '.') }}</span> /
-                        {{ number_format($item->progress_qty, 0, ',', '.') }}
+                        <span class="fw-bold text-success">{{ number_format($finishedQty, 0, ',', '.') }}</span>
                     </td>
                     <td>
                         <span class="fw-bold text-warning">{{ number_format($notFinishedQty, 0, ',', '.') }}</span>

@@ -41,45 +41,45 @@ class DeliveryListItem extends Model
         return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
 
-    protected static function booted()
-    {
-        // 🔥 Delete (soft delete / force delete)
-        static::deleting(function ($deliveryOrder) {
-            if ($deliveryOrder->isForceDeleting()) {
-                // Hapus permanent semua child
-                foreach ($deliveryOrder->items as $item) {
-                    $item->deliveryListItems()->forceDelete();
-                    $item->forceDelete();
-                }
-                foreach ($deliveryOrder->shipments as $shipment) {
-                    $shipment->items()->forceDelete();
-                    $shipment->forceDelete();
-                }
-            } else {
-                // Soft delete semua child
-                foreach ($deliveryOrder->items as $item) {
-                    $item->deliveryListItems()->delete();
-                    $item->delete();
-                }
-                foreach ($deliveryOrder->shipments as $shipment) {
-                    $shipment->items()->delete();
-                    $shipment->delete();
-                }
-            }
-        });
+    // protected static function booted()
+    // {
+    //     // 🔥 Delete (soft delete / force delete)
+    //     static::deleting(function ($deliveryOrder) {
+    //         if ($deliveryOrder->isForceDeleting()) {
+    //             // Hapus permanent semua child
+    //             foreach ($deliveryOrder->items as $item) {
+    //                 $item->deliveryListItems()->forceDelete();
+    //                 $item->forceDelete();
+    //             }
+    //             foreach ($deliveryOrder->shipments as $shipment) {
+    //                 $shipment->items()->forceDelete();
+    //                 $shipment->forceDelete();
+    //             }
+    //         } else {
+    //             // Soft delete semua child
+    //             foreach ($deliveryOrder->items as $item) {
+    //                 $item->deliveryListItems()->delete();
+    //                 $item->delete();
+    //             }
+    //             foreach ($deliveryOrder->shipments as $shipment) {
+    //                 $shipment->items()->delete();
+    //                 $shipment->delete();
+    //             }
+    //         }
+    //     });
 
-        // 🔥 Restore
-        static::restoring(function ($deliveryOrder) {
-            $deliveryOrder->items()->withTrashed()->restore();
-            $deliveryOrder->shipments()->withTrashed()->restore();
+    //     // 🔥 Restore
+    //     static::restoring(function ($deliveryOrder) {
+    //         $deliveryOrder->items()->withTrashed()->restore();
+    //         $deliveryOrder->shipments()->withTrashed()->restore();
 
-            foreach ($deliveryOrder->items()->withTrashed()->get() as $item) {
-                $item->deliveryListItems()->withTrashed()->restore();
-            }
+    //         foreach ($deliveryOrder->items()->withTrashed()->get() as $item) {
+    //             $item->deliveryListItems()->withTrashed()->restore();
+    //         }
 
-            foreach ($deliveryOrder->shipments()->withTrashed()->get() as $shipment) {
-                $shipment->items()->withTrashed()->restore();
-            }
-        });
-    }
+    //         foreach ($deliveryOrder->shipments()->withTrashed()->get() as $shipment) {
+    //             $shipment->items()->withTrashed()->restore();
+    //         }
+    //     });
+    // }
 }

@@ -1004,14 +1004,25 @@ class SaleListController extends Controller
                 $newKeys[] = $key;
 
                 // 🔎 CEK COMPLETED QUANTITY — pastikan quantity baru tidak lebih kecil dari completed_quantity
+                // 🔎 CEK PROGRESS (COMPLETED + ACTIVE ASSIGN)
                 if ($type === 'satuan') {
                     $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $existingItems[$key]->id ?? null)
                         ->where('product_id', $productId)
                         ->first();
 
-                    if ($progressItem && $qty < $progressItem->completed_quantity) {
-                        DB::rollBack();
-                        return back()->with('error', "Gagal mengupdate order {$order->order_number}: Quantity (" . number_format($qty) . ") tidak boleh lebih kecil dari Completed Quantity (" . number_format($progressItem->completed_quantity) . ").");
+                    if ($progressItem) {
+                        // Hitung total active assign dari tabel order_progress_assigns
+                        $activeAssign = DB::table('order_progress_assigns')
+                            ->where('order_progress_item_id', $progressItem->id)
+                            ->selectRaw('COALESCE(SUM(assigned_quantity - (completed_quantity + defect_quantity + reject_quantity)), 0) as active_assign')
+                            ->value('active_assign');
+
+                        $requiredMinQty = $progressItem->completed_quantity + $activeAssign;
+
+                        if ($qty < $requiredMinQty) {
+                            DB::rollBack();
+                            return back()->with('error', "Gagal mengupdate order {$order->order_number}: Quantity (" . number_format($qty) . ") tidak boleh lebih kecil dari total progress (" . number_format($requiredMinQty) . ") (Completed + Assigning).");
+                        }
                     }
                 } elseif ($type === 'bundle') {
                     $bundle = \App\Models\ProductBundle::with('items')->find($productId);
@@ -1021,9 +1032,18 @@ class SaleListController extends Controller
                                 ->where('product_id', $bundleItem->product_id)
                                 ->first();
 
-                            if ($progressItem && $qty < $progressItem->completed_quantity) {
-                                DB::rollBack();
-                                return back()->with('error', "Gagal mengupdate order {$order->order_number}: Quantity untuk produk bundle ID {$bundleItem->product_id} (" . number_format($qty) . ") tidak boleh lebih kecil dari Completed Quantity (" . number_format($progressItem->completed_quantity) . ").");
+                            if ($progressItem) {
+                                $activeAssign = DB::table('order_progress_assigns')
+                                    ->where('order_progress_item_id', $progressItem->id)
+                                    ->selectRaw('COALESCE(SUM(assigned_quantity - (completed_quantity + defect_quantity + reject_quantity)), 0) as active_assign')
+                                    ->value('active_assign');
+
+                                $requiredMinQty = $progressItem->completed_quantity + $activeAssign;
+
+                                if ($qty < $requiredMinQty) {
+                                    DB::rollBack();
+                                    return back()->with('error', "Gagal mengupdate order {$order->order_number}: Quantity untuk produk bundle ID {$bundleItem->product_id} (" . number_format($qty) . ") tidak boleh lebih kecil dari total progress (" . number_format($requiredMinQty) . ") (Completed + Assigning).");
+                                }
                             }
                         }
                     }
@@ -1533,7 +1553,7 @@ class SaleListController extends Controller
                     $deliveryOrder->update([
                         'delivery_date'     => now()->format('Y-m-d'),
                         'note'              => $request->notes ?? $deliveryOrder->note,
-                        'status'            => 'Pending',
+                        // 'status'            => 'Pending',
                         'customer'          => $customerName,
                         'shipping_address'  => $shippingAddress,
                         'google_map_link'   => $googleMapLink,

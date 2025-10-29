@@ -38,6 +38,24 @@
 @endsection
 
 @section('content')
+    @if (session('error'))
+        <script>
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal!',
+                text: "{{ session('error') }}",
+            });
+        </script>
+    @endif
+    @if (session('success'))
+        <script>
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: "{{ session('success') }}",
+            });
+        </script>
+    @endif
     <div class="main-content">
         <div class="row">
             <div class="col-lg-12">
@@ -106,6 +124,47 @@
         </div>
     </div>
 @endsection
+
+@push('modals')
+    <!-- 🔹 Modal Delete Assign Batch -->
+    <div class="modal fade" id="modalDeleteAssign" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="formDeleteAssign" method="POST">
+                @csrf
+                @method('DELETE')
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title text-white">Hapus Assign Batch</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <p class="fw-semibold mb-2">
+                            Yakin ingin menghapus batch ini?
+                        </p>
+                        <p class="text-muted mb-3">
+                            Semua data <strong>assign</strong> di dalam batch ini juga akan ikut terhapus.
+                        </p>
+
+                        <div class="alert alert-warning mb-0">
+                            <strong>Perhatian:</strong> Tindakan ini tidak dapat dibatalkan.
+                        </div>
+
+                        {{-- Hidden input untuk batch id --}}
+                        <input type="hidden" id="delete_batch_id">
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger" id="btnConfirmDelete">
+                            <i class="feather-trash-2 me-2"></i>Hapus
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+@endpush
 
 @push('scripts')
     <script>
@@ -210,6 +269,30 @@
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => batchTable.ajax.reload(), 500);
             });
+        });
+
+        // === HANDLE DELETE MODAL ===
+        $(document).on('click', '.btn-open-delete-modal', function() {
+            const batchId = $(this).data('id');
+            const batchCode = $(this).data('code');
+
+            // Ubah action form
+            $('#formDeleteAssign').attr('action', `/erp/productions/assign-list/delete/${batchId}`);
+
+            // Ganti judul modal dinamis
+            $('#modalDeleteAssign .modal-title').text(`Hapus Assign Batch ${batchCode}`);
+
+            // Simpan id di hidden input (optional)
+            $('#delete_batch_id').val(batchId);
+
+            // Tampilkan modal
+            $('#modalDeleteAssign').modal('show');
+        });
+
+        // Optional: handle submit (misal disable tombol saat submit)
+        $('#formDeleteAssign').on('submit', function() {
+            $('#btnConfirmDelete').prop('disabled', true).html(
+                '<span class="spinner-border spinner-border-sm me-2"></span> Menghapus...');
         });
     </script>
 @endpush

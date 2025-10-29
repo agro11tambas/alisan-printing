@@ -16,19 +16,22 @@
                     </td>
                     <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
                     <td>
-                        @if ($item->preview_image)
-                            <div class="d-flex gap-5 align-items-center">
-                                <a href="{{ asset('uploads/designs/' . $item->preview_image) }}"
-                                    data-lightbox="design-{{ $design->id }}"
-                                    data-title="{{ $item->product->name ?? 'Preview Image' }}"
-                                    class="mb-1 d-inline-block">
-                                    <img src="{{ asset('uploads/designs/' . $item->preview_image) }}" width="80"
-                                        height="60"
-                                        style="border-radius: 8px; object-fit: cover; object-position: center;"
-                                        alt="Design Preview">
-                                </a>
+                        @php
+                            $images = json_decode($item->preview_image ?? '[]', true);
+                        @endphp
+
+                        @if (!empty($images))
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                @foreach ($images as $img)
+                                    <a href="{{ asset('uploads/designs/' . $img) }}"
+                                        data-lightbox="design-{{ $design->id }}"
+                                        data-title="{{ $item->product->name ?? 'Preview Image' }}" class="d-inline-block">
+                                        <img src="{{ asset('uploads/designs/' . $img) }}" width="80" height="60"
+                                            style="border-radius:8px;object-fit:cover;object-position:center;border:1px solid #ddd;">
+                                    </a>
+                                @endforeach
+
                                 <button class="btn btn-sm btn-outline-primary upload-btn" data-id="{{ $item->id }}"
-                                    data-preview="{{ $item->preview_image ? asset('uploads/designs/' . $item->preview_image) : '' }}"
                                     data-note="{{ $item->note ?? '' }}" data-bs-toggle="modal"
                                     data-bs-target="#uploadModal">
                                     <i class="feather-upload"></i> Upload

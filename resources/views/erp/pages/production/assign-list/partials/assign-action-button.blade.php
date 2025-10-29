@@ -13,6 +13,15 @@
                     <span>Edit</span>
                 </a>
             </li>
+            @if ($hasOnlyProgressStatus)
+                <li>
+                    <button type="button" class="dropdown-item btn-open-delete-modal"
+                        data-id="{{ $batch->id }}" data-code="{{ $batch->assign_code }}">
+                        <i class="feather-trash-2 me-3"></i>
+                        <span>Delete</span>
+                    </button>
+                </li>
+            @endif
         @endunless
     </ul>
 </div>

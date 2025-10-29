@@ -104,59 +104,102 @@
                         <div class="card-body">
                             <h5 class="fw-bold mb-3">Delivery Items</h5>
                             <div class="table-responsive">
-                                <table class="table table-bordered">
-                                    <thead>
-                                        <tr>
-                                            <th>Product</th>
-                                            <th>Total Qty</th>
-                                            <th>Ready Qty</th>
-                                            <th>Already Shipped</th>
-                                            <th>Shipped Qty (This List)</th>
-                                            <th>Note</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($deliveryList->items as $dlItem)
-                                            @php
-                                                $doItem = $dlItem->deliveryOrderItem;
-                                                $alreadyShipped = $doItem
-                                                    ->deliveryListItems()
-                                                    ->where('id', '!=', $dlItem->id)
-                                                    ->sum('shipped_quantity');
-                                                $maxQty = $doItem->progress_qty - $alreadyShipped;
-                                            @endphp
+                                <div class="table-responsive">
+                                    <table class="table table-bordered">
+                                        <thead>
                                             <tr>
-                                                <td>
-                                                    {{ $doItem->product->name }}
-                                                    <input type="hidden"
-                                                        name="items[{{ $dlItem->id }}][delivery_list_item_id]"
-                                                        value="{{ $dlItem->id }}">
-                                                    <input type="hidden"
-                                                        name="items[{{ $dlItem->id }}][delivery_order_item_id]"
-                                                        value="{{ $doItem->id }}">
-                                                    <input type="hidden" name="items[{{ $dlItem->id }}][product_id]"
-                                                        value="{{ $doItem->product_id }}">
-                                                </td>
-                                                <td><span class="text-primary">{{ $doItem->progress_qty }}</span></td>
-                                                <td><span class="text-danger">{{ $doItem->ready_qty }}</span></td>
-                                                <td><span class="text-success">{{ $alreadyShipped }}</span></td>
-                                                <td>
-                                                    <input type="text" inputmode="numeric" class="form-control"
-                                                        name="items[{{ $dlItem->id }}][shipped_quantity]" min="0"
-                                                        max="{{ $maxQty }}" {{-- ✅ tambahkan ini --}}
-                                                        data-initial="{{ $dlItem->shipped_quantity }}"
-                                                        data-ready="{{ $doItem->ready_qty }}"
-                                                        value="{{ number_format($dlItem->shipped_quantity, 0, ',', '.') }}">
-                                                </td>
-                                                <td>
-                                                    <input type="text" class="form-control"
-                                                        name="items[{{ $dlItem->id }}][note]"
-                                                        value="{{ $dlItem->note }}">
-                                                </td>
+                                                <th>Product</th>
+                                                <th>Total Qty</th>
+                                                <th>Delivered</th>
+                                                <th>Shipping</th>
+                                                <th>Available</th>
+                                                <th>Shipped Qty (Now)</th>
+                                                <th>Note</th>
                                             </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($deliveryList->deliveryOrder->items as $item)
+                                                @php
+                                                    // hitung semua shipment berdasar status
+                                                    $delivered = $item
+                                                        ->deliveryListItems()
+                                                        ->whereHas(
+                                                            'shipment',
+                                                            fn($q) => $q->where('status', 'Finished'),
+                                                        )
+                                                        ->sum('shipped_quantity');
+
+                                                    $shipping = $item
+                                                        ->deliveryListItems()
+                                                        ->whereHas('shipment', fn($q) => $q->where('status', 'Ongoing'))
+                                                        ->sum('shipped_quantity');
+
+                                                    // ambil item yang sedang diedit (dari list ini)
+                                                    $dlItem = $deliveryList->items->firstWhere(
+                                                        'delivery_order_item_id',
+                                                        $item->id,
+                                                    );
+
+                                                    $currentQty = $dlItem->shipped_quantity ?? 0;
+                                                    $note = $dlItem->note ?? '';
+
+                                                    // available yang belum dikirim sama sekali
+                                                    $available = max($item->ready_qty - ($delivered + $shipping), 0);
+
+                                                    // 💥 logika yang kamu mau:
+                                                    $max = $available + $currentQty;
+                                                    $remaining = max($max - $currentQty, 0);
+                                                @endphp
+
+                                                <tr>
+                                                    <td>
+                                                        {{ $item->product->name }}
+                                                        <input type="hidden"
+                                                            name="items[{{ $item->id }}][delivery_list_item_id]"
+                                                            value="{{ $dlItem->id ?? '' }}">
+                                                        <input type="hidden"
+                                                            name="items[{{ $item->id }}][delivery_order_item_id]"
+                                                            value="{{ $item->id }}">
+                                                        <input type="hidden" name="items[{{ $item->id }}][product_id]"
+                                                            value="{{ $item->product_id }}">
+                                                    </td>
+                                                    <td>
+                                                        <span
+                                                            class="text-primary">{{ number_format($item->ready_qty, 0, ',', '.') }}</span>
+                                                        /
+                                                        <span>{{ number_format($item->progress_qty, 0, ',', '.') }}</span>
+                                                    </td>
+                                                    <td><span
+                                                            class="text-success">{{ number_format($delivered, 0, ',', '.') }}</span>
+                                                    </td>
+                                                    <td><span
+                                                            class="text-warning">{{ number_format($shipping, 0, ',', '.') }}</span>
+                                                    </td>
+                                                    <td><span
+                                                            class="text-danger">{{ number_format($available, 0, ',', '.') }}</span>
+                                                    </td>
+                                                    <td>
+                                                        <input type="text" inputmode="numeric"
+                                                            class="form-control shipped-input"
+                                                            name="items[{{ $item->id }}][shipped_quantity]"
+                                                            min="0" max="{{ $max }}"
+                                                            data-max="{{ $max }}"
+                                                            value="{{ number_format($currentQty, 0, ',', '.') }}">
+                                                        <small class="text-muted remaining-info">
+                                                            Remaining:
+                                                            {{ number_format($remaining + $currentQty, 0, ',', '.') }}
+                                                        </small>
+                                                    </td>
+                                                    <td>
+                                                        <input type="text" class="form-control"
+                                                            name="items[{{ $item->id }}][note]"
+                                                            value="{{ $note }}" placeholder="Note">
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -17,6 +17,23 @@ use Yajra\DataTables\Facades\DataTables;
 
 class OrderProgressAssignController extends Controller
 {
+    // public function create($id)
+    // {
+    //     $progress = OrderProgress::with(['items.product', 'order.customer'])
+    //         ->findOrFail($id);
+
+    //     $operators = Operator::where('active', 1)->orderBy('name')->get();
+
+    //     // 🔹 Generate assign code otomatis lewat service
+    //     $assignCode = AssignCode::generateAssignCode();
+
+    //     return view('erp.pages.production.assign-list.add-assign', compact(
+    //         'progress',
+    //         'operators',
+    //         'assignCode'
+    //     ));
+    // }
+
     public function create($id)
     {
         $progress = OrderProgress::with(['items.product', 'order.customer'])
@@ -26,6 +43,32 @@ class OrderProgressAssignController extends Controller
 
         // 🔹 Generate assign code otomatis lewat service
         $assignCode = AssignCode::generateAssignCode();
+
+        foreach ($progress->items as $item) {
+            $totals = DB::table('order_progress_assigns')
+                ->where('order_progress_item_id', $item->id)
+                ->selectRaw('
+                    COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
+                    COALESCE(SUM(completed_quantity),0) AS total_completed,
+                    COALESCE(SUM(defect_quantity),0)    AS total_defect,
+                    COALESCE(SUM(reject_quantity),0)    AS total_reject
+                ')
+                ->first();
+
+            $activeAssign = max(
+                ($totals->total_assigned) - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
+                0
+            );
+
+            $remaining = max(
+                ($item->quantity) - (($item->completed_quantity ?? 0) + $activeAssign),
+                0
+            );
+
+            $item->active_assign      = $activeAssign;   // kolom "Assigning"
+            $item->available_quantity = $remaining;      // kolom "Available"
+            $item->remaining_quantity = $remaining;      // max input "Assign Now"
+        }
 
         return view('erp.pages.production.assign-list.add-assign', compact(
             'progress',
@@ -122,14 +165,53 @@ class OrderProgressAssignController extends Controller
 
         $operators = Operator::where('active', 1)->orderBy('name')->get();
 
+        // Ambil progress terkait agar loop item sama seperti di create()
+        $progress = $batch->orderProgress;
+
+        foreach ($progress->items as $item) {
+            $totals = DB::table('order_progress_assigns')
+                ->where('order_progress_item_id', $item->id)
+                ->selectRaw('
+                    COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
+                    COALESCE(SUM(completed_quantity),0) AS total_completed,
+                    COALESCE(SUM(defect_quantity),0)    AS total_defect,
+                    COALESCE(SUM(reject_quantity),0)    AS total_reject
+                ')
+                ->first();
+
+            $activeAssign = max(
+                ($totals->total_assigned) - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
+                0
+            );
+
+            // assign milik batch ini
+            $currentBatchAssign = DB::table('order_progress_assigns')
+                ->where('order_progress_item_id', $item->id)
+                ->where('assign_batch_id', $batch->id)
+                ->sum('assigned_quantity');
+
+            $remaining = max(
+                ($item->quantity) - (($item->completed_quantity ?? 0) + $activeAssign),
+                0
+            );
+
+            // ✅ Tambahkan kuota assign batch ini agar bisa edit ke bawah/atas wajar
+            $item->active_assign      = $activeAssign;
+            $item->available_quantity = $remaining;
+            $item->remaining_quantity = $remaining + $currentBatchAssign;
+        }
+
+
         return view('erp.pages.production.assign-list.edit-assign', compact(
             'batch',
+            'progress',
             'operators'
         ));
     }
 
     public function update(Request $request, $batch_id)
     {
+        // dd($request->all());
         $request->validate([
             'assign_date' => 'required|date',
             'note'        => 'nullable|string',
@@ -145,47 +227,86 @@ class OrderProgressAssignController extends Controller
         try {
             $batch = OrderProgressAssignBatch::findOrFail($batch_id);
 
-            // 🔹 Update batch info
+            // 🔹 Update batch utama
             $batch->update([
                 'assign_date' => $request->assign_date,
                 'note'        => $request->note,
             ]);
 
-            // 🔹 Update atau tambah assign baru
             foreach ($request->items as $data) {
+                // Lewati jika tidak valid
                 if (empty($data['assigned_quantity']) || $data['assigned_quantity'] <= 0) continue;
 
                 $item = OrderProgressItem::findOrFail($data['order_progress_item_id']);
+
+                // Hitung total assign batch ini
+                $currentAssigned = $item->assigns()
+                    ->where('assign_batch_id', $batch->id)
+                    ->sum('assigned_quantity');
+
+                // Hitung total assign batch lain
                 $alreadyAssigned = $item->assigns()
                     ->where('assign_batch_id', '!=', $batch->id)
                     ->sum('assigned_quantity');
-                $remaining = $item->quantity - $alreadyAssigned;
+
+                // Total sisa kuota = stok - batch lain + batch ini
+                $remaining = max($item->quantity - $alreadyAssigned + $currentAssigned, 0);
                 $assignedQty = min($data['assigned_quantity'], $remaining);
 
                 if ($assignedQty <= 0) continue;
 
-                // Update existing or create new
-                OrderProgressAssign::updateOrCreate(
-                    [
-                        'id' => $data['id'] ?? null,
-                        'assign_batch_id' => $batch->id,
+                // 🔹 Update jika ID ada, else buat baru
+                if (!empty($data['id'])) {
+                    $assign = OrderProgressAssign::find($data['id']);
+
+                    if ($assign) {
+                        $assign->update([
+                            'operator_id'       => $data['operator_id'],
+                            'assigned_quantity' => $assignedQty,
+                            'note'              => $data['note'] ?? null,
+                        ]);
+                    }
+                } else {
+                    OrderProgressAssign::create([
+                        'assign_batch_id'        => $batch->id,
                         'order_progress_item_id' => $item->id,
-                    ],
-                    [
-                        'operator_id' => $data['operator_id'],
-                        'assigned_quantity' => $assignedQty,
-                        'note' => $data['note'] ?? null,
-                    ]
-                );
+                        'operator_id'            => $data['operator_id'],
+                        'assigned_quantity'      => $assignedQty,
+                        'note'                   => $data['note'] ?? null,
+                    ]);
+                }
             }
 
             DB::commit();
+
             return redirect('/erp/productions/waiting-list/assign-list')
                 ->with('success', "Assign batch {$batch->assign_code} berhasil diperbarui.");
         } catch (\Throwable $e) {
             DB::rollBack();
             return redirect()->back()
                 ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    public function delete($id)
+    {
+        DB::beginTransaction();
+        try {
+            $batch = OrderProgressAssignBatch::findOrFail($id);
+
+            // 🔹 Hapus semua assign di batch secara permanen
+            foreach ($batch->assigns as $assign) {
+                $assign->forceDelete(); // pakai forceDelete biar tidak soft delete
+            }
+
+            // 🔹 Hapus batch itu sendiri
+            $batch->forceDelete();
+
+            DB::commit();
+            return back()->with('success', "Batch {$batch->assign_code} berhasil dihapus secara permanen.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal menghapus batch: ' . $e->getMessage());
         }
     }
 
@@ -278,7 +399,17 @@ class OrderProgressAssignController extends Controller
                     return $assign->change_quantity >= $assign->assigned_quantity;
                 });
 
-                return view('erp.pages.production.assign-list.partials.assign-action-button', compact('batch', 'allCompleted'))->render();
+                // 🔹 Tambahan: cek apakah SEMUA status masih "progress"
+                $hasOnlyProgressStatus = !DB::table('order_progress_assigns')
+                    ->where('assign_batch_id', $batch->id)
+                    ->where('status', '!=', 'progress')
+                    ->exists();
+
+                return view('erp.pages.production.assign-list.partials.assign-action-button', compact(
+                    'batch',
+                    'allCompleted',
+                    'hasOnlyProgressStatus'
+                ))->render();
             })
             ->rawColumns(['assign_code', 'assign_products', 'order_info', 'action'])
             ->make(true);
