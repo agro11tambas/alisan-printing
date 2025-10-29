@@ -95,7 +95,7 @@ class StockOpnameController extends Controller
 
     public function create()
     {
-        $products = Products::all();
+        $products = Products::orderBy('name', 'asc')->get();
         return view('erp.pages.stock-opname.create-stock-opname', compact('products'));
     }
 

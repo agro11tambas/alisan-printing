@@ -123,16 +123,16 @@
                         name: 'product_name'
                     },
                     {
-                        data: 'inventory_stock',
-                        name: 'inventory_stock',
+                        data: 'opening_stock',
+                        name: 'opening_stock',
                     },
                     {
                         data: 'production_stock',
                         name: 'production_stock',
                     },
                     {
-                        data: 'avg_cost',
-                        name: 'avg_cost',
+                        data: 'opening_rate',
+                        name: 'opening_rate',
                     },
                     {
                         data: 'minimum_stock',

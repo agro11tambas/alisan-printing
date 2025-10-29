@@ -171,10 +171,10 @@ class SaleOrderController extends Controller
 
     public function create()
     {
-        $products = Products::with(['discounts'])->get();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
 
         // Produk bundle
-        $productBundles = ProductBundle::all();
+        $productBundles = ProductBundle::with(['items.product.categories.discounts', 'items.product.discounts'])->orderBy('name', 'asc')->get();
 
         // Kalau belum ada relasi diskon di bundle, beri array kosong
         $productBundles->map(function ($bundle) {
@@ -432,14 +432,14 @@ class SaleOrderController extends Controller
         }
 
         // 🔹 Data lain tetap sama
-        $productBundles = ProductBundle::all();
+        $productBundles = ProductBundle::with(['items.product.categories.discounts', 'items.product.discounts'])->orderBy('name', 'asc')->get();
         $productBundles->map(function ($bundle) {
             $bundle->discounts = [];
             return $bundle;
         });
 
-        $products = Products::all();
-        $customers = Customers::with('addresses')->get();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $customers = Customers::with('addresses')->orderBy('name', 'asc')->get();
 
         $productsJson = $products->map(function ($product) {
             return [

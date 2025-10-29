@@ -337,10 +337,10 @@ class SaleReturnController extends Controller
             }
         }
 
-        $products     = Products::with(['discounts'])->get();
-        $customers    = Customers::with('addresses')->get();
-        $cashAccounts = Account::where('name', 'Cash')->get();
-        $bankAccounts = Account::where('name', 'Bank')->get();
+        $products     = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $customers    = Customers::with('addresses')->orderBy('name', 'asc')->get();
+        $cashAccounts = Account::where('name', 'Cash')->orderBy('name', 'asc')->get();
+        $bankAccounts = Account::where('name', 'Bank')->orderBy('name', 'asc')->get();
         $discount     = Discount::first();
 
         return view('erp.pages.sales.sale-return.create-order', [
@@ -612,10 +612,10 @@ class SaleReturnController extends Controller
             }
         }
 
-        $products     = Products::with(['discounts'])->get();
-        $customers    = Customers::with('addresses')->get();
-        $cashAccounts = Account::where('name', 'Cash')->get();
-        $bankAccounts = Account::where('name', 'Bank')->get();
+        $products     = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $customers    = Customers::with('addresses')->orderBy('name', 'asc')->get();
+        $cashAccounts = Account::where('name', 'Cash')->orderBy('name', 'asc')->get();
+        $bankAccounts = Account::where('name', 'Bank')->orderBy('name', 'asc')->get();
         $discount     = Discount::first();
 
         return view('erp.pages.sales.sale-return.edit-order', [

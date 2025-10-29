@@ -18,16 +18,36 @@ class ReportItemsProductionAndWarehouseController extends Controller
     {
         // 🔹 Ambil semua produk aktif beserta relasinya
         $products = Products::whereNull('deleted_at')
-            ->with(['productionStocks', 'inventoryStock']) // pastikan relasi singular ya
+            ->with(['productionStocks', 'inventoryStock'])
             ->when($request->filled('product_name'), function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->product_name . '%');
             })
-            ->orderBy('name')
+            ->orderBy('name', 'asc') // urut di query juga (optional)
             ->get();
 
         $data = $products->map(function ($product) {
             $prod = $product->productionStocks;
             $inv  = $product->inventoryStock;
+
+            // ambil nilai asli
+            $avg = $product->avg_cost ?? 0;
+            $fixed = $product->fixed_cost ?? 0;
+
+            // fungsi pembulatan kustom ke 2 angka di belakang koma
+            $customRound = function ($value) {
+                $temp = $value * 1000; // ubah ke 3 digit belakang koma
+                $lastDigit = $temp % 10; // ambil angka ketiga di belakang koma
+                if ($lastDigit <= 5) {
+                    // bulat ke bawah
+                    return floor($value * 100) / 100;
+                } else {
+                    // bulat ke atas
+                    return ceil($value * 100) / 100;
+                }
+            };
+
+            $avgRounded = $customRound($avg);
+            $fixedRounded = $customRound($fixed);
 
             return [
                 'name' => $product->name,
@@ -44,9 +64,9 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 'incoming_stock' =>
                 number_format($inv->incoming_stock ?? 0, 0, ',', '.'),
                 'avg_cost' =>
-                '<span class="text-primary">' . number_format($product->avg_cost ?? 0, 2, ',', '.') . '</span>',
+                '<span class="text-primary">' . number_format($avgRounded, 2, ',', '.') . '</span>',
                 'fixed_cost' =>
-                '<span class="text-dark">' . number_format($product->fixed_cost ?? 0, 2, ',', '.') . '</span>',
+                '<span class="text-dark">' . number_format($fixedRounded, 2, ',', '.') . '</span>',
             ];
         });
 

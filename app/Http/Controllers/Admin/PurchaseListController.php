@@ -296,8 +296,8 @@ class PurchaseListController extends Controller
 
     public function create()
     {
-        $products = Products::all();
-        $suppliers = Supplier::all();
+        $products = Products::orderBy('name', 'asc')->get();
+        $suppliers = Supplier::orderBy('name', 'asc')->get();
 
         $transactionTypes = Account::where('name', 'Purchase')->get();
         $cashAccounts = Account::where('name', 'Cash')->get();

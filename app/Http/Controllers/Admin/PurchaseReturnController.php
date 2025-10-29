@@ -256,7 +256,7 @@ class PurchaseReturnController extends Controller
             return redirect()->back()->with('error', 'Tidak bisa membuat Purchase Return karena barang belum masuk ke warehouse.');
         }
 
-        $products = Products::all();
+        $products = Products::orderBy('name', 'asc')->get();
 
         // Hitung sisa qty return per item
         $remainingItems = $purchase->purchaseItems->map(function ($item) use ($purchase) {

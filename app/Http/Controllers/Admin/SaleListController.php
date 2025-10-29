@@ -312,9 +312,9 @@ class SaleListController extends Controller
 
     public function create()
     {
-        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->get();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
 
-        $productBundles = ProductBundle::with(['items.product.categories.discounts', 'items.product.discounts'])->get();
+        $productBundles = ProductBundle::with(['items.product.categories.discounts', 'items.product.discounts'])->orderBy('name', 'asc')->get();
 
         $productsJson = $products->map(function ($product) {
             return [
@@ -775,14 +775,14 @@ class SaleListController extends Controller
         }
 
         // 🔹 Data lain tetap sama
-        $productBundles = ProductBundle::all();
+        $productBundles = ProductBundle::with(['items.product.categories.discounts', 'items.product.discounts'])->orderBy('name', 'asc')->get();
         $productBundles->map(function ($bundle) {
             $bundle->discounts = [];
             return $bundle;
         });
 
-        $products = Products::all();
-        $customers = Customers::with('addresses')->get();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $customers = Customers::with('addresses')->orderBy('name', 'asc')->get();
 
         $productsJson = $products->map(function ($product) {
             return [

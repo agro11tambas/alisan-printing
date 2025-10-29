@@ -153,8 +153,8 @@ class PurchaseOrderController extends Controller
 
     public function create()
     {
-        $products = Products::all();
-        $suppliers = Supplier::all();
+        $products = Products::orderBy('name', 'asc')->get();
+        $suppliers = Supplier::orderBy('name', 'asc')->get();
 
         return view('erp.pages.purchases.purchase-orders.create-purchase', compact('products', 'suppliers'));
     }
