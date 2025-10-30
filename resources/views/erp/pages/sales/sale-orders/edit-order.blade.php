@@ -183,7 +183,7 @@
                                                                     <option value="bundle_{{ $bundle->id }}"
                                                                         {{ $item->satuan == 'bundle' && $item->product_bundle_id == $bundle->id ? 'selected' : '' }}
                                                                         data-price="{{ $bundle->price }}"
-                                                                        data-discounts='@json(.$bundle->discounts ?? [])'
+                                                                        data-discounts='@json($bundle->discounts ?? [])'
                                                                         data-categories='@json($bundle->categories ?? [])'
                                                                         data-type="bundle">
                                                                         {{ $bundle->name }} (Bundle)
@@ -307,6 +307,8 @@
 
 @push('scripts')
     <script>
+        const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
+
         const customerAddresses = <?php echo json_encode(
             $customers->mapWithKeys(function ($customer) {
                 return [
@@ -362,9 +364,35 @@
             });
         }
 
+        // ✅ Format otomatis titik ribuan & update hidden value untuk perhitungan
+        let priceInputTimeout;
+        $(document).on('input', '.price_before_discount_display', function() {
+            if (!isOwner) return;
+
+            const row = $(this).closest('tr');
+            let rawValue = $(this).val().replace(/\D/g, '');
+            if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
+
+            const formatted = new Intl.NumberFormat('id-ID').format(rawValue);
+            $(this).val(formatted);
+
+            clearTimeout(priceInputTimeout);
+            priceInputTimeout = setTimeout(() => {
+                const parsed = parseFloat(rawValue) || 0;
+                row.find('input.price_before_discount').val(parsed.toFixed(2));
+                recalcAllRows();
+            }, 200);
+        });
+
+        $(document).on('blur', '.price_before_discount_display', function() {
+            let val = $(this).val().replace(/\D/g, '');
+            $(this).val(new Intl.NumberFormat('id-ID').format(val));
+        });
+
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
-            const basePrice = parseFloat(selectedOption.data('price')) || 0;
+            const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
+            const basePrice = manualPrice > 0 ? manualPrice : (parseFloat(selectedOption.data('price')) || 0);
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
             const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
@@ -388,8 +416,8 @@
                         .minimum_qty_or_amount)
                         eligible = true;
                 } else if (discount.apply_on === 'Category') {
-                    let totalQtyCategory = 0;
-                    let totalAmountCategory = 0;
+                    let totalQtyCategory = 0,
+                        totalAmountCategory = 0;
 
                     $('select[name="product[]"]').each(function(i, el) {
                         const opt = $(el).find('option:selected');
@@ -397,7 +425,6 @@
                         const price = parseFloat(opt.data('price')) || 0;
                         const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
                             '')) || 0;
-                        0;
 
                         if (cats.some(c => c.id === discount.category_id)) {
                             totalQtyCategory += qtyVal;
@@ -423,12 +450,16 @@
 
             const totalAfterDiscount = finalPrice * qty;
 
+            // simpan nilai perhitungan
             row.find('input.price_before_discount').val(priceBeforeDiscount.toFixed(2));
             row.find('input.total_before_discount').val(totalBeforeDiscount.toFixed(2));
             row.find('input.price_after_discount').val(finalPrice.toFixed(2));
             row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
 
-            row.find('input.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
+            // tampilkan dengan titik ribuan
+            if (!row.find('.price_before_discount_display').is(':focus')) {
+                row.find('input.price_before_discount_display').val(formatNumber(basePrice));
+            }
             row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
         }
 
@@ -442,7 +473,6 @@
         function calcTotalSummary() {
             let subTotal = 0,
                 totalAfterDiscount = 0;
-
             $(".total_before_discount").each(function() {
                 subTotal += parseFloat($(this).val()) || 0;
             });
@@ -489,14 +519,20 @@
                     </td>
                     <input type="hidden" name="product_type[]" class="product-type" readonly>
                     <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="1"></td>
-                    <td><input type="text" class="form-control price_before_discount_display" readonly>
-                        <input type="hidden" name="price_before_discount[]" class="price_before_discount"></td>
-                    <td><input type="text" class="form-control total_before_discount_display" readonly>
-                        <input type="hidden" name="total_before_discount[]" class="total_before_discount"></td>
+                    <td>
+                        <input type="text" class="form-control price_before_discount_display" ${!isOwner ? 'readonly' : ''}>
+                        <input type="hidden" name="price_before_discount[]" class="price_before_discount">
+                    </td>
+                    <td>
+                        <input type="text" class="form-control total_before_discount_display" readonly>
+                        <input type="hidden" name="total_before_discount[]" class="total_before_discount">
+                    </td>
                     <td class="text-center">
-                        <button type="button" class="btn btn-danger delete-row">
-                            <i class="feather-trash"></i>
-                        </button>
+                        <div class="d-flex justify-content-center">
+                            <button type="button" class="btn btn-danger delete-row">
+                                <i class="feather-trash"></i>
+                            </button>
+                        </div>
                     </td>
                     <input type="hidden" name="price_after_discount[]" class="price_after_discount">
                     <input type="hidden" name="total_after_discount[]" class="total_after_discount">

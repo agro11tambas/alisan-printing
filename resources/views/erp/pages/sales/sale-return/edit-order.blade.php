@@ -91,7 +91,7 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <select class="form-select form-control max-select" id="customer_id"
-                                                name="customer_id">
+                                                data-select2-selector="tag" name="customer_id">
                                                 @foreach ($customers as $customer)
                                                     <option value="{{ $customer->id }}"
                                                         {{ $saleReturn->customer_id == $customer->id ? 'selected' : '' }}>
@@ -107,7 +107,7 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <select class="form-select form-control max-select" id="addresses"
-                                                name="address_id">
+                                                data-select2-selector="tag"name="address_id">
                                                 @if ($order->customer)
                                                     @foreach ($order->customer->addresses as $index => $address)
                                                         <option value="{{ $address->id }}"
@@ -150,28 +150,30 @@
                                     <div class="table-responsive">
                                         <table class="table table-bordered overflow-hidden" id="tab_logic">
                                             <thead>
-                                                <tr>
+                                                <tr class="single-item">
                                                     <th class="text-center wd-50">#</th>
                                                     <th class="text-center wd-450">Product</th>
-                                                    <th class="text-center wd-150">Qty</th>
+                                                    <th class="text-center wd-150">Canceled Qty</th>
+                                                    <th class="text-center wd-150">Defect Qty</th>
                                                     <th class="text-center wd-150">Price</th>
                                                     <th class="text-center wd-150">Total</th>
                                                 </tr>
                                             </thead>
-                                            <tbody>
+                                            <tbody id="tab_logic_body">
                                                 @foreach ($remainingItems as $index => $item)
-                                                    <tr id="addr{{ $index }}">
+                                                    <tr id="addr{{ $index }}"
+                                                        data-oid="{{ $item->order_item_id }}">
                                                         <td>{{ $index + 1 }}</td>
-                                                        <input type="hidden" name="order_item_ids[]"
-                                                            value="{{ $item->id }}">
                                                         <td>
+                                                            <input type="hidden" name="order_item_ids[]"
+                                                                value="{{ $item->order_item_id }}">
                                                             <select class="form-control select-product"
                                                                 name="product_id[]">
                                                                 <option value="" disabled hidden>Pilih produk
                                                                 </option>
                                                                 @foreach ($products as $product)
                                                                     <option value="{{ $product->id }}"
-                                                                        data-price="{{ $product->price }}"
+                                                                        data-price="{{ $item->price }}"
                                                                         {{ $product->id == $item->product_id ? 'selected' : '' }}>
                                                                         [{{ $product->sku }}] {{ $product->name }}
                                                                     </option>
@@ -179,27 +181,38 @@
                                                             </select>
                                                         </td>
                                                         <td>
-                                                            <input type="text" name="qty[]" class="qty form-control"
-                                                                min="0" max="{{ $item->remaining_qty }}"
-                                                                value="{{ number_format(old('qty.' . $index, $item->return_qty ?? 0), 0, ',', ',') }}">
-                                                            <!-- <small class="text-muted">Sisa max: {{ $item->remaining_qty }}</small> -->
+                                                            <input type="text" inputmode="numeric"
+                                                                name="canceled_quantity[]"
+                                                                class="form-control canceled_quantity"
+                                                                value="{{ number_format($item->canceled_quantity, 0, ',', '.') }}">
+                                                            <small class="text-muted">Sisa max:
+                                                                {{ number_format($item->remaining_qty ?? 0) }}</small>
+                                                            <div class="invalid-feedback text-danger small"></div>
                                                         </td>
                                                         <td>
-                                                            <input type="text" class="price_display form-control"
-                                                                readonly>
+                                                            <input type="text" inputmode="numeric"
+                                                                name="defect_quantity[]"
+                                                                class="form-control defect_quantity"
+                                                                value="{{ number_format($item->defect_quantity, 0, ',', '.') }}">
+                                                            <div class="invalid-feedback text-danger small"></div>
+                                                        </td>
+                                                        <td>
+                                                            <input type="text" inputmode="numeric"
+                                                                class="price_display form-control"
+                                                                {{ Auth::user()->role !== 'Owner' ? 'readonly' : '' }}
+                                                                value="{{ number_format($item->price) }}">
                                                             <input type="hidden" name="price[]" class="price"
-                                                                value="{{ old('price.' . $index, $item->return_price ?? 0) }}">
+                                                                value="{{ $item->price }}">
                                                         </td>
                                                         <td>
                                                             <input type="text" class="total_display form-control"
-                                                                readonly>
+                                                                readonly value="{{ number_format($item->total) }}">
                                                             <input type="hidden" name="total[]" class="total"
-                                                                value="{{ old('total.' . $index, ($item->return_qty ?? 0) * ($item->return_price ?? 0)) }}">
+                                                                value="{{ $item->total }}">
                                                         </td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
-
                                         </table>
                                     </div>
                                 </div>
@@ -236,6 +249,8 @@
 
 @push('scripts')
     <script>
+        const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
+
         const customerAddresses = <?php echo json_encode(
             $customers->mapWithKeys(function ($customer) {
                 return [
@@ -250,49 +265,53 @@
             }),
         ); ?>;
 
-        $(document).ready(function() {
+        function formatNumber(num) {
+            return new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(num);
+        }
 
-            $('.select-product').select2({
-                width: '100%',
-                placeholder: 'Pilih produk'
+        function updateRowTotal(row) {
+            const canceled = parseFloat(row.find('.canceled_quantity').val().replace(/\D/g, '') || 0);
+            const defect = parseFloat(row.find('.defect_quantity').val().replace(/\D/g, '') || 0);
+            const price = parseFloat(row.find('.price').val().replace(/\D/g, '') || 0);
+            const total = (canceled + defect) * price;
+
+            // Update hidden dan tampilan
+            row.find('.price').val(price.toFixed(0));
+            row.find('.total').val(total.toFixed(0));
+
+            row.find('.price_display').val(formatNumber(price));
+            row.find('.total_display').val(formatNumber(total));
+
+            calcTotal();
+        }
+
+        function calcTotal() {
+            let sub = 0;
+            $('.total').each(function() {
+                sub += parseFloat($(this).val()) || 0;
             });
 
-            function formatNumber(num) {
-                return new Intl.NumberFormat('id-ID', {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
-                }).format(num);
+            $('#sub_total').val(sub.toFixed(0));
+            $('#total_amount').val(sub.toFixed(0));
+
+            if ($('#sub_total_display').length) {
+                $('#sub_total_display').val(formatNumber(sub));
             }
+            $('#total_amount_display').val(formatNumber(sub));
+        }
 
-            function updateRowTotal(row) {
-                const qty = parseFloat((row.find('.qty').val() || '0').replace(/,/g, '')) ||
-                0;
-                const price = parseFloat(row.find('.price').val()) || 0;
-                const total = qty * price;
+        $(document).ready(function() {
+            $('.select-product').select2({
+                placeholder: 'Pilih produk',
+                width: '100%'
+            });
 
-                row.find('.price').val(price.toFixed(0));
-                row.find('.total').val(total.toFixed(0));
-
-                row.find('.price_display').val(formatNumber(price));
-                row.find('.total_display').val(formatNumber(total));
-
-                calc_total();
-            }
-
-            function calc_total() {
-                let total = 0;
-                $('.total').each(function() {
-                    total += parseFloat($(this).val()) || 0;
-                });
-
-                $('#sub_total').val(total.toFixed(0));
-                $('#total_amount').val(total.toFixed(0));
-                $('#total_amount_display').val(formatNumber(total));
-            }
-
-            $('#tab_logic tbody tr').each(function() {
+            $('#tab_logic_body tr').each(function() {
                 const row = $(this);
-                const sel = row.find('.select-product');
+                const sel = row.find('select[name="product_id[]"]');
                 const price = parseFloat(sel.find('option:selected').data('price')) || 0;
 
                 row.find('.price').val(price.toFixed(0));
@@ -300,99 +319,312 @@
                 updateRowTotal(row);
             });
 
-            $(document).on('change', '.select-product', function() {
-                const row = $(this).closest('tr');
-                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
-                row.find('.price').val(price.toFixed(0));
-                row.find('.price_display').val(formatNumber(price));
-                updateRowTotal(row);
+            const initialCustomerId = $('#customers').val();
+            if (initialCustomerId) updateAddresses(initialCustomerId);
+
+            $('#customers').on('change', function() {
+                updateAddresses($(this).val());
             });
 
-            $(document).on('input', '.qty', function() {
-                const row = $(this).closest('tr');
-                const max = parseFloat($(this).attr('max')) || Infinity;
+            $('#addresses').on('change', updateGoogleMapsLink);
 
-                let raw = $(this).val().replace(/\D/g, '');
-                if (!raw) {
-                    $(this).val('');
-                    updateRowTotal(row);
-                    return;
-                }
+            function updateAddresses(customerId) {
+                const addresses = customerAddresses[customerId] || [];
+                const $addressSelect = $('#addresses');
+                const selectedAddressId = "{{ $order->address_id ?? '' }}";
 
-                let numeric = parseFloat(raw);
-                if (numeric > max) numeric = max;
+                $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
 
-                const formatted = new Intl.NumberFormat('id-ID').format(numeric);
-                $(this).val(formatted);
-
-                updateRowTotal(row);
-            });
-
-            $(document).on('input', '.price', function() {
-                updateRowTotal($(this).closest('tr'));
-            });
-
-            $('#orderForm').on('submit', function() {
-                $('.qty').each(function() {
-                    const raw = $(this).val().replace(/,/g, '');
-                    $(this).val(raw);
+                addresses.forEach(function(address, index) {
+                    const isSelected = address.id == selectedAddressId;
+                    $addressSelect.append(
+                        `<option value="${address.id}" data-map="${address.google_maps}" ${isSelected ? 'selected' : ''}>
+                        Alamat ke-${index + 1} - ${address.address}
+                    </option>`
+                    );
                 });
-            });
+
+                updateGoogleMapsLink();
+            }
 
             function updateGoogleMapsLink() {
                 const selectedOption = $('#addresses').find('option:selected');
                 const mapUrl = selectedOption.data('map');
+
                 if (mapUrl) {
-                    $('#google-maps-link').html(
-                        `<a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Google Maps</a>`
-                    );
+                    $('#google-maps-link').html(`
+                    <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                        Lihat di Google Maps
+                    </a>
+                `);
                 } else {
                     $('#google-maps-link').empty();
                 }
             }
+        });
 
-            $('#customer_id').on('change', function() {
-                const customerId = $(this).val();
-                const addresses = customerAddresses[customerId] || [];
-                const $addressSelect = $('#addresses');
-                $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
-                addresses.forEach(function(address, index) {
-                    $addressSelect.append(
-                        `<option value="${address.id}" data-map="${address.google_maps}">
-                    Alamat ke-${index + 1} - ${address.address}
-                </option>`
-                    );
-                });
-                updateGoogleMapsLink();
-            });
+        function showError(el, message) {
+            if ($(el).hasClass('select2-hidden-accessible')) {
+                const select2Container = $(el).next('.select2');
+                select2Container.next('.invalid-feedback').remove();
 
-            $('#addresses').on('change', updateGoogleMapsLink);
-            $(document).on('select2:open', () => {
-                setTimeout(() => {
-                    document.querySelector('.select2-container--open .select2-search__field')
-                        ?.focus();
-                }, 50);
-            });
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback d-block';
+                feedback.textContent = message;
+                select2Container[0].after(feedback);
+            } else {
+                el.classList.add('is-invalid');
+                const container = el.closest('.input-group') || el.parentNode;
+                const existing = container.querySelector('.invalid-feedback');
+                if (existing) existing.remove();
 
-            function showError(element, message) {
-                $(element).next('.invalid-feedback').remove();
-                $(element).after(`<div class="invalid-feedback">${message}</div>`);
-                $(element).addClass('is-invalid');
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback';
+                feedback.textContent = message;
+                feedback.style.display = 'block';
+                container.appendChild(feedback);
+            }
+        }
+
+        // $(document).on("change input", "#return_type", function() {
+        //     if ($(this).hasClass("select2-hidden-accessible")) {
+        //         $(this).next('.select2').next('.invalid-feedback').remove();
+        //     } else {
+        //         this.classList.remove("is-invalid");
+        //         $(this).siblings(".invalid-feedback").remove();
+        //     }
+        // });
+
+        $('#orderForm').on('submit', function(e) {
+            let isValid = true;
+            $('.invalid-feedback').remove(); // hapus semua pesan error lama
+            $('.is-invalid').removeClass('is-invalid');
+
+            // 🔹 Validasi Edit Note wajib diisi
+            const editNote = document.getElementById('edit_note');
+            if (!editNote.value.trim()) {
+                isValid = false;
+                $(editNote).addClass('is-invalid');
+                $(editNote).after(
+                    '<div class="invalid-feedback d-block text-danger small mt-1">Catatan edit wajib diisi.</div>'
+                );
             }
 
-            $('#edit_note').on('input', function() {
-                $(this).removeClass('is-invalid');
-                $(this).next('.invalid-feedback').remove();
+            // 🔹 Validasi baris produk
+            $('#tab_logic_body tr').each(function() {
+                const row = $(this);
+                const canceledInput = row.find('.canceled_quantity');
+                const defectInput = row.find('.defect_quantity');
+                const priceInput = row.find('.price_display');
+
+                const canceled = parseInt(canceledInput.val().replace(/\D/g, '') || 0);
+                const defect = parseInt(defectInput.val().replace(/\D/g, '') || 0);
+                const price = parseFloat(priceInput.val().replace(/\D/g, '') || 0);
+                const maxQty = parseInt(row.find('small.text-muted').text().replace(/\D/g, '') || 0);
+                const totalReturn = canceled + defect;
+
+                // 🔹 Cek: wajib isi salah satu qty
+                if (canceled === 0 && defect === 0) {
+                    isValid = false;
+                    canceledInput.addClass('is-invalid');
+                    defectInput.addClass('is-invalid');
+
+                    canceledInput.after(
+                        '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
+                    );
+                    defectInput.after(
+                        '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
+                    );
+                }
+
+                // 🔹 Cek: tidak boleh melebihi sisa max
+                if (totalReturn > maxQty) {
+                    isValid = false;
+                    canceledInput.addClass('is-invalid');
+                    defectInput.addClass('is-invalid');
+
+                    canceledInput.after(
+                        `<div class="invalid-feedback d-block text-danger small mt-1">Total return (${totalReturn}) melebihi sisa max (${maxQty}).</div>`
+                    );
+                    defectInput.after(
+                        `<div class="invalid-feedback d-block text-danger small mt-1">Total return (${totalReturn}) melebihi sisa max (${maxQty}).</div>`
+                    );
+                }
+
+                // 🔹 Cek: harga wajib diisi dan tidak boleh nol
+                if (!price || price <= 0) {
+                    isValid = false;
+                    priceInput.addClass('is-invalid');
+                    priceInput.after(
+                        '<div class="invalid-feedback d-block text-danger small mt-1">Harga wajib diisi dan tidak boleh 0.</div>'
+                    );
+                }
             });
 
-            $('form').on('submit', function(e) {
-                let valid = true;
-                if (!$('#edit_note').val().trim()) {
-                    showError($('#edit_note'), 'Catatan edit wajib diisi');
-                    valid = false;
+            (function ensureOrderItemIds() {
+                // hapus semua yang lama biar gak dobel
+                $('input[name="order_item_ids[]"]').remove();
+
+                $('#tab_logic_body tr').each(function() {
+                    const oid = $(this).data('oid');
+                    if (oid) {
+                        // ⛔️ JANGAN append ke <td>
+                        // ✅ Tambah langsung ke form biar dijamin terkirim
+                        $('<input>', {
+                            type: 'hidden',
+                            name: 'order_item_ids[]',
+                            value: oid
+                        }).appendTo('#orderForm');
+                    }
+                });
+            })();
+
+            // 🔹 Scroll ke field error pertama biar user langsung lihat
+            const firstError = document.querySelector('.is-invalid');
+            if (firstError) {
+                firstError.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+
+                // 🔹 Scroll ke field error pertama biar user langsung lihat
+                const firstError = document.querySelector('.is-invalid');
+                if (firstError) {
+                    firstError.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center'
+                    });
                 }
-                if (!valid) e.preventDefault();
-            });
+
+                // ❌ Tidak perlu SweetAlert lagi
+                return;
+            }
+
+            // 🔹 Bersihkan format angka sebelum submit
+            $('input[name="canceled_quantity[]"], input[name="defect_quantity[]"], input[name="price[]"], input[name="total[]"]')
+                .each(function() {
+                    $(this).val($(this).val().replace(/[.,]/g, ''));
+                });
+        });
+
+
+        $(document).on('change', 'select[name="product_id[]"]', function() {
+            const row = $(this).closest('tr');
+            const price = parseFloat($(this).find('option:selected').data('price')) || 0;
+
+            row.find('.price').val(price.toFixed(0));
+            row.find('.price_display').val(formatNumber(price));
+            updateRowTotal(row);
+        });
+
+        // $(document).on('input', '.qty', function() {
+        //     const row = $(this).closest('tr');
+        //     const max = parseFloat($(this).attr('max')) || Infinity;
+        //     let raw = $(this).val().replace(/\D/g, '');
+
+        //     if (!raw) {
+        //         $(this).val('');
+        //         updateRowTotal(row);
+        //         return;
+        //     }
+
+        //     let formatted = new Intl.NumberFormat('id-ID').format(raw);
+        //     let numeric = parseFloat(raw);
+
+        //     if (numeric > max) {
+        //         numeric = max;
+        //         formatted = new Intl.NumberFormat('id-ID').format(max);
+        //     }
+
+        //     $(this).val(formatted);
+        //     updateRowTotal(row);
+        // });
+
+        // === Harga bisa diubah hanya oleh Owner ===
+        let priceEditTimeout;
+        $(document).on('input', '.price_display', function() {
+            if (!isOwner) return; // Non-owner gak bisa ubah harga
+
+            const row = $(this).closest('tr');
+            let rawValue = $(this).val().replace(/\D/g, '');
+            if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
+
+            const formatted = new Intl.NumberFormat('id-ID').format(rawValue);
+            $(this).val(formatted);
+
+            clearTimeout(priceEditTimeout);
+            priceEditTimeout = setTimeout(() => {
+                const parsed = parseFloat(rawValue) || 0;
+                row.find('input.price').val(parsed.toFixed(0));
+                updateRowTotal(row);
+            }, 200);
+        });
+
+        $(document).on('blur', '.price_display', function() {
+            let val = $(this).val().replace(/\D/g, '');
+            $(this).val(new Intl.NumberFormat('id-ID').format(val));
+        });
+
+        // $('#orderForm').on('submit', function() {
+        //     $('.qty').each(function() {
+        //         const raw = $(this).val().replace(/,/g, '');
+        //         $(this).val(raw);
+        //     });
+        // });
+
+        $(document).on('input', '.price', function() {
+            updateRowTotal($(this).closest('tr'));
+        });
+
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
+        });
+
+        $(document).on('input', '.canceled_quantity, .defect_quantity', function() {
+            const row = $(this).closest('tr');
+
+            // ambil nilai dari 2 kolom quantity
+            let canceled = parseInt(row.find('.canceled_quantity').val().replace(/\D/g, '') || 0);
+            let defect = parseInt(row.find('.defect_quantity').val().replace(/\D/g, '') || 0);
+
+            // ambil batas maksimum dari teks "Sisa max: 1.000"
+            const maxQty = parseInt(row.find('small.text-muted').text().replace(/\D/g, '') || 0);
+            const totalReturn = canceled + defect;
+
+            // kalau total melebihi maxQty, batasi nilainya dan tampilkan toast
+            if (totalReturn > maxQty) {
+                const remaining = maxQty - (this.classList.contains('canceled_quantity') ? defect : canceled);
+                const corrected = Math.max(0, remaining);
+                $(this).val(new Intl.NumberFormat('id-ID').format(corrected));
+
+                // tampilkan toast
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'warning',
+                    title: `Total return melebihi sisa max (${formatNumber(maxQty)}).`,
+                    showConfirmButton: false,
+                    timer: 2000,
+                });
+
+                // update variabel agar perhitungan total tetap benar
+                if ($(this).hasClass('canceled_quantity')) {
+                    canceled = corrected;
+                } else {
+                    defect = corrected;
+                }
+            }
+
+            // format angka kembali
+            $(this).val(new Intl.NumberFormat('id-ID').format($(this).val().replace(/\D/g, '')));
+
+            updateRowTotal(row);
         });
     </script>
 @endpush

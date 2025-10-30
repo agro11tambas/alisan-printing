@@ -9,6 +9,7 @@ use PhpOffice\PhpSpreadsheet\Reader\Xls\RC4;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\AccountTransaction;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class AccountController extends Controller
 {
@@ -20,27 +21,28 @@ class AccountController extends Controller
     public function dataAccount(Request $request)
     {
         $account = Account::query();
+        $hasDefault = Account::where('is_default', true)->exists();
 
         if ($request->filled('name')) {
-            $account->where('name', 'like', '%' . request()->name . '%');
+            $account->where('name', 'like', '%' . $request->name . '%');
         }
 
         if ($request->filled('type')) {
-            $account->where('type', 'like', '%' . request()->type . '%');
+            $account->where('type', 'like', '%' . $request->type . '%');
         }
 
         return DataTables::of($account)
             ->addIndexColumn()
             ->addColumn('name', function ($account) {
-                return $account->name;
+                $badge = $account->is_default ? ' <span class="badge bg-success ms-2">Default</span>' : '';
+                return $account->name . $badge;
             })
-            ->addColumn('type', function ($account) {
-                return $account->type;
+            ->addColumn('type', fn($account) => $account->type)
+            ->addColumn('has_default', fn() => $hasDefault) // untuk dikirim ke JS
+            ->addColumn('action', function ($account) use ($hasDefault) {
+                return view('erp.pages.account.partials.action-button', compact('account', 'hasDefault'))->render();
             })
-            ->addColumn('action', function ($account) {
-                return view('erp.pages.account.partials.action-button', compact('account'))->render();
-            })
-            ->rawColumns(['action'])
+            ->rawColumns(['name', 'action'])
             ->make(true);
     }
 
@@ -90,9 +92,51 @@ class AccountController extends Controller
 
     public function delete($id)
     {
-        $account = Account::where('id', $id);
-        $account->delete();
+        try {
+            $account = Account::findOrFail($id);
 
-        return redirect('/erp/accounts')->with('success', 'Account deleted successfully');
+            // 🔒 Cek apakah akun ini default
+            if ($account->is_default) {
+                return redirect('/erp/accounts')->with(
+                    'error',
+                    'Account ini adalah Default. Hapus status Default terlebih dahulu sebelum menghapus account ini.'
+                );
+            }
+
+            // 🔹 Kalau bukan default, hapus
+            $account->delete();
+
+            return redirect('/erp/accounts')->with('success', 'Account deleted successfully');
+        } catch (\Throwable $e) {
+            return redirect('/erp/accounts')->with('error', 'Gagal menghapus account: ' . $e->getMessage());
+        }
+    }
+
+    public function markAsDefault($id)
+    {
+        DB::beginTransaction();
+        try {
+            Account::query()->update(['is_default' => false]);
+            $account = Account::findOrFail($id);
+            $account->update(['is_default' => true]);
+
+            DB::commit();
+            return redirect()->back()->with('success', "{$account->name} berhasil dijadikan default account.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Gagal menetapkan default account: ' . $e->getMessage());
+        }
+    }
+
+    public function removeDefault($id)
+    {
+        $account = Account::findOrFail($id);
+
+        if (!$account->is_default) {
+            return redirect()->back()->with('error', 'Account ini bukan default.');
+        }
+
+        $account->update(['is_default' => false]);
+        return redirect()->back()->with('success', "{$account->name} tidak lagi menjadi default account.");
     }
 }

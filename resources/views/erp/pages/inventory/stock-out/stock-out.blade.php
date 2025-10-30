@@ -35,25 +35,25 @@
             </ul>
         </div>
         <!-- <div class="page-header-right ms-auto">
-                    <div class="page-header-right-items">
-                        <div class="d-flex d-md-none">
-                            <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                                <i class="feather-arrow-left me-2"></i><span>Back</span>
-                            </a>
-                        </div>
-                        <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                            <a href="/erp/inventory/stock-out/add-stock-out/" class="btn btn-primary">
-                                <i class="feather-plus me-2"></i>
-                                <span>Add Stock Out</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="d-md-none d-flex align-items-center">
-                        <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                            <i class="feather-align-right fs-20"></i>
-                        </a>
-                    </div>
-                </div> -->
+                            <div class="page-header-right-items">
+                                <div class="d-flex d-md-none">
+                                    <a href="javascript:void(0)" class="page-header-right-close-toggle">
+                                        <i class="feather-arrow-left me-2"></i><span>Back</span>
+                                    </a>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
+                                    <a href="/erp/inventory/stock-out/add-stock-out/" class="btn btn-primary">
+                                        <i class="feather-plus me-2"></i>
+                                        <span>Add Stock Out</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="d-md-none d-flex align-items-center">
+                                <a href="javascript:void(0)" class="page-header-right-open-toggle">
+                                    <i class="feather-align-right fs-20"></i>
+                                </a>
+                            </div>
+                        </div> -->
     </div>
 @endsection
 
@@ -229,6 +229,26 @@
             </form>
         </div>
     </div>
+
+    <div class="modal fade" id="modalResponsibility" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-white">
+                    <h5 class="modal-title text-white">Konfirmasi Tanggung Jawab</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Jika terjadi selisih, apakah Anda bersedia bertanggung jawab atas hasil Stock Out ini?</p>
+                    <p class="text-muted mb-0">Pastikan data sudah sesuai sebelum melanjutkan.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-warning btn-md" id="btnConfirmResponsibility">Ya, Saya
+                        Bertanggung Jawab</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
@@ -393,7 +413,9 @@
 
         $(document).ready(function() {
             let selectedInventoryId = null;
+            let tempFormData = {}; // simpan data sementara
 
+            // Saat klik tombol "Verifikasi Stock Out"
             $(document).on('click', '.btn-open-stockout-modal', function() {
                 selectedInventoryId = $(this).data('id');
                 const number = $(this).data('number');
@@ -401,29 +423,40 @@
                 $('#modalAddStockOut').modal('show');
             });
 
+            // Tahap 1: Klik tombol Konfirmasi Stock Out di modal pertama
             $('#formAddStockOut').on('submit', function(e) {
                 e.preventDefault();
                 const form = $(this);
-                const changeDate = $('#change_date').val();
-                const notes = form.find('textarea[name="notes"]').val();
+
+                tempFormData = {
+                    _token: '{{ csrf_token() }}',
+                    inventory_id: selectedInventoryId,
+                    change_date: $('#change_date').val(),
+                    notes: form.find('textarea[name="notes"]').val(),
+                };
+
+                // Tutup modal pertama, lalu buka modal konfirmasi tanggung jawab
+                $('#modalAddStockOut').modal('hide');
+                setTimeout(() => {
+                    $('#modalResponsibility').modal('show');
+                }, 300);
+            });
+
+            // Tahap 2: Klik "Ya, Saya Bertanggung Jawab" di modal kedua
+            $('#btnConfirmResponsibility').on('click', function() {
+                $('#modalResponsibility').modal('hide');
 
                 $.ajax({
                     url: `/erp/inventory/stock-out/store/${selectedInventoryId}`,
                     method: 'POST',
-                    data: {
-                        _token: '{{ csrf_token() }}',
-                        inventory_id: selectedInventoryId,
-                        change_date: changeDate,
-                        notes: notes
-                    },
+                    data: tempFormData,
                     success: function(response) {
                         Swal.close();
                         Swal.fire({
                             icon: 'success',
                             title: 'Berhasil!',
-                            text: 'Stock Out berhasil ditambahkan.',
+                            text: 'Stock Out berhasil diverifikasi.',
                         }).then(() => {
-                            $('#modalAddStockOut').modal('hide');
                             $('#inventoryTable').DataTable().ajax.reload();
                         });
                     },

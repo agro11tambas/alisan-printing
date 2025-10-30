@@ -102,16 +102,16 @@ class ProductsController extends Controller
                 })->implode(' ');
             })
             ->addColumn('avg_cost', function ($product) {
-                return 'Rp ' . number_format($product->inventoryStock->avg_cost, 2);
+                return 'Rp ' . number_format($product->inventoryStock->avg_cost, 2, ',', '.');
             })
             ->addColumn('price', function ($product) {
-                return 'Rp ' . number_format($product['price'], 0);
+                return 'Rp ' . number_format($product['price'], 0, ',', '.');
             })
             ->addColumn('sku', function ($product) {
                 return $product->sku;
             })
             ->addColumn('fixed_cost', function ($product) {
-                return 'Rp ' . number_format($product->fixed_cost, 0);
+                return 'Rp ' . number_format($product->fixed_cost, 2, ',', '.');
             })
             ->addColumn('action', function ($product) {
                 return view('erp.pages.products.partials.action-button', compact('product'))->render();
@@ -161,16 +161,19 @@ class ProductsController extends Controller
             $imagePath = 'uploads/products/' . $filename;
         }
 
+        $price = $request->filled('price') ? $request->price : 0;
+        $fixedCost = $request->filled('fixed_cost') ? $request->fixed_cost : 0;
+
         $product = Products::create([
             'name' => $request->name,
             'sku' => $request->sku,
-            'price' => $request->price,
+            'price' => $price,
             // 'sale_price' => $request->sale_price,
             'description' => $request->description,
             'short_description' => $request->short_description,
             // 'stock' => $request->stock,
             'image' => $imagePath,
-            'fixed_cost' => $request->fixed_cost,
+            'fixed_cost' => $fixedCost,
         ]);
 
         // Simpan relasi ke pivot table
@@ -275,16 +278,19 @@ class ProductsController extends Controller
             $imageUrl = asset($imagePath);
         }
 
+        $price = $request->filled('price') ? $request->price : 0;
+        $fixedCost = $request->filled('fixed_cost') ? $request->fixed_cost : 0;
+
         $product->update([
             'name' => $request->name,
             'sku' => $request->sku,
-            'price' => $request->price,
+            'price' => $price,
             'sale_price' => $request->sale_price,
             'description' => $request->description,
             'short_description' => $request->short_description,
             'stock' => $request->stock,
             'image' => $imagePath,
-            'fixed_cost' => $request->fixed_cost,
+            'fixed_cost' => $fixedCost,
         ]);
 
         $product->categories()->sync($request->categories);

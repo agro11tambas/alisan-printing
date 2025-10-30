@@ -16,6 +16,7 @@ class Account extends Model
         'type',
         'opening_balance',
         'closing_balance',
+        'is_default',
     ];
 
     public function transactions()

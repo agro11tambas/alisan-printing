@@ -18,6 +18,8 @@ class SaleReturnItem extends Model
         'product_bundle_id',
         'order_item_id',
         'quantity',
+        'canceled_quantity',
+        'defect_quantity',
         'price',
         'avg_cost_at_return',
         'fixed_cost_at_return',

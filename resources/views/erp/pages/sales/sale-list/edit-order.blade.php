@@ -261,7 +261,8 @@
                                                                 $isOwner = Auth::user()->role === 'Owner';
                                                             @endphp
                                                             <input type="text"
-                                                                class="form-control price_before_discount_display" @if(!$isOwner) readonly @endif
+                                                                class="form-control price_before_discount_display"
+                                                                @if (!$isOwner) readonly @endif
                                                                 value="{{ number_format($item->price, 2, ',', '.') }}">
                                                             <input type="hidden" name="price_before_discount[]"
                                                                 class="price_before_discount"
@@ -364,6 +365,8 @@
 
 @push('scripts')
     <script>
+        const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
+
         const customerAddresses = <?php echo json_encode(
             $customers->mapWithKeys(function ($customer) {
                 return [
@@ -422,7 +425,8 @@
 
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
-            const basePrice = parseFloat(selectedOption.data('price')) || 0;
+            const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
+            const basePrice = manualPrice > 0 ? manualPrice : (parseFloat(selectedOption.data('price')) || 0);
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
             const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
@@ -557,7 +561,10 @@
                 </td>
                 <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
                 <td><input type="number" name="qty[]" class="form-control qty" min="1" value="1"></td>
-                <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" readonly></td>
+                <td>
+                    <input type="text" inputmode="numeric" class="form-control price_before_discount_display" ${!isOwner ? 'readonly' : ''}>
+                    <input type="hidden" name="price_before_discount[]" class="price_before_discount">
+                </td>
                 <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
                 <td class="text-center">
                     <div class="d-flex justify-content-center">
@@ -755,6 +762,31 @@
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();
             }, 50);
+        });
+
+        // === Harga bisa diubah hanya oleh Owner ===
+        let priceInputTimeout;
+        $(document).on('input', '.price_before_discount_display', function() {
+            if (!isOwner) return; // hanya Owner yang bisa ubah harga
+
+            const row = $(this).closest('tr');
+            let rawValue = $(this).val().replace(/\D/g, '');
+            if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
+
+            const formatted = new Intl.NumberFormat('id-ID').format(rawValue);
+            $(this).val(formatted);
+
+            clearTimeout(priceInputTimeout);
+            priceInputTimeout = setTimeout(() => {
+                const parsed = parseFloat(rawValue) || 0;
+                row.find('input.price_before_discount').val(parsed.toFixed(2));
+                recalcAllRows();
+            }, 200);
+        });
+
+        $(document).on('blur', '.price_before_discount_display', function() {
+            let val = $(this).val().replace(/\D/g, '');
+            $(this).val(new Intl.NumberFormat('id-ID').format(val));
         });
 
         $(document).on('input', 'input[name="qty[]"]', function(e) {

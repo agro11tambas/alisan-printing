@@ -27,6 +27,7 @@ class DeliveryList extends Model
         'note',
         'proof_delivery',
         'proof_waybill',
+        'proof_photos',
     ];
 
     protected $casts = [

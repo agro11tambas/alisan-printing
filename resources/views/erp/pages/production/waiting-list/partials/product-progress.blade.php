@@ -1,5 +1,5 @@
 <div class="table-responsive">
-    <table class="table bg-transparent table-sm table-bordered">
+    <table class="table bg-transparent table-small table-bordered">
         <thead>
             <tr>
                 <th style="width: 33%;">Product</th>

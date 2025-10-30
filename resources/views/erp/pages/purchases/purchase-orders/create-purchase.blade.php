@@ -174,7 +174,6 @@
             </div>
         </div>
     </div>
-    </div>
 @endsection
 
 @push('scripts')
@@ -231,6 +230,12 @@
                 }
             }
         );
+
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
+        });
 
         $(document).ready(function() {
             initSelect2('.select-product');

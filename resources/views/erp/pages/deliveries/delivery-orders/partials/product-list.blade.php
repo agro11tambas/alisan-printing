@@ -1,5 +1,5 @@
 <div class="table-responsive">
-    <table class="table table-hover bg-transparent table-sm table-bordered align-middle">
+    <table class="table table-hover bg-transparent table-small table-bordered align-middle">
         <thead>
             <tr>
                 <th>Product</th>

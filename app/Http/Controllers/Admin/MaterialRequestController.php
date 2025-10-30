@@ -112,6 +112,9 @@ class MaterialRequestController extends Controller
                         return '<div class="badge bg-soft-primary text-primary">' . $materialRequest->status . '</div>';
                 }
             })
+            ->addColumn('verified_by', function ($materialRequest) {
+                return $materialRequest->verifiedBy ? $materialRequest->verifiedBy->name : '-';
+            })
             ->addColumn('action', function ($materialRequest) {
                 return view('erp.pages.production.request-stock.partials.action-button', compact('materialRequest'))->render();
             })
@@ -206,7 +209,7 @@ class MaterialRequestController extends Controller
 
     public function create()
     {
-        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->get();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
 
         $productsJson = $products->map(function ($product) {
             return [
@@ -269,6 +272,14 @@ class MaterialRequestController extends Controller
                     'remaining_stock_in' => $item->requested_qty,
                     'stock_out'         => 0,
                 ]);
+
+                // 🔹 Update (increment) incoming_stock pada production_stocks
+                $productionStock = ProductionStock::firstOrCreate(
+                    ['product_id' => $item->product_id],
+                    ['incoming_stock' => 0, 'available_stock' => 0]
+                );
+
+                $productionStock->increment('incoming_stock', $item->requested_qty);
             }
 
             DB::commit();
@@ -297,16 +308,16 @@ class MaterialRequestController extends Controller
                 return $item->received_qty >= $item->requested_qty;
             });
 
-            // Kalau belum fully issued/received → nggak boleh delete
+            // ❌ Belum selesai issued/received → tidak boleh delete
             if (!($isFullyIssued || $isFullyReceived)) {
                 DB::rollBack();
                 return back()->with('error', 'Request Stock belum selesai issued atau received, tidak dapat dihapus.');
             }
 
-            // 🔹 Buat Stock In otomatis (karena barang dikembalikan ke gudang)
+            // 🔹 Buat Stock In otomatis (barang dikembalikan ke gudang)
             $inventory = Inventory::create([
                 'material_request_id'     => $requestStock->id,
-                'material_request_number' => $requestStock->material_request_number, // ✅ tetap pakai nomor MR
+                'material_request_number' => $requestStock->material_request_number,
                 'inventory_type'          => 'stock_in',
                 'date'                    => now(),
                 'note'                    => 'Auto Stock In (Delete Material Request)',
@@ -314,7 +325,7 @@ class MaterialRequestController extends Controller
                 'user_id'                 => Auth::id(),
             ]);
 
-            // 🔹 Tambah semua item ke InventoryItem
+            // 🔹 Tambahkan semua item ke InventoryItem
             foreach ($requestStock->items as $item) {
                 InventoryItem::create([
                     'inventory_id'             => $inventory->id,
@@ -327,6 +338,12 @@ class MaterialRequestController extends Controller
                     'remaining_stock_in'       => $item->requested_qty,
                     'stock_out'                => 0,
                 ]);
+
+                // 🔹 Decrement incoming_stock di production_stocks
+                $productionStock = \App\Models\ProductionStock::where('product_id', $item->product_id)->first();
+                if ($productionStock) {
+                    $productionStock->decrement('incoming_stock', $item->requested_qty);
+                }
 
                 // 🔹 Soft delete tiap item
                 $item->delete();
@@ -350,7 +367,7 @@ class MaterialRequestController extends Controller
     {
         $materialRequest = MaterialRequest::with('items')->findOrFail($id);
 
-        $products = Products::all();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
 
         $productsJson = $products->map(function ($product) {
             return [
@@ -362,105 +379,6 @@ class MaterialRequestController extends Controller
 
         return view('erp.pages.production.request-stock.edit-request-stock', compact('materialRequest', 'productsJson'));
     }
-
-    // public function update(Request $request, $id)
-    // {
-    //     $request->validate([
-    //         'requested_by' => 'required',
-    //         'requested_at' => 'required|date',
-    //         'product'      => 'required|array',
-    //         'product.*'    => 'required|exists:products,id',
-    //         'qty'          => 'required|array',
-    //         'qty.*'        => 'numeric|min:1',
-    //     ]);
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         $materialRequest = MaterialRequest::with(['items', 'inventory.items'])->findOrFail($id);
-
-    //         if ($materialRequest->hasStockOut()) {
-    //             DB::rollBack();
-    //             return back()->with('error', 'Request Stock ini sudah memiliki Stock Out dan tidak dapat diubah lagi.');
-    //         }
-
-    //         // Update header MaterialRequest
-    //         $materialRequest->update([
-    //             'requested_by' => $request->user()->id,
-    //             'requested_at' => $request->requested_at,
-    //         ]);
-
-    //         // Update Inventory header
-    //         $inventory = $materialRequest->inventory;
-    //         if ($inventory) {
-    //             $inventory->update([
-    //                 'date'   => $request->requested_at,
-    //                 'status' => 'Stock Out',
-    //             ]);
-    //         }
-
-    //         // Tandai item lama yang tidak ada di request → soft delete
-    //         $existingItemIds = $materialRequest->items->pluck('id')->toArray();
-    //         $incomingItemIds = $request->item_id ?? []; // item_id hidden input di form
-    //         $itemsToDelete   = array_diff($existingItemIds, $incomingItemIds);
-
-    //         if (!empty($itemsToDelete)) {
-    //             MaterialRequestItem::whereIn('id', $itemsToDelete)->delete();
-    //             InventoryItem::whereIn('material_request_item_id', $itemsToDelete)->delete();
-    //         }
-
-    //         // Loop item baru & update/insert
-    //         foreach ($request->product as $key => $productId) {
-    //             $qty = $request->qty[$key];
-
-    //             if (isset($incomingItemIds[$key]) && $incomingItemIds[$key]) {
-    //                 // Update item lama
-    //                 $reqItem = MaterialRequestItem::find($incomingItemIds[$key]);
-    //                 if ($reqItem) {
-    //                     $reqItem->update([
-    //                         'product_id'    => $productId,
-    //                         'requested_qty' => $qty,
-    //                     ]);
-
-    //                     $invItem = InventoryItem::where('material_request_item_id', $reqItem->id)->first();
-    //                     if ($invItem) {
-    //                         $invItem->update([
-    //                             'product_id'         => $productId,
-    //                             'quantity'           => $qty,
-    //                             'remaining_stock_in' => $qty - $invItem->stock_out, // jaga konsistensi
-    //                         ]);
-    //                     }
-    //                 }
-    //             } else {
-    //                 // Insert item baru
-    //                 $newReqItem = MaterialRequestItem::create([
-    //                     'material_request_id' => $materialRequest->id,
-    //                     'product_id'          => $productId,
-    //                     'requested_qty'       => $qty,
-    //                 ]);
-
-    //                 if ($inventory) {
-    //                     InventoryItem::create([
-    //                         'inventory_id'             => $inventory->id,
-    //                         'product_id'               => $productId,
-    //                         'material_request_item_id' => $newReqItem->id,
-    //                         'quantity'                 => $qty,
-    //                         'stock_in'                 => 0,
-    //                         'remaining_stock_in'       => $qty,
-    //                         'stock_out'                => 0,
-    //                     ]);
-    //                 }
-    //             }
-    //         }
-
-    //         DB::commit();
-    //         return redirect("/erp/productions/material-request")->with('success', 'Request Stock berhasil diperbarui.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         Log::error('Error update request stock: ' . $e->getMessage());
-    //         return back()->with('error', 'Gagal update request stock: ' . $e->getMessage());
-    //     }
-    // }
 
     public function update(Request $request, $id)
     {
@@ -483,7 +401,7 @@ class MaterialRequestController extends Controller
                 return back()->with('error', 'Request Stock ini sudah memiliki Stock Out dan tidak dapat diubah lagi.');
             }
 
-            // ✅ Pastikan nomor tetap ada (kalau belum, buat baru)
+            // ✅ Pastikan nomor tetap ada
             if (!$materialRequest->material_request_number) {
                 $materialRequest->material_request_number = \App\Services\MaterialRequestService::generateRequestNumber();
                 $materialRequest->save();
@@ -499,30 +417,69 @@ class MaterialRequestController extends Controller
             $inventory = $materialRequest->inventory;
             if ($inventory) {
                 $inventory->update([
-                    'material_request_number' => $materialRequest->material_request_number, // ✅ sinkron nomor
+                    'material_request_number' => $materialRequest->material_request_number,
                     'date'                    => $request->requested_at,
                     'status'                  => 'Stock Out',
                 ]);
             }
 
-            // 🔹 Hapus item lama yang tidak ada di form
+            // 🔹 Hapus item lama yang dihapus dari form
             $existingItemIds = $materialRequest->items->pluck('id')->toArray();
             $incomingItemIds = $request->item_id ?? [];
             $itemsToDelete   = array_diff($existingItemIds, $incomingItemIds);
 
             if (!empty($itemsToDelete)) {
-                MaterialRequestItem::whereIn('id', $itemsToDelete)->delete();
-                InventoryItem::whereIn('material_request_item_id', $itemsToDelete)->delete();
+                foreach ($itemsToDelete as $deleteId) {
+                    $oldItem = MaterialRequestItem::find($deleteId);
+                    if ($oldItem) {
+                        // 🔸 Kurangi stok incoming lama
+                        $prodStock = \App\Models\ProductionStock::where('product_id', $oldItem->product_id)->first();
+                        if ($prodStock) {
+                            $prodStock->decrement('incoming_stock', $oldItem->requested_qty);
+                        }
+
+                        $oldItem->delete();
+                        InventoryItem::where('material_request_item_id', $deleteId)->delete();
+                    }
+                }
             }
 
-            // 🔹 Loop item baru & update/insert
+            // 🔹 Loop item yang dikirim di form
             foreach ($request->product as $key => $productId) {
-                $qty = $request->qty[$key];
+                $qty = (float) $request->qty[$key];
+                $itemId = $incomingItemIds[$key] ?? null;
 
-                if (isset($incomingItemIds[$key]) && $incomingItemIds[$key]) {
+                if ($itemId) {
                     // 🔸 Update item lama
-                    $reqItem = MaterialRequestItem::find($incomingItemIds[$key]);
+                    $reqItem = MaterialRequestItem::find($itemId);
                     if ($reqItem) {
+                        $oldQty = $reqItem->requested_qty;
+                        $oldProduct = $reqItem->product_id;
+
+                        // 🔸 Jika produk sama → sesuaikan selisih qty
+                        if ($oldProduct == $productId) {
+                            $diff = $qty - $oldQty;
+                            if ($diff != 0) {
+                                $prodStock = \App\Models\ProductionStock::firstOrCreate(
+                                    ['product_id' => $productId],
+                                    ['incoming_stock' => 0, 'available_stock' => 0]
+                                );
+                                $prodStock->increment('incoming_stock', $diff);
+                            }
+                        } else {
+                            // 🔸 Jika produk diganti → kembalikan stok lama, tambahkan stok baru
+                            $oldStock = \App\Models\ProductionStock::where('product_id', $oldProduct)->first();
+                            if ($oldStock) {
+                                $oldStock->decrement('incoming_stock', $oldQty);
+                            }
+                            $newStock = \App\Models\ProductionStock::firstOrCreate(
+                                ['product_id' => $productId],
+                                ['incoming_stock' => 0, 'available_stock' => 0]
+                            );
+                            $newStock->increment('incoming_stock', $qty);
+                        }
+
+                        // 🔸 Update data request & inventory
                         $reqItem->update([
                             'product_id'    => $productId,
                             'requested_qty' => $qty,
@@ -531,10 +488,10 @@ class MaterialRequestController extends Controller
                         $invItem = InventoryItem::where('material_request_item_id', $reqItem->id)->first();
                         if ($invItem) {
                             $invItem->update([
-                                'product_id'               => $productId,
-                                'quantity'                 => $qty,
-                                'remaining_stock_in'       => $qty - $invItem->stock_out,
-                                'material_request_number'  => $materialRequest->material_request_number, // ✅ tambah ini
+                                'product_id'              => $productId,
+                                'quantity'                => $qty,
+                                'remaining_stock_in'      => $qty - $invItem->stock_out,
+                                'material_request_number' => $materialRequest->material_request_number,
                             ]);
                         }
                     }
@@ -555,9 +512,16 @@ class MaterialRequestController extends Controller
                             'stock_in'                 => 0,
                             'remaining_stock_in'       => $qty,
                             'stock_out'                => 0,
-                            'material_request_number'  => $materialRequest->material_request_number, // ✅ simpan juga di item baru
+                            'material_request_number'  => $materialRequest->material_request_number,
                         ]);
                     }
+
+                    // 🔹 Tambah incoming_stock untuk item baru
+                    $productionStock = \App\Models\ProductionStock::firstOrCreate(
+                        ['product_id' => $productId],
+                        ['incoming_stock' => 0, 'available_stock' => 0]
+                    );
+                    $productionStock->increment('incoming_stock', $qty);
                 }
             }
 
@@ -581,6 +545,7 @@ class MaterialRequestController extends Controller
             // update header MaterialRequest
             $requestStock->update([
                 'status' => 'Verified',
+                'verified_by' => Auth::id(),
             ]);
 
             foreach ($requestStock->items as $item) {
@@ -591,6 +556,7 @@ class MaterialRequestController extends Controller
 
                 $productionStock = ProductionStock::where('product_id', $item->product_id)->first();
                 if ($productionStock) {
+                    $productionStock->decrement('incoming_stock', $item->received_qty);
                     $productionStock->increment('available_quantity', $item->received_qty);
                 }
             }

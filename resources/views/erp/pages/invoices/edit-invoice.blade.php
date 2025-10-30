@@ -60,6 +60,31 @@
                         <div class="card-body">
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
+                                    <label for="logo" class="fw-semibold">Logo:</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <input type="file" class="form-control" id="logo" name="logo"
+                                        accept="image/*">
+
+                                    <div class="mt-2 d-flex align-items-center gap-3">
+                                        @if ($invoice->logo)
+                                            <div>
+                                                <p class="text-muted mb-1 small">Current Logo:</p>
+                                                <img src="{{ asset($invoice->logo) }}" alt="Current Logo"
+                                                    class="img-thumbnail" style="max-height: 100px;">
+                                            </div>
+                                        @endif
+                                        <div>
+                                            <p class="text-muted mb-1 small">Preview New Logo:</p>
+                                            <img id="logo-preview" src="#" alt="New Logo Preview"
+                                                class="img-thumbnail d-none" style="max-height: 100px;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3 align-items-center">
+                                <div class="col-lg-2">
                                     <label for="name" class="fw-semibold">Name:</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
@@ -223,6 +248,22 @@
             }
 
             updateRemoveButtons();
+        });
+
+        document.getElementById('logo').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const preview = document.getElementById('logo-preview');
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    preview.src = evt.target.result;
+                    preview.classList.remove('d-none');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.src = '#';
+                preview.classList.add('d-none');
+            }
         });
     </script>
 @endpush

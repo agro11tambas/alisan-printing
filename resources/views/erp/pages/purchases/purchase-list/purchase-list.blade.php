@@ -157,7 +157,7 @@
                                     href="#deleted-purchase-list" role="tab">Deleted Purchase List</a>
                             </li>
                         </ul>
-                        <div class="table-responsive">                            
+                        <div class="table-responsive">
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="purchase-list" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="purchaseListTable">
@@ -281,7 +281,7 @@
                                             'bg-success',
                                         ];
                                     @endphp
-                                    <select class="form-select" id="cash_bank_account_id_product"
+                                    {{-- <select class="form-select" id="cash_bank_account_id_product"
                                         data-select2-selector="tag" name="cash_bank_account_id">
                                         <option value="" disabled selected hidden>Pilih Cash/Bank Account</option>
                                         @foreach ($cashAccounts as $cash)
@@ -297,6 +297,27 @@
                                             @endphp
                                             <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank -
                                                 {{ $bank->type }}</option>
+                                        @endforeach
+                                    </select> --}}
+                                    <select class="form-select" id="cash_bank_account_id_freight"
+                                        data-select2-selector="tag" name="cash_bank_account_id">
+                                        <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
+                                            Pilih Cash/Bank Account</option>
+
+                                        @foreach ($cashAccounts as $cash)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $cash->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $cash->id ? 'selected' : '' }}>
+                                                Cash - {{ $cash->type }}
+                                            </option>
+                                        @endforeach
+
+                                        @foreach ($bankAccounts as $bank)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $bank->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $bank->id ? 'selected' : '' }}>
+                                                Bank - {{ $bank->type }}
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -372,7 +393,7 @@
                                             'bg-success',
                                         ];
                                     @endphp
-                                    <select class="form-select" id="cash_bank_account_id_freight"
+                                    {{-- <select class="form-select" id="cash_bank_account_id_freight"
                                         data-select2-selector="tag" name="cash_bank_account_id">
                                         <option value="" disabled selected hidden>Pilih Cash/Bank Account</option>
                                         @foreach ($cashAccounts as $cash)
@@ -389,7 +410,29 @@
                                             <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank -
                                                 {{ $bank->type }}</option>
                                         @endforeach
+                                    </select> --}}
+                                    <select class="form-select" id="cash_bank_account_id_product"
+                                        data-select2-selector="tag" name="cash_bank_account_id">
+                                        <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
+                                            Pilih Cash/Bank Account</option>
+
+                                        @foreach ($cashAccounts as $cash)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $cash->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $cash->id ? 'selected' : '' }}>
+                                                Cash - {{ $cash->type }}
+                                            </option>
+                                        @endforeach
+
+                                        @foreach ($bankAccounts as $bank)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $bank->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $bank->id ? 'selected' : '' }}>
+                                                Bank - {{ $bank->type }}
+                                            </option>
+                                        @endforeach
                                     </select>
+
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -797,7 +840,7 @@
                 const paidDisplay = document.getElementById('paid_amount_display_product');
                 if (paidDisplay) paidDisplay.innerText = 'Paid: Rp. ' + fmt.format(paidAmount);
             }
-            
+
             if (e.target.closest('.btn-mark-paid-freight')) {
                 const btn = e.target.closest('.btn-mark-paid-freight');
 
@@ -1028,6 +1071,12 @@
                 form.action = url;
                 nameHolder.textContent = name;
             });
+        });
+
+        $('#modalChangeStatusProduct, #modalChangeStatusFreight').on('shown.bs.modal', function() {
+            if ($.fn.select2) {
+                $('#cash_bank_account_id_product, #cash_bank_account_id_freight').trigger('change.select2');
+            }
         });
     </script>
 @endpush

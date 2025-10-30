@@ -15,32 +15,12 @@ class OperatorController extends Controller
         return view('erp.pages.operators.operator', compact('operators'));
     }
 
-    // public function dataOperators(Request $request)
-    // {
-    //     $query = Operator::query();
-
-    //     if ($request->filled('name')) {
-    //         $query->where('name', 'like', '%' . $request->name . '%');
-    //     }
-
-    //     return DataTables::of($query)
-    //         ->addIndexColumn()
-    //         ->addColumn('status', function ($row) {
-    //             return $row->active
-    //                 ? '<span class="badge bg-success">Active</span>'
-    //                 : '<span class="badge bg-secondary">Inactive</span>';
-    //         })
-    //         ->addColumn('action', function ($row) {
-    //             return view('erp.pages.operators.partials.action-button', compact('row'))->render();
-    //         })
-    //         ->rawColumns(['status', 'action'])
-    //         ->make(true);
-    // }
-
     public function dataOperators(Request $request)
     {
         $query = Operator::query()
-            ->withSum('histories', 'change_quantity'); // ✅ ambil total dari tabel order_progress_histories_2
+            ->withSum('histories as total_completed', 'completed_quantity')
+            ->withSum('histories as total_defect', 'defect_quantity')
+            ->withSum('histories as total_reject', 'reject_quantity');
 
         if ($request->filled('name')) {
             $query->where('name', 'like', '%' . $request->name . '%');
@@ -53,15 +33,23 @@ class OperatorController extends Controller
                     ? '<span class="badge bg-success">Active</span>'
                     : '<span class="badge bg-secondary">Inactive</span>';
             })
+            ->addColumn('completed', function ($row) {
+                return '<span class="fw-bold text-success">' . number_format($row->total_completed ?? 0) . '</span>';
+            })
+            ->addColumn('defect_progress', function ($row) {
+                return '<span class="fw-bold text-warning">' . number_format($row->total_defect ?? 0) . '</span>';
+            })
+            ->addColumn('reject_progress', function ($row) {
+                return '<span class="fw-bold text-danger">' . number_format($row->total_reject ?? 0) . '</span>';
+            })
             ->addColumn('total_progress', function ($row) {
-                // ini otomatis dari withSum()
-                $total = $row->histories_sum_change_quantity ?? 0;
+                $total = ($row->total_completed ?? 0) + ($row->total_defect ?? 0) + ($row->total_reject ?? 0);
                 return '<span class="fw-bold">' . number_format($total) . '</span>';
             })
             ->addColumn('action', function ($row) {
                 return view('erp.pages.operators.partials.action-button', compact('row'))->render();
             })
-            ->rawColumns(['status', 'total_progress', 'action'])
+            ->rawColumns(['status', 'completed', 'defect_progress', 'reject_progress', 'total_progress', 'action'])
             ->make(true);
     }
 

@@ -61,7 +61,8 @@
                                         <th>Production Stock</th>
                                         <th>Finished Products</th>
                                         {{-- <th>Pending Waiting List</th> --}}
-                                        <th>Incoming Stock</th>
+                                        <th>Incoming Stock (Warehouse)</th>
+                                        <th>Incoming Stock (Production)</th>
                                         <th>Avg. Cost</th>
                                         <th>Fixed Cost</th>
                                     </tr>
@@ -130,6 +131,10 @@
                     {
                         data: 'incoming_stock',
                         name: 'incoming_stock'
+                    },
+                    {
+                        data: 'incoming_stock_production',
+                        name: 'incoming_stock_production'
                     },
                     {
                         data: 'avg_cost',

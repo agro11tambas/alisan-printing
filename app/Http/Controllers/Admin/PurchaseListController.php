@@ -45,7 +45,9 @@ class PurchaseListController extends Controller
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        return view('erp.pages.purchases.purchase-list.purchase-list', compact('purchase_number', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
+        $defaultAccount = Account::where('is_default', true)->first();
+
+        return view('erp.pages.purchases.purchase-list.purchase-list', compact('purchase_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount'));
     }
 
     public function dataPurchaseList(Request $request)

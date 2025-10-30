@@ -148,7 +148,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    {{-- <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="return_type" class="fw-semibold">Return Type:</label>
                                         </div>
@@ -163,7 +163,7 @@
                                                 </select>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="transaction_type" class="fw-semibold">Sale:</label>
@@ -195,7 +195,8 @@
                                                 <tr class="single-item">
                                                     <th class="text-center wd-50">#</th>
                                                     <th class="text-center wd-450">Product</th>
-                                                    <th class="text-center wd-150">Qty</th>
+                                                    <th class="text-center wd-150">Canceled Qty</th>
+                                                    <th class="text-center wd-150">Defect Qty</th>
                                                     <th class="text-center wd-150">Price</th>
                                                     <th class="text-center wd-150">Total</th>
                                                 </tr>
@@ -213,7 +214,7 @@
                                                                 </option>
                                                                 @foreach ($products as $product)
                                                                     <option value="{{ $product->id }}"
-                                                                        data-price="{{ $product->price }}"
+                                                                        data-price="{{ $item->price }}"
                                                                         {{ $product->id == $item->product_id ? 'selected' : '' }}>
                                                                         [{{ $product->sku }}] {{ $product->name }}
                                                                     </option>
@@ -221,15 +222,23 @@
                                                             </select>
                                                         </td>
                                                         <td>
-                                                            <input type="text" inputmode="numeric" name="qty[]"
-                                                                class="qty form-control" min="0"
-                                                                max="{{ $item->remaining_qty }}" value="0">
+                                                            <input type="text" inputmode="numeric"
+                                                                name="canceled_quantity[]"
+                                                                class="form-control canceled_quantity" value="0">
                                                             <small class="text-muted">Sisa max:
                                                                 {{ number_format($item->remaining_qty) }}</small>
+                                                            <div class="invalid-feedback text-danger small"></div>
                                                         </td>
                                                         <td>
-                                                            <input type="text" class="price_display form-control"
-                                                                readonly>
+                                                            <input type="text" inputmode="numeric"
+                                                                name="defect_quantity[]"
+                                                                class="form-control defect_quantity" value="0">
+                                                            <div class="invalid-feedback text-danger small"></div>
+                                                        </td>
+                                                        <td>
+                                                            <input type="text" inputmode="numeric"
+                                                                class="price_display form-control"
+                                                                {{ Auth::user()->role !== 'Owner' ? 'readonly' : '' }}>
                                                             <input type="hidden" name="price[]" class="price">
                                                         </td>
                                                         <td>
@@ -238,16 +247,11 @@
                                                             <input type="hidden" name="total[]" class="total">
                                                         </td>
                                                     </tr>
-
                                                 @empty
                                                 @endforelse
                                             </tbody>
                                         </table>
                                     </div>
-                                    <!-- <div class="d-flex justify-content-end gap-2 mt-3">
-                                                                            <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
-                                                                            <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
-                                                                        </div> -->
                                 </div>
                                 <div class="col-lg-12 mt-4">
                                     <div class="row justify-content-end">
@@ -292,6 +296,8 @@
 
 @push('scripts')
     <script>
+        const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
+
         const customerAddresses = <?php echo json_encode(
             $customers->mapWithKeys(function ($customer) {
                 return [
@@ -314,10 +320,12 @@
         }
 
         function updateRowTotal(row) {
-            const qty = parseFloat(row.find('.qty').val().replace(/,/g, '')) || 0; // HAPUS KOMA, BUKAN TITIK
-            const price = parseFloat(row.find('.price').val()) || 0;
-            const total = qty * price;
+            const canceled = parseFloat(row.find('.canceled_quantity').val().replace(/\D/g, '') || 0);
+            const defect = parseFloat(row.find('.defect_quantity').val().replace(/\D/g, '') || 0);
+            const price = parseFloat(row.find('.price').val().replace(/\D/g, '') || 0);
+            const total = (canceled + defect) * price;
 
+            // Update hidden dan tampilan
             row.find('.price').val(price.toFixed(0));
             row.find('.total').val(total.toFixed(0));
 
@@ -425,29 +433,92 @@
             }
         }
 
-        $(document).on("change input", "#return_type", function() {
-            if ($(this).hasClass("select2-hidden-accessible")) {
-                $(this).next('.select2').next('.invalid-feedback').remove();
-            } else {
-                this.classList.remove("is-invalid");
-                $(this).siblings(".invalid-feedback").remove();
-            }
-        });
+        // $(document).on("change input", "#return_type", function() {
+        //     if ($(this).hasClass("select2-hidden-accessible")) {
+        //         $(this).next('.select2').next('.invalid-feedback').remove();
+        //     } else {
+        //         this.classList.remove("is-invalid");
+        //         $(this).siblings(".invalid-feedback").remove();
+        //     }
+        // });
 
         $('#orderForm').on('submit', function(e) {
             let isValid = true;
+            $('.invalid-feedback').remove(); // hapus semua pesan error lama
+            $('.is-invalid').removeClass('is-invalid');
 
-            this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+            // 🔹 Validasi baris produk
+            $('#tab_logic_body tr').each(function() {
+                const row = $(this);
+                const canceledInput = row.find('.canceled_quantity');
+                const defectInput = row.find('.defect_quantity');
+                const priceInput = row.find('.price_display');
 
-            const returnType = $('#return_type');
-            if (!returnType.val()) {
-                isValid = false;
-                showError(returnType[0], "Jenis retur wajib dipilih");
+                const canceled = parseInt(canceledInput.val().replace(/\D/g, '') || 0);
+                const defect = parseInt(defectInput.val().replace(/\D/g, '') || 0);
+                const price = parseFloat(priceInput.val().replace(/\D/g, '') || 0);
+                const maxQty = parseInt(row.find('small.text-muted').text().replace(/\D/g, '') || 0);
+                const totalReturn = canceled + defect;
+
+                // 🔹 Cek: wajib isi salah satu qty
+                if (canceled === 0 && defect === 0) {
+                    isValid = false;
+                    canceledInput.addClass('is-invalid');
+                    defectInput.addClass('is-invalid');
+
+                    canceledInput.after(
+                        '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
+                    );
+                    defectInput.after(
+                        '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
+                    );
+                }
+
+                // 🔹 Cek: tidak boleh melebihi sisa max
+                if (totalReturn > maxQty) {
+                    isValid = false;
+                    canceledInput.addClass('is-invalid');
+                    defectInput.addClass('is-invalid');
+
+                    canceledInput.after(
+                        `<div class="invalid-feedback d-block text-danger small mt-1">Total return (${totalReturn}) melebihi sisa max (${maxQty}).</div>`
+                    );
+                    defectInput.after(
+                        `<div class="invalid-feedback d-block text-danger small mt-1">Total return (${totalReturn}) melebihi sisa max (${maxQty}).</div>`
+                    );
+                }
+
+                // 🔹 Cek: harga wajib diisi dan tidak boleh nol
+                if (!price || price <= 0) {
+                    isValid = false;
+                    priceInput.addClass('is-invalid');
+                    priceInput.after(
+                        '<div class="invalid-feedback d-block text-danger small mt-1">Harga wajib diisi dan tidak boleh 0.</div>'
+                    );
+                }
+            });
+
+            // 🔹 Scroll ke field error pertama biar user langsung lihat
+            const firstError = document.querySelector('.is-invalid');
+            if (firstError) {
+                firstError.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
             }
 
-            if (!isValid) e.preventDefault();
+            if (!isValid) {
+                e.preventDefault();
+                return; // ❌ Tidak perlu SweetAlert
+            }
+
+            // 🔹 Bersihkan format angka sebelum submit
+            $('input[name="canceled_quantity[]"], input[name="defect_quantity[]"], input[name="price[]"], input[name="total[]"]')
+                .each(function() {
+                    $(this).val($(this).val().replace(/[.,]/g, ''));
+                });
         });
+
 
         $(document).on('change', 'select[name="product_id[]"]', function() {
             const row = $(this).closest('tr');
@@ -458,27 +529,52 @@
             updateRowTotal(row);
         });
 
-        $(document).on('input', '.qty', function() {
+        // $(document).on('input', '.qty', function() {
+        //     const row = $(this).closest('tr');
+        //     const max = parseFloat($(this).attr('max')) || Infinity;
+        //     let raw = $(this).val().replace(/\D/g, '');
+
+        //     if (!raw) {
+        //         $(this).val('');
+        //         updateRowTotal(row);
+        //         return;
+        //     }
+
+        //     let formatted = new Intl.NumberFormat('id-ID').format(raw);
+        //     let numeric = parseFloat(raw);
+
+        //     if (numeric > max) {
+        //         numeric = max;
+        //         formatted = new Intl.NumberFormat('id-ID').format(max);
+        //     }
+
+        //     $(this).val(formatted);
+        //     updateRowTotal(row);
+        // });
+
+        // === Harga bisa diubah hanya oleh Owner ===
+        let priceEditTimeout;
+        $(document).on('input', '.price_display', function() {
+            if (!isOwner) return; // Non-owner gak bisa ubah harga
+
             const row = $(this).closest('tr');
-            const max = parseFloat($(this).attr('max')) || Infinity;
-            let raw = $(this).val().replace(/\D/g, '');
+            let rawValue = $(this).val().replace(/\D/g, '');
+            if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
 
-            if (!raw) {
-                $(this).val('');
-                updateRowTotal(row);
-                return;
-            }
-
-            let formatted = new Intl.NumberFormat('id-ID').format(raw);
-            let numeric = parseFloat(raw);
-
-            if (numeric > max) {
-                numeric = max;
-                formatted = new Intl.NumberFormat('id-ID').format(max);
-            }
-
+            const formatted = new Intl.NumberFormat('id-ID').format(rawValue);
             $(this).val(formatted);
-            updateRowTotal(row);
+
+            clearTimeout(priceEditTimeout);
+            priceEditTimeout = setTimeout(() => {
+                const parsed = parseFloat(rawValue) || 0;
+                row.find('input.price').val(parsed.toFixed(0));
+                updateRowTotal(row);
+            }, 200);
+        });
+
+        $(document).on('blur', '.price_display', function() {
+            let val = $(this).val().replace(/\D/g, '');
+            $(this).val(new Intl.NumberFormat('id-ID').format(val));
         });
 
         $('#orderForm').on('submit', function() {
@@ -496,6 +592,47 @@
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();
             }, 50);
+        });
+
+        $(document).on('input', '.canceled_quantity, .defect_quantity', function() {
+            const row = $(this).closest('tr');
+
+            // ambil nilai dari 2 kolom quantity
+            let canceled = parseInt(row.find('.canceled_quantity').val().replace(/\D/g, '') || 0);
+            let defect = parseInt(row.find('.defect_quantity').val().replace(/\D/g, '') || 0);
+
+            // ambil batas maksimum dari teks "Sisa max: 1.000"
+            const maxQty = parseInt(row.find('small.text-muted').text().replace(/\D/g, '') || 0);
+            const totalReturn = canceled + defect;
+
+            // kalau total melebihi maxQty, batasi nilainya dan tampilkan toast
+            if (totalReturn > maxQty) {
+                const remaining = maxQty - (this.classList.contains('canceled_quantity') ? defect : canceled);
+                const corrected = Math.max(0, remaining);
+                $(this).val(new Intl.NumberFormat('id-ID').format(corrected));
+
+                // tampilkan toast
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'warning',
+                    title: `Total return melebihi sisa max (${formatNumber(maxQty)}).`,
+                    showConfirmButton: false,
+                    timer: 2000,
+                });
+
+                // update variabel agar perhitungan total tetap benar
+                if ($(this).hasClass('canceled_quantity')) {
+                    canceled = corrected;
+                } else {
+                    defect = corrected;
+                }
+            }
+
+            // format angka kembali
+            $(this).val(new Intl.NumberFormat('id-ID').format($(this).val().replace(/\D/g, '')));
+
+            updateRowTotal(row);
         });
     </script>
 @endpush

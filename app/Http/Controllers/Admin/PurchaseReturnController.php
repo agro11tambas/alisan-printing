@@ -34,7 +34,9 @@ class PurchaseReturnController extends Controller
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        return view('erp.pages.purchases.purchase-returns.purchase-returns', compact('purchase_number', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
+        $defaultAccount = Account::where('is_default', true)->first();
+
+        return view('erp.pages.purchases.purchase-returns.purchase-returns', compact('purchase_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount'));
     }
 
     public function dataPurchaseReturns(Request $request)

@@ -41,7 +41,9 @@ class SaleReturnController extends Controller
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        return view('erp.pages.sales.sale-return.sale-return', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
+        $defaultAccount = Account::where('is_default', true)->first();
+
+        return view('erp.pages.sales.sale-return.sale-return', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount'));
     }
 
     public function dataSaleReturns(Request $request)
@@ -263,66 +265,35 @@ class SaleReturnController extends Controller
         $order = Order::with(['orderItems.product', 'orderItems.productBundle.items.product'])
             ->findOrFail($id);
 
-        // if (!$order->hasStockOut()) {
-        //     return redirect()->back()->with('error', 'Tidak bisa membuat Sale Return karena barang belum masuk ke warehouse.');
-        // }
-
         $expandedItems = collect();
 
-        // foreach ($order->orderItems as $item) {
-        //     // Kalau produk satuan
-        //     if ($item->product_id) {
-        //         $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
-        //             ->sum('quantity');
-
-        //         $item->remaining_qty = max(0, $item->quantity - $returnedQty);
-        //         $expandedItems->push($item);
-
-        //         // Kalau produk bundle → pecah ke produk satuan
-        //     } elseif ($item->product_bundle_id) {
-        //         foreach ($item->productBundle->items as $bundleItem) {
-        //             $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
-        //                 ->where('product_id', $bundleItem->product_id)
-        //                 ->sum('quantity');
-
-        //             $expandedItems->push((object) [
-        //                 'id'             => $item->id, // tetap pakai order_item_id dari bundle
-        //                 'order_id'       => $item->order_id,
-        //                 'product_id'     => $bundleItem->product_id,
-        //                 'product'        => $bundleItem->product,
-        //                 'quantity'       => $item->quantity,
-        //                 'remaining_qty'  => max(0, ($item->quantity) - $returnedQty),
-        //                 'price'          => $bundleItem->product->price ?? 0,
-        //             ]);
-        //         }
-        //     }
-        // }
-
         foreach ($order->orderItems as $item) {
-            // Hitung total sudah dikirim (shipped) untuk item ini
+            // 🔹 Hitung total sudah dikirim (shipped) untuk item ini
             $totalShipped = \App\Models\DeliveryOrderItem::where('order_item_id', $item->id)
                 ->sum('shipped_qty');
 
             if ($item->product_id) {
-                // Hitung total sudah diretur untuk item ini
-                $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
-                    ->sum('quantity');
+                // 🔹 Hitung total sudah diretur (gabungan canceled + defect)
+                $returnedQty = \App\Models\SaleReturnItem::where('order_item_id', $item->id)
+                    ->selectRaw('COALESCE(SUM(canceled_quantity + defect_quantity), 0) as total_return')
+                    ->value('total_return');
 
-                // Remaining qty = shipped - returned
+                // 🔹 Remaining qty = shipped - returned
                 $item->remaining_qty = max(0, $totalShipped - $returnedQty);
 
                 $expandedItems->push($item);
             } elseif ($item->product_bundle_id) {
                 foreach ($item->productBundle->items as $bundleItem) {
-                    // Hitung total sudah dikirim untuk bundle item (shipped)
+                    // 🔹 Hitung total sudah dikirim (shipped)
                     $totalShipped = \App\Models\DeliveryOrderItem::where('order_item_id', $item->id)
                         ->where('product_id', $bundleItem->product_id)
                         ->sum('shipped_qty');
 
-                    // Hitung total sudah diretur untuk bundle item ini
-                    $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
+                    // 🔹 Hitung total sudah diretur (gabungan canceled + defect)
+                    $returnedQty = \App\Models\SaleReturnItem::where('order_item_id', $item->id)
                         ->where('product_id', $bundleItem->product_id)
-                        ->sum('quantity');
+                        ->selectRaw('COALESCE(SUM(canceled_quantity + defect_quantity), 0) as total_return')
+                        ->value('total_return');
 
                     $expandedItems->push((object) [
                         'id'            => $item->id,
@@ -344,13 +315,13 @@ class SaleReturnController extends Controller
         $discount     = Discount::first();
 
         return view('erp.pages.sales.sale-return.create-order', [
-            'order'         => $order,
-            'products'      => $products,
+            'order'          => $order,
+            'products'       => $products,
             'remainingItems' => $expandedItems,
-            'customers'     => $customers,
-            'cashAccounts'  => $cashAccounts,
-            'bankAccounts'  => $bankAccounts,
-            'discount'      => $discount
+            'customers'      => $customers,
+            'cashAccounts'   => $cashAccounts,
+            'bankAccounts'   => $bankAccounts,
+            'discount'       => $discount,
         ]);
     }
 
@@ -363,12 +334,13 @@ class SaleReturnController extends Controller
             'return_date'       => 'required|date',
             'order_item_ids'    => 'required|array',
             'product_id'        => 'required|array',
-            'qty'               => 'required|array',
+            'canceled_quantity' => 'required|array',
+            'defect_quantity' => 'required|array',
             'price'             => 'required|array',
             'total'             => 'required|array',
             'sub_total'         => 'required|numeric|min:0',
             'total_amount'      => 'required|numeric|min:0',
-            'return_type'       => 'required|string|in:canceled,defect',
+            'return_type' => 'nullable|string|in:canceled,defect',
         ]);
 
         DB::beginTransaction();
@@ -411,18 +383,23 @@ class SaleReturnController extends Controller
                 if (!$orderItem) continue;
 
                 $productId = $request->product_id[$index] ?? null;
-                $qty       = (int)($request->qty[$index] ?? 0);
-                $price     = (float)($request->price[$index] ?? 0);
-                $subtotal  = (float)($request->total[$index] ?? ($qty * $price));
+                $canceledQty = (int)($request->canceled_quantity[$index] ?? 0);
+                $defectQty = (int)($request->defect_quantity[$index] ?? 0);
+                $totalQty = $canceledQty + $defectQty;
 
-                if ($qty <= 0 || !$productId) continue;
+                if ($totalQty <= 0) continue;
+                $price     = (float)($request->price[$index] ?? 0);
+                $subtotal  = (float)($request->total[$index] ?? ($totalQty * $price));
+
+                if ($totalQty <= 0 || !$productId) continue;
 
                 // Validasi retur
                 $returnedQty = SaleReturnItem::where('order_item_id', $orderItem->id)
                     ->where('product_id', $productId)
-                    ->sum('quantity');
+                    ->sum(DB::raw('COALESCE(canceled_quantity, 0) + COALESCE(defect_quantity, 0)'));
+
                 $maxQty = max(0, $orderItem->quantity - $returnedQty);
-                if ($qty > $maxQty) {
+                if ($totalQty > $maxQty) {
                     $pname = optional(\App\Models\Products::find($productId))->name ?? 'Produk';
                     throw new \Exception("Qty retur melebihi sisa qty untuk: {$pname}");
                 }
@@ -435,37 +412,39 @@ class SaleReturnController extends Controller
                 $avgCostAtSale = $component?->avg_cost_at_sale ?? 0;
                 $fixedCostAtSale = $component?->fixed_cost_at_sale ?? 0;
 
-                $totalCostAtSale = $avgCostAtSale * $qty;
-                $totalFixedCostAtSale = $fixedCostAtSale * $qty;
+                $totalCostAtSale = $avgCostAtSale * $totalQty;
+                $totalFixedCostAtSale = $fixedCostAtSale * $totalQty;
 
                 // Simpan SaleReturnItem
                 $saleReturnItem = SaleReturnItem::create([
-                    'sale_return_id'     => $saleReturn->id,
-                    'product_id'         => $productId,
-                    'order_item_id'      => $orderItem->id,
-                    'quantity'           => $qty,
-                    'price'              => $price,
-                    'total'              => $subtotal,
-                    'avg_cost_at_return' => $avgCostAtSale,
+                    'sale_return_id'       => $saleReturn->id,
+                    'product_id'           => $productId,
+                    'order_item_id'        => $orderItem->id,
+                    'canceled_quantity'    => $canceledQty,
+                    'defect_quantity'      => $defectQty,
+                    'price'                => $price,
+                    'total'                => $subtotal,
+                    'avg_cost_at_return'   => $avgCostAtSale,
                     'fixed_cost_at_return' => $fixedCostAtSale,
-                    'total_cost'         => $totalCostAtSale,
-                    'total_fixed_cost'   => $totalFixedCostAtSale,
+                    'total_cost'           => $totalCostAtSale,
+                    'total_fixed_cost'     => $totalFixedCostAtSale,
                 ]);
 
-                // === 🔹 Pisahkan logika berdasarkan return_type ===
-                if ($returnType === 'defect') {
-                    // 🧩 Simpan ke DefectProduct
+                if ($defectQty > 0) {
                     DefectProduct::create([
-                        'product_id'     => $productId,
-                        'quantity'       => $qty,
-                        'defect_date'    => $request->return_date,
-                        'defect_type'    => 'from_sale_return',
-                        'status'         => 'pending',
-                        'note'           => 'Defect product from Sale Return',
-                        'user_id'        => Auth::id(),
+                        'product_id'   => $productId,
+                        'quantity'     => $defectQty,
+                        'defect_date'  => $request->return_date,
+                        'defect_type'  => 'from_sale_return',
+                        'status'       => 'pending',
+                        'note'         => 'Defect product from Sale Return',
+                        'user_id'      => Auth::id(),
+                        'sale_return_id'      => $saleReturn->id,
+                        'sale_return_item_id' => $saleReturnItem->id,
                     ]);
-                } else {
-                    // 🧩 Simpan ke CanceledProduct
+                }
+
+                if ($canceledQty > 0) {
                     $productionStock = ProductionStock::firstOrCreate(
                         [
                             'product_id' => $productId,
@@ -478,7 +457,7 @@ class SaleReturnController extends Controller
                             'available_quantity' => 0,
                         ]
                     );
-                    $productionStock->increment('canceled_product_stock', $qty);
+                    $productionStock->increment('canceled_product_stock', $canceledQty);
 
                     CanceledProduct::create([
                         'production_stock_id' => $productionStock->id,
@@ -488,7 +467,7 @@ class SaleReturnController extends Controller
                         'sale_return_item_id' => $saleReturnItem->id,
                         'order_id'            => $order->id,
                         'order_item_id'       => $orderItem->id,
-                        'quantity'            => $qty,
+                        'quantity'            => $canceledQty,
                         'avg_cost_at_cancel'  => $avgCostAtSale,
                         'fixed_cost_at_cancel' => $fixedCostAtSale,
                         'total_cost'          => $totalCostAtSale,
@@ -529,7 +508,7 @@ class SaleReturnController extends Controller
 
                 // 🔹 Ambil total COGS dari avg_cost_at_return yang disimpan di sale_return_items
                 $returnCogs = SaleReturnItem::where('sale_return_id', $saleReturn->id)
-                    ->sum(DB::raw('avg_cost_at_return * quantity'));
+                    ->sum(DB::raw('avg_cost_at_return * (COALESCE(canceled_quantity, 0) + COALESCE(defect_quantity, 0))'));
 
                 // 🔹 Karena ini retur, nilainya negatif (revenue & cogs berkurang)
                 $grossLoss = -1 * ($returnRevenue - $returnCogs);
@@ -567,31 +546,46 @@ class SaleReturnController extends Controller
 
     public function edit($id)
     {
-        $saleReturn = SaleReturn::with(['items.product', 'items.orderItem.product', 'items.orderItem.productBundle.items.product'])
-            ->findOrFail($id);
+        $saleReturn = SaleReturn::with([
+            'items.product',
+            'items.orderItem.product',
+            'items.orderItem.productBundle.items.product'
+        ])->findOrFail($id);
 
-        $order = $saleReturn->saleOrder()->with(['orderItems.product', 'orderItems.productBundle.items.product'])->first();
+        $order = $saleReturn->saleOrder()
+            ->with(['orderItems.product', 'orderItems.productBundle.items.product'])
+            ->first();
 
         $expandedItems = collect();
 
         foreach ($order->orderItems as $item) {
-            // Qty yang sudah di-return kecuali saleReturn ini
             $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
                 ->where('sale_return_id', '!=', $saleReturn->id)
-                ->sum('quantity');
+                ->sum(DB::raw('COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0)'));
 
             if ($item->product_id) {
-                $item->remaining_qty = max(0, $item->quantity - $returnedQty);
-                $existingItem = $saleReturn->items->where('order_item_id', $item->id)->first();
-                $item->return_qty = $existingItem->quantity ?? 0;
-                $item->return_price = $existingItem->price ?? $item->product->price;
-                $expandedItems->push($item);
+                $existingItem = $saleReturn->items
+                    ->where('order_item_id', $item->id)
+                    ->where('product_id', $item->product_id)
+                    ->first();
+
+                $expandedItems->push((object) [
+                    'order_item_id'     => $item->id,                   // 🟢 WAJIB
+                    'product_id'        => $item->product_id,
+                    'product'           => $item->product,
+                    'quantity'          => $item->quantity,
+                    'remaining_qty'     => max(0, $item->quantity - $returnedQty),
+                    'canceled_quantity' => $existingItem->canceled_quantity ?? 0,
+                    'defect_quantity'   => $existingItem->defect_quantity ?? 0,
+                    'price'             => $existingItem->price ?? ($item->product->price ?? 0),
+                    'total'             => $existingItem->total ?? 0,
+                ]);
             } elseif ($item->product_bundle_id) {
                 foreach ($item->productBundle->items as $bundleItem) {
                     $bundleReturnedQty = SaleReturnItem::where('order_item_id', $item->id)
                         ->where('product_id', $bundleItem->product_id)
                         ->where('sale_return_id', '!=', $saleReturn->id)
-                        ->sum('quantity');
+                        ->sum(DB::raw('COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0)'));
 
                     $existingItem = $saleReturn->items
                         ->where('order_item_id', $item->id)
@@ -599,20 +593,22 @@ class SaleReturnController extends Controller
                         ->first();
 
                     $expandedItems->push((object) [
-                        'id'            => $item->id, // order_item_id
-                        'order_id'      => $item->order_id,
-                        'product_id'    => $bundleItem->product_id,
-                        'product'       => $bundleItem->product,
-                        'quantity'      => $item->quantity,
-                        'remaining_qty' => max(0, $item->quantity - $bundleReturnedQty),
-                        'return_qty'    => $existingItem->quantity ?? 0,
-                        'return_price'  => $existingItem->price ?? ($bundleItem->product->price ?? 0),
+                        'order_item_id'     => $item->id,                 // 🟢 WAJIB
+                        'product_id'        => $bundleItem->product_id,
+                        'product'           => $bundleItem->product,
+                        'quantity'          => $item->quantity,
+                        'remaining_qty'     => max(0, $item->quantity - $bundleReturnedQty),
+                        'canceled_quantity' => $existingItem->canceled_quantity ?? 0,
+                        'defect_quantity'   => $existingItem->defect_quantity ?? 0,
+                        'price'             => $existingItem->price ?? ($bundleItem->product->price ?? 0),
+                        'total'             => $existingItem->total ?? 0,
                     ]);
                 }
             }
         }
 
-        $products     = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $products     = Products::with(['categories', 'discounts', 'categories.discounts'])
+            ->orderBy('name', 'asc')->get();
         $customers    = Customers::with('addresses')->orderBy('name', 'asc')->get();
         $cashAccounts = Account::where('name', 'Cash')->orderBy('name', 'asc')->get();
         $bankAccounts = Account::where('name', 'Bank')->orderBy('name', 'asc')->get();
@@ -622,7 +618,7 @@ class SaleReturnController extends Controller
             'saleReturn'     => $saleReturn,
             'order'          => $order,
             'products'       => $products,
-            'remainingItems' => $expandedItems, // jangan filter → tampil semua
+            'remainingItems' => $expandedItems,
             'customers'      => $customers,
             'cashAccounts'   => $cashAccounts,
             'bankAccounts'   => $bankAccounts,
@@ -632,6 +628,7 @@ class SaleReturnController extends Controller
 
     public function update(Request $request, $id)
     {
+        // dd($request->all());
         $request->validate([
             'order_number'      => 'required|string',
             'sale_order_id'     => 'required|exists:orders,id',
@@ -639,43 +636,63 @@ class SaleReturnController extends Controller
             'return_date'       => 'required|date',
             'order_item_ids'    => 'required|array',
             'product_id'        => 'required|array',
-            'qty'               => 'required|array',
+            'canceled_quantity' => 'required|array',
+            'defect_quantity'   => 'required|array',
             'price'             => 'required|array',
             'total'             => 'required|array',
             'sub_total'         => 'required|numeric|min:0',
             'total_amount'      => 'required|numeric|min:0',
-            'edit_note' => 'required|string|max:500',
+            'edit_note'         => 'required|string|max:500',
         ]);
 
         DB::beginTransaction();
         try {
-            $saleReturn = SaleReturn::with(['items', 'accountTransactions'])->findOrFail($id);
+            $saleReturn = SaleReturn::with(['items'])->findOrFail($id);
 
             if ($saleReturn->hasStockIn()) {
-                DB::rollBack();
                 return back()->with(
                     'error',
                     'Tidak bisa mengubah Sale Return ini karena produk sudah dikembalikan ke Warehouse (completed quantity > 0).'
                 );
             }
 
-            $order      = Order::with(['orderItems.product', 'orderItems.productBundle.items.product'])
+            $order = Order::with(['orderItems.product', 'orderItems.productBundle.items.product'])
                 ->findOrFail($request->sale_order_id);
-            $address    = CustomerAddresses::where('customer_id', $request->customer_id)->first();
+
+            // 🔹 VALIDASI TAMBAHAN:
+            // Pastikan quantity defect dan canceled tidak kurang dari item sale return
+            foreach ($saleReturn->items as $item) {
+                // Cek Defect Product
+                $defect = DefectProduct::where('sale_return_item_id', $item->id)->first();
+                if ($defect && $defect->quantity < $item->defect_quantity) {
+                    DB::rollBack();
+                    return back()->with(
+                        'error',
+                        "Gagal memperbarui: Quantity defect untuk produk {$item->product->name} ({$defect->quantity}) lebih kecil dari jumlah di Sale Return ({$item->defect_quantity})."
+                    );
+                }
+
+                // Cek Canceled Product
+                $canceled = CanceledProduct::where('sale_return_item_id', $item->id)->first();
+                if ($canceled && $canceled->quantity < $item->canceled_quantity) {
+                    DB::rollBack();
+                    return back()->with(
+                        'error',
+                        "Gagal memperbarui: Quantity canceled untuk produk {$item->product->name} ({$canceled->quantity}) lebih kecil dari jumlah di Sale Return ({$item->canceled_quantity})."
+                    );
+                }
+            }
+
+            $address = CustomerAddresses::where('customer_id', $request->customer_id)->first();
 
             $grandTotal = array_sum($request->total);
-
-            // refund_amount jangan dikosongkan
-            $paidAmount = $request->refund_amount ?? $saleReturn->refund_amount;
+            $paidAmount = $request->refund_amount ?? $saleReturn->refund_amount ?? 0;
             $remainingAmount = $grandTotal - $paidAmount;
-
-            $status        = 'Sale Returns';
-            $account       = 'Sale Return';
+            $status = 'Sale Returns';
+            $account = 'Sale Return';
             $paymentStatus = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $grandTotal) ? 'Partially Paid' : 'Refunded');
 
-            /**
-             * === SNAPSHOT LAMA ===
-             */
+            // === SNAPSHOT LAMA ===
             $oldHeader = Arr::only($saleReturn->toArray(), [
                 'order_number',
                 'customer_id',
@@ -690,19 +707,18 @@ class SaleReturnController extends Controller
                 'google_map',
                 'note'
             ]);
-            $mapItems = function ($items) {
-                return $items->mapWithKeys(function ($item) {
-                    return [$item->order_item_id . '_' . $item->product_id => [
-                        'product' => $item->product->name ?? '-',
-                        'qty'     => (int) $item->quantity,
-                        'price'   => (float) $item->price,
-                        'total'   => (float) $item->total,
-                    ]];
-                });
-            };
-            $oldItems = $mapItems($saleReturn->items);
 
-            // Update saleReturn
+            $oldItems = $saleReturn->items->mapWithKeys(function ($item) {
+                return [$item->id => [
+                    'product' => $item->product->name ?? '-',
+                    'canceled_qty' => (int)$item->canceled_quantity,
+                    'defect_qty' => (int)$item->defect_quantity,
+                    'price' => (float)$item->price,
+                    'total' => (float)$item->total,
+                ]];
+            });
+
+            // === UPDATE SALE RETURN HEADER ===
             $saleReturn->update([
                 'sale_order_id'     => $order->id,
                 'customer_id'       => $request->customer_id,
@@ -716,301 +732,201 @@ class SaleReturnController extends Controller
                 'remaining_amount'  => $remainingAmount,
                 'return_address'    => $address?->address,
                 'google_map'        => $address?->google_maps,
-                'note'              => $request->note,
+                'note'              => $request->edit_note,
             ]);
 
-            /**
-             * === Update SaleReturnItem ===
-             */
+            // === UPDATE ITEMS ===
             $existingItems = $saleReturn->items->keyBy(fn($i) => $i->order_item_id . '-' . $i->product_id);
-            $requestKeys   = [];
+            $requestKeys = [];
 
             foreach ($request->order_item_ids as $index => $orderItemId) {
-                if (empty($orderItemId)) continue;
-
                 $orderItem = $order->orderItems->firstWhere('id', (int)$orderItemId);
                 if (!$orderItem) continue;
 
                 $productId = $request->product_id[$index] ?? null;
-                $qty       = (int)($request->qty[$index] ?? 0);
-                $price     = (float)($request->price[$index] ?? 0);
-                $subtotal  = (float)($request->total[$index] ?? ($qty * $price));
+                $canceledQty = (int)($request->canceled_quantity[$index] ?? 0);
+                $defectQty = (int)($request->defect_quantity[$index] ?? 0);
 
-                if ($qty <= 0 || !$productId) continue;
+                $totalQty = $canceledQty + $defectQty;
 
+                if ($totalQty <= 0 || !$productId) continue;
+
+                $price = (float)($request->price[$index] ?? 0);
+                $subtotal = (float)($request->total[$index] ?? ($totalQty * $price));
                 $key = $orderItem->id . '-' . $productId;
                 $requestKeys[] = $key;
 
+                // Ambil avg_cost
+                $component = \App\Models\OrderItemComponent::where('order_item_id', $orderItem->id)
+                    ->where('product_id', $productId)
+                    ->first();
+
+                $avgCostAtSale = $component?->avg_cost_at_sale ?? 0;
+                $fixedCostAtSale = $component?->fixed_cost_at_sale ?? 0;
+                $totalCostAtSale = $avgCostAtSale * $totalQty;
+                $totalFixedCostAtSale = $fixedCostAtSale * $totalQty;
+
+                // ===== ITEM SUDAH ADA =====
                 if ($existingItems->has($key)) {
-                    // Update item lama
                     $item = $existingItems[$key];
-                    $oldQty = $item->quantity;
-
                     $item->update([
-                        'quantity' => $qty,
-                        'price'    => $price,
-                        'total'    => $subtotal,
+                        'canceled_quantity'    => $canceledQty,
+                        'defect_quantity'      => $defectQty,
+                        'price'                => $price,
+                        'total'                => $subtotal,
+                        'avg_cost_at_return'   => $avgCostAtSale,
+                        'fixed_cost_at_return' => $fixedCostAtSale,
+                        'total_cost'           => $totalCostAtSale,
+                        'total_fixed_cost'     => $totalFixedCostAtSale,
                     ]);
-
-                    $delta = $qty - $oldQty;
-
-                    // ✅ Update canceled_products record
-                    $canceled = CanceledProduct::where('sale_return_id', $saleReturn->id)
-                        ->where('product_id', $productId)
-                        ->where('order_item_id', $orderItem->id)
-                        ->first();
-
-                    if ($canceled) {
-                        $canceled->increment('quantity', $delta);
-                    }
                 } else {
-                    // Tambah item baru
-                    SaleReturnItem::create([
-                        'sale_return_id' => $saleReturn->id,
-                        'product_id'     => $productId,
-                        'order_item_id'  => $orderItem->id,
-                        'quantity'       => $qty,
-                        'price'          => $price,
-                        'avg_cost_at_return' => $orderItem->avg_cost_at_return,
-                        'total_cost'       => $orderItem->avg_cost_at_return * $qty,
-                        'total'          => $subtotal,
+                    // ===== ITEM BARU =====
+                    $item = SaleReturnItem::create([
+                        'sale_return_id'       => $saleReturn->id,
+                        'product_id'           => $productId,
+                        'order_item_id'        => $orderItem->id,
+                        'canceled_quantity'    => $canceledQty,
+                        'defect_quantity'      => $defectQty,
+                        'price'                => $price,
+                        'total'                => $subtotal,
+                        'avg_cost_at_return'   => $avgCostAtSale,
+                        'fixed_cost_at_return' => $fixedCostAtSale,
+                        'total_cost'           => $totalCostAtSale,
+                        'total_fixed_cost'     => $totalFixedCostAtSale,
                     ]);
-
-                    // ✅ Tambah canceled_product baru
-                    CanceledProduct::create([
-                        'production_stock_id' => null, // bisa diisi kalau mau track
-                        'product_id'          => $productId,
-                        'warehouse_id'        => $orderItem->order->warehouse_id ?? 2,
-                        'sale_return_id'      => $saleReturn->id,
-                        'order_id'            => $order->id,
-                        'order_item_id'       => $orderItem->id,
-                        'quantity'            => $qty,
-                        'avg_cost_at_cancel'    => $orderItem->avg_cost_at_return,
-                        'total_cost'          => $orderItem->avg_cost_at_return * $qty,
-                        'date'                => $request->return_date,
-                        'type'                => 'from_sale_return',
-                        'status'              => 'pending',
-                        'note'                => 'Canceled product from sale return update',
-                        'created_by'          => Auth::id(),
-                    ]);
-
-                    $delta = $qty;
                 }
 
-                // ✅ Sync canceled_product_stock
-                $productionStock = ProductionStock::firstOrCreate(
-                    [
-                        'product_id' => $productId,
-                        'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2,
-                    ],
-                    [
-                        'opening_stock' => 0,
-                        'finished_product_stock' => 0,
-                        'canceled_product_stock' => 0,
-                        'available_quantity' => 0,
-                    ]
-                );
+                // ===== DEFECT =====
+                if ($defectQty > 0) {
+                    $defectProduct = DefectProduct::updateOrCreate(
+                        [
+                            'sale_return_id' => $saleReturn->id,
+                            'product_id'     => $productId,
+                        ],
+                        [
+                            'quantity'     => $defectQty,
+                            'defect_date'  => $request->return_date,
+                            'defect_type'  => 'from_sale_return',
+                            'status'       => 'pending',
+                            'note'         => 'Defect product from Sale Return (edit)',
+                            'user_id'      => Auth::id(),
+                            'sale_return_item_id'  => $item->id ?? null,
+                        ]
+                    );
 
-                $productionStock->increment('canceled_product_stock', $delta);
+                    // pastikan relasi tambahan ikut diupdate juga (kayak store)
+                    $defectProduct->update([
+                        'sale_return_item_id' => $item->id ?? null,
+                        'order_id'            => $order->id,
+                        'order_item_id'       => $orderItem->id,
+                    ]);
+                } else {
+                    // kalau defectQty 0, hapus record lama
+                    DefectProduct::where('sale_return_id', $saleReturn->id)
+                        ->where('product_id', $productId)
+                        ->delete();
+                }
 
-                // Update cost & stock produk
-                $product = Products::findOrFail($productId);
-                ProductCostService::updateCostAndStock($product);
+                // ===== CANCELED =====
+                if ($canceledQty > 0) {
+                    $productionStock = ProductionStock::firstOrCreate(
+                        [
+                            'product_id' => $productId,
+                            'production_warehouse_id' => $orderItem->order->warehouse_id ?? 2,
+                        ],
+                        [
+                            'opening_stock' => 0,
+                            'finished_product_stock' => 0,
+                            'canceled_product_stock' => 0,
+                            'available_quantity' => 0,
+                        ]
+                    );
+
+                    // update stok canceled_product_stock dengan nilai baru (bukan increment terus)
+                    $oldCanceled = $existingItems->has($key)
+                        ? (int)$existingItems[$key]->canceled_quantity
+                        : 0;
+
+                    $delta = $canceledQty - $oldCanceled;
+                    if ($delta !== 0) {
+                        $productionStock->canceled_product_stock += $delta;
+                        $productionStock->save();
+                    }
+
+                    $canceled = CanceledProduct::updateOrCreate(
+                        [
+                            'sale_return_id' => $saleReturn->id,
+                            'product_id'     => $productId,
+                            'order_item_id'  => $orderItem->id,
+                        ],
+                        [
+                            'production_stock_id'  => $productionStock->id,
+                            'warehouse_id'         => $productionStock->production_warehouse_id,
+                            'sale_return_item_id'  => $item->id ?? null,
+                            'order_id'             => $order->id,
+                            'quantity'             => $canceledQty,
+                            'avg_cost_at_cancel'   => $avgCostAtSale,
+                            'fixed_cost_at_cancel' => $fixedCostAtSale,
+                            'total_cost'           => $totalCostAtSale,
+                            'total_fixed_cost'     => $totalFixedCostAtSale,
+                            'date'                 => $request->return_date,
+                            'type'                 => 'from_sale_return',
+                            'status'               => 'pending',
+                            'note'                 => 'Canceled product from Sale Return (edit)',
+                            'created_by'           => Auth::id(),
+                        ]
+                    );
+                } else {
+                    // kalau canceledQty 0, hapus record lama
+                    CanceledProduct::where('sale_return_id', $saleReturn->id)
+                        ->where('product_id', $productId)
+                        ->delete();
+                }
             }
 
             // Hapus item yang tidak ada di request
             foreach ($existingItems as $key => $item) {
                 if (!in_array($key, $requestKeys)) {
-                    $productId = $item->product_id;
-                    $qty       = (int) $item->quantity;
-
-                    // langsung decrement
-                    $productionStock = ProductionStock::where('product_id', $productId)->first();
-                    if ($productionStock) {
-                        $productionStock->decrement('canceled_product_stock', $qty);
-                    }
-
-                    // update cost & stock produk
-                    $product = Products::find($productId);
-                    if ($product) {
-                        ProductCostService::updateCostAndStock($product);
-                        $product->stock_after_sales = $product->inventory_stock;
-                        $product->save();
-                    }
-
                     $item->delete();
                 }
             }
 
-            /**
-             * === SNAPSHOT BARU ===
-             */
-            $saleReturn->load('items');
-            $newHeader = Arr::only($saleReturn->toArray(), array_keys($oldHeader));
-            $newItems  = $mapItems($saleReturn->items);
-
-            /**
-             * === DIFF ===
-             */
-            $headerDiff = ['old' => [], 'new' => []];
-            foreach ($newHeader as $field => $newVal) {
-                $oldVal = $oldHeader[$field] ?? null;
-                if ($oldVal != $newVal) {
-                    $headerDiff['old'][$field] = $oldVal;
-                    $headerDiff['new'][$field] = $newVal;
-                }
-            }
-
-            $itemsDiff = [];
-            $allKeys = array_unique(array_merge(array_keys($oldItems->toArray()), array_keys($newItems->toArray())));
-            foreach ($allKeys as $key) {
-                $old = $oldItems[$key] ?? null;
-                $new = $newItems[$key] ?? null;
-
-                if ($old && !$new) {
-                    $itemsDiff[] = [
-                        'product'   => $old['product'],
-                        'old_qty'   => $old['qty'],
-                        'new_qty'   => 0,
-                        'old_total' => $old['total'],
-                        'new_total' => 0,
-                        'action'    => 'removed',
-                    ];
-                } elseif (!$old && $new) {
-                    $itemsDiff[] = [
-                        'product'   => $new['product'],
-                        'old_qty'   => 0,
-                        'new_qty'   => $new['qty'],
-                        'old_total' => 0,
-                        'new_total' => $new['total'],
-                        'action'    => 'added',
-                    ];
-                } else {
-                    $changed = [];
-                    foreach (['qty', 'price', 'total'] as $f) {
-                        if ($old[$f] != $new[$f]) {
-                            $changed[$f] = ['old' => $old[$f], 'new' => $new[$f]];
-                        }
-                    }
-                    if (!empty($changed)) {
-                        $itemsDiff[] = [
-                            'product'   => $new['product'],
-                            'action'    => 'updated',
-                            'fields'    => $changed,
-                            'old_qty'   => $old['qty'],
-                            'new_qty'   => $new['qty'],
-                            'old_total' => $old['total'],
-                            'new_total' => $new['total'],
-                        ];
-                    }
-                }
-            }
-
-            $changes = [
-                'header' => $headerDiff,
-                'items'  => $itemsDiff,
-            ];
-
-
-            // ================== HANDLE ACCOUNT TRANSACTIONS ==================
-            $saleReturnAccount = Account::where('type', 'Sale Return')->firstOrFail();
-
-            $existingTx = AccountTransaction::where('sale_return_id', $saleReturn->id)
-                ->where('account_id', $saleReturnAccount->id)
-                ->where('debit', '>', 0)
-                ->first();
-
-            if (!$existingTx) {
-                AccountTransaction::create([
-                    'sale_return_id'      => $saleReturn->id,
-                    'order_number'        => $saleReturn->order_number,
-                    'transaction_date'    => $request->return_date,
-                    'account_id'          => $saleReturnAccount->id,
-                    'debit'               => $grandTotal,
-                    'credit'              => 0,
-                    'note'                => $request->note ?? '',
-                    'particular'          => 'Sale Return',
-                    'transaction_group_id' => Str::uuid(),
-                ]);
-
-                $saleReturnAccount->increment('closing_balance', $grandTotal);
-            } else {
-                $diff = $grandTotal - $existingTx->debit;
-                $existingTx->update([
-                    'transaction_date' => $request->return_date,
-                    'debit'            => $grandTotal,
-                    'note'             => $request->note ?? '',
-                ]);
-
-                if ($diff != 0) {
-                    $saleReturnAccount->increment('closing_balance', $diff);
-                }
-            }
-
-            /**
-             * === SIMPAN HISTORY ===
-             */
+            // === CATAT HISTORY EDIT ===
             SaleReturnEditHistory::create([
                 'sale_return_id' => $saleReturn->id,
                 'edited_by'      => Auth::id(),
-                'changes'        => $changes,
+                'changes'        => 'Sale Return updated',
                 'text'           => $request->edit_note,
                 'edited_at'      => now(),
             ]);
 
-            $saleReturn->update([
-                'status_edited' => true,
-            ]);
-
-            // ================== UPDATE FINANCIAL REPORT ==================
+            // === UPDATE FINANCIAL REPORT ===
             try {
                 $returnDate = Carbon::parse($request->return_date);
-                $returnRevenue = (float) $grandTotal;
-                $returnCogs = 0;
+                $returnRevenue = (float)$grandTotal;
 
-                // 🔹 Hitung ulang total COGS berdasarkan produk dan qty baru
-                $saleReturnItems = $saleReturn->items ?? \App\Models\SaleReturnItem::where('sale_return_id', $saleReturn->id)->get();
+                $returnCogs = SaleReturnItem::where('sale_return_id', $saleReturn->id)
+                    ->sum(DB::raw('avg_cost_at_return * (COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0))'));
 
-                foreach ($saleReturnItems as $item) {
-                    $avgCostAtReturn = $item->avg_cost_at_return ?? 0;
-                    $returnCogs += $avgCostAtReturn * $item->quantity;
-                }
-
-                // 🔹 Karena ini retur, nilainya negatif
                 $grossLoss = -1 * ($returnRevenue - $returnCogs);
                 $netLoss = $grossLoss;
 
-                // 🔹 Cek apakah sudah ada record di financial_reports
-                $financialReport = \App\Models\FinancialReport::where('reference_id', $saleReturn->id)
-                    ->where('reference_table', 'sale_returns')
-                    ->first();
-
-                if ($financialReport) {
-                    // Update record lama
-                    $financialReport->update([
+                FinancialReport::updateOrCreate(
+                    [
+                        'reference_id' => $saleReturn->id,
+                        'reference_table' => 'sale_returns',
+                    ],
+                    [
                         'date'          => $returnDate,
+                        'transaction_type' => 'sale_return',
                         'revenue'       => -$returnRevenue,
                         'cogs'          => -$returnCogs,
                         'gross_profit'  => $grossLoss,
                         'expense'       => 0,
                         'net_profit'    => $netLoss,
                         'notes'         => 'Updated from Sale Return edit',
-                    ]);
-                } else {
-                    // Kalau belum ada (misalnya record lama hilang)
-                    FinancialReport::create([
-                        'date'             => $returnDate,
-                        'transaction_type' => 'sale_return',
-                        'reference_id'     => $saleReturn->id,
-                        'reference_table'  => 'sale_returns',
-                        'revenue'          => -$returnRevenue,
-                        'cogs'             => -$returnCogs,
-                        'gross_profit'     => $grossLoss,
-                        'expense'          => 0,
-                        'net_profit'       => $netLoss,
-                        'notes'            => 'Auto-created during Sale Return update',
-                    ]);
-                }
+                    ]
+                );
             } catch (\Exception $e) {
                 Log::error('Gagal update laporan keuangan Sale Return ID ' . $saleReturn->id . ': ' . $e->getMessage());
             }
@@ -1021,9 +937,8 @@ class SaleReturnController extends Controller
             DB::rollBack();
             Log::error('Sale Return Update Failed', [
                 'message' => $e->getMessage(),
-                'line'    => $e->getLine(),
-                'file'    => $e->getFile(),
-                'trace'   => $e->getTraceAsString(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
             ]);
             return redirect()->back()->with('error', 'Gagal memperbarui sale return: ' . $e->getMessage());
         }
@@ -1041,18 +956,26 @@ class SaleReturnController extends Controller
             // Ambil SaleReturn + items
             $saleReturn = SaleReturn::with('items')->findOrFail($id);
 
-            // 🔎 Cek apakah Sale Return ini sudah masuk ke Warehouse (Stock In)
-            $hasStockIn = Inventory::whereHas('canceledProduct', function ($q) use ($saleReturn) {
-                $q->where('sale_return_id', $saleReturn->id);
-            })
-                ->whereHas('items', function ($q) {
-                    $q->where('stock_in', '>', 0);
-                })
-                ->exists();
+            foreach ($saleReturn->items as $item) {
+                // Cek Defect Product
+                $defect = DefectProduct::where('sale_return_item_id', $item->id)->first();
+                if ($defect && $defect->quantity < $item->defect_quantity) {
+                    DB::rollBack();
+                    return back()->with(
+                        'error',
+                        "Tidak bisa menghapus Sale Return: Quantity defect untuk produk {$item->product->name} ({$defect->quantity}) lebih kecil dari jumlah di Sale Return ({$item->defect_quantity})."
+                    );
+                }
 
-            if ($hasStockIn) {
-                DB::rollBack();
-                return back()->with('error', 'Tidak bisa menghapus Sale Return ini karena produk sudah masuk ke Warehouse (Stock In).');
+                // Cek Canceled Product
+                $canceled = CanceledProduct::where('sale_return_item_id', $item->id)->first();
+                if ($canceled && $canceled->quantity < $item->canceled_quantity) {
+                    DB::rollBack();
+                    return back()->with(
+                        'error',
+                        "Tidak bisa menghapus Sale Return: Quantity canceled untuk produk {$item->product->name} ({$canceled->quantity}) lebih kecil dari jumlah di Sale Return ({$item->canceled_quantity})."
+                    );
+                }
             }
 
             // Simpan product_id untuk update stok nanti

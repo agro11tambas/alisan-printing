@@ -158,6 +158,7 @@
                                     <th>Waybill Number</th>
                                     <th>Waybill Image</th>
                                     <th>Histories</th>
+                                    <th>Note</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -215,6 +216,10 @@
                 {
                     data: 'stock_out',
                     name: 'stock_out'
+                },
+                {
+                    data: 'note',
+                    name: 'note'
                 },
             ]
         });

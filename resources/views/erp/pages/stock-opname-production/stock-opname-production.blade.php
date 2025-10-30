@@ -132,8 +132,7 @@
                                     <th class="wd-30">No</th>
                                     <th>Product</th>
                                     <th>Date</th>
-                                    <th>Quantity</th>
-                                    <th>Finished Product</th>
+                                    <th>Quantity</th>                                    
                                     <th>Status</th>
                                     <th>Notes</th>
                                     <!-- <th class="text-end">Actions</th> -->
@@ -216,10 +215,6 @@
                 {
                     data: 'available_quantity',
                     name: 'available_quantity'
-                },
-                {
-                    data: 'finished_product',
-                    name: 'finished_product'
                 },
                 {
                     data: 'status',

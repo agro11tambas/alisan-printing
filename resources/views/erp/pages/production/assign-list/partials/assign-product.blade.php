@@ -1,5 +1,5 @@
 <div class="table-responsive">
-    <table class="table table-sm table-bordered">
+    <table class="table table-small table-bordered">
         <thead>
             <tr>
                 <th style="width: 25%;">Operator</th>

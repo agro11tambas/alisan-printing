@@ -20,6 +20,8 @@ class DefectProduct extends Model
         'inventory_id',
         'inventory_stock_out_id',
         'inventory_item_id',
+        'sale_return_id',
+        'sale_return_item_id',
         'defect_date',
         'quantity',
         'eliminated_quantity',

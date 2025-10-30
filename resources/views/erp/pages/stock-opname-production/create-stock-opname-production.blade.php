@@ -37,8 +37,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Product</th>
-                                <th>Change Type</th>
-                                <th>Quantity</th>
+                                <th>Available Quantity</th>
                                 <th>Status</th>
                                 <th>Date</th>
                                 <th>Notes</th>
@@ -58,19 +57,8 @@
                                     <input type="hidden" name="items[0][production_warehouse_id]" value="2">
                                 </td>
                                 <td>
-                                    <select name="items[0][change]" class="form-select change-type">
-                                        <option value="" disabled selected hidden>Select</option>
-                                        <option value="available_quantity">Available Quantity</option>
-                                        <option value="finished_product">Finished Product</option>
-                                    </select>
-                                </td>
-                                <td>
                                     <input type="text" inputmode="numeric" name="items[0][available_quantity]"
-                                        class="form-control qty-field available_quantity d-none"
-                                        placeholder="Available Quantity">
-                                    <input type="text" inputmode="numeric" name="items[0][finished_product]"
-                                        class="form-control qty-field finished_product d-none"
-                                        placeholder="Finished Product">
+                                        class="form-control available_quantity" placeholder="Available Quantity">
                                 </td>
                                 <td>
                                     <select name="items[0][status]" class="form-select" data-select2-selector="tag">
@@ -107,18 +95,8 @@
                                 <input type="hidden" value="2" class="warehouse-id">
                             </td>
                             <td>
-                                <select class="form-select change-type">
-                                    <option value="" disabled selected hidden>Select</option>
-                                    <option value="available_quantity">Available Quantity</option>
-                                    <option value="finished_product">Finished Product</option>
-                                </select>
-                            </td>
-                            <td>
-                                <input type="text" inputmode="numeric" name="items[0][available_quantity]"
-                                    class="form-control qty-field available_quantity d-none"
+                                <input type="text" inputmode="numeric" class="form-control available_quantity"
                                     placeholder="Available Quantity">
-                                <input type="text" inputmode="numeric" name="items[0][finished_product]"
-                                    class="form-control qty-field finished_product d-none" placeholder="Finished Product">
                             </td>
                             <td>
                                 <select class="form-select status" data-select2-selector="tag">
@@ -183,69 +161,23 @@
 
         function formatStatusOption(state) {
             if (!state.id) return state.text;
-
             const $option = $(state.element);
             const bgClass = $option.data('bg');
-
-            let dotColor = '';
-            if (bgClass === 'bg-success') dotColor = '#16a34a';
-            else if (bgClass === 'bg-danger') dotColor = '#dc2626';
-
-            const $container = $('<span>', {
-                css: {
-                    'display': 'flex',
-                    'align-items': 'center',
-                    'gap': '8px'
-                }
-            });
-
-            const $dot = $('<span>', {
-                css: {
-                    'display': 'inline-block',
-                    'width': '7px',
-                    'height': '7px',
-                    'border-radius': '50%',
-                    'background-color': dotColor
-                }
-            });
-
-            const $text = $('<span>', {
-                text: state.text
-            });
-
-            $container.append($dot).append($text);
-            return $container;
+            const color = bgClass === 'bg-success' ? '#16a34a' : '#dc2626';
+            return $(
+                '<span style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background-color:' +
+                color + '"></span><span>' + state.text + '</span></span>');
         }
 
         document.addEventListener('input', function(e) {
-            if (e.target.matches(
-                    'input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]'
-                )) {
+            if (e.target.matches('input[name^="items"][name$="[available_quantity]"]')) {
                 let raw = e.target.value.replace(/\D/g, '');
                 e.target.value = raw ? numberFormat(raw) : '';
             }
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll(
-                'input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]'
-            ).forEach(el => {
-                if (el.value.trim() !== '') {
-                    el.value = numberFormat(parseFloat(el.value.replace(/\./g, '')) || 0);
-                }
-            });
-        });
-
         $(document).ready(function() {
             initSelect2(document);
-
-            $(document).on('select2:open', () => {
-                setTimeout(() => {
-                    document.querySelector('.select2-container--open .select2-search__field')
-                        ?.focus();
-                }, 50);
-            });
-
             let rowIndex = 1;
 
             $('#addRowBtn').on('click', function() {
@@ -255,18 +187,7 @@
 
                 $row.find('.select2-product').attr('name', `items[${rowIndex}][product_id]`);
                 $row.find('.warehouse-id').attr('name', `items[${rowIndex}][production_warehouse_id]`);
-                $row.find('.change-type').attr('name', `items[${rowIndex}][change]`);
-
-                $row.find('.available_quantity')
-                    .attr('name', `items[${rowIndex}][available_quantity]`)
-                    .attr('type', 'text')
-                    .attr('inputmode', 'numeric');
-
-                $row.find('.finished_product')
-                    .attr('name', `items[${rowIndex}][finished_product]`)
-                    .attr('type', 'text')
-                    .attr('inputmode', 'numeric');
-
+                $row.find('.available_quantity').attr('name', `items[${rowIndex}][available_quantity]`);
                 $row.find('.status').attr('name', `items[${rowIndex}][status]`);
                 $row.find('.date').attr('name', `items[${rowIndex}][date]`);
                 $row.find('.notes').attr('name', `items[${rowIndex}][notes]`);
@@ -274,37 +195,14 @@
                 $('#itemsBody').append($row);
                 initSelect2($row);
                 rowIndex++;
-
-                updateChangeFields($row);
             });
 
             $(document).on('click', '.removeRow', function() {
                 $(this).closest('tr').remove();
             });
 
-            $(document).on('change', '.change-type', function() {
-                const row = $(this).closest('tr');
-                row.find('.qty-field').addClass('d-none');
-                const val = $(this).val();
-                if (val) row.find(`.${val}`).removeClass('d-none');
-            });
-
-            function updateChangeFields(scope) {
-                $(scope).find('.change-type').each(function() {
-                    const val = $(this).val();
-                    const row = $(this).closest('tr');
-                    row.find('.qty-field').addClass('d-none');
-                    if (val) row.find(`.${val}`).removeClass('d-none');
-                });
-            }
-
-            updateChangeFields(document);
-            $('#itemsBody .change-type').trigger('change');
-
             $('#stockOpnameForm').on('submit', function() {
-                $(this).find(
-                    'input[name^="items"][name$="[available_quantity]"], input[name^="items"][name$="[finished_product]"]'
-                ).each(function() {
+                $(this).find('input[name^="items"][name$="[available_quantity]"]').each(function() {
                     this.value = this.value.replace(/\./g, '');
                 });
             });

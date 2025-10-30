@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\InventoryStock;
 use App\Models\ProductionStock;
 use App\Models\Products;
 use App\Models\StockOpnameProduction;
@@ -105,118 +106,152 @@ class StockOpnameProductionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'items'                              => 'required|array|min:1',
-            'items.*.product_id'                 => 'required|exists:products,id',
-            'items.*.production_warehouse_id'    => 'required|exists:production_warehouses,id',
-            'items.*.date'                       => 'required|date',
-            'items.*.change'                     => 'required|in:available_quantity,finished_product',
-            'items.*.status'                     => 'required|in:Gain,Loss',
-            'items.*.notes'                      => 'nullable|string',
+            'items'                           => 'required|array|min:1',
+            'items.*.product_id'              => 'required|exists:products,id',
+            'items.*.production_warehouse_id' => 'required|exists:production_warehouses,id',
+            'items.*.date'                    => 'required|date',
+            'items.*.available_quantity'      => 'required|numeric|min:0',
+            'items.*.status'                  => 'required|in:Gain,Loss',
+            'items.*.notes'                   => 'nullable|string',
         ]);
 
-        foreach ($request->items as $item) {
-            // validasi tambahan
-            if ($item['change'] === 'available_quantity' && empty($item['available_quantity'])) {
-                continue; // skip jika kosong
-            }
-            if ($item['change'] === 'finished_product' && empty($item['finished_product'])) {
-                continue;
-            }
+        DB::beginTransaction();
+        try {
+            foreach ($request->items as $item) {
+                // Skip jika qty kosong atau nol
+                if (empty($item['available_quantity']) || $item['available_quantity'] == 0) {
+                    continue;
+                }
 
-            $productionStock = ProductionStock::firstOrCreate(
-                [
-                    'product_id'              => $item['product_id'],
-                    'production_warehouse_id' => $item['production_warehouse_id'],
-                ],
-                [
-                    'opening_stock'          => 0,
-                    'finished_product_stock' => 0,
-                    'available_quantity'     => 0,
-                ]
-            );
+                // 🔹 Cari atau buat stok produksi
+                $productionStock = ProductionStock::firstOrCreate(
+                    [
+                        'product_id'              => $item['product_id'],
+                        'production_warehouse_id' => $item['production_warehouse_id'],
+                    ],
+                    [
+                        'opening_stock'          => 0,
+                        'finished_product_stock' => 0,
+                        'available_quantity'     => 0,
+                    ]
+                );
 
-            $oldAvailable = (int) $productionStock->available_quantity;
-            $oldFinished  = (int) $productionStock->finished_product_stock;
-            $newAvailable = $oldAvailable;
-            $newFinished  = $oldFinished;
-
-            if ($item['change'] === 'available_quantity') {
-                $qty = (int) $item['available_quantity'];
+                $oldAvailable = (int) $productionStock->available_quantity;
+                $qty          = (int) $item['available_quantity'];
                 $newAvailable = $item['status'] === 'Gain'
                     ? $oldAvailable + $qty
                     : max(0, $oldAvailable - $qty);
+
+                // 🔹 Simpan history opname production
+                StockOpnameProduction::create([
+                    'product_id'              => $item['product_id'],
+                    'production_warehouse_id' => $item['production_warehouse_id'],
+                    'date'                    => $item['date'],
+                    'change'                  => 'available_quantity', // tetap isi untuk kompatibilitas kolom
+                    'available_quantity'      => $qty,
+                    'status'                  => $item['status'],
+                    'notes'                   => $item['notes'] ?? null,
+                ]);
+
+                // 🔹 Update stok di tabel production_stocks
+                $productionStock->update([
+                    'available_quantity' => $newAvailable,
+                ]);
+
+                // 🔹 Update juga stock_after_sales di inventory_stocks
+                $inventoryStock = InventoryStock::firstOrCreate(
+                    ['product_id' => $item['product_id']],
+                    [
+                        'opening_stock'     => 0,
+                        'opening_rate'      => 0,
+                        'inventory_stock'   => 0,
+                        'purchase_stock'    => 0,
+                        'stock_after_sales' => 0,
+                        'minimum_stock'     => 0,
+                        'avg_cost'          => 0,
+                    ]
+                );
+
+                $oldAfterSales = (float) $inventoryStock->stock_after_sales;
+                $newAfterSales = $item['status'] === 'Gain'
+                    ? $oldAfterSales + $qty
+                    : max(0, $oldAfterSales - $qty);
+
+                $inventoryStock->update(['stock_after_sales' => $newAfterSales]);
             }
 
-            if ($item['change'] === 'finished_product') {
-                $qty = (int) $item['finished_product'];
-                $newFinished = $item['status'] === 'Gain'
-                    ? $oldFinished + $qty
-                    : max(0, $oldFinished - $qty);
-            }
-
-            // Simpan history opname
-            StockOpnameProduction::create([
-                'product_id'              => $item['product_id'],
-                'production_warehouse_id' => $item['production_warehouse_id'],
-                'date'                    => $item['date'],
-                'change'                  => $item['change'],
-                'available_quantity'      => $item['change'] === 'available_quantity' ? $item['available_quantity'] : null,
-                'finished_product'        => $item['change'] === 'finished_product' ? $item['finished_product'] : null,
-                'status'                  => $item['status'],
-                'notes'                   => $item['notes'] ?? null,
-            ]);
-
-            $productionStock->update([
-                'available_quantity'     => $newAvailable,
-                'finished_product_stock' => $newFinished,
-            ]);
+            DB::commit();
+            return redirect('/erp/productions/stock-opname')
+                ->with('success', 'Stock Opname Production created successfully.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to create Stock Opname Production: ' . $e->getMessage());
         }
-
-        return redirect('/erp/productions/stock-opname')
-            ->with('success', 'Stock Opname Production created successfully.');
     }
 
     public function delete($id)
     {
-        $stockOpname = StockOpnameProduction::findOrFail($id);
+        DB::beginTransaction();
+        try {
+            $stockOpname = StockOpnameProduction::findOrFail($id);
 
-        $productionStock = ProductionStock::where('product_id', $stockOpname->product_id)
-            ->where('production_warehouse_id', $stockOpname->production_warehouse_id)
-            ->first();
+            // 🔹 Ambil stok produksi terkait
+            $productionStock = ProductionStock::where('product_id', $stockOpname->product_id)
+                ->where('production_warehouse_id', $stockOpname->production_warehouse_id)
+                ->first();
 
-        if ($productionStock) {
-            $oldAvailable = (int) $productionStock->available_quantity;
-            $oldFinished  = (int) $productionStock->finished_product_stock;
+            // 🔹 Ambil stok inventory terkait
+            $inventoryStock = InventoryStock::firstOrCreate(
+                ['product_id' => $stockOpname->product_id],
+                [
+                    'opening_stock'     => 0,
+                    'opening_rate'      => 0,
+                    'inventory_stock'   => 0,
+                    'purchase_stock'    => 0,
+                    'stock_after_sales' => 0,
+                    'minimum_stock'     => 0,
+                    'avg_cost'          => 0,
+                ]
+            );
 
-            $newAvailable = $oldAvailable;
-            $newFinished  = $oldFinished;
-
-            if ($stockOpname->change === 'available_quantity' && $stockOpname->available_quantity !== null) {
+            if ($productionStock) {
+                $oldAvailable = (int) $productionStock->available_quantity;
                 $qty = (int) $stockOpname->available_quantity;
-                // balikkan efek dari store
+
+                // 🔁 rollback efek dari opname sebelumnya
                 $newAvailable = $stockOpname->status === 'Gain'
-                    ? max(0, $oldAvailable - $qty)
-                    : $oldAvailable + $qty;
+                    ? max(0, $oldAvailable - $qty)   // jika sebelumnya Gain → sekarang dikurangi
+                    : $oldAvailable + $qty;          // jika sebelumnya Loss → sekarang ditambah
+
+                $productionStock->update([
+                    'available_quantity' => $newAvailable,
+                ]);
             }
 
-            if ($stockOpname->change === 'finished_product' && $stockOpname->finished_product !== null) {
-                $qty = (int) $stockOpname->finished_product;
-                // balikkan efek dari store
-                $newFinished = $stockOpname->status === 'Gain'
-                    ? max(0, $oldFinished - $qty)
-                    : $oldFinished + $qty;
+            if ($inventoryStock) {
+                $oldAfterSales = (float) $inventoryStock->stock_after_sales;
+                $qty = (float) $stockOpname->available_quantity;
+
+                $newAfterSales = $stockOpname->status === 'Gain'
+                    ? max(0, $oldAfterSales - $qty)
+                    : $oldAfterSales + $qty;
+
+                $inventoryStock->update([
+                    'stock_after_sales' => $newAfterSales,
+                ]);
             }
 
-            $productionStock->update([
-                'available_quantity'     => $newAvailable,
-                'finished_product_stock' => $newFinished,
-            ]);
+            // 🔹 Hapus data opname
+            $stockOpname->delete();
+
+            DB::commit();
+
+            return redirect('/erp/productions/stock-opname')
+                ->with('success', 'Stock Opname deleted successfully.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to delete Stock Opname: ' . $e->getMessage());
         }
-
-        $stockOpname->delete();
-
-        return redirect('/erp/productions/stock-opname')
-            ->with('success', 'Stock Opname deleted successfully.');
     }
 
     public function edit($id)
@@ -230,99 +265,114 @@ class StockOpnameProductionController extends Controller
 
     public function update(Request $request, $id)
     {
-        // validasi umum
         $request->validate([
-            'product'  => 'required|exists:products,id',
-            'production_warehouse_id' => 'required|exists:production_warehouses,id',
-            'date'     => 'required|date',
-            'change'   => 'required|in:available_quantity,finished_product',
-            'status'   => 'required|in:Gain,Loss',
-            'notes'    => 'nullable|string',
+            'product'                  => 'required|exists:products,id',
+            'production_warehouse_id'  => 'required|exists:production_warehouses,id',
+            'date'                     => 'required|date',
+            'available_quantity'       => 'required|integer|min:0',
+            'status'                   => 'required|in:Gain,Loss',
+            'notes'                    => 'nullable|string',
         ]);
 
-        if ($request->change === 'available_quantity') {
-            $request->validate(['available_quantity' => 'required|integer|min:0']);
-        }
+        DB::beginTransaction();
+        try {
+            // 🔹 Ambil data opname lama
+            $stockOpname = StockOpnameProduction::findOrFail($id);
 
-        if ($request->change === 'finished_product') {
-            $request->validate(['finished_product' => 'required|integer|min:0']);
-        }
+            // 🔹 Ambil stok produksi lama
+            $productionStock = ProductionStock::where('product_id', $stockOpname->product_id)
+                ->where('production_warehouse_id', $stockOpname->production_warehouse_id)
+                ->first();
 
-        // ambil stock opname lama
-        $stockOpname = StockOpnameProduction::findOrFail($id);
+            // 🔹 Ambil inventory stock (untuk rollback dan update ulang)
+            $inventoryStock = InventoryStock::firstOrCreate(
+                ['product_id' => $stockOpname->product_id],
+                [
+                    'opening_stock'     => 0,
+                    'opening_rate'      => 0,
+                    'inventory_stock'   => 0,
+                    'purchase_stock'    => 0,
+                    'stock_after_sales' => 0,
+                    'minimum_stock'     => 0,
+                    'avg_cost'          => 0,
+                ]
+            );
 
-        // ambil stok warehouse lama
-        $productionStock = ProductionStock::where('product_id', $stockOpname->product_id)
-            ->where('production_warehouse_id', $stockOpname->production_warehouse_id)
-            ->first();
-
-        if ($productionStock) {
-            // rollback efek lama
-            if ($stockOpname->change === 'available_quantity') {
-                $rollback = $stockOpname->status === 'Gain'
-                    ? -(int) $stockOpname->available_quantity
-                    : (int) $stockOpname->available_quantity;
+            // =============================
+            // 1️⃣ ROLLBACK efek opname lama
+            // =============================
+            if ($productionStock) {
+                $rollbackQty = (int) $stockOpname->available_quantity;
+                $rollbackAdj = $stockOpname->status === 'Gain' ? -$rollbackQty : $rollbackQty;
 
                 $productionStock->update([
-                    'available_quantity' => max(0, $productionStock->available_quantity + $rollback),
+                    'available_quantity' => max(0, $productionStock->available_quantity + $rollbackAdj),
+                ]);
+
+                $inventoryStock->update([
+                    'stock_after_sales' => max(0, $inventoryStock->stock_after_sales + $rollbackAdj),
                 ]);
             }
 
-            if ($stockOpname->change === 'finished_product') {
-                $rollback = $stockOpname->status === 'Gain'
-                    ? -(int) $stockOpname->finished_product
-                    : (int) $stockOpname->finished_product;
-
-                $productionStock->update([
-                    'finished_product_stock' => max(0, $productionStock->finished_product_stock + $rollback),
-                ]);
-            }
-        }
-
-        // update data opname dengan input baru
-        $stockOpname->update([
-            'product_id'              => $request->product,
-            'production_warehouse_id' => $request->production_warehouse_id,
-            'date'                    => $request->date,
-            'change'                  => $request->change,
-            'available_quantity'      => $request->change === 'available_quantity' ? $request->available_quantity : null,
-            'finished_product'        => $request->change === 'finished_product' ? $request->finished_product : null,
-            'status'                  => $request->status,
-            'notes'                   => $request->notes,
-        ]);
-
-        // apply efek baru
-        $productionStock = ProductionStock::firstOrCreate(
-            [
+            // =============================
+            // 2️⃣ UPDATE data opname baru
+            // =============================
+            $stockOpname->update([
                 'product_id'              => $request->product,
                 'production_warehouse_id' => $request->production_warehouse_id,
-            ],
-            [
-                'opening_stock'           => 0,
-                'finished_product_stock'  => 0,
-                'available_quantity'      => 0,
-            ]
-        );
+                'date'                    => $request->date,
+                'change'                  => 'available_quantity', // biar kompatibel dengan kolom DB
+                'available_quantity'      => $request->available_quantity,
+                'status'                  => $request->status,
+                'notes'                   => $request->notes,
+            ]);
 
-        if ($request->change === 'available_quantity') {
+            // =============================
+            // 3️⃣ APPLY efek baru
+            // =============================
+            $productionStock = ProductionStock::firstOrCreate(
+                [
+                    'product_id'              => $request->product,
+                    'production_warehouse_id' => $request->production_warehouse_id,
+                ],
+                [
+                    'opening_stock'          => 0,
+                    'finished_product_stock' => 0,
+                    'available_quantity'     => 0,
+                ]
+            );
+
+            $inventoryStock = InventoryStock::firstOrCreate(
+                ['product_id' => $request->product],
+                [
+                    'opening_stock'     => 0,
+                    'opening_rate'      => 0,
+                    'inventory_stock'   => 0,
+                    'purchase_stock'    => 0,
+                    'stock_after_sales' => 0,
+                    'minimum_stock'     => 0,
+                    'avg_cost'          => 0,
+                ]
+            );
+
             $qty = (int) $request->available_quantity;
-            $adjustment = $request->status === 'Gain' ? $qty : -$qty;
+            $adj = $request->status === 'Gain' ? $qty : -$qty;
 
             $productionStock->update([
-                'available_quantity' => max(0, $productionStock->available_quantity + $adjustment),
+                'available_quantity' => max(0, $productionStock->available_quantity + $adj),
             ]);
-        }
 
-        if ($request->change === 'finished_product') {
-            $qty = (int) $request->finished_product;
-            $adjustment = $request->status === 'Gain' ? $qty : -$qty;
-
-            $productionStock->update([
-                'finished_product_stock' => max(0, $productionStock->finished_product_stock + $adjustment),
+            $inventoryStock->update([
+                'stock_after_sales' => max(0, $inventoryStock->stock_after_sales + $adj),
             ]);
-        }
 
-        return redirect('/erp/productions/stock-opname')
-            ->with('success', 'Stock Opname updated successfully.');
+            DB::commit();
+
+            return redirect('/erp/productions/stock-opname')
+                ->with('success', 'Stock Opname Production updated successfully.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to update Stock Opname: ' . $e->getMessage());
+        }
     }
 }

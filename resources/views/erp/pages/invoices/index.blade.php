@@ -92,8 +92,8 @@
                     <div class="table-responsive">
                         <table class="table table-hover" id="invoiceTable">
                             <thead>
-                                <tr>
-                                    <th class="wd-30">No</th>
+                                <tr>                                    
+                                    <th>Logo</th>
                                     <th>Name</th>
                                     <th>Bank</th>
                                     <th>No Rek</th>
@@ -159,11 +159,12 @@
                     d.name = $('#bank_name').val();
                 }
             },
-            columns: [{
-                    data: 'DT_RowIndex',
-                    name: 'DT_RowIndex',
+            columns: [
+                {
+                    data: 'logo',
+                    name: 'logo',
                     orderable: false,
-                    searchable: false
+                    searchable: false,
                 },
                 {
                     data: 'name',

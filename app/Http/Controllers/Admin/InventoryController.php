@@ -143,8 +143,12 @@ class InventoryController extends Controller
 
     public function dataStockOut(Request $request)
     {
-        $inventory = Inventory::with(['items', 'purchaseReturn.supplier', 'order.customer'])
-            ->where('status', 'Stock Out');
+        $inventory = Inventory::with([
+            'items',
+            'purchaseReturn.supplier',
+            'order.customer',
+            'materialRequest.requestedBy',
+        ])->where('status', 'Stock Out');
 
         // 🔎 Filter tanggal
         if ($request->filter) {
@@ -207,7 +211,11 @@ class InventoryController extends Controller
             if ($request->progress_status === 'completed') {
                 $inventory->whereDoesntHave('items', function ($q) {
                     $q->whereColumn('stock_out', '<', 'quantity');
-                });
+                })
+                    ->whereNotNull('material_request_id')
+                    ->whereHas('materialRequest', function ($q) {
+                        $q->whereNull('deleted_at'); // ✅ hanya tampilkan MR yang belum dihapus
+                    });
             } elseif ($request->progress_status === 'progress') {
                 $inventory->whereHas('items', function ($q) {
                     $q->whereColumn('stock_out', '<', 'quantity');

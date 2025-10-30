@@ -1,16 +1,5 @@
 <div class="dropdown">
     <ul class="dropdown-menu show static-action-menu">
-        @if (Auth::user()->role === 'Kurir' || Auth::user()->role === 'Owner')
-            @if (!$dl->proof_delivery || !$dl->proof_waybill)
-                <li>
-                    <a href="javascript:void(0);" class="dropdown-item btn-upload-proof" data-id="{{ $dl->id }}"
-                        data-url="{{ route('delivery-list.upload-proof', $dl->id) }}">
-                        <i class="feather feather-upload"></i> Upload Bukti
-                    </a>
-                </li>
-            @endif
-        @endif
-
         @if (Auth::user()->role === 'Admin' || Auth::user()->role === 'Owner')
 
             {{-- ✅ tampilkan tombol hanya jika belum Finished --}}
@@ -44,15 +33,28 @@
                 </li>
 
                 <li>
-                    <button type="button" class="dropdown-item btn-delete-delivery"
-                        data-id="{{ $dl->id }}" data-name="{{ $dl->shipment_number ?? 'Delivery #' . $dl->id }}"
+                    <button type="button" class="dropdown-item btn-delete-delivery" data-id="{{ $dl->id }}"
+                        data-name="{{ $dl->shipment_number ?? 'Delivery #' . $dl->id }}"
                         data-url="{{ route('delivery-list.destroy', $dl->id) }}">
                         <i class="feather feather-trash-2 me-3"></i>
                         <span>Delete Delivery List</span>
                     </button>
                 </li>
             @endif
+        @endif
 
+        @if (Auth::user()->role === 'Kurir' || Auth::user()->role === 'Owner')
+            {{-- ✅ Tombol upload bukti hanya muncul jika belum upload bukti --}}
+            @if (empty($dl->proof_photos) || $dl->proof_photos === '[]')
+                <li>
+                    <a href="javascript:void(0);" class="dropdown-item btn-upload-proof" data-id="{{ $dl->id }}"
+                        data-url="{{ route('delivery-list.upload-proof', $dl->id) }}"
+                        data-photos='{{ $dl->proof_photos ?? '[]' }}'>
+                        <i class="feather feather-upload"></i> Upload Bukti
+                    </a>
+
+                </li>
+            @endif
         @endif
 
     </ul>

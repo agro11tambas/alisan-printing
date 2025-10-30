@@ -533,6 +533,8 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/accounts/edit-account/{id}', [AccountController::class, 'edit']);
             Route::put('/erp/accounts/update/{id}', [AccountController::class, 'update']);
             Route::delete('/erp/accounts/delete/{id}', [AccountController::class, 'delete']);
+            Route::post('/erp/accounts/mark-default/{id}', [AccountController::class, 'markAsDefault']);
+            Route::post('/erp/accounts/remove-default/{id}', [AccountController::class, 'removeDefault']);
         });
 
         Route::middleware(['auth', 'subpermission:account-expense'])->group(function () {

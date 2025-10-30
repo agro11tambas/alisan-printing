@@ -53,10 +53,9 @@ class SaleListController extends Controller
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        // $saleReturnAccount = Account::whereIn('type', ['Sale Return'])
-        //     ->firstOrFail();
+        $defaultAccount = Account::where('is_default', true)->first();
 
-        return view('erp.pages.sales.sale-list.sale-list', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
+        return view('erp.pages.sales.sale-list.sale-list', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount'));
     }
 
     public function dataSaleList(Request $request)

@@ -75,7 +75,7 @@ class Inventory extends Model
 
     public function materialRequest()
     {
-        return $this->belongsTo(MaterialRequest::class, 'material_request_id');
+        return $this->belongsTo(MaterialRequest::class, 'material_request_id')->withTrashed();
     }
 
     public function materialReceipt()
@@ -96,5 +96,11 @@ class Inventory extends Model
     public function rejectProduct()
     {
         return $this->belongsTo(RejectProduct::class, 'reject_product_id');
+    }
+
+    public function latestStockOutVerification()
+    {
+        return $this->hasOne(InventoryStockOut::class, 'inventory_id')
+            ->latest('verified_at'); // atau kolom waktu yang relevan
     }
 }

@@ -7,16 +7,31 @@
             </a>
         </li>
         <li>
-            <button type="button"
-                class="dropdown-item btn-delete"
-                data-bs-toggle="modal"
-                data-bs-target="#modalDeleteAccount"
-                data-id="{{ $account->id }}"
-                data-name="{{ $account->name }}"
+            <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
+                data-bs-target="#modalDeleteAccount" data-id="{{ $account->id }}" data-name="{{ $account->name }}"
                 data-url="{{ url('/erp/accounts/delete/' . $account->id) }}">
                 <i class="feather feather-trash-2 me-3"></i>
                 <span>Delete</span>
             </button>
         </li>
+
+        <li>
+            @if ($account->is_default)
+                <button type="button" class="dropdown-item btn-remove-default" data-bs-toggle="modal"
+                    data-bs-target="#modalRemoveDefault" data-id="{{ $account->id }}" data-name="{{ $account->name }}"
+                    data-url="{{ url('/erp/accounts/remove-default/' . $account->id) }}">
+                    <i class="feather feather-x-circle me-3"></i>
+                    <span>Remove Default</span>
+                </button>
+            @elseif(!$hasDefault)
+                <button type="button" class="dropdown-item btn-mark-default" data-bs-toggle="modal"
+                    data-bs-target="#modalMarkDefault" data-id="{{ $account->id }}" data-name="{{ $account->name }}"
+                    data-url="{{ url('/erp/accounts/mark-default/' . $account->id) }}">
+                    <i class="feather feather-star me-3"></i>
+                    <span>Mark as Default</span>
+                </button>
+            @endif
+        </li>
+
     </ul>
 </div>

@@ -37,6 +37,22 @@ class InvoiceController extends Controller
 
         return DataTables::of($invoice)
             ->addIndexColumn()
+            ->addColumn('logo', function ($invoice) {
+                if ($invoice->logo && file_exists(public_path($invoice->logo))) {
+                    $url = asset($invoice->logo);
+                    return '
+                        <a href="' . $url . '" 
+                            data-lightbox="invoice-logo-' . $invoice->id . '" 
+                            data-title="' . e($invoice->name ?? 'Invoice Logo') . '" 
+                            class="d-inline-block">
+                            <img src="' . $url . '" width="80" height="60"
+                                style="border-radius:8px;object-fit:cover;object-position:center;border:1px solid #ddd;">
+                        </a>
+                    ';
+                } else {
+                    return '<span class="text-muted">No Logo</span>';
+                }
+            })
             ->addColumn('bank_name', function ($invoice) {
                 return $invoice->bank_name;
             })
@@ -63,7 +79,7 @@ class InvoiceController extends Controller
             ->addColumn('action', function ($invoice) {
                 return view('erp.pages.invoices.partials.action-button', compact('invoice'));
             })
-            ->rawColumns(['action', 'terms_and_conditions'])
+            ->rawColumns(['action', 'terms_and_conditions', 'logo'])
             ->make(true);
     }
 
@@ -75,6 +91,7 @@ class InvoiceController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'name' => 'required',
             'bank_name' => 'required',
             'account_number' => 'required',
@@ -97,6 +114,16 @@ class InvoiceController extends Controller
             }
         }
 
+        if ($request->hasFile('logo')) {
+            if ($invoice->logo && Storage::exists('public/' . $invoice->logo)) {
+                Storage::delete('public/' . $invoice->logo);
+            }
+
+            $path = $request->file('logo')->store('invoice_logos', 'public');
+            $invoice->logo = $path;
+        }
+
+
         return redirect('/erp/invoices')->with('success', 'Invoice created successfully.');
     }
 
@@ -112,6 +139,7 @@ class InvoiceController extends Controller
 
         // Validasi data
         $request->validate([
+            'logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'name'           => 'required|string|max:255',
             'bank_name'      => 'required|string|max:255',
             'account_number' => 'required|string|max:255',
@@ -144,6 +172,22 @@ class InvoiceController extends Controller
         } else {
             // Jika tidak ada data, hapus semua term
             $invoice->termAndConditions()->delete();
+        }
+
+        if ($request->hasFile('logo')) {
+            // Hapus logo lama (kalau ada)
+            if ($invoice->logo && file_exists(public_path($invoice->logo))) {
+                unlink(public_path($invoice->logo));
+            }
+
+            // Simpan langsung ke folder public/invoice_logos
+            $file = $request->file('logo');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('invoice_logos'), $filename);
+
+            // Simpan path relatif untuk diakses lewat asset()
+            $invoice->logo = 'invoice_logos/' . $filename;
+            $invoice->save();
         }
 
         return redirect('/erp/invoices')->with('success', 'Invoice berhasil diperbarui.');

@@ -63,6 +63,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 number_format($inv->stock_after_sales ?? 0, 0, ',', '.'),
                 'incoming_stock' =>
                 number_format($inv->incoming_stock ?? 0, 0, ',', '.'),
+                'incoming_stock_production' =>
+                number_format($prod->incoming_stock ?? 0, 0, ',', '.'),
                 'avg_cost' =>
                 '<span class="text-primary">' . number_format($avgRounded, 2, ',', '.') . '</span>',
                 'fixed_cost' =>
@@ -78,6 +80,7 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 'order_progress_remaining',
                 'avg_cost',
                 'fixed_cost',
+                'incoming_stock_production',
             ])
             ->make(true);
     }

@@ -224,6 +224,8 @@ class HistoryStockOutController extends Controller
                 'waybill_image'   => $waybillImagePath,
                 'status'          => 'Add Stock Out',
                 'user_id'         => $request->user()->id,
+                'note'            => $request->notes,
+                'verified_by'     => $request->user()->id,
             ]);
 
             // 🔹 Ambil semua item dari inventory_items_2
@@ -499,6 +501,9 @@ class HistoryStockOutController extends Controller
                 return view('erp.pages.inventory.stock-out.partials.product-stock-out-history', [
                     "items" => $stockIn->histories
                 ])->render();
+            })
+            ->addColumn('note', function ($stockIn) {
+                return $stockIn->note ?? '-';
             })
             ->rawColumns(['invoice_number', 'waybill_image', 'stock_out'])
             ->make(true);

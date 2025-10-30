@@ -166,6 +166,10 @@ class OpeningStockRateController extends Controller
 
                 $oldOpeningStock = (float) $stock->opening_stock;
                 $oldOpeningRate  = (float) $stock->opening_rate;
+                $oldAvgCost      = (float) $stock->avg_cost;
+                $oldInventoryStock = (float) $stock->inventory_stock;
+                $oldTotalStock   = $oldInventoryStock; // simpan stok lama sebelum update
+
                 $newOpeningStock = (float) ($request->opening_stock[$index] ?? 0);
                 $newOpeningRate  = (float) ($request->opening_rate[$index] ?? 0);
                 $newMinimumStock = (float) ($request->minimum_stock[$index] ?? 0);
@@ -182,18 +186,14 @@ class OpeningStockRateController extends Controller
                 ]);
 
                 // 🔹 Hanya ubah avg_cost kalau rate-nya berubah
-                if ($oldOpeningRate !== $newOpeningRate) {
-                    $oldAvgCost     = (float) $stock->avg_cost;
-                    $oldTotalStock  = (float) $stock->inventory_stock - $diff; // stok sebelum diupdate
-                    $newTotalStock  = max(1, $oldTotalStock); // hindari div 0
-                    $openingStock   = (float) $oldOpeningStock;
+                if ($oldOpeningRate !== $newOpeningRate || $oldAvgCost == 0) {
+                    $newTotalStock = max(1, $newOpeningStock); // gunakan stok baru, bukan stok lama
 
-                    // 💥 Rumus full revaluation (bukan proporsional biasa)
                     $newAvgCost = round(
                         (
-                            ($oldAvgCost * $newTotalStock)               // nilai stok lama total
-                            - ($openingStock * $oldOpeningRate)          // kurangi nilai opening lama
-                            + ($openingStock * $newOpeningRate)          // tambahkan nilai opening baru
+                            ($oldAvgCost * $oldTotalStock)
+                            - ($oldOpeningStock * $oldOpeningRate)
+                            + ($newOpeningStock * $newOpeningRate)
                         ) / $newTotalStock,
                         2
                     );

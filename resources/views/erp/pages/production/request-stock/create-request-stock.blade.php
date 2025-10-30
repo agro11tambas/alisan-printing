@@ -93,8 +93,11 @@
                                                     <option value="" disabled selected hidden>Pilih produk</option>
                                                 </select>
                                             </td>
-                                            <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" min="1"
-                                                    value="1" required></td>
+                                            <td>
+                                                <input type="text" inputmode="numeric" name="qty[]"
+                                                    class="form-control qty text-start" min="0" value="0"
+                                                    required>
+                                            </td>
                                             <td class="text-center">
                                                 <div class="d-flex justify-content-center">
                                                     <button type="button" class="btn btn-danger delete-row">
@@ -104,6 +107,7 @@
                                             </td>
                                         </tr>
                                     </tbody>
+
                                 </table>
                             </div>
 
@@ -145,9 +149,10 @@
             populateProducts(el);
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        $(document).ready(function() {
             let rowCount = 1;
 
+            // Inisialisasi select2 di baris pertama
             document.querySelectorAll('select.select-product').forEach(el => {
                 populateProducts(el);
                 initSelect2(el);
@@ -157,69 +162,72 @@
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
+            // ✅ Saat fokus: kosongkan 0 biar langsung bisa input
             $(document).on('focus', '.qty', function() {
                 if ($(this).val() === '0') $(this).val('');
             });
 
+            // ✅ Saat kehilangan fokus: kembalikan ke 0 kalau kosong
             $(document).on('blur', '.qty', function() {
                 if ($(this).val().trim() === '') $(this).val('0');
             });
 
+            // ✅ Saat input angka, format otomatis
             $(document).on('input', '.qty', function(e) {
-                const input = e.target;
-                const cursorPos = input.selectionStart;
-                const raw = input.value.replace(/\./g, '');
+                const input = $(this);
+                const raw = input.val().replace(/\./g, '');
                 if (raw === '') return;
-                const formatted = formatNumber(raw);
-                const diff = formatted.length - input.value.length;
-                input.value = formatted;
-                input.setSelectionRange(cursorPos + diff, cursorPos + diff);
+
+                const value = parseInt(raw);
+                const formatted = formatNumber(value.toString());
+                input.val(formatted);
             });
 
+            // ✅ Hapus titik sebelum submit
             $('#requestStockForm').on('submit', function() {
                 $('.qty').each(function() {
                     this.value = this.value.replace(/\./g, '');
                 });
             });
 
-            document.getElementById('add_row').addEventListener('click', function() {
-                const tableBody = document.getElementById('tab_logic_body');
-                const newRow = document.createElement('tr');
-                newRow.id = 'addr' + rowCount;
-
-                newRow.innerHTML = `
-            <td>${rowCount + 1}</td>
-            <td>
-                <select class="form-control select-product" name="product[]" required>
-                    <option value="" disabled selected hidden>Pilih produk</option>
-                </select>
-            </td>
-            <td>
-                <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="1" required>
-            </td>
-            <td class="text-center">
-                <div class="d-flex justify-content-center">
-                    <button type="button" class="btn btn-danger delete-row">
-                        <i class="feather-trash"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-
-                tableBody.appendChild(newRow);
-                initSelect2(newRow.querySelector('.select-product'));
+            // ✅ Tambah baris baru
+            $('#add_row').on('click', function() {
+                const tableBody = $('#tab_logic_body');
+                const newRow = $(`
+                <tr id="addr${rowCount}">
+                    <td>${rowCount + 1}</td>
+                    <td>
+                        <select class="form-control select-product" name="product[]" required>
+                            <option value="" disabled selected hidden>Pilih produk</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0" required>
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center">
+                            <button type="button" class="btn btn-danger delete-row">
+                                <i class="feather-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `);
+                tableBody.append(newRow);
+                initSelect2(newRow.find('.select-product'));
                 rowCount++;
             });
 
+            // ✅ Hapus baris
             $(document).on('click', '.delete-row', function() {
                 $(this).closest('tr').remove();
-
                 $('#tab_logic_body tr').each(function(index) {
                     $(this).find('td:first').text(index + 1);
                 });
             });
         });
 
+        // Autofokus pencarian select2
         $(document).on('select2:open', () => {
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();

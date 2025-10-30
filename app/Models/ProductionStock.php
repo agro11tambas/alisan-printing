@@ -20,6 +20,7 @@ class ProductionStock extends Model
         'finished_product_stock',
         'canceled_product_stock',
         'available_quantity',
+        'incoming_stock',
     ];
 
     public function warehouse()

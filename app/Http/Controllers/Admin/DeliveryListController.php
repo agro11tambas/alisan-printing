@@ -98,10 +98,15 @@ class DeliveryListController extends Controller
                 return $dl->deliveryOrder->customer ?? '-';
             })
             ->addColumn('address', function ($dl) {
-                return '<div class="d-flex flex-column align-items-start">
-                    <div>' . $dl->deliveryOrder->shipping_address . '</div>
-                    <a href="' . $dl->deliveryOrder->google_map_link . '"  target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Maps</a>
-                </div>';
+                $address = $dl->deliveryOrder->shipping_address ?? '-';
+                $mapLink = $dl->deliveryOrder->google_map_link ?? '#';
+
+                return '
+                    <div class="d-flex flex-column align-items-start" style="white-space: normal; word-break: break-word; max-width: 200px;">
+                        <div>' . e($address) . '</div>
+                        <a href="' . $mapLink . '" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Maps</a>
+                    </div>
+                ';
             })
             ->addColumn('status', function ($dl) {
                 $status = strtolower($dl->status);
@@ -152,6 +157,9 @@ class DeliveryListController extends Controller
                 } else {
                     return '<span class="text-muted">-</span>';
                 }
+            })
+            ->addColumn('proof_photos', function ($dl) {
+                return $dl->proof_photos ? json_encode($dl->proof_photos) : '[]';
             })
             ->addColumn('action', function ($dl) {
                 return view('erp.pages.deliveries.delivery-list.partials.action-button', compact('dl'))->render();
@@ -360,30 +368,23 @@ class DeliveryListController extends Controller
         $deliveryList = DeliveryList::findOrFail($id);
 
         $request->validate([
-            'proof_waybill'  => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'proof_delivery' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'proof_photos'   => 'required|array',
+            'proof_photos.*' => 'image|mimes:jpg,jpeg,png|max:10240', // max 10MB per foto
         ]);
 
-        if ($request->hasFile('proof_waybill')) {
-            $fileName = 'waybill_' . time() . '.' . $request->file('proof_waybill')->extension();
-            $path = $request->file('proof_waybill')->storeAs('uploads/waybill-proofs', $fileName, 'public');
-            $deliveryList->proof_waybill = $path;
+        $savedPhotos = [];
+
+        foreach ($request->file('proof_photos', []) as $photo) {
+            $fileName = 'proof_' . time() . '_' . uniqid() . '.' . $photo->extension();
+            $path = $photo->move(public_path('uploads/proof-photos'), $fileName);
+            $savedPhotos[] = 'uploads/proof-photos/' . $fileName;
         }
 
-        if ($request->hasFile('proof_delivery')) {
-            $fileName = 'delivery_' . time() . '.' . $request->file('proof_delivery')->extension();
-            $path = $request->file('proof_delivery')->storeAs('uploads/delivery-proofs', $fileName, 'public');
-            $deliveryList->proof_delivery = $path;
-        }
-
-        // ✅ Kalau dua-duanya sudah ada, ubah status jadi finished
-        // if ($deliveryList->proof_waybill && $deliveryList->proof_delivery) {
-        //     $deliveryList->status = 'Finished';
-        // }
-
+        // Simpan sebagai JSON array (biar bisa multi foto)
+        $deliveryList->proof_photos = json_encode($savedPhotos);
         $deliveryList->save();
 
-        return redirect()->back()->with('success', 'Bukti berhasil diupload!');
+        return back()->with('success', 'Bukti berhasil diupload!');
     }
 
     public function verify($id)

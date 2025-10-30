@@ -23,6 +23,7 @@ class InventoryStockOut extends Model
         'waybill_image',
         'status',
         'note',
+        'verified_by',
     ];
 
     protected $casts = [
@@ -47,5 +48,10 @@ class InventoryStockOut extends Model
     public function defectProducts()
     {
         return $this->hasMany(DefectProduct::class, 'inventory_stock_out_id');
+    }
+
+    public function verifiedByUser()
+    {
+        return $this->belongsTo(User::class, 'verified_by');
     }
 }

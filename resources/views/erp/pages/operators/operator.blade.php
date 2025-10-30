@@ -82,7 +82,9 @@
                                     <th style="width: 20px;">No</th>
                                     <th>Name</th>
                                     <th>Status</th>
-                                    <th>Total Progress</th>
+                                    <th>Completed Progress</th>
+                                    <th>Defect Progress</th>
+                                    <th>Reject Progress</th>
                                     <!-- <th class="text-center">Action</th> -->
                                 </tr>
                             </thead>
@@ -159,6 +161,18 @@
                 {
                     data: 'total_progress',
                     name: 'total_progress',
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'defect_progress',
+                    name: 'defect_progress',
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'reject_progress',
+                    name: 'reject_progress',
                     orderable: false,
                     searchable: false
                 },

@@ -156,17 +156,11 @@
 
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Bukti Waybill / Surat Jalan</label>
-                            <input type="file" name="proof_waybill" class="form-control" accept="image/*"
+                            <label class="form-label fw-semibold">Ambil Foto Bukti (Surat Jalan & Pengantaran)</label>
+                            <input type="file" id="proof_camera" class="form-control" accept="image/*"
                                 capture="environment">
-                            <div class="invalid-feedback d-block text-danger" id="error-proof_waybill"></div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Bukti Pengantaran</label>
-                            <input type="file" name="proof_delivery" class="form-control" accept="image/*"
-                                capture="environment">
-                            <div class="invalid-feedback d-block text-danger" id="error-proof_delivery"></div>
+                            <div id="preview-container" class="mt-3 d-flex flex-wrap gap-2"></div>
+                            <div class="invalid-feedback d-block text-danger" id="error-proof_photos"></div>
                         </div>
                     </div>
 
@@ -347,11 +341,50 @@
 
             $(document).on('click', '.btn-upload-proof', function() {
                 const url = $(this).data('url');
-                $('#formUploadProof').attr('action', url);
-                $('#modalUploadProof').modal('show');
+                const id = $(this).data('id');
+                const existingPhotosRaw = $(this).attr('data-photos');
+                let existingPhotos = [];
 
+                photoFiles = [];
+                $('#preview-container').html('');
+
+                // 🔸 Reset modal
+                $('#formUploadProof').attr('action', url);
                 $('#formUploadProof')[0].reset();
-                $('#error-proof_waybill, #error-proof_delivery').text('');
+                $('#error-proof_photos').text('');
+                $('#proof-preview').html('');
+
+                console.log('📷 Raw data-photos:', existingPhotosRaw);
+
+                // 🔸 Parse JSON kalau ada
+                if (existingPhotosRaw && existingPhotosRaw !== '[]') {
+                    try {
+                        existingPhotos = JSON.parse(existingPhotosRaw);
+                    } catch (err) {
+                        console.warn('❌ JSON parse error:', err);
+                    }
+                }
+
+                // 🔸 Kalau ada gambar lama, tampilkan preview
+                if (Array.isArray(existingPhotos) && existingPhotos.length > 0) {
+                    let html = '';
+                    existingPhotos.forEach((img) => {
+                        // Jika sudah diawali http, pakai langsung. Kalau belum, tambah base URL.
+                        const imgSrc = img.startsWith('http') ?
+                            img :
+                            `${window.location.origin}/${img.replace(/^\/+/, '')}`;
+                        html += `
+                <a href="${imgSrc}" data-lightbox="proof-${id}" data-title="Preview Bukti">
+                    <img src="${imgSrc}" width="100" height="80"
+                        style="border-radius:8px;object-fit:cover;border:1px solid #ddd;margin:3px;">
+                </a>`;
+                    });
+                    $('#proof-preview').html(html);
+                } else {
+                    $('#proof-preview').html('<p class="text-muted">Belum ada bukti yang diupload.</p>');
+                }
+
+                $('#modalUploadProof').modal('show');
             });
 
             $('#formUploadProof').on('submit', function(e) {
@@ -391,6 +424,90 @@
                 $('#formDeleteDelivery').attr('action', url);
                 $('#modalDeleteDelivery').modal('show');
             });
+        });
+
+        // Fungsi kompresi gambar pakai canvas
+        function compressImage(file, quality = 0.7) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = event => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const MAX_WIDTH = 1280; // batas resolusi maksimal
+                        const scaleSize = MAX_WIDTH / img.width;
+                        canvas.width = MAX_WIDTH;
+                        canvas.height = img.height * scaleSize;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        canvas.toBlob(
+                            (blob) => resolve(new File([blob], file.name, {
+                                type: 'image/jpeg'
+                            })),
+                            'image/jpeg',
+                            quality
+                        );
+                    };
+                };
+            });
+        }
+
+        let photoFiles = []; // simpan semua foto yang diambil
+
+        // 📸 Saat ambil foto dari kamera
+        $(document).on('change', '#proof_camera', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Simpan ke array (buat dikirim nanti)
+            photoFiles.push(file);
+
+            const reader = new FileReader();
+            reader.onload = ev => {
+                $('#preview-container').append(`
+            <div class="position-relative d-inline-block m-1">
+                <img src="${ev.target.result}" 
+                     class="img-thumbnail" 
+                     style="width: 100px; height: 80px; object-fit: cover; border-radius: 6px;">
+            </div>
+        `);
+            };
+            reader.readAsDataURL(file);
+
+            // Reset input supaya bisa buka kamera lagi
+            e.target.value = '';
+        });
+
+        document.getElementById('formUploadProof').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (photoFiles.length === 0) {
+                alert('Silakan ambil minimal 1 foto bukti.');
+                return;
+            }
+
+            const formData = new FormData(this);
+
+            // Kompres dan tambahkan semua file
+            for (const file of photoFiles) {
+                const compressed = await compressImage(file, 0.6);
+                formData.append('proof_photos[]', compressed, file.name);
+            }
+
+            const url = this.getAttribute('action');
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                Swal.fire('Berhasil!', 'Foto bukti berhasil diupload.', 'success').then(() => location
+                    .reload());
+            } else {
+                Swal.fire('Gagal!', 'Terjadi kesalahan saat upload.', 'error');
+            }
         });
     </script>
 @endpush

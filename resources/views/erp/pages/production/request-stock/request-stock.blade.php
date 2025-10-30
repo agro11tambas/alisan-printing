@@ -140,20 +140,6 @@
                             </li>
                         </ul>
                         <div class="table-responsive">
-                            <!-- <table class="table table-hover" id="requestStockTable">
-                                <thead>
-                                    <tr>
-                                        <th class="wd-30">No</th>
-                                        <th>Request By</th>
-                                        <th>Date</th>
-                                        <th>Items</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-
-                                </tbody>
-                            </table> -->
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="request-stock" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="requestStockTable">
@@ -164,7 +150,8 @@
                                                 <th>Date</th>
                                                 <th>Items</th>
                                                 <th>Warehouse Status</th>
-                                                <th>Status</th>
+                                                <th>Verified By</th>
+                                                {{-- <th>Status</th> --}}
                                             </tr>
                                         </thead>
                                     </table>
@@ -181,7 +168,6 @@
                                                 <th>Action</th>
                                             </tr>
                                         </thead>
-
                                     </table>
                                 </div>
                             </div>
@@ -241,6 +227,28 @@
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalResponsibilityRequest" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-white">
+                    <h5 class="modal-title text-white">Konfirmasi Tanggung Jawab</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Jika terjadi kesalahan permintaan bahan, apakah Anda siap bertanggung jawab atas hasil Request Stock
+                        ini?</p>
+                    <p class="text-muted mb-0">Pastikan data permintaan sudah sesuai sebelum melanjutkan.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-warning btn-md" id="btnConfirmResponsibilityRequest">
+                        Ya, Saya Bertanggung Jawab
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -340,9 +348,13 @@
                         name: 'warehouse_status'
                     },
                     {
-                        data: 'status',
-                        name: 'status'
+                        data: 'verified_by',
+                        name: 'verified_by',
                     },
+                    // {
+                    //     data: 'status',
+                    //     name: 'status'
+                    // },
                     // {
                     //     data: 'action',
                     //     name: 'action',
@@ -566,6 +578,56 @@
 
                 form.action = url;
                 nameHolder.textContent = name;
+            });
+        });
+
+        $(document).ready(function() {
+            let pendingFormAction = null;
+
+            // Tangkap form verifikasi
+            const verifyForm = $('#formChangeStatus');
+
+            // Saat klik tombol "Change" pertama
+            verifyForm.on('submit', function(e) {
+                e.preventDefault();
+
+                pendingFormAction = $(this).attr('action');
+                $('#modalChangeStatus').modal('hide');
+
+                // Tampilkan modal konfirmasi tanggung jawab
+                setTimeout(() => {
+                    $('#modalResponsibilityRequest').modal('show');
+                }, 300);
+            });
+
+            // Saat klik "Ya, Saya Bertanggung Jawab" di modal kedua
+            $('#btnConfirmResponsibilityRequest').on('click', function() {
+                $('#modalResponsibilityRequest').modal('hide');
+
+                $.ajax({
+                    url: pendingFormAction,
+                    method: 'POST',
+                    data: verifyForm.serialize(),
+                    success: function(response) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: 'Status Request Stock berhasil diperbarui.',
+                        }).then(() => {
+                            $('#requestStockTable').DataTable().ajax.reload();
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ||
+                                'Terjadi kesalahan saat memperbarui status.',
+                        });
+                    }
+                });
             });
         });
     </script>

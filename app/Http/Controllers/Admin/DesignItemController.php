@@ -11,18 +11,24 @@ class DesignItemController extends Controller
     // public function upload(Request $request, $id)
     // {
     //     $request->validate([
-    //         'preview_image' => 'required|image|mimes:jpg,jpeg,png|max:2048',
-    //         'note' => 'nullable|string',
+    //         'preview_image'   => 'required|array',
+    //         'preview_image.*' => 'image|mimes:jpg,jpeg,png|max:2048',
+    //         'note'            => 'nullable|string',
     //     ]);
 
     //     $item = DesignItem::findOrFail($id);
 
-    //     // Upload file
+    //     $imagePaths = [];
+
     //     if ($request->hasFile('preview_image')) {
-    //         $file = $request->file('preview_image');
-    //         $filename = time() . '_' . $file->getClientOriginalName();
-    //         $file->move(public_path('uploads/designs'), $filename);
-    //         $item->preview_image = $filename;
+    //         foreach ($request->file('preview_image') as $image) {
+    //             $fileName = time() . '_' . $image->getClientOriginalName();
+    //             $image->move(public_path('uploads/designs'), $fileName);
+    //             $imagePaths[] = $fileName;
+    //         }
+
+    //         // simpan ke kolom JSON
+    //         $item->preview_image = json_encode($imagePaths);
     //     }
 
     //     $item->note = $request->note;
@@ -35,28 +41,32 @@ class DesignItemController extends Controller
     {
         $request->validate([
             'preview_image'   => 'required|array',
-            'preview_image.*' => 'image|mimes:jpg,jpeg,png|max:2048',
-            'note'            => 'nullable|string',
+            'preview_image.*' => 'image|mimes:jpg,jpeg,png|max:4096',
+            'note_per_image'  => 'array',
         ]);
 
         $item = DesignItem::findOrFail($id);
 
-        $imagePaths = [];
+        $uploadedImages = [];
+        $notes = $request->note_per_image ?? [];
 
         if ($request->hasFile('preview_image')) {
-            foreach ($request->file('preview_image') as $image) {
-                $fileName = time() . '_' . $image->getClientOriginalName();
+            foreach ($request->file('preview_image') as $index => $image) {
+                $fileName = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
                 $image->move(public_path('uploads/designs'), $fileName);
-                $imagePaths[] = $fileName;
+
+                $uploadedImages[] = [
+                    'file' => $fileName,
+                    'note' => $notes[$index] ?? '',
+                ];
             }
 
-            // simpan ke kolom JSON
-            $item->preview_image = json_encode($imagePaths);
+            // simpan struktur JSON: [ {file, note}, ... ]
+            $item->preview_image = json_encode($uploadedImages);
         }
 
-        $item->note = $request->note;
         $item->save();
 
-        return response()->json(['message' => 'Image uploaded successfully!']);
+        return response()->json(['message' => 'Image(s) uploaded successfully!']);
     }
 }

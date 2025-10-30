@@ -112,7 +112,7 @@
 
 @push('modals')
     <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-lg">
             <form id="uploadForm" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('POST')
@@ -132,7 +132,7 @@
                                 <p class="text-muted small mb-2">
                                     Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot
                                 </p>
-                                <div id="previewContainer" class="d-flex flex-wrap justify-content-center gap-2"></div>
+                                <div id="previewContainer" class="d-flex flex-wrap gap-3 justify-content-start"></div>
                             </div>
 
                             <input type="file" class="form-control mt-2" id="preview_image" name="preview_image[]"
@@ -150,6 +150,23 @@
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="imageViewerModal" tabindex="-1" aria-labelledby="imageViewerModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="imageViewerModalLabel">Preview Image</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="viewerImage" src="" alt="Preview" class="img-fluid rounded mb-3"
+                        style="max-height: 70vh; object-fit: contain;">
+                    <p id="viewerNote" class="text-muted fs-6"></p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -313,13 +330,21 @@
 
                 const formData = new FormData(this);
 
-                // Jika user paste beberapa screenshot, tambahkan semua ke form
-                if (pastedImageBlobs.length > 0) {
-                    formData.delete('preview_image[]'); // hapus input file default
-                    pastedImageBlobs.forEach((blob, index) => {
-                        formData.append('preview_image[]', blob, `screenshot_${index + 1}.png`);
-                    });
-                }
+                // Hapus input file default
+                formData.delete('preview_image[]');
+                formData.delete('note_per_image[]');
+
+                // Ambil semua note
+                const notes = [];
+                $('#previewContainer .note-input').each(function() {
+                    notes.push($(this).val());
+                });
+
+                // Tambahkan gambar dan note per gambar
+                pastedImageBlobs.forEach((blob, index) => {
+                    formData.append('preview_image[]', blob, `screenshot_${index + 1}.png`);
+                    formData.append('note_per_image[]', notes[index] || '');
+                });
 
                 $.ajax({
                     url: '/erp/design-items/' + $('#design_item_id').val() + '/upload',
@@ -385,7 +410,7 @@
                 });
             });
 
-            // === Multi Paste & Upload Support ===
+            // === Multi Paste & Upload Support dengan Note per Gambar ===
             let pastedImageBlobs = [];
 
             // Handle paste screenshot
@@ -394,45 +419,55 @@
                 for (const item of items) {
                     if (item.type.indexOf('image') === 0) {
                         const blob = item.getAsFile();
-                        pastedImageBlobs.push(blob); // simpan semua hasil paste
+                        pastedImageBlobs.push(blob);
 
                         const reader = new FileReader();
                         reader.onload = function(event) {
-                            $('#previewContainer').append(`
-                    <div class="position-relative d-inline-block">
-                        <img src="${event.target.result}" class="rounded border" 
-                             style="width:100px;height:80px;object-fit:cover;">
+                            const imgHTML = `
+                    <div class="border rounded p-2 position-relative" style="max-width:250px;">
+                        <img src="${event.target.result}" class="rounded border mb-2" 
+                             style="width:100%;height:150px;object-fit:cover;">
+                        <textarea class="form-control form-control-sm note-input" 
+                            placeholder="Catatan untuk gambar ini..."></textarea>
                     </div>
-                `);
+                `;
+                            $('#previewContainer').append(imgHTML);
                         };
                         reader.readAsDataURL(blob);
-
-                        $('#preview_image').val(''); // reset input file
+                        $('#preview_image').val('');
                     }
                 }
             });
 
-            // Klik area untuk fokus (biar bisa langsung paste)
-            $('#pasteArea').on('click', function() {
-                $(this).focus();
-            });
-
-            // Saat user pilih file manual, tampilkan preview-nya juga
+            // Handle upload manual
             $('#preview_image').on('change', function(e) {
                 $('#previewContainer').empty();
-                pastedImageBlobs = []; // reset hasil paste
+                pastedImageBlobs = [];
                 for (const file of e.target.files) {
+                    pastedImageBlobs.push(file);
                     const reader = new FileReader();
                     reader.onload = function(event) {
-                        $('#previewContainer').append(`
-                <div class="position-relative d-inline-block">
-                    <img src="${event.target.result}" class="rounded border" 
-                         style="width:100px;height:80px;object-fit:cover;">
+                        const imgHTML = `
+                <div class="border rounded p-2 position-relative" style="max-width:250px;">
+                    <img src="${event.target.result}" class="rounded border mb-2" 
+                         style="width:100%;height:150px;object-fit:cover;">
+                    <textarea class="form-control form-control-sm note-input" 
+                        placeholder="Catatan untuk gambar ini..."></textarea>
                 </div>
-            `);
+            `;
+                        $('#previewContainer').append(imgHTML);
                     };
                     reader.readAsDataURL(file);
                 }
+            });
+
+            $(document).on('click', '.img-viewer', function(e) {
+                e.preventDefault();
+                const imgSrc = $(this).data('src');
+                const note = $(this).data('note') || '-';
+                $('#viewerImage').attr('src', imgSrc);
+                $('#viewerNote').text(note);
+                $('#imageViewerModal').modal('show');
             });
         });
     </script>

@@ -1,5 +1,5 @@
 <div class="table-responsive">
-    <table class="table bg-transparent table-sm table-bordered mb-0 align-middle">
+    <table class="table bg-transparent table-small table-bordered mb-0 align-middle">
         <thead>
             <tr>
                 <th>Product</th>
@@ -21,19 +21,23 @@
                         @endphp
 
                         @if (!empty($images))
-                            <div class="d-flex flex-wrap align-items-center gap-2">
+                            <div class="d-flex flex-wrap align-items-start gap-3">
                                 @foreach ($images as $img)
-                                    <a href="{{ asset('uploads/designs/' . $img) }}"
-                                        data-lightbox="design-{{ $design->id }}"
-                                        data-title="{{ $item->product->name ?? 'Preview Image' }}" class="d-inline-block">
-                                        <img src="{{ asset('uploads/designs/' . $img) }}" width="80" height="60"
-                                            style="border-radius:8px;object-fit:cover;object-position:center;border:1px solid #ddd;">
-                                    </a>
+                                    <div class="text-center">
+                                        <a href="#" class="img-viewer"
+                                            data-src="{{ asset('uploads/designs/' . $img['file']) }}"
+                                            data-note="{{ $img['note'] ?? '' }}">
+                                            <img src="{{ asset('uploads/designs/' . $img['file']) }}" width="100"
+                                                height="80"
+                                                style="border-radius:8px;object-fit:cover;border:1px solid #ddd;">
+                                        </a>
+
+                                        <p class="small text-muted mt-1">{{ $img['note'] ?? '-' }}</p>
+                                    </div>
                                 @endforeach
 
                                 <button class="btn btn-sm btn-outline-primary upload-btn" data-id="{{ $item->id }}"
-                                    data-note="{{ $item->note ?? '' }}" data-bs-toggle="modal"
-                                    data-bs-target="#uploadModal">
+                                    data-bs-toggle="modal" data-bs-target="#uploadModal">
                                     <i class="feather-upload"></i> Upload
                                 </button>
                             </div>
@@ -43,6 +47,7 @@
                                 <i class="feather-upload"></i> Upload
                             </button>
                         @endif
+
                     </td>
 
                     <td>

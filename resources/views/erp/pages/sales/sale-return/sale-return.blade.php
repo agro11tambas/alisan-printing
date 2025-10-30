@@ -259,7 +259,7 @@
                                             'bg-success',
                                         ];
                                     @endphp
-                                    <select class="form-select form-control max-select" data-select2-selector="tag"
+                                    {{-- <select class="form-select form-control max-select" data-select2-selector="tag"
                                         name="cash_bank_account_id" id="cash_bank_account_id">
                                         <option value="" disabled selected hidden>Pilih Bank atau Cash Account
                                         </option>
@@ -277,7 +277,30 @@
                                             <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank -
                                                 {{ $bank->type }}</option>
                                         @endforeach
+                                    </select> --}}
+                                    <select class="form-select form-control max-select" data-select2-selector="tag"
+                                        name="cash_bank_account_id" id="cash_bank_account_id">
+                                        <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
+                                            Pilih Bank atau Cash Account
+                                        </option>
+
+                                        @foreach ($cashAccounts as $cash)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $cash->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $cash->id ? 'selected' : '' }}>
+                                                Cash - {{ $cash->type }}
+                                            </option>
+                                        @endforeach
+
+                                        @foreach ($bankAccounts as $bank)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $bank->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $bank->id ? 'selected' : '' }}>
+                                                Bank - {{ $bank->type }}
+                                            </option>
+                                        @endforeach
                                     </select>
+
                                 </div>
                                 <small class="text-danger d-none" id="error_cash_bank_account_id"></small>
                             </div>
@@ -791,6 +814,12 @@
                 form.action = url;
                 nameHolder.textContent = name;
             });
+        });
+
+        $('#modalChangeStatus').on('shown.bs.modal', function() {
+            if ($.fn.select2) {
+                $('#cash_bank_account_id').trigger('change.select2');
+            }
         });
     </script>
 @endpush

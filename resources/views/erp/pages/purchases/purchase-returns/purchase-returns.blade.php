@@ -207,91 +207,6 @@
         </div>
     </div>
 
-    {{-- <div class="modal fade-scale" id="modalChangeStatus" tabindex="-1" aria-labelledby="modalChangeStatus" aria-hidden="true" data-bs-dismiss="ou">
-    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-        <div class="modal-content">
-            <!--! BEGIN: [modal-header] !-->
-            <div class="modal-header">
-                <h2 class="d-flex flex-column mb-0">
-                    <span class="fs-18 fw-bold mb-1">Mark As Refund</span>
-                </h2>
-                <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger close-icon" data-bs-dismiss="modal">
-                    <i class="feather-x text-danger"></i>
-                </a>
-            </div>
-            <!--! BEGIN: [modal-body] !-->
-            <form method="POST" id="markAsPurchaseForm">
-                @csrf
-                <input type="hidden" id="purchase_return_id" name="purchase_return_id">
-
-                <div class="modal-body">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label for="transaction_type" class="fw-semibold">Purchase:</label>
-                            <div class="input-group">
-                                <select class="form-select form-control max-select" data-select2-selector="tag" id="transaction_type" name="transaction_type">
-                                    <option value="14" data-bg="bg-danger">Purchase Return</option>
-                                </select>
-                            </div>
-                            <small class="text-danger d-none" id="error_transaction_type"></small>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="transaction_date" class="fw-semibold">Transaction Date:</label>
-                            <div class="input-group">
-                                <input type="date" id="transaction_date" name="transaction_date" class="form-control" value="{{ date('Y-m-d') }}">
-                            </div>
-                            <small class="text-danger d-none" id="error_transaction_date"></small>
-                        </div>
-                    </div>
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label for="cash_bank_account_id" class="fw-semibold">Cash/Bank Account:</label>
-                            <div class="input-group">
-                                @php
-                                $bgColors = ['bg-danger', 'bg-warning', 'bg-primary', 'bg-indigo', 'bg-success'];
-                                @endphp
-                                <select class="form-select form-control max-select" data-select2-selector="tag" name="cash_bank_account_id" id="cash_bank_account_id">
-                                    <option value="" disabled selected hidden>Pilih Bank atau Cash Account</option>
-                                    @foreach ($cashAccounts as $cash)
-                                    @php
-                                    $bg = $bgColors[$loop->index % count($bgColors)];
-                                    @endphp
-                                    <option value="{{ $cash->id }}" data-bg="{{ $bg }}">Cash - {{ $cash->type }}</option>
-                                    @endforeach
-                                    @foreach ($bankAccounts as $bank)
-                                    @php
-                                    $bg = $bgColors[$loop->index % count($bgColors)];
-                                    @endphp
-                                    <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank - {{ $bank->type }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <small class="text-danger d-none" id="error_cash_bank_account_id"></small>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="paid_amount" class="fw-semibold">Paid Amount:</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="paid_amount" name="paid_amount" value="0">
-                            </div>
-                            <small class="text-danger d-none" id="error_paid_amount"></small>
-                            <span class="fw-semibold fs-12" id="paid_amount_display">Paid: Rp. 0</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer d-flex justify-content-between">
-                    <div>
-                        <div class="col-md-6">
-                            <p class="m-0">Balance:</p>
-                            <h5 class="fw-semibold text-danger" id="total_amount_display">0</h5>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Mark As Paid</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div> --}}
-
     <div class="modal fade-scale" id="modalRefundProduct" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -329,7 +244,7 @@
                                 <label for="cash_bank_account_id_product" class="fw-semibold">Cash/Bank Account:</label>
                                 <div class="input-group">
                                     @php $bgColors = ['bg-danger','bg-warning','bg-primary','bg-indigo','bg-success']; @endphp
-                                    <select class="form-select" id="cash_bank_account_id_product"
+                                    {{-- <select class="form-select" id="cash_bank_account_id_product"
                                         data-select2-selector="tag" name="cash_bank_account_id">
                                         <option value="" disabled selected hidden>Pilih Cash/Bank Account</option>
                                         @foreach ($cashAccounts as $cash)
@@ -341,6 +256,27 @@
                                             @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
                                             <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank -
                                                 {{ $bank->type }}</option>
+                                        @endforeach
+                                    </select> --}}
+                                    <select class="form-select" id="cash_bank_account_id_product"
+                                        data-select2-selector="tag" name="cash_bank_account_id">
+                                        <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
+                                            Pilih Cash/Bank Account</option>
+
+                                        @foreach ($cashAccounts as $cash)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $cash->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $cash->id ? 'selected' : '' }}>
+                                                Cash - {{ $cash->type }}
+                                            </option>
+                                        @endforeach
+
+                                        @foreach ($bankAccounts as $bank)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $bank->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $bank->id ? 'selected' : '' }}>
+                                                Bank - {{ $bank->type }}
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -406,7 +342,7 @@
                                 <label for="cash_bank_account_id_freight" class="fw-semibold">Cash/Bank Account:</label>
                                 <div class="input-group">
                                     @php $bgColors = ['bg-danger','bg-warning','bg-primary','bg-indigo','bg-success']; @endphp
-                                    <select class="form-select" id="cash_bank_account_id_freight"
+                                    {{-- <select class="form-select" id="cash_bank_account_id_freight"
                                         data-select2-selector="tag" name="cash_bank_account_id">
                                         <option value="" disabled selected hidden>Pilih Cash/Bank Account</option>
                                         @foreach ($cashAccounts as $cash)
@@ -418,6 +354,27 @@
                                             @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
                                             <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank -
                                                 {{ $bank->type }}</option>
+                                        @endforeach
+                                    </select> --}}
+                                    <select class="form-select" id="cash_bank_account_id_freight"
+                                        data-select2-selector="tag" name="cash_bank_account_id">
+                                        <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
+                                            Pilih Cash/Bank Account</option>
+
+                                        @foreach ($cashAccounts as $cash)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $cash->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $cash->id ? 'selected' : '' }}>
+                                                Cash - {{ $cash->type }}
+                                            </option>
+                                        @endforeach
+
+                                        @foreach ($bankAccounts as $bank)
+                                            @php $bg = $bgColors[$loop->index % count($bgColors)]; @endphp
+                                            <option value="{{ $bank->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $bank->id ? 'selected' : '' }}>
+                                                Bank - {{ $bank->type }}
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -793,33 +750,6 @@
         });
 
         document.addEventListener('click', function(e) {
-            // if (e.target.closest('.btn-mark-paid')) {
-            //     const button = e.target.closest('.btn-mark-paid');
-            //     const purchaseReturnId = button.getAttribute('data-id');
-            //     const url = button.getAttribute('data-url');
-            //     const totalAmount = parseFloat(button.getAttribute('data-total-amount')) || 0;
-            //     const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
-            //     const remainingAmount = totalAmount - paidAmount;
-
-            //     // isi hidden + form action
-            //     document.getElementById('purchase_return_id').value = purchaseReturnId;
-            //     document.getElementById('markAsPurchaseForm').setAttribute('action', url);
-
-            //     // tampilkan balance
-            //     document.getElementById('total_amount_display').innerText = new Intl.NumberFormat('id-ID').format(
-            //         remainingAmount);
-
-            //     // isi otomatis Paid Amount = balance
-            //     const formatted = new Intl.NumberFormat('id-ID').format(remainingAmount);
-            //     document.getElementById('paid_amount').value = formatted;
-
-            //     // update label Paid: Rp ...
-            //     const paidDisplay = document.getElementById('paid_amount_display');
-            //     if (paidDisplay) {
-            //         paidDisplay.innerText = 'Paid: Rp. ' + formatted;
-            //     }
-            // }
-
             if (e.target.closest('.btn-mark-refund-product')) {
                 const btn = e.target.closest('.btn-mark-refund-product');
                 const id = btn.dataset.id;
@@ -860,12 +790,6 @@
 
         });
 
-        // const paidInput = document.getElementById("paid_amount");
-        // paidInput.addEventListener("input", function() {
-        //     let angka = this.value.replace(/\D/g, "") || "0";
-        //     this.value = new Intl.NumberFormat('id-ID').format(angka);
-        // });
-
         const refundInputProduct = document.getElementById("refund_amount_product");
         refundInputProduct.addEventListener("input", function() {
             let angka = this.value.replace(/\D/g, "") || "0";
@@ -883,62 +807,6 @@
             const display = document.getElementById('refund_amount_display_freight');
             if (display) display.innerText = 'Refund: Rp. ' + this.value;
         });
-
-        // document.getElementById('markAsPurchaseForm').addEventListener('submit', function(e) {
-        //     e.preventDefault();
-
-        //     document.querySelectorAll('#markAsPurchaseForm small.text-danger').forEach(el => {
-        //         el.classList.add('d-none');
-        //         el.innerText = '';
-        //     });
-
-        //     let valid = true;
-
-        //     let transactionType = document.getElementById('transaction_type').value.trim();
-        //     let transactionDate = document.getElementById('transaction_date').value.trim();
-        //     let cashBankAccount = document.getElementById('cash_bank_account_id').value.trim();
-
-        //     let paidAmountRaw = document.getElementById('paid_amount').value.trim();
-        //     let paidAmount = paidAmountRaw.replace(/\./g, "");
-
-        //     // ambil balance (remaining) dari tampilan Balance:
-        //     let remainingRaw = document.getElementById('total_amount_display').innerText.trim().replace(/\./g, "");
-        //     let remainingAmount = parseInt(remainingRaw) || 0;
-
-        //     if (!transactionType) {
-        //         document.getElementById('error_transaction_type').innerText = 'Account wajib dipilih';
-        //         document.getElementById('error_transaction_type').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!transactionDate) {
-        //         document.getElementById('error_transaction_date').innerText = 'Tanggal transaksi wajib diisi';
-        //         document.getElementById('error_transaction_date').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!cashBankAccount) {
-        //         document.getElementById('error_cash_bank_account_id').innerText = 'Pilih cash atau bank account';
-        //         document.getElementById('error_cash_bank_account_id').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!paidAmount || isNaN(paidAmount) || parseInt(paidAmount) <= 0) {
-        //         document.getElementById('error_paid_amount').innerText = 'Paid amount harus diisi dan lebih dari 0';
-        //         document.getElementById('error_paid_amount').classList.remove('d-none');
-        //         valid = false;
-        //     } else if (parseInt(paidAmount) > remainingAmount) {
-        //         document.getElementById('error_paid_amount').innerText = 'Paid amount tidak boleh melebihi Balance';
-        //         document.getElementById('error_paid_amount').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!valid) return;
-
-        //     document.getElementById('paid_amount').value = paidAmount;
-
-        //     this.submit();
-        // });
 
         document.getElementById('refundFormProduct').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -1085,10 +953,6 @@
             }
         });
 
-        // document.querySelector("form").addEventListener("submit", function() {
-        //     paidInput.value = paidInput.value.replace(/\./g, "");
-        // });
-
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalForceDeleteOrder');
             const form = document.getElementById('formForceDeleteOrder');
@@ -1119,6 +983,12 @@
                 form.action = url;
                 nameHolder.textContent = name;
             });
+        });
+
+        $('#modalRefundProduct, #modalRefundFreight').on('shown.bs.modal', function() {
+            if ($.fn.select2) {
+                $('#cash_bank_account_id_product, #cash_bank_account_id_freight').trigger('change.select2');
+            }
         });
     </script>
 @endpush

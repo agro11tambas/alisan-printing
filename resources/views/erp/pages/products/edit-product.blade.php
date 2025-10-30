@@ -165,7 +165,7 @@
                             </div>
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
-                                    <label for="tags" class="fw-semibold">Tags</label>
+                                    <label for="tags" class="fw-semibold">Merek</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
@@ -201,7 +201,7 @@
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
                                         <input type="text" class="form-control" id="price" name="price"
-                                            value="{{ old('price', $product->price) }}" placeholder="Price">
+                                            value="{{ old('price', intval($product->price ?? 0)) }}" placeholder="0">
                                     </div>
                                 </div>
                             </div>
@@ -212,8 +212,8 @@
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
                                         <input type="text" class="form-control" id="fixed_cost" name="fixed_cost"
-                                            value="{{ old('fixed_cost', $product->fixed_cost) }}"
-                                            placeholder="Fixed Cost">
+                                            value="{{ old('fixed_cost', intval($product->fixed_cost ?? 0)) }}"
+                                            placeholder="0">
                                     </div>
                                 </div>
                             </div>
@@ -238,104 +238,135 @@
 
 @push('scripts')
     <script>
-        document.getElementById('image').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            const preview = document.getElementById('preview-image');
+        document.addEventListener("DOMContentLoaded", () => {
 
-            if (file) {
-                const reader = new FileReader();
+            const imageInput = document.getElementById('image');
+            if (imageInput) {
+                imageInput.addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    const preview = document.getElementById('preview-image');
+                    const previewContainer = document.getElementById('new-image-container');
+                    const oldImageContainer = document.getElementById('old-image-container');
 
-                reader.onload = function(e) {
-                    preview.src = e.target.result;
-                    preview.style.display = 'block';
-                };
-
-                reader.readAsDataURL(file);
-            } else {
-                preview.src = '#';
-                preview.style.display = 'none';
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            preview.src = e.target.result;
+                            previewContainer.style.display = 'block';
+                            if (oldImageContainer) oldImageContainer.style.display = 'none';
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        previewContainer.style.display = 'none';
+                        if (oldImageContainer) oldImageContainer.style.display = 'block';
+                    }
+                });
             }
-        });
 
-        document.getElementById('productForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+            const form = document.getElementById('productForm');
 
-            const form = this;
-            form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+            ['price', 'fixed_cost'].forEach(id => {
+                const input = document.getElementById(id);
+                if (!input) return;
 
-            const rules = [{
-                    selector: 'input[name="name"]',
-                    message: 'Nama Tag wajib diisi'
-                },
-                {
-                    selector: 'input[name="sku"]',
-                    message: 'SKU Wajib diisi',
-                },
-                {
-                    selector: 'select[name="stock"]',
-                    message: 'Stock Wajib diisi',
-                },
-                {
-                    selector: 'input[name="price"]',
-                    message: 'Price Wajib diisi'
-                },
-                {
-                    selector: 'select[name="categories[]"]',
-                    message: 'Minimal satu kategori harus dipilih'
-                },
-                {
-                    selector: 'select[name="tags[]"]',
-                    message: 'Minimal satu tag harus dipilih'
+                if (input.value) {
+                    let clean = input.value.replace(/[^\d]/g, '');
+                    input.value = new Intl.NumberFormat('id-ID').format(clean);
+                    input.dataset.raw = clean;
                 }
-            ];
 
-            let isValid = true;
-
-            rules.forEach(rule => {
-                const el = form.querySelector(rule.selector);
-                const val = el?.value ?? '';
-                const valid = rule.validate ? rule.validate(val) : val.trim() !== '';
-
-                if (!valid) {
-                    showError(el, rule.message);
-                    isValid = false;
-                }
+                input.addEventListener('input', function() {
+                    let clean = this.value.replace(/[^\d]/g, '');
+                    if (clean === '') {
+                        this.value = '';
+                        delete this.dataset.raw;
+                        return;
+                    }
+                    this.value = new Intl.NumberFormat('id-ID').format(clean);
+                    this.dataset.raw = clean;
+                });
             });
 
-            if (isValid) form.submit();
-        });
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
 
-        function showError(input, message) {
-            if (!input) return;
-            input.classList.add('is-invalid');
-            const parent = input.closest('div');
-            if (!parent) return;
-            const feedback = document.createElement('div');
-            feedback.className = 'invalid-feedback';
-            feedback.textContent = message;
-            parent.appendChild(feedback);
-        }
+                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-        document.getElementById('image').addEventListener('change', function(event) {
-            const previewImage = document.getElementById('preview-image');
-            const previewContainer = document.getElementById('new-image-container');
-            const oldImageContainer = document.getElementById('old-image-container');
-
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    previewImage.src = e.target.result;
-                    previewContainer.style.display = 'block';
-
-                    // Sembunyikan gambar lama
-                    if (oldImageContainer) {
-                        oldImageContainer.style.display = 'none';
+                const rules = [{
+                        selector: 'input[name="name"]',
+                        message: 'Nama Produk wajib diisi'
+                    },
+                    {
+                        selector: 'input[name="sku"]',
+                        message: 'SKU wajib diisi'
+                    },
+                    {
+                        selector: 'select[name="stock"]',
+                        message: 'Stock wajib diisi'
+                    },
+                    {
+                        selector: 'input[name="price"]',
+                        message: 'Price wajib diisi'
+                    },
+                    {
+                        selector: 'input[name="fixed_cost"]',
+                        message: 'Fixed Cost wajib diisi'
+                    },
+                    {
+                        selector: '#categories',
+                        message: 'Minimal satu kategori harus dipilih',
+                        validate: () => $('#categories').val() && $('#categories').val().length > 0
+                    },
+                    {
+                        selector: '#tags',
+                        message: 'Minimal satu tag harus dipilih',
+                        validate: () => $('#tags').val() && $('#tags').val().length > 0
                     }
-                };
-                reader.readAsDataURL(file);
+                ];
+
+                let isValid = true;
+                rules.forEach(rule => {
+                    const el = form.querySelector(rule.selector);
+                    const val = el?.value ?? '';
+                    const valid = rule.validate ? rule.validate(val) : val.trim() !== '';
+
+                    if (!valid) {
+                        showError(el, rule.message);
+                        isValid = false;
+                    }
+                });
+
+                ['price', 'fixed_cost'].forEach(id => {
+                    const input = document.getElementById(id);
+                    if (!input) return;
+                    const raw = input.dataset.raw || input.value.replace(/[^\d]/g, '');
+                    input.value = raw === '' ? 0 : raw;
+                });
+
+                if (isValid) form.submit();
+            });
+
+            function showError(input, message) {
+                if (!input) return;
+
+                if ($(input).hasClass('select2-hidden-accessible')) {
+                    const select2Container = $(input).next('.select2');
+                    select2Container.find('.select2-selection').addClass('is-invalid');
+                    if (select2Container.next('.invalid-feedback').length === 0) {
+                        select2Container.after(`<div class="invalid-feedback d-block">${message}</div>`);
+                    }
+                } else {
+                    input.classList.add('is-invalid');
+                    const parent = input.closest('div');
+                    if (!parent) return;
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback';
+                    feedback.textContent = message;
+                    parent.appendChild(feedback);
+                }
             }
+
         });
     </script>
 @endpush

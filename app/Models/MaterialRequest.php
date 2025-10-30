@@ -21,6 +21,7 @@ class MaterialRequest extends Model
         'status',
         'warehouse_status',
         'note',
+        'verified_by',
     ];
 
     protected $casts = [
@@ -52,6 +53,11 @@ class MaterialRequest extends Model
         return InventoryItem::whereHas('inventory', function ($q) {
             $q->where('material_request_id', $this->id);
         })->where('stock_out', '>', 0)->exists();
+    }
+
+    public function verifiedBy()
+    {
+        return $this->belongsTo(User::class, 'verified_by');
     }
 
     protected static function booted()

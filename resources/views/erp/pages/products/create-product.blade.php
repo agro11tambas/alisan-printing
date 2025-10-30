@@ -92,19 +92,6 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- <div class="row mb-3 align-items-center">
-                                <div class="col-lg-2">
-                                    <label for="stock" class="fw-semibold">Stock</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <div class="input-group">
-                                        <select class="form-control" data-select2-selector="status" id="stock" name="stock">
-                                            <option value="instock" data-bg="bg-success" selected>In Stock</option>
-                                            <option value="outofstock" data-bg="bg-warning">Out Of Stock</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div> -->
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="categories" class="fw-semibold">Categories</label>
@@ -136,7 +123,7 @@
                             </div>
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
-                                    <label for="tags" class="fw-semibold">Tags</label>
+                                    <label for="tags" class="fw-semibold">Merek</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
@@ -164,7 +151,7 @@
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
                                         <input type="text" class="form-control" id="price" name="price"
-                                            value="{{ old('price') }}" placeholder="Price">
+                                            value="{{ old('price') }}" placeholder="0">
                                     </div>
                                 </div>
                             </div>
@@ -175,7 +162,7 @@
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
                                         <input type="text" class="form-control" id="fixed_cost" name="fixed_cost"
-                                            value="{{ old('fixed_cost') }}" placeholder="Fixed Cost">
+                                            value="{{ old('fixed_cost') }}" placeholder="0">
                                     </div>
                                 </div>
                             </div>
@@ -228,28 +215,30 @@
 
             const rules = [{
                     selector: 'input[name="name"]',
-                    message: 'Nama Tag wajib diisi'
+                    message: 'Nama Produk wajib diisi'
                 },
                 {
                     selector: 'input[name="sku"]',
-                    message: 'SKU Wajib diisi',
+                    message: 'SKU wajib diisi'
                 },
-                // {
-                //     selector: 'select[name="stock"]',
-                //     message: 'Stock Wajib diisi',
-                // },
                 {
                     selector: 'input[name="price"]',
-                    message: 'Price Wajib diisi'
+                    message: 'Price wajib diisi'
                 },
                 // {
-                //     selector: 'select[name="categories[]"]',
-                //     message: 'Minimal satu kategori harus dipilih'
+                //     selector: 'input[name="fixed_cost"]',
+                //     message: 'Fixed Cost wajib diisi'
                 // },
-                // {
-                //     selector: 'select[name="tags[]"]',
-                //     message: 'Minimal satu tag harus dipilih'
-                // }
+                {
+                    selector: '#categories',
+                    message: 'Minimal satu kategori harus dipilih',
+                    validate: () => $('#categories').val() && $('#categories').val().length > 0
+                },
+                {
+                    selector: '#tags',
+                    message: 'Minimal satu tag harus dipilih',
+                    validate: () => $('#tags').val() && $('#tags').val().length > 0
+                }
             ];
 
             let isValid = true;
@@ -270,13 +259,56 @@
 
         function showError(input, message) {
             if (!input) return;
-            input.classList.add('is-invalid');
-            const parent = input.closest('div');
-            if (!parent) return;
-            const feedback = document.createElement('div');
-            feedback.className = 'invalid-feedback';
-            feedback.textContent = message;
-            parent.appendChild(feedback);
+
+            if ($(input).hasClass('select2-hidden-accessible')) {
+                const select2Container = $(input).next('.select2');
+                select2Container.find('.select2-selection').addClass('is-invalid');
+
+                if (select2Container.next('.invalid-feedback').length === 0) {
+                    select2Container.after(`<div class="invalid-feedback d-block">${message}</div>`);
+                }
+            } else {
+                input.classList.add('is-invalid');
+                const parent = input.closest('div');
+                if (!parent) return;
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback';
+                feedback.textContent = message;
+                parent.appendChild(feedback);
+            }
         }
+
+        document.addEventListener("DOMContentLoaded", () => {
+
+            const form = document.getElementById('productForm');
+
+            ['price', 'fixed_cost'].forEach(id => {
+                const input = document.getElementById(id);
+                if (!input) return;
+
+                input.addEventListener('input', function() {
+                    let clean = this.value.replace(/[^\d]/g, '');
+                    if (clean === '') {
+                        this.value = '';
+                        return;
+                    }
+                    this.value = new Intl.NumberFormat('id-ID').format(clean);
+                    this.dataset.raw = clean;
+                });
+            });
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                ['price', 'fixed_cost'].forEach(id => {
+                    const input = document.getElementById(id);
+                    if (!input) return;
+                    const raw = input.dataset.raw || input.value.replace(/[^\d]/g, '');
+                    input.value = raw === '' ? 0 : raw;
+                });
+
+                form.submit();
+            });
+        });
     </script>
 @endpush

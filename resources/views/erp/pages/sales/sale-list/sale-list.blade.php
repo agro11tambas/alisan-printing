@@ -288,7 +288,7 @@
                                             'bg-success',
                                         ];
                                     @endphp
-                                    <select class="form-select form-control max-select" data-select2-selector="tag"
+                                    {{-- <select class="form-select form-control max-select" data-select2-selector="tag"
                                         name="cash_bank_account_id" id="cash_bank_account_id">
                                         <option value="" disabled selected hidden>Pilih Bank atau Cash Account
                                         </option>
@@ -306,7 +306,33 @@
                                             <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank -
                                                 {{ $bank->type }}</option>
                                         @endforeach
+                                    </select> --}}
+                                    <select class="form-select form-control max-select" data-select2-selector="tag"
+                                        name="cash_bank_account_id" id="cash_bank_account_id">
+                                        <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
+                                            Pilih Bank atau Cash Account</option>
+
+                                        @foreach ($cashAccounts as $cash)
+                                            @php
+                                                $bg = $bgColors[$loop->index % count($bgColors)];
+                                            @endphp
+                                            <option value="{{ $cash->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $cash->id ? 'selected' : '' }}>
+                                                Cash - {{ $cash->type }}
+                                            </option>
+                                        @endforeach
+
+                                        @foreach ($bankAccounts as $bank)
+                                            @php
+                                                $bg = $bgColors[$loop->index % count($bgColors)];
+                                            @endphp
+                                            <option value="{{ $bank->id }}" data-bg="{{ $bg }}"
+                                                {{ isset($defaultAccount) && $defaultAccount->id == $bank->id ? 'selected' : '' }}>
+                                                Bank - {{ $bank->type }}
+                                            </option>
+                                        @endforeach
                                     </select>
+
                                 </div>
                                 <small class="text-danger d-none" id="error_cash_bank_account_id"></small>
                             </div>
@@ -981,6 +1007,59 @@
         $('#return_amount').on('input', function() {
             let angka = this.value.replace(/\D/g, "") || "0";
             this.value = new Intl.NumberFormat('id-ID').format(angka);
+        });
+
+        $(document).on('click', '.btn-share-invoice-image', async function() {
+            const url = $(this).data('url');
+            const name = $(this).data('customer');
+
+            // Ambil isi invoice via AJAX
+            const response = await fetch(url);
+            const html = await response.text();
+
+            // Buat elemen tersembunyi
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.top = '-9999px';
+            tempDiv.style.left = '-9999px';
+            document.body.appendChild(tempDiv);
+
+            // Cari elemen invoice
+            const invoiceElement = tempDiv.querySelector('#invoiceContent');
+
+            const canvas = await html2canvas(invoiceElement, {
+                scale: 2
+            });
+            document.body.removeChild(tempDiv);
+
+            const dataUrl = canvas.toDataURL('image/png');
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], 'invoice.png', {
+                type: 'image/png'
+            });
+
+            const shareText = `Halo ${name}, berikut invoice pembelian Anda.`;
+
+            if (navigator.canShare && navigator.canShare({
+                    files: [file]
+                })) {
+                navigator.share({
+                    files: [file],
+                    title: 'Invoice',
+                    text: shareText
+                });
+            } else {
+                alert('Browser tidak mendukung share langsung. Gambar akan di-download.');
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = 'invoice.png';
+                link.click();
+            }
+        });
+
+        $('#modalChangeStatus').on('shown.bs.modal', function() {
+            $('#cash_bank_account_id').trigger('change.select2');
         });
     </script>
 @endpush

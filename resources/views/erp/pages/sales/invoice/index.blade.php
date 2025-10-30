@@ -33,8 +33,11 @@
                     <div class="px-4 pt-4">
                         <div class="row justify-content-between">
                             <div class="col-lg-4">
-                                <div class="fs-24 fw-bolder font-montserrat-alt text-uppercase text-primary">Alisan</div>
-                                <address class="text-muted">
+                                @if ($invoice->logo && file_exists(public_path($invoice->logo)))
+                                    <img src="{{ asset($invoice->logo) }}" alt="Logo"
+                                        style="max-height: 50px; max-width: 200px; object-fit: contain;">
+                                @endif
+                                <address class="text-muted mt-2">
                                     {{ $invoice->address }}
                                 </address>
                             </div>
@@ -142,12 +145,13 @@
                     </div>
                     <hr class="border-dashed mt-0">
                     <div class="px-4">
-                        <div class="alert alert-dismissible p-4 mt-3 alert-soft-warning-message" role="alert">
+                        <div class="alert alert-dismissible p-4 mt-3 alert-soft-primary-message" role="alert">
+                            <h5 class="mb-4">Syarat & Ketentuan</h5>
                             <p class="mb-0">
                                 @forelse($invoice->termAndConditions as $term)
                                 <i class="feather feather-alert-circle me-2"></i> {{ $term->content }}<br>
                                 @empty
-                                <i class="feather feather-alert-circle me-2"></i> Tidak ada Terms & Conditions.<br>
+                                <i class="feather feather-alert-circle me-2"></i> Tidak ada Syarat & Ketentuan.<br>
                                 @endforelse
                             </p>
                         </div>

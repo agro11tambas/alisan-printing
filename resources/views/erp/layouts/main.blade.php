@@ -90,24 +90,76 @@
         }
     </style>
 
+    <style>
+        /* 🎯 Style khusus untuk tabel dengan class .table-small */
+        .table-small {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            /* font lebih kecil */
+        }
+
+        .table-small th,
+        .table-small td {
+            padding: 5px 10px !important;
+            /* jarak antar sel kecil */
+            vertical-align: middle;
+            border: 1px solid #dee2e6;
+        }
+
+        .table-small thead th {
+            background-color: #f8f9fa;
+            /* sedikit abu-abu biar beda */
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .table-small tbody tr:hover {
+            background-color: #f1f3f5;
+            /* efek hover ringan */
+        }
+
+        /* biar rapi saat ditampilkan dalam DataTables juga */
+        .dataTables_wrapper .table-small tbody td {
+            padding: 5px 10px !important;
+        }
+    </style>
+
+    <style>
+        .main-content {
+            padding-bottom: 0px !important;
+        }
+
+        /* Warna highlight baris aktif */
+        tr.action-active {
+            background-color: #f2f4f7 !important;
+            /* abu-abu lembut */
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        /* opsional: ubah warna teks biar tetap kontras */
+        tr.action-active td {
+            color: #212529;
+        }
+    </style>
 
     @stack('styles')
 
 </head>
 
 <body>
-    
+
     @include('erp.layouts.components.sidebar')
 
     @include('erp.layouts.components.topbar')
-    
+
     @yield('account')
     <main class="nxl-container apps-container">
-        <div class="nxl-content" style="min-height: 90vh;">
+        <div class="nxl-content" style="min-height: 50vh;">
             @yield('breadcrumb')
             @yield('content')
         </div>
-        @include('erp.layouts.components.footer')
+        {{-- @include('erp.layouts.components.footer') --}}
     </main>
 
     @stack('modals')
@@ -188,6 +240,124 @@
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
+        });
+    </script>
+
+    <script>
+        window.initRowActionHandler = function(tableSelector) {
+            const $table = $(tableSelector);
+
+            if ($table.length === 0) return;
+
+            $table.on('click', 'tbody tr', function(e) {
+                if ($(e.target).closest('td.dt-control').length) return;
+
+                const $tr = $(this);
+                const dt = $table.DataTable();
+
+                // 🔹 Hapus action lama dan highlight aktif sebelumnya
+                $(`${tableSelector} tbody tr`)
+                    .removeClass('action-shown action-active')
+                    .next('.action-row').remove();
+                $(`${tableSelector} tbody tr`).prev('.action-row').remove();
+
+                // 🔹 Kalau klik baris yang sama → tutup dan hilangkan highlight
+                if ($tr.hasClass('action-shown')) {
+                    $tr.removeClass('action-shown action-active');
+                    return;
+                }
+
+                const row = dt.row($tr);
+                const actionHtml = row.data().action;
+                const colCount = $tr.find('td').length;
+
+                const $actionRow = $(`
+                    <tr class="action-row">
+                        <td colspan="${colCount}" class="p-0">
+                            <div class="d-flex justify-content-center">
+                                <div class="dropdown w-auto position-relative">
+                                    <ul class="dropdown-menu show static-action-menu shadow border rounded-3 p-2"
+                                        style="display:block; position:absolute; left:50%; transform:translateX(-50%);">
+                                        ${actionHtml}
+                                    </ul>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `);
+
+                // Hitung posisi row di viewport
+                const rowRect = $tr[0].getBoundingClientRect();
+                const viewportHeight = window.innerHeight;
+                const spaceBelow = viewportHeight - rowRect.bottom;
+                const spaceAbove = rowRect.top;
+
+                // Arah tampil otomatis
+                const $menu = $actionRow.find('.static-action-menu');
+                if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+                    $menu.css({
+                        bottom: '100%',
+                        top: 'auto',
+                        'margin-bottom': '8px'
+                    });
+                } else {
+                    $menu.css({
+                        top: '100%',
+                        bottom: 'auto',
+                        'margin-top': '8px'
+                    });
+                }
+
+                // 🔹 Tambahkan highlight aktif
+                $tr.after($actionRow).addClass('action-shown action-active');
+            });
+
+            // Tutup otomatis kalau klik di luar
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest(`${tableSelector}`).length) {
+                    $(`${tableSelector} tbody tr`)
+                        .removeClass('action-shown action-active')
+                        .next('.action-row').remove();
+                }
+            });
+        };
+
+        $(document).ready(function() {
+            initRowActionHandler('#saleListTable');
+            // initRowActionHandler('#deletedSaleListTable');
+            initRowActionHandler('#purchaseListTable');
+            initRowActionHandler('#deliveryListTable');
+            initRowActionHandler('#productTable');
+            initRowActionHandler('#productBundleTable');
+            initRowActionHandler('#categoryTable');
+            initRowActionHandler('#tagTable');
+            initRowActionHandler('#rejectProductsTable');
+            initRowActionHandler('#rejectDetailTable');
+            initRowActionHandler('#defectProductsTable');
+            initRowActionHandler('#defectDetailTable');
+            initRowActionHandler('#reportItemsTable');
+            initRowActionHandler('#canceledDetailTable');
+            initRowActionHandler('#discountList');
+            initRowActionHandler('#stockOpnameTable');
+            initRowActionHandler('#saleOrderTable');
+            initRowActionHandler('#saleReturnTable');
+            // initRowActionHandler('#deletedSaleReturnTable');
+            initRowActionHandler('#designListTable');
+            initRowActionHandler('#waitingListTable');
+            initRowActionHandler('#assignBatchTable');
+            initRowActionHandler('#requestStockTable');
+            // initRowActionHandler('#deletedRequestStockTable');
+            initRowActionHandler('#deliveryListTable');
+            initRowActionHandler('#deliveryOrderTable');
+            initRowActionHandler('#purchaseOrderTable');
+            initRowActionHandler('#purchaseReturnTable');
+            initRowActionHandler('#inventoryTable');
+            initRowActionHandler('#expenseList');
+            initRowActionHandler('#capitalTransactionList');
+            initRowActionHandler('#ShopManagerList');
+            initRowActionHandler('#OperatorList');
+            initRowActionHandler('#customerList');
+            initRowActionHandler('#supplierList');
         });
     </script>
 

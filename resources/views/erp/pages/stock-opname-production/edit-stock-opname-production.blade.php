@@ -39,11 +39,13 @@
                         <div class="card-body">
                             <input type="hidden" name="production_warehouse_id"
                                 value="{{ $stockOpname->production_warehouse_id ?? 1 }}">
+
+                            {{-- Product --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="product" class="fw-semibold">Product:</label>
                                 </div>
-                                <div class="col-lg-10 mb-0">
+                                <div class="col-lg-10">
                                     <select class="form-control" id="product" name="product">
                                         <option value="" disabled hidden>Pilih produk</option>
                                         @foreach ($products as $product)
@@ -55,11 +57,13 @@
                                     </select>
                                 </div>
                             </div>
+
+                            {{-- Date --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="date" class="fw-semibold">Date:</label>
                                 </div>
-                                <div class="col-lg-10 mb-0">
+                                <div class="col-lg-10">
                                     <div class="input-group">
                                         <div class="input-group-text"><i class="feather-calendar"></i></div>
                                         <input type="date" class="form-control" id="date" name="date"
@@ -67,28 +71,13 @@
                                     </div>
                                 </div>
                             </div>
+
+                            {{-- Available Quantity --}}
                             <div class="row mb-3 align-items-center">
-                                <div class="col-lg-2">
-                                    <label for="change" class="fw-semibold">Change:</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <select class="form-control" id="change" name="change">
-                                        <option value="" disabled hidden>Pilih jenis perubahan</option>
-                                        <option value="available_quantity"
-                                            {{ $stockOpname->change == 'available_quantity' ? 'selected' : '' }}>Available
-                                            Quantity</option>
-                                        <option value="finished_product"
-                                            {{ $stockOpname->change == 'finished_product' ? 'selected' : '' }}>Finished
-                                            Product</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="row mb-3 align-items-center change-field {{ $stockOpname->change == 'available_quantity' ? '' : 'd-none' }}"
-                                id="field-available_quantity">
                                 <div class="col-lg-2">
                                     <label for="available_quantity" class="fw-semibold">Available Quantity:</label>
                                 </div>
-                                <div class="col-lg-10 mb-0">
+                                <div class="col-lg-10">
                                     <div class="input-group">
                                         <div class="input-group-text"><i class="feather-box"></i></div>
                                         <input type="text" inputmode="numeric" class="form-control"
@@ -98,26 +87,13 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center change-field {{ $stockOpname->change == 'finished_product' ? '' : 'd-none' }}"
-                                id="field-finished_product">
-                                <div class="col-lg-2">
-                                    <label for="finished_product" class="fw-semibold">Finished Product:</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <div class="input-group">
-                                        <div class="input-group-text"><i class="feather-box"></i></div>
-                                        <input type="text" inputmode="numeric" class="form-control" id="finished_product"
-                                            name="finished_product"
-                                            value="{{ old('finished_product', $stockOpname->finished_product) }}"
-                                            placeholder="Finished Product">
-                                    </div>
-                                </div>
-                            </div>
+
+                            {{-- Status --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="status" class="fw-semibold">Status:</label>
                                 </div>
-                                <div class="col-lg-10 mb-0">
+                                <div class="col-lg-10">
                                     <select class="form-control" id="status" name="status">
                                         <option value="Gain" {{ $stockOpname->status == 'Gain' ? 'selected' : '' }}>Gain
                                         </option>
@@ -126,13 +102,15 @@
                                     </select>
                                 </div>
                             </div>
+
+                            {{-- Notes --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="notes" class="fw-semibold">Notes:</label>
                                 </div>
-                                <div class="col-lg-10 mb-0">
+                                <div class="col-lg-10">
                                     <div class="input-group">
-                                        <div class="input-group-text"><i class="feather-box"></i></div>
+                                        <div class="input-group-text"><i class="feather-file-text"></i></div>
                                         <input type="text" class="form-control" id="notes" name="notes"
                                             value="{{ old('notes', $stockOpname->notes) }}" placeholder="Notes">
                                     </div>
@@ -148,7 +126,6 @@
 
 @push('scripts')
     <script>
-
         const formatID = new Intl.NumberFormat('id-ID');
 
         function formatNumberInput(el) {
@@ -160,53 +137,29 @@
             return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const changeSelect = document.getElementById('change');
-            const fields = document.querySelectorAll('.change-field');
-
-            function toggleFields() {
-                fields.forEach(field => field.classList.add('d-none'));
-                const selected = changeSelect.value;
-                if (selected) {
-                    document.getElementById('field-' + selected).classList.remove('d-none');
-                }
-            }
-
-            changeSelect.addEventListener('change', toggleFields);
-            toggleFields();
-        });
-
         document.addEventListener('input', function(e) {
-            if (e.target.matches('#available_quantity, #finished_product')) {
+            if (e.target.matches('#available_quantity')) {
                 formatNumberInput(e.target);
             }
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('#available_quantity, #finished_product').forEach(el => {
-                if (el.value.trim() !== '') {
-                    el.value = formatID.format(parseNumberValue(el.value));
-                }
-            });
-        });
+            const qtyInput = document.getElementById('available_quantity');
+            if (qtyInput.value.trim() !== '') {
+                qtyInput.value = formatID.format(parseNumberValue(qtyInput.value));
+            }
 
-        document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('stockOpnameForm');
-
             form.addEventListener('submit', function(e) {
                 let isValid = true;
-
                 form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
                 const product = form.querySelector('#product');
                 const date = form.querySelector('#date');
-                const change = form.querySelector('#change');
                 const availableQty = form.querySelector('#available_quantity');
-                const finishedQty = form.querySelector('#finished_product');
 
                 const availableVal = parseNumberValue(availableQty.value);
-                const finishedVal = parseNumberValue(finishedQty.value);
 
                 if (!product.value) {
                     isValid = false;
@@ -218,21 +171,9 @@
                     showError(date, 'Tanggal wajib diisi');
                 }
 
-                if (!change.value) {
+                if (availableVal <= 0) {
                     isValid = false;
-                    showError(change, 'Jenis perubahan wajib dipilih');
-                }
-
-                if (change.value === 'available_quantity') {
-                    if (availableVal <= 0) {
-                        isValid = false;
-                        showError(availableQty, 'Available quantity minimal 1');
-                    }
-                } else if (change.value === 'finished_product') {
-                    if (finishedVal <= 0) {
-                        isValid = false;
-                        showError(finishedQty, 'Finished product minimal 1');
-                    }
+                    showError(availableQty, 'Available quantity minimal 1');
                 }
 
                 if (!isValid) {
@@ -240,9 +181,8 @@
                     return;
                 }
 
-                form.querySelectorAll('#available_quantity, #finished_product').forEach(el => {
-                    el.value = el.value.replace(/\./g, '');
-                });
+                // bersihkan format ribuan sebelum submit
+                availableQty.value = availableQty.value.replace(/\./g, '');
             });
 
             function showError(el, message) {

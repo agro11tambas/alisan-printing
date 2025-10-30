@@ -63,12 +63,16 @@ class DiscountController extends Controller
                 return $discount->end_date;
             })
             ->addColumn('is_active', function ($discount) {
-                return $discount->is_active;
+                if ($discount->is_active) {
+                    return '<span class="badge bg-soft-success text-success">Active</span>';
+                } else {
+                    return '<span class="badge bg-soft-danger text-danger">Inactive</span>';
+                }
             })
             ->addColumn('action', function ($discount) {
                 return view('erp.pages.discounts.partials.action-button', compact('discount'))->render();
             })
-            ->rawColumns(['action'])
+            ->rawColumns(['action', 'is_active'])
             ->make(true);
     }
 
