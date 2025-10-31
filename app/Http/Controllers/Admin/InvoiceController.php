@@ -38,8 +38,8 @@ class InvoiceController extends Controller
         return DataTables::of($invoice)
             ->addIndexColumn()
             ->addColumn('logo', function ($invoice) {
-                if ($invoice->logo && file_exists(public_path($invoice->logo))) {
-                    $url = asset($invoice->logo);
+                if ($invoice->logo) {
+                    $url = asset(str_replace('public/', '', $invoice->logo));
                     return '
                         <a href="' . $url . '" 
                             data-lightbox="invoice-logo-' . $invoice->id . '" 
@@ -53,6 +53,7 @@ class InvoiceController extends Controller
                     return '<span class="text-muted">No Logo</span>';
                 }
             })
+
             ->addColumn('bank_name', function ($invoice) {
                 return $invoice->bank_name;
             })
@@ -175,17 +176,24 @@ class InvoiceController extends Controller
         }
 
         if ($request->hasFile('logo')) {
-            // Hapus logo lama (kalau ada)
-            if ($invoice->logo && file_exists(public_path($invoice->logo))) {
-                unlink(public_path($invoice->logo));
+            // ✅ simpan ke folder yang benar (satu level di atas /public)
+            $uploadPath = public_path('../invoice_logos');
+
+            if (!file_exists($uploadPath)) {
+                mkdir($uploadPath, 0755, true);
             }
 
-            // Simpan langsung ke folder public/invoice_logos
+            // hapus logo lama
+            if ($invoice->logo && file_exists($uploadPath . '/' . basename($invoice->logo))) {
+                @unlink($uploadPath . '/' . basename($invoice->logo));
+            }
+
+            // upload file baru
             $file = $request->file('logo');
             $filename = time() . '_' . $file->getClientOriginalName();
-            $file->move(public_path('invoice_logos'), $filename);
+            $file->move($uploadPath, $filename);
 
-            // Simpan path relatif untuk diakses lewat asset()
+            // simpan path relatif agar bisa diakses dari web
             $invoice->logo = 'invoice_logos/' . $filename;
             $invoice->save();
         }

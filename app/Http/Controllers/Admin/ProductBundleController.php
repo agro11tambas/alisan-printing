@@ -40,7 +40,11 @@ class ProductBundleController extends Controller
                 return $bundle->id;
             })
             ->addColumn('name', function ($bundle) {
-                return $bundle->name;
+                $productNames = $bundle->items->map(function ($item) {
+                    return $item->product->name ?? '-';
+                })->implode(' + ');
+
+                return $productNames ?: '-';
             })
             ->addColumn('sku', function ($bundle) {
                 return $bundle->sku;

@@ -110,7 +110,8 @@
                                 <thead>
                                     <tr>
                                         <th class="wd-30">No</th>
-                                        <th>Assign Code</th>
+                                        <th>Invoice Number</th>
+                                        <th>Customer</th>
                                         <th>Assign List</th>
                                         <th>Note</th>
                                     </tr>
@@ -197,6 +198,9 @@
                     },
                     {
                         data: 'assign_code'
+                    },
+                    {
+                        data: 'customer'
                     },
                     {
                         data: 'assign_products'

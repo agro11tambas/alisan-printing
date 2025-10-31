@@ -139,15 +139,37 @@ class SaleOrderController extends Controller
             //     return view('erp.pages.sales.sale-orders.partials.product-list', compact('order'))->render();
             // })
             ->addColumn('products', function ($row) {
-                return $row->orderItems->map(function ($item) {
-                    // Cek apakah item punya product atau productBundle
-                    $name = $item->product ? $item->product->name : ($item->productBundle ? $item->productBundle->name : '-');
+                // load orderItems + product (termasuk soft deleted)
+                $items = $row->orderItems()->with([
+                    'product' => function ($q) {
+                        $q->withTrashed();
+                    },
+                    'productBundle.items.product' // ✅ ambil produk di dalam bundle
+                ])->get();
+
+                return $items->map(function ($item) {
+                    if ($item->product) {
+                        // 🟢 Item biasa
+                        $name = $item->product->name;
+                        $sku  = $item->product->sku;
+                    } elseif ($item->productBundle) {
+                        // 🟣 Item bundle — gabungkan nama produk di dalam bundle
+                        $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
+                            return $bundleItem->product->name ?? '-';
+                        })->implode(' + ');
+
+                        $name = $bundleNames ?: '-';
+                        $sku  = $item->productBundle->sku ?? '-';
+                    } else {
+                        $name = '-';
+                        $sku  = '-';
+                    }
 
                     return [
                         'name'  => $name,
-                        'sku'   => $item->product ? $item->product->sku : ($item->productBundle ? $item->productBundle->sku : '-'),
-                        'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0)
+                        'sku'   => $sku,
+                        'qty'   => number_format($item->quantity, 0, ',', '.'),
+                        'price' => number_format($item->price ?? 0, 0, ',', '.'),
                     ];
                 })->toArray();
             })
@@ -171,10 +193,15 @@ class SaleOrderController extends Controller
 
     public function create()
     {
-        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])
+            ->orderBy('name', 'asc')
+            ->get();
 
-        // Produk bundle
-        $productBundles = ProductBundle::with(['items.product.categories.discounts', 'items.product.discounts'])->orderBy('name', 'asc')->get();
+        // Produk bundle + relasi produk di dalamnya
+        $productBundles = ProductBundle::with([
+            'items.product.categories.discounts',
+            'items.product.discounts'
+        ])->orderBy('name', 'asc')->get();
 
         // Kalau belum ada relasi diskon di bundle, beri array kosong
         $productBundles->map(function ($bundle) {
@@ -182,6 +209,7 @@ class SaleOrderController extends Controller
             return $bundle;
         });
 
+        // 🔹 JSON untuk produk tunggal
         $productsJson = $products->map(function ($product) {
             return [
                 'id' => $product->id,
@@ -201,6 +229,7 @@ class SaleOrderController extends Controller
             ];
         })->toArray();
 
+        // 🔹 JSON untuk produk bundle
         $productBundlesJson = $productBundles->map(function ($bundle) {
             $bundleDiscounts = [];
             $bundleCategories = [];
@@ -224,9 +253,14 @@ class SaleOrderController extends Controller
                 }
             }
 
+            // 🔹 Gabungkan nama produk di dalam bundle
+            $bundleName = $bundle->items->map(function ($item) {
+                return $item->product->name ?? '-';
+            })->implode(' + ');
+
             return [
                 'id' => $bundle->id,
-                'name' => $bundle->name,
+                'name' => $bundleName ?: $bundle->name, // fallback ke nama asli kalau kosong
                 'sku'  => $bundle->sku,
                 'price' => $bundle->price,
                 'discounts' => $bundleDiscounts,
@@ -234,13 +268,24 @@ class SaleOrderController extends Controller
             ];
         })->toArray();
 
+        // 🔹 Data pendukung lain
         $customers = Customers::with('addresses')->get();
         $discount = Discount::first();
         $transactionTypes = Account::where('name', 'Sale')->get();
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        return view('erp.pages.sales.sale-orders.create-order', compact('products', 'customers', 'discount', 'cashAccounts', 'bankAccounts', 'transactionTypes', 'productBundles', 'productsJson', 'productBundlesJson'));
+        return view('erp.pages.sales.sale-orders.create-order', compact(
+            'products',
+            'customers',
+            'discount',
+            'cashAccounts',
+            'bankAccounts',
+            'transactionTypes',
+            'productBundles',
+            'productsJson',
+            'productBundlesJson'
+        ));
     }
 
     public function store(Request $request)
@@ -350,6 +395,10 @@ class SaleOrderController extends Controller
                 elseif ($type === 'bundle') {
                     $bundle = ProductBundle::with('items.product')->findOrFail($productInputId);
 
+                    $bundleProductNames = $bundle->items->map(function ($bundleItem) {
+                        return $bundleItem->product->name ?? '-';
+                    })->implode(' + ');
+
                     // Hitung total avg cost bundle (sum dari komponen real di inventory_stocks)
                     $totalAvgCost = 0;
                     $totalFixedCost = 0;
@@ -367,7 +416,7 @@ class SaleOrderController extends Controller
                         'order_id'             => $order->id,
                         'product_id'           => null,
                         'product_bundle_id'    => $bundle->id,
-                        'product_name'         => $bundle->name,
+                        'product_name'         => $bundleProductNames ?: $bundle->name,
                         'satuan'               => 'bundle',
                         'quantity'             => $qty,
                         'completed_quantity'   => 0,
@@ -431,16 +480,25 @@ class SaleOrderController extends Controller
             }
         }
 
-        // 🔹 Data lain tetap sama
-        $productBundles = ProductBundle::with(['items.product.categories.discounts', 'items.product.discounts'])->orderBy('name', 'asc')->get();
+        // 🔹 Ambil data produk dan bundle
+        $productBundles = ProductBundle::with([
+            'items.product.categories.discounts',
+            'items.product.discounts'
+        ])->orderBy('name', 'asc')->get();
+
+        // Kalau belum ada relasi diskon di bundle, beri array kosong
         $productBundles->map(function ($bundle) {
             $bundle->discounts = [];
             return $bundle;
         });
 
-        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])
+            ->orderBy('name', 'asc')
+            ->get();
+
         $customers = Customers::with('addresses')->orderBy('name', 'asc')->get();
 
+        // 🔹 JSON untuk produk tunggal
         $productsJson = $products->map(function ($product) {
             return [
                 'id' => $product->id,
@@ -460,6 +518,7 @@ class SaleOrderController extends Controller
             ];
         })->toArray();
 
+        // 🔹 JSON untuk produk bundle (gabungkan nama produk)
         $productBundlesJson = $productBundles->map(function ($bundle) {
             $bundleDiscounts = [];
             $bundleCategories = [];
@@ -467,10 +526,12 @@ class SaleOrderController extends Controller
             foreach ($bundle->items as $item) {
                 $product = $item->product;
 
+                // Diskon langsung dari produk
                 foreach ($product->discounts as $discount) {
                     $bundleDiscounts[] = $discount;
                 }
 
+                // Kategori + diskon kategori
                 foreach ($product->categories as $cat) {
                     $bundleCategories[] = [
                         'id' => $cat->id,
@@ -481,9 +542,14 @@ class SaleOrderController extends Controller
                 }
             }
 
+            // 🔹 Gabungkan nama-nama produk di dalam bundle
+            $bundleName = $bundle->items->map(function ($item) {
+                return $item->product->name ?? '-';
+            })->implode(' + ');
+
             return [
                 'id' => $bundle->id,
-                'name' => $bundle->name,
+                'name' => $bundleName ?: $bundle->name, // fallback ke nama asli kalau kosong
                 'sku'  => $bundle->sku,
                 'price' => $bundle->price,
                 'discounts' => $bundleDiscounts,
@@ -491,7 +557,16 @@ class SaleOrderController extends Controller
             ];
         })->toArray();
 
-        return view('erp.pages.sales.sale-orders.edit-order', compact('order', 'products', 'customers', 'productBundles', 'productsJson', 'productBundlesJson'));
+        return view('erp.pages.sales.sale-orders.edit-order', compact(
+            'order',
+            'products',
+            'customers',
+            'productBundles',
+            'productsJson',
+            'productBundlesJson',
+            'dueDateOption',
+            'customDueDate'
+        ));
     }
 
     // public function update(Request $request, $id)

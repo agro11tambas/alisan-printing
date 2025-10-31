@@ -108,6 +108,23 @@ class DesignController extends Controller
             ->addColumn('products', function ($design) {
                 return view('erp.pages.designs.partials.product-list', compact('design'))->render();
             })
+            ->addColumn('proof_photos', function ($design) {
+                $images = json_decode($design->proof_photos ?? '[]', true);
+                if (empty($images)) {
+                    return '<span class="text-muted small">No proof</span>';
+                }
+
+                $html = '<div class="d-flex flex-wrap gap-2">';
+                foreach ($images as $img) {
+                    $src = asset('uploads/proofs/' . $img);
+                    $html .= '
+                <a href="' . $src . '" data-lightbox="proof-' . $design->id . '" class="border rounded overflow-hidden" style="width:50px;height:50px;display:inline-block;">
+                    <img src="' . $src . '" class="img-fluid" style="object-fit:cover;width:100%;height:100%;">
+                </a>';
+                }
+                $html .= '</div>';
+                return $html;
+            })
             ->addColumn('action', function ($design) {
                 $allUploaded = $design->items->every(function ($item) {
                     return !empty($item->preview_image);
@@ -115,7 +132,7 @@ class DesignController extends Controller
 
                 return view('erp.pages.designs.partials.action-button', compact('design', 'allUploaded'))->render();
             })
-            ->rawColumns(['design_number', 'status', 'products', 'action'])
+            ->rawColumns(['design_number', 'status', 'products', 'action', 'proof_photos'])
             ->make(true);
     }
 

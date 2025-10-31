@@ -384,6 +384,7 @@ class OrderProgressAssignController extends Controller
                         <small class='text-muted'>{$customerName}</small>
                     </div>";
             })
+            ->addColumn('customer', fn($batch) => $batch->orderProgress->order->customer->name ?? '-')
             ->addColumn('total_items', fn($batch) => $batch->assigns->count())
             ->addColumn('total_quantity', fn($batch) => number_format($batch->assigns->sum('assigned_quantity'), 0, ',', '.'))
             ->addColumn('operators', fn($batch) => $batch->assigns->pluck('operator.name')->unique()->implode(', ') ?: '-')

@@ -178,31 +178,41 @@ class MaterialRequestController extends Controller
             ->addColumn('deleted_at', function ($materialRequest) {
                 return $materialRequest->deleted_at ? $materialRequest->deleted_at->format('d-m-Y H:i') : '-';
             })
-            ->addColumn('action', function ($materialRequest) {
-                return '
-                    <div class="d-flex gap-2">
-                        <button type="button" 
-                            class="btn btn-success btn-sm me-1"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalRestoreRequestStock"
-                            data-id="' . $materialRequest->id . '" 
-                            data-name="Request #' . $materialRequest->id . '"
-                            data-url="' . route('request-stocks.restore', $materialRequest->id) . '">
-                                Restore
-                        </button>
-                        <button type="button" 
-                            class="btn btn-danger btn-sm"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalForceDeleteRequestStock"
-                            data-id="' . $materialRequest->id . '" 
-                            data-name="Request #' . $materialRequest->id . '"
-                            data-url="' . route('request-stocks.forceDelete', $materialRequest->id) . '">
-                                Hapus Permanen
-                        </button>
-                    </div>
-                ';
-            })
+            ->addColumn('action', function ($m) {
+                // Hitung total issued & received untuk menentukan tombol restore
+                $totalIssued = $m->items->sum('issued_qty');
+                $totalReceived = $m->items->sum('received_qty');
+                $isEmpty = $totalIssued == 0 && $totalReceived == 0;
 
+                $restoreBtn = '';
+                if ($isEmpty) {
+                    $restoreBtn = '
+                    <button type="button"
+                        class="btn btn-success btn-sm me-1"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalRestoreRequestStock"
+                        data-id="' . $m->id . '"
+                        data-name="Request #' . $m->id . '"
+                        data-url="' . route('request-stocks.restore', $m->id) . '">
+                        Restore
+                    </button>
+                ';
+                }
+
+                $forceDeleteBtn = '
+                    <button type="button"
+                        class="btn btn-danger btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalForceDeleteRequestStock"
+                        data-id="' . $m->id . '"
+                        data-name="Request #' . $m->id . '"
+                        data-url="' . route('request-stocks.forceDelete', $m->id) . '">
+                        Hapus Permanen
+                    </button>
+                ';
+
+                return '<div class="d-flex gap-2">' . $restoreBtn . $forceDeleteBtn . '</div>';
+            })
             ->rawColumns(['action', 'items'])
             ->make(true);
     }
@@ -359,6 +369,62 @@ class MaterialRequestController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error delete material request: ' . $e->getMessage());
+            return back()->with('error', 'Gagal menghapus Request Stock: ' . $e->getMessage());
+        }
+    }
+
+    public function deleteEmpty($id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $requestStock = MaterialRequest::with(['items.product'])->findOrFail($id);
+
+            // ✅ Pastikan belum ada issued atau received sama sekali
+            $totalIssued = $requestStock->items->sum('issued_qty');
+            $totalReceived = $requestStock->items->sum('received_qty');
+
+            if ($totalIssued > 0 || $totalReceived > 0) {
+                DB::rollBack();
+                return back()->with('error', 'Request Stock sudah memiliki issued atau received, tidak bisa dihapus dengan mode ini.');
+            }
+
+            // 🔹 Hapus InventoryItem yang terhubung langsung dengan item request ini
+            $itemIds = $requestStock->items->pluck('id'); // ambil semua id item request
+            \App\Models\InventoryItem::whereIn('material_request_item_id', $itemIds)->delete();
+
+            // 🔹 Hapus juga inventory yang berhubungan dengan request ini (jika ada)
+            $inventories = \App\Models\Inventory::where('material_request_id', $requestStock->id)->get();
+
+            foreach ($inventories as $inventory) {
+                // Hapus semua item di inventory tersebut (jaga-jaga)
+                \App\Models\InventoryItem::where('inventory_id', $inventory->id)->delete();
+
+                // Soft delete inventory
+                $inventory->delete();
+            }
+
+            // 🔹 Decrement incoming_stock untuk setiap product
+            foreach ($requestStock->items as $item) {
+                $productionStock = \App\Models\ProductionStock::where('product_id', $item->product_id)->first();
+                if ($productionStock) {
+                    $productionStock->decrement('incoming_stock', $item->requested_qty);
+                }
+
+                // 🔹 Soft delete item
+                $item->delete();
+            }
+
+            // 🔹 Soft delete Material Request utama
+            $requestStock->delete();
+
+            DB::commit();
+
+            return redirect("/erp/productions/material-request")
+                ->with('success', 'Request Stock, Inventory, dan Item terkait berhasil dihapus (decrement incoming stock saja).');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error delete empty material request: ' . $e->getMessage());
             return back()->with('error', 'Gagal menghapus Request Stock: ' . $e->getMessage());
         }
     }
@@ -597,25 +663,60 @@ class MaterialRequestController extends Controller
         DB::beginTransaction();
 
         try {
-            $materialRequest = MaterialRequest::onlyTrashed()->findOrFail($id);
+            $materialRequest = MaterialRequest::onlyTrashed()
+                ->with(['items' => function ($q) {
+                    $q->withTrashed();
+                }])
+                ->findOrFail($id);
 
-            // restore MaterialRequest
+            // Hitung status issued & received
+            $totalIssued = $materialRequest->items->sum('issued_qty');
+            $totalReceived = $materialRequest->items->sum('received_qty');
+            $isEmpty = $totalIssued == 0 && $totalReceived == 0;
+
+            // ✅ Restore MaterialRequest dan items-nya
             $materialRequest->restore();
+            $materialRequest->items()->withTrashed()->restore();
 
-            // kalau ada relasi yang ikut soft delete (misal items), ikut restore juga
-            if (method_exists($materialRequest, 'items')) {
-                $materialRequest->items()->withTrashed()->restore();
+            if ($isEmpty) {
+                // 🔹 Restore inventory yang terkait
+                $inventories = \App\Models\Inventory::onlyTrashed()
+                    ->where('material_request_id', $materialRequest->id)
+                    ->get();
+
+                foreach ($inventories as $inventory) {
+                    $inventory->restore();
+
+                    // 🔹 Restore inventory items yang terkait inventory ini
+                    \App\Models\InventoryItem::onlyTrashed()
+                        ->where('inventory_id', $inventory->id)
+                        ->restore();
+                }
+
+                // 🔹 Restore inventory items yang terhubung langsung via material_request_item_id
+                $itemIds = $materialRequest->items->pluck('id');
+                \App\Models\InventoryItem::onlyTrashed()
+                    ->whereIn('material_request_item_id', $itemIds)
+                    ->restore();
+
+                // 🔹 Increment incoming_stock kembali ke production stock
+                foreach ($materialRequest->items as $item) {
+                    $productionStock = \App\Models\ProductionStock::where('product_id', $item->product_id)->first();
+                    if ($productionStock) {
+                        $productionStock->increment('incoming_stock', $item->requested_qty);
+                    }
+                }
             }
 
             DB::commit();
-            return redirect()->back()->with('success', 'Request Stock berhasil direstore!');
+            return redirect()->back()->with('success', 'Request Stock dan Inventory terkait berhasil direstore!');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Restore material request gagal', [
                 'material_request_id' => $id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            return redirect()->back()->with('error', 'Gagal mengembalikan request stock!');
+            return redirect()->back()->with('error', 'Gagal mengembalikan request stock! ' . $e->getMessage());
         }
     }
 }

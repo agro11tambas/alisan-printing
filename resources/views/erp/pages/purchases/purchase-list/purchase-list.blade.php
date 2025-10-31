@@ -539,7 +539,7 @@
                         <td>${p.qty}</td>
                         <td class="text-end">${p.price}</td>
                         <td class="text-end">${p.freight}</td>
-                        <td class="text-end">${Number(p.price) + Number(p.freight)}</td>
+                        <td class="text-end">${p.total_price}</td>
                     </tr>
                 `;
                 });

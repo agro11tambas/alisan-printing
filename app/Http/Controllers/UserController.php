@@ -66,6 +66,19 @@ class UserController extends Controller
             'role.required'     => 'Role harus diisi',
         ]);
 
+        // 🔹 AUTO TAMBAHKAN PARENT PERMISSION JIKA ADA SUB-PERMISSION YANG DICENTANG
+        if ($request->filled('permission_sub_items')) {
+            $parentIds = \App\Models\PermissionSubItem::whereIn('id', $request->permission_sub_items)
+                ->pluck('permission_id')
+                ->unique()
+                ->toArray();
+
+            // gabungkan parent permission dengan yang dicentang manual
+            $mergedPermissions = array_unique(array_merge($request->permissions ?? [], $parentIds));
+            $request->merge(['permissions' => $mergedPermissions]);
+        }
+
+        // 🔹 BUAT USER
         $user = User::create([
             'name'     => $request->name,
             'username' => $request->username,
@@ -74,10 +87,8 @@ class UserController extends Controller
             'role'     => $request->role,
         ]);
 
-        // simpan permission yg dipilih
+        // 🔹 SIMPAN RELASI
         $user->permissions()->sync($request->permissions ?? []);
-
-        // simpan sub permissions
         $user->permissionSubItems()->sync($request->permission_sub_items ?? []);
 
         return redirect('/erp/shop-manager/users')->with('success', 'User berhasil dibuat');
@@ -86,6 +97,12 @@ class UserController extends Controller
     public function delete($id)
     {
         $user = User::findOrFail($id);
+        
+        if ($user->role === 'Owner') {
+            return redirect()->back()
+                ->with('error', 'Owner tidak dapat dihapus.');
+        }
+
         $user->permissions()->detach(); // hapus semua relasi permission
         $user->delete();
 

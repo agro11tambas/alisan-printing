@@ -205,6 +205,34 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalDeleteEmptyRequestStock" tabindex="-1" aria-labelledby="deleteEmptyModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" id="formDeleteEmptyRequestStock">
+                @csrf
+                @method('DELETE')
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-white">
+                        <h5 class="modal-title text-white" id="deleteEmptyModalLabel">Hapus RequestStock (Empty)</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Apakah Anda yakin ingin menghapus Request Stock <strong id="EmptyRequestStockName"></strong>?
+                        </p>
+                        <p class="text-muted">⚠️ Request Stock ini belum di-issued maupun di-received.</p>
+                        <p class="text-danger mb-0">Aksi ini hanya akan <strong>mengurangi incoming stock</strong> di
+                            Production.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-warning btn-md">Hapus</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalChangeStatus" tabindex="-1" aria-labelledby="changeStatusModal"
         aria-hidden="true">
         <div class="modal-dialog">
@@ -628,6 +656,22 @@
                         });
                     }
                 });
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('modalDeleteEmptyRequestStock');
+            const form = document.getElementById('formDeleteEmptyRequestStock');
+            const nameHolder = document.getElementById('EmptyRequestStockName');
+
+            modal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const id = button.getAttribute('data-id');
+                const name = button.getAttribute('data-name');
+                const url = button.getAttribute('data-url');
+
+                form.action = url;
+                nameHolder.textContent = name;
             });
         });
     </script>

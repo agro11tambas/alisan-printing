@@ -129,8 +129,7 @@
                                         <th>Driver</th>
                                         <th>Status</th>
                                         <th>Items</th>
-                                        <th>Waybill Proof</th>
-                                        <th>Delivery Proof</th>
+                                        <th>Proof Photos</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -280,12 +279,10 @@
                         name: 'items'
                     },
                     {
-                        data: 'waybill_proof',
-                        name: 'waybill_proof'
-                    },
-                    {
-                        data: 'delivery_proof',
-                        name: 'delivery_proof'
+                        data: 'proof_photos',
+                        name: 'proof_photos',
+                        orderable: false,
+                        searchable: false,
                     },
                 ],
             });

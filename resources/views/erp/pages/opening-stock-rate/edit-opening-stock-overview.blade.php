@@ -109,54 +109,94 @@
 
 @push('scripts')
     <script>
-        function formatNumberID(value) {
-            if (!value) return '';
-            const num = value.toString().replace(/\D/g, '');
-            return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        }
+        document.addEventListener("DOMContentLoaded", function() {
+            const form = document.querySelector('#openingStockOverviewForm');
 
-        function unformatNumber(value) {
-            return value ? value.replace(/\./g, '').replace(',', '.') : '0';
-        }
+            /**
+             * Format angka Indonesia (ribuan pakai titik, desimal pakai koma)
+             */
+            function formatNumberID(value, allowDecimal = false) {
+                if (!value) return '';
+                value = value.toString();
 
-        document.addEventListener('input', function(e) {
-            if (e.target.matches('input[type="text"]')) {
-                const raw = e.target.value.replace(/\D/g, '');
-                e.target.value = formatNumberID(raw);
+                // izinkan koma hanya jika allowDecimal = true
+                value = allowDecimal ? value.replace(/[^\d,]/g, '') : value.replace(/\D/g, '');
+
+                const parts = value.split(',');
+
+                // format bagian ribuan (sebelum koma)
+                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+                // jika ada koma, gabungkan kembali
+                return allowDecimal && parts.length > 1 ? `${integerPart},${parts[1]}` : integerPart;
             }
-        });
 
-        document.querySelector('#openingStockOverviewForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+            /**
+             * Hapus format (ubah jadi float untuk backend)
+             */
+            function unformatNumber(value) {
+                if (!value) return '0';
+                return value.toString()
+                    .replace(/\./g, '') // hapus titik ribuan
+                    .replace(',', '.'); // ubah koma jadi titik desimal
+            }
 
-            const form = this;
-            let isValid = true;
+            /**
+             * Format realtime input
+             */
+            document.addEventListener('input', function(e) {
+                if (!e.target.matches('input[type="text"]')) return;
 
-            form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+                const name = e.target.getAttribute('name');
 
-            form.querySelectorAll('input[type="text"]').forEach(input => {
-                if (!input.value.trim()) {
-                    isValid = false;
-                    input.classList.add('is-invalid');
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback d-block';
-                    feedback.textContent = 'Kolom ini wajib diisi';
-                    input.closest('td').appendChild(feedback);
-                } else {
-                    input.value = unformatNumber(input.value);
-                }
+                // kalau kolom opening_rate[] → izinkan koma
+                const allowDecimal = name === 'opening_rate[]';
+                const cursorPos = e.target.selectionStart;
+
+                e.target.value = formatNumberID(e.target.value, allowDecimal);
+
+                // restore posisi kursor agar input nyaman
+                e.target.setSelectionRange(cursorPos, cursorPos);
             });
 
-            if (isValid) form.submit();
-        });
+            /**
+             * Submit form
+             */
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
 
-        document.addEventListener('input', function(e) {
-            if (e.target.matches('.is-invalid')) {
-                e.target.classList.remove('is-invalid');
-                const feedback = e.target.closest('td').querySelector('.invalid-feedback');
-                if (feedback) feedback.remove();
-            }
+                let isValid = true;
+                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+
+                form.querySelectorAll('input[type="text"]').forEach(input => {
+                    const name = input.getAttribute('name');
+                    const allowDecimal = name === 'opening_rate[]';
+                    if (!input.value.trim()) {
+                        isValid = false;
+                        input.classList.add('is-invalid');
+                        const feedback = document.createElement('div');
+                        feedback.className = 'invalid-feedback d-block';
+                        feedback.textContent = 'Kolom ini wajib diisi';
+                        input.closest('td').appendChild(feedback);
+                    } else {
+                        input.value = unformatNumber(input.value);
+                    }
+                });
+
+                if (isValid) form.submit();
+            });
+
+            /**
+             * Hapus invalid saat diketik ulang
+             */
+            document.addEventListener('input', function(e) {
+                if (e.target.matches('.is-invalid')) {
+                    e.target.classList.remove('is-invalid');
+                    const feedback = e.target.closest('td').querySelector('.invalid-feedback');
+                    if (feedback) feedback.remove();
+                }
+            });
         });
     </script>
 @endpush

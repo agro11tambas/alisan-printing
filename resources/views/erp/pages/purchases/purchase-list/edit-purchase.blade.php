@@ -227,10 +227,10 @@
                                                                 value="{{ $item->quantity ?? '' }}"></td>
                                                         <td><input type="text" inputmode="numeric" name="price[]"
                                                                 class="form-control price"
-                                                                value="{{ $item->price ?? '' }}"></td>
+                                                                value="{{ number_format($item->price ?? 0, 2, ',', '.') }}"></td>
                                                         <td><input type="text" inputmode="numeric" name="freight[]"
                                                                 class="form-control freight"
-                                                                value="{{ $item->freight ?? '' }}"></td>
+                                                                value="{{ number_format($item->freight ?? 0, 2, ',', '.') }}"></td>
                                                         <td>
                                                             <input type="hidden" name="total[]"
                                                                 class="form-control total">
@@ -377,41 +377,47 @@
         function formatRibuan(angka) {
             if (angka === null || angka === undefined || angka === '') return '';
 
-            const num = parseFloat(angka.toString().replace(/[^0-9,.-]/g, '').replace(',', '.')) || 0;
+            // ubah ke number jika string
+            let num = parseFloat(angka.toString().replace(/\./g, '').replace(',', '.'));
+            if (isNaN(num)) num = parseFloat(angka); // fallback kalau sudah desimal
 
-            let [integer, decimal] = num.toFixed(2).split('.');
-            integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            return `${integer},${decimal}`;
+            if (isNaN(num)) return '';
+
+            const [integer, decimal] = num.toFixed(2).split('.');
+            const formattedInt = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+            return `${formattedInt},${decimal}`;
         }
 
+        // ✅ Hapus format (1.234,56 → 1234.56)
         function unformatRibuan(angka) {
             if (!angka) return 0;
-            const str = angka.toString().trim();
+            let str = angka.toString().trim();
 
-            if (str.includes(',')) {
-                return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
-            }
+            // hapus titik ribuan dulu
+            str = str.replace(/\./g, '');
+            // ubah koma ke titik desimal
+            str = str.replace(',', '.');
 
-            if (str.includes('.')) {
-                return parseFloat(str.replace(/\./g, '')) || 0;
-            }
-
-            return parseFloat(str) || 0;
+            const num = Number(str);
+            return isNaN(num) ? 0 : num;
         }
 
         function updateRowTotal(row) {
-            const qty = parseFloat(unformatRibuan(row.find(".qty").val())) || 0;
-            const price = parseFloat(unformatRibuan(row.find(".price").val())) || 0;
-            const freight = parseFloat(unformatRibuan(row.find(".freight").val())) || 0;
+            const qty = unformatRibuan(row.find(".qty").val()) || 0;
+            const price = unformatRibuan(row.find(".price").val()) || 0;
+            const freight = unformatRibuan(row.find(".freight").val()) || 0;
+
             const total = qty * (price + freight);
 
             if (total > 0) {
                 row.find(".total").val(total.toFixed(2));
-                row.find(".total_display").val(formatRibuan(total.toFixed(2)));
+                row.find(".total_display").val(formatRibuan(total));
             } else {
                 row.find(".total").val('');
                 row.find(".total_display").val('');
             }
+
             calc_total();
         }
 
@@ -471,7 +477,7 @@
             $('.price, .freight').each(function() {
                 const val = $(this).val();
                 if (val && !isNaN(val)) {
-                    $(this).val(formatRibuan(parseFloat(val)));
+                    $(this).val(formatRibuan(val)); // ⚡hapus parseFloat agar titik desimal tetap aman
                 }
             });
 
@@ -528,26 +534,20 @@
                 $(this).val(val ? val.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
             });
 
+            // 🔹 Format input harga / freight (boleh koma)
             $(document).on('input', '.price, .freight', function() {
                 let val = $(this).val().replace(/[^\d,]/g, '');
-                let [intPart, decPart] = val.split(',');
-                intPart = intPart ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
-                if (decPart) decPart = decPart.slice(0, 2);
-                $(this).val(decPart ? `${intPart},${decPart}` : intPart);
-
+                const parts = val.split(',');
+                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
+                $(this).val(val);
                 updateRowTotal($(this).closest('tr'));
             });
 
+            // 🔹 Format ulang saat blur
             $(document).on('blur', '.price, .freight', function() {
-                const val = $(this).val().trim();
-
-                if (val === '' || val === null) {
-                    $(this).val('');
-                } else {
-                    const num = unformatRibuan(val);
-                    $(this).val(formatRibuan(num));
-                }
-
+                const val = $(this).val();
+                $(this).val(formatRibuan(val));
                 updateRowTotal($(this).closest('tr'));
             });
 

@@ -57,7 +57,7 @@
                         @csrf
                         @method('POST')
                         <div class="card-body">
-                            <div class="row mb-3 align-items-center">
+                            {{-- <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="image" class="fw-semibold">Upload Image</label>
                                 </div>
@@ -69,7 +69,7 @@
                                     <img id="preview-image" src="#" alt="Preview"
                                         style="display:none; max-width: 100px; margin-top: 10px; border-radius: 10px" />
                                 </div>
-                            </div>
+                            </div> --}}
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="name" class="fw-semibold">Name:</label>
@@ -287,14 +287,26 @@
                 if (!input) return;
 
                 input.addEventListener('input', function() {
-                    let clean = this.value.replace(/[^\d]/g, '');
-                    if (clean === '') {
-                        this.value = '';
-                        return;
-                    }
-                    this.value = new Intl.NumberFormat('id-ID').format(clean);
-                    this.dataset.raw = clean;
+                    // Ambil hanya angka dan koma
+                    let val = this.value.replace(/[^\d,]/g, '');
+
+                    // Pisahkan antara angka dan desimal (koma)
+                    let parts = val.split(',');
+
+                    // Format bagian ribuan (sebelum koma)
+                    let integerPart = parts[0] ? parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') :
+                        '';
+
+                    // Gabungkan lagi jika ada desimal
+                    val = parts.length > 1 ? `${integerPart},${parts[1]}` : integerPart;
+
+                    // Tampilkan dengan format Indonesia (1.000,25)
+                    this.value = val;
+
+                    // Simpan versi raw (float, dengan titik)
+                    this.dataset.raw = val.replace(/\./g, '').replace(',', '.');
                 });
+
             });
 
             form.addEventListener('submit', function(e) {
@@ -303,8 +315,11 @@
                 ['price', 'fixed_cost'].forEach(id => {
                     const input = document.getElementById(id);
                     if (!input) return;
-                    const raw = input.dataset.raw || input.value.replace(/[^\d]/g, '');
-                    input.value = raw === '' ? 0 : raw;
+                    let raw = input.dataset.raw || input.value;
+                    if (raw === '') raw = 0;
+                    raw = raw.replace(',', '.');
+                    input.value = raw;
+
                 });
 
                 form.submit();

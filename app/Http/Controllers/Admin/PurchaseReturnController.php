@@ -160,9 +160,10 @@ class PurchaseReturnController extends Controller
                     return [
                         'name'  => $item->product ? $item->product->name : '-',
                         'sku'   => $item->product ? $item->product->sku : '-',
-                        'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0, 0, ',', '.'),
-                        'freight' => number_format($item->freight ?? 0, 0, ',', '.')
+                        'qty'   => number_format($item->quantity ?? 0, 0, ',', '.'),
+                        'price' => number_format($item->price ?? 0, 2, ',', '.'),
+                        'freight' => number_format($item->freight ?? 0, 2, ',', '.'),
+                        'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.')
                     ];
                 })->toArray();
             })
@@ -210,9 +211,10 @@ class PurchaseReturnController extends Controller
                     return [
                         'name'  => $item->product?->name ?? '-',
                         'sku'   => $item->product?->sku ?? '-',
-                        'qty'   => $item->quantity,
+                        'qty'   => number_format($item->quantity ?? 0, 0, ',', '.'),
                         'price' => number_format($item->price ?? 0, 0, ',', '.'),
-                        'freight' => number_format($item->freight ?? 0, 0, ',', '.')
+                        'freight' => number_format($item->freight ?? 0, 0, ',', '.'),
+                        'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.')
                     ];
                 })->toArray();
             })

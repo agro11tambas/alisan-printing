@@ -185,18 +185,19 @@
                                                         </td>
 
                                                         <td>
-                                                            <input type="text" inputmode="numeric" name="price[]"
-                                                                class="form-control price" value="{{ $item->price }}">
+                                                            <input type="text" name="price[]"
+                                                                class="form-control price"
+                                                                value="{{ number_format($item->price ?? 0, 2, ',', '.') }}">
                                                         </td>
 
                                                         <td>
-                                                            <input type="text" inputmode="numeric" name="freight[]"
+                                                            <input type="text" name="freight[]"
                                                                 class="form-control freight"
-                                                                value="{{ $item->freight ?? 0 }}">
+                                                                value="{{ number_format($item->freight ?? 0, 2, ',', '.') }}">
                                                         </td>
 
                                                         <td>
-                                                            <input type="text" inputmode="numeric" name="total[]"
+                                                            <input type="text" name="total[]"
                                                                 class="form-control total" readonly
                                                                 value="{{ $item->total ?? $item->quantity * $item->price + ($item->freight ?? 0) }}">
                                                         </td>
@@ -283,22 +284,33 @@
     <script>
         function formatRibuanID(angka, withDecimal = true) {
             if (angka === null || angka === undefined || angka === '') return '';
-            const num = parseFloat(angka.toString().replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
 
-            if (!withDecimal) {
-                const ribuan = Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                return ribuan;
-            }
+            // Pastikan angka beneran number
+            let num = typeof angka === 'number' ? angka : parseFloat(
+                angka.toString()
+                .replace(/\./g, '') // hapus titik ribuan
+                .replace(',', '.') // ubah koma jadi titik
+            );
 
-            const parts = num.toFixed(2).split('.');
-            const ribuan = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            return `${ribuan},${parts[1]}`;
+            if (isNaN(num)) num = 0;
+
+            // Pisahkan integer & decimal dari hasil fixed(2)
+            const [integer, decimal] = num.toFixed(2).split('.');
+            const formatted = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+            return withDecimal ? `${formatted},${decimal}` : formatted;
         }
+
 
         function unformatRibuanID(angka) {
             if (!angka) return 0;
-            return parseFloat(angka.toString().replace(/\./g, '').replace(',', '.')) || 0;
+            return parseFloat(
+                angka.toString()
+                .replace(/\./g, '') // hapus titik ribuan
+                .replace(',', '.') // ubah koma jadi titik untuk parsing
+            ) || 0;
         }
+
 
         function updateRowTotal(row) {
             const qty = unformatRibuanID(row.find('.qty').val());
@@ -404,15 +416,21 @@
 
             $(document).on('input', '.price, .freight', function() {
                 let val = $(this).val().replace(/[^\d,]/g, '');
-                let [intPart, decPart] = val.split(',');
+                const parts = val.split(',');
 
-                intPart = intPart ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+                // format bagian ribuan (integer)
+                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
 
-                if (decPart) decPart = decPart.slice(0, 2);
+                $(this).val(val);
+                updateRowTotal($(this).closest('tr'));
+            });
 
-                const formatted = decPart ? `${intPart},${decPart}` : intPart;
-                $(this).val(formatted);
-
+            $(document).on('blur', '.price, .freight', function() {
+                const val = $(this).val();
+                const clean = val.replace(/\./g, '').replace(',', '.'); // ubah jadi angka float
+                const num = parseFloat(clean) || 0;
+                $(this).val(formatRibuanID(num, true)); // format ulang ke ribuan + koma
                 updateRowTotal($(this).closest('tr'));
             });
 

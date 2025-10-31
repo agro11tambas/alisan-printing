@@ -9,14 +9,16 @@ use App\Http\Middleware\SubPermissionMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        commands: __DIR__.'/../routes/console.php',
+        web: __DIR__ . '/../routes/web.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'permission' => CheckPermission::class,
             'subpermission' => SubPermissionMiddleware::class,
+            'role' => \App\Http\Middleware\CheckRole::class,
+            'auth' => \App\Http\Middleware\isLogin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

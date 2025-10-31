@@ -17,11 +17,14 @@ class CheckPermission
      */
     public function handle(Request $request, Closure $next, $permission)
     {
-        /** @var \App\Models\User|null $user */
         $user = Auth::user();
 
-        if (!$user || !$user->hasPermission('sales')) {
-            abort(403, 'Unauthorized');
+        if (!$user) {
+            abort(403, 'Unauthorized - no user');
+        }
+
+        if (!$user->hasPermission($permission)) {
+            abort(403, "Unauthorized - missing permission {$permission}");
         }
 
         return $next($request);

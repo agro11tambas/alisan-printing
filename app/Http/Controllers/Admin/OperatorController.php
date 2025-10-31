@@ -53,6 +53,36 @@ class OperatorController extends Controller
             ->make(true);
     }
 
+    public function show($id)
+    {
+        $operator = Operator::with([
+            'histories.progressItem.product' => function ($q) {
+                $q->withTrashed(); // kalau produk sudah dihapus
+            },
+        ])->findOrFail($id);
+
+        // Gabungkan produk yang pernah di-progress
+        $products = $operator->histories
+            ->filter(fn($h) => $h->progressItem && $h->progressItem->product)
+            ->groupBy('progressItem.product_id')
+            ->map(function ($group) {
+                $product = $group->first()->progressItem->product;
+                $completed = $group->sum('completed_quantity');
+                $defect = $group->sum('defect_quantity');
+                $reject = $group->sum('reject_quantity');
+
+                return [
+                    'product_name' => $product->name ?? '-',
+                    'sku' => $product->sku ?? '-',
+                    'completed' => $completed,
+                    'defect' => $defect,
+                    'reject' => $reject,
+                ];
+            });
+
+        return view('erp.pages.operators.detail', compact('operator', 'products'));
+    }
+
     public function create()
     {
         return view('erp.pages.operators.create-operator');

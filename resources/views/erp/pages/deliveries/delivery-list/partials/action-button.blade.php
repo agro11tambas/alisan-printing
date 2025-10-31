@@ -12,7 +12,7 @@
                     </a>
                 </li>
 
-                @if ($dl->proof_delivery && $dl->proof_waybill)
+                @if ($dl->proof_photos)
                     <li>
                         <button type="button" class="dropdown-item btn-verify" data-bs-toggle="modal"
                             data-bs-target="#modalChangeStatus" data-id="{{ $dl->id }}"
@@ -32,6 +32,7 @@
                     </a>
                 </li>
 
+                @if (!$dl->proof_photos)
                 <li>
                     <button type="button" class="dropdown-item btn-delete-delivery" data-id="{{ $dl->id }}"
                         data-name="{{ $dl->shipment_number ?? 'Delivery #' . $dl->id }}"
@@ -40,6 +41,7 @@
                         <span>Delete Delivery List</span>
                     </button>
                 </li>
+                @endif
             @endif
         @endif
 

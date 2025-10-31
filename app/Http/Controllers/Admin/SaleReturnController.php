@@ -161,15 +161,37 @@ class SaleReturnController extends Controller
             //     return view('erp.pages.sales.sale-return.partials.product-list', compact('return'))->render();
             // })
             ->addColumn('products', function ($row) {
-                return $row->items->map(function ($item) {
-                    // Cek apakah item punya product atau productBundle
-                    $name = $item->product ? $item->product->name : ($item->productBundle ? $item->productBundle->name : '-');
+                // load orderItems + product (termasuk soft deleted)
+                $items = $row->orderItems()->with([
+                    'product' => function ($q) {
+                        $q->withTrashed();
+                    },
+                    'productBundle.items.product' // ✅ ambil produk di dalam bundle
+                ])->get();
+
+                return $items->map(function ($item) {
+                    if ($item->product) {
+                        // 🟢 Item biasa
+                        $name = $item->product->name;
+                        $sku  = $item->product->sku;
+                    } elseif ($item->productBundle) {
+                        // 🟣 Item bundle — gabungkan nama produk di dalam bundle
+                        $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
+                            return $bundleItem->product->name ?? '-';
+                        })->implode(' + ');
+
+                        $name = $bundleNames ?: '-';
+                        $sku  = $item->productBundle->sku ?? '-';
+                    } else {
+                        $name = '-';
+                        $sku  = '-';
+                    }
 
                     return [
                         'name'  => $name,
-                        'sku'   => $item->product ? $item->product->sku : ($item->productBundle ? $item->productBundle->sku : '-'),
-                        'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0)
+                        'sku'   => $sku,
+                        'qty'   => number_format($item->quantity, 0, ',', '.'),
+                        'price' => number_format($item->price ?? 0, 0, ',', '.'),
                     ];
                 })->toArray();
             })
@@ -211,18 +233,37 @@ class SaleReturnController extends Controller
             ->addColumn('total_amount', fn($return) => 'Rp ' . number_format($return->total_amount))
             ->addColumn('deleted_at', fn($return) => $return->deleted_at ? $return->deleted_at->format('j M y H:i') : '-')
             ->addColumn('products', function ($row) {
-                return $row->items->map(function ($item) {
-                    $name = $item->product
-                        ? $item->product->name
-                        : ($item->productBundle ? $item->productBundle->name : '-');
+                // load orderItems + product (termasuk soft deleted)
+                $items = $row->orderItems()->with([
+                    'product' => function ($q) {
+                        $q->withTrashed();
+                    },
+                    'productBundle.items.product' // ✅ ambil produk di dalam bundle
+                ])->get();
+
+                return $items->map(function ($item) {
+                    if ($item->product) {
+                        // 🟢 Item biasa
+                        $name = $item->product->name;
+                        $sku  = $item->product->sku;
+                    } elseif ($item->productBundle) {
+                        // 🟣 Item bundle — gabungkan nama produk di dalam bundle
+                        $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
+                            return $bundleItem->product->name ?? '-';
+                        })->implode(' + ');
+
+                        $name = $bundleNames ?: '-';
+                        $sku  = $item->productBundle->sku ?? '-';
+                    } else {
+                        $name = '-';
+                        $sku  = '-';
+                    }
 
                     return [
                         'name'  => $name,
-                        'sku'   => $item->product
-                            ? $item->product->sku
-                            : ($item->productBundle ? $item->productBundle->sku : '-'),
-                        'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0)
+                        'sku'   => $sku,
+                        'qty'   => number_format($item->quantity, 0, ',', '.'),
+                        'price' => number_format($item->price ?? 0, 0, ',', '.'),
                     ];
                 })->toArray();
             })

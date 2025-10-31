@@ -24,11 +24,9 @@
                             <div class="d-flex flex-wrap align-items-start gap-3">
                                 @foreach ($images as $img)
                                     <div class="text-center">
-                                        <a href="#" class="img-viewer"
-                                            data-src="{{ asset('uploads/designs/' . $img['file']) }}"
+                                        <a href="#" class="img-viewer" data-src="{{ asset($img['file']) }}"
                                             data-note="{{ $img['note'] ?? '' }}">
-                                            <img src="{{ asset('uploads/designs/' . $img['file']) }}" width="100"
-                                                height="80"
+                                            <img src="{{ asset($img['file']) }}" width="100" height="80"
                                                 style="border-radius:8px;object-fit:cover;border:1px solid #ddd;">
                                         </a>
 
@@ -47,7 +45,6 @@
                                 <i class="feather-upload"></i> Upload
                             </button>
                         @endif
-
                     </td>
 
                     <td>

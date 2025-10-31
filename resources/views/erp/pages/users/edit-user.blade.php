@@ -94,9 +94,10 @@
                                 <label for="role" class="fw-semibold">Role:</label>
                             </div>
                             <div class="col-lg-10 mb-0">
-                                <select class="form-select @error('role') is-invalid @enderror" id="role" name="role">
+                                <select class="form-select @error('role') is-invalid @enderror" data-select2-selector="tag" id="role" name="role">
                                     <option value="Owner" {{ old('role', $user->role) == 'Owner' ? 'selected' : '' }}>Owner</option>
                                     <option value="Admin" {{ old('role', $user->role) == 'Admin' ? 'selected' : '' }}>Admin</option>
+                                    <option value="Kurir" {{ old('role', $user->role) == 'Kurir' ? 'selected' : '' }}>Kurir</option>
                                 </select>
                                 @error('role')
                                 <div class="invalid-feedback">{{ $message }}</div>

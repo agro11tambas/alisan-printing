@@ -195,23 +195,101 @@ class SaleListController extends Controller
 
                 return '<div class="badge ' . $badgeClass . '">' . ucfirst($status) . '</div>';
             })
+            // ->addColumn('products', function ($row) {
+            //     // load orderItems + product (termasuk soft deleted)
+            //     $items = $row->orderItems()->with([
+            //         'product' => function ($q) {
+            //             $q->withTrashed();
+            //         },
+            //         'productBundle.items.product' // ✅ ambil produk di dalam bundle
+            //     ])->get();
+
+            //     return $items->map(function ($item) {
+            //         if ($item->product) {
+            //             // 🟢 Item biasa
+            //             $name = $item->product->name;
+            //             $sku  = $item->product->sku;
+            //         } elseif ($item->productBundle) {
+            //             // 🟣 Item bundle — gabungkan nama produk di dalam bundle
+            //             $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
+            //                 return $bundleItem->product->name ?? '-';
+            //             })->implode(' + ');
+
+            //             $name = $bundleNames ?: '-';
+            //             $sku  = $item->productBundle->sku ?? '-';
+            //         } else {
+            //             $name = '-';
+            //             $sku  = '-';
+            //         }
+
+            //         return [
+            //             'name'  => $name,
+            //             'sku'   => $sku,
+            //             'qty'   => number_format($item->quantity, 0, ',', '.'),
+            //             'price' => number_format($item->price ?? 0, 0, ',', '.'),
+            //         ];
+            //     })->toArray();
+            // })
             ->addColumn('products', function ($row) {
-                // load orderItems + product (termasuk soft deleted)
-                $items = $row->orderItems()->with(['product' => function ($q) {
-                    $q->withTrashed();
-                }, 'productBundle'])->get();
+                // 🔹 Ambil order items + relasi produk dan bundle
+                $items = $row->orderItems()
+                    ->with([
+                        'product' => fn($q) => $q->withTrashed(),
+                        'productBundle.items.product',
+                        'deliveryItems.deliveryOrder'
+                    ])
+                    ->get();
 
                 return $items->map(function ($item) {
-                    $name = $item->product ? $item->product->name : ($item->productBundle ? $item->productBundle->name : '-');
+                    // 🟢 Nama dan SKU produk
+                    if ($item->product) {
+                        $name = $item->product->name;
+                        $sku  = $item->product->sku;
+                    } elseif ($item->productBundle) {
+                        $bundleNames = $item->productBundle->items
+                            ->map(fn($b) => $b->product->name ?? '-')
+                            ->implode(' + ');
+                        $name = $bundleNames ?: '-';
+                        $sku  = $item->productBundle->sku ?? '-';
+                    } else {
+                        $name = '-';
+                        $sku  = '-';
+                    }
+
+                    // 🔹 Ambil data pengiriman (delivery order → delivery order item)
+                    $deliveryData = $item->order
+                        ->deliveryOrders()
+                        ->with(['items' => function ($q) use ($item) {
+                            $q->where('order_item_id', $item->id);
+                        }])
+                        ->get()
+                        ->pluck('items')
+                        ->flatten();
+
+                    // 🔸 Jika produk bundle → cukup ambil 1x (anggap satu set)
+                    if ($item->productBundle) {
+                        $progressQty = $deliveryData->first()->progress_qty ?? 0;
+                        $readyQty    = $deliveryData->first()->ready_qty ?? 0;
+                        $shippedQty  = $deliveryData->first()->shipped_qty ?? 0;
+                    } else {
+                        // 🔸 Jika produk biasa → tetap sum semua delivery order item terkait
+                        $progressQty = $deliveryData->sum('progress_qty');
+                        $readyQty    = $deliveryData->sum('ready_qty');
+                        $shippedQty  = $deliveryData->sum('shipped_qty');
+                    }
 
                     return [
-                        'name'  => $name,
-                        'sku'   => $item->product ? $item->product->sku : ($item->productBundle ? $item->productBundle->sku : '-'),
-                        'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0),
+                        'name'         => $name,
+                        'sku'          => $sku,
+                        'qty'          => number_format($item->quantity, 0, ',', '.'),
+                        'price'        => number_format($item->price ?? 0, 0, ',', '.'),
+                        'progress_qty' => number_format($progressQty, 0, ',', '.'),
+                        'ready_qty'    => number_format($readyQty, 0, ',', '.'),
+                        'shipped_qty'  => number_format($shippedQty, 0, ',', '.'),
                     ];
                 })->toArray();
             })
+
             ->addColumn('payment_method', function ($order) {
                 return $order->payment_method;
             })
@@ -257,19 +335,97 @@ class SaleListController extends Controller
             ->addColumn('customer', fn($order) => $order->customer->name ?? '-')
             ->addColumn('grand_total', fn($order) => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>')
             ->addColumn('deleted_at', fn($order) => $order->deleted_at ? $order->deleted_at->format('j M y H:i') : '-')
+            // ->addColumn('products', function ($row) {
+            //     // load orderItems + product (termasuk soft deleted)
+            //     $items = $row->orderItems()->with([
+            //         'product' => function ($q) {
+            //             $q->withTrashed();
+            //         },
+            //         'productBundle.items.product' // ✅ ambil produk di dalam bundle
+            //     ])->get();
+
+            //     return $items->map(function ($item) {
+            //         if ($item->product) {
+            //             // 🟢 Item biasa
+            //             $name = $item->product->name;
+            //             $sku  = $item->product->sku;
+            //         } elseif ($item->productBundle) {
+            //             // 🟣 Item bundle — gabungkan nama produk di dalam bundle
+            //             $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
+            //                 return $bundleItem->product->name ?? '-';
+            //             })->implode(' + ');
+
+            //             $name = $bundleNames ?: '-';
+            //             $sku  = $item->productBundle->sku ?? '-';
+            //         } else {
+            //             $name = '-';
+            //             $sku  = '-';
+            //         }
+
+            //         return [
+            //             'name'  => $name,
+            //             'sku'   => $sku,
+            //             'qty'   => number_format($item->quantity, 0, ',', '.'),
+            //             'price' => number_format($item->price ?? 0, 0, ',', '.'),
+            //         ];
+            //     })->toArray();
+            // })
             ->addColumn('products', function ($row) {
-                return $row->orderItems->map(function ($item) {
-                    $name = $item->product
-                        ? $item->product->name
-                        : ($item->productBundle ? $item->productBundle->name : '-');
+                // 🔹 Ambil order items + relasi produk dan bundle
+                $items = $row->orderItems()
+                    ->with([
+                        'product' => fn($q) => $q->withTrashed(),
+                        'productBundle.items.product',
+                        'deliveryItems.deliveryOrder'
+                    ])
+                    ->get();
+
+                return $items->map(function ($item) {
+                    // 🟢 Nama dan SKU produk
+                    if ($item->product) {
+                        $name = $item->product->name;
+                        $sku  = $item->product->sku;
+                    } elseif ($item->productBundle) {
+                        $bundleNames = $item->productBundle->items
+                            ->map(fn($b) => $b->product->name ?? '-')
+                            ->implode(' + ');
+                        $name = $bundleNames ?: '-';
+                        $sku  = $item->productBundle->sku ?? '-';
+                    } else {
+                        $name = '-';
+                        $sku  = '-';
+                    }
+
+                    // 🔹 Ambil data pengiriman (delivery order → delivery order item)
+                    $deliveryData = $item->order
+                        ->deliveryOrders()
+                        ->with(['items' => function ($q) use ($item) {
+                            $q->where('order_item_id', $item->id);
+                        }])
+                        ->get()
+                        ->pluck('items')
+                        ->flatten();
+
+                    // 🔸 Jika produk bundle → cukup ambil 1x (anggap satu set)
+                    if ($item->productBundle) {
+                        $progressQty = $deliveryData->first()->progress_qty ?? 0;
+                        $readyQty    = $deliveryData->first()->ready_qty ?? 0;
+                        $shippedQty  = $deliveryData->first()->shipped_qty ?? 0;
+                    } else {
+                        // 🔸 Jika produk biasa → tetap sum semua delivery order item terkait
+                        $progressQty = $deliveryData->sum('progress_qty');
+                        $readyQty    = $deliveryData->sum('ready_qty');
+                        $shippedQty  = $deliveryData->sum('shipped_qty');
+                    }
 
                     return [
-                        'name'  => $name,
-                        'sku'   => $item->product
-                            ? $item->product->sku
-                            : ($item->productBundle ? $item->productBundle->sku : '-'),
-                        'qty'   => $item->quantity,
-                        'price' => number_format($item->price ?? 0)
+                        'name'         => $name,
+                        'sku'          => $sku,
+                        'qty'          => number_format($item->quantity, 0, ',', '.'),
+                        'price'        => number_format($item->price ?? 0, 0, ',', '.'),
+                        'progress_qty' => number_format($progressQty, 0, ',', '.'),
+                        'ready_qty'    => number_format($readyQty, 0, ',', '.'),
+                        'shipped_qty'  => number_format($shippedQty, 0, ',', '.'),
                     ];
                 })->toArray();
             })
@@ -311,9 +467,14 @@ class SaleListController extends Controller
 
     public function create()
     {
-        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])
+            ->orderBy('name', 'asc')
+            ->get();
 
-        $productBundles = ProductBundle::with(['items.product.categories.discounts', 'items.product.discounts'])->orderBy('name', 'asc')->get();
+        $productBundles = ProductBundle::with([
+            'items.product.categories.discounts',
+            'items.product.discounts'
+        ])->orderBy('name', 'asc')->get();
 
         $productsJson = $products->map(function ($product) {
             return [
@@ -357,9 +518,14 @@ class SaleListController extends Controller
                 }
             }
 
+            // 🔹 Buat nama bundle otomatis dari nama produk di dalamnya
+            $bundleName = $bundle->items->map(function ($item) {
+                return $item->product->name ?? '-';
+            })->implode(' + ');
+
             return [
                 'id' => $bundle->id,
-                'name' => $bundle->name,
+                'name' => $bundleName ?: $bundle->name, // fallback ke nama asli kalau kosong
                 'sku'  => $bundle->sku,
                 'price' => $bundle->price,
                 'discounts' => $bundleDiscounts,
@@ -373,7 +539,17 @@ class SaleListController extends Controller
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        return view('erp.pages.sales.sale-list.create-order', compact('products', 'productBundles', 'customers', 'discount', 'cashAccounts', 'bankAccounts', 'transactionTypes', 'productsJson', 'productBundlesJson'));
+        return view('erp.pages.sales.sale-list.create-order', compact(
+            'products',
+            'productBundles',
+            'customers',
+            'discount',
+            'cashAccounts',
+            'bankAccounts',
+            'transactionTypes',
+            'productsJson',
+            'productBundlesJson'
+        ));
     }
 
     public function store(Request $request)
@@ -510,12 +686,17 @@ class SaleListController extends Controller
                 elseif ($type === 'bundle') {
                     $bundle = ProductBundle::with('items.product')->findOrFail($productInputId);
 
+                    // 🔹 Gabungkan nama-nama produk di dalam bundle
+                    $bundleProductNames = $bundle->items->map(function ($item) {
+                        return $item->product->name ?? '-';
+                    })->implode(' + ');
+
                     $orderItem = OrderItem::create([
                         'order_id'             => $order->id,
                         'product_id'           => null,
                         'product_bundle_id'    => $bundle->id,
                         'status'               => $paymentMethod,
-                        'product_name'         => $bundle->name,
+                        'product_name'         => $bundleProductNames,
                         'satuan'               => 'bundle',
                         'quantity'             => $qty,
                         'completed_quantity'   => 0,
@@ -773,16 +954,19 @@ class SaleListController extends Controller
             }
         }
 
-        // 🔹 Data lain tetap sama
-        $productBundles = ProductBundle::with(['items.product.categories.discounts', 'items.product.discounts'])->orderBy('name', 'asc')->get();
-        $productBundles->map(function ($bundle) {
-            $bundle->discounts = [];
-            return $bundle;
-        });
+        // 🔹 Data produk & bundle
+        $productBundles = ProductBundle::with([
+            'items.product.categories.discounts',
+            'items.product.discounts'
+        ])->orderBy('name', 'asc')->get();
 
-        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $products = Products::with(['categories', 'discounts', 'categories.discounts'])
+            ->orderBy('name', 'asc')
+            ->get();
+
         $customers = Customers::with('addresses')->orderBy('name', 'asc')->get();
 
+        // 🔹 JSON untuk produk tunggal
         $productsJson = $products->map(function ($product) {
             return [
                 'id' => $product->id,
@@ -802,6 +986,7 @@ class SaleListController extends Controller
             ];
         })->toArray();
 
+        // 🔹 JSON untuk bundle (gabung nama produk di dalamnya)
         $productBundlesJson = $productBundles->map(function ($bundle) {
             $bundleDiscounts = [];
             $bundleCategories = [];
@@ -823,9 +1008,14 @@ class SaleListController extends Controller
                 }
             }
 
+            // 🔹 Gabungkan nama produk jadi 1 string
+            $bundleName = $bundle->items->map(function ($item) {
+                return $item->product->name ?? '-';
+            })->implode(' + ');
+
             return [
                 'id' => $bundle->id,
-                'name' => $bundle->name,
+                'name' => $bundleName ?: $bundle->name, // fallback ke nama bundle asli
                 'sku'  => $bundle->sku,
                 'price' => $bundle->price,
                 'discounts' => $bundleDiscounts,
@@ -833,7 +1023,6 @@ class SaleListController extends Controller
             ];
         })->toArray();
 
-        // 🔹 kirim juga due_date_option & custom_due_date
         return view('erp.pages.sales.sale-list.edit-order', compact(
             'order',
             'products',

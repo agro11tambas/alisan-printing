@@ -470,17 +470,20 @@
 
             $(document).on('input', '.price, .freight', function() {
                 let val = $(this).val().replace(/[^\d,]/g, '');
-                let [intPart, decPart] = val.split(',');
-                intPart = intPart ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
-                if (decPart) decPart = decPart.slice(0, 2);
-                $(this).val(decPart ? `${intPart},${decPart}` : intPart);
+                const parts = val.split(',');
 
+                // format bagian ribuan (integer)
+                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
+
+                $(this).val(val);
                 updateRowTotal($(this).closest('tr'));
             });
 
             $(document).on('blur', '.price, .freight', function() {
-                const num = unformatRibuan($(this).val());
-                $(this).val(formatRibuan(num));
+                const raw = $(this).val();
+                const formatted = formatRibuan(raw);
+                $(this).val(formatted);
                 updateRowTotal($(this).closest('tr'));
             });
 

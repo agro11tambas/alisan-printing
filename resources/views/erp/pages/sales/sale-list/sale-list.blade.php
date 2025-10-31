@@ -518,6 +518,8 @@
                                 <th>SKU</th>
                                 <th>Qty</th>
                                 <th class="text-end">Price</th>
+                                <th class="text-end">Ready to Ship</th>
+                                <th class="text-end">Shipped</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -526,10 +528,12 @@
                 products.forEach(p => {
                     html += `
                     <tr>
-                        <td>${p.name}</td>
+                        <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
                         <td>${p.sku}</td>
                         <td>${p.qty}</td>
                         <td class="text-end">${p.price}</td>
+                        <td class="text-end">${p.ready_qty}</td>
+                        <td class="text-end">${p.shipped_qty}</td>
                     </tr>
                 `;
                 });

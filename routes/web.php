@@ -61,6 +61,7 @@ use App\Models\CanceledProduct;
 use App\Models\DefectProduct;
 use App\Services\InvoiceNumberService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Can;
 
 Route::get('/', function () {
@@ -70,7 +71,6 @@ Route::get('/', function () {
 Route::get('/login', [AuthController::class, 'loginView'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
-
 
 Route::middleware(isLogin::class)->group(function () {
     Route::get('/erp/welcome', [WelcomeController::class, 'index']);
@@ -334,6 +334,7 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/productions/material-request/edit/{id}', [MaterialRequestController::class, 'edit']);
             Route::put('/erp/productions/material-request/update/{id}', [MaterialRequestController::class, 'update']);
             Route::delete('/erp/productions/material-request/delete/{id}', [MaterialRequestController::class, 'delete']);
+            Route::delete('/erp/productions/material-request/delete-empty/{id}', [MaterialRequestController::class, 'deleteEmpty']);
 
             Route::put('/erp/productions/material-request/mark-as-verified/{id}', [MaterialRequestController::class, 'markAsVerified']);
 
@@ -397,7 +398,7 @@ Route::middleware(isLogin::class)->group(function () {
 
             Route::put('/erp/deliveries/delivery-list/{id}/verify', [DeliveryListController::class, 'verify'])
                 ->name('delivery-list.verify');
-                
+
             Route::delete('/erp/deliveries/delivery-list/{id}/destroy', [App\Http\Controllers\Admin\DeliveryListController::class, 'destroy'])
                 ->name('delivery-list.destroy');
         });
@@ -595,6 +596,7 @@ Route::middleware(isLogin::class)->group(function () {
         Route::get('/erp/shop-manager/operators/edit-operator/{id}', [OperatorController::class, 'edit']);
         Route::put('/erp/shop-manager/operators/update/{id}', [OperatorController::class, 'update']);
         Route::delete('/erp/shop-manager/operators/delete/{id}', [OperatorController::class, 'delete']);
+        Route::get('/erp/shop-manager/operators/{id}/detail', [OperatorController::class, 'show'])->name('operators.show');
     });
 
     Route::middleware(['auth', 'permission:customer'])->group(function () {

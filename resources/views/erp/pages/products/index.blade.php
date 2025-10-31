@@ -137,7 +137,7 @@
                                 <thead>
                                     <tr>
                                         <th class="wd-30">No</th>
-                                        <th>Image</th>
+                                        {{-- <th>Image</th> --}}
                                         <th>Name</th>
                                         <th>Categories</th>
                                         <th>Merek</th>
@@ -214,9 +214,9 @@
                         orderable: false,
                         searchable: false
                     },
-                    {
-                        data: 'image'
-                    },
+                    // {
+                    //     data: 'image'
+                    // },
                     {
                         data: 'name'
                     },

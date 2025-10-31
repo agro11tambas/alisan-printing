@@ -141,6 +141,42 @@
         tr.action-active td {
             color: #212529;
         }
+
+
+        .select2-container .select2-selection__rendered {
+            white-space: normal !important;
+            /* agar teks bisa turun ke baris berikutnya */
+            word-break: break-word !important;
+            /* potong kata panjang */
+            line-height: 1.3 !important;
+            /* biar tinggi baris rapi */
+            min-height: 38px !important;
+            /* sesuaikan dengan tinggi select normal */
+            padding: 4px 8px !important;
+        }
+
+        .select2-results__option {
+            white-space: normal !important;
+            word-break: break-word !important;
+        }
+
+        .page-header.sticky-top,
+        .page-header {
+            z-index: 2500 !important;
+            /* lebih tinggi dari 2050 */
+        }
+
+        /* Jika ada overlay navbar atau topbar juga */
+        .nxl-header,
+        .topbar,
+        .navbar,
+        .page-header-title {
+            z-index: 2060 !important;
+        }
+
+        .modal{
+            z-index: 3000 !important;
+        }
     </style>
 
     @stack('styles')

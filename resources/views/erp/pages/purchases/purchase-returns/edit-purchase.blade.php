@@ -279,21 +279,31 @@
     <script>
         function formatRibuanID(angka, withDecimal = true) {
             if (angka === null || angka === undefined || angka === '') return '';
-            const num = parseFloat(angka.toString().replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
 
-            if (!withDecimal) {
-                const ribuan = Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                return ribuan;
-            }
+            // pastikan angka beneran number
+            let num = typeof angka === 'number' ?
+                angka :
+                parseFloat(
+                    angka.toString()
+                    .replace(/\./g, '') // hapus titik ribuan
+                    .replace(',', '.') // ubah koma jadi titik
+                );
 
-            const parts = num.toFixed(2).split('.');
-            const ribuan = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            return `${ribuan},${parts[1]}`;
+            if (isNaN(num)) num = 0;
+
+            const [integer, decimal] = num.toFixed(2).split('.');
+            const formatted = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+            return withDecimal ? `${formatted},${decimal}` : formatted;
         }
 
         function unformatRibuanID(angka) {
             if (!angka) return 0;
-            return parseFloat(angka.toString().replace(/\./g, '').replace(',', '.')) || 0;
+            return parseFloat(
+                angka.toString()
+                .replace(/\./g, '')
+                .replace(',', '.')
+            ) || 0;
         }
 
         function updateRowTotal(row) {
@@ -384,17 +394,25 @@
                 }
 
                 input.val(formatRibuanID(value.toString(), false));
-
                 updateRowTotal(input.closest('tr'));
             });
 
-            $(document).on('paste', '.qty', function() {
-                setTimeout(() => $(this).trigger('input'), 10);
+            $(document).on('input', '.price, .freight', function() {
+                let val = $(this).val().replace(/[^\d,]/g, '');
+                const parts = val.split(',');
+
+                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
+
+                $(this).val(val);
+                updateRowTotal($(this).closest('tr'));
             });
 
-            $(document).on('input', '.price, .freight', function() {
-                const raw = $(this).val().replace(/\./g, '').replace(/[^0-9,]/g, '');
-                $(this).val(formatRibuanID(raw, true));
+            $(document).on('blur', '.price, .freight', function() {
+                const val = $(this).val();
+                const clean = val.replace(/\./g, '').replace(',', '.'); // ubah jadi angka float
+                const num = parseFloat(clean) || 0;
+                $(this).val(formatRibuanID(num, true)); // format ulang ke ribuan + koma
                 updateRowTotal($(this).closest('tr'));
             });
 

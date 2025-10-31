@@ -58,7 +58,7 @@
                         @csrf
                         @method('PUT')
                         <div class="card-body">
-                            <div class="row mb-3 align-items-center">
+                            {{-- <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="image" class="fw-semibold">Upload Image</label>
                                 </div>
@@ -82,7 +82,7 @@
                                             style="max-width: 100px; border-radius: 10px">
                                     </div>
                                 </div>
-                            </div>
+                            </div> --}}
 
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
@@ -212,7 +212,7 @@
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
                                         <input type="text" class="form-control" id="fixed_cost" name="fixed_cost"
-                                            value="{{ old('fixed_cost', intval($product->fixed_cost ?? 0)) }}"
+                                            value="{{ old('fixed_cost', number_format($product->fixed_cost ?? 0, 2, ',', '.')) }}"
                                             placeholder="0">
                                     </div>
                                 </div>
@@ -239,7 +239,6 @@
 @push('scripts')
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-
             const imageInput = document.getElementById('image');
             if (imageInput) {
                 imageInput.addEventListener('change', function(event) {
@@ -269,24 +268,38 @@
                 const input = document.getElementById(id);
                 if (!input) return;
 
+                // ✅ Format awal saat halaman dimuat
                 if (input.value) {
-                    let clean = input.value.replace(/[^\d]/g, '');
-                    input.value = new Intl.NumberFormat('id-ID').format(clean);
-                    input.dataset.raw = clean;
+                    // ubah dulu ke format float JS (hapus titik ribuan, ubah koma jadi titik)
+                    let raw = input.value.toString().replace(/\./g, '').replace(',', '.');
+                    let num = parseFloat(raw);
+                    if (!isNaN(num)) {
+                        input.value = new Intl.NumberFormat('id-ID', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                        }).format(num);
+                        input.dataset.raw = num;
+                    }
                 }
 
+                // ✅ Event saat mengetik
                 input.addEventListener('input', function() {
-                    let clean = this.value.replace(/[^\d]/g, '');
-                    if (clean === '') {
-                        this.value = '';
-                        delete this.dataset.raw;
-                        return;
-                    }
-                    this.value = new Intl.NumberFormat('id-ID').format(clean);
-                    this.dataset.raw = clean;
+                    // ambil angka dan koma saja
+                    let val = this.value.replace(/[^\d,]/g, '');
+                    const parts = val.split(',');
+
+                    // format ribuan
+                    let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                    val = parts.length > 1 ? `${integerPart},${parts[1]}` : integerPart;
+
+                    this.value = val;
+
+                    // simpan raw float untuk submit
+                    this.dataset.raw = val;
                 });
             });
 
+            // 🔎 Validasi dan submit
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
 
@@ -330,7 +343,6 @@
                     const el = form.querySelector(rule.selector);
                     const val = el?.value ?? '';
                     const valid = rule.validate ? rule.validate(val) : val.trim() !== '';
-
                     if (!valid) {
                         showError(el, rule.message);
                         isValid = false;
@@ -340,8 +352,24 @@
                 ['price', 'fixed_cost'].forEach(id => {
                     const input = document.getElementById(id);
                     if (!input) return;
-                    const raw = input.dataset.raw || input.value.replace(/[^\d]/g, '');
-                    input.value = raw === '' ? 0 : raw;
+
+                    let raw = input.dataset.raw || input.value;
+                    if (raw === '') raw = 0;
+
+                    // hapus semua spasi dan ubah koma jadi titik
+                    // 1️⃣ Hapus spasi
+                    raw = raw.toString().replace(/\s/g, '');
+
+                    // 2️⃣ Ubah ribuan: hapus titik (tapi jangan ubah koma dulu)
+                    raw = raw.replace(/\.(?=\d{3}(,|$))/g, '');
+
+                    // 3️⃣ Ubah desimal koma → titik
+                    raw = raw.replace(',', '.');
+
+                    // 4️⃣ Jika kosong, fallback ke 0
+                    if (raw === '' || isNaN(parseFloat(raw))) raw = 0;
+
+                    input.value = raw;
                 });
 
                 if (isValid) form.submit();
@@ -366,7 +394,6 @@
                     parent.appendChild(feedback);
                 }
             }
-
         });
     </script>
 @endpush

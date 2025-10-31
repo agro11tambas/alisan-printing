@@ -159,12 +159,37 @@ class DeliveryListController extends Controller
                 }
             })
             ->addColumn('proof_photos', function ($dl) {
-                return $dl->proof_photos ? json_encode($dl->proof_photos) : '[]';
+                if (empty($dl->proof_photos)) {
+                    return '<span class="text-muted">No Proof</span>';
+                }
+
+                $photos = json_decode($dl->proof_photos, true);
+                if (empty($photos)) {
+                    return '<span class="text-muted">No Proof</span>';
+                }
+
+                $html = '<div class="d-flex flex-wrap gap-2">';
+                foreach ($photos as $photo) {
+                    // ✅ panggil dari asset() sesuai path yang kamu simpan
+                    $src = asset($photo);
+                    $html .= '
+            <a href="' . $src . '" data-lightbox="proof-' . $dl->id . '">
+                <img src="' . $src . '" 
+                    width="50" height="50"
+                    style="border-radius:8px;object-fit:cover;border:1px solid #ddd;"
+                    alt="Proof Photo">
+            </a>
+        ';
+                }
+                $html .= '</div>';
+
+                return $html;
             })
+
             ->addColumn('action', function ($dl) {
                 return view('erp.pages.deliveries.delivery-list.partials.action-button', compact('dl'))->render();
             })
-            ->rawColumns(['shipment_number', 'status', 'address', 'items', 'action', 'waybill_proof', 'delivery_proof'])
+            ->rawColumns(['shipment_number', 'status', 'address', 'items', 'action', 'waybill_proof', 'delivery_proof', 'proof_photos'])
             ->make(true);
     }
 
@@ -374,9 +399,15 @@ class DeliveryListController extends Controller
 
         $savedPhotos = [];
 
+        // ✅ simpan di folder uploads/proof-photos di luar /public
+        $uploadPath = public_path('../uploads/proof-photos');
+        if (!file_exists($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
+
         foreach ($request->file('proof_photos', []) as $photo) {
             $fileName = 'proof_' . time() . '_' . uniqid() . '.' . $photo->extension();
-            $path = $photo->move(public_path('uploads/proof-photos'), $fileName);
+            $photo->move($uploadPath, $fileName);
             $savedPhotos[] = 'uploads/proof-photos/' . $fileName;
         }
 
@@ -387,12 +418,13 @@ class DeliveryListController extends Controller
         return back()->with('success', 'Bukti berhasil diupload!');
     }
 
+
     public function verify($id)
     {
         $deliveryList = DeliveryList::findOrFail($id);
 
         // ✅ Pastikan bukti sudah lengkap sebelum bisa diverifikasi
-        if (!$deliveryList->proof_delivery || !$deliveryList->proof_waybill) {
+        if (!$deliveryList->proof_photos) {
             return redirect()->back()->with('error', 'Bukti pengantaran dan surat jalan belum lengkap.');
         }
 

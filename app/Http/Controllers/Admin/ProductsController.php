@@ -144,6 +144,12 @@ class ProductsController extends Controller
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
+        if (Products::where('sku', $request->sku)->exists()) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'SKU sudah digunakan. Silakan gunakan SKU lain.');
+        }
+
         $imagePath = null;
 
         if ($request->hasFile('image')) {
@@ -243,7 +249,6 @@ class ProductsController extends Controller
         return view('erp.pages.products.edit-product', compact('product', 'categories', 'tags'));
     }
 
-
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -258,6 +263,12 @@ class ProductsController extends Controller
             'tags' => 'required|array',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
+
+        if (Products::where('sku', $request->sku)->where('id', '!=', $id)->exists()) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'SKU sudah digunakan oleh produk lain. Silakan gunakan SKU lain.');
+        }
 
         $product = Products::findOrFail($id);
         $imagePath = $product->image;

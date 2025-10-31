@@ -197,10 +197,11 @@ class PurchaseListController extends Controller
                     return [
                         'name'    => $item->purchaseProduct->name ?? '-',
                         'sku'     => $item->purchaseProduct->sku ?? '-',
-                        'qty'     => $item->quantity,
-                        'price'   => number_format($priceWithTax, 0, ',', '.'), // ✅ sudah +tax
-                        'freight' => number_format($freight, 0, ',', '.'),
-                        'total'   => number_format($total, 0, ',', '.'),
+                        'qty'     => number_format($item->quantity, 0, ',', '.'),
+                        'price'   => number_format($priceWithTax, 2, ',', '.'), // ✅ sudah +tax
+                        'freight' => number_format($freight, 2, ',', '.'),
+                        'total_price' => number_format($priceWithTax + $freight, 2, ',', '.'),
+                        'total'   => number_format($total, 2, ',', '.'),
                     ];
                 })->toArray();
             })
@@ -256,9 +257,10 @@ class PurchaseListController extends Controller
                     return [
                         'name'  => $item->purchaseProduct?->name ?? '-',
                         'sku'   => $item->purchaseProduct?->sku ?? '-',
-                        'qty'   => $item->quantity,
+                        'qty'   => number_format($item->quantity ?? 0, 0, ',', '.'),
                         'price' => number_format($item->price ?? 0, 0, ',', '.'),
-                        'freight' => number_format($item->freight ?? 0, 0, ',', '.')
+                        'freight' => number_format($item->freight ?? 0, 0, ',', '.'),
+                        'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.')
                     ];
                 })->toArray();
             })
@@ -1274,16 +1276,35 @@ class PurchaseListController extends Controller
         DB::beginTransaction();
 
         try {
-            $purchase = Purchase::onlyTrashed()->with('purchaseItems')->findOrFail($id);
+            $purchase = Purchase::onlyTrashed()
+                ->with(['purchaseItems' => fn($q) => $q->withTrashed()])
+                ->findOrFail($id);
 
             // ✅ Restore purchase
             $purchase->restore();
 
-            // ✅ Restore purchase items kalau ikut soft delete
-            if (method_exists($purchase, 'purchaseItems')) {
-                $purchase->purchaseItems()->withTrashed()->restore();
+            // ✅ Restore purchase items
+            $purchase->purchaseItems()->withTrashed()->restore();
+
+            $inventories = \App\Models\Inventory::with(['items' => fn($q) => $q->withTrashed()])
+                ->withTrashed()
+                ->where('purchase_id', $purchase->id)
+                ->get();
+
+            foreach ($inventories as $inventory) {
+                if ($inventory->trashed()) $inventory->restore();
+
+                foreach ($inventory->items as $invItem) {
+                    if ($invItem->trashed()) $invItem->restore();
+                }
             }
 
+            // Fallback jaga-jaga
+            \App\Models\InventoryItem::withTrashed()
+                ->whereIn('inventory_id', $inventories->pluck('id'))
+                ->restore();
+
+            // ✅ Pastikan stok incoming dikembalikan
             foreach ($purchase->purchaseItems as $item) {
                 $warehouseId = $item->inventory_warehouse_id ?? 1;
 
@@ -1308,20 +1329,11 @@ class PurchaseListController extends Controller
                 if (!$account) continue;
 
                 if ($account->type === 'Purchase Account') {
-                    // restore transaksi purchase account
-                    if ($trx->trashed()) {
-                        $trx->restore();
-                    }
+                    if ($trx->trashed()) $trx->restore();
 
-                    // hitung ulang closing balance
-                    if ($trx->debit > 0) {
-                        $account->closing_balance += $trx->debit;
-                    }
-                    if ($trx->credit > 0) {
-                        $account->closing_balance -= $trx->credit;
-                    }
+                    if ($trx->debit > 0) $account->closing_balance += $trx->debit;
+                    if ($trx->credit > 0) $account->closing_balance -= $trx->credit;
                 } else {
-                    // Cash / Bank → hubungkan kembali
                     $trx->purchase_id = $purchase->id;
                     $trx->note = str_replace('[Purchase deleted]', '', $trx->note ?? '');
                     $trx->save();
@@ -1342,14 +1354,14 @@ class PurchaseListController extends Controller
             }
 
             DB::commit();
-            return redirect()->back()->with('success', 'Purchase berhasil direstore!');
+            return redirect()->back()->with('success', 'Purchase dan Inventory terkait berhasil direstore!');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Restore purchase gagal', [
                 'purchase_id' => $id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            return redirect()->back()->with('error', 'Gagal mengembalikan purchase!');
+            return redirect()->back()->with('error', 'Gagal mengembalikan purchase! ' . $e->getMessage());
         }
     }
 }

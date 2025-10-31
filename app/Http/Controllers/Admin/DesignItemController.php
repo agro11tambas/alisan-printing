@@ -51,12 +51,19 @@ class DesignItemController extends Controller
         $notes = $request->note_per_image ?? [];
 
         if ($request->hasFile('preview_image')) {
+            // ✅ simpan di folder uploads/designs (satu level di atas /public)
+            $uploadPath = public_path('../uploads/designs');
+
+            if (!file_exists($uploadPath)) {
+                mkdir($uploadPath, 0755, true);
+            }
+
             foreach ($request->file('preview_image') as $index => $image) {
                 $fileName = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-                $image->move(public_path('uploads/designs'), $fileName);
+                $image->move($uploadPath, $fileName);
 
                 $uploadedImages[] = [
-                    'file' => $fileName,
+                    'file' => 'uploads/designs/' . $fileName, // simpan path relatif
                     'note' => $notes[$index] ?? '',
                 ];
             }
