@@ -183,8 +183,13 @@
                                                             <option value="" disabled selected hidden>Pilih produk
                                                             </option>
                                                             @foreach ($products as $product)
+                                                                @php
+                                                                    $lastPrice =
+                                                                        $product->latestPurchaseItem->price ??
+                                                                        ($product->price ?? 0);
+                                                                @endphp
                                                                 <option value="{{ $product->id }}"
-                                                                    data-price="{{ $product->price }}">
+                                                                    data-price="{{ $lastPrice }}">
                                                                     [{{ $product->sku }}] {{ $product->name }}
                                                                 </option>
                                                             @endforeach

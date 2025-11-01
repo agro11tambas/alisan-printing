@@ -171,10 +171,15 @@
                                                             <select name="product[]" class="form-select select-product"
                                                                 data-select2-selector="tag" required>
                                                                 <option value="">Pilih Produk</option>
-                                                                @foreach ($products as $product)
-                                                                    <option value="{{ $product->id }}"
-                                                                        {{ $product->id == $item->product_id ? 'selected' : '' }}>
-                                                                        {{ $product->name }}
+                                                                @foreach ($products as $p)
+                                                                    @php
+                                                                        $lastPrice = $p->last_price ?? 0;
+                                                                    @endphp
+
+                                                                    <option value="{{ $p->id }}"
+                                                                        data-price="{{ $lastPrice }}"
+                                                                        {{ $p->id == $item->product_id ? 'selected' : '' }}>
+                                                                        {{ $p->name }}
                                                                     </option>
                                                                 @endforeach
                                                             </select>
@@ -291,7 +296,6 @@
             if (angka === null || angka === undefined || angka === '') return '';
 
             const num = parseFloat(angka.toString().replace(/[^0-9,.-]/g, '').replace(',', '.')) || 0;
-
             let [integer, decimal] = num.toFixed(2).split('.');
             integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             return `${integer},${decimal}`;
@@ -390,7 +394,13 @@
             });
 
             $('#tab_logic tbody tr').each(function() {
-                updateRowTotal($(this));
+                const row = $(this);
+                const selected = row.find('.select-product option:selected');
+                if (selected.val()) {
+                    const lastPrice = parseFloat(selected.data('price')) || 0;
+                    row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
+                    updateRowTotal(row);
+                }
             });
             calc_total();
 
@@ -421,8 +431,14 @@
 
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
-                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
-                row.find('.price').val(formatRibuan(price.toFixed(2)));
+                const selectedOption = $(this).find('option:selected');
+
+                // 🔹 Ambil last price dari data attribute
+                const lastPrice = parseFloat(selectedOption.data('price')) || 0;
+
+                // 🔹 Isi otomatis kolom price dan reset freight
+                row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
+                row.find('.freight').val('');
                 updateRowTotal(row);
             });
 
@@ -445,11 +461,10 @@
 
             $(document).on('input', '.price, .freight', function() {
                 let val = $(this).val().replace(/[^\d,]/g, '');
-                let [intPart, decPart] = val.split(',');
-                intPart = intPart ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
-                if (decPart) decPart = decPart.slice(0, 2);
-                $(this).val(decPart ? `${intPart},${decPart}` : intPart);
-
+                const parts = val.split(',');
+                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
+                $(this).val(val);
                 updateRowTotal($(this).closest('tr'));
             });
 
@@ -471,31 +486,32 @@
         });
 
         $(document).on('change', '.select-product', function() {
-            const productId = $(this).val();
             const row = $(this).closest('tr');
+            const productId = $(this).val();
+            const selectedOption = $(this).find('option:selected');
 
-            if (!productId) {
-                row.find('.price').val('');
-                row.find('.freight').val('');
-                updateRowTotal(row);
-                return;
-            }
+            // 🔹 Ambil last price dari data attribute dulu
+            const lastPrice = parseFloat(selectedOption.data('price')) || 0;
+            row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
+            row.find('.freight').val('');
+            updateRowTotal(row);
+
+            // 🔹 Kalau mau override dengan data dari server (jika ada endpoint)
+            if (!productId) return;
 
             $.ajax({
                 url: `/erp/purchases/get-latest-price/${productId}`,
                 type: 'GET',
                 success: function(response) {
-                    const price = response.price ? parseFloat(response.price) : 0;
+                    const price = response.price ? parseFloat(response.price) : lastPrice;
                     const freight = response.freight ? parseFloat(response.freight) : 0;
 
-                    row.find('.price').val(formatNumberInput(price));
-                    row.find('.freight').val(formatNumberInput(freight));
+                    row.find('.price').val(formatRibuan(price.toFixed(2)));
+                    row.find('.freight').val(formatRibuan(freight.toFixed(2)));
 
                     updateRowTotal(row);
                 },
                 error: function() {
-                    row.find('.price').val('');
-                    row.find('.freight').val('');
                     updateRowTotal(row);
                 }
             });

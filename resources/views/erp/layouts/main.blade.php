@@ -174,7 +174,7 @@
             z-index: 2060 !important;
         }
 
-        .modal{
+        .modal {
             z-index: 3000 !important;
         }
     </style>
@@ -394,6 +394,45 @@
             initRowActionHandler('#OperatorList');
             initRowActionHandler('#customerList');
             initRowActionHandler('#supplierList');
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cegah double submit untuk SEMUA form di halaman
+            document.querySelectorAll('form').forEach(function(form) {
+                form.addEventListener('submit', function(e) {
+                    // Kalau form sudah pernah dikirim, cegah submit ulang
+                    if (form.dataset.submitted === 'true') {
+                        e.preventDefault();
+                        return false;
+                    }
+
+                    // Tandai sudah dikirim
+                    form.dataset.submitted = 'true';
+
+                    // Disable semua tombol submit dalam form ini
+                    const submitButtons = form.querySelectorAll(
+                        'button[type="submit"], input[type="submit"]');
+                    submitButtons.forEach(btn => {
+                        btn.disabled = true;
+                        // Ubah teks jadi indikator loading
+                        if (!btn.dataset.originalText) {
+                            btn.dataset.originalText = btn.innerHTML;
+                        }
+                        btn.innerHTML =
+                            '<i class="feather-loader me-2 spin"></i> Processing...';
+                    });
+
+                    // Optional: aktifkan lagi setelah 10 detik kalau kamu mau fallback
+                    setTimeout(() => {
+                        submitButtons.forEach(btn => {
+                            btn.disabled = false;
+                            if (btn.dataset.originalText) btn.innerHTML = btn
+                                .dataset.originalText;
+                        });
+                        form.dataset.submitted = 'false';
+                    }, 10000);
+                });
+            });
         });
     </script>
 

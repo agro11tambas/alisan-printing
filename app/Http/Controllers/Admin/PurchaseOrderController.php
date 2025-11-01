@@ -1173,8 +1173,17 @@ class PurchaseOrderController extends Controller
         $suppliers = Supplier::all();
 
         // Ambil semua produk (kalau ingin bisa tambah produk lain)
-        $products = Products::all();
-
+        $products = Products::orderBy('name', 'asc')
+            ->addSelect([
+                'last_price' => DB::table('purchase_items as pi')
+                    ->select('pi.price')
+                    ->whereColumn('pi.product_id', 'products.id')
+                    ->where('pi.price', '>', 0)
+                    ->orderByDesc('pi.id')
+                    ->limit(1)
+            ])
+            ->get();
+            
         return view('erp.pages.purchases.purchase-orders.mark-as-purchase-list', [
             'purchase'  => $purchase,
             'suppliers' => $suppliers,

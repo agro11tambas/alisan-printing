@@ -300,7 +300,11 @@ class PurchaseListController extends Controller
 
     public function create()
     {
-        $products = Products::orderBy('name', 'asc')->get();
+        $products = Products::orderBy('name', 'asc')
+            ->with(['latestPurchaseItem'])
+            ->get();
+
+        // $products = Products::orderBy('name', 'asc')->get();
         $suppliers = Supplier::orderBy('name', 'asc')->get();
 
         $transactionTypes = Account::where('name', 'Purchase')->get();

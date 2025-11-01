@@ -135,4 +135,16 @@ class Products extends Model
 
         return $discount;
     }
+
+    public function latestPurchaseItem()
+    {
+        return $this->hasOne(\App\Models\PurchaseItem::class, 'product_id')
+            ->select([
+                'purchase_items.id',
+                'purchase_items.product_id',
+                'purchase_items.price',
+                'purchase_items.freight',
+            ])
+            ->latestOfMany();
+    }
 }

@@ -105,7 +105,7 @@
                     <div class="dropdown-menu dropdown-menu-end nxl-h-dropdown nxl-user-dropdown">
                         <div class="dropdown-header">
                             <div class="d-flex align-items-center">
-                                <img src="{{ asset('storage/uploads/products/default.png') }}" alt="user-image" class="img-fluid user-avtar">
+                                {{-- <img src="{{ asset('storage/uploads/products/default.png') }}" alt="user-image" class="img-fluid user-avtar"> --}}
                                 <div>
                                     <h6 class="text-dark mb-0">{{ Auth::user()->name}}<span class="badge bg-soft-success text-success ms-1">{{ Auth::user()->role}}</span></h6>
                                 </div>
