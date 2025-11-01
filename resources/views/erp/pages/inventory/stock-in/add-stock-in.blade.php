@@ -124,7 +124,7 @@
                                                 style="display:none; max-width: 100px; margin-top: 10px; border-radius: 10px" />
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    {{-- <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
                                         </div>
@@ -133,7 +133,7 @@
                                                 <textarea class="form-control" id="notes" name="notes" placeholder="Catatan"></textarea>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div> --}}
                                 </div>
                             </div>
                         </div>
@@ -149,6 +149,7 @@
                                         <th>Product</th>
                                         <th>Quantity</th>
                                         <th>Stock In</th>
+                                        <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -167,6 +168,10 @@
                                                     placeholder="Jumlah dikirim">
                                                 <small class="text-muted">Sisa:
                                                     {{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}</small>
+                                            </td>
+                                            <td>
+                                                <input type="text" name="items[{{ $index }}][notes]"
+                                                    class="form-control" placeholder="Catatan">
                                             </td>
                                         </tr>
                                     @endforeach
@@ -229,10 +234,46 @@
                 input.val(value.toLocaleString('id-ID'));
             });
 
-            $('#stockInForm').on('submit', function() {
+            $('#stockInForm').on('submit', function(e) {
+                let isValid = true;
+
+                // 🔹 Hapus error lama
+                $(this).find('.is-invalid').removeClass('is-invalid');
+                $(this).find('.invalid-feedback').remove();
+
+                // 🔹 Hapus titik pada semua input angka sebelum submit
                 $('input[name^="items"][name$="[stock_in]"]').each(function() {
                     this.value = this.value.replace(/\./g, '');
                 });
+
+                // 🔹 Fungsi tampilkan error
+                function showError(element, message) {
+                    $(element).addClass('is-invalid');
+                    $(element).after('<div class="invalid-feedback d-block">' + message + '</div>');
+                }
+
+                // 🔹 Validasi Waybill Number
+                const waybillNumber = $('#waybill_number');
+                if (!waybillNumber.val().trim()) {
+                    isValid = false;
+                    showError(waybillNumber[0], 'Waybill number wajib diisi');
+                }
+
+                // 🔹 Validasi Waybill Image
+                const waybillImage = $('#waybill_image');
+                if (!waybillImage[0].files.length) {
+                    isValid = false;
+                    showError(waybillImage[0], 'Gambar waybill wajib diunggah');
+                }
+
+                // 🔹 Jika tidak valid, cegah submit
+                if (!isValid) {
+                    e.preventDefault();
+                    // Scroll ke elemen pertama yang error
+                    $('html, body').animate({
+                        scrollTop: $('.is-invalid:first').offset().top - 100
+                    }, 500);
+                }
             });
         });
     </script>

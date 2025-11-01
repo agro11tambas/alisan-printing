@@ -18,6 +18,7 @@ class InventoryStockInHistory extends Model
         'inventory_stock_in_id',
         'inventory_item_id',
         'stock_in',
+        'notes',
     ];
 
     protected $casts = [

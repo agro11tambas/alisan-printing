@@ -471,6 +471,7 @@ Route::middleware(isLogin::class)->group(function () {
             Route::put('/erp/inventory/stock-in/update/{id}', [HistoryStockInController::class, 'update']);
             Route::get('/erp/inventory/stock-in/history/{id}/data', [HistoryStockInController::class, 'dataHistory']);
             Route::get('/erp/inventory/stock-in/history/{id}', [HistoryStockInController::class, 'getHistory']);
+            Route::post('/erp/inventory/stock-in/history/item/{id}/update', [HistoryStockInController::class, 'updateHistoryItem']);
         });
 
         Route::middleware(['auth', 'subpermission:stock-out'])->group(function () {

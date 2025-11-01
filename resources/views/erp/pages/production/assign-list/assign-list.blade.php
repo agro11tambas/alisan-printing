@@ -26,12 +26,12 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Progress & Info</h5>
+                <h5 class="m-b-10">Assign List</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Production</li>
-                <li class="breadcrumb-item">Progress & Info</li>
+                <li class="breadcrumb-item">Assign List</li>
             </ul>
         </div>
     </div>
@@ -127,7 +127,6 @@
 @endsection
 
 @push('modals')
-    <!-- 🔹 Modal Delete Assign Batch -->
     <div class="modal fade" id="modalDeleteAssign" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <form id="formDeleteAssign" method="POST">

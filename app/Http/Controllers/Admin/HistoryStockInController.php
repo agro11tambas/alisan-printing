@@ -73,6 +73,7 @@ class HistoryStockInController extends Controller
                     'inventory_stock_in_id' => $stockIn->id,
                     'inventory_item_id' => $item['inventory_item_id'],
                     'stock_in' => $item['stock_in'],
+                    'notes'    => $item['notes'] ?? null,
                 ]);
 
                 $inventoryItem = InventoryItem::findOrFail($item['inventory_item_id']);
@@ -329,5 +330,46 @@ class HistoryStockInController extends Controller
             })
             ->rawColumns(['invoice_number', 'waybill_image', 'stock_in'])
             ->make(true);
+    }
+
+    public function updateHistoryItem(Request $request, $id)
+    {
+        $request->validate([
+            'quantity' => 'required|numeric|min:0',
+            'notes' => 'nullable|string'
+        ]);
+
+        // 🔹 Ambil data history lama
+        $history = InventoryStockInHistory::findOrFail($id);
+
+        // 🔹 Dapatkan inventory item terkait
+        $inventoryItem = $history->inventoryItem;
+
+        if (!$inventoryItem) {
+            return response()->json([
+                'message' => 'Data inventory item tidak ditemukan.'
+            ], 404);
+        }
+
+        // 🔹 Hitung selisih
+        $oldQty = $history->stock_in;
+        $newQty = $request->quantity;
+        $diff = $newQty - $oldQty;
+
+        // 🔹 Update kolom stock_in di inventory_items
+        // jika diff positif → increment, negatif → decrement
+        $inventoryItem->stock_in += $diff;
+        if ($inventoryItem->stock_in < 0) {
+            $inventoryItem->stock_in = 0; // jaga-jaga tidak minus
+        }
+        $inventoryItem->save();
+
+        // 🔹 Update data history
+        $history->update([
+            'stock_in' => $newQty,
+            'notes' => $request->notes,
+        ]);
+
+        return response()->json(['message' => 'History item dan stok berhasil diperbarui.']);
     }
 }

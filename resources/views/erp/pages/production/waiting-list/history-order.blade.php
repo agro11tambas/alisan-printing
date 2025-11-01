@@ -183,15 +183,6 @@
                                         class="border-bottom border-bottom-dashed border-gray-5">{{ $progress->order->payment_status }}</span>
                                 </div>
                             </div>
-                            <!-- <div class="row align-items-center mb-3 task-list-row">
-                                                    <div class="col-6">
-                                                        <i class="feather-dollar-sign me-2"></i>
-                                                        <span class="fw-semibold">Total Amount:</span>
-                                                    </div>
-                                                    <div class="col-6 d-flex">
-                                                        <span class="border-bottom border-bottom-dashed border-gray-5">Rp. {{ number_format($progress->total_amount, 0, ',', '.') }}</span>
-                                                    </div>
-                                                </div> -->
                         </div>
                     </div>
                 </div>
