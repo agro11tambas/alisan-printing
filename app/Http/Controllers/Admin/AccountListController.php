@@ -64,7 +64,7 @@ class AccountListController extends Controller
         $expense = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Expense');
-            });
+            })->orderByDesc('id');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $expense->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
@@ -80,9 +80,7 @@ class AccountListController extends Controller
             });
         }
 
-        $expense->orderBy('transaction_date', 'desc');
-
-        return DataTables::of($expense)
+        return DataTables::eloquent($expense)
             ->addIndexColumn()
             ->addColumn('account_type', function ($expense) {
                 return $expense->account->type ?? '-';
@@ -121,7 +119,7 @@ class AccountListController extends Controller
         $bank = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Bank');
-            });
+            })->orderByDesc('id');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $bank->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
@@ -137,9 +135,7 @@ class AccountListController extends Controller
             });
         }
 
-        $bank->orderBy('transaction_date', 'desc');
-
-        return DataTables::of($bank)
+        return DataTables::eloquent($bank)
             ->addIndexColumn()
             ->addColumn('account_type', function ($bank) {
                 return $bank->account->type ?? '-';
@@ -178,7 +174,7 @@ class AccountListController extends Controller
         $cash = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Cash');
-            });
+            })->orderByDesc('id');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $cash->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
@@ -194,9 +190,7 @@ class AccountListController extends Controller
             });
         }
 
-        $cash->orderBy('transaction_date', 'desc');
-
-        return DataTables::of($cash)
+        return DataTables::eloquent($cash)
             ->addIndexColumn()
             ->addColumn('account_type', function ($cash) {
                 return $cash->account->type ?? '-';
@@ -235,7 +229,7 @@ class AccountListController extends Controller
         $sale = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Sale');
-            });
+            })->orderByDesc('id');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $sale->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
@@ -251,9 +245,7 @@ class AccountListController extends Controller
             });
         }
 
-        $sale->orderBy('transaction_date', 'desc');
-
-        return DataTables::of($sale)
+        return DataTables::eloquent($sale)
             ->addIndexColumn()
             ->addColumn('account_type', function ($sale) {
                 return $sale->account->type ?? '-';
@@ -292,7 +284,7 @@ class AccountListController extends Controller
         $purchase = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Purchase');
-            });
+            })->orderByDesc('id');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $purchase->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
@@ -308,9 +300,7 @@ class AccountListController extends Controller
             });
         }
 
-        $purchase->orderBy('transaction_date', 'desc');
-
-        return DataTables::of($purchase)
+        return DataTables::eloquent($purchase)
             ->addIndexColumn()
             ->addColumn('account_type', function ($purchase) {
                 return $purchase->account->type ?? '-';
@@ -349,7 +339,7 @@ class AccountListController extends Controller
         $capital = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Capital');
-            });
+            })->orderByDesc('id');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $capital->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
@@ -365,9 +355,7 @@ class AccountListController extends Controller
             });
         }
 
-        $capital->orderBy('transaction_date', 'desc');
-
-        return DataTables::of($capital)
+        return DataTables::eloquent($capital)
             ->addIndexColumn()
             ->addColumn('account_type', function ($capital) {
                 return $capital->account->type ?? '-';

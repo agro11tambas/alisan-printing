@@ -227,10 +227,12 @@
                                                                 value="{{ $item->quantity ?? '' }}"></td>
                                                         <td><input type="text" inputmode="numeric" name="price[]"
                                                                 class="form-control price"
-                                                                value="{{ number_format($item->price ?? 0, 2, ',', '.') }}"></td>
+                                                                value="{{ number_format($item->price ?? 0, 2, ',', '.') }}">
+                                                        </td>
                                                         <td><input type="text" inputmode="numeric" name="freight[]"
                                                                 class="form-control freight"
-                                                                value="{{ number_format($item->freight ?? 0, 2, ',', '.') }}"></td>
+                                                                value="{{ number_format($item->freight ?? 0, 2, ',', '.') }}">
+                                                        </td>
                                                         <td>
                                                             <input type="hidden" name="total[]"
                                                                 class="form-control total">
@@ -374,20 +376,36 @@
 
 @push('scripts')
     <script>
-        function formatRibuan(angka) {
-            if (angka === null || angka === undefined || angka === '') return '';
+        function formatRibuan(value) {
+            if (value === null || value === undefined || value === '') return '';
 
-            // ubah ke number jika string
-            let num = parseFloat(angka.toString().replace(/\./g, '').replace(',', '.'));
-            if (isNaN(num)) num = parseFloat(angka); // fallback kalau sudah desimal
-
+            // pastikan angka dalam format numerik
+            const num = parseFloat(value);
             if (isNaN(num)) return '';
 
-            const [integer, decimal] = num.toFixed(2).split('.');
-            const formattedInt = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            // format ke Indonesia
+            const [intPart, decPart] = num.toFixed(2).split('.');
+            const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-            return `${formattedInt},${decimal}`;
+            // kalau desimalnya 00 -> hilangkan
+            return decPart === '00' ? formattedInt : `${formattedInt},${decPart}`;
         }
+
+        function unformatRibuan(value) {
+            if (!value) return 0;
+            // Hapus semua karakter kecuali angka, koma, titik, minus
+            value = value.toString().replace(/[^0-9,.-]/g, '');
+
+            // Jika mengandung koma, anggap koma adalah desimal, hapus titik ribuan
+            if (value.includes(',')) {
+                value = value.replace(/\./g, '').replace(',', '.');
+            }
+
+            // Jika tidak mengandung koma tapi ada titik (misal 220.00), biarkan titik jadi desimal
+            const num = parseFloat(value);
+            return isNaN(num) ? 0 : num;
+        }
+
 
         // ✅ Hapus format (1.234,56 → 1234.56)
         function unformatRibuan(angka) {
@@ -476,8 +494,9 @@
 
             $('.price, .freight').each(function() {
                 const val = $(this).val();
-                if (val && !isNaN(val)) {
-                    $(this).val(formatRibuan(val)); // ⚡hapus parseFloat agar titik desimal tetap aman
+                if (val) {
+                    const clean = unformatRibuan(val);
+                    $(this).val(formatRibuan(clean));
                 }
             });
 

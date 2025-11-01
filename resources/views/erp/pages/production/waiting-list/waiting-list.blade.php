@@ -16,8 +16,17 @@
         }
 
         #waitingListTable_wrapper .dataTables_scrollBody {
-            /* background: #fff !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #waitingListTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
         }
     </style>
 @endpush
@@ -217,36 +226,29 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+
+            // ====== VARIABEL UNTUK LAZY LOAD ======
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
+            // ====== INISIALISASI DATATABLE ======
             const dataTable = $('#waitingListTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
-                lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/productions/waiting-list/data') }}",
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                        d.search_type = $('#search_type').val();
-                        d.search_keyword = $('#search_keyword').val();
-                        d.payment_status = $('#search_payment_status').val();
-                        d.progress_status = $('#progress_status').val();
-                    },
-                    error: function(xhr) {
-                        console.error('Error response:', xhr.responseJSON);
-                        alert(xhr.responseJSON.message);
-                    }
-                },
+                lengthChange: false,
+                // order: [
+                //     [1, 'desc']
+                // ],
+                data: [],
                 columns: [{
                         data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
                         orderable: false,
                         searchable: false
                     },
@@ -254,10 +256,6 @@
                         data: 'invoice_number',
                         name: 'invoice_number'
                     },
-                    // {
-                    //     data: 'date',
-                    //     name: 'date'
-                    // },
                     {
                         data: 'customer',
                         name: 'customer'
@@ -266,32 +264,90 @@
                         data: 'progress',
                         name: 'progress'
                     },
-                    // {
-                    //     data: 'action',
-                    //     name: 'action',
-                    //     orderable: false,
-                    //     searchable: false,
-                    //     visible: false,
-                    // },
                 ],
-
             });
 
+            // ====== FUNGSI LOAD DATA ======
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/productions/waiting-list/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val(),
+                        progress_status: $('#progress_status').val(),
+                    },
+                    success: function(response) {
+                        if (response && response.data && response.data.length > 0) {
+                            allData = allData.concat(response.data);
+                            dataTable.clear();
+                            dataTable.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('Error response:', xhr.responseJSON);
+                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        isLoading = false;
+                    }
+                });
+            }
+
+            // ====== LOAD PERTAMA ======
+            loadMoreData();
+
+            // ====== EVENT SCROLL UNTUK LAZY LOAD ======
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
+            // ====== RESET & RELOAD ======
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
+            }
+
+            // ====== FILTER EVENTS (tidak dihapus, hanya diarahkan ke lazy reload) ======
             $('#progress_status').on('change', function() {
-                dataTable.ajax.reload();
-            })
+                resetAndReload();
+            });
 
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    dataTable.ajax.reload();
+                    resetAndReload();
                 }
             });
 
             $('#apply-filter').on('click', function() {
-                dataTable.ajax.reload();
+                resetAndReload();
             });
 
             $('#search_type').on('change', function() {
@@ -301,15 +357,18 @@
                 } else {
                     $('#search_keyword').removeClass('d-none');
                 }
-                dataTable.ajax.reload();
+                resetAndReload();
             });
 
+            let searchTimeout = null;
             $('#search_keyword').on('keyup', function() {
                 if ($('#search_type').val() !== 'payment_status') {
-                    dataTable.ajax.reload();
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => resetAndReload(), 400);
                 }
             });
 
+            // ====== ACTION ROW (TETAP) ======
             $('#waitingListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -325,23 +384,23 @@
 
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
+                        ${actionHtml}
+                        </div>
+                    </td>
+                </tr>
+            `);
 
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
                 }
             });
 
+            // ====== CLOSE ACTION BAR SAAT KLIK DI LUAR ======
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#waitingListTable').length) return;
-
                 $('#waitingListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 

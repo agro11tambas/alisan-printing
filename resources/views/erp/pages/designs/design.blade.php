@@ -17,6 +17,16 @@
 
         #designListTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #designListTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
         }
     </style>
 @endpush
@@ -198,27 +208,25 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            // ========== LAZY LOAD IMPLEMENTATION ==========
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             const table = $('#designListTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
-                lengthChange: false,
                 info: false,
-                ajax: {
-                    url: "{{ url('/erp/design/data') }}",
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                        d.search_type = $('#search_type').val();
-                        d.search_keyword = $('#search_keyword').val();
-                        d.status = $('#status').val();
-                    }
-                },
+                lengthChange: false,
+                // order: [
+                //     [0, 'desc']
+                // ],
+                data: [],
                 columns: [{
                         data: 'design_number',
                         name: 'design_number'
@@ -232,10 +240,91 @@
                         name: 'products',
                         orderable: false,
                         searchable: false
-                    },
+                    }
                 ]
             });
 
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/design/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        status: $('#status').val()
+                    },
+                    success: function(response) {
+                        if (response && response.data && response.data.length > 0) {
+                            allData = allData.concat(response.data);
+                            table.clear();
+                            table.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error loading data:', xhr.responseText);
+                        isLoading = false;
+                    }
+                });
+            }
+
+            // Load pertama
+            loadMoreData();
+
+            // Lazy scroll
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                table.clear().draw();
+                loadMoreData();
+            }
+
+            // Filter events
+            $('#filter').on('change', function() {
+                if ($(this).val() === 'custom') $('.custom-range').removeClass('d-none');
+                else {
+                    $('.custom-range').addClass('d-none');
+                    resetAndReload();
+                }
+            });
+            $('#apply-filter, #status').on('click change', function() {
+                resetAndReload();
+            });
+
+            // Debounce untuk search keyword
+            let searchTimeout = null;
+            $('#search_keyword').on('keyup', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => resetAndReload(), 500);
+            });
+
+            // ========== ACTION ROW (TIDAK DIUBAH) ==========
             $('#designListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -359,7 +448,7 @@
                             title: 'Success',
                             text: res.message,
                         });
-                        location.reload();
+                        resetAndReload();
                     },
                     error: function(err) {
                         Swal.fire({
@@ -398,8 +487,12 @@
                             title: 'Berhasil',
                             text: res.message
                         });
-                        table.ajax.reload(null, false);
+
+                        // 🚫 Jangan reload via ajax karena tabel kamu pakai client-side data
+                        // ✅ Panggil fungsi reload data manual yang kamu bikin sendiri
+                        resetAndReload(); // <- kamu udah punya fungsi ini di atas
                     },
+
                     error: function(err) {
                         Swal.fire({
                             icon: 'error',

@@ -67,9 +67,7 @@ class DeliveryOrderController extends Controller
             }
         }
 
-        $deliveryOrders = $deliveryOrders->get();
-
-        return DataTables::of($deliveryOrders)
+        return DataTables::eloquent($deliveryOrders)
             ->addIndexColumn()
             ->addColumn('delivery_number', function ($do) {
                 $date = Carbon::parse($do->delivery_date)->format('j M y');

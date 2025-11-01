@@ -23,7 +23,7 @@ class CapitalTransactionController extends Controller
         $capitalTransactions = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Capital');
-            });
+            })->orderByDesc('id');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -57,7 +57,7 @@ class CapitalTransactionController extends Controller
             }
         }
 
-        return DataTables::of($capitalTransactions)
+        return DataTables::eloquent($capitalTransactions)
             ->addIndexColumn()
             ->addColumn('type', function ($capitalTransactions) {
                 return $capitalTransactions->account->type;

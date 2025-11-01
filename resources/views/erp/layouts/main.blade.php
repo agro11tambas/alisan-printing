@@ -29,6 +29,7 @@
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/theme.min.css') }}">
 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/css/lightbox.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/scroller/2.3.0/css/scroller.dataTables.min.css">
 
     <style>
         div.dataTables_wrapper .row:first-child {
@@ -123,6 +124,33 @@
         .dataTables_wrapper .table-small tbody td {
             padding: 5px 10px !important;
         }
+
+        .shimmer-wrapper {
+            padding: 15px;
+        }
+
+        .shimmer {
+            height: 50px;
+            margin-bottom: 10px;
+            background: linear-gradient(to right,
+                    #f6f7f8 0%,
+                    #edeef1 20%,
+                    #f6f7f8 40%,
+                    #f6f7f8 100%);
+            background-size: 800px 50px;
+            animation: shimmer 1.5s linear infinite;
+            border-radius: 6px;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -800px 0;
+            }
+
+            100% {
+                background-position: 800px 0;
+            }
+        }
     </style>
 
     <style>
@@ -171,12 +199,60 @@
         .topbar,
         .navbar,
         .page-header-title {
-            z-index: 2060 !important;
+            z-index: 2660 !important;
         }
 
         .modal {
             z-index: 3000 !important;
         }
+
+        .dataTables_scrollBody {
+            overflow: visible !important;
+        }
+
+        table.dataTable {
+            border-collapse: separate !important;
+            border-spacing: 0;
+        }
+
+        .nxl-content,
+        .card,
+        .card-body,
+        .table-responsive,
+        .dataTables_wrapper {
+            overflow: visible !important;
+        }
+
+        /* JANGAN buka overflow semua wrapper, cukup ini aja */
+        .dataTables_scrollBody {
+            overflow: visible !important;
+            position: relative !important;
+        }
+
+        /* Biar action menu nongol di atas */
+        tr.action-row {
+            position: relative;
+            z-index: 1050;
+        }
+
+        /* Dropdown style tetap rapi */
+        .static-action-menu {
+            position: absolute !important;
+            z-index: 1100 !important;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+            padding: 6px 0;
+        }
+
+
+        /* .card-body {
+            overflow: visible !important;
+        } */
     </style>
 
     @stack('styles')
@@ -222,7 +298,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/js/lightbox.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="https://cdn.datatables.net/scroller/2.4.1/css/scroller.dataTables.min.css">
+    {{-- <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script> --}}
     <script src="https://cdn.datatables.net/scroller/2.4.1/js/dataTables.scroller.min.js"></script>
 
 
@@ -307,13 +385,19 @@
                 const actionHtml = row.data().action;
                 const colCount = $tr.find('td').length;
 
+                // 🔹 Posisi dropdown tergantung tabel
+                let menuPosition = 'left:50%; transform:translateX(-50%);';
+                if (tableSelector === '#deliveryListTable') {
+                    menuPosition = 'left: 20px; transform:none;';
+                }
+
                 const $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}" class="p-0">
-                            <div class="d-flex justify-content-center">
+                            <div class="d-flex justify-content-${tableSelector === '#deliveryListTable' ? 'start' : 'center'}">
                                 <div class="dropdown w-auto position-relative">
                                     <ul class="dropdown-menu show static-action-menu shadow border rounded-3 p-2"
-                                        style="display:block; position:absolute; left:50%; transform:translateX(-50%);">
+                                        style="display:block; position:absolute; ${menuPosition}">
                                         ${actionHtml}
                                     </ul>
                                 </div>
@@ -328,7 +412,7 @@
                 const spaceBelow = viewportHeight - rowRect.bottom;
                 const spaceAbove = rowRect.top;
 
-                // Arah tampil otomatis
+                // Arah tampil otomatis (atas/bawah)
                 const $menu = $actionRow.find('.static-action-menu');
                 if (spaceBelow < 250 && spaceAbove > spaceBelow) {
                     $menu.css({
@@ -360,9 +444,9 @@
 
         $(document).ready(function() {
             initRowActionHandler('#saleListTable');
-            // initRowActionHandler('#deletedSaleListTable');
             initRowActionHandler('#purchaseListTable');
             initRowActionHandler('#deliveryListTable');
+            initRowActionHandler('#deliveryOrderTable'); // ✅ ini yang diubah jadi kiri
             initRowActionHandler('#productTable');
             initRowActionHandler('#productBundleTable');
             initRowActionHandler('#categoryTable');
@@ -377,14 +461,10 @@
             initRowActionHandler('#stockOpnameTable');
             initRowActionHandler('#saleOrderTable');
             initRowActionHandler('#saleReturnTable');
-            // initRowActionHandler('#deletedSaleReturnTable');
             initRowActionHandler('#designListTable');
             initRowActionHandler('#waitingListTable');
             initRowActionHandler('#assignBatchTable');
             initRowActionHandler('#requestStockTable');
-            // initRowActionHandler('#deletedRequestStockTable');
-            initRowActionHandler('#deliveryListTable');
-            initRowActionHandler('#deliveryOrderTable');
             initRowActionHandler('#purchaseOrderTable');
             initRowActionHandler('#purchaseReturnTable');
             initRowActionHandler('#inventoryTable');
@@ -396,44 +476,39 @@
             initRowActionHandler('#supplierList');
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Cegah double submit untuk SEMUA form di halaman
-            document.querySelectorAll('form').forEach(function(form) {
-                form.addEventListener('submit', function(e) {
-                    // Kalau form sudah pernah dikirim, cegah submit ulang
-                    if (form.dataset.submitted === 'true') {
-                        e.preventDefault();
-                        return false;
-                    }
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     // Ambil semua tombol submit di halaman
+        //     document.querySelectorAll('button[type="submit"]').forEach(function(btn) {
+        //         // Lewati kalau sudah ada onclick manual
+        //         if (!btn.hasAttribute('data-auto-disable')) {
+        //             btn.setAttribute('data-auto-disable', 'true'); // tandai biar gak ganda
 
-                    // Tandai sudah dikirim
-                    form.dataset.submitted = 'true';
+        //             btn.addEventListener('click', function(e) {
+        //                 // Kalau sudah disabled, jangan apa-apa
+        //                 if (btn.disabled) {
+        //                     e.preventDefault();
+        //                     return false;
+        //                 }
 
-                    // Disable semua tombol submit dalam form ini
-                    const submitButtons = form.querySelectorAll(
-                        'button[type="submit"], input[type="submit"]');
-                    submitButtons.forEach(btn => {
-                        btn.disabled = true;
-                        // Ubah teks jadi indikator loading
-                        if (!btn.dataset.originalText) {
-                            btn.dataset.originalText = btn.innerHTML;
-                        }
-                        btn.innerHTML =
-                            '<i class="feather-loader me-2 spin"></i> Processing...';
-                    });
+        //                 // Disable tombol langsung
+        //                 btn.disabled = true;
 
-                    // Optional: aktifkan lagi setelah 10 detik kalau kamu mau fallback
-                    setTimeout(() => {
-                        submitButtons.forEach(btn => {
-                            btn.disabled = false;
-                            if (btn.dataset.originalText) btn.innerHTML = btn
-                                .dataset.originalText;
-                        });
-                        form.dataset.submitted = 'false';
-                    }, 10000);
-                });
-            });
-        });
+        //                 // Simpan teks asli biar bisa restore kalau mau
+        //                 if (!btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
+
+        //                 // Ubah jadi indikator processing
+        //                 btn.innerHTML = '<i class="feather-loader me-2 spin"></i> Processing...';
+
+        //                 // Submit form manual
+        //                 btn.form.submit();
+
+        //                 // Hentikan default biar gak double
+        //                 e.preventDefault();
+        //                 return false;
+        //             });
+        //         }
+        //     });
+        // });
     </script>
 
     @stack('scripts')

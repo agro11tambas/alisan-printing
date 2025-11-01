@@ -31,7 +31,7 @@ class AccountController extends Controller
             $account->where('type', 'like', '%' . $request->type . '%');
         }
 
-        return DataTables::of($account)
+        return DataTables::eloquent($account)
             ->addIndexColumn()
             ->addColumn('name', function ($account) {
                 $badge = $account->is_default ? ' <span class="badge bg-success ms-2">Default</span>' : '';

@@ -49,7 +49,7 @@ class SaleReturnController extends Controller
     public function dataSaleReturns(Request $request)
     {
         $returns = SaleReturn::with('customer')
-            ->where('status', 'sale returns');
+            ->where('status', 'sale returns')->orderBy('created_at', 'desc');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -99,9 +99,7 @@ class SaleReturnController extends Controller
             }
         }
 
-        $returns = $returns->latest()->get();
-
-        return DataTables::of($returns)
+        return DataTables::eloquent($returns)
             ->addIndexColumn()
             ->addColumn('order_number', function ($return) {
                 $date = Carbon::parse($return->return_date)->format('j M y');
@@ -161,35 +159,19 @@ class SaleReturnController extends Controller
             //     return view('erp.pages.sales.sale-return.partials.product-list', compact('return'))->render();
             // })
             ->addColumn('products', function ($row) {
-                // load orderItems + product (termasuk soft deleted)
-                $items = $row->orderItems()->with([
+                // load items + product (termasuk soft deleted)
+                $items = $row->items()->with([
                     'product' => function ($q) {
                         $q->withTrashed();
                     },
-                    'productBundle.items.product' // ✅ ambil produk di dalam bundle
                 ])->get();
 
                 return $items->map(function ($item) {
-                    if ($item->product) {
-                        // 🟢 Item biasa
-                        $name = $item->product->name;
-                        $sku  = $item->product->sku;
-                    } elseif ($item->productBundle) {
-                        // 🟣 Item bundle — gabungkan nama produk di dalam bundle
-                        $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
-                            return $bundleItem->product->name ?? '-';
-                        })->implode(' + ');
-
-                        $name = $bundleNames ?: '-';
-                        $sku  = $item->productBundle->sku ?? '-';
-                    } else {
-                        $name = '-';
-                        $sku  = '-';
-                    }
+                    $product = $item->product;
 
                     return [
-                        'name'  => $name,
-                        'sku'   => $sku,
+                        'name'  => $product->name ?? '-',
+                        'sku'   => $product->sku ?? '-',
                         'qty'   => number_format($item->quantity, 0, ',', '.'),
                         'price' => number_format($item->price ?? 0, 0, ',', '.'),
                     ];
@@ -209,7 +191,7 @@ class SaleReturnController extends Controller
     {
         $returns = SaleReturn::onlyTrashed() // 🔹 ambil yang soft delete
             ->with(['customer', 'items.product', 'items.productBundle'])
-            ->where('status', 'sale returns');
+            ->where('status', 'sale returns')->orderBy('deleted_at', 'desc');
 
         // 🔎 Search customer
         if ($request->search_type === 'customer' && $request->filled('search_keyword')) {
@@ -218,9 +200,7 @@ class SaleReturnController extends Controller
             });
         }
 
-        $returns = $returns->latest()->get();
-
-        return DataTables::of($returns)
+        return DataTables::eloquent($returns)
             ->addIndexColumn()
             ->addColumn('order_number', function ($return) {
                 $date = \Carbon\Carbon::parse($return->return_date)->format('j M y');
@@ -233,35 +213,19 @@ class SaleReturnController extends Controller
             ->addColumn('total_amount', fn($return) => 'Rp ' . number_format($return->total_amount))
             ->addColumn('deleted_at', fn($return) => $return->deleted_at ? $return->deleted_at->format('j M y H:i') : '-')
             ->addColumn('products', function ($row) {
-                // load orderItems + product (termasuk soft deleted)
-                $items = $row->orderItems()->with([
+                // load items + product (termasuk soft deleted)
+                $items = $row->items()->with([
                     'product' => function ($q) {
                         $q->withTrashed();
                     },
-                    'productBundle.items.product' // ✅ ambil produk di dalam bundle
                 ])->get();
 
                 return $items->map(function ($item) {
-                    if ($item->product) {
-                        // 🟢 Item biasa
-                        $name = $item->product->name;
-                        $sku  = $item->product->sku;
-                    } elseif ($item->productBundle) {
-                        // 🟣 Item bundle — gabungkan nama produk di dalam bundle
-                        $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
-                            return $bundleItem->product->name ?? '-';
-                        })->implode(' + ');
-
-                        $name = $bundleNames ?: '-';
-                        $sku  = $item->productBundle->sku ?? '-';
-                    } else {
-                        $name = '-';
-                        $sku  = '-';
-                    }
+                    $product = $item->product;
 
                     return [
-                        'name'  => $name,
-                        'sku'   => $sku,
+                        'name'  => $product->name ?? '-',
+                        'sku'   => $product->sku ?? '-',
                         'qty'   => number_format($item->quantity, 0, ',', '.'),
                         'price' => number_format($item->price ?? 0, 0, ',', '.'),
                     ];

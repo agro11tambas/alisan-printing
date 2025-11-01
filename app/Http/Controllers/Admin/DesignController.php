@@ -25,7 +25,7 @@ class DesignController extends Controller
 
     public function dataDesign(Request $request)
     {
-        $designs = Design::with(['order.customer', 'items.product']);
+        $designs = Design::with(['order.customer', 'items.product'])->orderBy('created_at', 'desc');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -72,9 +72,7 @@ class DesignController extends Controller
             $designs->where('status', $request->status);
         }
 
-        $designs = $designs->latest();
-
-        return DataTables::of($designs)
+        return DataTables::eloquent($designs)
             ->addIndexColumn()
             ->addColumn('design_number', function ($design) {
                 $date = $design->date ? Carbon::parse($design->date)->format('j M y') : '-';
@@ -200,11 +198,25 @@ class DesignController extends Controller
 
             DB::commit();
 
-            return response()->json(['message' => 'Design verified successfully and Order Progress created.']);
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Design verified successfully.'
+                ]);
+            }
+
+            return redirect()->back()->with('success', 'Design verified successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error verifying design: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to verify design: ' . $e->getMessage()], 500);
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to verify design: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return redirect()->back()->with('error', 'Failed to verify design: ' . $e->getMessage());
         }
     }
 }

@@ -22,7 +22,7 @@ class WaitingListController extends Controller
         $progresses = OrderProgress::with([
             'order.customer',
             'items.product.productionStocks'
-        ])->latest();
+        ])->orderBy('created_at', 'desc');
 
         // Filter tanggal (pakai date dari OrderProgress atau order?)
         if ($request->filter) {
@@ -78,10 +78,7 @@ class WaitingListController extends Controller
             }
         }
 
-        $progresses = $progresses->get();
-
-
-        return DataTables::of($progresses)
+        return DataTables::eloquent($progresses)
             ->addIndexColumn()
             ->addColumn('invoice_number', function ($progress) {
                 $date = Carbon::parse($progress->date)->format('j M y');

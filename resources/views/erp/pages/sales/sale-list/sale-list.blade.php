@@ -20,13 +20,23 @@
         }
 
         #saleListTable_wrapper .dataTables_scrollBody {
-            /* background: transparent !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
         }
 
         #deletedSaleListTable_wrapper .dataTables_scrollBody {
-            /* background: transparent !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #saleListTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
         }
     </style>
 @endpush
@@ -178,6 +188,13 @@
                                             </tr>
                                         </thead>
                                     </table>
+                                    <div id="loadingIndicator" style="display:none;">
+                                        <div class="shimmer-wrapper">
+                                            <div class="shimmer"></div>
+                                            <div class="shimmer"></div>
+                                            <div class="shimmer"></div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="tab-pane fade" id="deleted-sale-list" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="deletedSaleListTable">
@@ -196,6 +213,13 @@
                                             </tr>
                                         </thead>
                                     </table>
+                                    <div id="loadingIndicator" style="display:none;">
+                                        <div class="shimmer-wrapper">
+                                            <div class="shimmer"></div>
+                                            <div class="shimmer"></div>
+                                            <div class="shimmer"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -504,71 +528,68 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            // Helper function untuk format products
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
                 }
 
                 let html = `
-                <div class="table-responsive p-2">
-                    <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>SKU</th>
-                                <th>Qty</th>
-                                <th class="text-end">Price</th>
-                                <th class="text-end">Ready to Ship</th>
-                                <th class="text-end">Shipped</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                    `;
+            <div class="table-responsive p-2">
+                <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>SKU</th>
+                            <th>Qty</th>
+                            <th class="text-end">Price</th>
+                            <th class="text-end">Ready to Ship</th>
+                            <th class="text-end">Shipped</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
 
                 products.forEach(p => {
                     html += `
-                    <tr>
-                        <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
-                        <td>${p.sku}</td>
-                        <td>${p.qty}</td>
-                        <td class="text-end">${p.price}</td>
-                        <td class="text-end">${p.ready_qty}</td>
-                        <td class="text-end">${p.shipped_qty}</td>
-                    </tr>
-                `;
+                <tr>
+                    <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
+                    <td>${p.sku}</td>
+                    <td>${p.qty}</td>
+                    <td class="text-end">${p.price}</td>
+                    <td class="text-end">${p.ready_qty}</td>
+                    <td class="text-end">${p.shipped_qty}</td>
+                </tr>
+            `;
                 });
 
                 html += `
                     </tbody>
-                    </table>
-                </div>
-            `;
+                </table>
+            </div>
+        `;
                 return html;
             }
 
+            // ========== SALE LIST TABLE (dengan Lazy Load) ==========
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             const dataTable = $('#saleListTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
-                lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/sales/sale-list/data') }}",
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                        d.search_type = $('#search_type').val();
-                        d.search_keyword = $('#search_keyword').val();
-                        d.payment_status = $('#search_payment_status').val();
-                        d.due_date_order = $('#due_date_order').val();
-                    }
-                },
+                lengthChange: false,
+                // order: [
+                //     [1, 'asc']
+                // ],
+                data: [], // Mulai dengan data kosong
                 columns: [{
                         className: 'dt-control text-center',
                         orderable: false,
@@ -576,17 +597,9 @@
                         defaultContent: '',
                         width: "20px"
                     },
-                    // {
-                    //     data: 'DT_RowIndex',
-                    //     orderable: false,
-                    //     searchable: false
-                    // },
                     {
                         data: 'order_number'
                     },
-                    // {
-                    //     data: 'order_date'
-                    // },
                     {
                         data: 'customer'
                     },
@@ -601,16 +614,199 @@
                     },
                     {
                         data: 'payment_status'
-                    },
-                    // {
-                    //     data: 'action',
-                    //     orderable: false,
-                    //     searchable: false,
-                    //     className: 'action-cell text-end'
-                    // }
+                    }
                 ]
             });
 
+            // Fungsi load data dari server
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+
+                isLoading = true;
+                console.log('🔄 Loading page:', currentPage + 1);
+
+                $.ajax({
+                    url: "{{ url('/erp/sales/sale-list/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val(),
+                        due_date_order: $('#due_date_order').val()
+                    },
+                    success: function(response) {
+                        console.log('✅ Response received:', response);
+
+                        if (response && response.data && response.data.length > 0) {
+                            // Append data baru
+                            allData = allData.concat(response.data);
+
+                            // Update DataTable
+                            dataTable.clear();
+                            dataTable.rows.add(allData);
+                            dataTable.draw(false);
+
+                            currentPage++;
+                            console.log('📦 Total rows:', allData.length);
+                        } else {
+                            hasMoreData = false;
+                            console.log('⚠️ No more data');
+                        }
+
+                        isLoading = false;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ Error:', error);
+                        console.error('Response:', xhr.responseText);
+                        isLoading = false;
+                    }
+                });
+            }
+
+            // Load data pertama kali
+            loadMoreData();
+
+            // Lazy load saat scroll
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
+            // Reset dan reload saat filter berubah
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
+            }
+
+            // Event handlers untuk filter
+            $('#filter').on('change', function() {
+                if ($(this).val() === 'custom') {
+                    $('.custom-range').removeClass('d-none');
+                } else {
+                    $('.custom-range').addClass('d-none');
+                    resetAndReload();
+                }
+            });
+
+            $('#apply-filter').on('click', function() {
+                resetAndReload();
+            });
+
+            $('#search_type').on('change', function() {
+                const selected = $(this).val();
+
+                if (selected === 'payment_status') {
+                    $('#search_keyword').addClass('d-none').val('');
+                    $('#search_payment_status').removeClass('d-none');
+                    $('#due_date_order').addClass('d-none');
+                } else if (selected === 'due_date') {
+                    $('#search_keyword').addClass('d-none').val('');
+                    $('#search_payment_status').addClass('d-none').val('');
+                    $('#due_date_order').removeClass('d-none');
+                } else {
+                    $('#search_keyword').removeClass('d-none');
+                    $('#search_payment_status').addClass('d-none').val('');
+                    $('#due_date_order').addClass('d-none');
+                }
+
+                resetAndReload();
+            });
+
+            $('#due_date_order').on('change', function() {
+                if ($('#search_type').val() === 'due_date') {
+                    resetAndReload();
+                }
+            });
+
+            // Debounce untuk search keyword
+            let searchTimeout = null;
+            $('#search_keyword').on('keyup', function() {
+                if ($('#search_type').val() !== 'payment_status') {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        resetAndReload();
+                    }, 500);
+                }
+            });
+
+            $('#search_payment_status').on('change', function() {
+                if ($('#search_type').val() === 'payment_status') {
+                    resetAndReload();
+                }
+            });
+
+            // Expand/collapse products detail
+            $('#saleListTable tbody').on('click', 'td.dt-control', function() {
+                let tr = $(this).closest('tr');
+                let row = dataTable.row(tr);
+                let icon = $(this).find('i');
+
+                if (row.child.isShown()) {
+                    row.child.hide();
+                    tr.removeClass('shown');
+                    icon.removeClass('feather-minus').addClass('feather-plus');
+                } else {
+                    row.child(formatProducts(row.data().products)).show();
+                    tr.addClass('shown');
+                    icon.removeClass('feather-plus').addClass('feather-minus');
+                }
+            });
+
+            // Action button dropdown
+            $('#saleListTable tbody').on('click', 'tr', function(e) {
+                if ($(e.target).closest('td.dt-control').length) return;
+
+                let $tr = $(this);
+                let row = dataTable.row($tr);
+
+                $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+
+                if ($tr.hasClass('action-shown')) {
+                    $tr.removeClass('action-shown');
+                } else {
+                    let actionHtml = row.data().action;
+                    let colCount = $tr.find('td').length;
+
+                    let $actionRow = $(`
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
+                            ${actionHtml}
+                        </div>
+                    </td>
+                </tr>
+            `);
+
+                    $tr.after($actionRow);
+                    $tr.addClass('action-shown');
+                }
+            });
+
+            // Close action dropdown saat klik di luar
+            $(document).on('click', function(e) {
+                if ($(e.target).closest('#saleListTable').length) return;
+                $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+            });
+
+            // ========== DELETED SALE LIST TABLE (Standard DataTables) ==========
             let deletedTable = null;
 
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
@@ -619,15 +815,28 @@
                         deletedTable = $('#deletedSaleListTable').DataTable({
                             processing: true,
                             serverSide: true,
-                            deferRender: true,
-                            scrollY: 600,
-                            scroller: true,
+                            scrollY: '60vh',
+                            scrollCollapse: true,
                             paging: true,
+                            pageLength: 15,
                             searching: false,
-                            lengthChange: false,
                             info: false,
-                            pagingType: "simple",
-                            ajax: "{{ url('/erp/sales/sale-list/data-deleted') }}",
+                            lengthChange: false,
+                            // order: [
+                            //     [1, 'desc']
+                            // ],
+                            ajax: {
+                                url: "{{ url('/erp/sales/sale-list/data-deleted') }}",
+                                data: function(d) {
+                                    d.filter = $('#filter').val();
+                                    d.start_date = $('#start_date').val();
+                                    d.end_date = $('#end_date').val();
+                                    d.search_type = $('#search_type').val();
+                                    d.search_keyword = $('#search_keyword').val();
+                                    d.payment_status = $('#search_payment_status').val();
+                                    d.due_date_order = $('#due_date_order').val();
+                                }
+                            },
                             columns: [{
                                     className: 'dt-control text-center',
                                     orderable: false,
@@ -660,143 +869,31 @@
                                         searchable: false
                                     }
                                 @endif
-                            ]
+                            ],
+                            drawCallback: function() {
+                                $('.dataTables_paginate').hide();
+                            }
                         });
 
+                        // Expand products di deleted table
                         $('#deletedSaleListTable tbody').on('click', 'td.dt-control', function() {
                             let tr = $(this).closest('tr');
                             let row = deletedTable.row(tr);
+                            let icon = $(this).find('i');
 
                             if (row.child.isShown()) {
                                 row.child.hide();
                                 tr.removeClass('shown');
+                                icon.removeClass('feather-minus').addClass('feather-plus');
                             } else {
                                 row.child(formatProducts(row.data().products)).show();
                                 tr.addClass('shown');
+                                icon.removeClass('feather-plus').addClass('feather-minus');
                             }
                         });
                     } else {
                         deletedTable.ajax.reload();
                     }
-                }
-            });
-
-            $('#saleListTable tbody').on('click', 'td.dt-control', function() {
-                let tr = $(this).closest('tr');
-                let row = dataTable.row(tr);
-                let icon = $(this).find('i');
-
-                if (row.child.isShown()) {
-                    row.child.hide();
-                    tr.removeClass('shown');
-                    icon.removeClass('feather-minus').addClass('feather-plus');
-                } else {
-                    row.child(formatProducts(row.data().products)).show();
-                    tr.addClass('shown');
-                    icon.removeClass('feather-plus').addClass('feather-minus');
-                }
-            });
-
-            $('#saleListTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return;
-
-                let $tr = $(this);
-                let row = dataTable.row($tr);
-
-
-                $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-
-                if ($tr.hasClass('action-shown')) {
-                    $tr.removeClass('action-shown');
-                } else {
-                    let actionHtml = row.data().action;
-
-                    let colCount = $tr.find('td').length;
-                    let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
-
-                    $tr.after($actionRow);
-                    $tr.addClass('action-shown');
-                }
-            });
-
-            $('#deletedSaleListTable tbody').on('click', 'td.dt-control', function() {
-                let tr = $(this).closest('tr');
-                let row = deletedTable.row(tr);
-                let icon = $(this).find('i');
-
-                if (row.child.isShown()) {
-                    row.child.hide();
-                    tr.removeClass('shown');
-                    icon.removeClass('feather-minus').addClass('feather-plus');
-                } else {
-                    row.child(formatProducts(row.data().products)).show();
-                    tr.addClass('shown');
-                    icon.removeClass('feather-plus').addClass('feather-minus');
-                }
-            });
-
-            $(document).on('click', function(e) {
-                if ($(e.target).closest('#saleListTable').length) return;
-
-                $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-            });
-
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    dataTable.ajax.reload();
-                }
-            });
-
-            $('#apply-filter').on('click', function() {
-                dataTable.ajax.reload();
-            });
-
-            $('#search_type').on('change', function() {
-                const selected = $(this).val();
-
-                if (selected === 'payment_status') {
-                    $('#search_keyword').addClass('d-none').val('');
-                    $('#search_payment_status').removeClass('d-none');
-                    $('#due_date_order').addClass('d-none');
-                } else if (selected === 'due_date') {
-                    $('#search_keyword').addClass('d-none').val('');
-                    $('#search_payment_status').addClass('d-none').val('');
-                    $('#due_date_order').removeClass('d-none'); // 🔹 tampilkan ASC/DESC
-                } else {
-                    $('#search_keyword').removeClass('d-none');
-                    $('#search_payment_status').addClass('d-none').val('');
-                    $('#due_date_order').addClass('d-none');
-                }
-
-                dataTable.ajax.reload();
-            });
-
-            $('#due_date_order').on('change', function() {
-                if ($('#search_type').val() === 'due_date') {
-                    dataTable.ajax.reload();
-                }
-            });
-
-            $('#search_keyword').on('keyup', function() {
-                if ($('#search_type').val() !== 'payment_status') {
-                    dataTable.ajax.reload();
-                }
-            });
-
-            $('#search_payment_status').on('change', function() {
-                if ($('#search_type').val() === 'payment_status') {
-                    dataTable.ajax.reload();
                 }
             });
         });

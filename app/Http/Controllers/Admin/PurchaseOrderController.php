@@ -36,7 +36,7 @@ class PurchaseOrderController extends Controller
     public function dataPurchaseOrders(Request $request)
     {
         $purchases = Purchase::with('supplier')
-            ->where('status', 'Purchase Orders');
+            ->where('status', 'Purchase Orders')->orderByDesc('id');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -80,9 +80,7 @@ class PurchaseOrderController extends Controller
             }
         }
 
-        $purchases = $purchases->latest()->get();
-
-        return DataTables::of($purchases)
+        return DataTables::eloquent($purchases)
             ->addIndexColumn()
             ->addColumn('purchase_number', function ($purchase) {
                 $date = Carbon::parse($purchase->purchase_date)->format('j M y');
@@ -126,7 +124,7 @@ class PurchaseOrderController extends Controller
                     return [
                         'name'  => $item->purchaseProduct ? $item->purchaseProduct->name : '-',
                         'sku'   => $item->purchaseProduct ? $item->purchaseProduct->sku : '-',
-                        'qty'   => $item->quantity,
+                        'qty'   => number_format($item->quantity ?? 0, 0, ',', '.'),
                         'price' => number_format($item->price ?? 0, 0, ',', '.'),
                         'freight' => number_format($item->freight ?? 0, 0, ',', '.')
                     ];
@@ -410,6 +408,19 @@ class PurchaseOrderController extends Controller
     //     }
     // }
 
+    public function checkNumber(Request $request)
+    {
+        $exists = \App\Models\Purchase::where('purchase_number', $request->purchase_number)
+            ->where('id', '!=', $request->id)
+            ->exists();
+
+        if ($exists) {
+            return redirect()->back()->with('error', 'Nomor invoice sudah terdaftar.');
+        }
+
+        return response()->json(['exists' => $exists]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -493,143 +504,6 @@ class PurchaseOrderController extends Controller
         ));
     }
 
-    // public function update(Request $request, $id)
-    // {
-    //     $request->validate([
-    //         'purchase_date'     => 'required|date',
-    //         'suppliers'         => 'required|exists:suppliers,id',
-    //         'notes'             => 'nullable|string',
-    //         'product'           => 'required|array',
-    //         'product.*'         => 'exists:products,id',
-    //         'qty'               => 'required|array',
-    //         'qty.*'             => 'numeric|min:1',
-    //         'price'             => 'required|array',
-    //         'price.*'           => 'numeric|min:0',
-    //         'freight'           => 'required|array',
-    //         'freight.*'         => 'numeric|min:0',
-    //         'total'             => 'required|array',
-    //         'total.*'           => 'numeric|min:0',
-    //         'sub_total'         => 'required|numeric|min:0',
-    //         'tax_percent'       => 'nullable|numeric|min:0',
-    //         'tax_amount'        => 'nullable|numeric|min:0',
-    //         'total_amount'      => 'required|numeric|min:0',
-    //     ]);
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         $purchase = Purchase::with('purchaseItems')->findOrFail($id);
-
-    //         $calculatedTotalAmount = array_sum($request->total);
-    //         $taxAmount = $request->tax_amount ?? 0;
-
-    //         $paidAmount = $request->payment_status === 'Paid' ? $calculatedTotalAmount : $request->paid_amount;
-    //         $remainingAmount = ($calculatedTotalAmount + $taxAmount) - $paidAmount;
-
-    //         $paidAmount = 0;
-    //         $status = 'Purchase Orders';
-    //         $paymentStatus = 'Pending';
-
-    //         // ================== UPDATE PURCHASE HEADER ==================
-    //         $purchase->update([
-    //             'purchase_date'     => $request->purchase_date,
-    //             'supplier_id'       => $request->suppliers,
-    //             'payment_status'    => $paymentStatus,
-    //             'paid_amount'       => $paidAmount,
-    //             'sub_total'         => $request->sub_total,
-    //             'tax_percent'       => $request->tax_percent,
-    //             'tax_amount'        => $taxAmount,
-    //             'total_amount'      => $calculatedTotalAmount + $taxAmount,
-    //             'remaining_amount'  => $remainingAmount,
-    //             'status'            => $status,
-    //             'notes'             => $request->notes,
-    //         ]);
-
-    //         // ================== UPDATE / INSERT ITEM BARU ==================
-    //         $processedItemIds = [];
-
-    //         foreach ($request->product as $index => $productId) {
-    //             $qty   = $request->qty[$index];
-    //             $price = $request->price[$index];
-    //             $freight = $request->freight[$index];
-    //             $total = $request->total[$index];
-
-    //             $product = Products::findOrFail($productId);
-
-    //             $item = PurchaseItem::updateOrCreate(
-    //                 [
-    //                     'purchase_id' => $purchase->id,
-    //                     'product_id'  => $productId,
-    //                 ],
-    //                 [
-    //                     'inventory_warehouse_id' => $request->inventory_warehouse_id,
-    //                     'product_name'           => $product->name,
-    //                     'quantity'               => $qty,
-    //                     'price'                  => $price,
-    //                     'freight'                => $freight,
-    //                     'subtotal'               => $total,
-    //                     'deleted_at'             => null, // restore kalau sebelumnya soft delete
-    //                 ]
-    //             );
-
-    //             $processedItemIds[] = $item->id;
-    //         }
-
-    //         // ================== HAPUS ITEM YANG SUDAH TIDAK ADA ==================
-    //         $purchase->purchaseItems()
-    //             ->whereNotIn('id', $processedItemIds)
-    //             ->delete();
-
-    //         // ================== HANDLE INVENTORY ==================
-    //         if ($request->status === 'Purchase List') {
-    //             $inventory = Inventory::updateOrCreate(
-    //                 ['purchase_id' => $purchase->id],
-    //                 [
-    //                     'supplier_id'     => $purchase->supplier_id,
-    //                     'purchase_number' => $purchase->purchase_number,
-    //                     'date'            => $purchase->purchase_date,
-    //                 ]
-    //             );
-
-    //             // Hapus item inventory sebelumnya
-    //             InventoryItem::where('inventory_id', $inventory->id)->delete();
-
-    //             // Simpan item baru dari purchase items
-    //             $items = $purchase->purchaseItems()->get();
-    //             foreach ($items as $item) {
-    //                 InventoryItem::create([
-    //                     'inventory_id'       => $inventory->id,
-    //                     'product_id'         => $item->product_id,
-    //                     'quantity'           => $item->quantity,
-    //                     'price'              => $item->price,
-    //                     'stock_in'           => 0,
-    //                     'remaining_stock_in' => $item->quantity,
-    //                     'stock_out'          => 0,
-    //                 ]);
-    //             }
-    //         } else {
-    //             // Jika status bukan Purchase List, hapus data Inventory-nya
-    //             $existingInventory = Inventory::where('purchase_id', $purchase->id)->first();
-    //             if ($existingInventory) {
-    //                 InventoryItem::where('inventory_id', $existingInventory->id)->delete();
-    //                 $existingInventory->delete();
-    //             }
-    //         }
-
-    //         DB::commit();
-
-    //         $redirectUrl = $request->status === 'Purchase List'
-    //             ? '/erp/purchases/purchase-list'
-    //             : '/erp/purchases/purchase-orders';
-
-    //         return redirect($redirectUrl)->with('success', 'Purchase updated successfully');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         Log::error('Purchase update failed: ' . $e->getMessage());
-    //         return redirect()->back()->with('error', 'Purchase order failed to update. ' . $e->getMessage());
-    //     }
-    // }
-
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -640,18 +514,18 @@ class PurchaseOrderController extends Controller
             'product.*'              => 'exists:products,id',
             'qty'                    => 'required|array',
             'qty.*'                  => 'numeric|min:1',
-            'price'                  => 'required|array',
-            'price.*'                => 'numeric|min:0',
-            'freight'                => 'required|array',
-            'freight.*'              => 'numeric|min:0',
-            'total'                  => 'required|array',
-            'total.*'                => 'numeric|min:0',
-            'sub_total'              => 'required|numeric|min:0',
+            // 'price'                  => 'required|array',
+            // 'price.*'                => 'numeric|min:0',
+            // 'freight'                => 'required|array',
+            // 'freight.*'              => 'numeric|min:0',
+            // 'total'                  => 'required|array',
+            // 'total.*'                => 'numeric|min:0',
+            // 'sub_total'              => 'required|numeric|min:0',
             'tax_percent'            => 'nullable|numeric|min:0',
             'tax_amount'             => 'nullable|numeric|min:0',
-            'total_amount_product'   => 'required|numeric|min:0',
-            'total_amount_freight'   => 'required|numeric|min:0',
-            'total_amount'           => 'required|numeric|min:0',
+            // 'total_amount_product'   => 'required|numeric|min:0',
+            // 'total_amount_freight'   => 'required|numeric|min:0',
+            // 'total_amount'           => 'required|numeric|min:0',
         ]);
 
         DB::beginTransaction();
@@ -714,10 +588,10 @@ class PurchaseOrderController extends Controller
             $processedItemIds = [];
 
             foreach ($request->product as $index => $productId) {
-                $qty     = $request->qty[$index];
-                $price   = $request->price[$index];
-                $freight = $request->freight[$index];
-                $total   = $request->total[$index];
+                $qty     = $request->qty[$index] ?? 0;
+                $price   = $request->price[$index] ?? 0;
+                $freight = $request->freight[$index] ?? 0;
+                $total   = $request->total[$index] ?? 0;
 
                 $product = Products::findOrFail($productId);
 
@@ -1183,7 +1057,7 @@ class PurchaseOrderController extends Controller
                     ->limit(1)
             ])
             ->get();
-            
+
         return view('erp.pages.purchases.purchase-orders.mark-as-purchase-list', [
             'purchase'  => $purchase,
             'suppliers' => $suppliers,

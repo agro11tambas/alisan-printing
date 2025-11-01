@@ -184,9 +184,7 @@
                                                             </option>
                                                             @foreach ($products as $product)
                                                                 @php
-                                                                    $lastPrice =
-                                                                        $product->latestPurchaseItem->price ??
-                                                                        ($product->price ?? 0);
+                                                                    $lastPrice = $product->last_price ?? 0;
                                                                 @endphp
                                                                 <option value="{{ $product->id }}"
                                                                     data-price="{{ $lastPrice }}">
@@ -313,36 +311,45 @@
                 </div>
             </div>
         </div>
-    </div>
+
     </div>
 @endsection
 
 @push('scripts')
     <script>
-        function formatRibuan(angka) {
-            if (angka === null || angka === undefined || angka === '') return '';
+        function formatRibuan(value) {
+            if (value === null || value === undefined || value === '') return '';
 
-            const num = parseFloat(angka.toString().replace(/[^0-9,.-]/g, '').replace(',', '.')) || 0;
+            // pastikan angka dalam format numerik
+            const num = parseFloat(value);
+            if (isNaN(num)) return '';
 
-            let [integer, decimal] = num.toFixed(2).split('.');
-            integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            return `${integer},${decimal}`;
+            // format ke Indonesia
+            const [intPart, decPart] = num.toFixed(2).split('.');
+            const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+            // kalau desimalnya 00 -> hilangkan
+            return decPart === '00' ? formattedInt : `${formattedInt},${decPart}`;
         }
 
-        function unformatRibuan(angka) {
-            if (!angka) return 0;
-            const str = angka.toString().trim();
+        function unformatRibuan(value) {
+            if (!value) return 0;
 
-            if (str.includes(',')) {
-                return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+            // Hapus semua karakter kecuali angka, koma, titik, minus
+            value = value.toString().replace(/[^0-9,.-]/g, '');
+
+            // Jika mengandung koma → koma dianggap desimal → hapus titik ribuan
+            if (value.includes(',')) {
+                value = value.replace(/\./g, '').replace(',', '.');
+            } else {
+                // Jika tidak ada koma → hapus semua titik (anggap titik adalah pemisah ribuan)
+                value = value.replace(/\./g, '');
             }
 
-            if (str.includes('.')) {
-                return parseFloat(str.replace(/\./g, '')) || 0;
-            }
-
-            return parseFloat(str) || 0;
+            const num = parseFloat(value);
+            return isNaN(num) ? 0 : num;
         }
+
 
         function updateRowTotal(row) {
             const qty = parseFloat(unformatRibuan(row.find(".qty").val())) || 0;
@@ -350,9 +357,11 @@
             const freight = parseFloat(unformatRibuan(row.find(".freight").val())) || 0;
 
             const total = qty * (price + freight);
+
             if (total > 0) {
-                row.find(".total").val(total.toFixed(2));
-                row.find(".total_display").val(formatRibuan(total.toFixed(2)));
+                const formatted = formatRibuan(total.toFixed(2));
+                row.find(".total").val(total.toFixed(2)); // untuk kirim ke backend
+                row.find(".total_display").val(formatted); // untuk tampil di UI
             } else {
                 row.find(".total").val('');
                 row.find(".total_display").val('');
@@ -376,6 +385,8 @@
 
                 if (price === 0) row.find('.price').val('');
                 if (freight === 0) row.find('.freight').val('');
+                const totalRow = qty * (price + freight);
+                row.find('.total').val(totalRow > 0 ? formatRibuan(totalRow.toFixed(2)) : '');
             });
 
             const taxPercent = parseFloat(unformatRibuan($("#tax_percent").val())) || 0;
@@ -421,7 +432,13 @@
             });
 
             $('#tab_logic tbody tr').each(function() {
-                updateRowTotal($(this));
+                const row = $(this);
+                const selected = row.find('.select-product option:selected');
+                if (selected.val()) {
+                    const lastPrice = parseFloat(selected.data('price')) || 0;
+                    row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
+                    updateRowTotal(row);
+                }
             });
             calc_total();
 
@@ -434,6 +451,7 @@
                 $newRow.find('td:first').text(newIndex + 1);
                 $newRow.find('input').val('');
                 $newRow.find('.freight').val('');
+                $newRow.find('.price').val('');
                 $newRow.find('.total').val('');
                 $newRow.find('.select2').remove();
                 $newRow.find('select').removeClass('select2-hidden-accessible').val('');
@@ -451,8 +469,14 @@
 
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
-                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
-                row.find('.price').val(formatRibuan(price.toFixed(2)));
+                const selectedOption = $(this).find('option:selected');
+
+                // 🔹 Ambil last price dari data attribute
+                const lastPrice = parseFloat(selectedOption.data('price')) || 0;
+
+                // 🔹 Isi otomatis kolom price dan reset freight
+                row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
+                row.find('.freight').val('');
                 updateRowTotal(row);
             });
 
@@ -476,19 +500,15 @@
             $(document).on('input', '.price, .freight', function() {
                 let val = $(this).val().replace(/[^\d,]/g, '');
                 const parts = val.split(',');
-
-                // format bagian ribuan (integer)
                 let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                 val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
-
                 $(this).val(val);
                 updateRowTotal($(this).closest('tr'));
             });
 
             $(document).on('blur', '.price, .freight', function() {
-                const raw = $(this).val();
-                const formatted = formatRibuan(raw);
-                $(this).val(formatted);
+                const num = unformatRibuan($(this).val());
+                $(this).val(formatRibuan(num));
                 updateRowTotal($(this).closest('tr'));
             });
 
@@ -503,38 +523,33 @@
 
         });
 
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
-        });
-
         $(document).on('change', '.select-product', function() {
-            const productId = $(this).val();
             const row = $(this).closest('tr');
+            const productId = $(this).val();
+            const selectedOption = $(this).find('option:selected');
 
-            if (!productId) {
-                row.find('.price').val('');
-                row.find('.freight').val('');
-                updateRowTotal(row);
-                return;
-            }
+            // 🔹 Ambil last price dari data attribute dulu
+            const lastPrice = parseFloat(selectedOption.data('price')) || 0;
+            row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
+            row.find('.freight').val('');
+            updateRowTotal(row);
+
+            // 🔹 Kalau mau override dengan data dari server (jika ada endpoint)
+            if (!productId) return;
 
             $.ajax({
                 url: `/erp/purchases/get-latest-price/${productId}`,
                 type: 'GET',
                 success: function(response) {
-                    const price = response.price ? parseFloat(response.price) : 0;
+                    const price = response.price ? parseFloat(response.price) : lastPrice;
                     const freight = response.freight ? parseFloat(response.freight) : 0;
 
-                    row.find('.price').val(formatNumberInput(price));
-                    row.find('.freight').val(formatNumberInput(freight));
+                    row.find('.price').val(formatRibuan(price.toFixed(2)));
+                    row.find('.freight').val(formatRibuan(freight.toFixed(2)));
 
                     updateRowTotal(row);
                 },
                 error: function() {
-                    row.find('.price').val('');
-                    row.find('.freight').val('');
                     updateRowTotal(row);
                 }
             });
@@ -679,6 +694,46 @@
 
             dueDateSelect.on('change', setDueDate);
             purchaseDateEl.on('change', setDueDate);
+        });
+
+        // 🔍 Cek invoice number saat user selesai mengetik
+        $(document).on('blur', '#purchase_number', function() {
+            const purchaseNumber = $(this).val().trim();
+            if (!purchaseNumber) return;
+
+            $.ajax({
+                url: "{{ route('purchases.check-number') }}",
+                type: 'GET',
+                data: {
+                    purchase_number: purchaseNumber
+                },
+                success: function(response) {
+                    if (response.exists) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Nomor Invoice Sudah Terdaftar!',
+                            text: 'Gunakan nomor invoice lain.',
+                            confirmButtonText: 'OK'
+                        });
+
+                        $('#purchase_number')
+                            .addClass('is-invalid')
+                            .val('')
+                            .focus();
+                    } else {
+                        $('#purchase_number').removeClass('is-invalid');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error checking invoice:", error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal Mengecek Nomor Invoice!',
+                        text: 'Silakan coba lagi.',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            });
         });
     </script>
 @endpush

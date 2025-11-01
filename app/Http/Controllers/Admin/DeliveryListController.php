@@ -158,6 +158,66 @@ class DeliveryListController extends Controller
                     return '<span class="text-muted">-</span>';
                 }
             })
+            ->addColumn('items_mobile', function ($dl) {
+                if ($dl->items->isEmpty()) return '<span class="text-muted">No items</span>';
+
+                // ✅ Baris item produk
+                $rows = '';
+                foreach ($dl->items as $item) {
+                    $product = e($item->product->name ?? '-');
+                    $qty = number_format($item->shipped_quantity ?? 0);
+                    $rows .= "
+                        <tr>
+                            <td style='padding:6px 8px; font-size:12px; border-bottom:1px solid #f0f0f0;'>$product</td>
+                            <td style='padding:6px 8px; text-align:right; font-size:12px; color:#16a34a; border-bottom:1px solid #f0f0f0;'>x$qty</td>
+                        </tr>
+                    ";
+                }
+
+                // ✅ Kartu tampilan mobile
+                return "
+                    <div style='
+                        background:#f9fafb;
+                        border:1px solid #e5e7eb;
+                        border-radius:10px;
+                        padding:12px 14px;
+                        margin-bottom:10px;
+                        box-shadow:0 1px 3px rgba(0,0,0,0.08);
+                        font-size:13px;
+                        line-height:1.5;
+                    '>
+                        <div style='margin-bottom:10px;'>
+                            <div><strong>Shipment:</strong> <span style='color:#2563eb;'>{$dl->shipment_number}</span></div>
+                            <div><strong>Customer:</strong> " . e($dl->deliveryOrder->customer ?? '-') . "</div>
+                            <div><strong>Address:</strong><br>
+                            <div style='
+                                color:#4b5563;
+                                max-width:300px;
+                                white-space:normal;
+                                word-break:break-word;
+                                overflow-wrap:break-word;
+                            '>" . e($dl->deliveryOrder->shipping_address ?? '-') . "</div>
+                        </div>
+                    </div>
+                    <div>
+                        <strong>Items:</strong>
+                        <div class='table-responsive' style='margin-top:6px;'>
+                            <table style='width:100%; border-collapse:collapse;'>
+                                <thead>
+                                    <tr style=\"background:#f3f4f6; text-align:left;\">
+                                        <th style='padding:6px 8px; font-size:12px; font-weight:600; color:#374151;'>Product</th>
+                                        <th style='padding:6px 8px; text-align:right; font-size:12px; font-weight:600; color:#374151;'>Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    $rows
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    </div>
+                ";
+            })
             ->addColumn('proof_photos', function ($dl) {
                 if (empty($dl->proof_photos)) {
                     return '<span class="text-muted">No Proof</span>';
@@ -189,7 +249,7 @@ class DeliveryListController extends Controller
             ->addColumn('action', function ($dl) {
                 return view('erp.pages.deliveries.delivery-list.partials.action-button', compact('dl'))->render();
             })
-            ->rawColumns(['shipment_number', 'status', 'address', 'items', 'action', 'waybill_proof', 'delivery_proof', 'proof_photos'])
+            ->rawColumns(['shipment_number', 'status', 'address', 'items', 'action', 'waybill_proof', 'delivery_proof', 'proof_photos', 'items_mobile'])
             ->make(true);
     }
 

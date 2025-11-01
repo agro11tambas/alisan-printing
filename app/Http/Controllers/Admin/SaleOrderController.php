@@ -51,7 +51,7 @@ class SaleOrderController extends Controller
     public function dataSaleOrder(Request $request)
     {
         $orders = Order::with('customer')
-            ->where('status', 'sale order');
+            ->where('status', 'sale order')->orderByDesc('id');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -95,9 +95,7 @@ class SaleOrderController extends Controller
             }
         }
 
-        $orders = $orders->latest()->get();
-
-        return DataTables::of($orders)
+        return DataTables::eloquent($orders)
             ->addIndexColumn()
             ->addColumn('order_number', function ($order) {
                 $date = Carbon::parse($order->order_date)->format('j M y');

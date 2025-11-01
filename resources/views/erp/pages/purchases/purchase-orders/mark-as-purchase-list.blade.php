@@ -189,13 +189,11 @@
                                                         </td>
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="price[]"
-                                                                class="form-control price"
-                                                                value="{{ old('price.' . $i, $item->price ?? '') }}">
+                                                                class="form-control price">
                                                         </td>
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="freight[]"
-                                                                class="form-control freight"
-                                                                value="{{ old('freight.' . $i, $item->freight ?? '') }}">
+                                                                class="form-control freight">
                                                         </td>
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="total[]"
@@ -292,28 +290,34 @@
 
 @push('scripts')
     <script>
-        function formatRibuan(angka) {
-            if (angka === null || angka === undefined || angka === '') return '';
+        function formatRibuan(value) {
+            if (value === null || value === undefined || value === '') return '';
 
-            const num = parseFloat(angka.toString().replace(/[^0-9,.-]/g, '').replace(',', '.')) || 0;
-            let [integer, decimal] = num.toFixed(2).split('.');
-            integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            return `${integer},${decimal}`;
+            // pastikan angka dalam format numerik
+            const num = parseFloat(value);
+            if (isNaN(num)) return '';
+
+            // format ke Indonesia
+            const [intPart, decPart] = num.toFixed(2).split('.');
+            const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+            // kalau desimalnya 00 -> hilangkan
+            return decPart === '00' ? formattedInt : `${formattedInt},${decPart}`;
         }
 
-        function unformatRibuan(angka) {
-            if (!angka) return 0;
-            const str = angka.toString().trim();
+        function unformatRibuan(value) {
+            if (!value) return 0;
+            // Hapus semua karakter kecuali angka, koma, titik, minus
+            value = value.toString().replace(/[^0-9,.-]/g, '');
 
-            if (str.includes(',')) {
-                return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+            // Jika mengandung koma, anggap koma adalah desimal, hapus titik ribuan
+            if (value.includes(',')) {
+                value = value.replace(/\./g, '').replace(',', '.');
             }
 
-            if (str.includes('.')) {
-                return parseFloat(str.replace(/\./g, '')) || 0;
-            }
-
-            return parseFloat(str) || 0;
+            // Jika tidak mengandung koma tapi ada titik (misal 220.00), biarkan titik jadi desimal
+            const num = parseFloat(value);
+            return isNaN(num) ? 0 : num;
         }
 
         function updateRowTotal(row) {
@@ -656,6 +660,46 @@
 
             dueDateSelect.on('change', setDueDate);
             purchaseDateEl.on('change', setDueDate);
+        });
+
+        // 🔍 Cek invoice number saat user selesai mengetik
+        $(document).on('blur', '#purchase_number', function() {
+            const purchaseNumber = $(this).val().trim();
+            if (!purchaseNumber) return;
+
+            $.ajax({
+                url: "{{ route('purchases.check-number') }}",
+                type: 'GET',
+                data: {
+                    purchase_number: purchaseNumber
+                },
+                success: function(response) {
+                    if (response.exists) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Nomor Invoice Sudah Terdaftar!',
+                            text: 'Gunakan nomor invoice lain.',
+                            confirmButtonText: 'OK'
+                        });
+
+                        $('#purchase_number')
+                            .addClass('is-invalid')
+                            .val('')
+                            .focus();
+                    } else {
+                        $('#purchase_number').removeClass('is-invalid');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error checking invoice:", error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal Mengecek Nomor Invoice!',
+                        text: 'Silakan coba lagi.',
+                        confirmButtonText: 'OK'
+                    });
+                }
+            });
         });
     </script>
 @endpush

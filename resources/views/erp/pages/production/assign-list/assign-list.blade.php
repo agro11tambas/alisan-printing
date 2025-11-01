@@ -16,8 +16,17 @@
         }
 
         #assignBatchTable_wrapper .dataTables_scrollBody {
-            /* background: #fff !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #assignBatchTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
         }
     </style>
 @endpush
@@ -169,27 +178,27 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+
+            // ========== VARIABEL LAZY LOAD ==========
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
+            // ========== DATATABLE ==========
             const batchTable = $('#assignBatchTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
-                lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: `/erp/productions/waiting-list/assign-list/data`,
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                        d.progress_status = $('#progress_status').val(); // 🔹 Filter status
-                        d.search_keyword = $('#search_keyword').val(); // 🔹 Search assign code
-                    }
-                },
+                lengthChange: false,
+                // order: [
+                //     [1, 'desc']
+                // ],
+                data: [],
                 columns: [{
                         data: 'DT_RowIndex',
                         orderable: false,
@@ -214,13 +223,75 @@
                         searchable: false
                     },
                 ],
-                order: [
-                    [1, 'desc']
-                ],
                 language: {
                     processing: '<div class="spinner-border text-primary" role="status"></div>'
                 }
             });
+
+            // ========== FUNGSI LOAD DATA ==========
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: `/erp/productions/waiting-list/assign-list/data`,
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        progress_status: $('#progress_status').val(),
+                        search_keyword: $('#search_keyword').val()
+                    },
+                    success: function(response) {
+                        if (response && response.data && response.data.length > 0) {
+                            allData = allData.concat(response.data);
+                            batchTable.clear();
+                            batchTable.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('Error response:', xhr.responseJSON);
+                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        isLoading = false;
+                    }
+                });
+            }
+
+            // ========== LOAD PERTAMA ==========
+            loadMoreData();
+
+            // ========== SCROLL EVENT UNTUK LAZY LOAD ==========
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
+            // ========== RESET DAN RELOAD ==========
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                batchTable.clear().draw();
+                loadMoreData();
+            }
+
+            // ========== SEMUA EVENT LAMA TETAP ADA (CUMA GANTI .ajax.reload() -> resetAndReload()) ==========
 
             $('#assignBatchTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
@@ -255,22 +326,22 @@
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    batchTable.ajax.reload();
+                    resetAndReload();
                 }
             });
 
             $('#apply-filter').on('click', function() {
-                batchTable.ajax.reload();
+                resetAndReload();
             });
 
             $('#progress_status').on('change', function() {
-                batchTable.ajax.reload();
+                resetAndReload();
             });
 
             let searchTimeout;
             $('#search_keyword').on('input', function() {
                 clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => batchTable.ajax.reload(), 500);
+                searchTimeout = setTimeout(() => resetAndReload(), 500);
             });
         });
 

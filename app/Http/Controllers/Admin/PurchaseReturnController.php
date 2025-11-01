@@ -42,7 +42,7 @@ class PurchaseReturnController extends Controller
     public function dataPurchaseReturns(Request $request)
     {
         $purchases = PurchaseReturn::with('supplier')
-            ->where('status', 'Purchase Returns');
+            ->where('status', 'Purchase Returns')->orderByDesc('id');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -92,9 +92,7 @@ class PurchaseReturnController extends Controller
             }
         }
 
-        $purchases = $purchases->latest()->get();
-
-        return DataTables::of($purchases)
+        return DataTables::eloquent($purchases)
             ->addIndexColumn()
             ->addColumn('purchase_number', function ($purchase) {
                 $date = Carbon::parse($purchase->return_date)->format('j M y');
@@ -191,10 +189,9 @@ class PurchaseReturnController extends Controller
         $returns = PurchaseReturn::onlyTrashed()
             ->with(['supplier', 'items.product'])
             ->where('status', 'Purchase Returns')
-            ->latest()
-            ->get();
+            ->orderByDesc('id');
 
-        return DataTables::of($returns)
+        return DataTables::eloquent($returns)
             ->addIndexColumn()
             ->addColumn('purchase_number', function ($return) {
                 $date = $return->return_date ? Carbon::parse($return->return_date)->format('j M y') : '-';

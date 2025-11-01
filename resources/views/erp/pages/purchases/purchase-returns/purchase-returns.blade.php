@@ -16,13 +16,23 @@
         }
 
         #purchaseReturnTable_wrapper .dataTables_scrollBody {
-            /* background: transparent !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
         }
 
-        #deletedPurchaseReturnTable_wrapper .dataTables_scrollBody {
-            /* background: transparent !important; */
+        #deletedpurchaseReturnTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #purchaseReturnTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
         }
     </style>
 @endpush
@@ -455,70 +465,75 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            // ====================================================
+            // 🔹 LAZY LOAD VARIABLES
+            // ====================================================
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
+            // ====================================================
+            // 🔹 FORMAT PRODUK
+            // ====================================================
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
                 }
 
                 let html = `
-                <div class="table-responsive p-2">
-                    <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>SKU</th>
-                                <th>Qty</th>
-                                <th class="text-end">Price</th>
-                                <th class="text-end">Freight</th>
-                                <th class="text-end">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                    `;
+            <div class="table-responsive p-2">
+                <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>SKU</th>
+                            <th>Qty</th>
+                            <th class="text-end">Price</th>
+                            <th class="text-end">Freight</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
 
                 products.forEach(p => {
                     html += `
-                    <tr>
-                        <td>${p.name}</td>
-                        <td>${p.sku}</td>
-                        <td>${p.qty}</td>
-                        <td class="text-end">${p.price}</td>
-                        <td class="text-end">${p.freight}</td>
-                        <td class="text-end">${p.total_price}</td>
-                    </tr>
-                `;
+                <tr>
+                    <td>${p.name}</td>
+                    <td>${p.sku}</td>
+                    <td>${p.qty}</td>
+                    <td class="text-end">${p.price}</td>
+                    <td class="text-end">${p.freight}</td>
+                    <td class="text-end">${p.total_price}</td>
+                </tr>
+            `;
                 });
 
                 html += `
                     </tbody>
-                    </table>
-                </div>
-            `;
+                </table>
+            </div>
+        `;
                 return html;
             }
 
+            // ====================================================
+            // 🔹 DATATABLE UTAMA
+            // ====================================================
             const dataTable = $('#purchaseReturnTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
-                lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/purchases/purchase-returns/data') }}",
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                        d.search_type = $('#search_type').val();
-                        d.search_keyword = $('#search_keyword').val();
-                        d.payment_status = $('#search_payment_status').val();
-                    }
-                },
+                lengthChange: false,
+                order: [
+                    [1, 'desc']
+                ],
+                data: [],
                 columns: [{
                         className: 'dt-control text-center',
                         orderable: false,
@@ -526,11 +541,6 @@
                         defaultContent: '',
                         width: "20px"
                     },
-                    // {
-                    //     data: 'DT_RowIndex',
-                    //     orderable: false,
-                    //     searchable: false
-                    // },
                     {
                         data: 'purchase_number'
                     },
@@ -549,15 +559,84 @@
                     {
                         data: 'payment_status'
                     },
-                    // {
-                    //     data: 'action',
-                    //     orderable: false,
-                    //     searchable: false,
-                    //     className: 'action-cell text-end'
-                    // }
                 ]
             });
 
+            // ====================================================
+            // 🔹 FUNGSI LOAD DATA (LAZY)
+            // ====================================================
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/purchases/purchase-returns/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val(),
+                    },
+                    success: function(response) {
+                        if (response && response.data && response.data.length > 0) {
+                            allData = allData.concat(response.data);
+                            dataTable.clear();
+                            dataTable.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error response:', xhr.responseJSON);
+                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        isLoading = false;
+                    }
+                });
+            }
+
+            // ====================================================
+            // 🔹 LOAD AWAL
+            // ====================================================
+            loadMoreData();
+
+            // ====================================================
+            // 🔹 SCROLL UNTUK LAZY LOAD
+            // ====================================================
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
+            // ====================================================
+            // 🔹 RESET & RELOAD
+            // ====================================================
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
+            }
+
+            // ====================================================
+            // 🔹 TAB DATA TERHAPUS
+            // ====================================================
             let deletedTable = null;
 
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
@@ -628,6 +707,9 @@
                 }
             });
 
+            // ====================================================
+            // 🔹 EXPAND CHILD & ACTION ROW
+            // ====================================================
             $('#purchaseReturnTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
@@ -656,18 +738,16 @@
                     $tr.removeClass('action-shown');
                 } else {
                     let actionHtml = row.data().action;
-
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
                             ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
-
+                        </div>
+                    </td>
+                </tr>
+            `);
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
                 }
@@ -691,21 +771,23 @@
 
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#purchaseReturnTable').length) return;
-
                 $('#purchaseReturnTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
+            // ====================================================
+            // 🔹 FILTER & SEARCH EVENTS (TIDAK DIUBAH)
+            // ====================================================
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    dataTable.ajax.reload();
+                    resetAndReload();
                 }
             });
 
             $('#apply-filter').on('click', function() {
-                dataTable.ajax.reload();
+                resetAndReload();
             });
 
             $('#search_type').on('change', function() {
@@ -717,18 +799,20 @@
                     $('#search_keyword').removeClass('d-none');
                     $('#search_payment_status').addClass('d-none').val('');
                 }
-                dataTable.ajax.reload();
+                resetAndReload();
             });
 
+            let searchTimeout = null;
             $('#search_keyword').on('keyup', function() {
                 if ($('#search_type').val() !== 'payment_status') {
-                    dataTable.ajax.reload();
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => resetAndReload(), 400);
                 }
             });
 
             $('#search_payment_status').on('change', function() {
                 if ($('#search_type').val() === 'payment_status') {
-                    dataTable.ajax.reload();
+                    resetAndReload();
                 }
             });
         });

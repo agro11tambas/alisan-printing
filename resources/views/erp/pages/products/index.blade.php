@@ -16,8 +16,17 @@
         }
 
         #productTable_wrapper .dataTables_scrollBody {
-            /* background: #fff !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #productTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
         }
     </style>
 @endpush
@@ -115,7 +124,7 @@
                                         <label for="search_type" class="fw-semibold fs-12">Filter By</label>
                                         <div class="row g-3">
                                             <div class="col-md-4">
-                                                <select id="search_type" class="form-control" data-select2-selector="tag"
+                                                <select id="search_type" class="form-control"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;">
                                                     <option value="name">Product Name</option>
                                                     <option value="sku">SKU</option>
@@ -152,6 +161,13 @@
 
                                 </tbody>
                             </table>
+                            <div id="loadingIndicator" style="display:none;">
+                                <div class="shimmer-wrapper">
+                                    <div class="shimmer"></div>
+                                    <div class="shimmer"></div>
+                                    <div class="shimmer"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -188,35 +204,192 @@
 
 @push('scripts')
     <script>
+        // $(document).ready(function() {
+        //     let allData = []; // ⚠️ Simpan semua data yang sudah dimuat
+        //     let currentPage = 0;
+        //     let isLoading = false;
+        //     let hasMoreData = true;
+
+        //     const dataTable = $('#productTable').DataTable({
+        //         processing: true,
+        //         serverSide: true,
+        //         scrollY: '60vh',
+        //         scrollCollapse: true,
+        //         paging: true,
+        //         pageLength: 15,
+        //         searching: false,
+        //         info: false,
+        //         lengthChange: false,
+        //         order: [
+        //             [1, 'asc']
+        //         ],
+        //         ajax: {
+        //             url: "{{ url('/erp/products/data') }}",
+        //             data: function(d) {
+        //                 d.search_type = $('#search_type').val();
+        //                 d.search_keyword = $('#search_keyword').val();
+        //                 d.category_id = $('#category_id').val();
+        //                 d.tag_id = $('#tag_id').val();
+        //             }
+        //         },
+        //         columns: [{
+        //                 data: 'DT_RowIndex',
+        //                 orderable: false,
+        //                 searchable: false
+        //             },
+        //             {
+        //                 data: 'name'
+        //             },
+        //             {
+        //                 data: 'categories'
+        //             },
+        //             {
+        //                 data: 'tags'
+        //             },
+        //             {
+        //                 data: 'price'
+        //             },
+        //             {
+        //                 data: 'sku'
+        //             },
+        //             {
+        //                 data: 'avg_cost'
+        //             },
+        //             {
+        //                 data: 'fixed_cost'
+        //             }
+        //         ],
+        //         drawCallback: function() {
+        //             $('.dataTables_paginate').hide();
+        //         }
+        //     });
+
+        //     let isLoading = false;
+        //     let scrollTimeout = null;
+
+        //     $('.dataTables_scrollBody').on('scroll', function() {
+        //         clearTimeout(scrollTimeout);
+
+        //         const scrollTop = $(this).scrollTop();
+        //         const scrollHeight = $(this)[0].scrollHeight;
+        //         const clientHeight = $(this).height();
+
+        //         scrollTimeout = setTimeout(() => {
+        //             if (scrollTop + clientHeight >= scrollHeight * 0.8 && !isLoading) {
+        //                 isLoading = true;
+
+        //                 // ⚠️ Log sebelum load
+        //                 const rowsBefore = $('#productTable tbody tr').length;
+        //                 console.log('📦 Rows sebelum load:', rowsBefore);
+
+        //                 $('#loadingIndicator').show();
+
+        //                 const info = dataTable.page.info();
+
+        //                 if (info.page < info.pages - 1) {
+        //                     dataTable.page('next').draw('page');
+
+        //                     setTimeout(() => {
+        //                         // ⚠️ Log setelah load
+        //                         const rowsAfter = $('#productTable tbody tr').length;
+        //                         console.log('📦 Rows setelah load:', rowsAfter);
+        //                         console.log('✅ Bertambah:', rowsAfter - rowsBefore, 'rows');
+
+        //                         isLoading = false;
+        //                         $('#loadingIndicator').hide();
+        //                     }, 100);
+        //                 } else {
+        //                     $('#loadingIndicator').html('✅ All products loaded').show();
+        //                     setTimeout(() => $('#loadingIndicator').hide(), 2000);
+        //                     isLoading = false;
+        //                 }
+        //             }
+        //         }, 0);
+        //     });
+
+        //     $('#search_type, #search_keyword, #category_id, #tag_id').on('change keyup', function() {
+        //         dataTable.ajax.reload();
+        //     });
+
+        //     $('#productTable tbody').on('click', 'tr', function(e) {
+        //         if ($(e.target).closest('td.dt-control').length) return;
+
+        //         let $tr = $(this);
+        //         let row = dataTable.row($tr);
+
+        //         $('#productTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+
+        //         if ($tr.hasClass('action-shown')) {
+        //             $tr.removeClass('action-shown');
+        //         } else {
+        //             let actionHtml = row.data().action;
+
+        //             let colCount = $tr.find('td').length;
+        //             let $actionRow = $(`
+    //             <tr class="action-row">
+    //                 <td colspan="${colCount}">
+    //                     <div class="d-flex justify-content-center">
+    //                     ${actionHtml}
+    //                     </div>
+    //                 </td>
+    //             </tr>
+    //         `);
+
+        //             $tr.after($actionRow);
+        //             $tr.addClass('action-shown');
+        //         }
+        //     });
+
+        //     $(document).on('click', function(e) {
+        //         if ($(e.target).closest('#productTable').length) return;
+
+        //         $('#productTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+        //     });
+
+        //     $(document).on('click', function(e) {
+        //         if (!$(e.target).closest('#productTable tbody tr, #productTableMobile tbody tr').length) {
+        //             $('#productTable tbody tr.shown, #productTableMobile tbody tr.shown').each(function() {
+        //                 var tr = $(this);
+        //                 var table = tr.closest('table').attr('id') === 'productTable' ? dataTable :
+        //                     dataTableMobile;
+        //                 var row = table.row(tr);
+        //                 if (row.child.isShown()) {
+        //                     row.child.hide();
+        //                     tr.removeClass('shown');
+        //                 }
+        //             });
+        //         }
+        //     });
+
+        // });
+
         $(document).ready(function() {
+            let allData = []; // ⚠️ Simpan semua data yang sudah dimuat
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             const dataTable = $('#productTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false, // ⚠️ Matikan processing default
+                serverSide: false, // ⚠️ Ubah jadi false
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false, // ⚠️ Matikan pagination
                 searching: false,
-                lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/products/data') }}",
-                    data: function(d) {
-                        d.search_type = $('#search_type').val();
-                        d.search_keyword = $('#search_keyword').val();
-                        d.category_id = $('#category_id').val();
-                        d.tag_id = $('#tag_id').val();
-                    }
-                },
+                lengthChange: false,
+                order: [
+                    [1, 'asc']
+                ],
+                data: [], // ⚠️ Mulai dengan array kosong
                 columns: [{
-                        data: 'DT_RowIndex',
+                        data: null,
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        render: function(data, type, row, meta) {
+                            return meta.row + 1; // Nomor urut otomatis
+                        }
                     },
-                    // {
-                    //     data: 'image'
-                    // },
                     {
                         data: 'name'
                     },
@@ -237,20 +410,92 @@
                     },
                     {
                         data: 'fixed_cost'
-                    },
-                    // {
-                    //     data: 'action',
-                    //     orderable: false,
-                    //     searchable: false,
-                    //     visible: false
-                    // }
+                    }
                 ]
             });
 
-            $('#search_type, #search_keyword, #category_id, #tag_id').on('change keyup', function() {
-                dataTable.ajax.reload();
+            // ⚠️ Fungsi untuk load data dari server
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+
+                isLoading = true;
+                $('#loadingIndicator').show();
+
+                $.ajax({
+                    url: "{{ url('/erp/products/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        category_id: $('#category_id').val(),
+                        tag_id: $('#tag_id').val()
+                    },
+                    success: function(response) {
+                        console.log('📦 Data loaded:', response.data.length, 'rows');
+
+                        if (response.data.length > 0) {
+                            // ⚠️ Append data baru ke array
+                            allData = allData.concat(response.data);
+
+                            // ⚠️ Update DataTable dengan semua data
+                            dataTable.clear();
+                            dataTable.rows.add(allData);
+                            dataTable.draw(false); // false = jangan reset scroll position
+
+                            currentPage++;
+
+                            console.log('✅ Total rows sekarang:', allData.length);
+                        } else {
+                            hasMoreData = false;
+                            $('#loadingIndicator').html('✅ All products loaded').show();
+                            setTimeout(() => $('#loadingIndicator').hide(), 2000);
+                        }
+
+                        isLoading = false;
+                        $('#loadingIndicator').hide();
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error loading data:', xhr);
+                        isLoading = false;
+                        $('#loadingIndicator').hide();
+                    }
+                });
+            }
+
+            // ⚠️ Load data pertama kali
+            loadMoreData();
+
+            // ⚠️ Lazy load saat scroll
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+                const scrollPercent = ((scrollTop + clientHeight) / scrollHeight * 100).toFixed(1);
+
+                // console.log('📜 Scroll:', scrollPercent + '%');
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 100);
             });
 
+            // ⚠️ Reset saat filter berubah
+            $('#search_type, #search_keyword, #category_id, #tag_id').on('change keyup', function() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
+            });
+
+            // Action button handlers (tetap sama)
             $('#productTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -263,17 +508,16 @@
                     $tr.removeClass('action-shown');
                 } else {
                     let actionHtml = row.data().action;
-
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
                             ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
+                        </div>
+                    </td>
+                </tr>
+            `);
 
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
@@ -282,25 +526,8 @@
 
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#productTable').length) return;
-
                 $('#productTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
-
-            $(document).on('click', function(e) {
-                if (!$(e.target).closest('#productTable tbody tr, #productTableMobile tbody tr').length) {
-                    $('#productTable tbody tr.shown, #productTableMobile tbody tr.shown').each(function() {
-                        var tr = $(this);
-                        var table = tr.closest('table').attr('id') === 'productTable' ? dataTable :
-                            dataTableMobile;
-                        var row = table.row(tr);
-                        if (row.child.isShown()) {
-                            row.child.hide();
-                            tr.removeClass('shown');
-                        }
-                    });
-                }
-            });
-
         });
 
         document.addEventListener('DOMContentLoaded', function() {

@@ -16,8 +16,17 @@
         }
 
         #accountList_wrapper .dataTables_scrollBody {
-            /* background: #fff !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #accountList tbody tr {
+            animation: fadeIn 0.3s ease-in;
         }
     </style>
 @endpush
@@ -186,52 +195,123 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+
+            // ====================================================
+            // 🔹 LAZY LOAD VARIABLES
+            // ====================================================
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
+            // ====================================================
+            // 🔹 DATATABLE UTAMA
+            // ====================================================
             const dataTable = $('#accountList').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
-                lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/accounts/data') }}",
-                    data: function(d) {
-                        d.name = $('#name').val();
-                        d.type = $('#type').val();
-                    }
-                },
+                lengthChange: false,
+                // order: [
+                //     [1, 'asc']
+                // ],
+                data: [],
                 columns: [{
                         data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
                         orderable: false,
-                        searchable: false,
+                        searchable: false
                     },
                     {
-                        data: 'name',
-                        name: 'name',
+                        data: 'name'
                     },
                     {
-                        data: 'type',
-                        name: 'type',
+                        data: 'type'
                     },
-                    // {
-                    //     data: 'action',
-                    //     name: 'action',
-                    //     orderable: false,
-                    //     searchable: false,
-                    //     visible: false,
-                    // }
                 ]
             });
 
-            $('#name, #type').on('change keyup', function() {
-                dataTable.ajax.reload();
+            // ====================================================
+            // 🔹 FUNGSI LOAD DATA (LAZY)
+            // ====================================================
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/accounts/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 20,
+                        length: 20,
+                        name: $('#name').val(),
+                        type: $('#type').val(),
+                    },
+                    success: function(response) {
+                        if (response && response.data && response.data.length > 0) {
+                            allData = allData.concat(response.data);
+                            dataTable.clear();
+                            dataTable.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error response:', xhr.responseJSON);
+                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        isLoading = false;
+                    }
+                });
+            }
+
+            // ====================================================
+            // 🔹 LOAD PERTAMA
+            // ====================================================
+            loadMoreData();
+
+            // ====================================================
+            // 🔹 SCROLL UNTUK LAZY LOAD
+            // ====================================================
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
             });
 
+            // ====================================================
+            // 🔹 RESET & RELOAD (DIPAKAI FILTER DAN SEARCH)
+            // ====================================================
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
+            }
+
+            // ====================================================
+            // 🔹 EVENT SEARCH / FILTER (TIDAK DIUBAH)
+            // ====================================================
+            $('#name, #type').on('change keyup', function() {
+                resetAndReload();
+            });
+
+            // ====================================================
+            // 🔹 ACTION ROW & CLICK EVENTS (ASLI KAMU, TIDAK DIUBAH)
+            // ====================================================
             $('#accountList tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -247,14 +327,14 @@
 
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
+                        ${actionHtml}
+                        </div>
+                    </td>
+                </tr>
+            `);
 
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
@@ -264,7 +344,10 @@
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#accountList').length) return;
 
-                $('#accountList tbody tr').removeClass('action-shown').next('.action-row').remove();
+                $('#accountList tbody tr')
+                    .removeClass('action-shown')
+                    .next('.action-row')
+                    .remove();
             });
 
             $(document).on('click', function(e) {
@@ -282,6 +365,7 @@
                 }
             });
         });
+
 
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalDeleteAccount');

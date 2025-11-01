@@ -317,7 +317,7 @@ class OrderProgressAssignController extends Controller
 
     public function dataAssignList(Request $request)
     {
-        $batches = OrderProgressAssignBatch::with(['assigns.operator', 'orderProgress.order.customer']);
+        $batches = OrderProgressAssignBatch::with(['assigns.operator', 'orderProgress.order.customer'])->orderBy('assign_date', 'desc');
 
         // 🔹 Filter berdasarkan status progress
         if ($request->filled('progress_status')) {
@@ -367,9 +367,7 @@ class OrderProgressAssignController extends Controller
             }
         }
 
-        $batches = $batches->latest()->get();
-
-        return DataTables::of($batches)
+        return DataTables::eloquent($batches)
             ->addIndexColumn()
             ->addColumn('assign_code', function ($batch) {
                 $date = Carbon::parse($batch->assign_date)->format('d M y');

@@ -37,7 +37,7 @@ class ProductsController extends Controller
 
     public function data()
     {
-        $products = Products::with(['categories', 'tags']);
+        $products = Products::with(['categories', 'tags'])->orderBy('name', 'asc');
 
         if (request()->filled('search_type') && request()->filled('search_keyword')) {
             $searchType = request()->search_type;
@@ -51,24 +51,20 @@ class ProductsController extends Controller
         }
 
         if (request()->filled('category_id')) {
-            $categoryIds = (array) request()->category_id; // selalu jadikan array
-
+            $categoryIds = (array) request()->category_id;
             $products->whereHas('categories', function ($query) use ($categoryIds) {
                 $query->whereIn('id', $categoryIds);
             });
         }
 
         if (request()->filled('tag_id')) {
-            $tagIds = (array) request()->tag_id; // selalu jadikan array
-
+            $tagIds = (array) request()->tag_id;
             $products->whereHas('tags', function ($query) use ($tagIds) {
                 $query->whereIn('id', $tagIds);
             });
         }
 
-        $products = $products->orderBy('name', 'asc')->get();
-
-        return DataTables::of($products)
+        return DataTables::eloquent($products)
             ->addIndexColumn()
             ->addColumn('id', function ($product) {
                 return $product->id;
@@ -79,14 +75,14 @@ class ProductsController extends Controller
                     : asset('uploads/products/default.png');
 
                 return '
-                    <a href="' . $src . '" data-lightbox="product-' . $product->id . '">
-                        <img src="' . $src . '"
-                            width="50"
-                            height="50"
-                            style="border-radius: 50%; object-fit: cover; object-position: center;"
-                            alt="Image">
-                    </a>
-                ';
+                <a href="' . $src . '" data-lightbox="product-' . $product->id . '">
+                    <img src="' . $src . '"
+                        width="50"
+                        height="50"
+                        style="border-radius: 50%; object-fit: cover; object-position: center;"
+                        alt="Image">
+                </a>
+            ';
             })
             ->addColumn('name', function ($product) {
                 return $product->name;
@@ -102,7 +98,7 @@ class ProductsController extends Controller
                 })->implode(' ');
             })
             ->addColumn('avg_cost', function ($product) {
-                return 'Rp ' . number_format($product->inventoryStock->avg_cost, 2, ',', '.');
+                return 'Rp ' . number_format(optional($product->inventoryStock)->avg_cost ?? 0, 2, ',', '.');
             })
             ->addColumn('price', function ($product) {
                 return 'Rp ' . number_format($product['price'], 0, ',', '.');
@@ -117,8 +113,9 @@ class ProductsController extends Controller
                 return view('erp.pages.products.partials.action-button', compact('product'))->render();
             })
             ->rawColumns(['image', 'categories', 'tags', 'stock', 'action'])
-            ->toJson();
+            ->make(true);
     }
+
 
     public function create()
     {

@@ -53,7 +53,7 @@ class PurchaseListController extends Controller
     public function dataPurchaseList(Request $request)
     {
         $purchases = Purchase::with('supplier')
-            ->where('status', 'Purchase List');
+            ->where('status', 'Purchase List')->orderByDesc('id');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -113,9 +113,7 @@ class PurchaseListController extends Controller
             }
         }
 
-        $purchases = $purchases->latest()->get();
-
-        return DataTables::of($purchases)
+        return DataTables::eloquent($purchases)
             ->addIndexColumn()
             ->addColumn('purchase_number', function ($purchase) {
                 $date = Carbon::parse($purchase->purchase_date)->format('j M y');
@@ -301,7 +299,14 @@ class PurchaseListController extends Controller
     public function create()
     {
         $products = Products::orderBy('name', 'asc')
-            ->with(['latestPurchaseItem'])
+            ->addSelect([
+                'last_price' => DB::table('purchase_items as pi')
+                    ->select('pi.price')
+                    ->whereColumn('pi.product_id', 'products.id')
+                    ->where('pi.price', '>', 0)
+                    ->orderByDesc('pi.id')
+                    ->limit(1)
+            ])
             ->get();
 
         // $products = Products::orderBy('name', 'asc')->get();

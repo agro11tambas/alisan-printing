@@ -2,13 +2,13 @@
 
 @push('styles')
     <style>
-        @media (max-width: 768px) {
+        /* @media (max-width: 768px) {
 
-            #deliveryListTable td.desktop-only,
-            #deliveryListTable th.desktop-only {
-                display: none !important;
-            }
-        }
+                            #deliveryListTable td.desktop-only,
+                            #deliveryListTable th.desktop-only {
+                                display: none !important;
+                            }
+                        } */
 
         #deliveryListTable {
             width: 100% !important;
@@ -16,8 +16,68 @@
         }
 
         #deliveryListTable_wrapper .dataTables_scrollBody {
-            /* background: transparent !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #deliveryListTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        /* 🚫 Pastikan th.mobile-only HILANG TOTAL di desktop, termasuk versi scrollHead */
+        #deliveryListTable th.mobile-only,
+        .dataTables_scrollHead thead th.mobile-only {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+        }
+
+        /* ✅ Mobile mode aktif — tampilkan Summary */
+        @media (max-width: 768px) {
+
+            #deliveryListTable thead,
+            .dataTables_scrollHead thead {
+                display: none !important;
+            }
+
+            #deliveryListTable th.desktop-only,
+            #deliveryListTable td.desktop-only,
+            .dataTables_scrollHead thead th.desktop-only {
+                display: none !important;
+            }
+
+            #deliveryListTable th.mobile-only,
+            #deliveryListTable td.mobile-only {
+                display: block !important;
+                width: 100%;
+                background: #fff;
+                border: 1px solid #eee;
+                border-radius: 6px;
+                margin-bottom: 10px;
+                padding: 10px;
+            }
+        }
+
+        @media (min-width: 769px) {
+
+            #deliveryListTable td.mobile-only,
+            #deliveryListTable th.mobile-only {
+                display: none !important;
+            }
+
+            #deliveryListTable td.desktop-only,
+            #deliveryListTable th.desktop-only {
+                display: table-cell !important;
+            }
         }
     </style>
 @endpush
@@ -122,14 +182,14 @@
                             <table class="table table-hover bg-transparent" id="deliveryListTable">
                                 <thead>
                                     <tr>
-                                        <!-- <th>No</th> -->
-                                        <th>Shipment Number</th>
-                                        <th>Customer</th>
-                                        <th>Address</th>
-                                        <th>Driver</th>
-                                        <th>Status</th>
-                                        <th>Items</th>
-                                        <th>Proof Photos</th>
+                                        <th class="desktop-only">Shipment Number</th>
+                                        <th class="desktop-only">Customer</th>
+                                        <th class="desktop-only">Address</th>
+                                        <th class="desktop-only">Driver</th>
+                                        <th class="desktop-only">Status</th>
+                                        <th class="desktop-only">Items</th>
+                                        <th class="mobile-only">Summary</th> <!-- ✅ tambahan -->
+                                        <th class="desktop-only">Proof Photos</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -228,83 +288,159 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+
+            // ========== VARIABEL UNTUK LAZY LOAD ==========
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
+            // ========== INISIALISASI DATATABLE ==========
             const dataTable = $('#deliveryListTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
-                lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/deliveries/delivery-list/data') }}",
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                        d.search_type = $('#search_type').val();
-                        d.search_keyword = $('#search_keyword').val();
-                        d.status = $('#status').val();
-                    },
-                    error: function(xhr) {
-                        console.error('Error response:', xhr.responseJSON);
-                        alert(xhr.responseJSON?.message || 'Terjadi kesalahan saat memuat data.');
-                    }
-                },
+                lengthChange: false,
+                order: [
+                    [0, 'desc']
+                ],
+                data: [],
                 columns: [{
                         data: 'shipment_number',
-                        name: 'shipment_number'
+                        name: 'shipment_number',
+                        className: 'desktop-only'
                     },
                     {
                         data: 'customer',
-                        name: 'customer'
+                        name: 'customer',
+                        className: 'desktop-only'
                     },
                     {
                         data: 'address',
-                        name: 'address'
+                        name: 'address',
+                        className: 'desktop-only'
                     },
                     {
                         data: 'driver',
-                        name: 'driver'
+                        name: 'driver',
+                        className: 'desktop-only'
                     },
                     {
                         data: 'status',
-                        name: 'status'
+                        name: 'status',
+                        className: 'desktop-only'
                     },
                     {
                         data: 'items',
-                        name: 'items'
+                        name: 'items',
+                        className: 'desktop-only'
+                    },
+                    {
+                        data: 'items_mobile',
+                        name: 'items_mobile',
+                        className: 'mobile-only'
                     },
                     {
                         data: 'proof_photos',
                         name: 'proof_photos',
-                        orderable: false,
-                        searchable: false,
+                        className: 'desktop-only'
                     },
                 ],
             });
 
-            $('#status, #search_type').on('change', function() {
-                dataTable.ajax.reload();
+            // ========== FUNGSI LOAD DATA ==========
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/deliveries/delivery-list/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        status: $('#status').val(),
+                    },
+                    success: function(response) {
+                        if (response && response.data && response.data.length > 0) {
+                            allData = allData.concat(response.data);
+                            dataTable.clear();
+                            dataTable.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error response:', xhr.responseJSON);
+                        alert(xhr.responseJSON?.message || 'Gagal memuat data.');
+                        isLoading = false;
+                    }
+                });
+            }
+
+            // ========== LOAD PERTAMA ==========
+            loadMoreData();
+
+            // ========== SCROLL EVENT UNTUK LAZY LOAD ==========
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
             });
+
+            // ========== RESET & RELOAD ==========
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
+            }
+
+            // ========== SEMUA EVENT LAMA TETAP, CUMA GANTI .ajax.reload() ==========
+            $('#status, #search_type').on('change', function() {
+                resetAndReload();
+            });
+
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    dataTable.ajax.reload();
+                    resetAndReload();
                 }
             });
+
             $('#apply-filter').on('click', function() {
-                dataTable.ajax.reload();
-            });
-            $('#search_keyword').on('keyup', function() {
-                dataTable.ajax.reload();
+                resetAndReload();
             });
 
+            let searchTimeout = null;
+            $('#search_keyword').on('keyup', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => resetAndReload(), 400);
+            });
+
+            // ========== ACTION ROW (TIDAK DIUBAH) ==========
             $('#deliveryListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
                 let $tr = $(this);
@@ -336,6 +472,7 @@
                 $('#deliveryListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
+            // ========== UPLOAD PROOF (TETAP) ==========
             $(document).on('click', '.btn-upload-proof', function() {
                 const url = $(this).data('url');
                 const id = $(this).data('id');
@@ -345,7 +482,6 @@
                 photoFiles = [];
                 $('#preview-container').html('');
 
-                // 🔸 Reset modal
                 $('#formUploadProof').attr('action', url);
                 $('#formUploadProof')[0].reset();
                 $('#error-proof_photos').text('');
@@ -353,7 +489,6 @@
 
                 console.log('📷 Raw data-photos:', existingPhotosRaw);
 
-                // 🔸 Parse JSON kalau ada
                 if (existingPhotosRaw && existingPhotosRaw !== '[]') {
                     try {
                         existingPhotos = JSON.parse(existingPhotosRaw);
@@ -362,19 +497,17 @@
                     }
                 }
 
-                // 🔸 Kalau ada gambar lama, tampilkan preview
                 if (Array.isArray(existingPhotos) && existingPhotos.length > 0) {
                     let html = '';
                     existingPhotos.forEach((img) => {
-                        // Jika sudah diawali http, pakai langsung. Kalau belum, tambah base URL.
                         const imgSrc = img.startsWith('http') ?
                             img :
                             `${window.location.origin}/${img.replace(/^\/+/, '')}`;
                         html += `
-                <a href="${imgSrc}" data-lightbox="proof-${id}" data-title="Preview Bukti">
-                    <img src="${imgSrc}" width="100" height="80"
-                        style="border-radius:8px;object-fit:cover;border:1px solid #ddd;margin:3px;">
-                </a>`;
+                    <a href="${imgSrc}" data-lightbox="proof-${id}" data-title="Preview Bukti">
+                        <img src="${imgSrc}" width="100" height="80"
+                            style="border-radius:8px;object-fit:cover;border:1px solid #ddd;margin:3px;">
+                    </a>`;
                     });
                     $('#proof-preview').html(html);
                 } else {
@@ -403,6 +536,7 @@
                 if (!valid) e.preventDefault();
             });
 
+            // ========== VERIFY & DELETE MODAL (TIDAK DIUBAH) ==========
             $(document).on('click', '.btn-verify', function() {
                 let name = $(this).data('name');
                 let url = $(this).data('url');
@@ -412,7 +546,6 @@
                 $('#modalChangeStatus').modal('show');
             });
 
-            // 🗑️ Delete delivery list
             $(document).on('click', '.btn-delete-delivery', function() {
                 const name = $(this).data('name');
                 const url = $(this).data('url');

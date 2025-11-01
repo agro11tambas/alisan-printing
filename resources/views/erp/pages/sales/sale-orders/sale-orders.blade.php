@@ -20,8 +20,17 @@
         }
 
         #saleOrderTable_wrapper .dataTables_scrollBody {
-            /* background: #fff !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #saleOrderTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
         }
     </style>
 @endpush
@@ -223,9 +232,9 @@
                                 <label for="due_date_option" class="fw-semibold fs-12">Due Date</label>
                                 <select id="due_date_option" style="font-size: 14px;" name="due_date_option"
                                     class="form-select">
-                                    <option value="none" selected>Tidak ada due date</option>
+                                    <option value="none">Tidak ada due date</option>
                                     <option value="today">Hari ini</option>
-                                    <option value="1_week">1 Minggu</option>
+                                    <option value="1_week" selected>1 Minggu</option>
                                     <option value="1_month">1 Bulan</option>
                                     <option value="3_months">3 Bulan</option>
                                     <option value="custom">Custom</option>
@@ -327,60 +336,50 @@
                 }
 
                 let html = `
-                <div class="table-responsive p-2">
-                    <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>SKU</th>
-                                <th>Qty</th>
-                                <th class="text-end">Price</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                    `;
-
+        <div class="table-responsive p-2">
+            <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>SKU</th>
+                        <th>Qty</th>
+                        <th class="text-end">Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
                 products.forEach(p => {
                     html += `
-                    <tr>
-                        <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
-                        <td>${p.sku}</td>
-                        <td>${p.qty}</td>
-                        <td class="text-end">${p.price}</td>
-                    </tr>
-                `;
+            <tr>
+                <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
+                <td>${p.sku}</td>
+                <td>${p.qty}</td>
+                <td class="text-end">${p.price}</td>
+            </tr>`;
                 });
-
-                html += `
-                    </tbody>
-                    </table>
-                </div>
-            `;
+                html += `</tbody></table></div>`;
                 return html;
             }
 
+            // ========== SALE ORDER TABLE (Lazy Load Style) ==========
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             const dataTable = $('#saleOrderTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
-                lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/sales/sale-orders/data') }}",
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                        d.search_type = $('#search_type').val();
-                        d.search_keyword = $('#search_keyword').val();
-                        d.payment_status = $('#search_payment_status').val();
-                    }
-                },
+                lengthChange: false,
+                // order: [
+                //     [1, 'desc']
+                // ],
+                data: [],
                 columns: [{
                         className: 'dt-control text-center',
                         orderable: false,
@@ -388,32 +387,119 @@
                         defaultContent: '',
                         width: "20px"
                     },
-                    // {
-                    //     data: 'DT_RowIndex',
-                    //     orderable: false,
-                    //     searchable: false
-                    // },
                     {
                         data: 'order_number'
                     },
-                    // {
-                    //     data: 'order_date'
-                    // },
                     {
                         data: 'customer'
                     },
                     {
                         data: 'grand_total'
-                    },
-                    // {
-                    //     data: 'action',
-                    //     orderable: false,
-                    //     searchable: false,
-                    //     className: 'action-cell text-end'
-                    // }
+                    }
                 ]
             });
 
+            // ========== FUNGSI LOAD DATA ==========
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/sales/sale-orders/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val()
+                    },
+                    success: function(response) {
+                        if (response && response.data && response.data.length > 0) {
+                            allData = allData.concat(response.data);
+                            dataTable.clear();
+                            dataTable.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ Error:', error);
+                        isLoading = false;
+                    }
+                });
+            }
+
+            // Load pertama kali
+            loadMoreData();
+
+            // ========== LAZY LOAD SCROLL ==========
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
+            // ========== FILTER HANDLERS ==========
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
+            }
+
+            $('#filter').on('change', function() {
+                if ($(this).val() === 'custom') {
+                    $('.custom-range').removeClass('d-none');
+                } else {
+                    $('.custom-range').addClass('d-none');
+                    resetAndReload();
+                }
+            });
+
+            $('#apply-filter').on('click', function() {
+                resetAndReload();
+            });
+
+            $('#search_type').on('change', function() {
+                const selected = $(this).val();
+                if (selected === 'payment_status') {
+                    $('#search_keyword').addClass('d-none').val('');
+                    $('#search_payment_status').removeClass('d-none');
+                } else {
+                    $('#search_keyword').removeClass('d-none');
+                    $('#search_payment_status').addClass('d-none').val('');
+                }
+                resetAndReload();
+            });
+
+            let searchTimeout = null;
+            $('#search_keyword').on('keyup', function() {
+                if ($('#search_type').val() !== 'payment_status') {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => resetAndReload(), 500);
+                }
+            });
+
+            $('#search_payment_status').on('change', function() {
+                if ($('#search_type').val() === 'payment_status') resetAndReload();
+            });
+
+            // ========== EXPAND ROW DETAIL ==========
             $('#saleOrderTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
@@ -430,6 +516,7 @@
                 }
             });
 
+            // ========== ACTION ROW ==========
             $('#saleOrderTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -441,18 +528,18 @@
                 if ($tr.hasClass('action-shown')) {
                     $tr.removeClass('action-shown');
                 } else {
-                    let actionHtml = row.data().action;
-
+                    let actionHtml = row.data().action || '';
                     let colCount = $tr.find('td').length;
+
                     let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
                             ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
+                        </div>
+                    </td>
+                </tr>
+            `);
 
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
@@ -461,45 +548,7 @@
 
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#saleOrderTable').length) return;
-
                 $('#saleOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-            });
-
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    dataTable.ajax.reload();
-                }
-            });
-
-            $('#apply-filter').on('click', function() {
-                dataTable.ajax.reload();
-            });
-
-            $('#search_type').on('change', function() {
-                const selected = $(this).val();
-                if (selected === 'payment_status') {
-                    $('#search_keyword').addClass('d-none').val('');
-                    $('#search_payment_status').removeClass('d-none');
-                } else {
-                    $('#search_keyword').removeClass('d-none');
-                    $('#search_payment_status').addClass('d-none').val('');
-                }
-                dataTable.ajax.reload();
-            });
-
-            $('#search_keyword').on('keyup', function() {
-                if ($('#search_type').val() !== 'payment_status') {
-                    dataTable.ajax.reload();
-                }
-            });
-
-            $('#search_payment_status').on('change', function() {
-                if ($('#search_type').val() === 'payment_status') {
-                    dataTable.ajax.reload();
-                }
             });
         });
 
@@ -568,11 +617,11 @@
             const orderDateInput = document.getElementById("order_date");
             const customDueDateInput = document.getElementById("custom_due_date");
 
-            dueDateOption.addEventListener("change", function() {
+            function updateDueDate() {
                 const orderDate = new Date(orderDateInput.value);
                 let dueDate = null;
 
-                switch (this.value) {
+                switch (dueDateOption.value) {
                     case "today":
                         dueDate = orderDate;
                         break;
@@ -603,8 +652,18 @@
                     const dd = String(dueDate.getDate()).padStart(2, "0");
                     customDueDateInput.value = `${yyyy}-${mm}-${dd}`;
                 }
+
                 customWrapper.classList.remove("d-none");
-            });
+            }
+
+            dueDateOption.addEventListener("change", updateDueDate);
+
+            // ✅ Set default langsung 1 minggu dari tanggal order
+            dueDateOption.value = "1_week";
+            updateDueDate();
+
+            // ✅ Jika tanggal order berubah, update juga due date
+            orderDateInput.addEventListener("change", updateDueDate);
         });
     </script>
 @endpush

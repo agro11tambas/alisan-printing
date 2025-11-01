@@ -16,8 +16,17 @@
         }
 
         #inventoryTable_wrapper .dataTables_scrollBody {
-            /* background: #fff !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #inventoryTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
         }
     </style>
 @endpush
@@ -158,76 +167,139 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+
+            // ====================================================
+            // 🔹 LAZY LOAD VARIABLES
+            // ====================================================
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
+            // ====================================================
+            // 🔹 DATATABLE UTAMA
+            // ====================================================
             const dataTable = $('#inventoryTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
-                lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/inventory/stock-in/data') }}",
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                        d.search_type = $('#search_type').val();
-                        d.search_keyword = $('#search_keyword').val();
-                        d.search_type_dropdown = $('#search_type_dropdown').val();
-                        d.progress_status = $('#progress_status').val();
-                    }
-                },
+                lengthChange: false,
+                // order: [
+                //     [1, 'desc']
+                // ],
+                data: [],
                 columns: [{
                         data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
                         orderable: false,
                         searchable: false
                     },
                     {
-                        data: 'transaction_number',
-                        name: 'transaction_number'
+                        data: 'transaction_number'
                     },
                     {
-                        data: 'date',
-                        name: 'date'
+                        data: 'date'
                     },
-                    // {
-                    //     data: 'partner_name',
-                    //     name: 'partner_name'
-                    // },
                     {
-                        data: 'stock_in',
-                        name: 'stock_in'
+                        data: 'stock_in'
                     },
-                    // {
-                    //     data: 'action',
-                    //     name: 'action',
-                    //     orderable: false,
-                    //     searchable: false,
-                    //     visible: false,
-                    // },
-                ],
+                ]
             });
 
+            // ====================================================
+            // 🔹 FUNGSI LOAD DATA (LAZY)
+            // ====================================================
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/inventory/stock-in/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        search_type_dropdown: $('#search_type_dropdown').val(),
+                        progress_status: $('#progress_status').val(),
+                    },
+                    success: function(response) {
+                        if (response && response.data && response.data.length > 0) {
+                            allData = allData.concat(response.data);
+                            dataTable.clear();
+                            dataTable.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error response:', xhr.responseJSON);
+                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        isLoading = false;
+                    }
+                });
+            }
+
+            // ====================================================
+            // 🔹 LOAD PERTAMA
+            // ====================================================
+            loadMoreData();
+
+            // ====================================================
+            // 🔹 SCROLL UNTUK LAZY LOAD
+            // ====================================================
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
+            // ====================================================
+            // 🔹 RESET & RELOAD
+            // ====================================================
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
+            }
+
+            // ====================================================
+            // 🔹 EVENT FILTER, SEARCH, DAN ACTION (ASLI KAMU)
+            // ====================================================
             $('#progress_status').on('change', function() {
-                dataTable.ajax.reload();
-            })
+                resetAndReload();
+            });
 
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    dataTable.ajax.reload();
+                    resetAndReload();
                 }
             });
 
             $('#apply-filter').on('click', function() {
-                dataTable.ajax.reload();
+                resetAndReload();
             });
 
             $('#search_type').on('change', function() {
@@ -239,13 +311,18 @@
                     $('#search_keyword').removeClass('d-none');
                     $('#search_type_dropdown').addClass('d-none').val('');
                 }
-                dataTable.ajax.reload();
+                resetAndReload();
             });
 
+            let searchTimeout = null;
             $('#search_keyword, #search_type_dropdown').on('keyup change', function() {
-                dataTable.ajax.reload();
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
 
+            // ====================================================
+            // 🔹 ACTION ROW & CLICK EVENTS (TIDAK DIUBAH)
+            // ====================================================
             $('#inventoryTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -261,14 +338,14 @@
 
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
+                        ${actionHtml}
+                        </div>
+                    </td>
+                </tr>
+            `);
 
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
@@ -277,7 +354,6 @@
 
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#inventoryTable').length) return;
-
                 $('#inventoryTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 

@@ -25,7 +25,7 @@ class InventoryController extends Controller
     public function dataStockIn(Request $request)
     {
         $inventory = Inventory::with(['items', 'purchase.supplier', 'order.customer'])
-            ->where('status', 'Stock In');
+            ->where('status', 'Stock In')->orderByDesc('id');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -93,9 +93,7 @@ class InventoryController extends Controller
             }
         }
 
-        $inventory = $inventory->latest()->get();
-
-        return DataTables::of($inventory)
+        return DataTables::eloquent($inventory)
             ->addIndexColumn()
             ->addColumn('transaction_number', function ($inventory) {
                 if ($inventory->purchase_id) {
@@ -148,7 +146,7 @@ class InventoryController extends Controller
             'purchaseReturn.supplier',
             'order.customer',
             'materialRequest.requestedBy',
-        ])->where('status', 'Stock Out');
+        ])->where('status', 'Stock Out')->orderByDesc('id');
 
         // 🔎 Filter tanggal
         if ($request->filter) {
@@ -223,9 +221,7 @@ class InventoryController extends Controller
             }
         }
 
-        $inventory = $inventory->latest()->get();
-
-        return DataTables::of($inventory)
+        return DataTables::eloquent($inventory)
             ->addIndexColumn()
             ->addColumn('transaction_number', function ($inventory) {
                 if ($inventory->purchase_return_id) {

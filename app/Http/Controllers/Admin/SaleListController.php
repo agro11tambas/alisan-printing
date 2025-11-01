@@ -61,7 +61,7 @@ class SaleListController extends Controller
     public function dataSaleList(Request $request)
     {
         $orders = Order::with('customer')
-            ->where('status', 'sale list');
+            ->where('status', 'sale list')->orderByDesc('id');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -121,9 +121,7 @@ class SaleListController extends Controller
             }
         }
 
-        $orders = $orders->latest()->get();
-
-        return DataTables::of($orders)
+        return DataTables::eloquent($orders)
             ->addIndexColumn()
             ->addColumn('order_number', function ($order) {
                 $date = Carbon::parse($order->order_date)->format('j M y');
@@ -195,41 +193,6 @@ class SaleListController extends Controller
 
                 return '<div class="badge ' . $badgeClass . '">' . ucfirst($status) . '</div>';
             })
-            // ->addColumn('products', function ($row) {
-            //     // load orderItems + product (termasuk soft deleted)
-            //     $items = $row->orderItems()->with([
-            //         'product' => function ($q) {
-            //             $q->withTrashed();
-            //         },
-            //         'productBundle.items.product' // ✅ ambil produk di dalam bundle
-            //     ])->get();
-
-            //     return $items->map(function ($item) {
-            //         if ($item->product) {
-            //             // 🟢 Item biasa
-            //             $name = $item->product->name;
-            //             $sku  = $item->product->sku;
-            //         } elseif ($item->productBundle) {
-            //             // 🟣 Item bundle — gabungkan nama produk di dalam bundle
-            //             $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
-            //                 return $bundleItem->product->name ?? '-';
-            //             })->implode(' + ');
-
-            //             $name = $bundleNames ?: '-';
-            //             $sku  = $item->productBundle->sku ?? '-';
-            //         } else {
-            //             $name = '-';
-            //             $sku  = '-';
-            //         }
-
-            //         return [
-            //             'name'  => $name,
-            //             'sku'   => $sku,
-            //             'qty'   => number_format($item->quantity, 0, ',', '.'),
-            //             'price' => number_format($item->price ?? 0, 0, ',', '.'),
-            //         ];
-            //     })->toArray();
-            // })
             ->addColumn('products', function ($row) {
                 // 🔹 Ambil order items + relasi produk dan bundle
                 $items = $row->orderItems()
@@ -312,7 +275,7 @@ class SaleListController extends Controller
     {
         $orders = Order::onlyTrashed()
             ->with(['customer', 'orderItems.product', 'orderItems.productBundle'])
-            ->where('status', 'sale list');
+            ->where('status', 'sale list')->orderBy('deleted_at', 'desc');
 
         // Filter by customer (optional sama kayak SaleList)
         if ($request->search_type === 'customer' && $request->filled('search_keyword')) {
@@ -321,9 +284,7 @@ class SaleListController extends Controller
             });
         }
 
-        $orders = $orders->latest()->get();
-
-        return DataTables::of($orders)
+        return DataTables::eloquent($orders)
             ->addIndexColumn()
             ->addColumn('order_number', function ($order) {
                 $date = \Carbon\Carbon::parse($order->order_date)->format('j M y');
@@ -335,60 +296,26 @@ class SaleListController extends Controller
             ->addColumn('customer', fn($order) => $order->customer->name ?? '-')
             ->addColumn('grand_total', fn($order) => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>')
             ->addColumn('deleted_at', fn($order) => $order->deleted_at ? $order->deleted_at->format('j M y H:i') : '-')
-            // ->addColumn('products', function ($row) {
-            //     // load orderItems + product (termasuk soft deleted)
-            //     $items = $row->orderItems()->with([
-            //         'product' => function ($q) {
-            //             $q->withTrashed();
-            //         },
-            //         'productBundle.items.product' // ✅ ambil produk di dalam bundle
-            //     ])->get();
-
-            //     return $items->map(function ($item) {
-            //         if ($item->product) {
-            //             // 🟢 Item biasa
-            //             $name = $item->product->name;
-            //             $sku  = $item->product->sku;
-            //         } elseif ($item->productBundle) {
-            //             // 🟣 Item bundle — gabungkan nama produk di dalam bundle
-            //             $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
-            //                 return $bundleItem->product->name ?? '-';
-            //             })->implode(' + ');
-
-            //             $name = $bundleNames ?: '-';
-            //             $sku  = $item->productBundle->sku ?? '-';
-            //         } else {
-            //             $name = '-';
-            //             $sku  = '-';
-            //         }
-
-            //         return [
-            //             'name'  => $name,
-            //             'sku'   => $sku,
-            //             'qty'   => number_format($item->quantity, 0, ',', '.'),
-            //             'price' => number_format($item->price ?? 0, 0, ',', '.'),
-            //         ];
-            //     })->toArray();
-            // })
             ->addColumn('products', function ($row) {
-                // 🔹 Ambil order items + relasi produk dan bundle
-                $items = $row->orderItems()
-                    ->with([
-                        'product' => fn($q) => $q->withTrashed(),
-                        'productBundle.items.product',
-                        'deliveryItems.deliveryOrder'
-                    ])
-                    ->get();
+                // load orderItems + product (termasuk soft deleted)
+                $items = $row->orderItems()->with([
+                    'product' => function ($q) {
+                        $q->withTrashed();
+                    },
+                    'productBundle.items.product' // ✅ ambil produk di dalam bundle
+                ])->get();
 
                 return $items->map(function ($item) {
-                    // 🟢 Nama dan SKU produk
                     if ($item->product) {
+                        // 🟢 Item biasa
                         $name = $item->product->name;
                         $sku  = $item->product->sku;
                     } elseif ($item->productBundle) {
-                        $bundleNames = $item->productBundle->items
-                            ->map(fn($b) => $b->product->name ?? '-')
-                            ->implode(' + ');
+                        // 🟣 Item bundle — gabungkan nama produk di dalam bundle
+                        $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
+                            return $bundleItem->product->name ?? '-';
+                        })->implode(' + ');
+
                         $name = $bundleNames ?: '-';
                         $sku  = $item->productBundle->sku ?? '-';
                     } else {
@@ -396,39 +323,73 @@ class SaleListController extends Controller
                         $sku  = '-';
                     }
 
-                    // 🔹 Ambil data pengiriman (delivery order → delivery order item)
-                    $deliveryData = $item->order
-                        ->deliveryOrders()
-                        ->with(['items' => function ($q) use ($item) {
-                            $q->where('order_item_id', $item->id);
-                        }])
-                        ->get()
-                        ->pluck('items')
-                        ->flatten();
-
-                    // 🔸 Jika produk bundle → cukup ambil 1x (anggap satu set)
-                    if ($item->productBundle) {
-                        $progressQty = $deliveryData->first()->progress_qty ?? 0;
-                        $readyQty    = $deliveryData->first()->ready_qty ?? 0;
-                        $shippedQty  = $deliveryData->first()->shipped_qty ?? 0;
-                    } else {
-                        // 🔸 Jika produk biasa → tetap sum semua delivery order item terkait
-                        $progressQty = $deliveryData->sum('progress_qty');
-                        $readyQty    = $deliveryData->sum('ready_qty');
-                        $shippedQty  = $deliveryData->sum('shipped_qty');
-                    }
-
                     return [
-                        'name'         => $name,
-                        'sku'          => $sku,
-                        'qty'          => number_format($item->quantity, 0, ',', '.'),
-                        'price'        => number_format($item->price ?? 0, 0, ',', '.'),
-                        'progress_qty' => number_format($progressQty, 0, ',', '.'),
-                        'ready_qty'    => number_format($readyQty, 0, ',', '.'),
-                        'shipped_qty'  => number_format($shippedQty, 0, ',', '.'),
+                        'name'  => $name,
+                        'sku'   => $sku,
+                        'qty'   => number_format($item->quantity, 0, ',', '.'),
+                        'price' => number_format($item->price ?? 0, 0, ',', '.'),
                     ];
                 })->toArray();
             })
+            // ->addColumn('products', function ($row) {
+            //     // 🔹 Ambil order items + relasi produk dan bundle
+            //     $items = $row->orderItems()
+            //         ->with([
+            //             'product' => fn($q) => $q->withTrashed(),
+            //             'productBundle.items.product',
+            //             'deliveryItems.deliveryOrder'
+            //         ])
+            //         ->get();
+
+            //     return $items->map(function ($item) {
+            //         // 🟢 Nama dan SKU produk
+            //         if ($item->product) {
+            //             $name = $item->product->name;
+            //             $sku  = $item->product->sku;
+            //         } elseif ($item->productBundle) {
+            //             $bundleNames = $item->productBundle->items
+            //                 ->map(fn($b) => $b->product->name ?? '-')
+            //                 ->implode(' + ');
+            //             $name = $bundleNames ?: '-';
+            //             $sku  = $item->productBundle->sku ?? '-';
+            //         } else {
+            //             $name = '-';
+            //             $sku  = '-';
+            //         }
+
+            //         // 🔹 Ambil data pengiriman (delivery order → delivery order item)
+            //         $deliveryData = $item->order
+            //             ->deliveryOrders()
+            //             ->with(['items' => function ($q) use ($item) {
+            //                 $q->where('order_item_id', $item->id);
+            //             }])
+            //             ->get()
+            //             ->pluck('items')
+            //             ->flatten();
+
+            //         // 🔸 Jika produk bundle → cukup ambil 1x (anggap satu set)
+            //         if ($item->productBundle) {
+            //             $progressQty = $deliveryData->first()->progress_qty ?? 0;
+            //             $readyQty    = $deliveryData->first()->ready_qty ?? 0;
+            //             $shippedQty  = $deliveryData->first()->shipped_qty ?? 0;
+            //         } else {
+            //             // 🔸 Jika produk biasa → tetap sum semua delivery order item terkait
+            //             $progressQty = $deliveryData->sum('progress_qty');
+            //             $readyQty    = $deliveryData->sum('ready_qty');
+            //             $shippedQty  = $deliveryData->sum('shipped_qty');
+            //         }
+
+            //         return [
+            //             'name'         => $name,
+            //             'sku'          => $sku,
+            //             'qty'          => number_format($item->quantity, 0, ',', '.'),
+            //             'price'        => number_format($item->price ?? 0, 0, ',', '.'),
+            //             'progress_qty' => number_format($progressQty, 0, ',', '.'),
+            //             'ready_qty'    => number_format($readyQty, 0, ',', '.'),
+            //             'shipped_qty'  => number_format($shippedQty, 0, ',', '.'),
+            //         ];
+            //     })->toArray();
+            // })
             ->addColumn('delete_notes', fn($order) => $order->delete_notes ?? '-')
             ->addColumn('deleted_by', fn($order) => $order->deletedByUser->name ?? '-')
             ->addColumn('action', function ($order) {
@@ -460,7 +421,6 @@ class SaleListController extends Controller
                 // kalau bukan Owner -> kosong
                 return '';
             })
-
             ->rawColumns(['order_number', 'grand_total', 'action', 'products'])
             ->make(true);
     }

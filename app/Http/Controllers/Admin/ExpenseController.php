@@ -26,7 +26,7 @@ class ExpenseController extends Controller
         $expense = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Expense');
-            });
+            })->orderByDesc('id');
 
         if ($request->filter) {
             switch ($request->filter) {
@@ -60,7 +60,7 @@ class ExpenseController extends Controller
             }
         }
 
-        return DataTables::of($expense)
+        return DataTables::eloquent($expense)
             ->addIndexColumn()
             ->addColumn('type', function ($expense) {
                 return $expense->account->type;

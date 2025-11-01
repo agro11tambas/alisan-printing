@@ -419,7 +419,7 @@ Route::middleware(isLogin::class)->group(function () {
         });
 
         Route::middleware(['auth', 'subpermission:purchase-list'])->group(function () {
-            Route::get('/erp/purchases/check-number', [PurchaseOrderController::class, 'checkNumber'])->name('purchases.check-number');
+            Route::get('/erp/purchases/check-number', [PurchaseListController::class, 'checkNumber'])->name('purchases.check-number');
             Route::get('/erp/purchases/get-latest-price/{productId}', [PurchaseListController::class, 'getLatestPrice']);
             Route::get('/erp/purchases/purchase-list/detail-purchase/{id}', [PurchaseDetailController::class, 'getPurchaseListDetail']);
             Route::get('/erp/purchases/purchase-list/data', [PurchaseListController::class, 'dataPurchaseList']);
