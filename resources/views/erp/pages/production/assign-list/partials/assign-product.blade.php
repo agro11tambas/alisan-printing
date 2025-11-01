@@ -7,6 +7,7 @@
                 <th style="width: 20%;">Progress</th>
                 <th style="width: 10%;">Defect Product</th>
                 <th style="width: 10%;">Reject Product</th>
+                <th style="width: 10%;">Note</th>
             </tr>
         </thead>
         <tbody>
@@ -33,6 +34,7 @@
                 </td>
                 <td><span class="fw-bold text-danger">{{ number_format($assign->defect_quantity, 0, ',', '.') }}</span></td>
                 <td><span class="fw-bold text-warning">{{ number_format($assign->reject_quantity, 0, ',', '.') }}</span></td>
+                <td><span class="fw-bold text-dark">{{ $assign->note ?? '-' }}</span></td>
             </tr>
             @endforeach
         </tbody>

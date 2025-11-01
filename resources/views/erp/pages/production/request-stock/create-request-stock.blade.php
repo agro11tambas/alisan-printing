@@ -81,6 +81,7 @@
                                         <tr>
                                             <th class="text-center" style="width:50px;">#</th>
                                             <th class="text-center" style="width:450px;">Product</th>
+                                            <th class="text-center" style="width:130px;">Stock Warehouse</th>
                                             <th class="text-center" style="width:100px;">Qty</th>
                                             <th class="text-center" style="width:80px;">Action</th>
                                         </tr>
@@ -92,6 +93,10 @@
                                                 <select class="form-control select-product" name="product[]" required>
                                                     <option value="" disabled selected hidden>Pilih produk</option>
                                                 </select>
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control stock bg-light" readonly
+                                                    value="0">
                                             </td>
                                             <td>
                                                 <input type="text" inputmode="numeric" name="qty[]"
@@ -132,7 +137,8 @@
             products.forEach(item => {
                 $('<option>', {
                     value: item.id,
-                    text: `[${item.sku || '-'}] ${item.name}`
+                    text: `[${item.sku || '-'}] ${item.name}`,
+                    'data-stock': item.inventory_stock ?? 0
                 }).appendTo(selectEl);
             });
         }
@@ -190,6 +196,12 @@
                 });
             });
 
+            $(document).on('change', '.select-product', function() {
+                const selected = $('option:selected', this);
+                const stock = selected.data('stock') ?? 0;
+                $(this).closest('tr').find('.stock').val(stock.toLocaleString('id-ID'));
+            });
+
             // ✅ Tambah baris baru
             $('#add_row').on('click', function() {
                 const tableBody = $('#tab_logic_body');
@@ -200,6 +212,9 @@
                         <select class="form-control select-product" name="product[]" required>
                             <option value="" disabled selected hidden>Pilih produk</option>
                         </select>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control stock bg-light" readonly value="0">
                     </td>
                     <td>
                         <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0" required>

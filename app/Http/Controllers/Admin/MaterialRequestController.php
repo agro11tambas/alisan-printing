@@ -219,13 +219,14 @@ class MaterialRequestController extends Controller
 
     public function create()
     {
-        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        $products = Products::with('inventoryStock')->orderBy('name', 'asc')->get();
 
         $productsJson = $products->map(function ($product) {
             return [
                 'id' => $product->id,
                 'name' => $product->name,
                 'sku'  => $product->sku,
+                'inventory_stock' => optional($product->inventoryStock)->inventory_stock ?? 0,
             ];
         })->toArray();
 
