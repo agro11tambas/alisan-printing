@@ -199,7 +199,6 @@
                                                         <td>
                                                             <input type="text" inputmode="numeric"
                                                                 class="price_display form-control"
-                                                                {{ Auth::user()->role !== 'Owner' ? 'readonly' : '' }}
                                                                 value="{{ number_format($item->price) }}">
                                                             <input type="hidden" name="price[]" class="price"
                                                                 value="{{ $item->price }}">

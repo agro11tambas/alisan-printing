@@ -238,7 +238,7 @@
                                                         <td>
                                                             <input type="text" inputmode="numeric"
                                                                 class="price_display form-control"
-                                                                {{ Auth::user()->role !== 'Owner' ? 'readonly' : '' }}>
+                                                                >
                                                             <input type="hidden" name="price[]" class="price">
                                                         </td>
                                                         <td>

@@ -475,40 +475,173 @@
             initRowActionHandler('#customerList');
             initRowActionHandler('#supplierList');
         });
+    </script>
 
-        // document.addEventListener('DOMContentLoaded', function() {
-        //     // Ambil semua tombol submit di halaman
-        //     document.querySelectorAll('button[type="submit"]').forEach(function(btn) {
-        //         // Lewati kalau sudah ada onclick manual
-        //         if (!btn.hasAttribute('data-auto-disable')) {
-        //             btn.setAttribute('data-auto-disable', 'true'); // tandai biar gak ganda
+    <script>
+        // 🔥 SOLUSI ANTI DOUBLE SUBMIT - UNLOCK SAAT KLIK DI MANA AJA
 
-        //             btn.addEventListener('click', function(e) {
-        //                 // Kalau sudah disabled, jangan apa-apa
-        //                 if (btn.disabled) {
-        //                     e.preventDefault();
-        //                     return false;
-        //                 }
+        (function() {
+            'use strict';
 
-        //                 // Disable tombol langsung
-        //                 btn.disabled = true;
+            const buttonState = new WeakMap();
+            const clickTimestamps = new WeakMap();
+            let currentLockedButtons = [];
 
-        //                 // Simpan teks asli biar bisa restore kalau mau
-        //                 if (!btn.dataset.originalText) btn.dataset.originalText = btn.innerHTML;
+            function lockButton(btn) {
+                btn.disabled = true;
 
-        //                 // Ubah jadi indikator processing
-        //                 btn.innerHTML = '<i class="feather-loader me-2 spin"></i> Processing...';
+                if (!btn.dataset.originalText) {
+                    btn.dataset.originalText = btn.innerHTML;
+                }
 
-        //                 // Submit form manual
-        //                 btn.form.submit();
+                btn.innerHTML = '<i class="feather-loader me-2 spin"></i> Processing...';
+                btn.style.pointerEvents = 'none';
+                buttonState.set(btn, true);
 
-        //                 // Hentikan default biar gak double
-        //                 e.preventDefault();
-        //                 return false;
-        //             });
-        //         }
-        //     });
-        // });
+                if (!currentLockedButtons.includes(btn)) {
+                    currentLockedButtons.push(btn);
+                }
+            }
+
+            function unlockButton(btn) {
+                btn.disabled = false;
+                btn.style.pointerEvents = '';
+                buttonState.delete(btn);
+
+                if (btn.dataset.originalText) {
+                    btn.innerHTML = btn.dataset.originalText;
+                }
+
+                const index = currentLockedButtons.indexOf(btn);
+                if (index > -1) {
+                    currentLockedButtons.splice(index, 1);
+                }
+            }
+
+            function unlockAllCurrentButtons() {
+                currentLockedButtons.forEach(function(btn) {
+                    unlockButton(btn);
+                });
+                currentLockedButtons = [];
+            }
+
+            function initProtection() {
+
+                // 🎯 PROTECT ALL SUBMIT BUTTONS
+                document.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function(btn) {
+
+                    if (btn.dataset.protected) return;
+                    btn.dataset.protected = 'true';
+
+                    btn.addEventListener('click', function(e) {
+                        const now = Date.now();
+                        const lastClick = clickTimestamps.get(btn) || 0;
+
+                        // 🚫 Block jika klik dalam 2 detik
+                        if (now - lastClick < 2000) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                            console.warn('⚠️ Tolong tunggu sebentar...');
+                            return false;
+                        }
+
+                        clickTimestamps.set(btn, now);
+
+                        // Lock button
+                        setTimeout(() => lockButton(btn), 10);
+
+                        // Auto unlock setelah 5 detik (fallback)
+                        setTimeout(() => unlockButton(btn), 5000);
+
+                    }, true);
+
+                });
+
+                // 🎯 PROTECT ALL FORMS
+                document.querySelectorAll('form').forEach(function(form) {
+
+                    if (form.dataset.protected) return;
+                    form.dataset.protected = 'true';
+
+                    // Reset saat validation error
+                    form.addEventListener('invalid', function(e) {
+                        setTimeout(function() {
+                            unlockAllCurrentButtons();
+                        }, 100);
+                    }, true);
+
+                    // Reset saat submit 
+                    form.addEventListener('submit', function(e) {
+                        setTimeout(function() {
+                            unlockAllCurrentButtons();
+                        }, 5000);
+                    });
+
+                });
+
+                // 🔥 UNLOCK SAAT KLIK DI MANA SAJA (KECUALI SUBMIT BUTTON SENDIRI)
+                document.addEventListener('click', function(e) {
+                    // Jika yang diklik BUKAN submit button yang sedang processing, unlock semua
+                    if (!e.target.matches('button[type="submit"], input[type="submit"]')) {
+                        unlockAllCurrentButtons();
+                    }
+                }, true);
+
+                // 🔥 UNLOCK SAAT KETIK (OPSIONAL)
+                document.addEventListener('keydown', function(e) {
+                    // Unlock saat user mulai ketik (kecuali Tab)
+                    if (e.key !== 'Tab') {
+                        unlockAllCurrentButtons();
+                    }
+                }, true);
+
+                // Observer untuk element baru (AJAX loaded)
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        mutation.addedNodes.forEach(function(node) {
+                            if (node.nodeType === 1) {
+                                if (node.matches(
+                                        'form, button[type="submit"], input[type="submit"]')) {
+                                    initProtection();
+                                }
+                                if (node.querySelectorAll) {
+                                    const forms = node.querySelectorAll('form');
+                                    const buttons = node.querySelectorAll(
+                                        'button[type="submit"], input[type="submit"]');
+                                    if (forms.length > 0 || buttons.length > 0) {
+                                        initProtection();
+                                    }
+                                }
+                            }
+                        });
+                    });
+                });
+
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+
+            // 🚀 INIT
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initProtection);
+            } else {
+                initProtection();
+            }
+
+            if (typeof jQuery !== 'undefined') {
+                jQuery(document).ready(initProtection);
+            }
+
+            // 🎯 Global unlock function
+            window.unlockAllButtons = function() {
+                unlockAllCurrentButtons();
+                console.log('✅ Semua button di-unlock');
+            };
+
+        })();
     </script>
 
     @stack('scripts')

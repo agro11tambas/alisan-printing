@@ -207,7 +207,6 @@
                                                             @endphp
                                                             <input type="text"
                                                                 class="form-control price_before_discount_display"
-                                                                @if (!$isOwner) readonly @endif
                                                                 value="{{ number_format($item->price, 2, ',', '.') }}">
                                                             <input type="hidden" name="price_before_discount[]"
                                                                 class="price_before_discount"
@@ -520,7 +519,7 @@
                     <input type="hidden" name="product_type[]" class="product-type" readonly>
                     <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="1"></td>
                     <td>
-                        <input type="text" class="form-control price_before_discount_display" ${!isOwner ? 'readonly' : ''}>
+                        <input type="text" class="form-control price_before_discount_display">
                         <input type="hidden" name="price_before_discount[]" class="price_before_discount">
                     </td>
                     <td>
