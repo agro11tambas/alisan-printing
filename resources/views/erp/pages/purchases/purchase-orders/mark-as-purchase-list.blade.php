@@ -290,36 +290,29 @@
 
 @push('scripts')
     <script>
+        /* ==================== FORMAT & PARSING ==================== */
         function formatRibuan(value) {
             if (value === null || value === undefined || value === '') return '';
-
-            // pastikan angka dalam format numerik
             const num = parseFloat(value);
             if (isNaN(num)) return '';
-
-            // format ke Indonesia
             const [intPart, decPart] = num.toFixed(2).split('.');
             const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
-            // kalau desimalnya 00 -> hilangkan
             return decPart === '00' ? formattedInt : `${formattedInt},${decPart}`;
         }
 
         function unformatRibuan(value) {
             if (!value) return 0;
-            // Hapus semua karakter kecuali angka, koma, titik, minus
             value = value.toString().replace(/[^0-9,.-]/g, '');
-
-            // Jika mengandung koma, anggap koma adalah desimal, hapus titik ribuan
             if (value.includes(',')) {
                 value = value.replace(/\./g, '').replace(',', '.');
+            } else {
+                value = value.replace(/\./g, '');
             }
-
-            // Jika tidak mengandung koma tapi ada titik (misal 220.00), biarkan titik jadi desimal
             const num = parseFloat(value);
             return isNaN(num) ? 0 : num;
         }
 
+        /* ==================== PERHITUNGAN TOTAL ==================== */
         function updateRowTotal(row) {
             const qty = parseFloat(unformatRibuan(row.find(".qty").val())) || 0;
             const price = parseFloat(unformatRibuan(row.find(".price").val())) || 0;
@@ -375,6 +368,7 @@
             $("#total_amount_display").val(formatRibuan(grandTotal.toFixed(2)));
         }
 
+        /* ==================== SELECT2 & INIT ==================== */
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih opsi',
@@ -386,17 +380,18 @@
             });
         }
 
+        /* ==================== DOCUMENT READY ==================== */
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
+            // Format awal
             $('.price, .freight').each(function() {
                 const val = $(this).val();
-                if (val && !isNaN(val)) {
-                    $(this).val(formatRibuan(parseFloat(val)));
-                }
+                if (val && !isNaN(val)) $(this).val(formatRibuan(parseFloat(val)));
             });
 
+            // Auto price dari data attribute
             $('#tab_logic tbody tr').each(function() {
                 const row = $(this);
                 const selected = row.find('.select-product option:selected');
@@ -408,6 +403,7 @@
             });
             calc_total();
 
+            /* Tambah baris baru */
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
                 const $newRow = $tbody.find('tr:first').clone();
@@ -416,9 +412,6 @@
                 $newRow.attr('id', 'addr' + newIndex);
                 $newRow.find('td:first').text(newIndex + 1);
                 $newRow.find('input').val('');
-                $newRow.find('.freight').val('');
-                $newRow.find('.price').val('');
-                $newRow.find('.total').val('');
                 $newRow.find('.select2').remove();
                 $newRow.find('select').removeClass('select2-hidden-accessible').val('');
 
@@ -426,6 +419,7 @@
                 initSelect2($newRow.find('.select-product'));
             });
 
+            /* Hapus baris */
             $(document).on('click', '.delete-row', function() {
                 if ($('#tab_logic tbody tr').length > 1) {
                     $(this).closest('tr').remove();
@@ -433,37 +427,41 @@
                 }
             });
 
+            /* ==================== INPUT HANDLER ==================== */
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
                 const selectedOption = $(this).find('option:selected');
+                const productId = selectedOption.val();
 
-                // 🔹 Ambil last price dari data attribute
                 const lastPrice = parseFloat(selectedOption.data('price')) || 0;
-
-                // 🔹 Isi otomatis kolom price dan reset freight
                 row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
                 row.find('.freight').val('');
                 updateRowTotal(row);
+
+                if (!productId) return;
+                $.ajax({
+                    url: `/erp/purchases/get-latest-price/${productId}`,
+                    type: 'GET',
+                    success: function(response) {
+                        const price = response.price ? parseFloat(response.price) : lastPrice;
+                        const freight = response.freight ? parseFloat(response.freight) : 0;
+                        row.find('.price').val(formatRibuan(price.toFixed(2)));
+                        row.find('.freight').val(formatRibuan(freight.toFixed(2)));
+                        updateRowTotal(row);
+                    },
+                    error: function() {
+                        updateRowTotal(row);
+                    }
+                });
             });
 
             $(document).on('input', '.qty', function() {
                 let val = $(this).val().replace(/\D/g, '');
-                if (val) {
-                    val = val.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                    $(this).val(val);
-                } else {
-                    $(this).val('');
-                }
-
+                $(this).val(val ? val.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
                 updateRowTotal($(this).closest('tr'));
             });
 
-            $(document).on('blur', '.qty', function() {
-                let val = $(this).val().replace(/\D/g, '');
-                $(this).val(val ? val.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
-            });
-
-            $(document).on('input', '.price, .freight', function() {
+            $(document).on('input', '.price', function() {
                 let val = $(this).val().replace(/[^\d,]/g, '');
                 const parts = val.split(',');
                 let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -472,7 +470,32 @@
                 updateRowTotal($(this).closest('tr'));
             });
 
-            $(document).on('blur', '.price, .freight', function() {
+            $(document).on('input', '.freight', function() {
+                let val = $(this).val().replace(/[^\d,]/g, '');
+                if (val === '0' || val === '0,00') {
+                    $(this).val('0');
+                    updateRowTotal($(this).closest('tr'));
+                    return;
+                }
+                const parts = val.split(',');
+                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
+                $(this).val(val);
+                updateRowTotal($(this).closest('tr'));
+            });
+
+            $(document).on('blur', '.freight', function() {
+                let val = $(this).val().trim();
+                if (val === '' || val === null) {
+                    $(this).val('0');
+                } else {
+                    const num = unformatRibuan(val);
+                    $(this).val(formatRibuan(num));
+                }
+                updateRowTotal($(this).closest('tr'));
+            });
+
+            $(document).on('blur', '.price', function() {
                 const num = unformatRibuan($(this).val());
                 $(this).val(formatRibuan(num));
                 updateRowTotal($(this).closest('tr'));
@@ -487,55 +510,64 @@
                 });
             });
 
-        });
-
-        $(document).on('change', '.select-product', function() {
-            const row = $(this).closest('tr');
-            const productId = $(this).val();
-            const selectedOption = $(this).find('option:selected');
-
-            // 🔹 Ambil last price dari data attribute dulu
-            const lastPrice = parseFloat(selectedOption.data('price')) || 0;
-            row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
-            row.find('.freight').val('');
-            updateRowTotal(row);
-
-            // 🔹 Kalau mau override dengan data dari server (jika ada endpoint)
-            if (!productId) return;
-
-            $.ajax({
-                url: `/erp/purchases/get-latest-price/${productId}`,
-                type: 'GET',
-                success: function(response) {
-                    const price = response.price ? parseFloat(response.price) : lastPrice;
-                    const freight = response.freight ? parseFloat(response.freight) : 0;
-
-                    row.find('.price').val(formatRibuan(price.toFixed(2)));
-                    row.find('.freight').val(formatRibuan(freight.toFixed(2)));
-
-                    updateRowTotal(row);
-                },
-                error: function() {
-                    updateRowTotal(row);
-                }
+            /* ==================== CLEAR ZERO ON FOCUS ==================== */
+            $(document).on('focus', '.qty, .price, .freight, #tax_percent', function() {
+                const num = unformatRibuan($(this).val());
+                if (num === 0) $(this).val('');
             });
+
+            /* ==================== DUE DATE HANDLER ==================== */
+            const purchaseDateEl = $('#purchase_date');
+            const dueDateSelect = $('#due_date_option');
+            const customDueDate = $('#custom_due_date');
+
+            function setDueDate() {
+                const option = dueDateSelect.val();
+                const purchaseDate = new Date(purchaseDateEl.val());
+                if (!purchaseDate || isNaN(purchaseDate)) return;
+
+                let dueDate = new Date(purchaseDate);
+                switch (option) {
+                    case 'today':
+                        break;
+                    case '1_week':
+                        dueDate.setDate(dueDate.getDate() + 7);
+                        break;
+                    case '1_month':
+                        dueDate.setMonth(dueDate.getMonth() + 1);
+                        break;
+                    case '3_months':
+                        dueDate.setMonth(dueDate.getMonth() + 3);
+                        break;
+                    case 'custom':
+                        customDueDate.prop('readonly', false);
+                        return;
+                    default:
+                        customDueDate.val('');
+                        customDueDate.prop('readonly', true);
+                        return;
+                }
+                const formatted = dueDate.toISOString().split('T')[0];
+                customDueDate.val(formatted);
+                customDueDate.prop('readonly', true);
+            }
+
+            dueDateSelect.on('change', setDueDate);
+            purchaseDateEl.on('change', setDueDate);
         });
 
+        /* ==================== VALIDASI FORM ==================== */
         function showError(el, message) {
             if ($(el).hasClass('select2-hidden-accessible')) {
                 const select2Container = $(el).next('.select2');
                 select2Container.next('.invalid-feedback').remove();
-
-                const feedback = document.createElement('div');
-                feedback.className = 'invalid-feedback d-block';
-                feedback.textContent = message;
-                select2Container[0].after(feedback);
+                const feedback = $('<div class="invalid-feedback d-block">' + message + '</div>');
+                select2Container[0].after(feedback[0]);
             } else {
                 el.classList.add('is-invalid');
                 const container = el.closest('.input-group') || el.parentNode;
                 const existing = container.querySelector('.invalid-feedback');
                 if (existing) existing.remove();
-
                 const feedback = document.createElement('div');
                 feedback.className = 'invalid-feedback';
                 feedback.textContent = message;
@@ -557,7 +589,6 @@
 
         $('#purchaseForm').on('submit', function(e) {
             let isValid = true;
-
             $(this).find('.is-invalid').removeClass('is-invalid');
             $(this).find('.invalid-feedback').remove();
 
@@ -601,68 +632,39 @@
                     isValid = false;
                     showError(product[0], 'Produk wajib dipilih');
                 }
-                if (!qty.val() || parseFloat(qty.val().replace(/\./g, '')) <= 0) {
+                if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
                     isValid = false;
-                    showError(qty[0], 'Qty wajib diisi');
+                    showError(qty[0], 'Qty wajib diisi dan harus > 0');
                 }
-                if (!price.val() || parseFloat(price.val().replace(/\./g, '')) <= 0) {
+                if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
                     isValid = false;
-                    showError(price[0], 'Harga wajib diisi');
+                    showError(price[0], 'Harga wajib diisi dan harus > 0');
                 }
-                if (!freight.val() || isNaN(parseFloat(freight.val().replace(/\./g, '')))) {
+
+                const freightVal = freight.val().trim();
+                if (freightVal === '' || freightVal === null) {
                     isValid = false;
-                    showError(freight[0], 'Freight wajib diisi (isi 0 jika tidak ada)');
+                    showError(freight[0], 'Freight harus diisi (minimal 0)');
+                    freight.val('0');
+                } else {
+                    const freightNum = unformatRibuan(freightVal);
+                    if (isNaN(freightNum) || freightNum < 0) {
+                        isValid = false;
+                        showError(freight[0], 'Freight harus angka valid (≥ 0)');
+                    }
                 }
             });
 
             if (!isValid) {
                 e.preventDefault();
+                const firstError = $(this).find('.is-invalid, .select2 + .invalid-feedback').first();
+                if (firstError.length) $('html, body').animate({
+                    scrollTop: firstError.offset().top - 100
+                }, 300);
             }
         });
 
-        $(document).ready(function() {
-            const purchaseDateEl = $('#purchase_date');
-            const dueDateSelect = $('#due_date_option');
-            const customDueDate = $('#custom_due_date');
-
-            function setDueDate() {
-                const option = dueDateSelect.val();
-                const purchaseDate = new Date(purchaseDateEl.val());
-
-                if (!purchaseDate || isNaN(purchaseDate)) return;
-
-                let dueDate = new Date(purchaseDate);
-                switch (option) {
-                    case 'today':
-                        break;
-                    case '1_week':
-                        dueDate.setDate(dueDate.getDate() + 7);
-                        break;
-                    case '1_month':
-                        dueDate.setMonth(dueDate.getMonth() + 1);
-                        break;
-                    case '3_months':
-                        dueDate.setMonth(dueDate.getMonth() + 3);
-                        break;
-                    case 'custom':
-                        customDueDate.prop('readonly', false);
-                        return;
-                    default:
-                        customDueDate.val('');
-                        customDueDate.prop('readonly', true);
-                        return;
-                }
-
-                const formatted = dueDate.toISOString().split('T')[0];
-                customDueDate.val(formatted);
-                customDueDate.prop('readonly', true);
-            }
-
-            dueDateSelect.on('change', setDueDate);
-            purchaseDateEl.on('change', setDueDate);
-        });
-
-        // 🔍 Cek invoice number saat user selesai mengetik
+        /* ==================== CEK NOMOR INVOICE ==================== */
         $(document).on('blur', '#purchase_number', function() {
             const purchaseNumber = $(this).val().trim();
             if (!purchaseNumber) return;
@@ -681,17 +683,12 @@
                             text: 'Gunakan nomor invoice lain.',
                             confirmButtonText: 'OK'
                         });
-
-                        $('#purchase_number')
-                            .addClass('is-invalid')
-                            .val('')
-                            .focus();
+                        $('#purchase_number').addClass('is-invalid').val('').focus();
                     } else {
                         $('#purchase_number').removeClass('is-invalid');
                     }
                 },
-                error: function(xhr, status, error) {
-                    console.error("Error checking invoice:", error);
+                error: function() {
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal Mengecek Nomor Invoice!',

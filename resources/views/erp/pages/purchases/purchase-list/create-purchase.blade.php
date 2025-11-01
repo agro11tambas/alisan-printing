@@ -370,6 +370,7 @@
             calc_total();
         }
 
+        // 4️⃣ Update fungsi calc_total untuk handle freight = 0
         function calc_total() {
             let subtotalProduct = 0,
                 subtotalFreight = 0;
@@ -383,8 +384,11 @@
                 subtotalProduct += qty * price;
                 subtotalFreight += qty * freight;
 
+                // Kosongkan jika 0 untuk tampilan (opsional, hapus jika mau tetap tampil 0)
                 if (price === 0) row.find('.price').val('');
+                // ✅ Freight tetap tampilkan 0 jika memang 0
                 if (freight === 0) row.find('.freight').val('');
+
                 const totalRow = qty * (price + freight);
                 row.find('.total').val(totalRow > 0 ? formatRibuan(totalRow.toFixed(2)) : '');
             });
@@ -497,7 +501,8 @@
                 $(this).val(val ? val.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
             });
 
-            $(document).on('input', '.price, .freight', function() {
+            // ✅ Handler untuk PRICE (baru, terpisah)
+            $(document).on('input', '.price', function() {
                 let val = $(this).val().replace(/[^\d,]/g, '');
                 const parts = val.split(',');
                 let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -506,11 +511,31 @@
                 updateRowTotal($(this).closest('tr'));
             });
 
-            $(document).on('blur', '.price, .freight', function() {
-                const num = unformatRibuan($(this).val());
-                $(this).val(formatRibuan(num));
+            // ✅ BENAR - Biarkan kosong, cuma format kalau ada isi
+            $(document).on('blur', '.freight', function() {
+                let val = $(this).val().trim();
+
+                // Jika kosong, BIARKAN KOSONG (jangan isi 0)
+                if (val === '' || val === null) {
+                    // Do nothing, biarkan kosong
+                    return;
+                }
+
+                const num = unformatRibuan(val);
+
+                // Jika angka valid (termasuk 0), format ulang
+                if (!isNaN(num) && num >= 0) {
+                    $(this).val(formatRibuan(num));
+                } else {
+                    // Jika invalid, kosongkan
+                    $(this).val('');
+                }
+
                 updateRowTotal($(this).closest('tr'));
             });
+
+            // ✅ Handler untuk FREIGHT sudah ada di bawah (baris 367 & 395)
+            // Jadi tidak perlu ditambahkan lagi di sini
 
             $(document).on('input', '#tax_percent', calc_total);
 
@@ -521,6 +546,51 @@
                 });
             });
 
+            // ✅ AUTO CLEAR ANGKA 0 SAAT FOCUS (untuk semua field angka)
+
+            // 🎯 Handler untuk FREIGHT - Clear 0 saat focus
+            $(document).on('focus', '.freight', function() {
+                const val = $(this).val().trim();
+                const num = unformatRibuan(val);
+
+                // Jika nilai 0, kosongkan field
+                if (num === 0) {
+                    $(this).val('');
+                }
+            });
+
+            // 🎯 Handler untuk PRICE - Clear 0 saat focus (opsional)
+            $(document).on('focus', '.price', function() {
+                const val = $(this).val().trim();
+                const num = unformatRibuan(val);
+
+                // Jika nilai 0, kosongkan field
+                if (num === 0) {
+                    $(this).val('');
+                }
+            });
+
+            // 🎯 Handler untuk QTY - Clear 0 saat focus (opsional)
+            $(document).on('focus', '.qty', function() {
+                const val = $(this).val().replace(/\./g, ''); // Hapus titik pemisah ribuan
+                const num = parseInt(val);
+
+                // Jika nilai 0, kosongkan field
+                if (num === 0) {
+                    $(this).val('');
+                }
+            });
+
+            // 🎯 Handler untuk TAX PERCENT - Clear 0 saat focus (opsional)
+            $(document).on('focus', '#tax_percent', function() {
+                const val = $(this).val().trim();
+                const num = parseFloat(val);
+
+                // Jika nilai 0, kosongkan field
+                if (num === 0) {
+                    $(this).val('');
+                }
+            });
         });
 
         $(document).on('change', '.select-product', function() {
@@ -589,12 +659,17 @@
                 }
             });
 
+        // 🔧 VALIDASI FORM SUBMIT - AUTO-FILL FREIGHT SEBELUM VALIDASI
+
+        // ✅ VALIDASI SUBMIT - TAMPILKAN ERROR FREIGHT LALU AUTO-FILL 0
+
         $('#purchaseForm').on('submit', function(e) {
             let isValid = true;
 
             $(this).find('.is-invalid').removeClass('is-invalid');
             $(this).find('.invalid-feedback').remove();
 
+            // ✅ STEP 1: VALIDASI FIELD UTAMA
             const purchaseNumber = $('#purchase_number');
             if (!purchaseNumber.val().trim()) {
                 isValid = false;
@@ -625,34 +700,103 @@
                 showError(transactionType[0], 'Tipe transaksi wajib dipilih');
             }
 
+            // ✅ STEP 2: VALIDASI SETIAP BARIS PRODUK
             $('#tab_logic tbody tr').each(function() {
                 const product = $(this).find('select[name="product[]"]');
                 const qty = $(this).find('input[name="qty[]"]');
                 const price = $(this).find('input[name="price[]"]');
                 const freight = $(this).find('input[name="freight[]"]');
 
+                // Validasi Product
                 if (!product.val()) {
                     isValid = false;
                     showError(product[0], 'Produk wajib dipilih');
                 }
-                if (!qty.val() || parseFloat(qty.val().replace(/\./g, '')) <= 0) {
+
+                // Validasi Qty (harus > 0)
+                if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
                     isValid = false;
-                    showError(qty[0], 'Qty wajib diisi');
+                    showError(qty[0], 'Qty wajib diisi dan harus lebih dari 0');
                 }
-                if (!price.val() || parseFloat(price.val().replace(/\./g, '')) <= 0) {
+
+                // Validasi Price (harus > 0)
+                const priceVal = unformatRibuan(price.val());
+                if (!price.val() || priceVal <= 0) {
                     isValid = false;
-                    showError(price[0], 'Harga wajib diisi');
+                    showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
                 }
-                if (!freight.val() || isNaN(parseFloat(freight.val().replace(/\./g, '')))) {
+
+                // ✅ Validasi Freight
+                const freightVal = freight.val().trim();
+
+                if (freightVal === '' || freightVal === null) {
+                    // 🔴 Tampilkan error bahwa freight harus diisi
                     isValid = false;
-                    showError(freight[0], 'Freight wajib diisi (isi 0 jika tidak ada)');
+                    showError(freight[0], 'Freight harus diisi (minimal 0)');
+
+                    // ✅ Setelah error, auto-fill dengan 0
+                    freight.val('0');
+
+                } else {
+                    // Jika sudah diisi, cek apakah angka valid
+                    const freightNum = unformatRibuan(freightVal);
+                    if (isNaN(freightNum) || freightNum < 0) {
+                        isValid = false;
+                        showError(freight[0], 'Freight harus berupa angka valid (minimal 0)');
+                    }
                 }
             });
 
+            // ✅ STEP 3: Jika tidak valid, cegah submit dan scroll ke error
             if (!isValid) {
                 e.preventDefault();
+
+                const firstError = $(this).find('.is-invalid, .select2 + .invalid-feedback').first();
+                if (firstError.length) {
+                    $('html, body').animate({
+                        scrollTop: firstError.offset().top - 100
+                    }, 300);
+                }
             }
         });
+
+        $(document).on('input', '.freight', function() {
+            let val = $(this).val().replace(/[^\d,]/g, '');
+
+            // Izinkan nilai 0
+            if (val === '0' || val === '0,00') {
+                $(this).val('0');
+                updateRowTotal($(this).closest('tr'));
+                return;
+            }
+
+            const parts = val.split(',');
+            let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
+            $(this).val(val);
+            updateRowTotal($(this).closest('tr'));
+        });
+
+        $(document).on('blur', '.freight', function() {
+            let val = $(this).val().trim();
+
+            // Jika kosong, set ke 0
+            if (val === '' || val === null) {
+                $(this).val('0');
+            } else {
+                const num = unformatRibuan(val);
+                // Jika angka valid (termasuk 0), format ulang
+                if (!isNaN(num) && num >= 0) {
+                    $(this).val(formatRibuan(num));
+                } else {
+                    // Jika invalid, set ke 0
+                    $(this).val('0');
+                }
+            }
+
+            updateRowTotal($(this).closest('tr'));
+        });
+
 
         $(document).ready(function() {
             const purchaseDateEl = $('#purchase_date');

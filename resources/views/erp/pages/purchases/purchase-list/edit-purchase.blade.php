@@ -376,51 +376,39 @@
 
 @push('scripts')
     <script>
+        /* ==================== FORMAT ==================== */
         function formatRibuan(value) {
             if (value === null || value === undefined || value === '') return '';
 
-            // pastikan angka dalam format numerik
-            const num = parseFloat(value);
+            let str = value.toString().trim();
+
+            // kalau ada koma → itu desimal, titik berarti ribuan
+            if (str.includes(',')) {
+                str = str.replace(/\./g, '').replace(',', '.');
+            }
+            // kalau nggak ada koma tapi ada dua titik (misal 1.234.56) → hapus titik ribuan
+            else if ((str.match(/\./g) || []).length > 1) {
+                const lastDot = str.lastIndexOf('.');
+                str = str.substring(0, lastDot).replace(/\./g, '') + '.' + str.substring(lastDot + 1);
+            }
+
+            const num = parseFloat(str);
             if (isNaN(num)) return '';
 
-            // format ke Indonesia
             const [intPart, decPart] = num.toFixed(2).split('.');
             const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
-            // kalau desimalnya 00 -> hilangkan
             return decPart === '00' ? formattedInt : `${formattedInt},${decPart}`;
         }
 
         function unformatRibuan(value) {
             if (!value) return 0;
-            // Hapus semua karakter kecuali angka, koma, titik, minus
-            value = value.toString().replace(/[^0-9,.-]/g, '');
-
-            // Jika mengandung koma, anggap koma adalah desimal, hapus titik ribuan
-            if (value.includes(',')) {
-                value = value.replace(/\./g, '').replace(',', '.');
-            }
-
-            // Jika tidak mengandung koma tapi ada titik (misal 220.00), biarkan titik jadi desimal
-            const num = parseFloat(value);
+            let str = value.toString().trim();
+            str = str.replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(str);
             return isNaN(num) ? 0 : num;
         }
 
-
-        // ✅ Hapus format (1.234,56 → 1234.56)
-        function unformatRibuan(angka) {
-            if (!angka) return 0;
-            let str = angka.toString().trim();
-
-            // hapus titik ribuan dulu
-            str = str.replace(/\./g, '');
-            // ubah koma ke titik desimal
-            str = str.replace(',', '.');
-
-            const num = Number(str);
-            return isNaN(num) ? 0 : num;
-        }
-
+        /* ==================== HITUNG TOTAL ==================== */
         function updateRowTotal(row) {
             const qty = unformatRibuan(row.find(".qty").val()) || 0;
             const price = unformatRibuan(row.find(".price").val()) || 0;
@@ -444,14 +432,14 @@
                 subtotalFreight = 0;
 
             $('#tab_logic tbody tr').each(function() {
-                const qty = parseFloat(unformatRibuan($(this).find('.qty').val())) || 0;
-                const price = parseFloat(unformatRibuan($(this).find('.price').val())) || 0;
-                const freight = parseFloat(unformatRibuan($(this).find('.freight').val())) || 0;
+                const qty = unformatRibuan($(this).find('.qty').val()) || 0;
+                const price = unformatRibuan($(this).find('.price').val()) || 0;
+                const freight = unformatRibuan($(this).find('.freight').val()) || 0;
                 subtotalProduct += qty * price;
                 subtotalFreight += qty * freight;
             });
 
-            const taxPercent = parseFloat(unformatRibuan($("#tax_percent").val())) || 0;
+            const taxPercent = unformatRibuan($("#tax_percent").val()) || 0;
             const taxAmount = (subtotalProduct * taxPercent) / 100;
 
             const totalProduct = subtotalProduct + taxAmount;
@@ -464,13 +452,14 @@
             $("#tax_amount").val(taxAmount.toFixed(2));
             $("#total_amount").val(grandTotal.toFixed(2));
 
-            $("#total_amount_product_display").val(formatRibuan(totalProduct.toFixed(2)));
-            $("#total_amount_freight_display").val(formatRibuan(subtotalFreight.toFixed(2)));
-            $("#sub_total_display").val(formatRibuan(subTotal.toFixed(2)));
-            $("#tax_amount_display").val(formatRibuan(taxAmount.toFixed(2)));
-            $("#total_amount_display").val(formatRibuan(grandTotal.toFixed(2)));
+            $("#total_amount_product_display").val(formatRibuan(totalProduct));
+            $("#total_amount_freight_display").val(formatRibuan(subtotalFreight));
+            $("#sub_total_display").val(formatRibuan(subTotal));
+            $("#tax_amount_display").val(formatRibuan(taxAmount));
+            $("#total_amount_display").val(formatRibuan(grandTotal));
         }
 
+        /* ==================== SELECT2 ==================== */
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih opsi',
@@ -488,16 +477,14 @@
             }, 50);
         });
 
+        /* ==================== DOCUMENT READY ==================== */
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
             $('.price, .freight').each(function() {
                 const val = $(this).val();
-                if (val) {
-                    const clean = unformatRibuan(val);
-                    $(this).val(formatRibuan(clean));
-                }
+                if (val) $(this).val(formatRibuan(unformatRibuan(val)));
             });
 
             $('#tab_logic tbody tr').each(function() {
@@ -505,23 +492,21 @@
             });
             calc_total();
 
+            /* Tambah Baris */
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
                 const $newRow = $tbody.find('tr:first').clone();
                 const newIndex = $tbody.find('tr').length;
-
                 $newRow.attr('id', 'addr' + newIndex);
                 $newRow.find('td:first').text(newIndex + 1);
                 $newRow.find('input').val('');
-                $newRow.find('.freight').val('');
-                $newRow.find('.total').val('');
                 $newRow.find('.select2').remove();
                 $newRow.find('select').removeClass('select2-hidden-accessible').val('');
-
                 $tbody.append($newRow);
                 initSelect2($newRow.find('.select-product'));
             });
 
+            /* Hapus Baris */
             $(document).on('click', '.delete-row', function() {
                 if ($('#tab_logic tbody tr').length > 1) {
                     $(this).closest('tr').remove();
@@ -529,31 +514,41 @@
                 }
             });
 
+            /* Harga otomatis saat pilih produk */
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
-                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
-                row.find('.price').val(formatRibuan(price.toFixed(2)));
-                updateRowTotal(row);
-            });
-
-            $(document).on('input', '.qty', function() {
-                let val = $(this).val().replace(/\D/g, '');
-                if (val) {
-                    val = val.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                    $(this).val(val);
-                } else {
-                    $(this).val('');
+                const productId = $(this).val();
+                if (!productId) {
+                    row.find('.price, .freight').val('');
+                    updateRowTotal(row);
+                    return;
                 }
 
+                $.ajax({
+                    url: `/erp/purchases/get-latest-price/${productId}`,
+                    type: 'GET',
+                    success: function(response) {
+                        const price = response.price ? parseFloat(response.price) : 0;
+                        const freight = response.freight ? parseFloat(response.freight) : 0;
+                        row.find('.price').val(formatRibuan(price));
+                        row.find('.freight').val(formatRibuan(freight));
+                        updateRowTotal(row);
+                    },
+                    error: function() {
+                        row.find('.price, .freight').val('');
+                        updateRowTotal(row);
+                    }
+                });
+            });
+
+            /* Input Qty */
+            $(document).on('input', '.qty', function() {
+                let val = $(this).val().replace(/\D/g, '');
+                $(this).val(val ? val.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
                 updateRowTotal($(this).closest('tr'));
             });
 
-            $(document).on('blur', '.qty', function() {
-                let val = $(this).val().replace(/\D/g, '');
-                $(this).val(val ? val.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
-            });
-
-            // 🔹 Format input harga / freight (boleh koma)
+            /* Input Price / Freight */
             $(document).on('input', '.price, .freight', function() {
                 let val = $(this).val().replace(/[^\d,]/g, '');
                 const parts = val.split(',');
@@ -563,60 +558,35 @@
                 updateRowTotal($(this).closest('tr'));
             });
 
-            // 🔹 Format ulang saat blur
             $(document).on('blur', '.price, .freight', function() {
-                const val = $(this).val();
-                $(this).val(formatRibuan(val));
+                let val = $(this).val().trim();
+                if (val === '' || val === null) {
+                    $(this).val('');
+                    updateRowTotal($(this).closest('tr'));
+                    return;
+                }
+
+                const num = unformatRibuan(val);
+                $(this).val(formatRibuan(num));
                 updateRowTotal($(this).closest('tr'));
             });
 
+
             $(document).on('input', '#tax_percent', calc_total);
 
+            /* Bersihkan format sebelum submit */
             $('#purchaseForm').on('submit', function() {
                 $('.qty, .price, .freight, .total').each(function() {
-                    const cleanVal = unformatRibuan($(this).val());
-                    $(this).val(cleanVal);
+                    $(this).val(unformatRibuan($(this).val()));
                 });
             });
-
         });
 
-        $(document).on('change', '.select-product', function() {
-            const productId = $(this).val();
-            const row = $(this).closest('tr');
-
-            if (!productId) {
-                row.find('.price').val('');
-                row.find('.freight').val('');
-                updateRowTotal(row);
-                return;
-            }
-
-            $.ajax({
-                url: `/erp/purchases/get-latest-price/${productId}`,
-                type: 'GET',
-                success: function(response) {
-                    const price = response.price ? parseFloat(response.price) : 0;
-                    const freight = response.freight ? parseFloat(response.freight) : 0;
-
-                    row.find('.price').val(formatNumberInput(price));
-                    row.find('.freight').val(formatNumberInput(freight));
-
-                    updateRowTotal(row);
-                },
-                error: function() {
-                    row.find('.price').val('');
-                    row.find('.freight').val('');
-                    updateRowTotal(row);
-                }
-            });
-        });
-
+        /* ==================== VALIDASI ==================== */
         function showError(el, message) {
             if ($(el).hasClass('select2-hidden-accessible')) {
                 const select2Container = $(el).next('.select2');
                 select2Container.next('.invalid-feedback').remove();
-
                 const feedback = document.createElement('div');
                 feedback.className = 'invalid-feedback d-block';
                 feedback.textContent = message;
@@ -626,7 +596,6 @@
                 const container = el.closest('.input-group') || el.parentNode;
                 const existing = container.querySelector('.invalid-feedback');
                 if (existing) existing.remove();
-
                 const feedback = document.createElement('div');
                 feedback.className = 'invalid-feedback';
                 feedback.textContent = message;
@@ -648,7 +617,6 @@
 
         $('#purchaseForm').on('submit', function(e) {
             let isValid = true;
-
             $(this).find('.is-invalid').removeClass('is-invalid');
             $(this).find('.invalid-feedback').remove();
 
@@ -692,25 +660,33 @@
                     isValid = false;
                     showError(product[0], 'Produk wajib dipilih');
                 }
-                if (!qty.val() || parseFloat(qty.val().replace(/\./g, '')) <= 0) {
+                if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
                     isValid = false;
-                    showError(qty[0], 'Qty wajib diisi');
+                    showError(qty[0], 'Qty wajib diisi dan harus lebih dari 0');
                 }
-                if (!price.val() || parseFloat(price.val().replace(/\./g, '')) <= 0) {
+                if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
                     isValid = false;
-                    showError(price[0], 'Harga wajib diisi');
+                    showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
                 }
-                if (!freight.val() || isNaN(parseFloat(freight.val().replace(/\./g, '')))) {
+
+                const freightVal = freight.val().trim();
+                if (freightVal === '' || freightVal === null) {
                     isValid = false;
                     showError(freight[0], 'Freight wajib diisi (isi 0 jika tidak ada)');
+                    freight.val('0');
+                } else {
+                    const freightNum = unformatRibuan(freightVal);
+                    if (isNaN(freightNum) || freightNum < 0) {
+                        isValid = false;
+                        showError(freight[0], 'Freight harus angka valid (≥ 0)');
+                    }
                 }
             });
 
-            if (!isValid) {
-                e.preventDefault();
-            }
+            if (!isValid) e.preventDefault();
         });
 
+        /* ==================== DUE DATE ==================== */
         $(document).ready(function() {
             const purchaseDateEl = $('#purchase_date');
             const dueDateSelect = $('#due_date_option');
@@ -719,7 +695,6 @@
             function setDueDate() {
                 const option = dueDateSelect.val();
                 const purchaseDate = new Date(purchaseDateEl.val());
-
                 if (!purchaseDate || isNaN(purchaseDate)) return;
 
                 let dueDate = new Date(purchaseDate);
@@ -739,14 +714,12 @@
                         customDueDate.prop('readonly', false);
                         return;
                     default:
-                        customDueDate.val('');
-                        customDueDate.prop('readonly', true);
+                        customDueDate.val('').prop('readonly', true);
                         return;
                 }
 
                 const formatted = dueDate.toISOString().split('T')[0];
-                customDueDate.val(formatted);
-                customDueDate.prop('readonly', true);
+                customDueDate.val(formatted).prop('readonly', true);
             }
 
             dueDateSelect.on('change', setDueDate);
