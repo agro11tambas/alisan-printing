@@ -58,11 +58,229 @@ class SaleListController extends Controller
         return view('erp.pages.sales.sale-list.sale-list', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount'));
     }
 
+    // public function dataSaleList(Request $request)
+    // {
+    //     $orders = Order::with('customer')
+    //         ->where('status', 'sale list')->orderByDesc('id');
+
+    //     if ($request->filter) {
+    //         switch ($request->filter) {
+    //             case 'today':
+    //                 $orders->whereDate('order_date', Carbon::today());
+    //                 break;
+    //             case 'last_7_days':
+    //                 $orders->whereBetween('order_date', [Carbon::now()->subDays(7), Carbon::now()]);
+    //                 break;
+    //             case 'this_month':
+    //                 $orders->whereMonth('order_date', Carbon::now()->month)
+    //                     ->whereYear('order_date', Carbon::now()->year);
+    //                 break;
+    //             case 'last_30_days':
+    //                 $orders->whereBetween('order_date', [Carbon::now()->subDays(30), Carbon::now()]);
+    //                 break;
+    //             case 'year_to_date':
+    //                 $orders->whereBetween('order_date', [Carbon::now()->startOfYear(), Carbon::now()]);
+    //                 break;
+    //             case 'yearly':
+    //                 $orders->whereYear('order_date', Carbon::now()->year);
+    //                 break;
+    //             case 'custom':
+    //                 if ($request->filled('start_date') && $request->filled('end_date')) {
+    //                     $orders->whereBetween('order_date', [$request->start_date, $request->end_date]);
+    //                 }
+    //                 break;
+    //             default:
+    //                 // all time -> no filter
+    //                 break;
+    //         }
+    //     }
+
+    //     if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
+    //         if ($request->payment_status === 'Paid') {
+    //             $orders->whereIn('payment_status', ['Paid', 'Overpaid']);
+    //         } else {
+    //             $orders->where('payment_status', $request->payment_status);
+    //         }
+    //     } elseif ($request->search_type === 'due_date') {
+    //         $direction = strtolower($request->due_date_order ?? 'asc');
+
+    //         if ($direction === 'asc') {
+    //             $orders->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
+    //                 ->orderBy('due_date', 'asc');
+    //         } else {
+    //             $orders->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
+    //                 ->orderBy('due_date', 'desc');
+    //         }
+    //     } elseif ($request->filled('search_keyword')) {
+    //         if ($request->search_type === 'customer') {
+    //             $orders->whereHas('customer', function ($query) use ($request) {
+    //                 $query->where('name', 'like', '%' . $request->search_keyword . '%');
+    //             });
+    //         } else {
+    //             $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
+    //         }
+    //     }
+
+    //     return DataTables::eloquent($orders)
+    //         ->addIndexColumn()
+    //         ->addColumn('order_number', function ($order) {
+    //             $date = Carbon::parse($order->order_date)->format('j M y');
+    //             $dueDate = $order->due_date ? Carbon::parse($order->due_date)->format('j M y') : '-';
+
+    //             $editedBadge = $order->status_edited == 1
+    //                 ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
+    //                 : '';
+
+    //             // 🔎 Tambahkan badge Sale Return jika order punya sale return
+    //             $returnBadge = $order->saleReturns()->exists()
+    //                 ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Sale Return</span></div>'
+    //                 : '';
+
+    //             return $returnBadge . '
+    //                 <div>
+    //                     <div>' . $order->order_number . $editedBadge . '</div>
+    //                     <small class="text-muted">' . $date . '</small>,
+    //                     <small class="text-danger">Due: ' . $dueDate . '</small>
+    //                 </div>';
+    //         })
+    //         ->addColumn('order_date', function ($order) {
+    //             return Carbon::parse($order->order_date)->format('j M y');
+    //         })
+    //         ->addColumn('customer', function ($order) {
+    //             return $order->customer->name;
+    //         })
+    //         ->addColumn('total_amount', function ($order) {
+    //             return 'Rp ' . number_format($order->total_amount, 0, ',', '.');
+    //         })
+    //         ->addColumn('discount', function ($order) {
+    //             return '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>';
+    //         })
+    //         ->addColumn('grand_total', function ($order) {
+    //             return '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>';
+    //         })
+    //         ->addColumn('paid_amount', function ($order) {
+    //             return '<span class="text-success">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</span>';
+    //         })
+    //         ->addColumn('remaining_amount', function ($order) {
+    //             return '<span class="text-danger">Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</span>';
+    //         })
+    //         ->addColumn('payment_status', function ($order) {
+    //             $status = $order->payment_status; // langsung dari DB
+
+    //             switch (strtolower($status)) {
+    //                 case 'paid':
+    //                     return '<div class="badge bg-soft-success text-success">' . $status . '</div>';
+    //                 case 'unpaid':
+    //                     return '<div class="badge bg-soft-dark text-dark">' . $status . '</div>';
+    //                 case 'overdue':
+    //                     return '<div class="badge bg-soft-danger text-danger">' . $status . '</div>';
+    //                 case 'overpaid':
+    //                     return '<div class="badge bg-soft-primary text-primary">' . $status . '</div>';
+    //                 case 'partially paid':
+    //                     return '<div class="badge bg-soft-warning text-warning">' . $status . '</div>';
+    //                 default:
+    //                     return '<div class="badge bg-secondary">' . $status . '</div>';
+    //             }
+    //         })
+    //         ->addColumn('status', function ($order) {
+    //             $status = strtolower($order->status); // buat lebih aman lowercase dulu
+
+    //             switch ($status) {
+    //                 case 'sale list':
+    //                     $badgeClass = 'bg-soft-dark text-dark';
+    //                     break;
+    //             }
+
+    //             return '<div class="badge ' . $badgeClass . '">' . ucfirst($status) . '</div>';
+    //         })
+    //         ->addColumn('products', function ($row) {
+    //             // 🔹 Ambil order items + relasi produk dan bundle
+    //             $items = $row->orderItems()
+    //                 ->with([
+    //                     'product' => fn($q) => $q->withTrashed(),
+    //                     'productBundle.items.product',
+    //                     'deliveryItems.deliveryOrder'
+    //                 ])
+    //                 ->get();
+
+    //             return $items->map(function ($item) {
+    //                 // 🟢 Nama dan SKU produk
+    //                 if ($item->product) {
+    //                     $name = $item->product->name;
+    //                     $sku  = $item->product->sku;
+    //                 } elseif ($item->productBundle) {
+    //                     $bundleNames = $item->productBundle->items
+    //                         ->map(fn($b) => $b->product->name ?? '-')
+    //                         ->implode(' + ');
+    //                     $name = $bundleNames ?: '-';
+    //                     $sku  = $item->productBundle->sku ?? '-';
+    //                 } else {
+    //                     $name = '-';
+    //                     $sku  = '-';
+    //                 }
+
+    //                 // 🔹 Ambil data pengiriman (delivery order → delivery order item)
+    //                 $deliveryData = $item->order
+    //                     ->deliveryOrders()
+    //                     ->with(['items' => function ($q) use ($item) {
+    //                         $q->where('order_item_id', $item->id);
+    //                     }])
+    //                     ->get()
+    //                     ->pluck('items')
+    //                     ->flatten();
+
+    //                 // 🔸 Jika produk bundle → cukup ambil 1x (anggap satu set)
+    //                 if ($item->productBundle) {
+    //                     $progressQty = $deliveryData->first()->progress_qty ?? 0;
+    //                     $readyQty    = $deliveryData->first()->ready_qty ?? 0;
+    //                     $shippedQty  = $deliveryData->first()->shipped_qty ?? 0;
+    //                 } else {
+    //                     // 🔸 Jika produk biasa → tetap sum semua delivery order item terkait
+    //                     $progressQty = $deliveryData->sum('progress_qty');
+    //                     $readyQty    = $deliveryData->sum('ready_qty');
+    //                     $shippedQty  = $deliveryData->sum('shipped_qty');
+    //                 }
+
+    //                 return [
+    //                     'name'         => $name,
+    //                     'sku'          => $sku,
+    //                     'qty'          => number_format($item->quantity, 0, ',', '.'),
+    //                     'price'        => number_format($item->price ?? 0, 0, ',', '.'),
+    //                     'progress_qty' => number_format($progressQty, 0, ',', '.'),
+    //                     'ready_qty'    => number_format($readyQty, 0, ',', '.'),
+    //                     'shipped_qty'  => number_format($shippedQty, 0, ',', '.'),
+    //                 ];
+    //             })->toArray();
+    //         })
+
+    //         ->addColumn('payment_method', function ($order) {
+    //             return $order->payment_method;
+    //         })
+    //         ->addColumn('action', function ($order) {
+    //             $order->is_fully_returned = $order->orderItems->every(function ($item) use ($order) {
+    //                 $returnedQty = \App\Models\SaleReturnItem::where('product_id', $item->product_id)
+    //                     ->whereHas('saleReturn', function ($q) use ($order) {
+    //                         $q->where('sale_order_id', $order->id);
+    //                     })->sum('quantity');
+    //                 return $returnedQty >= $item->quantity;
+    //             });
+
+    //             return view('erp.pages.sales.sale-list.partials.action-button', compact('order'))->render();
+    //         })
+    //         ->rawColumns(['order_number', 'grand_total', 'discount', 'paid_amount', 'remaining_amount', 'payment_status', 'status', 'action', 'products'])
+    //         ->make(true);
+    // }
+
     public function dataSaleList(Request $request)
     {
-        $orders = Order::with('customer')
-            ->where('status', 'sale list')->orderByDesc('id');
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
 
+        $orders = Order::with(['customer'])
+            ->where('status', 'sale list')
+            ->orderByDesc('id');
+
+        // 🔹 Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -89,29 +307,25 @@ class SaleListController extends Controller
                         $orders->whereBetween('order_date', [$request->start_date, $request->end_date]);
                     }
                     break;
-                default:
-                    // all time -> no filter
-                    break;
             }
         }
 
+        // 🔹 Filter payment status
         if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
             if ($request->payment_status === 'Paid') {
                 $orders->whereIn('payment_status', ['Paid', 'Overpaid']);
             } else {
                 $orders->where('payment_status', $request->payment_status);
             }
-        } elseif ($request->search_type === 'due_date') {
+        }
+        // 🔹 Sort by due_date
+        elseif ($request->search_type === 'due_date') {
             $direction = strtolower($request->due_date_order ?? 'asc');
-
-            if ($direction === 'asc') {
-                $orders->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
-                    ->orderBy('due_date', 'asc');
-            } else {
-                $orders->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
-                    ->orderBy('due_date', 'desc');
-            }
-        } elseif ($request->filled('search_keyword')) {
+            $orders->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
+                ->orderBy('due_date', $direction);
+        }
+        // 🔹 Pencarian keyword
+        elseif ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
                 $orders->whereHas('customer', function ($query) use ($request) {
                     $query->where('name', 'like', '%' . $request->search_keyword . '%');
@@ -121,9 +335,16 @@ class SaleListController extends Controller
             }
         }
 
-        return DataTables::eloquent($orders)
-            ->addIndexColumn()
-            ->addColumn('order_number', function ($order) {
+        // 🔹 Hindari query count dua kali
+        $totalQuery = clone $orders;
+        $totalData = $totalQuery->count();
+
+        // 🔹 Ambil data sesuai offset dan limit
+        $data = $orders->skip($start)->take($length)->get();
+
+        // 🔹 Return format sama seperti product → JSON ringan untuk lazy load
+        return response()->json([
+            'data' => $data->map(function ($order) {
                 $date = Carbon::parse($order->order_date)->format('j M y');
                 $dueDate = $order->due_date ? Carbon::parse($order->due_date)->format('j M y') : '-';
 
@@ -131,298 +352,281 @@ class SaleListController extends Controller
                     ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
                     : '';
 
-                // 🔎 Tambahkan badge Sale Return jika order punya sale return
                 $returnBadge = $order->saleReturns()->exists()
                     ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Sale Return</span></div>'
                     : '';
 
-                return $returnBadge . '
-                    <div>
-                        <div>' . $order->order_number . $editedBadge . '</div>
-                        <small class="text-muted">' . $date . '</small>,
-                        <small class="text-danger">Due: ' . $dueDate . '</small>
-                    </div>';
-            })
-            ->addColumn('order_date', function ($order) {
-                return Carbon::parse($order->order_date)->format('j M y');
-            })
-            ->addColumn('customer', function ($order) {
-                return $order->customer->name;
-            })
-            ->addColumn('total_amount', function ($order) {
-                return 'Rp ' . number_format($order->total_amount, 0, ',', '.');
-            })
-            ->addColumn('discount', function ($order) {
-                return '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>';
-            })
-            ->addColumn('grand_total', function ($order) {
-                return '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>';
-            })
-            ->addColumn('paid_amount', function ($order) {
-                return '<span class="text-success">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</span>';
-            })
-            ->addColumn('remaining_amount', function ($order) {
-                return '<span class="text-danger">Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</span>';
-            })
-            ->addColumn('payment_status', function ($order) {
-                $status = $order->payment_status; // langsung dari DB
+                // 🔸 Kolom tampilan
+                $orderNumber = $returnBadge . '
+                <div>
+                    <div>' . e($order->order_number) . $editedBadge . '</div>
+                    <small class="text-muted">' . $date . '</small>,
+                    <small class="text-danger">Due: ' . $dueDate . '</small>
+                </div>';
 
-                switch (strtolower($status)) {
-                    case 'paid':
-                        return '<div class="badge bg-soft-success text-success">' . $status . '</div>';
-                    case 'unpaid':
-                        return '<div class="badge bg-soft-dark text-dark">' . $status . '</div>';
-                    case 'overdue':
-                        return '<div class="badge bg-soft-danger text-danger">' . $status . '</div>';
-                    case 'overpaid':
-                        return '<div class="badge bg-soft-primary text-primary">' . $status . '</div>';
-                    case 'partially paid':
-                        return '<div class="badge bg-soft-warning text-warning">' . $status . '</div>';
-                    default:
-                        return '<div class="badge bg-secondary">' . $status . '</div>';
-                }
-            })
-            ->addColumn('status', function ($order) {
-                $status = strtolower($order->status); // buat lebih aman lowercase dulu
+                // 🔸 Status pembayaran
+                $status = strtolower($order->payment_status);
+                $badge = match ($status) {
+                    'paid' => 'bg-soft-success text-success',
+                    'unpaid' => 'bg-soft-dark text-dark',
+                    'overdue' => 'bg-soft-danger text-danger',
+                    'overpaid' => 'bg-soft-primary text-primary',
+                    'partially paid' => 'bg-soft-warning text-warning',
+                    default => 'bg-secondary',
+                };
+                $paymentStatus = '<div class="badge ' . $badge . '">' . ucfirst($status) . '</div>';
 
-                switch ($status) {
-                    case 'sale list':
-                        $badgeClass = 'bg-soft-dark text-dark';
-                        break;
-                }
+                $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
 
-                return '<div class="badge ' . $badgeClass . '">' . ucfirst($status) . '</div>';
-            })
-            ->addColumn('products', function ($row) {
-                // 🔹 Ambil order items + relasi produk dan bundle
-                $items = $row->orderItems()
+                // 🔸 Produk
+                $items = $order->orderItems()
                     ->with([
                         'product' => fn($q) => $q->withTrashed(),
                         'productBundle.items.product',
-                        'deliveryItems.deliveryOrder'
+                        'deliveryItems.deliveryOrder',
                     ])
-                    ->get();
+                    ->get()
+                    ->map(function ($item) {
+                        if ($item->product) {
+                            $name = $item->product->name;
+                            $sku = $item->product->sku;
+                        } elseif ($item->productBundle) {
+                            $bundleNames = $item->productBundle->items
+                                ->map(fn($b) => $b->product->name ?? '-')
+                                ->implode(' + ');
+                            $name = $bundleNames ?: '-';
+                            $sku = $item->productBundle->sku ?? '-';
+                        } else {
+                            $name = '-';
+                            $sku = '-';
+                        }
 
-                return $items->map(function ($item) {
-                    // 🟢 Nama dan SKU produk
-                    if ($item->product) {
-                        $name = $item->product->name;
-                        $sku  = $item->product->sku;
-                    } elseif ($item->productBundle) {
-                        $bundleNames = $item->productBundle->items
-                            ->map(fn($b) => $b->product->name ?? '-')
-                            ->implode(' + ');
-                        $name = $bundleNames ?: '-';
-                        $sku  = $item->productBundle->sku ?? '-';
-                    } else {
-                        $name = '-';
-                        $sku  = '-';
-                    }
+                        $deliveryData = $item->order
+                            ->deliveryOrders()
+                            ->with(['items' => function ($q) use ($item) {
+                                $q->where('order_item_id', $item->id);
+                            }])
+                            ->get()
+                            ->pluck('items')
+                            ->flatten();
 
-                    // 🔹 Ambil data pengiriman (delivery order → delivery order item)
-                    $deliveryData = $item->order
-                        ->deliveryOrders()
-                        ->with(['items' => function ($q) use ($item) {
-                            $q->where('order_item_id', $item->id);
-                        }])
-                        ->get()
-                        ->pluck('items')
-                        ->flatten();
+                        if ($item->productBundle) {
+                            $progressQty = $deliveryData->first()->progress_qty ?? 0;
+                            $readyQty = $deliveryData->first()->ready_qty ?? 0;
+                            $shippedQty = $deliveryData->first()->shipped_qty ?? 0;
+                        } else {
+                            $progressQty = $deliveryData->sum('progress_qty');
+                            $readyQty = $deliveryData->sum('ready_qty');
+                            $shippedQty = $deliveryData->sum('shipped_qty');
+                        }
 
-                    // 🔸 Jika produk bundle → cukup ambil 1x (anggap satu set)
-                    if ($item->productBundle) {
-                        $progressQty = $deliveryData->first()->progress_qty ?? 0;
-                        $readyQty    = $deliveryData->first()->ready_qty ?? 0;
-                        $shippedQty  = $deliveryData->first()->shipped_qty ?? 0;
-                    } else {
-                        // 🔸 Jika produk biasa → tetap sum semua delivery order item terkait
-                        $progressQty = $deliveryData->sum('progress_qty');
-                        $readyQty    = $deliveryData->sum('ready_qty');
-                        $shippedQty  = $deliveryData->sum('shipped_qty');
-                    }
+                        $deliveryOrders = $item->order->deliveryOrders()
+                            ->with(['shipments', 'items' => function ($q) use ($item) {
+                                $q->where('order_item_id', $item->id);
+                            }])
+                            ->get();
 
-                    return [
-                        'name'         => $name,
-                        'sku'          => $sku,
-                        'qty'          => number_format($item->quantity, 0, ',', '.'),
-                        'price'        => number_format($item->price ?? 0, 0, ',', '.'),
-                        'progress_qty' => number_format($progressQty, 0, ',', '.'),
-                        'ready_qty'    => number_format($readyQty, 0, ',', '.'),
-                        'shipped_qty'  => number_format($shippedQty, 0, ',', '.'),
-                    ];
-                })->toArray();
-            })
+                        $deliveryListItems = $item->order->deliveryOrders()
+                            ->with(['items.deliveryListItems.shipment'])
+                            ->get()
+                            ->pluck('items')
+                            ->flatten()
+                            ->filter(fn($d) => $d->order_item_id === $item->id)
+                            ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
 
-            ->addColumn('payment_method', function ($order) {
-                return $order->payment_method;
-            })
-            ->addColumn('action', function ($order) {
-                $order->is_fully_returned = $order->orderItems->every(function ($item) use ($order) {
-                    $returnedQty = \App\Models\SaleReturnItem::where('product_id', $item->product_id)
-                        ->whereHas('saleReturn', function ($q) use ($order) {
-                            $q->where('sale_order_id', $order->id);
-                        })->sum('quantity');
-                    return $returnedQty >= $item->quantity;
-                });
+                        $deliveredQty = $deliveryListItems
+                            ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
+                            ->sum('shipped_quantity');
 
-                return view('erp.pages.sales.sale-list.partials.action-button', compact('order'))->render();
-            })
-            ->rawColumns(['order_number', 'grand_total', 'discount', 'paid_amount', 'remaining_amount', 'payment_status', 'status', 'action', 'products'])
-            ->make(true);
+                        $onDeliveryQty = $deliveryListItems
+                            ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
+                            ->sum('shipped_quantity');
+
+                        return [
+                            'name' => e($name),
+                            'sku' => e($sku),
+                            'qty' => number_format($item->quantity, 0, ',', '.'),
+                            'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                            'progress_qty' => number_format($progressQty, 0, ',', '.'),
+                            'ready_qty' => number_format($readyQty, 0, ',', '.'),
+                            'shipped_qty' => number_format($shippedQty, 0, ',', '.'),
+                            'delivered' => number_format($deliveredQty, 0, ',', '.'),
+                            'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
+                        ];
+                    });
+
+                return [
+                    'id' => $order->id,
+                    'order_number' => $orderNumber,
+                    'order_date' => $date,
+                    'customer' => e($order->customer->name ?? '-'),
+                    'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
+                    'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
+                    'grand_total' => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
+                    'paid_amount' => '<span class="text-success">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</span>',
+                    'remaining_amount' => '<span class="text-danger">Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</span>',
+                    'payment_status' => $paymentStatus,
+                    'status' => $statusBadge,
+                    'payment_method' => e($order->payment_method ?? '-'),
+                    'products' => $items,
+                    'action' => view('erp.pages.sales.sale-list.partials.action-button', compact('order'))->render(),
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function dataDeletedSaleList(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $orders = Order::onlyTrashed()
             ->with(['customer', 'orderItems.product', 'orderItems.productBundle'])
-            ->where('status', 'sale list')->orderBy('deleted_at', 'desc');
+            ->where('status', 'sale list')
+            ->orderBy('deleted_at', 'desc');
 
-        // Filter by customer (optional sama kayak SaleList)
+        // 🔹 Filter by customer (optional sama kayak SaleList)
         if ($request->search_type === 'customer' && $request->filled('search_keyword')) {
             $orders->whereHas('customer', function ($query) use ($request) {
                 $query->where('name', 'like', '%' . $request->search_keyword . '%');
             });
         }
 
-        return DataTables::eloquent($orders)
-            ->addIndexColumn()
-            ->addColumn('order_number', function ($order) {
+        // 🔹 Hindari query count dua kali
+        $totalQuery = clone $orders;
+        $totalData = $totalQuery->count();
+
+        // 🔹 Ambil data sesuai offset dan limit
+        $data = $orders->skip($start)->take($length)->get();
+
+        // 🔹 Return format JSON ringan untuk infinite scroll
+        return response()->json([
+            'data' => $data->map(function ($order) {
                 $date = \Carbon\Carbon::parse($order->order_date)->format('j M y');
-                return '<div>
-                <div>' . $order->order_number . '</div>
+
+                $orderNumber = '<div>
+                <div>' . e($order->order_number) . '</div>
                 <small class="text-muted">' . $date . '</small>
             </div>';
-            })
-            ->addColumn('customer', fn($order) => $order->customer->name ?? '-')
-            ->addColumn('grand_total', fn($order) => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>')
-            ->addColumn('deleted_at', fn($order) => $order->deleted_at ? $order->deleted_at->format('j M y H:i') : '-')
-            ->addColumn('products', function ($row) {
-                // load orderItems + product (termasuk soft deleted)
-                $items = $row->orderItems()->with([
-                    'product' => function ($q) {
-                        $q->withTrashed();
-                    },
-                    'productBundle.items.product' // ✅ ambil produk di dalam bundle
-                ])->get();
 
-                return $items->map(function ($item) {
-                    if ($item->product) {
-                        // 🟢 Item biasa
-                        $name = $item->product->name;
-                        $sku  = $item->product->sku;
-                    } elseif ($item->productBundle) {
-                        // 🟣 Item bundle — gabungkan nama produk di dalam bundle
-                        $bundleNames = $item->productBundle->items->map(function ($bundleItem) {
-                            return $bundleItem->product->name ?? '-';
-                        })->implode(' + ');
+                // 🔹 Produk (ambil dari orderItems + relasi produk & bundle)
+                $items = $order->orderItems()
+                    ->with([
+                        'product' => fn($q) => $q->withTrashed(),
+                        'productBundle.items.product'
+                    ])
+                    ->get()
+                    ->map(function ($item) {
+                        if ($item->product) {
+                            $name = $item->product->name;
+                            $sku = $item->product->sku;
+                        } elseif ($item->productBundle) {
+                            $bundleNames = $item->productBundle->items
+                                ->map(fn($b) => $b->product->name ?? '-')
+                                ->implode(' + ');
+                            $name = $bundleNames ?: '-';
+                            $sku = $item->productBundle->sku ?? '-';
+                        } else {
+                            $name = '-';
+                            $sku = '-';
+                        }
 
-                        $name = $bundleNames ?: '-';
-                        $sku  = $item->productBundle->sku ?? '-';
-                    } else {
-                        $name = '-';
-                        $sku  = '-';
-                    }
+                        $deliveryData = $item->order
+                            ->deliveryOrders()
+                            ->with(['items' => function ($q) use ($item) {
+                                $q->where('order_item_id', $item->id);
+                            }])
+                            ->get()
+                            ->pluck('items')
+                            ->flatten();
 
-                    return [
-                        'name'  => $name,
-                        'sku'   => $sku,
-                        'qty'   => number_format($item->quantity, 0, ',', '.'),
-                        'price' => number_format($item->price ?? 0, 0, ',', '.'),
-                    ];
-                })->toArray();
-            })
-            // ->addColumn('products', function ($row) {
-            //     // 🔹 Ambil order items + relasi produk dan bundle
-            //     $items = $row->orderItems()
-            //         ->with([
-            //             'product' => fn($q) => $q->withTrashed(),
-            //             'productBundle.items.product',
-            //             'deliveryItems.deliveryOrder'
-            //         ])
-            //         ->get();
+                        if ($item->productBundle) {
+                            $progressQty = $deliveryData->first()->progress_qty ?? 0;
+                            $readyQty = $deliveryData->first()->ready_qty ?? 0;
+                            $shippedQty = $deliveryData->first()->shipped_qty ?? 0;
+                        } else {
+                            $progressQty = $deliveryData->sum('progress_qty');
+                            $readyQty = $deliveryData->sum('ready_qty');
+                            $shippedQty = $deliveryData->sum('shipped_qty');
+                        }
 
-            //     return $items->map(function ($item) {
-            //         // 🟢 Nama dan SKU produk
-            //         if ($item->product) {
-            //             $name = $item->product->name;
-            //             $sku  = $item->product->sku;
-            //         } elseif ($item->productBundle) {
-            //             $bundleNames = $item->productBundle->items
-            //                 ->map(fn($b) => $b->product->name ?? '-')
-            //                 ->implode(' + ');
-            //             $name = $bundleNames ?: '-';
-            //             $sku  = $item->productBundle->sku ?? '-';
-            //         } else {
-            //             $name = '-';
-            //             $sku  = '-';
-            //         }
+                        $deliveryOrders = $item->order->deliveryOrders()
+                            ->with(['shipments', 'items' => function ($q) use ($item) {
+                                $q->where('order_item_id', $item->id);
+                            }])
+                            ->get();
 
-            //         // 🔹 Ambil data pengiriman (delivery order → delivery order item)
-            //         $deliveryData = $item->order
-            //             ->deliveryOrders()
-            //             ->with(['items' => function ($q) use ($item) {
-            //                 $q->where('order_item_id', $item->id);
-            //             }])
-            //             ->get()
-            //             ->pluck('items')
-            //             ->flatten();
+                        $deliveryListItems = $item->order->deliveryOrders()
+                            ->with(['items.deliveryListItems.shipment'])
+                            ->get()
+                            ->pluck('items')
+                            ->flatten()
+                            ->filter(fn($d) => $d->order_item_id === $item->id)
+                            ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
 
-            //         // 🔸 Jika produk bundle → cukup ambil 1x (anggap satu set)
-            //         if ($item->productBundle) {
-            //             $progressQty = $deliveryData->first()->progress_qty ?? 0;
-            //             $readyQty    = $deliveryData->first()->ready_qty ?? 0;
-            //             $shippedQty  = $deliveryData->first()->shipped_qty ?? 0;
-            //         } else {
-            //             // 🔸 Jika produk biasa → tetap sum semua delivery order item terkait
-            //             $progressQty = $deliveryData->sum('progress_qty');
-            //             $readyQty    = $deliveryData->sum('ready_qty');
-            //             $shippedQty  = $deliveryData->sum('shipped_qty');
-            //         }
+                        $deliveredQty = $deliveryListItems
+                            ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
+                            ->sum('shipped_quantity');
 
-            //         return [
-            //             'name'         => $name,
-            //             'sku'          => $sku,
-            //             'qty'          => number_format($item->quantity, 0, ',', '.'),
-            //             'price'        => number_format($item->price ?? 0, 0, ',', '.'),
-            //             'progress_qty' => number_format($progressQty, 0, ',', '.'),
-            //             'ready_qty'    => number_format($readyQty, 0, ',', '.'),
-            //             'shipped_qty'  => number_format($shippedQty, 0, ',', '.'),
-            //         ];
-            //     })->toArray();
-            // })
-            ->addColumn('delete_notes', fn($order) => $order->delete_notes ?? '-')
-            ->addColumn('deleted_by', fn($order) => $order->deletedByUser->name ?? '-')
-            ->addColumn('action', function ($order) {
+                        $onDeliveryQty = $deliveryListItems
+                            ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
+                            ->sum('shipped_quantity');
+
+                        return [
+                            'name' => e($name),
+                            'sku' => e($sku),
+                            'qty' => number_format($item->quantity, 0, ',', '.'),
+                            'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                            'progress_qty' => number_format($progressQty, 0, ',', '.'),
+                            'ready_qty' => number_format($readyQty, 0, ',', '.'),
+                            'shipped_qty' => number_format($shippedQty, 0, ',', '.'),
+                            'delivered' => number_format($deliveredQty, 0, ',', '.'),
+                            'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
+                        ];
+                    });
+
+                // 🔹 Tampilkan tombol Restore & Delete Permanen (hanya Owner)
+                $action = '';
                 if (Auth::check() && Auth::user()->role === 'Owner') {
-                    return '
-                        <div class="d-flex gap-2">
-                            <button type="button" 
-                                class="btn btn-success btn-sm me-1"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalRestoreOrder"
-                                data-id="' . $order->id . '" 
-                                data-name="' . $order->order_number . '"
-                                data-url="' . route('sales.restore', $order->id) . '">
-                                    Restore
-                            </button>
-                            <button type="button" 
-                                class="btn btn-danger btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalForceDeleteOrder"
-                                data-id="' . $order->id . '" 
-                                data-name="' . $order->order_number . '"
-                                data-url="' . route('sales.forceDelete', $order->id) . '">
-                                    Hapus Permanen
-                            </button>
-                        </div>
-                    ';
+                    $action = '
+                    <div class="d-flex gap-2">
+                        <button type="button" 
+                            class="btn btn-success btn-sm me-1"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalRestoreOrder"
+                            data-id="' . $order->id . '" 
+                            data-name="' . e($order->order_number) . '"
+                            data-url="' . route('sales.restore', $order->id) . '">
+                                Restore
+                        </button>
+                        <button type="button" 
+                            class="btn btn-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalForceDeleteOrder"
+                            data-id="' . $order->id . '" 
+                            data-name="' . e($order->order_number) . '"
+                            data-url="' . route('sales.forceDelete', $order->id) . '">
+                                Hapus Permanen
+                        </button>
+                    </div>
+                ';
                 }
 
-                // kalau bukan Owner -> kosong
-                return '';
-            })
-            ->rawColumns(['order_number', 'grand_total', 'action', 'products'])
-            ->make(true);
+                return [
+                    'id' => $order->id,
+                    'order_number' => $orderNumber,
+                    'customer' => e($order->customer->name ?? '-'),
+                    'grand_total' => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
+                    'deleted_at' => $order->deleted_at ? $order->deleted_at->format('j M y H:i') : '-',
+                    'products' => $items,
+                    'delete_notes' => e($order->delete_notes ?? '-'),
+                    'deleted_by' => e(optional($order->deletedByUser)->name ?? '-'),
+                    'action' => $action,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function create()

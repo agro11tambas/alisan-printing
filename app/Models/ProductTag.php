@@ -14,7 +14,6 @@ class ProductTag extends Model
         'slug',
         'description',
         'parent',
-        'woocommerce_id',
     ];
 
     public function products()

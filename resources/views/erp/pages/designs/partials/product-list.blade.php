@@ -20,33 +20,21 @@
                             $images = json_decode($item->preview_image ?? '[]', true);
                         @endphp
 
-                        @if (!empty($images))
-                            <div class="d-flex flex-wrap align-items-start gap-3">
-                                @foreach ($images as $img)
-                                    <div class="text-center">
-                                        <a href="#" class="img-viewer" data-src="{{ asset($img['file']) }}"
-                                            data-note="{{ $img['note'] ?? '' }}">
-                                            <img src="{{ asset($img['file']) }}" width="100" height="80"
-                                                style="border-radius:8px;object-fit:cover;border:1px solid #ddd;">
-                                        </a>
-
-                                        <p class="small text-muted mt-1">{{ $img['note'] ?? '-' }}</p>
-                                    </div>
-                                @endforeach
-
-                                <button class="btn btn-sm btn-outline-primary upload-btn" data-id="{{ $item->id }}"
-                                    data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                    <i class="feather-upload"></i> Upload
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            @if (!empty($images))
+                                <button class="btn btn-sm btn-outline-info preview-btn"
+                                    data-images='@json($images)'
+                                    data-product="{{ $item->product->name ?? '-' }}">
+                                    <i class="feather-eye"></i> Preview
                                 </button>
-                            </div>
-                        @else
+                            @endif
+
                             <button class="btn btn-sm btn-outline-primary upload-btn" data-id="{{ $item->id }}"
                                 data-bs-toggle="modal" data-bs-target="#uploadModal">
                                 <i class="feather-upload"></i> Upload
                             </button>
-                        @endif
+                        </div>
                     </td>
-
                     <td>
                         {{ $item->note ?? '-' }}
                     </td>

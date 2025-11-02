@@ -51,7 +51,7 @@
 
         @if (!$hasIssued && !$hasReceived)
             <li>
-                <button type="button" class="dropdown-item btn-delete text-warning" data-bs-toggle="modal"
+                <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
                     data-bs-target="#modalDeleteEmptyRequestStock" data-id="{{ $materialRequest->id }}"
                     data-name="{{ $materialRequest->name }}"
                     data-url="{{ url('/erp/productions/material-request/delete-empty/' . $materialRequest->id) }}">

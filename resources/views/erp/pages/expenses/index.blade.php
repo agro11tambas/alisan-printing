@@ -127,7 +127,7 @@
                             <table class="table table-hover bg-transparent" id="expenseList">
                                 <thead>
                                     <tr>
-                                        <th class="wd-30">No</th>
+                                        {{-- <th class="wd-30">No</th> --}}
                                         <th>Transaction Date</th>
                                         <th>Name</th>
                                         <th>Amount</th>
@@ -174,17 +174,11 @@
     <script>
         $(document).ready(function() {
 
-            // ====================================================
-            // 🔹 LAZY LOAD VARIABLES
-            // ====================================================
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ====================================================
-            // 🔹 DATATABLE UTAMA
-            // ====================================================
             const dataTable = $('#expenseList').DataTable({
                 processing: false,
                 serverSide: false,
@@ -194,15 +188,16 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [1, 'desc']
-                // ],
+                order: [
+                    [0, 'desc']
+                ],
                 data: [],
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                     {
                         data: 'transaction_date'
                     },
@@ -218,9 +213,6 @@
                 ]
             });
 
-            // ====================================================
-            // 🔹 FUNGSI LOAD DATA (LAZY)
-            // ====================================================
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -254,14 +246,8 @@
                 });
             }
 
-            // ====================================================
-            // 🔹 LOAD PERTAMA
-            // ====================================================
             loadMoreData();
 
-            // ====================================================
-            // 🔹 SCROLL UNTUK LAZY LOAD
-            // ====================================================
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -276,9 +262,6 @@
                 }, 200);
             });
 
-            // ====================================================
-            // 🔹 RESET & RELOAD
-            // ====================================================
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -287,9 +270,6 @@
                 loadMoreData();
             }
 
-            // ====================================================
-            // 🔹 EVENT FILTER & CUSTOM RANGE (TETAP ASLI)
-            // ====================================================
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -303,9 +283,6 @@
                 resetAndReload();
             });
 
-            // ====================================================
-            // 🔹 ACTION ROW & CLICK EVENTS (ASLI KAMU)
-            // ====================================================
             $('#expenseList tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 

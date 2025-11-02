@@ -170,16 +170,17 @@
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            // Fokus & blur qty
+            // ✅ Fokus: kosongkan 0 biar langsung bisa input
             $(document).on('focus', '.qty', function() {
                 if ($(this).val() === '0') $(this).val('');
             });
 
+            // ✅ Blur: kembalikan ke 0 kalau kosong
             $(document).on('blur', '.qty', function() {
                 if ($(this).val().trim() === '') $(this).val('0');
             });
 
-            // Input formatting
+            // ✅ Input formatting dengan hapus error otomatis
             $(document).on('input', '.qty', function(e) {
                 const input = $(this);
                 const raw = input.val().replace(/\./g, '');
@@ -188,44 +189,112 @@
                 const value = parseInt(raw);
                 const formatted = formatNumber(value.toString());
                 input.val(formatted);
+
+                // Hapus error saat user mulai mengetik
+                removeError(input);
             });
 
-            // Bersihkan titik sebelum submit
-            $('#requestStockForm').on('submit', function() {
-                $('.qty').each(function() {
-                    this.value = this.value.replace(/\./g, '');
+            // ✅ Hapus error saat produk dipilih
+            $(document).on('change', '.select-product', function() {
+                removeError($(this));
+            });
+
+            // ✅ Fungsi untuk menampilkan error
+            function showError(element, message) {
+                const parent = element.closest('td');
+
+                // Hapus error lama jika ada
+                parent.find('.error-message').remove();
+                element.addClass('is-invalid');
+
+                // Tambah pesan error
+                const errorDiv = $('<div class="error-message text-danger small mt-1"></div>').text(message);
+                parent.append(errorDiv);
+            }
+
+            // ✅ Fungsi untuk menghapus error
+            function removeError(element) {
+                const parent = element.closest('td');
+                parent.find('.error-message').remove();
+                element.removeClass('is-invalid');
+            }
+
+            // ✅ Validasi sebelum submit
+            $('#requestStockForm').on('submit', function(e) {
+                e.preventDefault();
+
+                let isValid = true;
+
+                // Hapus semua error sebelumnya
+                $('.error-message').remove();
+                $('.is-invalid').removeClass('is-invalid');
+
+                // Validasi setiap baris
+                $('#tab_logic_body tr').each(function() {
+                    const row = $(this);
+                    const productSelect = row.find('.select-product');
+                    const qtyInput = row.find('.qty');
+
+                    // Validasi Product
+                    if (!productSelect.val() || productSelect.val() === '') {
+                        showError(productSelect, 'Produk wajib dipilih');
+                        isValid = false;
+                    }
+
+                    // Validasi Qty
+                    const qtyValue = qtyInput.val().replace(/\./g, '');
+                    if (!qtyValue || qtyValue === '0' || parseInt(qtyValue) <= 0) {
+                        showError(qtyInput, 'Qty harus lebih dari 0');
+                        isValid = false;
+                    }
                 });
+
+                // Jika valid, hapus titik dan submit
+                if (isValid) {
+                    $('.qty').each(function() {
+                        this.value = this.value.replace(/\./g, '');
+                    });
+                    this.submit();
+                } else {
+                    // Scroll ke error pertama
+                    const firstError = $('.is-invalid').first();
+                    if (firstError.length) {
+                        $('html, body').animate({
+                            scrollTop: firstError.offset().top - 100
+                        }, 300);
+                    }
+                }
             });
 
-            // Tambah baris baru
+            // ✅ Tambah baris baru
             $('#add_row').on('click', function() {
                 const tableBody = $('#tab_logic_body');
                 const newRow = $(`
-                    <tr id="row${rowCount}">
-                        <td>${rowCount + 1}</td>
-                        <input type="hidden" name="item_id[]" value="">
-                        <td>
-                            <select class="form-control select-product" name="product[]" required>
-                                <option value="" disabled selected hidden>Pilih produk</option>
-                            </select>
-                        </td>
-                        <td>
-                            <input type="text" inputmode="numeric" name="qty[]" class="form-control qty text-start" min="0" value="0" required>
-                        </td>
-                        <td class="text-center">
-                            <button type="button" class="btn btn-danger delete-row">
-                                <i class="feather-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `);
+            <tr id="row${rowCount}">
+                <td>${rowCount + 1}</td>
+                <input type="hidden" name="item_id[]" value="">
+                <td>
+                    <select class="form-control select-product" name="product[]" required>
+                        <option value="" disabled selected hidden>Pilih produk</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="text" inputmode="numeric" name="qty[]" class="form-control qty text-start" min="0" value="0" required>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-danger delete-row">
+                        <i class="feather-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `);
                 tableBody.append(newRow);
                 populateProducts(newRow.find('.select-product'));
                 initSelect2(newRow.find('.select-product'));
                 rowCount++;
             });
 
-            // Hapus baris
+            // ✅ Hapus baris
             $(document).on('click', '.delete-row', function() {
                 $(this).closest('tr').remove();
                 $('#tab_logic_body tr').each(function(index) {

@@ -25,8 +25,12 @@ class DesignController extends Controller
 
     public function dataDesign(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $designs = Design::with(['order.customer', 'items.product'])->orderBy('created_at', 'desc');
 
+        // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -58,6 +62,7 @@ class DesignController extends Controller
             }
         }
 
+        // ✅ Filter pencarian
         if ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
                 $designs->whereHas('order.customer', function ($q) use ($request) {
@@ -68,15 +73,33 @@ class DesignController extends Controller
             }
         }
 
+        // ✅ Filter status
         if ($request->filled('status')) {
             $designs->where('status', $request->status);
         }
 
-        return DataTables::eloquent($designs)
-            ->addIndexColumn()
-            ->addColumn('design_number', function ($design) {
+        // ✅ Hindari query count dua kali
+        $totalQuery = clone $designs;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $designs->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy load)
+        return response()->json([
+            'data' => $data->map(function ($design) {
                 $date = $design->date ? Carbon::parse($design->date)->format('j M y') : '-';
 
+                // 🏷️ Badge status
+                $status = $design->status ?? 'Pending';
+                $class = match ($status) {
+                    'Pending' => 'bg-soft-warning text-warning',
+                    'Verified' => 'bg-soft-primary text-primary',
+                    default => 'bg-soft-dark text-dark',
+                };
+                $statusBadge = '<span class="badge ' . $class . '">' . ucfirst(str_replace('_', ' ', $status)) . '</span>';
+
+                // 🧾 Design number + verified/pending badge
                 $verifiedBadge = '';
                 if ($design->status === 'Verified') {
                     $verifiedBadge = '<span class="badge bg-soft-success text-success ms-1">Verified</span>';
@@ -84,54 +107,49 @@ class DesignController extends Controller
                     $verifiedBadge = '<span class="badge bg-soft-warning text-warning ms-1">Pending</span>';
                 }
 
-                return '
+                $designNumberHtml = '
                 <div>
                     <div><span class="me-2">' . e($design->design_number) . '</span>' . $verifiedBadge . '</div>
                     <small class="text-muted">' . $date . '</small>
                 </div>';
-            })
-            ->addColumn('customer', function ($design) {
-                return $design->order?->customer?->name ?? '-';
-            })
-            ->addColumn('status', function ($design) {
-                $status = $design->status ?? 'Pending';
-                $class = match ($status) {
-                    'Pending' => 'bg-soft-warning text-warning',
-                    'Verified' => 'bg-soft-primary text-primary',
-                    default => 'bg-soft-dark text-dark',
-                };
 
-                return '<span class="badge ' . $class . '">' . ucfirst(str_replace('_', ' ', $status)) . '</span>';
-            })
-            ->addColumn('products', function ($design) {
-                return view('erp.pages.designs.partials.product-list', compact('design'))->render();
-            })
-            ->addColumn('proof_photos', function ($design) {
+                // 📦 Product list partial
+                $productList = view('erp.pages.designs.partials.product-list', compact('design'))->render();
+
+                // 📸 Proof photos
                 $images = json_decode($design->proof_photos ?? '[]', true);
                 if (empty($images)) {
-                    return '<span class="text-muted small">No proof</span>';
+                    $proofPhotos = '<span class="text-muted small">No proof</span>';
+                } else {
+                    $proofPhotos = '<div class="d-flex flex-wrap gap-2">';
+                    foreach ($images as $img) {
+                        $src = asset('uploads/proofs/' . $img);
+                        $proofPhotos .= '
+                        <a href="' . $src . '" data-lightbox="proof-' . $design->id . '" 
+                           class="border rounded overflow-hidden" 
+                           style="width:50px;height:50px;display:inline-block;">
+                            <img src="' . $src . '" class="img-fluid" style="object-fit:cover;width:100%;height:100%;">
+                        </a>';
+                    }
+                    $proofPhotos .= '</div>';
                 }
 
-                $html = '<div class="d-flex flex-wrap gap-2">';
-                foreach ($images as $img) {
-                    $src = asset('uploads/proofs/' . $img);
-                    $html .= '
-                <a href="' . $src . '" data-lightbox="proof-' . $design->id . '" class="border rounded overflow-hidden" style="width:50px;height:50px;display:inline-block;">
-                    <img src="' . $src . '" class="img-fluid" style="object-fit:cover;width:100%;height:100%;">
-                </a>';
-                }
-                $html .= '</div>';
-                return $html;
-            })
-            ->addColumn('action', function ($design) {
-                $allUploaded = $design->items->every(function ($item) {
-                    return !empty($item->preview_image);
-                });
+                // ⚙️ Action buttons partial
+                $allUploaded = $design->items->every(fn($item) => !empty($item->preview_image));
+                $actionButtons = view('erp.pages.designs.partials.action-button', compact('design', 'allUploaded'))->render();
 
-                return view('erp.pages.designs.partials.action-button', compact('design', 'allUploaded'))->render();
-            })
-            ->rawColumns(['design_number', 'status', 'products', 'action', 'proof_photos'])
-            ->make(true);
+                return [
+                    'id' => $design->id,
+                    'design_number' => $designNumberHtml,
+                    'customer' => e($design->order?->customer?->name ?? '-'),
+                    'status' => $statusBadge,
+                    'products' => $productList,
+                    'proof_photos' => $proofPhotos,
+                    'action' => $actionButtons,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function verify(Request $request, $id)

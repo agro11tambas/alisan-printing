@@ -23,11 +23,16 @@ class ExpenseController extends Controller
 
     public function dataExpense(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $expense = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Expense');
-            })->orderByDesc('id');
+            })
+            ->orderByDesc('id');
 
+        // 🔎 Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -60,26 +65,44 @@ class ExpenseController extends Controller
             }
         }
 
-        return DataTables::eloquent($expense)
-            ->addIndexColumn()
-            ->addColumn('type', function ($expense) {
-                return $expense->account->type;
-            })
-            ->addColumn('transaction_date', function ($expense) {
-                return $expense->transaction_date;
-            })
-            ->addColumn('debit', function ($expense) {
-                return 'Rp ' . number_format($expense->debit, 0, ',', '.');
-            })
-            ->addColumn('note', function ($expense) {
-                return $expense->note;
-            })
-            ->addColumn('action', function ($expense) {
-                return view('erp.pages.expenses.partials.action-button', compact('expense'))->render();
-            })
-            ->rawColumns(['action'])
-            ->make(true);
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $expense;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $expense->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($expense) {
+                // 🏷️ Type (Account Type)
+                $type = e($expense->account->type ?? '-');
+
+                // 📅 Transaction date
+                $transactionDate = e($expense->transaction_date ?? '-');
+
+                // 💰 Debit (Rupiah format)
+                $debit = 'Rp ' . number_format($expense->debit ?? 0, 0, ',', '.');
+
+                // 📝 Note
+                $note = e($expense->note ?? '-');
+
+                // ⚙️ Action buttons (from partial)
+                $action = view('erp.pages.expenses.partials.action-button', compact('expense'))->render();
+
+                return [
+                    'id' => $expense->id,
+                    'type' => $type,
+                    'transaction_date' => $transactionDate,
+                    'debit' => $debit,
+                    'note' => $note,
+                    'action' => $action,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function create()
     {

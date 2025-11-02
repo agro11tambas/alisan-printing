@@ -142,6 +142,42 @@
             }
 
             /**
+             * Event: Ketika field diklik (focus), cek apakah nilainya 0
+             * Jika ya, kosongkan field
+             */
+            document.addEventListener('focus', function(e) {
+                if (!e.target.matches('input[type="text"]')) return;
+
+                const value = e.target.value.trim();
+
+                // Cek apakah value adalah "0" (dengan atau tanpa format)
+                if (value === '0' || value === '0,00') {
+                    e.target.value = '';
+                    e.target.dataset.wasZero = 'true'; // tandai bahwa field ini awalnya 0
+                }
+            }, true); // gunakan capture phase agar event focus tertangkap
+
+            /**
+             * Event: Ketika field kehilangan focus (blur)
+             * Jika masih kosong dan awalnya 0, kembalikan ke 0
+             */
+            document.addEventListener('blur', function(e) {
+                if (!e.target.matches('input[type="text"]')) return;
+
+                const value = e.target.value.trim();
+                const name = e.target.getAttribute('name');
+                const allowDecimal = name === 'opening_rate[]';
+
+                // Jika field kosong dan awalnya 0, kembalikan format 0
+                if (!value && e.target.dataset.wasZero === 'true') {
+                    e.target.value = allowDecimal ? '0,00' : '0';
+                }
+
+                // Hapus marker
+                delete e.target.dataset.wasZero;
+            }, true);
+
+            /**
              * Format realtime input
              */
             document.addEventListener('input', function(e) {

@@ -14,6 +14,7 @@ use App\Models\InventoryStock;
 use App\Models\Products;
 use App\Models\PurchaseEditHistory;
 use App\Models\PurchaseReturn;
+use App\Models\PurchaseReturnItem;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
@@ -52,9 +53,14 @@ class PurchaseListController extends Controller
 
     public function dataPurchaseList(Request $request)
     {
-        $purchases = Purchase::with('supplier')
-            ->where('status', 'Purchase List')->orderByDesc('id');
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
 
+        $purchases = Purchase::with(['supplier', 'purchaseItems.purchaseProduct'])
+            ->where('status', 'Purchase List')
+            ->orderByDesc('id');
+
+        // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -81,12 +87,10 @@ class PurchaseListController extends Controller
                         $purchases->whereBetween('purchase_date', [$request->start_date, $request->end_date]);
                     }
                     break;
-                default:
-                    // all time -> no filter
-                    break;
             }
         }
 
+        // ✅ Filter payment status, due date, dan pencarian
         if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
             if ($request->payment_status === 'Paid') {
                 $purchases->whereIn('payment_status', ['Paid', 'Overpaid']);
@@ -95,7 +99,6 @@ class PurchaseListController extends Controller
             }
         } elseif ($request->search_type === 'due_date') {
             $direction = strtolower($request->due_date_order ?? 'asc');
-
             if ($direction === 'asc') {
                 $purchases->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
                     ->orderBy('due_date', 'asc');
@@ -113,145 +116,155 @@ class PurchaseListController extends Controller
             }
         }
 
-        return DataTables::eloquent($purchases)
-            ->addIndexColumn()
-            ->addColumn('purchase_number', function ($purchase) {
+        // ✅ Hitung total sebelum pagination
+        $totalQuery = clone $purchases;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $purchases->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($purchase) {
                 $date = Carbon::parse($purchase->purchase_date)->format('j M y');
                 $dueDate = $purchase->due_date ? Carbon::parse($purchase->due_date)->format('j M y') : '-';
 
+                // 🏷️ Edited dan Return badge
                 $editedBadge = $purchase->status_edited == 1
                     ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
                     : '';
 
-                // 🔎 Tambahkan badge kalau ada purchase return
                 $returnBadge = $purchase->purchaseReturn()->exists()
                     ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Purchase Return</span></div>'
                     : '';
 
-                return $returnBadge . '
-                    <div>
-                        <div>' . e($purchase->purchase_number) . $editedBadge . '</div>
-                        <small class="text-muted">' . $date . '</small>,
-                        <small class="text-danger">Due: ' . $dueDate . '</small>
-                    </div>';
-            })
-            ->addColumn('purchase_date', function ($purchase) {
-                return $purchase->purchase_date;
-            })
-            ->addColumn('supplier', function ($purchase) {
-                return $purchase->supplier->name;
-            })
-            ->addColumn('total_amount', function ($purchase) {
-                return 'Rp ' . number_format($purchase->total_amount, 0, ',', '.');
-            })
-            ->addColumn('paid_amount', function ($purchase) {
+                $purchaseNumberHtml = $returnBadge . '
+                <div>
+                    <div>' . e($purchase->purchase_number) . $editedBadge . '</div>
+                    <small class="text-muted">' . $date . '</small>,
+                    <small class="text-danger">Due: ' . $dueDate . '</small>
+                </div>';
+
+                // 👤 Supplier
+                $supplier = e($purchase->supplier->name ?? '-');
+
+                // 💰 Total, Paid, Remaining
+                $totalAmount = 'Rp ' . number_format($purchase->total_amount, 0, ',', '.');
                 $paidTotal = ($purchase->paid_amount_product ?? 0) + ($purchase->paid_amount_freight ?? 0);
-                return '<span class="text-success">Rp ' . number_format($paidTotal, 0, ',', '.') . '</span>';
-            })
-            ->addColumn('remaining_amount', function ($purchase) {
                 $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
-                return '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
-            })
-            ->addColumn('payment_status', function ($purchase) {
-                $payment_status = strtolower($purchase->payment_status);
+                $paidHtml = '<span class="text-success">Rp ' . number_format($paidTotal, 0, ',', '.') . '</span>';
+                $remainingHtml = '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
 
-                switch ($payment_status) {
-                    case 'paid':
-                        return '<div class="badge bg-soft-success text-success">' . $purchase->payment_status . '</div>';
-                        break;
-                    case 'overpaid':
-                        return '<div class="badge bg-soft-primary text-primary">' . $purchase->payment_status . '</div>';
-                        break;
-                    case 'unpaid':
-                        return '<div class="badge bg-soft-danger text-danger">' . $purchase->payment_status . '</div>';
-                        break;
-                    default:
-                        return '<div class="badge bg-soft-warning text-warning">' . $purchase->payment_status . '</div>';
-                        break;
-                }
-            })
-            ->addColumn('payment_method', function ($purchase) {
-                return $purchase->payment_method;
-            })
-            ->addColumn('products', function ($purchase) {
-                // ambil ulang purchaseItems + product (termasuk yang soft deleted)
-                $items = $purchase->purchaseItems()->with(['purchaseProduct' => function ($q) {
-                    $q->withTrashed();
-                }])->get();
+                // 🏷️ Payment Status
+                $paymentStatus = strtolower($purchase->payment_status);
+                $paymentBadge = match ($paymentStatus) {
+                    'paid' => '<div class="badge bg-soft-success text-success">' . e($purchase->payment_status) . '</div>',
+                    'overpaid' => '<div class="badge bg-soft-primary text-primary">' . e($purchase->payment_status) . '</div>',
+                    'unpaid' => '<div class="badge bg-soft-danger text-danger">' . e($purchase->payment_status) . '</div>',
+                    default => '<div class="badge bg-soft-warning text-warning">' . e($purchase->payment_status) . '</div>',
+                };
 
-                $taxPercent = $purchase->tax_percent ?? 0; // ✅ ambil tax dari parent purchase
+                // 💳 Payment method
+                $paymentMethod = e($purchase->payment_method ?? '-');
 
-                return $items->map(function ($item) use ($taxPercent) {
-                    // harga dasar
+                // 📦 Products list (sudah + tax)
+                $items = $purchase->purchaseItems()->with(['purchaseProduct' => fn($q) => $q->withTrashed()])->get();
+                $taxPercent = $purchase->tax_percent ?? 0;
+                $products = $items->map(function ($item) use ($taxPercent) {
                     $price = $item->price ?? 0;
                     $freight = $item->freight ?? 0;
-
-                    // ✅ hitung harga setelah pajak
                     $priceWithTax = $price + ($price * ($taxPercent / 100));
-
-                    // total = (price + tax + freight) * qty
                     $total = ($priceWithTax + $freight) * $item->quantity;
 
                     return [
-                        'name'    => $item->purchaseProduct->name ?? '-',
-                        'sku'     => $item->purchaseProduct->sku ?? '-',
-                        'qty'     => number_format($item->quantity, 0, ',', '.'),
-                        'price'   => number_format($priceWithTax, 2, ',', '.'), // ✅ sudah +tax
+                        'name' => $item->purchaseProduct->name ?? '-',
+                        'sku' => $item->purchaseProduct->sku ?? '-',
+                        'qty' => number_format($item->quantity, 0, ',', '.'),
+                        'price' => number_format($priceWithTax, 2, ',', '.'),
                         'freight' => number_format($freight, 2, ',', '.'),
                         'total_price' => number_format($priceWithTax + $freight, 2, ',', '.'),
-                        'total'   => number_format($total, 2, ',', '.'),
+                        'total' => number_format($total, 2, ',', '.'),
                     ];
                 })->toArray();
-            })
-            ->addColumn('status', function ($purchase) {
-                $status = strtolower($purchase->status);
 
-                switch ($status) {
-                    case 'purchase orders':
-                        return '<div class="badge bg-soft-warning text-warning">' . $purchase->status . '</div>';
-                        break;
-                    case 'purchase list':
-                        return '<div class="badge bg-soft-success text-success">' . $purchase->status . '</div>';
-                        break;
-                }
-            })
-            ->addColumn('action', function ($purchase) {
+                // 🏷️ Status
+                $status = strtolower($purchase->status);
+                $statusBadge = match ($status) {
+                    'purchase orders' => '<div class="badge bg-soft-warning text-warning">' . e($purchase->status) . '</div>',
+                    'purchase list' => '<div class="badge bg-soft-success text-success">' . e($purchase->status) . '</div>',
+                    default => '<div class="badge bg-secondary">' . e($purchase->status) . '</div>',
+                };
+
+                // ⚙️ Action Button Partial
                 $purchase->is_fully_returned = $purchase->purchaseItems->every(function ($item) use ($purchase) {
-                    $returnedQty = \App\Models\PurchaseReturnItem::where('product_id', $item->product_id)
+                    $returnedQty = PurchaseReturnItem::where('product_id', $item->product_id)
                         ->whereHas('purchaseReturn', function ($q) use ($purchase) {
                             $q->where('purchase_id', $purchase->id);
                         })->sum('quantity');
                     return $returnedQty >= $item->quantity;
                 });
 
-                return view('erp.pages.purchases.purchase-list.partials.action-button', compact('purchase'))->render();
-            })
-            ->rawColumns(['purchase_number', 'purchase_date', 'supplier', 'total_amount', 'paid_amount', 'remaining_amount', 'payment_status', 'action', 'products'])
-            ->make(true);
+                $actionHtml = view('erp.pages.purchases.purchase-list.partials.action-button', compact('purchase'))->render();
+
+                return [
+                    'id' => $purchase->id,
+                    'purchase_number' => $purchaseNumberHtml,
+                    'purchase_date' => $date,
+                    'supplier' => $supplier,
+                    'total_amount' => $totalAmount,
+                    'paid_amount' => $paidHtml,
+                    'remaining_amount' => $remainingHtml,
+                    'payment_status' => $paymentBadge,
+                    'payment_method' => $paymentMethod,
+                    'products' => $products,
+                    'status' => $statusBadge,
+                    'action' => $actionHtml,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function dataDeletedPurchaseList(Request $request)
     {
-        $purchases = Purchase::onlyTrashed()
-            ->with(['supplier', 'purchaseItems.purchaseProduct'])
-            ->where('status', 'Purchase List')
-            ->latest()
-            ->get();
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
 
-        return DataTables::of($purchases)
-            ->addIndexColumn()
-            ->addColumn('purchase_number', function ($purchase) {
+        $purchases = Purchase::onlyTrashed()
+            ->with(['supplier', 'purchaseItems.purchaseProduct', 'deletedByUser'])
+            ->where('status', 'Purchase List')
+            ->orderByDesc('deleted_at');
+
+        // ✅ Hitung total sebelum pagination
+        $totalQuery = clone $purchases;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $purchases->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($purchase) {
                 $date = Carbon::parse($purchase->purchase_date)->format('j M y');
-                return '<div>
-                <div>' . $purchase->purchase_number . '</div>
-                <small class="text-muted">' . $date . '</small>
-            </div>';
-            })
-            ->addColumn('supplier', fn($purchase) => $purchase->supplier->name ?? '-')
-            ->addColumn('grand_total', fn($purchase) => '<span class="text-primary">Rp ' . number_format($purchase->grand_total, 0, ',', '.') . '</span>')
-            ->addColumn('deleted_at', fn($purchase) => $purchase->deleted_at ? $purchase->deleted_at->format('j M y H:i') : '-')
-            ->addColumn('products', function ($row) {
-                return $row->purchaseItems->map(function ($item) {
+                $deletedAt = $purchase->deleted_at
+                    ? $purchase->deleted_at->format('j M y H:i')
+                    : '-';
+
+                // 🧾 Nomor + tanggal
+                $purchaseNumberHtml = '
+                <div>
+                    <div>' . e($purchase->purchase_number) . '</div>
+                    <small class="text-muted">' . $date . '</small>
+                </div>';
+
+                // 👤 Supplier
+                $supplier = e($purchase->supplier->name ?? '-');
+
+                // 💰 Grand total
+                $totalAmount = '<span class="text-primary">Rp ' . number_format($purchase->total_amount, 0, ',', '.') . '</span>';
+
+                // 📦 Produk list
+                $products = $purchase->purchaseItems->map(function ($item) {
                     return [
                         'name'  => $item->purchaseProduct?->name ?? '-',
                         'sku'   => $item->purchaseProduct?->sku ?? '-',
@@ -261,19 +274,22 @@ class PurchaseListController extends Controller
                         'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.')
                     ];
                 })->toArray();
-            })
-            ->addColumn('delete_notes', fn($purchase) => $purchase->delete_notes ?? '-')
-            ->addColumn('deleted_by', fn($purchase) => $purchase->deletedByUser->name ?? '-')
-            ->addColumn('action', function ($purchase) {
+
+                // 📝 Notes & Deleted Info
+                $deleteNotes = e($purchase->delete_notes ?? '-');
+                $deletedBy = e($purchase->deletedByUser->name ?? '-');
+
+                // ⚙️ Action Buttons (Owner Only)
+                $action = '';
                 if (Auth::check() && Auth::user()->role === 'Owner') {
-                    return '
+                    $action = '
                     <div class="d-flex gap-2">
                         <button type="button" 
                             class="btn btn-success btn-sm me-1"
                             data-bs-toggle="modal"
                             data-bs-target="#modalRestoreOrder"
                             data-id="' . $purchase->id . '" 
-                            data-name="' . $purchase->purchase_number . '"
+                            data-name="' . e($purchase->purchase_number) . '"
                             data-url="' . route('purchases.restore', $purchase->id) . '">
                                 Restore
                         </button>
@@ -282,18 +298,27 @@ class PurchaseListController extends Controller
                             data-bs-toggle="modal"
                             data-bs-target="#modalForceDeleteOrder"
                             data-id="' . $purchase->id . '" 
-                            data-name="' . $purchase->purchase_number . '"
+                            data-name="' . e($purchase->purchase_number) . '"
                             data-url="' . route('purchases.forceDelete', $purchase->id) . '">
                                 Hapus Permanen
                         </button>
-                    </div>
-                ';
+                    </div>';
                 }
 
-                return ''; // kalau bukan Owner → kosong
-            })
-            ->rawColumns(['purchase_number', 'grand_total', 'action', 'products'])
-            ->make(true);
+                return [
+                    'id' => $purchase->id,
+                    'purchase_number' => $purchaseNumberHtml,
+                    'supplier' => $supplier,
+                    'total_amount' => $totalAmount,
+                    'deleted_at' => $deletedAt,
+                    'products' => $products,
+                    'delete_notes' => $deleteNotes,
+                    'deleted_by' => $deletedBy,
+                    'action' => $action,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function create()
@@ -359,7 +384,6 @@ class PurchaseListController extends Controller
         try {
             $purchaseDate = Carbon::parse($request->purchase_date);
 
-            // ====== DUE DATE ======
             $dueDate = match ($request->due_date_option) {
                 'today'     => $purchaseDate,
                 '1_week'    => $purchaseDate->copy()->addWeek(),
@@ -372,23 +396,18 @@ class PurchaseListController extends Controller
             $status = 'Purchase List';
             $paymentStatus = 'Unpaid';
 
-            // =============== HITUNG TOTAL ===============
-            $totalProduct  = $request->total_amount_product;   // total produk sebelum pajak
-            $totalFreight  = $request->total_amount_freight;   // total ongkir
+            $totalProduct  = $request->total_amount_product;
+            $totalFreight  = $request->total_amount_freight;
             $taxPercent    = $request->tax_percent ?? 0;
 
-            // ✅ Pajak hanya dihitung dari product (bukan freight)
             $taxAmount = ($totalProduct * $taxPercent) / 100;
 
-            // ✅ Harga product + pajak
             $totalProductWithTax = $totalProduct + $taxAmount;
 
-            // ✅ Grand total = product (sudah termasuk pajak) + freight
             $grandTotal = $totalProductWithTax + $totalFreight;
 
-            // otomatis semua unpaid
             $paidProduct       = 0;
-            $remainingProduct  = $totalProductWithTax; // ✅ product sudah termasuk tax
+            $remainingProduct  = $totalProductWithTax;
             $paidFreight       = 0;
             $remainingFreight  = $totalFreight;
 
@@ -398,7 +417,7 @@ class PurchaseListController extends Controller
                 'due_date'                  => $dueDate,
                 'supplier_id'               => $request->suppliers,
                 'payment_status'            => $paymentStatus,
-                'sub_total'                 => $totalProduct + $totalFreight, // sebelum pajak
+                'sub_total'                 => $totalProduct + $totalFreight,
                 'tax_percent'               => $taxPercent,
                 'tax_amount'                => $taxAmount,
                 'freight_total'             => $totalFreight,
@@ -414,7 +433,6 @@ class PurchaseListController extends Controller
                 'status'                    => $status,
             ]);
 
-            // =============== SIMPAN ITEM ===============
             foreach ($request->product as $index => $productId) {
                 $qty     = $request->qty[$index];
                 $price   = $request->price[$index];
@@ -423,7 +441,6 @@ class PurchaseListController extends Controller
 
                 $taxPercent = $request->tax_percent ?? 0;
 
-                // ✅ Hitung price_after_tax & final_price
                 $priceAfterTax = $price + ($price * $taxPercent / 100);
                 $finalPrice    = $priceAfterTax + $freight;
 
@@ -442,7 +459,6 @@ class PurchaseListController extends Controller
                     'subtotal'                 => $total,
                 ]);
 
-                // Jika Purchase List → buat stock in
                 if ($purchase->status === 'Purchase List') {
                     $inventory = Inventory::firstOrCreate(
                         ['purchase_id' => $purchase->id],

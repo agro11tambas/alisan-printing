@@ -17,6 +17,8 @@
 
         #dailyPLTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
         }
     </style>
 @endpush
@@ -91,7 +93,7 @@
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
-                                <tfoot>
+                                {{-- <tfoot>
                                     <tr>
                                         <th>Total</th>
                                         <th id="totalRevenue"></th>
@@ -100,7 +102,7 @@
                                         <th id="totalExpenses"></th>
                                         <th id="totalNetProfit"></th>
                                     </tr>
-                                </tfoot>
+                                </tfoot> --}}
                             </table>
                         </div>
                     </div>
@@ -117,38 +119,23 @@
                 $('#dailyPLTable').DataTable().clear().destroy();
             }
 
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             const table = $('#dailyPLTable').DataTable({
-                processing: true,
-                serverSide: true,
+                processing: false,
+                serverSide: false,
                 deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
                 lengthChange: false,
                 info: false,
                 pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/financial-report/profit-loss/daily/data') }}",
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                    },
-                    dataSrc: function(json) {
-                        $('#totalRevenue').text('Rp ' + new Intl.NumberFormat('en-US').format(json
-                            .summary.total_revenue));
-                        $('#totalCogs').text('Rp ' + new Intl.NumberFormat('en-US').format(json.summary
-                            .total_cogs));
-                        $('#totalGrossProfit').text('Rp ' + new Intl.NumberFormat('en-US').format(json
-                            .summary.total_gross));
-                        $('#totalExpenses').text('Rp ' + new Intl.NumberFormat('en-US').format(json
-                            .summary.total_expense));
-                        $('#totalNetProfit').html('<strong>Rp ' + new Intl.NumberFormat('en-US').format(
-                            json.summary.total_net) + '</strong>');
-                        return json.data;
-                    }
-                },
+                data: [],
                 columns: [{
                         data: 'date',
                         name: 'date'
@@ -173,8 +160,65 @@
                         data: 'netProfit',
                         render: d => '<strong>Rp ' + new Intl.NumberFormat('en-US').format(d) +
                             '</strong>'
-                    },
+                    }
                 ]
+            });
+
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/financial-report/profit-loss/daily/data') }}",
+                    data: {
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        start: currentPage * 50,
+                        length: 50
+                    },
+                    success: function(json) {
+                        // 🔹 Update summary
+                        $('#totalRevenue').text('Rp ' + new Intl.NumberFormat('en-US').format(json
+                            .summary.total_revenue));
+                        $('#totalCogs').text('Rp ' + new Intl.NumberFormat('en-US').format(json.summary
+                            .total_cogs));
+                        $('#totalGrossProfit').text('Rp ' + new Intl.NumberFormat('en-US').format(json
+                            .summary.total_gross));
+                        $('#totalExpenses').text('Rp ' + new Intl.NumberFormat('en-US').format(json
+                            .summary.total_expense));
+                        $('#totalNetProfit').html('<strong>Rp ' + new Intl.NumberFormat('en-US').format(
+                            json.summary.total_net) + '</strong>');
+
+                        if (json.data && json.data.length > 0) {
+                            allData = allData.concat(json.data);
+                            table.clear();
+                            table.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error(xhr.responseText);
+                        isLoading = false;
+                    }
+                });
+            }
+
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
             });
 
             $('#filter').change(function() {
@@ -184,13 +228,23 @@
                     $('.custom-range').addClass('d-none');
                     $('#start_date').val('');
                     $('#end_date').val('');
-                    table.ajax.reload();
+                    resetAndReload();
                 }
             });
 
             $('#apply-filter').click(function() {
-                table.ajax.reload();
+                resetAndReload();
             });
+
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                table.clear().draw();
+                loadMoreData();
+            }
+
+            loadMoreData();
         });
     </script>
 @endpush

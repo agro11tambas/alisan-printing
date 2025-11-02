@@ -118,11 +118,11 @@
                             <table class="table table-hover bg-transparent" id="assignBatchTable">
                                 <thead>
                                     <tr>
-                                        <th class="wd-30">No</th>
-                                        <th>Invoice Number</th>
-                                        <th>Customer</th>
+                                        {{-- <th class="wd-30">No</th> --}}
+                                        <th class="wd-250">Invoice Number</th>
+                                        <th class="wd-250">Customer</th>
                                         <th>Assign List</th>
-                                        <th>Note</th>
+                                        {{-- <th>Note</th> --}}
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -159,7 +159,6 @@
                             <strong>Perhatian:</strong> Tindakan ini tidak dapat dibatalkan.
                         </div>
 
-                        {{-- Hidden input untuk batch id --}}
                         <input type="hidden" id="delete_batch_id">
                     </div>
 
@@ -179,13 +178,11 @@
     <script>
         $(document).ready(function() {
 
-            // ========== VARIABEL LAZY LOAD ==========
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ========== DATATABLE ==========
             const batchTable = $('#assignBatchTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -195,15 +192,16 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [1, 'desc']
-                // ],
+                order: [
+                    [3, 'desc']
+                ],
                 data: [],
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                     {
                         data: 'assign_code'
                     },
@@ -213,22 +211,26 @@
                     {
                         data: 'assign_products'
                     },
+                    // {
+                    //     data: 'note'
+                    // },
+                    // {
+                    //     data: 'action',
+                    //     visible: false,
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                     {
-                        data: 'note'
-                    },
-                    {
-                        data: 'action',
+                        data: 'id',
                         visible: false,
-                        orderable: false,
                         searchable: false
-                    },
+                    }
                 ],
                 language: {
                     processing: '<div class="spinner-border text-primary" role="status"></div>'
                 }
             });
 
-            // ========== FUNGSI LOAD DATA ==========
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -264,10 +266,8 @@
                 });
             }
 
-            // ========== LOAD PERTAMA ==========
             loadMoreData();
 
-            // ========== SCROLL EVENT UNTUK LAZY LOAD ==========
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -282,7 +282,6 @@
                 }, 200);
             });
 
-            // ========== RESET DAN RELOAD ==========
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -290,8 +289,6 @@
                 batchTable.clear().draw();
                 loadMoreData();
             }
-
-            // ========== SEMUA EVENT LAMA TETAP ADA (CUMA GANTI .ajax.reload() -> resetAndReload()) ==========
 
             $('#assignBatchTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
@@ -345,25 +342,19 @@
             });
         });
 
-        // === HANDLE DELETE MODAL ===
         $(document).on('click', '.btn-open-delete-modal', function() {
             const batchId = $(this).data('id');
             const batchCode = $(this).data('code');
 
-            // Ubah action form
             $('#formDeleteAssign').attr('action', `/erp/productions/assign-list/delete/${batchId}`);
 
-            // Ganti judul modal dinamis
             $('#modalDeleteAssign .modal-title').text(`Hapus Assign Batch ${batchCode}`);
 
-            // Simpan id di hidden input (optional)
             $('#delete_batch_id').val(batchId);
 
-            // Tampilkan modal
             $('#modalDeleteAssign').modal('show');
         });
 
-        // Optional: handle submit (misal disable tombol saat submit)
         $('#formDeleteAssign').on('submit', function() {
             $('#btnConfirmDelete').prop('disabled', true).html(
                 '<span class="spinner-border spinner-border-sm me-2"></span> Menghapus...');

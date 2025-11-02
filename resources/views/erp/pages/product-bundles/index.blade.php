@@ -18,6 +18,8 @@
         #productBundleTable_wrapper .dataTables_scrollBody {
             /* background: #fff !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
         }
     </style>
 @endpush
@@ -90,7 +92,7 @@
                                         <label for="search_type" class="fw-semibold fs-12">Filter By</label>
                                         <div class="row g-3">
                                             <div class="col-md-4">
-                                                <select id="search_type" class="form-control" data-select2-selector="tag"
+                                                <select id="search_type" class="form-control"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;">
                                                     <option value="name">Product Name</option>
                                                     <option value="sku">SKU</option>
@@ -112,14 +114,9 @@
                                 <thead>
                                     <tr>
                                         <th class="wd-30">No</th>
-                                        <!-- <th>Image</th> -->
                                         <th>Name</th>
-                                        <!-- <th>Categories</th> -->
-                                        <!-- <th>Tags</th> -->
                                         <th>Price</th>
                                         <th>SKU</th>
-                                        <!-- <th>Avg Cost</th> -->
-                                        <!-- <th class="text-end">Actions</th> -->
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -163,67 +160,102 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             const dataTable = $('#productBundleTable').DataTable({
-                processing: true,
-                serverSide: true,
+                processing: false,
+                serverSide: false,
                 deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
                 lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/products/product-bundles/data') }}",
-                    data: function(d) {
-                        d.search_type = $('#search_type').val();
-                        d.search_keyword = $('#search_keyword').val();
-
-                    }
-                },
+                order: [
+                    [1, 'asc']
+                ],
+                data: [],
                 columns: [{
                         data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
                         orderable: false,
                         searchable: false
                     },
-                    // {
-                    //     data: 'image',
-                    //     name: 'image'
-                    // },
+                    // { data: 'image' },
                     {
-                        data: 'name',
-                        name: 'name'
+                        data: 'name'
                     },
-                    // {
-                    //     data: 'categories',
-                    //     name: 'categories'
-                    // },
-                    // {
-                    //     data: 'tags',
-                    //     name: 'tags'
-                    // },
+                    // { data: 'categories' },
+                    // { data: 'tags' },
                     {
-                        data: 'price',
-                        name: 'price'
+                        data: 'price'
                     },
                     {
-                        data: 'sku',
-                        name: 'sku'
+                        data: 'sku'
                     },
-                    // {
-                    //     data: 'action',
-                    //     name: 'action',
-                    //     orderable: false,
-                    //     searchable: false,
-                    //     visible: false,
-                    // }
+                    // { data: 'action' }
                 ]
             });
 
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/products/product-bundles/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 25,
+                        length: 25,
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        category_id: $('#category_id').val(),
+                        tag_id: $('#tag_id').val()
+                    },
+                    success: function(res) {
+                        if (res && res.data && res.data.length > 0) {
+                            allData = allData.concat(res.data);
+                            dataTable.clear();
+                            dataTable.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error response:', xhr.responseJSON);
+                        isLoading = false;
+                    }
+                });
+            }
+
+            loadMoreData();
+
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
             $('#search_type, #search_keyword, #category_id, #tag_id').on('change keyup', function() {
-                dataTable.ajax.reload();
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
             });
 
             $('#productBundleTable tbody').on('click', 'tr', function(e) {
@@ -237,18 +269,16 @@
                     $tr.removeClass('action-shown');
                 } else {
                     let actionHtml = row.data().action;
-
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
                             ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
-
+                        </div>
+                    </td>
+                </tr>
+            `);
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
                 }
@@ -256,7 +286,6 @@
 
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#productBundleTable').length) return;
-
                 $('#productBundleTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 

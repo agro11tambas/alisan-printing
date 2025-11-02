@@ -35,9 +35,14 @@ class PurchaseOrderController extends Controller
 
     public function dataPurchaseOrders(Request $request)
     {
-        $purchases = Purchase::with('supplier')
-            ->where('status', 'Purchase Orders')->orderByDesc('id');
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
 
+        $purchases = Purchase::with(['supplier', 'purchaseAccount', 'purchaseItems.purchaseProduct'])
+            ->where('status', 'Purchase Orders')
+            ->orderByDesc('id');
+
+        // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -70,6 +75,7 @@ class PurchaseOrderController extends Controller
             }
         }
 
+        // ✅ Filter pencarian
         if ($request->filled('search_keyword')) {
             if ($request->search_type === 'supplier') {
                 $purchases->whereHas('supplier', function ($query) use ($request) {
@@ -80,74 +86,87 @@ class PurchaseOrderController extends Controller
             }
         }
 
-        return DataTables::eloquent($purchases)
-            ->addIndexColumn()
-            ->addColumn('purchase_number', function ($purchase) {
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $purchases;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $purchases->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($purchase) {
                 $date = Carbon::parse($purchase->purchase_date)->format('j M y');
-                return '<div>
-                    <div>' . $purchase->purchase_number . '</div>
+
+                // 🧾 Nomor + Tanggal
+                $purchaseNumberHtml = '
+                <div>
+                    <div>' . e($purchase->purchase_number) . '</div>
                     <small class="text-muted">' . $date . '</small>
                 </div>';
-            })
-            ->addColumn('purchase_date', function ($purchase) {
-                return $purchase->purchase_date;
-            })
-            ->addColumn('supplier', function ($purchase) {
-                return $purchase->supplier->name;
-            })
-            ->addColumn('total_amount', function ($purchase) {
-                return 'Rp ' . number_format($purchase->total_amount, 0, ',', '.');
-            })
-            ->addColumn('payment_status', function ($purchase) {
-                $payment_status = strtolower($purchase->payment_status);
 
-                switch ($payment_status) {
-                    case 'paid':
-                        return '<div class="badge bg-soft-success text-success">' . $purchase->payment_status . '</div>';
-                        break;
-                    case 'unpaid':
-                        return '<div class="badge bg-soft-danger text-danger">' . $purchase->payment_status . '</div>';
-                        break;
-                    default:
-                        return '<div class="badge bg-soft-warning text-warning">' . $purchase->payment_status . '</div>';
-                        break;
+                // 👤 Supplier
+                $supplier = e($purchase->supplier->name ?? '-');
+
+                // 💰 Total Amount
+                $totalAmount = 'Rp ' . number_format($purchase->total_amount, 0, ',', '.');
+
+                // 🏷️ Payment Status Badge
+                $paymentStatus = strtolower($purchase->payment_status);
+                $paymentBadge = match ($paymentStatus) {
+                    'paid' => '<div class="badge bg-soft-success text-success">' . e($purchase->payment_status) . '</div>',
+                    'unpaid' => '<div class="badge bg-soft-danger text-danger">' . e($purchase->payment_status) . '</div>',
+                    default => '<div class="badge bg-soft-warning text-warning">' . e($purchase->payment_status) . '</div>',
+                };
+
+                // 🧾 Account & Payment Method
+                $accountName = e(optional($purchase->purchaseAccount)->type ?? '-');
+                $paymentMethod = e($purchase->payment_method ?? '-');
+
+                // 📦 Product Items
+                $productsHtml = '';
+                if ($purchase->purchaseItems->isNotEmpty()) {
+                    $productsHtml = '<ul class="list-unstyled m-0">';
+                    foreach ($purchase->purchaseItems as $item) {
+                        $productsHtml .= '<li>' .
+                            e($item->purchaseProduct->name ?? '-') .
+                            ' <small class="text-muted">(x' . number_format($item->quantity ?? 0, 0, ',', '.') . ')</small>' .
+                            '</li>';
+                    }
+                    $productsHtml .= '</ul>';
+                } else {
+                    $productsHtml = '<span class="text-muted">No items</span>';
                 }
-            })
-            ->addColumn('account_name', function ($purchase) {
-                return optional($purchase->purchaseAccount)->type ?? '-';
-            })
-            ->addColumn('payment_method', function ($purchase) {
-                return $purchase->payment_method;
-            })
-            ->addColumn('products', function ($purchase) {
-                return $purchase->purchaseItems->map(function ($item) {
-                    return [
-                        'name'  => $item->purchaseProduct ? $item->purchaseProduct->name : '-',
-                        'sku'   => $item->purchaseProduct ? $item->purchaseProduct->sku : '-',
-                        'qty'   => number_format($item->quantity ?? 0, 0, ',', '.'),
-                        'price' => number_format($item->price ?? 0, 0, ',', '.'),
-                        'freight' => number_format($item->freight ?? 0, 0, ',', '.')
-                    ];
-                })->toArray();
-            })
-            ->addColumn('status', function ($purchase) {
+
+                // 🏷️ Status
                 $status = strtolower($purchase->status);
+                $statusBadge = match ($status) {
+                    'purchase orders' => '<div class="badge bg-soft-warning text-warning">' . e($purchase->status) . '</div>',
+                    'purchase list' => '<div class="badge bg-soft-success text-success">' . e($purchase->status) . '</div>',
+                    default => '<div class="badge bg-secondary">' . e($purchase->status) . '</div>',
+                };
 
-                switch ($status) {
-                    case 'purchase orders':
-                        return '<div class="badge bg-soft-warning text-warning">' . $purchase->status . '</div>';
-                        break;
-                    case 'purchase list':
-                        return '<div class="badge bg-soft-success text-success">' . $purchase->status . '</div>';
-                        break;
-                }
-            })
-            ->addColumn('action', function ($purchase) {
-                return view('erp.pages.purchases.purchase-orders.partials.action-button', compact('purchase'))->render();
-            })
-            ->rawColumns(['purchase_number', 'total_amount', 'payment_status', 'action', 'status', 'products'])
-            ->make(true);
+                // ⚙️ Action button partial
+                $actionHtml = view('erp.pages.purchases.purchase-orders.partials.action-button', compact('purchase'))->render();
+
+                return [
+                    'id' => $purchase->id,
+                    'purchase_number' => $purchaseNumberHtml,
+                    'purchase_date' => $date,
+                    'supplier' => $supplier,
+                    'total_amount' => $totalAmount,
+                    'payment_status' => $paymentBadge,
+                    'account_name' => $accountName,
+                    'payment_method' => $paymentMethod,
+                    'products' => $productsHtml,
+                    'status' => $statusBadge,
+                    'action' => $actionHtml,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function create()
     {
@@ -156,257 +175,6 @@ class PurchaseOrderController extends Controller
 
         return view('erp.pages.purchases.purchase-orders.create-purchase', compact('products', 'suppliers'));
     }
-
-    // public function store(Request $request)
-    // {
-    //     // dd($request->all());
-    //     $request->validate([
-    //         'purchase_date'     => 'required|date',
-    //         'suppliers' => 'required|exists:suppliers,id',
-    //         'product'           => 'required|array',
-    //         'product.*'         => 'exists:products,id',
-    //         'qty'               => 'required|array',
-    //         'qty.*'             => 'numeric|min:1',
-    //         'price'             => 'required|array',
-    //         'price.*'           => 'numeric|min:0',
-    //         'freight'           => 'required|array',
-    //         'freight.*'         => 'numeric|min:0',
-    //         'total'             => 'required|array',
-    //         'total.*'           => 'numeric|min:0',
-    //         'sub_total'         => 'required|numeric|min:0',
-    //         'tax_percent'       => 'nullable|numeric|min:0',
-    //         'tax_amount'        => 'nullable|numeric|min:0',
-    //         'total_amount'      => 'required|numeric|min:0',
-    //     ]);
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         $purchaseDate = Carbon::parse($request->purchase_date);
-    //         $purchaseDateFormatted = $purchaseDate->format('dmy');
-    //         $todayPurchaseCount = Purchase::whereDate('purchase_date', $purchaseDate->toDateString())->count();
-    //         $purchaseSequence = $todayPurchaseCount + 1;
-    //         $prefix = $request->status === 'Purchase Orders' ? 'PO' : ' ';
-    //         $purchaseNumber = $prefix . '/' . $purchaseSequence . '/ALS/' . $purchaseDateFormatted;
-
-    //         // === Hitungan total ===
-    //         $subtotal = array_sum($request->total);
-    //         $taxAmount = $request->tax_amount ?? 0;
-    //         $grandTotal = $subtotal + $taxAmount;
-
-    //         $paidAmount = $request->payment_status === 'Paid' ? $grandTotal : $request->paid_amount;
-    //         $remainingAmount = $grandTotal - $paidAmount;
-
-    //         $paidAmount = 0;
-    //         $status = 'Purchase Orders';
-    //         $paymentStatus = 'Pending';
-
-    //         $purchase = Purchase::create([
-    //             'purchase_number' => $purchaseNumber,
-    //             'purchase_date'   => $request->purchase_date,
-    //             'supplier_id'     => $request->suppliers,
-    //             'payment_status'  => $paymentStatus,
-    //             'paid_amount'     => $paidAmount,
-    //             'sub_total'         => $subtotal,
-    //             'tax_percent'       => $request->tax_percent,
-    //             'tax_amount'        => $taxAmount,
-    //             'total_amount'    => $grandTotal,
-    //             'remaining_amount' => $remainingAmount,
-    //             'status'          => $status,
-    //         ]);
-
-    //         foreach ($request->product as $index => $productId) {
-    //             $qty   = $request->qty[$index];
-    //             $price = $request->price[$index];
-    //             $freight = $request->freight[$index] ?? 0;
-    //             $total = $request->total[$index];
-
-    //             $product = Products::findOrFail($productId);
-
-    //             PurchaseItem::create([
-    //                 'purchase_id'         => $purchase->id,
-    //                 'product_id' => $productId,
-    //                 'inventory_warehouse_id' => $request->inventory_warehouse_id,
-    //                 'product_name'        => $product->name,
-    //                 'quantity'            => $qty,
-    //                 'price'               => $price,
-    //                 'freight'            => $freight,
-    //                 'subtotal'            => $total,
-    //             ]);
-    //         }
-
-    //         if ($purchase->status === 'Purchase List') {
-    //             $inventory = Inventory::create([
-    //                 'purchase_id'     => $purchase->id,
-    //                 'supplier_id'     => $purchase->supplier_id,
-    //                 'purchase_number' => $purchase->purchase_number,
-    //                 'date'            => $purchase->purchase_date,
-    //             ]);
-
-    //             foreach (PurchaseItem::where('purchase_id', $purchase->id)->get() as $item) {
-    //                 InventoryItem::create([
-    //                     'inventory_id'         => $inventory->id,
-    //                     'product_id'  => $item->product_id,
-    //                     'quantity'             => $item->quantity,
-    //                     'price'                => $item->price,
-    //                     'stock_in'             => 0,
-    //                     'remaining_stock_in'   => $item->quantity,
-    //                     'stock_out'            => 0,
-    //                 ]);
-    //             }
-    //         }
-
-    //         DB::commit();
-    //         return redirect('/erp/purchases/purchase-orders')->with('success', 'Purchase order created successfully');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         Log::error('Purchase store failed: ' . $e->getMessage());
-    //         return redirect()->back()->with('error', 'Purchase order failed to create');
-    //     }
-    // }
-
-    // public function store(Request $request)
-    // {
-    //     $request->validate([
-    //         'purchase_date'          => 'required|date',
-    //         'suppliers'              => 'required|exists:suppliers,id',
-    //         'product'                => 'required|array',
-    //         'product.*'              => 'exists:products,id',
-    //         'qty'                    => 'required|array',
-    //         'qty.*'                  => 'numeric|min:1',
-    //         'price'                  => 'required|array',
-    //         'price.*'                => 'numeric|min:0',
-    //         'freight'                => 'required|array',
-    //         'freight.*'              => 'numeric|min:0',
-    //         'total'                  => 'required|array',
-    //         'total.*'                => 'numeric|min:0',
-    //         'sub_total'              => 'required|numeric|min:0',
-    //         'tax_percent'            => 'nullable|numeric|min:0',
-    //         'tax_amount'             => 'nullable|numeric|min:0',
-    //         'total_amount_product'   => 'required|numeric|min:0',
-    //         'total_amount_freight'   => 'required|numeric|min:0',
-    //         'total_amount'           => 'required|numeric|min:0',
-    //     ]);
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         $purchaseDate = Carbon::parse($request->purchase_date);
-    //         $purchaseDateFormatted = $purchaseDate->format('dmy');
-    //         $todayPurchaseCount = Purchase::whereDate('purchase_date', $purchaseDate->toDateString())->count();
-    //         $purchaseSequence = $todayPurchaseCount + 1;
-    //         $prefix = $request->status === 'Purchase Orders' ? 'PO' : ' ';
-    //         $purchaseNumber = $prefix . '/' . $purchaseSequence . '/ALS/' . $purchaseDateFormatted;
-
-    //         // === Hitung Total ===
-    //         $subtotalProduct = 0;
-    //         $subtotalFreight = 0;
-
-    //         foreach ($request->product as $i => $productId) {
-    //             $qty = $request->qty[$i] ?? 0;
-    //             $price = $request->price[$i] ?? 0;
-    //             $freight = $request->freight[$i] ?? 0;
-    //             $subtotalProduct += $qty * $price;
-    //             $subtotalFreight += $qty * $freight;
-    //         }
-
-    //         $taxPercent = $request->tax_percent ?? 0;
-    //         $taxAmount  = $request->tax_amount ?? 0;
-    //         $totalProduct = $subtotalProduct + $taxAmount;
-    //         $totalFreight = $subtotalFreight;
-    //         $grandTotal   = $totalProduct + $totalFreight;
-    //         $subTotal     = $subtotalProduct + $subtotalFreight;
-
-    //         // === Inisialisasi Pembayaran ===
-    //         $paidProduct = 0;
-    //         $paidFreight = 0;
-    //         $remainingProduct = $totalProduct - $paidProduct;
-    //         $remainingFreight = $totalFreight - $paidFreight;
-    //         $remainingAmount  = $remainingProduct + $remainingFreight;
-
-    //         $status = 'Purchase Orders';
-    //         $paymentStatus = 'Pending';
-
-    //         // === Simpan Purchase ===
-    //         $purchase = Purchase::create([
-    //             'purchase_number' => $purchaseNumber,
-    //             'purchase_date'   => $request->purchase_date,
-    //             'supplier_id'     => $request->suppliers,
-    //             'status'          => $status,
-    //             'payment_status'  => $paymentStatus,
-
-    //             'sub_total'       => $subTotal,
-    //             'tax_percent'     => $taxPercent,
-    //             'tax_amount'      => $taxAmount,
-
-    //             'total_amount_product'     => $totalProduct,
-    //             'total_amount_freight'     => $totalFreight,
-    //             'total_amount'             => $grandTotal,
-
-    //             'paid_amount_product'      => $paidProduct,
-    //             'paid_amount_freight'      => $paidFreight,
-    //             'paid_amount'              => 0,
-
-    //             'remaining_amount_product' => $remainingProduct,
-    //             'remaining_amount_freight' => $remainingFreight,
-    //             'remaining_amount'         => $remainingAmount,
-    //         ]);
-
-    //         // === Simpan Item Purchase ===
-    //         foreach ($request->product as $index => $productId) {
-    //             $qty     = $request->qty[$index];
-    //             $price   = $request->price[$index];
-    //             $freight = $request->freight[$index] ?? 0;
-    //             $total   = $request->total[$index];
-
-    //             $product = Products::findOrFail($productId);
-
-    //             PurchaseItem::create([
-    //                 'purchase_id'             => $purchase->id,
-    //                 'product_id'              => $productId,
-    //                 'inventory_warehouse_id'  => $request->inventory_warehouse_id,
-    //                 'product_name'            => $product->name,
-    //                 'quantity'                => $qty,
-    //                 'price'                   => $price,
-    //                 'freight'                 => $freight,
-    //                 'subtotal'                => $total,
-    //             ]);
-    //         }
-
-    //         // === Jika langsung ke Purchase List, buat Inventory ===
-    //         if ($purchase->status === 'Purchase List') {
-    //             $inventory = Inventory::create([
-    //                 'purchase_id'     => $purchase->id,
-    //                 'supplier_id'     => $purchase->supplier_id,
-    //                 'purchase_number' => $purchase->purchase_number,
-    //                 'date'            => $purchase->purchase_date,
-    //             ]);
-
-    //             foreach ($purchase->purchaseItems as $item) {
-    //                 InventoryItem::create([
-    //                     'inventory_id'         => $inventory->id,
-    //                     'product_id'           => $item->product_id,
-    //                     'quantity'             => $item->quantity,
-    //                     'price'                => $item->price,
-    //                     'stock_in'             => 0,
-    //                     'remaining_stock_in'   => $item->quantity,
-    //                     'stock_out'            => 0,
-    //                 ]);
-    //             }
-    //         }
-
-    //         DB::commit();
-    //         return redirect('/erp/purchases/purchase-orders')->with('success', 'Purchase order created successfully');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         Log::error('Purchase store failed', [
-    //             'message' => $e->getMessage(),
-    //             'line'    => $e->getLine(),
-    //             'file'    => $e->getFile(),
-    //         ]);
-    //         return redirect()->back()->with('error', 'Purchase order failed to create: ' . $e->getMessage());
-    //     }
-    // }
 
     public function checkNumber(Request $request)
     {

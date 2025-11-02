@@ -430,17 +430,12 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // ====================================================
-            // 🔹 LAZY LOAD VARIABLES
-            // ====================================================
+
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ====================================================
-            // 🔹 FORMAT PRODUK
-            // ====================================================
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
@@ -483,9 +478,6 @@
                 return html;
             }
 
-            // ====================================================
-            // 🔹 DATATABLE SETUP
-            // ====================================================
             const dataTable = $('#purchaseOrderTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -496,7 +488,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [1, 'desc']
+                    [4, 'desc']
                 ],
                 data: [],
                 columns: [{
@@ -515,12 +507,14 @@
                     {
                         data: 'total_amount'
                     },
+                    {
+                        data: 'purchase_date',
+                        visible: false,
+                        searchable: false
+                    }
                 ],
             });
 
-            // ====================================================
-            // 🔹 LOAD DATA FUNCTION
-            // ====================================================
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -557,14 +551,8 @@
                 });
             }
 
-            // ====================================================
-            // 🔹 LOAD AWAL
-            // ====================================================
             loadMoreData();
 
-            // ====================================================
-            // 🔹 SCROLL UNTUK LAZY LOAD
-            // ====================================================
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -579,9 +567,6 @@
                 }, 200);
             });
 
-            // ====================================================
-            // 🔹 RESET & RELOAD
-            // ====================================================
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -590,11 +575,6 @@
                 loadMoreData();
             }
 
-            // ====================================================
-            // 🔹 SEMUA EVENT LAMA (TIDAK DIHAPUS)
-            // ====================================================
-
-            // Expand child rows
             $('#purchaseOrderTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
@@ -611,7 +591,6 @@
                 }
             });
 
-            // Action row
             $('#purchaseOrderTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -645,9 +624,6 @@
                 $('#purchaseOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // ====================================================
-            // 🔹 FILTER & SEARCH EVENTS (tidak dihapus)
-            // ====================================================
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');

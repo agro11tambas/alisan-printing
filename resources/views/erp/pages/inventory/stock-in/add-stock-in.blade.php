@@ -158,8 +158,7 @@
                                             <td>{{ $item->product->name ?? '-' }}</td>
                                             <td>{{ $item->quantity }}</td>
                                             <td>
-                                                <input type="hidden"
-                                                    name="items[{{ $index }}][inventory_item_id]"
+                                                <input type="hidden" name="items[{{ $index }}][inventory_item_id]"
                                                     value="{{ $item->id }}">
                                                 <input type="text" inputmode="numeric"
                                                     name="items[{{ $index }}][stock_in]" class="form-control"
@@ -241,7 +240,7 @@
                 $(this).find('.is-invalid').removeClass('is-invalid');
                 $(this).find('.invalid-feedback').remove();
 
-                // 🔹 Hapus titik pada semua input angka sebelum submit
+                // 🔹 Hapus titik pemisah sebelum validasi numerik
                 $('input[name^="items"][name$="[stock_in]"]').each(function() {
                     this.value = this.value.replace(/\./g, '');
                 });
@@ -249,8 +248,19 @@
                 // 🔹 Fungsi tampilkan error
                 function showError(element, message) {
                     $(element).addClass('is-invalid');
-                    $(element).after('<div class="invalid-feedback d-block">' + message + '</div>');
+                    $(element).after(
+                        '<div class="invalid-feedback d-block text-danger fw-semibold small">' +
+                        message + '</div>');
                 }
+
+                // 🔹 Validasi setiap kolom Stock In
+                $('input[name^="items"][name$="[stock_in]"]').each(function() {
+                    const val = parseInt($(this).val().trim() || 0);
+                    if (val <= 0) {
+                        isValid = false;
+                        showError(this, 'Harus diisi lebih dari 0');
+                    }
+                });
 
                 // 🔹 Validasi Waybill Number
                 const waybillNumber = $('#waybill_number');

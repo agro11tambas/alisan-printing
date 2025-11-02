@@ -361,7 +361,6 @@
                 return html;
             }
 
-            // ========== SALE ORDER TABLE (Lazy Load Style) ==========
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
@@ -376,9 +375,9 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [1, 'desc']
-                // ],
+                order: [
+                    [4, 'desc']
+                ],
                 data: [],
                 columns: [{
                         className: 'dt-control text-center',
@@ -395,6 +394,11 @@
                     },
                     {
                         data: 'grand_total'
+                    },
+                    {
+                        data: 'order_date', // tambahkan kolom ini
+                        visible: false, // disembunyikan dari tampilan
+                        searchable: false // tidak perlu di-search
                     }
                 ]
             });

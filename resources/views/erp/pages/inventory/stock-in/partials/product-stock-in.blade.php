@@ -2,10 +2,10 @@
     <table class="table bg-transparent table-small table-bordered">
         <thead>
             <tr>
-                <th style="width: 50%;">Product</th>
-                <th style="width: 50%;">Qty</th>
-                <th style="width: 50%;">Stock In</th>
-                <th style="width: 50%;">Remaining</th>
+                <th style="width: 25%;">Product</th>
+                <th style="width: 25%;">Qty</th>
+                <th style="width: 25%;">Stock In</th>
+                <th style="width: 25%;">Remaining</th>
             </tr>
         </thead>
         <tbody>

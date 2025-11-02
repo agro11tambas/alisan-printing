@@ -25,6 +25,9 @@ class DeliveryListController extends Controller
 
     public function dataDeliveryList(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $deliveryLists = DeliveryList::with(['deliveryOrder', 'items.product']);
 
         // 🔎 Filter by date
@@ -76,181 +79,155 @@ class DeliveryListController extends Controller
             }
         }
 
-        return DataTables::of($deliveryLists->latest())
-            ->addIndexColumn()
-            ->addColumn('shipment_number', function ($dl) {
+        // ✅ Hitung total sebelum paginasi
+        $totalQuery = clone $deliveryLists;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $deliveryLists->latest()->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($dl) {
                 $date = Carbon::parse($dl->shipment_date)->format('j M y');
-                return '<div>
-                    <div>' . $dl->shipment_number . '</div>
+                $shipmentNumber = '
+                <div>
+                    <div>' . e($dl->shipment_number) . '</div>
                     <small class="text-muted">' . $date . '</small>
                 </div>';
-            })
-            ->addColumn('shipment_date', function ($dl) {
-                return Carbon::parse($dl->shipment_date)->format('j M y');
-            })
-            ->addColumn('driver', function ($dl) {
-                return $dl->driver ?? '-';
-            })
-            ->addColumn('vehicle', function ($dl) {
-                return $dl->vehicle ?? '-';
-            })
-            ->addColumn('customer', function ($dl) {
-                return $dl->deliveryOrder->customer ?? '-';
-            })
-            ->addColumn('address', function ($dl) {
+
+                $driver = e($dl->driver ?? '-');
+                $vehicle = e($dl->vehicle ?? '-');
+                $customer = e($dl->deliveryOrder->customer ?? '-');
+
                 $address = $dl->deliveryOrder->shipping_address ?? '-';
                 $mapLink = $dl->deliveryOrder->google_map_link ?? '#';
+                $addressHtml = '
+                <div class="d-flex flex-column align-items-start" style="white-space: normal; word-break: break-word; max-width: 200px;">
+                    <div>' . e($address) . '</div>
+                    <a href="' . $mapLink . '" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Maps</a>
+                </div>';
 
-                return '
-                    <div class="d-flex flex-column align-items-start" style="white-space: normal; word-break: break-word; max-width: 200px;">
-                        <div>' . e($address) . '</div>
-                        <a href="' . $mapLink . '" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Maps</a>
-                    </div>
-                ';
-            })
-            ->addColumn('status', function ($dl) {
                 $status = strtolower($dl->status);
-                switch ($status) {
-                    case 'ongoing':
-                        $badgeClass = 'bg-soft-primary text-primary';
-                        break;
-                    case 'finished':
-                        $badgeClass = 'bg-soft-success text-success';
-                        break;
-                    default:
-                        $badgeClass = 'bg-secondary';
-                        break;
-                }
-                return '<div class="badge ' . $badgeClass . '">' . ucfirst($dl->status) . '</div>';
-            })
-            ->addColumn('items', function ($dl) {
-                return view('erp.pages.deliveries.delivery-list.partials.product-list', compact('dl'))->render();
-            })
-            ->addColumn('waybill_proof', function ($dl) {
-                if ($dl->proof_waybill) {
-                    $src = asset('storage/' . $dl->proof_waybill); // kalau disimpan di storage/app/public
-                    return '
-                        <a href="' . $src . '" data-lightbox="waybill-' . $dl->id . '">
-                            <img src="' . $src . '"
-                                width="50"
-                                height="50"
-                                style="border-radius: 8px; object-fit: cover; object-position: center;"
-                                alt="Waybill Proof">
-                        </a>
-                    ';
-                } else {
-                    return '<span class="text-muted">-</span>';
-                }
-            })
-            ->addColumn('delivery_proof', function ($dl) {
-                if ($dl->proof_delivery) {
-                    $src = asset('storage/' . $dl->proof_delivery); // kalau disimpan di storage/app/public
-                    return '
-                        <a href="' . $src . '" data-lightbox="delivery-' . $dl->id . '">
-                            <img src="' . $src . '"
-                                width="50"
-                                height="50"
-                                style="border-radius: 8px; object-fit: cover; object-position: center;"
-                                alt="Delivery Proof">
-                        </a>
-                    ';
-                } else {
-                    return '<span class="text-muted">-</span>';
-                }
-            })
-            ->addColumn('items_mobile', function ($dl) {
-                if ($dl->items->isEmpty()) return '<span class="text-muted">No items</span>';
+                $badgeClass = match ($status) {
+                    'ongoing' => 'bg-soft-primary text-primary',
+                    'finished' => 'bg-soft-success text-success',
+                    default => 'bg-secondary',
+                };
+                $statusHtml = '<div class="badge ' . $badgeClass . '">' . ucfirst($dl->status) . '</div>';
 
-                // ✅ Baris item produk
-                $rows = '';
-                foreach ($dl->items as $item) {
-                    $product = e($item->product->name ?? '-');
-                    $qty = number_format($item->shipped_quantity ?? 0);
-                    $rows .= "
+                $itemsHtml = view('erp.pages.deliveries.delivery-list.partials.product-list', compact('dl'))->render();
+
+                // 🧾 Waybill proof
+                if ($dl->proof_waybill) {
+                    $src = asset('storage/' . $dl->proof_waybill);
+                    $waybillProof = '
+                    <a href="' . $src . '" data-lightbox="waybill-' . $dl->id . '">
+                        <img src="' . $src . '" width="50" height="50"
+                            style="border-radius: 8px; object-fit: cover; object-position: center;" alt="Waybill Proof">
+                    </a>';
+                } else {
+                    $waybillProof = '<span class="text-muted">-</span>';
+                }
+
+                // 📦 Delivery proof
+                if ($dl->proof_delivery) {
+                    $src = asset('storage/' . $dl->proof_delivery);
+                    $deliveryProof = '
+                    <a href="' . $src . '" data-lightbox="delivery-' . $dl->id . '">
+                        <img src="' . $src . '" width="50" height="50"
+                            style="border-radius: 8px; object-fit: cover; object-position: center;" alt="Delivery Proof">
+                    </a>';
+                } else {
+                    $deliveryProof = '<span class="text-muted">-</span>';
+                }
+
+                // 📷 Proof photos
+                if (empty($dl->proof_photos)) {
+                    $proofPhotos = '<span class="text-muted">No Proof</span>';
+                } else {
+                    $photos = json_decode($dl->proof_photos, true);
+                    if (empty($photos)) {
+                        $proofPhotos = '<span class="text-muted">No Proof</span>';
+                    } else {
+                        $proofPhotos = '
+                        <button class="btn btn-sm btn-outline-info btn-preview-proof" 
+                            data-id="' . $dl->id . '" 
+                            data-shipment="' . e($dl->shipment_number) . '" 
+                            data-photos=\'' . json_encode($photos) . '\'>
+                            <i class="feather-eye"></i> Preview
+                        </button>';
+                    }
+                }
+
+                // 🧱 Items mobile card
+                if ($dl->items->isEmpty()) {
+                    $itemsMobile = '<span class="text-muted">No items</span>';
+                } else {
+                    $rows = '';
+                    foreach ($dl->items as $item) {
+                        $product = e($item->product->name ?? '-');
+                        $qty = number_format($item->shipped_quantity ?? 0);
+                        $rows .= "
                         <tr>
                             <td style='padding:6px 8px; font-size:12px; border-bottom:1px solid #f0f0f0;'>$product</td>
                             <td style='padding:6px 8px; text-align:right; font-size:12px; color:#16a34a; border-bottom:1px solid #f0f0f0;'>x$qty</td>
                         </tr>
                     ";
-                }
+                    }
 
-                // ✅ Kartu tampilan mobile
-                return "
-                    <div style='
-                        background:#f9fafb;
-                        border:1px solid #e5e7eb;
-                        border-radius:10px;
-                        padding:12px 14px;
-                        margin-bottom:10px;
-                        box-shadow:0 1px 3px rgba(0,0,0,0.08);
-                        font-size:13px;
-                        line-height:1.5;
-                    '>
+                    $itemsMobile = "
+                    <div style='background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;
+                                padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);
+                                font-size:13px;line-height:1.5;'>
                         <div style='margin-bottom:10px;'>
                             <div><strong>Shipment:</strong> <span style='color:#2563eb;'>{$dl->shipment_number}</span></div>
                             <div><strong>Customer:</strong> " . e($dl->deliveryOrder->customer ?? '-') . "</div>
                             <div><strong>Address:</strong><br>
-                            <div style='
-                                color:#4b5563;
-                                max-width:300px;
-                                white-space:normal;
-                                word-break:break-word;
-                                overflow-wrap:break-word;
-                            '>" . e($dl->deliveryOrder->shipping_address ?? '-') . "</div>
+                                <div style='color:#4b5563;max-width:300px;white-space:normal;word-break:break-word;overflow-wrap:break-word;'>
+                                    " . e($dl->deliveryOrder->shipping_address ?? '-') . "
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <strong>Items:</strong>
-                        <div class='table-responsive' style='margin-top:6px;'>
-                            <table style='width:100%; border-collapse:collapse;'>
-                                <thead>
-                                    <tr style=\"background:#f3f4f6; text-align:left;\">
-                                        <th style='padding:6px 8px; font-size:12px; font-weight:600; color:#374151;'>Product</th>
-                                        <th style='padding:6px 8px; text-align:right; font-size:12px; font-weight:600; color:#374151;'>Qty</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    $rows
-                                </tbody>
-                            </table>
+                        <div>
+                            <strong>Items:</strong>
+                            <div class='table-responsive' style='margin-top:6px;'>
+                                <table style='width:100%; border-collapse:collapse;'>
+                                    <thead>
+                                        <tr style=\"background:#f3f4f6; text-align:left;\">
+                                            <th style='padding:6px 8px; font-size:12px; font-weight:600; color:#374151;'>Product</th>
+                                            <th style='padding:6px 8px; text-align:right; font-size:12px; font-weight:600; color:#374151;'>Qty</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>$rows</tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                    </div>
-                ";
-            })
-            ->addColumn('proof_photos', function ($dl) {
-                if (empty($dl->proof_photos)) {
-                    return '<span class="text-muted">No Proof</span>';
+                    </div>";
                 }
 
-                $photos = json_decode($dl->proof_photos, true);
-                if (empty($photos)) {
-                    return '<span class="text-muted">No Proof</span>';
-                }
+                // ⚙️ Action button partial
+                $action = view('erp.pages.deliveries.delivery-list.partials.action-button', compact('dl'))->render();
 
-                $html = '<div class="d-flex flex-wrap gap-2">';
-                foreach ($photos as $photo) {
-                    // ✅ panggil dari asset() sesuai path yang kamu simpan
-                    $src = asset($photo);
-                    $html .= '
-            <a href="' . $src . '" data-lightbox="proof-' . $dl->id . '">
-                <img src="' . $src . '" 
-                    width="50" height="50"
-                    style="border-radius:8px;object-fit:cover;border:1px solid #ddd;"
-                    alt="Proof Photo">
-            </a>
-        ';
-                }
-                $html .= '</div>';
-
-                return $html;
-            })
-
-            ->addColumn('action', function ($dl) {
-                return view('erp.pages.deliveries.delivery-list.partials.action-button', compact('dl'))->render();
-            })
-            ->rawColumns(['shipment_number', 'status', 'address', 'items', 'action', 'waybill_proof', 'delivery_proof', 'proof_photos', 'items_mobile'])
-            ->make(true);
+                return [
+                    'id' => $dl->id,
+                    'shipment_number' => $shipmentNumber,
+                    'shipment_date' => $date,
+                    'driver' => $driver,
+                    'vehicle' => $vehicle,
+                    'customer' => $customer,
+                    'address' => $addressHtml,
+                    'status' => $statusHtml,
+                    'items' => $itemsHtml,
+                    'waybill_proof' => $waybillProof,
+                    'delivery_proof' => $deliveryProof,
+                    'items_mobile' => $itemsMobile,
+                    'proof_photos' => $proofPhotos,
+                    'action' => $action,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     // public function create($doId)

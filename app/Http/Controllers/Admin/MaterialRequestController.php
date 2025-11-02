@@ -29,8 +29,12 @@ class MaterialRequestController extends Controller
 
     public function dataMaterialRequest(Request $request)
     {
-        $materialRequest = MaterialRequest::with(['items.product', 'requestedBy']);
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
 
+        $materialRequest = MaterialRequest::with(['items.product', 'requestedBy', 'verifiedBy']);
+
+        // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -63,6 +67,7 @@ class MaterialRequestController extends Controller
             }
         }
 
+        // ✅ Filter status progress
         if ($request->has('progress_status')) {
             if ($request->progress_status === 'completed') {
                 $materialRequest->whereDoesntHave('items', function ($q) {
@@ -75,51 +80,66 @@ class MaterialRequestController extends Controller
             }
         }
 
-        $materialRequest = $materialRequest->latest()->get();
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $materialRequest;
+        $totalData = $totalQuery->count();
 
-        return DataTables::of($materialRequest)
-            ->addIndexColumn()
-            ->addColumn('requested_by', function ($materialRequest) {
-                return $materialRequest->requestedBy->name;
-            })
-            ->addColumn('requested_at', function ($materialRequest) {
-                return $materialRequest->requested_at;
-            })
-            ->addColumn('items', function ($materialRequest) {
-                return view('erp.pages.production.request-stock.partials.material-request-items', compact('materialRequest'))->render();
-            })
-            ->addColumn('warehouse_status', function ($materialRequest) {
-                $status = strtolower($materialRequest->warehouse_status);
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $materialRequest->latest()->skip($start)->take($length)->get();
 
-                switch ($status) {
-                    case 'verified':
-                        return '<div class="badge bg-soft-success text-success">' . $materialRequest->warehouse_status . '</div>';
-                    case 'not verified':
-                        return '<div class="badge bg-soft-danger text-danger">' . $materialRequest->warehouse_status . '</div>';
-                    default:
-                        return '<div class="badge bg-soft-primary text-primary">' . ($materialRequest->warehouse_status ?? 'Pending') . '</div>';
-                }
-            })
-            ->addColumn('status', function ($materialRequest) {
-                $status = strtolower($materialRequest->status);
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($item) {
+                // 👤 Requested by
+                $requestedBy = e($item->requestedBy->name ?? '-');
 
-                switch ($status) {
-                    case 'verified':
-                        return '<div class="badge bg-soft-success text-success">' . $materialRequest->status . '</div>';
-                    case 'not verified':
-                        return '<div class="badge bg-soft-danger text-danger">' . $materialRequest->status . '</div>';
-                    default:
-                        return '<div class="badge bg-soft-primary text-primary">' . $materialRequest->status . '</div>';
-                }
-            })
-            ->addColumn('verified_by', function ($materialRequest) {
-                return $materialRequest->verifiedBy ? $materialRequest->verifiedBy->name : '-';
-            })
-            ->addColumn('action', function ($materialRequest) {
-                return view('erp.pages.production.request-stock.partials.action-button', compact('materialRequest'))->render();
-            })
-            ->rawColumns(['action', 'items', 'status', 'warehouse_status'])
-            ->make(true);
+                // 📅 Tanggal
+                $requestedAt = $item->requested_at
+                    ? Carbon::parse($item->requested_at)->format('d M Y')
+                    : '-';
+
+                // 📦 Items partial
+                $itemsHtml = view('erp.pages.production.request-stock.partials.material-request-items', [
+                    'materialRequest' => $item
+                ])->render();
+
+                // 🏷️ Warehouse Status
+                $whStatus = strtolower($item->warehouse_status);
+                $warehouseBadge = match ($whStatus) {
+                    'verified' => '<div class="badge bg-soft-success text-success">' . e($item->warehouse_status) . '</div>',
+                    'not verified' => '<div class="badge bg-soft-danger text-danger">' . e($item->warehouse_status) . '</div>',
+                    default => '<div class="badge bg-soft-primary text-primary">' . e($item->warehouse_status ?? 'Pending') . '</div>',
+                };
+
+                // 🏷️ Status
+                $status = strtolower($item->status);
+                $statusBadge = match ($status) {
+                    'verified' => '<div class="badge bg-soft-success text-success">' . e($item->status) . '</div>',
+                    'not verified' => '<div class="badge bg-soft-danger text-danger">' . e($item->status) . '</div>',
+                    default => '<div class="badge bg-soft-primary text-primary">' . e($item->status) . '</div>',
+                };
+
+                // 👨 Verified by
+                $verifiedBy = e($item->verifiedBy->name ?? '-');
+
+                // ⚙️ Action partial
+                $action = view('erp.pages.production.request-stock.partials.action-button', [
+                    'materialRequest' => $item
+                ])->render();
+
+                return [
+                    'id' => $item->id,
+                    'requested_by' => $requestedBy,
+                    'requested_at' => $requestedAt,
+                    'items' => $itemsHtml,
+                    'warehouse_status' => $warehouseBadge,
+                    'status' => $statusBadge,
+                    'verified_by' => $verifiedBy,
+                    'action' => $action,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function dataDeletedRequestStock(Request $request)

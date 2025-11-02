@@ -93,22 +93,6 @@ class FinancialStatementController extends Controller
 
         [$start, $end] = $this->getDateRange($filter, $start, $end);
 
-        // $reports = FinancialReport::whereBetween('date', [$start, $end])
-        //     ->orderBy('date', 'asc')
-        //     ->get()
-        //     ->groupBy(fn($r) => \Carbon\Carbon::parse($r->date)->toDateString())
-        //     ->map(function ($group) {
-        //         return [
-        //             'date'         => $group->first()->date->toDateString(),
-        //             'revenue'      => $group->sum('revenue'),
-        //             'cogs'         => $group->sum('cogs'),
-        //             'grossProfit'  => $group->sum('gross_profit'),
-        //             'expenses'     => $group->sum('expense'),
-        //             'netProfit'    => $group->sum('net_profit'),
-        //         ];
-        //     })
-        //     ->values();
-
         $reports = FinancialReport::whereBetween('date', [$start, $end])
             ->orderBy('date', 'asc')
             ->get()
@@ -128,14 +112,13 @@ class FinancialStatementController extends Controller
             })
             ->values();
 
-        // $totalSummary = [
-        //     'total_revenue'  => $reports->sum('revenue'),
-        //     'total_cogs'     => $reports->sum('cogs'),
-        //     'total_gross'    => $reports->sum('grossProfit'),
-        //     'total_expense'  => $reports->sum('expenses'),
-        //     'total_net'      => $reports->sum('netProfit'),
-        // ];
+        // 🔹 Pagination (lazy-load)
+        $length = (int) $request->input('length', 15);
+        $startIndex = (int) $request->input('start', 0);
+        $paginated = $reports->slice($startIndex, $length)->values();
+        $hasMore = $reports->count() > ($startIndex + $length);
 
+        // 🔹 Total summary tetap utuh
         $totalSummary = [
             'total_revenue'       => $reports->sum('revenue'),
             'total_cogs'          => $reports->sum('cogs'),
@@ -147,12 +130,13 @@ class FinancialStatementController extends Controller
             'total_net_fixed'     => $reports->sum('netProfitFixed'),
         ];
 
+        // ✅ Return JSON format lazy-load
         return response()->json([
-            'draw' => intval($request->input('draw')),
+            'data' => $paginated,
+            'summary' => $totalSummary,
+            'has_more' => $hasMore,
             'recordsTotal' => $reports->count(),
             'recordsFiltered' => $reports->count(),
-            'data' => $reports,
-            'summary' => $totalSummary,
         ]);
     }
 

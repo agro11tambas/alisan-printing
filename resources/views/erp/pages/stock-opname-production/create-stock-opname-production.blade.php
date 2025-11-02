@@ -129,16 +129,10 @@
             return new Intl.NumberFormat('id-ID').format(num);
         }
 
-        function parseNumber(str) {
-            if (!str) return 0;
-            return parseFloat(str.toString().replace(/\./g, '').replace(',', '.')) || 0;
-        }
-
         function initSelect2(scope) {
             $(scope).find('.select2-product').each(function() {
                 const $el = $(this);
                 if ($el.hasClass('select2-hidden-accessible')) return;
-
                 $el.select2({
                     width: '100%',
                     dropdownParent: $(document.body)
@@ -148,7 +142,6 @@
             $(scope).find('select[data-select2-selector="tag"]').each(function() {
                 const $el = $(this);
                 if ($el.hasClass('select2-hidden-accessible')) return;
-
                 $el.select2({
                     width: '100%',
                     dropdownParent: $(document.body),
@@ -161,25 +154,30 @@
 
         function formatStatusOption(state) {
             if (!state.id) return state.text;
-            const $option = $(state.element);
-            const bgClass = $option.data('bg');
+            const bgClass = $(state.element).data('bg');
             const color = bgClass === 'bg-success' ? '#16a34a' : '#dc2626';
-            return $(
-                '<span style="display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background-color:' +
-                color + '"></span><span>' + state.text + '</span></span>');
+            return $('<span style="display:flex;align-items:center;gap:8px">' +
+                '<span style="width:7px;height:7px;border-radius:50%;background-color:' + color + '"></span>' +
+                '<span>' + state.text + '</span></span>');
         }
-
-        document.addEventListener('input', function(e) {
-            if (e.target.matches('input[name^="items"][name$="[available_quantity]"]')) {
-                let raw = e.target.value.replace(/\D/g, '');
-                e.target.value = raw ? numberFormat(raw) : '';
-            }
-        });
 
         $(document).ready(function() {
             initSelect2(document);
-            let rowIndex = 1;
 
+            $(document).on('select2:open', () => {
+                setTimeout(() => {
+                    document.querySelector('.select2-container--open .select2-search__field')
+                        ?.focus();
+                }, 50);
+            });
+
+            // Format angka input
+            $(document).on('input', 'input[name^="items"][name$="[available_quantity]"]', function() {
+                let raw = this.value.replace(/\D/g, '');
+                this.value = raw ? new Intl.NumberFormat('id-ID').format(raw) : '';
+            });
+
+            let rowIndex = 1;
             $('#addRowBtn').on('click', function() {
                 const tmpl = document.getElementById('rowTemplate');
                 const clone = tmpl.content.cloneNode(true);
@@ -201,9 +199,70 @@
                 $(this).closest('tr').remove();
             });
 
-            $('#stockOpnameForm').on('submit', function() {
-                $(this).find('input[name^="items"][name$="[available_quantity]"]').each(function() {
-                    this.value = this.value.replace(/\./g, '');
+            const form = document.getElementById('stockOpnameForm');
+
+            form.addEventListener('submit', function(e) {
+                let isValid = true;
+                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+
+                const rows = form.querySelectorAll('#itemsBody tr');
+                rows.forEach((row, i) => {
+                    const product = row.querySelector('select.select2-product');
+                    const qty = row.querySelector(
+                        'input[name^="items"][name$="[available_quantity]"]');
+                    const date = row.querySelector('input[type="date"]');
+                    const numericQty = parseFloat(qty.value.replace(/\./g, '')) || 0;
+
+                    if (!product.value) {
+                        isValid = false;
+                        showError(product, `Produk baris ${i + 1} wajib dipilih`);
+                    }
+                    if (numericQty <= 0) {
+                        isValid = false;
+                        showError(qty, 'Available quantity minimal 1');
+                    }
+                    if (!date.value.trim()) {
+                        isValid = false;
+                        showError(date, 'Tanggal wajib diisi');
+                    }
+                });
+
+                if (!isValid) {
+                    e.preventDefault();
+                    return;
+                }
+
+                // bersihkan format ribuan sebelum submit
+                form.querySelectorAll('input[name^="items"][name$="[available_quantity]"]').forEach(
+                input => {
+                    input.value = input.value.replace(/\./g, '');
+                });
+            });
+
+            function showError(el, message) {
+                if ($(el).hasClass('select2-hidden-accessible')) {
+                    const select2Container = $(el).next('.select2');
+                    select2Container.next('.invalid-feedback').remove();
+                    const feedback = $('<div class="invalid-feedback d-block">' + message + '</div>');
+                    select2Container.after(feedback);
+                } else {
+                    el.classList.add('is-invalid');
+                    const parent = el.closest('.input-group') || el.parentNode;
+                    const existing = parent.querySelector('.invalid-feedback');
+                    if (existing) existing.remove();
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback d-block';
+                    feedback.textContent = message;
+                    parent.appendChild(feedback);
+                }
+            }
+
+            form.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', () => {
+                    el.classList.remove('is-invalid');
+                    const next = el.parentNode.querySelector('.invalid-feedback');
+                    if (next) next.remove();
                 });
             });
         });

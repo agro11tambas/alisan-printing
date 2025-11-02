@@ -117,7 +117,7 @@
                                     <label for="price" class="fw-semibold">Price</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
-                                    <input type="number" class="form-control" id="price" name="price"
+                                    <input type="text" inputmode="numeric" class="form-control" id="price" name="price"
                                         value="{{ old('price') }}" placeholder="Price">
                                 </div>
                             </div>
@@ -132,6 +132,10 @@
 
 @push('scripts')
     <script>
+        $.fn.dataTable = function() {
+            return this;
+        };
+
         $(document).ready(function() {
             let rowIndex = 1;
 
@@ -204,19 +208,36 @@
             }
 
             function refreshDropdownOptions() {
-
+                // ambil semua produk yang sudah dipilih
                 const selectedProducts = $('.product-select').map(function() {
                     return $(this).val();
                 }).get().filter(Boolean);
 
+                // untuk setiap select
                 $('.product-select').each(function() {
                     const currentSelect = $(this);
-                    const currentValue = currentSelect.val();
+                    const currentValue = currentSelect.val(); // produk yang sedang aktif
 
+                    // Simpan value yang sekarang supaya tidak hilang
                     currentSelect.find('option').each(function() {
                         const val = $(this).attr('value');
-                        if (val && val !== currentValue) {
-                            $(this).prop('disabled', selectedProducts.includes(val));
+                        if (!val) return;
+
+                        // kalau produk sudah dipilih di select lain, hapus dari dropdown
+                        if (selectedProducts.includes(val) && val !== currentValue) {
+                            $(this).remove(); // Hapus option
+                        } else {
+                            // kalau option hilang tapi sekarang dibutuhkan lagi → tambahkan kembali
+                            const exists = currentSelect.find('option[value="' + val + '"]').length;
+                            if (!exists && (val === currentValue || !selectedProducts.includes(
+                                    val))) {
+                                // tambahkan kembali option (jaga-jaga kalau sebelumnya kehapus)
+                                const original = $(`#productTable option[value="${val}"]:first`)
+                                    .clone();
+                                if (original.length) {
+                                    currentSelect.append(original);
+                                }
+                            }
                         }
                     });
 
@@ -263,6 +284,43 @@
                 feedback.textContent = message;
                 parent.appendChild(feedback);
             }
+
+            // 🧩 Tambahkan di dalam $(document).ready(function() { ... })
+
+            // --- fungsi format & unformat (Indonesia → en-US) ---
+            function formatRibuan(value) {
+                if (value === null || value === undefined || value === '') return '';
+                value = value.toString().replace(/[^0-9,]/g, ''); // hanya angka dan koma
+                let [intPart, decPart] = value.split(',');
+                intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                return decPart !== undefined ? `${intPart},${decPart}` : intPart;
+            }
+
+            function unformatRibuan(value) {
+                if (!value) return 0;
+                // ubah "1.234,56" → "1234.56"
+                return value.toString().replace(/\./g, '').replace(',', '.');
+            }
+
+
+            // --- format realtime di field price ---
+            $('#price').on('input', function() {
+                let val = $(this).val();
+
+                // izinkan angka dan koma
+                val = val.replace(/[^0-9,]/g, '');
+
+                // format ribuan (pakai titik)
+                $(this).val(formatRibuan(val));
+            });
+
+            // --- sebelum form disubmit, ubah ke format en-US ---
+            $('#productBundleForm').on('submit', function() {
+                const val = $('#price').val();
+                const enValue = unformatRibuan(val);
+                $('#price').val(enValue);
+            });
+
 
             $(document).on('select2:open', () => {
                 setTimeout(() => {

@@ -35,87 +35,82 @@ class ProductsController extends Controller
         return view('erp.pages.products.index', compact('products', 'categories', 'tags'));
     }
 
-    public function data()
+    public function data(Request $request)
     {
-        $products = Products::with(['categories', 'tags'])->orderBy('name', 'asc');
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
 
-        if (request()->filled('search_type') && request()->filled('search_keyword')) {
-            $searchType = request()->search_type;
-            $keyword = request()->search_keyword;
+        // ✅ Tambahkan inventoryStock ke eager loading biar gak N+1 query
+        $products = Products::with(['categories', 'tags', 'inventoryStock'])
+            ->orderBy('name', 'asc');
 
-            if ($searchType === 'name') {
-                $products->where('name', 'like', '%' . $keyword . '%');
-            } elseif ($searchType === 'sku') {
-                $products->where('sku', 'like', '%' . $keyword . '%');
-            }
+        // ✅ Filter berdasarkan nama atau SKU
+        if ($request->filled('search_type') && $request->filled('search_keyword')) {
+            $type = $request->search_type;
+            $keyword = $request->search_keyword;
+
+            $products->when(
+                $type === 'name',
+                fn($q) =>
+                $q->where('name', 'like', "%{$keyword}%")
+            )->when(
+                $type === 'sku',
+                fn($q) =>
+                $q->where('sku', 'like', "%{$keyword}%")
+            );
         }
 
-        if (request()->filled('category_id')) {
-            $categoryIds = (array) request()->category_id;
-            $products->whereHas('categories', function ($query) use ($categoryIds) {
-                $query->whereIn('id', $categoryIds);
-            });
+        // ✅ Filter berdasarkan kategori
+        if ($request->filled('category_id')) {
+            $categoryIds = (array) $request->category_id;
+            $products->whereHas(
+                'categories',
+                fn($q) =>
+                $q->whereIn('id', $categoryIds)
+            );
         }
 
-        if (request()->filled('tag_id')) {
-            $tagIds = (array) request()->tag_id;
-            $products->whereHas('tags', function ($query) use ($tagIds) {
-                $query->whereIn('id', $tagIds);
-            });
+        // ✅ Filter berdasarkan tag
+        if ($request->filled('tag_id')) {
+            $tagIds = (array) $request->tag_id;
+            $products->whereHas(
+                'tags',
+                fn($q) =>
+                $q->whereIn('id', $tagIds)
+            );
         }
 
-        return DataTables::eloquent($products)
-            ->addIndexColumn()
-            ->addColumn('id', function ($product) {
-                return $product->id;
-            })
-            ->addColumn('image', function ($product) {
-                $src = $product->image
-                    ? asset($product->image)
-                    : asset('uploads/products/default.png');
+        // ✅ Hindari query count dua kali
+        $totalQuery = clone $products;
+        $totalData = $totalQuery->count();
 
-                return '
-                <a href="' . $src . '" data-lightbox="product-' . $product->id . '">
-                    <img src="' . $src . '"
-                        width="50"
-                        height="50"
-                        style="border-radius: 50%; object-fit: cover; object-position: center;"
-                        alt="Image">
-                </a>
-            ';
-            })
-            ->addColumn('name', function ($product) {
-                return $product->name;
-            })
-            ->addColumn('categories', function ($product) {
-                return $product->categories->map(function ($category) {
-                    return '<span class="badge bg-soft-primary text-primary">' . $category->name . '</span>';
-                })->implode(' ');
-            })
-            ->addColumn('tags', function ($product) {
-                return $product->tags->map(function ($tag) {
-                    return '<span class="badge bg-soft-success text-success">' . $tag->name . '</span>';
-                })->implode(' ');
-            })
-            ->addColumn('avg_cost', function ($product) {
-                return 'Rp ' . number_format(optional($product->inventoryStock)->avg_cost ?? 0, 2, ',', '.');
-            })
-            ->addColumn('price', function ($product) {
-                return 'Rp ' . number_format($product['price'], 0, ',', '.');
-            })
-            ->addColumn('sku', function ($product) {
-                return $product->sku;
-            })
-            ->addColumn('fixed_cost', function ($product) {
-                return 'Rp ' . number_format($product->fixed_cost, 2, ',', '.');
-            })
-            ->addColumn('action', function ($product) {
-                return view('erp.pages.products.partials.action-button', compact('product'))->render();
-            })
-            ->rawColumns(['image', 'categories', 'tags', 'stock', 'action'])
-            ->make(true);
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $products->skip($start)->take($length)->get();
+
+        // ✅ Return format ringan dan cocok untuk lazy load (bukan DataTables draw)
+        return response()->json([
+            'data' => $data->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => e($product->name),
+                    'categories' => $product->categories->map(
+                        fn($c) => '<span class="badge bg-soft-primary text-primary">'
+                            . e($c->name) . '</span>'
+                    )->implode(' '),
+                    'tags' => $product->tags->map(
+                        fn($t) => '<span class="badge bg-soft-success text-success">'
+                            . e($t->name) . '</span>'
+                    )->implode(' '),
+                    'price' => 'Rp ' . number_format($product->price, 0, ',', '.'),
+                    'sku' => e($product->sku),
+                    'avg_cost' => 'Rp ' . number_format(optional($product->inventoryStock)->avg_cost ?? 0, 2, ',', '.'),
+                    'fixed_cost' => 'Rp ' . number_format($product->fixed_cost, 2, ',', '.'),
+                    'action' => view('erp.pages.products.partials.action-button', compact('product'))->render(),
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length), // ✅ untuk infinite scroll
+        ]);
     }
-
 
     public function create()
     {

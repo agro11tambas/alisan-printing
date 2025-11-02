@@ -21,38 +21,25 @@
                 @endphp
 
                 <tr>
-                    {{-- Product --}}
                     <td>
                         <span class="fw-bold text-dark">{{ $item->product->name ?? '-' }}</span>
                     </td>
-
-                    {{-- Preview --}}
                     <td>
                         @if (!empty($images))
-                            <div class="d-flex flex-wrap align-items-start gap-2">
-                                @foreach ($images as $img)
-                                    <div class="text-center">
-                                        <a href="#" class="img-viewer" data-src="{{ asset($img['file']) }}"
-                                            data-note="{{ $img['note'] ?? '' }}">
-                                            <img src="{{ asset($img['file']) }}" width="90" height="70"
-                                                style="border-radius:8px;object-fit:cover;border:1px solid #ddd;">
-                                        </a>
-                                        <p class="small text-muted mt-1">{{ $img['note'] ?? '-' }}</p>
-                                    </div>
-                                @endforeach
-                            </div>
+                            <button class="btn btn-sm btn-outline-info preview-btn"
+                                data-images='@json($images)'
+                                data-product="{{ $item->product->name ?? '-' }}">
+                                <i class="feather-eye me-1"></i> Preview
+                            </button>
                         @else
                             <span class="text-muted small fst-italic">No preview</span>
                         @endif
-                    </td>
 
-                    {{-- Progress --}}
+                    </td>
                     <td>
                         <span class="fw-bold text-success">{{ number_format($totalCompleted, 0, ',', '.') }}</span> /
                         <span class="fw-bold text-primary">{{ number_format($item->quantity, 0, ',', '.') }}</span>
                     </td>
-
-                    {{-- Assign --}}
                     <td>
                         <span class="fw-bold text-danger">{{ number_format($activeAssign, 0, ',', '.') }}</span>
                     </td>

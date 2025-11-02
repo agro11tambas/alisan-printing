@@ -136,7 +136,7 @@
                     <table class="table bg-transparenttable-hover table-vcenter text-nowrap mb-0" id="accountList">
                         <thead>
                             <tr>
-                                <th>No</th>
+                                {{-- <th>No</th> --}}
                                 <th>Date</th>
                                 <th>Account Type</th>
                                 <th>Particular</th>
@@ -157,17 +157,11 @@
     <script>
         $(document).ready(function() {
 
-            // ====================================================
-            // 🔹 VARIABEL LAZY LOAD
-            // ====================================================
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ====================================================
-            // 🔹 INISIALISASI DATATABLE (ASLI TIDAK DIUBAH)
-            // ====================================================
             const table = $('#accountList').DataTable({
                 processing: false,
                 serverSide: false,
@@ -179,14 +173,15 @@
                 lengthChange: false,
                 info: false,
                 order: [
-                    [1, 'desc']
+                    [0, 'desc']
                 ],
                 data: [],
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                     {
                         data: 'transaction_date'
                     },
@@ -205,9 +200,6 @@
                 ]
             });
 
-            // ====================================================
-            // 🔹 FUNGSI LOAD DATA (BATCH PER 20)
-            // ====================================================
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -243,14 +235,8 @@
                 });
             }
 
-            // ====================================================
-            // 🔹 LOAD PERTAMA
-            // ====================================================
             loadMoreData();
 
-            // ====================================================
-            // 🔹 SCROLL DETECTION UNTUK LAZY LOAD
-            // ====================================================
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -265,9 +251,6 @@
                 }, 200);
             });
 
-            // ====================================================
-            // 🔹 RESET & RELOAD DATA
-            // ====================================================
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -276,9 +259,6 @@
                 loadMoreData();
             }
 
-            // ====================================================
-            // 🔹 FILTER & SEARCH (ASLI — TIDAK DIUBAH SAMA SEKALI)
-            // ====================================================
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');

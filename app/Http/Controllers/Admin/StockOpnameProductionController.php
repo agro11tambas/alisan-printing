@@ -21,8 +21,12 @@ class StockOpnameProductionController extends Controller
 
     public function dataStockOpnameProduction(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $stockOpname = StockOpnameProduction::with('product');
 
+        // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -55,46 +59,43 @@ class StockOpnameProductionController extends Controller
             }
         }
 
+        // ✅ Filter status
         if ($request->has('status') && $request->status != '') {
             $stockOpname->where('status', $request->status);
         }
 
-        $stockOpname = $stockOpname->latest()->get();
+        // ✅ Hindari query count dua kali
+        $totalQuery = clone $stockOpname;
+        $totalData = $totalQuery->count();
 
-        return DataTables::of($stockOpname)
-            ->addIndexColumn()
-            ->addColumn('product_name', function ($stockOpname) {
-                return $stockOpname->product->name ?? '-';
-            })
-            ->addColumn('date', function ($stockOpname) {
-                return $stockOpname->date;
-            })
-            ->addColumn('available_quantity', function ($stockOpname) {
-                return number_format($stockOpname->available_quantity, 0, ',', '.');
-            })
-            ->addColumn('finished_product', function ($stockOpname) {
-                return number_format($stockOpname->finished_product, 0, ',', '.');
-            })
-            ->addColumn('status', function ($stockOpname) {
-                $status = strtolower($stockOpname->status);
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $stockOpname->latest()->skip($start)->take($length)->get();
 
-                switch ($status) {
-                    case 'gain':
-                        return '<div class="badge bg-soft-success text-success">' . $stockOpname->status . '</div>';
-                    case 'loss':
-                        return '<div class="badge bg-soft-danger text-danger">' . $stockOpname->status . '</div>';
-                    default:
-                        return '<div class="badge bg-soft-primary text-primary">' . $stockOpname->status . '</div>';
-                }
-            })
-            ->addColumn('notes', function ($stockOpname) {
-                return $stockOpname->notes ?? '-';
-            })
-            ->addColumn('action', function ($stockOpname) {
-                return view('erp.pages.stock-opname-production.partials.action-button', compact('stockOpname'))->render();
-            })
-            ->rawColumns(['action', 'status'])
-            ->make(true);
+        // ✅ Format JSON ringan (lazy load)
+        return response()->json([
+            'data' => $data->map(function ($item) {
+                $status = strtolower($item->status);
+                $badge = match ($status) {
+                    'gain' => '<div class="badge bg-soft-success text-success">' . e($item->status) . '</div>',
+                    'loss' => '<div class="badge bg-soft-danger text-danger">' . e($item->status) . '</div>',
+                    default => '<div class="badge bg-soft-primary text-primary">' . e($item->status) . '</div>',
+                };
+
+                return [
+                    'id' => $item->id,
+                    'product_name' => e($item->product->name ?? '-'),
+                    'date' => $item->date,
+                    'available_quantity' => number_format($item->available_quantity, 0, ',', '.'),
+                    'finished_product' => number_format($item->finished_product, 0, ',', '.'),
+                    'status' => $badge,
+                    'notes' => e($item->notes ?? '-'),
+                    'action' => view('erp.pages.stock-opname-production.partials.action-button', [
+                        'stockOpname' => $item
+                    ])->render(),
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function create()

@@ -127,14 +127,10 @@
                         <div class="table-responsive">
                             <table class="table table-hover bg-transparent table-hover" id="deliveryOrderTable">
                                 <thead>
-                                    <tr>
-                                        {{-- <th>No</th> --}}
-                                        <th>Delivery Number</th>
-                                        <!-- <th>Delivery Date</th> -->
-                                        <th>Customer</th>
-                                        {{-- <th>Status</th> --}}
-                                        <th>Products</th>
-                                        <!-- <th class="text-end">Actions</th> -->
+                                    <tr>                                        
+                                        <th class="wd-250">Delivery Number</th>                                        
+                                        <th class="wd-250">Customer</th>                                        
+                                        <th>Products</th>                                        
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -275,7 +271,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [0, 'desc']
+                    [3, 'desc']
                 ],
                 data: [],
                 columns: [
@@ -291,6 +287,12 @@
                     {
                         data: 'products',
                         name: 'products'
+                    },
+                    {
+                        data: 'id',
+                        name: 'id',
+                        visible: false,
+                        searchable: false
                     },
                     // { data: 'action', orderable: false, searchable: false }
                 ],

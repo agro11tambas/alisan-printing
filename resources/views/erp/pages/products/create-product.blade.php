@@ -187,101 +187,10 @@
 
 @push('scripts')
     <script>
-        document.getElementById('image').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            const preview = document.getElementById('preview-image');
-
-            if (file) {
-                const reader = new FileReader();
-
-                reader.onload = function(e) {
-                    preview.src = e.target.result;
-                    preview.style.display = 'block';
-                };
-
-                reader.readAsDataURL(file);
-            } else {
-                preview.src = '#';
-                preview.style.display = 'none';
-            }
-        });
-
-        document.getElementById('productForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const form = this;
-            form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-
-            const rules = [{
-                    selector: 'input[name="name"]',
-                    message: 'Nama Produk wajib diisi'
-                },
-                {
-                    selector: 'input[name="sku"]',
-                    message: 'SKU wajib diisi'
-                },
-                {
-                    selector: 'input[name="price"]',
-                    message: 'Price wajib diisi'
-                },
-                // {
-                //     selector: 'input[name="fixed_cost"]',
-                //     message: 'Fixed Cost wajib diisi'
-                // },
-                {
-                    selector: '#categories',
-                    message: 'Minimal satu kategori harus dipilih',
-                    validate: () => $('#categories').val() && $('#categories').val().length > 0
-                },
-                {
-                    selector: '#tags',
-                    message: 'Minimal satu tag harus dipilih',
-                    validate: () => $('#tags').val() && $('#tags').val().length > 0
-                }
-            ];
-
-            let isValid = true;
-
-            rules.forEach(rule => {
-                const el = form.querySelector(rule.selector);
-                const val = el?.value ?? '';
-                const valid = rule.validate ? rule.validate(val) : val.trim() !== '';
-
-                if (!valid) {
-                    showError(el, rule.message);
-                    isValid = false;
-                }
-            });
-
-            if (isValid) form.submit();
-        });
-
-        function showError(input, message) {
-            if (!input) return;
-
-            if ($(input).hasClass('select2-hidden-accessible')) {
-                const select2Container = $(input).next('.select2');
-                select2Container.find('.select2-selection').addClass('is-invalid');
-
-                if (select2Container.next('.invalid-feedback').length === 0) {
-                    select2Container.after(`<div class="invalid-feedback d-block">${message}</div>`);
-                }
-            } else {
-                input.classList.add('is-invalid');
-                const parent = input.closest('div');
-                if (!parent) return;
-                const feedback = document.createElement('div');
-                feedback.className = 'invalid-feedback';
-                feedback.textContent = message;
-                parent.appendChild(feedback);
-            }
-        }
-
         document.addEventListener("DOMContentLoaded", () => {
-
             const form = document.getElementById('productForm');
 
+            // ========== FORMAT INPUT PRICE & FIXED COST ==========
             ['price', 'fixed_cost'].forEach(id => {
                 const input = document.getElementById(id);
                 if (!input) return;
@@ -305,24 +214,139 @@
 
                     // Simpan versi raw (float, dengan titik)
                     this.dataset.raw = val.replace(/\./g, '').replace(',', '.');
-                });
 
+                    // Hapus error saat user mulai mengetik
+                    removeError($(this));
+                });
             });
 
-            form.addEventListener('submit', function(e) {
+            // ========== IMAGE PREVIEW ==========
+            const imageInput = document.getElementById('image');
+            if (imageInput) {
+                imageInput.addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    const preview = document.getElementById('preview-image');
+
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            preview.src = e.target.result;
+                            preview.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        preview.src = '#';
+                        preview.style.display = 'none';
+                    }
+                });
+            }
+
+            function showError(element, message) {
+                const parent = element.closest('.col-lg-10'); // ✅ Ganti dari .input-group
+
+                parent.find('.error-message').remove();
+                element.addClass('is-invalid');
+
+                if (element.hasClass('select2-hidden-accessible')) {
+                    element.next('.select2').find('.select2-selection').addClass('is-invalid');
+                }
+
+                const errorDiv = $('<div class="error-message text-danger small mt-1"></div>').text(message);
+                parent.append(errorDiv); // ✅ Sekarang error muncul di bawah .input-group
+            }
+
+            function removeError(element) {
+                const parent = element.closest('.col-lg-10'); // ✅ Ganti dari .input-group
+                parent.find('.error-message').remove();
+                element.removeClass('is-invalid');
+
+                if (element.hasClass('select2-hidden-accessible')) {
+                    element.next('.select2').find('.select2-selection').removeClass('is-invalid');
+                }
+            }
+
+            // ========== AUTO REMOVE ERROR SAAT INPUT ==========
+            ['name', 'sku', 'price'].forEach(id => {
+                const input = $('#' + id);
+                if (input.length) {
+                    input.on('input', function() {
+                        removeError($(this));
+                    });
+                }
+            });
+
+            // Untuk select2 (categories & tags)
+            $('#categories, #tags').on('change', function() {
+                removeError($(this));
+            });
+
+            // ========== VALIDASI SUBMIT (KONSISTEN DENGAN REQUEST STOCK) ==========
+            $('#productForm').on('submit', function(e) {
                 e.preventDefault();
 
-                ['price', 'fixed_cost'].forEach(id => {
-                    const input = document.getElementById(id);
-                    if (!input) return;
-                    let raw = input.dataset.raw || input.value;
-                    if (raw === '') raw = 0;
-                    raw = raw.replace(',', '.');
-                    input.value = raw;
+                let isValid = true;
 
-                });
+                // Hapus semua error sebelumnya
+                $('.error-message').remove();
+                $('.is-invalid').removeClass('is-invalid');
 
-                form.submit();
+                // Validasi Name
+                const nameInput = $('input[name="name"]');
+                if (!nameInput.val() || nameInput.val().trim() === '') {
+                    showError(nameInput, 'Nama Produk wajib diisi');
+                    isValid = false;
+                }
+
+                // Validasi SKU
+                const skuInput = $('input[name="sku"]');
+                if (!skuInput.val() || skuInput.val().trim() === '') {
+                    showError(skuInput, 'SKU wajib diisi');
+                    isValid = false;
+                }
+
+                // Validasi Price
+                const priceInput = $('input[name="price"]');
+                if (!priceInput.val() || priceInput.val().trim() === '') {
+                    showError(priceInput, 'Price wajib diisi');
+                    isValid = false;
+                }
+
+                // Validasi Categories
+                const categoriesSelect = $('#categories');
+                if (!categoriesSelect.val() || categoriesSelect.val().length === 0) {
+                    showError(categoriesSelect, 'Minimal satu kategori harus dipilih');
+                    isValid = false;
+                }
+
+                // Validasi Tags
+                const tagsSelect = $('#tags');
+                if (!tagsSelect.val() || tagsSelect.val().length === 0) {
+                    showError(tagsSelect, 'Minimal satu tag harus dipilih');
+                    isValid = false;
+                }
+
+                // Jika valid, format angka dan submit
+                if (isValid) {
+                    ['price', 'fixed_cost'].forEach(id => {
+                        const input = document.getElementById(id);
+                        if (!input) return;
+
+                        let raw = input.dataset.raw || input.value;
+                        if (raw === '') raw = '0';
+                        raw = raw.replace(',', '.');
+                        input.value = raw;
+                    });
+
+                    this.submit();
+                } else {
+                    // Scroll ke error pertama
+                    const firstError = $('.is-invalid').first();
+                    if (firstError.length) {
+                        $('html, body').animate({
+                            scrollTop: firstError.offset().top - 100
+                        }, 300);
+                    }
+                }
             });
         });
     </script>

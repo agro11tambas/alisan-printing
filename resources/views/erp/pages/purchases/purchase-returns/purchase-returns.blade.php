@@ -466,14 +466,6 @@
     <script>
         $(document).ready(function() {
             // ====================================================
-            // 🔹 LAZY LOAD VARIABLES
-            // ====================================================
-            let allData = [];
-            let currentPage = 0;
-            let isLoading = false;
-            let hasMoreData = true;
-
-            // ====================================================
             // 🔹 FORMAT PRODUK
             // ====================================================
             function formatProducts(products) {
@@ -518,9 +510,11 @@
                 return html;
             }
 
-            // ====================================================
-            // 🔹 DATATABLE UTAMA
-            // ====================================================
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             const dataTable = $('#purchaseReturnTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -531,7 +525,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [1, 'desc']
+                    [7, 'desc']
                 ],
                 data: [],
                 columns: [{
@@ -559,15 +553,18 @@
                     {
                         data: 'payment_status'
                     },
+                    {
+                        data: 'return_date',
+                        visible: false,
+                        searchable: false
+                    }
                 ]
             });
 
-            // ====================================================
-            // 🔹 FUNGSI LOAD DATA (LAZY)
-            // ====================================================
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
+                console.log('🔄 Loading purchase return page:', currentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/purchases/purchase-returns/data') }}",
@@ -583,32 +580,29 @@
                         payment_status: $('#search_payment_status').val(),
                     },
                     success: function(response) {
+                        console.log('✅ Purchase return response:', response);
+
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
+                            console.log('📦 Total purchase return rows:', allData.length);
                         } else {
                             hasMoreData = false;
+                            console.log('⚠️ No more purchase return data');
                         }
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error response:', xhr.responseJSON);
-                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        console.error('❌ Error loading purchase return:', xhr.responseText);
                         isLoading = false;
                     }
                 });
             }
 
-            // ====================================================
-            // 🔹 LOAD AWAL
-            // ====================================================
             loadMoreData();
 
-            // ====================================================
-            // 🔹 SCROLL UNTUK LAZY LOAD
-            // ====================================================
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -623,9 +617,6 @@
                 }, 200);
             });
 
-            // ====================================================
-            // 🔹 RESET & RELOAD
-            // ====================================================
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -634,82 +625,45 @@
                 loadMoreData();
             }
 
-            // ====================================================
-            // 🔹 TAB DATA TERHAPUS
-            // ====================================================
-            let deletedTable = null;
-
-            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
-                if ($(e.target).attr('href') === '#deleted-purchase-list') {
-                    if (!deletedTable) {
-                        deletedTable = $('#deletedPurchaseReturnTable').DataTable({
-                            processing: true,
-                            serverSide: true,
-                            deferRender: true,
-                            scrollY: 600,
-                            scroller: true,
-                            paging: true,
-                            searching: false,
-                            lengthChange: false,
-                            info: false,
-                            pagingType: "simple",
-                            ajax: "{{ url('/erp/purchases/purchase-returns/data-deleted') }}",
-                            columns: [{
-                                    className: 'dt-control text-center',
-                                    orderable: false,
-                                    data: null,
-                                    defaultContent: '',
-                                    width: "20px"
-                                },
-                                {
-                                    data: 'purchase_number'
-                                },
-                                {
-                                    data: 'supplier'
-                                },
-                                {
-                                    data: 'total_amount'
-                                },
-                                {
-                                    data: 'deleted_at'
-                                },
-                                {
-                                    data: 'deleted_by'
-                                },
-                                {
-                                    data: 'delete_notes'
-                                },
-                                @if (auth()->user()->role === 'Owner')
-                                    {
-                                        data: 'action',
-                                        orderable: false,
-                                        searchable: false
-                                    }
-                                @endif
-                            ]
-                        });
-
-                        $('#deletedPurchaseReturnTable tbody').on('click', 'td.dt-control', function() {
-                            let tr = $(this).closest('tr');
-                            let row = deletedTable.row(tr);
-
-                            if (row.child.isShown()) {
-                                row.child.hide();
-                                tr.removeClass('shown');
-                            } else {
-                                row.child(formatProducts(row.data().products)).show();
-                                tr.addClass('shown');
-                            }
-                        });
-                    } else {
-                        deletedTable.ajax.reload();
-                    }
+            $('#filter').on('change', function() {
+                if ($(this).val() === 'custom') {
+                    $('.custom-range').removeClass('d-none');
+                } else {
+                    $('.custom-range').addClass('d-none');
+                    resetAndReload();
                 }
             });
 
-            // ====================================================
-            // 🔹 EXPAND CHILD & ACTION ROW
-            // ====================================================
+            $('#apply-filter').on('click', function() {
+                resetAndReload();
+            });
+
+            $('#search_type').on('change', function() {
+                const selected = $(this).val();
+                if (selected === 'payment_status') {
+                    $('#search_keyword').addClass('d-none').val('');
+                    $('#search_payment_status').removeClass('d-none');
+                } else {
+                    $('#search_keyword').removeClass('d-none');
+                    $('#search_payment_status').addClass('d-none').val('');
+                }
+                resetAndReload();
+            });
+
+            let searchTimeout = null;
+            $('#search_keyword').on('keyup', function() {
+                if ($('#search_type').val() !== 'payment_status') {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => resetAndReload(), 400);
+                }
+            });
+
+            $('#search_payment_status').on('change', function() {
+                if ($('#search_type').val() === 'payment_status') {
+                    resetAndReload();
+                }
+            });
+
             $('#purchaseReturnTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
@@ -753,66 +707,185 @@
                 }
             });
 
-            $('#deletedPurchaseReturnTable tbody').on('click', 'td.dt-control', function() {
-                let tr = $(this).closest('tr');
-                let row = deletedTable.row(tr);
-                let icon = $(this).find('i');
-
-                if (row.child.isShown()) {
-                    row.child.hide();
-                    tr.removeClass('shown');
-                    icon.removeClass('feather-minus').addClass('feather-plus');
-                } else {
-                    row.child(formatProducts(row.data().products)).show();
-                    tr.addClass('shown');
-                    icon.removeClass('feather-plus').addClass('feather-minus');
-                }
-            });
-
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#purchaseReturnTable').length) return;
                 $('#purchaseReturnTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // ====================================================
-            // 🔹 FILTER & SEARCH EVENTS (TIDAK DIUBAH)
-            // ====================================================
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
+            let deletedAllData = [];
+            let deletedCurrentPage = 0;
+            let deletedIsLoading = false;
+            let deletedHasMoreData = true;
+            let deletedTable = null;
+            let deletedTableInitialized = false;
+
+            function initDeletedTable() {
+                if (deletedTableInitialized) return;
+
+                const deletedColumns = [{
+                        className: 'dt-control text-center',
+                        orderable: false,
+                        data: null,
+                        defaultContent: '',
+                        width: "20px"
+                    },
+                    {
+                        data: 'purchase_number'
+                    },
+                    {
+                        data: 'supplier'
+                    },
+                    {
+                        data: 'total_amount'
+                    },
+                    {
+                        data: 'deleted_at'
+                    },
+                    {
+                        data: 'deleted_by'
+                    },
+                    {
+                        data: 'delete_notes'
+                    },
+                ];
+
+                @if (auth()->user()->role === 'Owner')
+                    deletedColumns.push({
+                        data: 'action',
+                        orderable: false,
+                        searchable: false
+                    });
+                @endif
+
+                deletedTable = $('#deletedPurchaseReturnTable').DataTable({
+                    processing: false,
+                    serverSide: false,
+                    scrollY: '60vh',
+                    scrollCollapse: true,
+                    paging: false,
+                    searching: false,
+                    info: false,
+                    lengthChange: false,
+                    data: [],
+                    order: [
+                        [4, 'asc']
+                    ],
+                    columns: deletedColumns
+                });
+
+                deletedTableInitialized = true;
+
+                $('#deletedPurchaseReturnTable').closest('.dataTables_scrollBody').on('scroll', function() {
+                    clearTimeout(scrollTimeout);
+
+                    const scrollTop = $(this).scrollTop();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
+
+                    scrollTimeout = setTimeout(() => {
+                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                            loadMoreDeletedData();
+                        }
+                    }, 200);
+                });
+
+                $('#deletedPurchaseReturnTable tbody').on('click', 'td.dt-control', function() {
+                    let tr = $(this).closest('tr');
+                    let row = deletedTable.row(tr);
+                    let icon = $(this).find('i');
+
+                    if (row.child.isShown()) {
+                        row.child.hide();
+                        tr.removeClass('shown');
+                        icon.removeClass('feather-minus').addClass('feather-plus');
+                    } else {
+                        row.child(formatProducts(row.data().products)).show();
+                        tr.addClass('shown');
+                        icon.removeClass('feather-plus').addClass('feather-minus');
+                    }
+                });
+            }
+
+            function loadMoreDeletedData() {
+                if (deletedIsLoading || !deletedHasMoreData) return;
+
+                deletedIsLoading = true;
+                console.log('🔄 Loading deleted purchase return page:', deletedCurrentPage + 1);
+
+                $.ajax({
+                    url: "{{ url('/erp/purchases/purchase-returns/data-deleted') }}",
+                    type: 'GET',
+                    data: {
+                        start: deletedCurrentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val(),
+                    },
+                    success: function(response) {
+                        console.log('✅ Deleted purchase return response:', response);
+
+                        if (response && response.data && response.data.length > 0) {
+                            deletedAllData = deletedAllData.concat(response.data);
+                            deletedTable.clear();
+                            deletedTable.rows.add(deletedAllData);
+                            deletedTable.draw(false);
+                            deletedCurrentPage++;
+                            console.log('📦 Total deleted purchase return rows:', deletedAllData
+                                .length);
+                        } else {
+                            deletedHasMoreData = false;
+                            console.log('⚠️ No more deleted purchase return data');
+                        }
+
+                        deletedIsLoading = false;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ Error loading deleted purchase return:', error);
+                        console.error('Response:', xhr.responseText);
+                        deletedIsLoading = false;
+                    }
+                });
+            }
+
+            function resetAndReloadDeleted() {
+                deletedAllData = [];
+                deletedCurrentPage = 0;
+                deletedHasMoreData = true;
+                if (deletedTable) {
+                    deletedTable.clear().draw();
+                }
+                loadMoreDeletedData();
+            }
+
+            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
+                if ($(e.target).attr('href') === '#deleted-purchase-list') {
+                    if (!deletedTableInitialized) {
+                        initDeletedTable();
+                        loadMoreDeletedData();
+                    } else {
+                        resetAndReloadDeleted();
+                    }
                 }
             });
 
-            $('#apply-filter').on('click', function() {
-                resetAndReload();
-            });
-
-            $('#search_type').on('change', function() {
-                const selected = $(this).val();
-                if (selected === 'payment_status') {
-                    $('#search_keyword').addClass('d-none').val('');
-                    $('#search_payment_status').removeClass('d-none');
-                } else {
-                    $('#search_keyword').removeClass('d-none');
-                    $('#search_payment_status').addClass('d-none').val('');
+            $('#filter, #apply-filter, #search_type, #search_payment_status').on('change click', function() {
+                if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent().hasClass(
+                        'active')) {
+                    resetAndReloadDeleted();
                 }
-                resetAndReload();
             });
 
-            let searchTimeout = null;
             $('#search_keyword').on('keyup', function() {
-                if ($('#search_type').val() !== 'payment_status') {
+                if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent().hasClass(
+                        'active')) {
                     clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => resetAndReload(), 400);
-                }
-            });
-
-            $('#search_payment_status').on('change', function() {
-                if ($('#search_type').val() === 'payment_status') {
-                    resetAndReload();
+                    searchTimeout = setTimeout(() => {
+                        resetAndReloadDeleted();
+                    }, 400);
                 }
             });
         });
@@ -871,7 +944,6 @@
                 const display = document.getElementById('refund_amount_display_freight');
                 if (display) display.innerText = 'Refunded: Rp. ' + fmt.format(refunded);
             }
-
         });
 
         const refundInputProduct = document.getElementById("refund_amount_product");

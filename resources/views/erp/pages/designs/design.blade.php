@@ -145,14 +145,14 @@
                                 <div id="previewContainer" class="d-flex flex-wrap gap-3 justify-content-start"></div>
                             </div>
 
-                            <input type="file" class="form-control mt-2" id="preview_image" name="preview_image[]"
-                                accept="image/*" multiple>
+                            {{-- <input type="file" class="form-control mt-2" id="preview_image" name="preview_image[]"
+                                accept="image/*" multiple> --}}
                         </div>
 
-                        <div class="mb-3">
+                        {{-- <div class="mb-3">
                             <label for="note" class="form-label">Note</label>
                             <textarea class="form-control" name="note" id="note" rows="3" placeholder="Add a note..."></textarea>
-                        </div>
+                        </div> --}}
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -201,18 +201,33 @@
             </form>
         </div>
     </div>
+
+    <div class="modal fade" id="multiImageViewerModal" tabindex="-1" aria-labelledby="multiImageViewerModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title text-white" id="multiImageViewerModalLabel">Preview Design</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="fw-bold mb-3" id="multiViewerProduct"></h6>
+                    <div id="multiViewerContainer" class="d-flex flex-wrap gap-3 justify-content-start"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 @endpush
-
-
 
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // ========== LAZY LOAD IMPLEMENTATION ==========
+
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
+            let searchTimeout = null;
 
             const table = $('#designListTable').DataTable({
                 processing: false,
@@ -223,9 +238,9 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [0, 'desc']
-                // ],
+                order: [
+                    [3, 'desc']
+                ],
                 data: [],
                 columns: [{
                         data: 'design_number',
@@ -239,6 +254,12 @@
                         data: 'products',
                         name: 'products',
                         orderable: false,
+                        searchable: false
+                    },
+                    {
+                        data: 'id',
+                        name: 'id',
+                        visible: false,
                         searchable: false
                     }
                 ]
@@ -259,13 +280,12 @@
                         end_date: $('#end_date').val(),
                         search_type: $('#search_type').val(),
                         search_keyword: $('#search_keyword').val(),
-                        status: $('#status').val()
+                        status: $('#status').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            table.clear();
-                            table.rows.add(allData).draw(false);
+                            table.clear().rows.add(allData).draw(false);
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -273,16 +293,20 @@
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error loading data:', xhr.responseText);
+                        console.error('❌ AJAX Error:', xhr.responseText);
                         isLoading = false;
                     }
                 });
             }
 
-            // Load pertama
-            loadMoreData();
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                table.clear().draw();
+                loadMoreData();
+            }
 
-            // Lazy scroll
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -297,34 +321,34 @@
                 }, 200);
             });
 
-            function resetAndReload() {
-                allData = [];
-                currentPage = 0;
-                hasMoreData = true;
-                table.clear().draw();
-                loadMoreData();
-            }
-
-            // Filter events
             $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') $('.custom-range').removeClass('d-none');
-                else {
+                if ($(this).val() === 'custom') {
+                    $('.custom-range').removeClass('d-none');
+                } else {
                     $('.custom-range').addClass('d-none');
                     resetAndReload();
                 }
             });
-            $('#apply-filter, #status').on('click change', function() {
+
+            $('#apply-filter').on('click', function() {
                 resetAndReload();
             });
 
-            // Debounce untuk search keyword
-            let searchTimeout = null;
-            $('#search_keyword').on('keyup', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => resetAndReload(), 500);
+            $('#status').on('change', function() {
+                resetAndReload();
             });
 
-            // ========== ACTION ROW (TIDAK DIUBAH) ==========
+            $('#search_keyword').on('keyup', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => resetAndReload(), 400);
+            });
+
+            $('#search_type').on('change', function() {
+                resetAndReload();
+            });
+
+            loadMoreData();
+
             $('#designListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -341,9 +365,7 @@
                     let $actionRow = $(`
                 <tr class="action-row">
                     <td colspan="${colCount}">
-                        <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                        </div>
+                        <div class="d-flex justify-content-center">${actionHtml}</div>
                     </td>
                 </tr>
             `);
@@ -354,22 +376,9 @@
             });
 
             $(document).on('click', function(e) {
-                if ($(e.target).closest('#designListTable').length) return;
-                $('#designListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-            });
-
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') $('.custom-range').removeClass('d-none');
-                else {
-                    $('.custom-range').addClass('d-none');
-                    table.ajax.reload();
+                if (!$(e.target).closest('#designListTable').length) {
+                    $('#designListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
                 }
-            });
-            $('#apply-filter, #status').on('click change', function() {
-                table.ajax.reload();
-            });
-            $('#search_keyword').on('keyup', function() {
-                table.ajax.reload();
             });
 
             $(document).on('click', '.upload-btn', function() {
@@ -419,17 +428,14 @@
 
                 const formData = new FormData(this);
 
-                // Hapus input file default
                 formData.delete('preview_image[]');
                 formData.delete('note_per_image[]');
 
-                // Ambil semua note
                 const notes = [];
                 $('#previewContainer .note-input').each(function() {
                     notes.push($(this).val());
                 });
 
-                // Tambahkan gambar dan note per gambar
                 pastedImageBlobs.forEach((blob, index) => {
                     formData.append('preview_image[]', blob, `screenshot_${index + 1}.png`);
                     formData.append('note_per_image[]', notes[index] || '');
@@ -488,9 +494,7 @@
                             text: res.message
                         });
 
-                        // 🚫 Jangan reload via ajax karena tabel kamu pakai client-side data
-                        // ✅ Panggil fungsi reload data manual yang kamu bikin sendiri
-                        resetAndReload(); // <- kamu udah punya fungsi ini di atas
+                        resetAndReload();
                     },
 
                     error: function(err) {
@@ -503,10 +507,8 @@
                 });
             });
 
-            // === Multi Paste & Upload Support dengan Note per Gambar ===
             let pastedImageBlobs = [];
 
-            // Handle paste screenshot
             $('#pasteArea').on('paste', function(e) {
                 const items = (e.originalEvent.clipboardData || e.clipboardData).items;
                 for (const item of items) {
@@ -532,7 +534,6 @@
                 }
             });
 
-            // Handle upload manual
             $('#preview_image').on('change', function(e) {
                 $('#previewContainer').empty();
                 pastedImageBlobs = [];
@@ -562,6 +563,35 @@
                 $('#viewerNote').text(note);
                 $('#imageViewerModal').modal('show');
             });
+        });
+
+        $(document).on('click', '.preview-btn', function() {
+            const images = $(this).data('images');
+            const product = $(this).data('product');
+            const container = $('#multiViewerContainer');
+            container.empty();
+
+            $('#multiViewerProduct').text(product);
+
+            if (Array.isArray(images) && images.length > 0) {
+                images.forEach(img => {
+                    const fileUrl = img.file ? `/${img.file}`.replace(/\/{2,}/g, '/') : '';
+                    const note = img.note || '-';
+                    const itemHTML = `
+                <div class="text-center border rounded p-2" style="max-width:260px;">
+                    <img src="${fileUrl}" class="img-fluid rounded mb-2" 
+                        style="width:180px;height:180px;object-fit:cover;cursor:pointer;"
+                        onclick="window.open('${fileUrl}', '_blank')">
+                    <p class="small text-muted mb-0">${note}</p>
+                </div>
+            `;
+                    container.append(itemHTML);
+                });
+            } else {
+                container.html('<p class="text-muted">Tidak ada gambar tersedia.</p>');
+            }
+
+            $('#multiImageViewerModal').modal('show');
         });
     </script>
 @endpush

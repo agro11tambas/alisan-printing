@@ -90,7 +90,7 @@
                                         <tr id="addr0">
                                             <td>1</td>
                                             <td>
-                                                <select class="form-control select-product" name="product[]" required>
+                                                <select class="form-control select-product" name="product[]">
                                                     <option value="" disabled selected hidden>Pilih produk</option>
                                                 </select>
                                             </td>
@@ -100,8 +100,7 @@
                                             </td>
                                             <td>
                                                 <input type="text" inputmode="numeric" name="qty[]"
-                                                    class="form-control qty text-start" min="0" value="0"
-                                                    required>
+                                                    class="form-control qty text-start" min="0" value="0">
                                             </td>
                                             <td class="text-center">
                                                 <div class="d-flex justify-content-center">
@@ -187,47 +186,114 @@
                 const value = parseInt(raw);
                 const formatted = formatNumber(value.toString());
                 input.val(formatted);
+
+                // Hapus error saat user mulai mengetik
+                removeError(input);
             });
 
-            // ✅ Hapus titik sebelum submit
-            $('#requestStockForm').on('submit', function() {
-                $('.qty').each(function() {
-                    this.value = this.value.replace(/\./g, '');
-                });
-            });
-
+            // ✅ Hapus error saat produk dipilih
             $(document).on('change', '.select-product', function() {
                 const selected = $('option:selected', this);
                 const stock = selected.data('stock') ?? 0;
                 $(this).closest('tr').find('.stock').val(stock.toLocaleString('id-ID'));
+
+                // Hapus error saat produk dipilih
+                removeError($(this));
+            });
+
+            // ✅ Fungsi untuk menampilkan error
+            function showError(element, message) {
+                const parent = element.closest('td');
+
+                // Hapus error lama jika ada
+                parent.find('.error-message').remove();
+                element.addClass('is-invalid');
+
+                // Tambah pesan error
+                const errorDiv = $('<div class="error-message text-danger small mt-1"></div>').text(message);
+                parent.append(errorDiv);
+            }
+
+            // ✅ Fungsi untuk menghapus error
+            function removeError(element) {
+                const parent = element.closest('td');
+                parent.find('.error-message').remove();
+                element.removeClass('is-invalid');
+            }
+
+            // ✅ Validasi sebelum submit
+            $('#requestStockForm').on('submit', function(e) {
+                e.preventDefault();
+
+                let isValid = true;
+
+                // Hapus semua error sebelumnya
+                $('.error-message').remove();
+                $('.is-invalid').removeClass('is-invalid');
+
+                // Validasi setiap baris
+                $('#tab_logic_body tr').each(function() {
+                    const row = $(this);
+                    const productSelect = row.find('.select-product');
+                    const qtyInput = row.find('.qty');
+
+                    // Validasi Product
+                    if (!productSelect.val() || productSelect.val() === '') {
+                        showError(productSelect, 'Produk wajib dipilih');
+                        isValid = false;
+                    }
+
+                    // Validasi Qty
+                    const qtyValue = qtyInput.val().replace(/\./g, '');
+                    if (!qtyValue || qtyValue === '0' || parseInt(qtyValue) <= 0) {
+                        showError(qtyInput, 'Qty harus lebih dari 0');
+                        isValid = false;
+                    }
+                });
+
+                // Jika valid, hapus titik dan submit
+                if (isValid) {
+                    $('.qty').each(function() {
+                        this.value = this.value.replace(/\./g, '');
+                    });
+                    this.submit();
+                } else {
+                    // Scroll ke error pertama
+                    const firstError = $('.is-invalid').first();
+                    if (firstError.length) {
+                        $('html, body').animate({
+                            scrollTop: firstError.offset().top - 100
+                        }, 300);
+                    }
+                }
             });
 
             // ✅ Tambah baris baru
             $('#add_row').on('click', function() {
                 const tableBody = $('#tab_logic_body');
                 const newRow = $(`
-                <tr id="addr${rowCount}">
-                    <td>${rowCount + 1}</td>
-                    <td>
-                        <select class="form-control select-product" name="product[]" required>
-                            <option value="" disabled selected hidden>Pilih produk</option>
-                        </select>
-                    </td>
-                    <td>
-                        <input type="text" class="form-control stock bg-light" readonly value="0">
-                    </td>
-                    <td>
-                        <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0" required>
-                    </td>
-                    <td class="text-center">
-                        <div class="d-flex justify-content-center">
-                            <button type="button" class="btn btn-danger delete-row">
-                                <i class="feather-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `);
+            <tr id="addr${rowCount}">
+                <td>${rowCount + 1}</td>
+                <td>
+                    <select class="form-control select-product" name="product[]" required>
+                        <option value="" disabled selected hidden>Pilih produk</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="text" class="form-control stock bg-light" readonly value="0">
+                </td>
+                <td>
+                    <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0" required>
+                </td>
+                <td class="text-center">
+                    <div class="d-flex justify-content-center">
+                        <button type="button" class="btn btn-danger delete-row">
+                            <i class="feather-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `);
                 tableBody.append(newRow);
                 initSelect2(newRow.find('.select-product'));
                 rowCount++;

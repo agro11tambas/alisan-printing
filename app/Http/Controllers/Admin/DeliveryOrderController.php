@@ -19,6 +19,9 @@ class DeliveryOrderController extends Controller
 
     public function dataDeliveryOrders(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $deliveryOrders = DeliveryOrder::with(['order.customer'])
             ->orderByDesc('id');
 
@@ -52,6 +55,7 @@ class DeliveryOrderController extends Controller
             }
         }
 
+        // 🔎 Filter by status
         if ($request->filled('status') && strtolower($request->status) != 'all') {
             $deliveryOrders->where('status', $request->status);
         }
@@ -67,50 +71,53 @@ class DeliveryOrderController extends Controller
             }
         }
 
-        return DataTables::eloquent($deliveryOrders)
-            ->addIndexColumn()
-            ->addColumn('delivery_number', function ($do) {
+        // ✅ Hindari query count dua kali
+        $totalQuery = clone $deliveryOrders;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $deliveryOrders->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($do) {
                 $date = Carbon::parse($do->delivery_date)->format('j M y');
-                return '<div>
-                    <div>' . $do->delivery_number . '</div>
+                $deliveryNumberHtml = '
+                <div>
+                    <div>' . e($do->delivery_number) . '</div>
                     <small class="text-muted">' . $date . '</small>
                 </div>';
-            })
-            ->addColumn('delivery_date', function ($do) {
-                return Carbon::parse($do->delivery_date)->format('j M y');
-            })
-            ->addColumn('customer', function ($do) {
-                return $do->order?->customer?->name ?? '-';
-            })
-            ->addColumn('status', function ($do) {
+
+                $customer = e($do->order?->customer?->name ?? '-');
+
                 $status = strtolower($do->status);
-                switch ($status) {
-                    case 'pending':
-                        $badgeClass = 'bg-soft-warning text-warning';
-                        break;
-                    case 'finished':
-                        $badgeClass = 'bg-soft-primary text-primary';
-                        break;
-                    case 'shipped':
-                        $badgeClass = 'bg-soft-success text-success';
-                        break;
-                    case 'ongoing':
-                        $badgeClass = 'bg-soft-danger text-danger';
-                        break;
-                    default:
-                        $badgeClass = 'bg-secondary';
-                        break;
-                }
-                return '<div class="badge ' . $badgeClass . '">' . ucfirst($do->status) . '</div>';
-            })
-            ->addColumn('products', function ($do) {
-                return view('erp.pages.deliveries.delivery-orders.partials.product-list', compact('do'))->render();
-            })
-            ->addColumn('action', function ($do) {
-                return view('erp.pages.deliveries.delivery-orders.partials.action-button', compact('do'))->render();
-            })
-            ->rawColumns(['delivery_number', 'status', 'action', 'products'])
-            ->make(true);
+                $badgeClass = match ($status) {
+                    'pending' => 'bg-soft-warning text-warning',
+                    'finished' => 'bg-soft-primary text-primary',
+                    'shipped' => 'bg-soft-success text-success',
+                    'ongoing' => 'bg-soft-danger text-danger',
+                    default => 'bg-secondary',
+                };
+                $statusHtml = '<div class="badge ' . $badgeClass . '">' . ucfirst($do->status) . '</div>';
+
+                // 📦 Products partial
+                $productsHtml = view('erp.pages.deliveries.delivery-orders.partials.product-list', compact('do'))->render();
+
+                // ⚙️ Action partial
+                $actionHtml = view('erp.pages.deliveries.delivery-orders.partials.action-button', compact('do'))->render();
+
+                return [
+                    'id' => $do->id,
+                    'delivery_number' => $deliveryNumberHtml,
+                    'delivery_date' => $date,
+                    'customer' => $customer,
+                    'status' => $statusHtml,
+                    'products' => $productsHtml,
+                    'action' => $actionHtml,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function getItems($id)

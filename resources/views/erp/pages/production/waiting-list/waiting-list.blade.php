@@ -135,12 +135,10 @@
                             <table class="table table-hover bg-transparent" id="waitingListTable">
                                 <thead>
                                     <tr>
-                                        <th class="wd-30">No</th>
-                                        <th>Order Number</th>
-                                        {{-- <th>Order Date</th> --}}
-                                        <th>Customer</th>
+                                        {{-- <th class="wd-30">No</th> --}}
+                                        <th class="wd-250">Order Number</th>
+                                        <th class="wd-250">Customer</th>
                                         <th>Progress</th>
-                                        <!-- <th class="text-end">Actions</th> -->
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -221,19 +219,32 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modalPreviewDesign" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title text-white">Design Preview</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="fw-bold mb-3" id="previewProductName"></h6>
+                    <div id="previewImageContainer" class="d-flex flex-wrap gap-3 justify-content-start"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
     <script>
         $(document).ready(function() {
 
-            // ====== VARIABEL UNTUK LAZY LOAD ======
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ====== INISIALISASI DATATABLE ======
             const dataTable = $('#waitingListTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -243,15 +254,16 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [1, 'desc']
-                // ],
+                order: [
+                    [3, 'desc']
+                ],
                 data: [],
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                     {
                         data: 'invoice_number',
                         name: 'invoice_number'
@@ -264,10 +276,15 @@
                         data: 'progress',
                         name: 'progress'
                     },
+                    {
+                        data: 'id',
+                        name: 'id',
+                        visible: false,
+                        searchable: false
+                    }
                 ],
             });
 
-            // ====== FUNGSI LOAD DATA ======
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -305,10 +322,8 @@
                 });
             }
 
-            // ====== LOAD PERTAMA ======
             loadMoreData();
 
-            // ====== EVENT SCROLL UNTUK LAZY LOAD ======
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -323,7 +338,6 @@
                 }, 200);
             });
 
-            // ====== RESET & RELOAD ======
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -332,7 +346,6 @@
                 loadMoreData();
             }
 
-            // ====== FILTER EVENTS (tidak dihapus, hanya diarahkan ke lazy reload) ======
             $('#progress_status').on('change', function() {
                 resetAndReload();
             });
@@ -368,7 +381,6 @@
                 }
             });
 
-            // ====== ACTION ROW (TETAP) ======
             $('#waitingListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -398,7 +410,6 @@
                 }
             });
 
-            // ====== CLOSE ACTION BAR SAAT KLIK DI LUAR ======
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#waitingListTable').length) return;
                 $('#waitingListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
@@ -463,6 +474,40 @@
             $('#viewerImage').attr('src', imgSrc);
             $('#viewerNote').text(imgNote);
             $('#imageViewerModal').modal('show');
+        });
+
+        $(document).on('click', '.preview-btn', function() {
+            const images = $(this).data('images');
+            const product = $(this).data('product');
+            const container = $('#previewImageContainer');
+
+            $('#previewProductName').text(product);
+            container.empty();
+
+            if (Array.isArray(images) && images.length > 0) {
+                images.forEach((img, i) => {
+                    const fileUrl = img.file ? `/${img.file}`.replace(/\/{2,}/g, '/') : '';
+                    const note = img.note || '-';
+                    const html = `
+                <div class="text-center border rounded p-2" style="max-width:250px;">
+                    <img src="${fileUrl}" class="img-fluid rounded mb-2" 
+                         style="width:180px;height:180px;object-fit:cover;cursor:pointer;"
+                         data-full="${fileUrl}">
+                    <p class="small text-muted mb-0">${note}</p>
+                </div>
+            `;
+                    container.append(html);
+                });
+            } else {
+                container.html('<p class="text-muted">No preview images available.</p>');
+            }
+
+            $('#modalPreviewDesign').modal('show');
+        });
+
+        $(document).on('click', '#previewImageContainer img', function() {
+            const src = $(this).data('full');
+            window.open(src, '_blank');
         });
     </script>
 @endpush

@@ -61,7 +61,7 @@
                     </div>
                     <div class="card mb-4">
                         <div class="card-header">
-                            <h4 class="card-title">Assign Batch Details</h4>
+                            <h4 class="card-title">Preview Image</h4>
                         </div>
                         <div class="card-body">
                             {{-- <div class="row mb-3">
@@ -74,7 +74,44 @@
                                 </div>
                             </div> --}}
 
-                            <div class="row mb-3">
+                            {{-- Design Preview Section --}}
+                            @if ($progress->items->pluck('designItem')->filter()->isNotEmpty())
+                                <div class="row mb-4">
+                                    <div class="col-lg-2">
+                                        <label class="fw-semibold">Design Preview:</label>
+                                    </div>
+                                    <div class="col-lg-10">
+                                        <div class="d-flex flex-wrap gap-3">
+                                            @foreach ($progress->items as $item)
+                                                @php
+                                                    $images = json_decode(
+                                                        optional($item->designItem)->preview_image ?? '[]',
+                                                        true,
+                                                    );
+                                                @endphp
+
+                                                @foreach ($images as $img)
+                                                    <div class="text-center">
+                                                        <a href="#" class="img-viewer"
+                                                            data-src="{{ asset($img['file']) }}"
+                                                            data-note="{{ $img['note'] ?? '' }}">
+                                                            <img src="{{ asset($img['file']) }}" width="120"
+                                                                height="90" loading="lazy"
+                                                                style="border-radius:8px;object-fit:cover;object-position:center;border:1px solid #ddd;">
+                                                        </a>
+                                                        <p class="small text-muted mt-1">{{ $img['note'] ?? '-' }}</p>
+                                                    </div>
+                                                @endforeach
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <input type="hidden" class="form-control" id="assign_date" name="assign_date"
+                                value="{{ now()->format('Y-m-d') }}">
+
+                            {{-- <div class="row mb-3">
                                 <div class="col-lg-2">
                                     <label for="assign_date" class="fw-semibold">Assign Date:</label>
                                 </div>
@@ -82,16 +119,16 @@
                                     <input type="date" class="form-control" id="assign_date" name="assign_date"
                                         value="{{ now()->format('Y-m-d') }}" required>
                                 </div>
-                            </div>
+                            </div> --}}
 
-                            <div class="row mb-3">
+                            {{-- <div class="row mb-3">
                                 <div class="col-lg-2">
                                     <label for="note" class="fw-semibold">Note:</label>
                                 </div>
                                 <div class="col-lg-10">
                                     <textarea class="form-control" id="note" name="note" placeholder="Catatan tambahan untuk batch ini"></textarea>
                                 </div>
-                            </div>
+                            </div> --}}
                         </div>
                     </div>
                     <div class="card">
@@ -169,6 +206,25 @@
     </div>
 @endsection
 
+@push('modals')
+    <div class="modal fade" id="modalPreviewDesign" tabindex="-1" aria-labelledby="modalPreviewDesignLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="modalPreviewDesignLabel">Design Preview</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="previewImageFull" src="" alt="Design Preview" class="img-fluid rounded mb-3"
+                        style="max-height:70vh;object-fit:contain;">
+                    <p id="previewImageNote" class="text-muted fs-6 mb-0"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+@endpush
+
 @push('scripts')
     <script>
         $(document).ready(function() {
@@ -236,6 +292,15 @@
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();
             }, 50);
+        });
+
+        $(document).on('click', '.img-viewer', function(e) {
+            e.preventDefault();
+            const imgSrc = $(this).data('src');
+            const note = $(this).data('note') || '-';
+            $('#previewImageFull').attr('src', imgSrc);
+            $('#previewImageNote').text(note);
+            $('#modalPreviewDesign').modal('show');
         });
     </script>
 @endpush

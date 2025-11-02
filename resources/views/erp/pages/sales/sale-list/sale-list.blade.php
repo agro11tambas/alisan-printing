@@ -543,8 +543,9 @@
                             <th>SKU</th>
                             <th>Qty</th>
                             <th class="text-end">Price</th>
-                            <th class="text-end">Ready to Ship</th>
+                            <th class="text-end">Progress</th>
                             <th class="text-end">Shipped</th>
+                            <th class="text-end">On Delivery</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -557,8 +558,9 @@
                     <td>${p.sku}</td>
                     <td>${p.qty}</td>
                     <td class="text-end">${p.price}</td>
-                    <td class="text-end">${p.ready_qty}</td>
-                    <td class="text-end">${p.shipped_qty}</td>
+                    <td class="text-end">${p.progress_qty}</td>
+                    <td class="text-end">${p.delivered}</td>
+                    <td class="text-end">${p.on_delivery}</td>
                 </tr>
             `;
                 });
@@ -586,10 +588,9 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [1, 'asc']
-                // ],
-                data: [], // Mulai dengan data kosong
+                order: [
+                    [7, 'desc']
+                ],
                 columns: [{
                         className: 'dt-control text-center',
                         orderable: false,
@@ -614,6 +615,11 @@
                     },
                     {
                         data: 'payment_status'
+                    },
+                    {
+                        data: 'order_date', // tambahkan kolom ini
+                        visible: false, // disembunyikan dari tampilan
+                        searchable: false // tidak perlu di-search
                     }
                 ]
             });
@@ -643,14 +649,10 @@
                         console.log('✅ Response received:', response);
 
                         if (response && response.data && response.data.length > 0) {
-                            // Append data baru
                             allData = allData.concat(response.data);
-
-                            // Update DataTable
                             dataTable.clear();
                             dataTable.rows.add(allData);
                             dataTable.draw(false);
-
                             currentPage++;
                             console.log('📦 Total rows:', allData.length);
                         } else {
@@ -696,22 +698,38 @@
                 loadMoreData();
             }
 
-            // Event handlers untuk filter
+            // Event handlers untuk filter SALE LIST
             $('#filter').on('change', function() {
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
+                    .hasClass('active');
+
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    resetAndReload();
+                    if (!isDeletedTab) {
+                        resetAndReload();
+                    } else {
+                        resetAndReloadDeleted();
+                    }
                 }
             });
 
             $('#apply-filter').on('click', function() {
-                resetAndReload();
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
+                    .hasClass('active');
+
+                if (!isDeletedTab) {
+                    resetAndReload();
+                } else {
+                    resetAndReloadDeleted();
+                }
             });
 
             $('#search_type').on('change', function() {
                 const selected = $(this).val();
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
+                    .hasClass('active');
 
                 if (selected === 'payment_status') {
                     $('#search_keyword').addClass('d-none').val('');
@@ -727,29 +745,54 @@
                     $('#due_date_order').addClass('d-none');
                 }
 
-                resetAndReload();
+                if (!isDeletedTab) {
+                    resetAndReload();
+                } else {
+                    resetAndReloadDeleted();
+                }
             });
 
             $('#due_date_order').on('change', function() {
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
+                    .hasClass('active');
+
                 if ($('#search_type').val() === 'due_date') {
-                    resetAndReload();
+                    if (!isDeletedTab) {
+                        resetAndReload();
+                    } else {
+                        resetAndReloadDeleted();
+                    }
                 }
             });
 
             // Debounce untuk search keyword
             let searchTimeout = null;
             $('#search_keyword').on('keyup', function() {
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
+                    .hasClass('active');
+
                 if ($('#search_type').val() !== 'payment_status') {
                     clearTimeout(searchTimeout);
                     searchTimeout = setTimeout(() => {
-                        resetAndReload();
+                        if (!isDeletedTab) {
+                            resetAndReload();
+                        } else {
+                            resetAndReloadDeleted();
+                        }
                     }, 500);
                 }
             });
 
             $('#search_payment_status').on('change', function() {
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
+                    .hasClass('active');
+
                 if ($('#search_type').val() === 'payment_status') {
-                    resetAndReload();
+                    if (!isDeletedTab) {
+                        resetAndReload();
+                    } else {
+                        resetAndReloadDeleted();
+                    }
                 }
             });
 
@@ -806,98 +849,172 @@
                 $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // ========== DELETED SALE LIST TABLE (Standard DataTables) ==========
+            // ========== DELETED SALE LIST TABLE (dengan Lazy Load CSR) ==========
+            let deletedAllData = [];
+            let deletedCurrentPage = 0;
+            let deletedIsLoading = false;
+            let deletedHasMoreData = true;
             let deletedTable = null;
+            let deletedTableInitialized = false;
 
+            function initDeletedTable() {
+                if (deletedTableInitialized) return;
+
+                const deletedColumns = [{
+                        className: 'dt-control text-center',
+                        orderable: false,
+                        data: null,
+                        defaultContent: '',
+                        width: "20px"
+                    },
+                    {
+                        data: 'order_number'
+                    },
+                    {
+                        data: 'customer'
+                    },
+                    {
+                        data: 'grand_total'
+                    },
+                    {
+                        data: 'deleted_at'
+                    },
+                    {
+                        data: 'deleted_by'
+                    },
+                    {
+                        data: 'delete_notes'
+                    }
+                ];
+
+                @if (auth()->user()->role === 'Owner')
+                    deletedColumns.push({
+                        data: 'action',
+                        orderable: false,
+                        searchable: false
+                    });
+                @endif
+
+                deletedTable = $('#deletedSaleListTable').DataTable({
+                    processing: false,
+                    serverSide: false,
+                    scrollY: '60vh',
+                    scrollCollapse: true,
+                    paging: false,
+                    searching: false,
+                    info: false,
+                    lengthChange: false,
+                    order: [
+                        [4, 'asc']
+                    ],
+                    data: [],
+                    columns: deletedColumns
+                });
+
+                deletedTableInitialized = true;
+
+                // Lazy load saat scroll untuk deleted table
+                $('#deletedSaleListTable').closest('.dataTables_scrollBody').on('scroll', function() {
+                    clearTimeout(scrollTimeout);
+
+                    const scrollTop = $(this).scrollTop();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
+
+                    scrollTimeout = setTimeout(() => {
+                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                            loadMoreDeletedData();
+                        }
+                    }, 200);
+                });
+
+                // Expand products di deleted table
+                $('#deletedSaleListTable tbody').on('click', 'td.dt-control', function() {
+                    let tr = $(this).closest('tr');
+                    let row = deletedTable.row(tr);
+                    let icon = $(this).find('i');
+
+                    if (row.child.isShown()) {
+                        row.child.hide();
+                        tr.removeClass('shown');
+                        icon.removeClass('feather-minus').addClass('feather-plus');
+                    } else {
+                        row.child(formatProducts(row.data().products)).show();
+                        tr.addClass('shown');
+                        icon.removeClass('feather-plus').addClass('feather-minus');
+                    }
+                });
+            }
+
+            function loadMoreDeletedData() {
+                if (deletedIsLoading || !deletedHasMoreData) return;
+
+                deletedIsLoading = true;
+                console.log('🔄 Loading deleted page:', deletedCurrentPage + 1);
+
+                $.ajax({
+                    url: "{{ url('/erp/sales/sale-list/data-deleted') }}",
+                    type: 'GET',
+                    data: {
+                        start: deletedCurrentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val(),
+                        due_date_order: $('#due_date_order').val()
+                    },
+                    success: function(response) {
+                        console.log('✅ Deleted response received:', response);
+
+                        if (response && response.data && response.data.length > 0) {
+                            deletedAllData = deletedAllData.concat(response.data);
+                            deletedTable.clear();
+                            deletedTable.rows.add(deletedAllData);
+                            deletedTable.draw(false);
+                            deletedCurrentPage++;
+                            console.log('📦 Total deleted rows:', deletedAllData.length);
+                        } else {
+                            deletedHasMoreData = false;
+                            console.log('⚠️ No more deleted data');
+                        }
+
+                        deletedIsLoading = false;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ Error loading deleted:', error);
+                        console.error('Response:', xhr.responseText);
+                        deletedIsLoading = false;
+                    }
+                });
+            }
+
+            function resetAndReloadDeleted() {
+                deletedAllData = [];
+                deletedCurrentPage = 0;
+                deletedHasMoreData = true;
+                if (deletedTable) {
+                    deletedTable.clear().draw();
+                }
+                loadMoreDeletedData();
+            }
+
+            // Tab switch handler
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
                 if ($(e.target).attr('href') === '#deleted-sale-list') {
-                    if (!deletedTable) {
-                        deletedTable = $('#deletedSaleListTable').DataTable({
-                            processing: true,
-                            serverSide: true,
-                            scrollY: '60vh',
-                            scrollCollapse: true,
-                            paging: true,
-                            pageLength: 15,
-                            searching: false,
-                            info: false,
-                            lengthChange: false,
-                            // order: [
-                            //     [1, 'desc']
-                            // ],
-                            ajax: {
-                                url: "{{ url('/erp/sales/sale-list/data-deleted') }}",
-                                data: function(d) {
-                                    d.filter = $('#filter').val();
-                                    d.start_date = $('#start_date').val();
-                                    d.end_date = $('#end_date').val();
-                                    d.search_type = $('#search_type').val();
-                                    d.search_keyword = $('#search_keyword').val();
-                                    d.payment_status = $('#search_payment_status').val();
-                                    d.due_date_order = $('#due_date_order').val();
-                                }
-                            },
-                            columns: [{
-                                    className: 'dt-control text-center',
-                                    orderable: false,
-                                    data: null,
-                                    defaultContent: '',
-                                    width: "20px"
-                                },
-                                {
-                                    data: 'order_number'
-                                },
-                                {
-                                    data: 'customer'
-                                },
-                                {
-                                    data: 'grand_total'
-                                },
-                                {
-                                    data: 'deleted_at'
-                                },
-                                {
-                                    data: 'deleted_by'
-                                },
-                                {
-                                    data: 'delete_notes'
-                                },
-                                @if (auth()->user()->role === 'Owner')
-                                    {
-                                        data: 'action',
-                                        orderable: false,
-                                        searchable: false
-                                    }
-                                @endif
-                            ],
-                            drawCallback: function() {
-                                $('.dataTables_paginate').hide();
-                            }
-                        });
-
-                        // Expand products di deleted table
-                        $('#deletedSaleListTable tbody').on('click', 'td.dt-control', function() {
-                            let tr = $(this).closest('tr');
-                            let row = deletedTable.row(tr);
-                            let icon = $(this).find('i');
-
-                            if (row.child.isShown()) {
-                                row.child.hide();
-                                tr.removeClass('shown');
-                                icon.removeClass('feather-minus').addClass('feather-plus');
-                            } else {
-                                row.child(formatProducts(row.data().products)).show();
-                                tr.addClass('shown');
-                                icon.removeClass('feather-plus').addClass('feather-minus');
-                            }
-                        });
+                    if (!deletedTableInitialized) {
+                        initDeletedTable();
+                        loadMoreDeletedData();
                     } else {
-                        deletedTable.ajax.reload();
+                        resetAndReloadDeleted();
                     }
                 }
             });
         });
 
+        // Modal handlers
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalDeleteOrder');
             const form = document.getElementById('formDeleteOrder');
@@ -951,7 +1068,6 @@
                 document.getElementById('paid_amount_display').innerText = 'Paid: Rp. ' + formatted;
             }
         });
-
 
         const paidInput = document.getElementById("paid_amount");
 
@@ -1052,7 +1168,6 @@
             this.submit();
         });
 
-
         $(document).on('click', '.btn-share-invoice', function() {
             const url = $(this).data('url');
             window.open(url, '_blank');
@@ -1114,11 +1229,9 @@
             const url = $(this).data('url');
             const name = $(this).data('customer');
 
-            // Ambil isi invoice via AJAX
             const response = await fetch(url);
             const html = await response.text();
 
-            // Buat elemen tersembunyi
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = html;
             tempDiv.style.position = 'absolute';
@@ -1126,7 +1239,6 @@
             tempDiv.style.left = '-9999px';
             document.body.appendChild(tempDiv);
 
-            // Cari elemen invoice
             const invoiceElement = tempDiv.querySelector('#invoiceContent');
 
             const canvas = await html2canvas(invoiceElement, {

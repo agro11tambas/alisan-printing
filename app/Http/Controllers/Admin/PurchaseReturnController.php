@@ -41,9 +41,14 @@ class PurchaseReturnController extends Controller
 
     public function dataPurchaseReturns(Request $request)
     {
-        $purchases = PurchaseReturn::with('supplier')
-            ->where('status', 'Purchase Returns')->orderByDesc('id');
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
 
+        $purchases = PurchaseReturn::with(['supplier', 'items.product'])
+            ->where('status', 'Purchase Returns')
+            ->orderByDesc('id');
+
+        // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -70,12 +75,10 @@ class PurchaseReturnController extends Controller
                         $purchases->whereBetween('return_date', [$request->start_date, $request->end_date]);
                     }
                     break;
-                default:
-                    // all time -> no filter
-                    break;
             }
         }
 
+        // ✅ Filter payment status dan pencarian
         if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
             if ($request->payment_status === 'Paid') {
                 $purchases->whereIn('payment_status', ['Paid', 'Over Refunded']);
@@ -92,161 +95,190 @@ class PurchaseReturnController extends Controller
             }
         }
 
-        return DataTables::eloquent($purchases)
-            ->addIndexColumn()
-            ->addColumn('purchase_number', function ($purchase) {
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $purchases;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $purchases->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($purchase) {
                 $date = Carbon::parse($purchase->return_date)->format('j M y');
 
+                // 🧾 Nomor + tanggal + badge Edited
                 $html = '';
-
-                // ✅ Tambahkan badge Edited kalau status_edited = 1
                 if ((int)($purchase->status_edited ?? 0) === 1) {
                     $html .= '<div class="mb-1">
-                        <span class="badge bg-soft-primary text-primary">Edited</span>
-                    </div>';
+                    <span class="badge bg-soft-primary text-primary">Edited</span>
+                </div>';
                 }
-
                 $html .= '
-                    <div>
-                        <div>' . e($purchase->purchase_number) . '</div>
-                        <small class="text-muted">' . $date . '</small>
-                    </div>
-                ';
+                <div>
+                    <div>' . e($purchase->purchase_number) . '</div>
+                    <small class="text-muted">' . $date . '</small>
+                </div>';
 
-                return $html;
-            })
-            ->addColumn('return_date', function ($purchase) {
-                return $purchase->return_date;
-            })
-            ->addColumn('supplier', function ($purchase) {
-                return $purchase->supplier->name;
-            })
-            ->addColumn('total_amount', function ($purchase) {
-                return 'Rp ' . number_format($purchase->total_amount, 0, ',', '.');
-            })
-            ->addColumn('refund_amount', function ($purchase) {
+                // 👤 Supplier
+                $supplier = e($purchase->supplier->name ?? '-');
+
+                // 💰 Total
+                $totalAmount = 'Rp ' . number_format($purchase->total_amount, 0, ',', '.');
+
+                // 💸 Refund dan Remaining
                 $refundTotal = ($purchase->refund_amount_product ?? 0) + ($purchase->refund_amount_freight ?? 0);
-                return '<span class="text-success">Rp ' . number_format($refundTotal, 0, ',', '.') . '</span>';
-            })
-            ->addColumn('remaining_amount', function ($purchase) {
                 $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
-                return '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
-            })
-            ->addColumn('payment_status', function ($purchase) {
-                $payment_status = strtolower($purchase->payment_status);
 
-                switch ($payment_status) {
-                    case 'paid':
-                        return '<div class="badge bg-soft-success text-success">' . $purchase->payment_status . '</div>';
-                        break;
-                    case 'overpaid':
-                        return '<div class="badge bg-soft-primary text-primary">' . $purchase->payment_status . '</div>';
-                        break;
-                    case 'unpaid':
-                        return '<div class="badge bg-soft-danger text-danger">' . $purchase->payment_status . '</div>';
-                        break;
-                    default:
-                        return '<div class="badge bg-soft-warning text-warning">' . $purchase->payment_status . '</div>';
-                        break;
-                }
-            })
-            ->addColumn('account', function ($purchase) {
-                return $purchase->account;
-            })
-            ->addColumn('products', function ($purchase) {
-                return $purchase->items->map(function ($item) {
+                $refundHtml = '<span class="text-success">Rp ' . number_format($refundTotal, 0, ',', '.') . '</span>';
+                $remainingHtml = '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
+
+                // 🏷️ Payment Status
+                $paymentStatus = strtolower($purchase->payment_status);
+                $paymentBadge = match ($paymentStatus) {
+                    'paid' => '<div class="badge bg-soft-success text-success">' . e($purchase->payment_status) . '</div>',
+                    'overpaid' => '<div class="badge bg-soft-primary text-primary">' . e($purchase->payment_status) . '</div>',
+                    'unpaid' => '<div class="badge bg-soft-danger text-danger">' . e($purchase->payment_status) . '</div>',
+                    default => '<div class="badge bg-soft-warning text-warning">' . e($purchase->payment_status) . '</div>',
+                };
+
+                // 🏦 Account
+                $account = e($purchase->account ?? '-');
+
+                // 📦 Products
+                $products = $purchase->items->map(function ($item) {
                     return [
-                        'name'  => $item->product ? $item->product->name : '-',
-                        'sku'   => $item->product ? $item->product->sku : '-',
+                        'name'  => $item->product?->name ?? '-',
+                        'sku'   => $item->product?->sku ?? '-',
                         'qty'   => number_format($item->quantity ?? 0, 0, ',', '.'),
                         'price' => number_format($item->price ?? 0, 2, ',', '.'),
                         'freight' => number_format($item->freight ?? 0, 2, ',', '.'),
-                        'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.')
+                        'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.'),
                     ];
                 })->toArray();
-            })
-            ->addColumn('status', function ($purchase) {
-                $status = strtolower($purchase->status);
 
-                switch ($status) {
-                    case 'purchase orders':
-                        return '<div class="badge bg-soft-warning text-warning">' . $purchase->status . '</div>';
-                        break;
-                    case 'purchase list':
-                        return '<div class="badge bg-soft-success text-success">' . $purchase->status . '</div>';
-                        break;
-                }
-            })
-            ->addColumn('action', function ($purchase) {
-                return view('erp.pages.purchases.purchase-returns.partials.action-button', compact('purchase'))->render();
-            })
-            ->rawColumns(['purchase_number', 'total_amount', 'refund_amount', 'remaining_amount', 'payment_status', 'action', 'products'])
-            ->make(true);
+                // 📋 Status
+                $status = strtolower($purchase->status);
+                $statusBadge = match ($status) {
+                    'purchase orders' => '<div class="badge bg-soft-warning text-warning">' . e($purchase->status) . '</div>',
+                    'purchase list' => '<div class="badge bg-soft-success text-success">' . e($purchase->status) . '</div>',
+                    default => '<div class="badge bg-secondary">' . e($purchase->status) . '</div>',
+                };
+
+                // ⚙️ Action Partial
+                $actionHtml = view('erp.pages.purchases.purchase-returns.partials.action-button', compact('purchase'))->render();
+
+                return [
+                    'id' => $purchase->id,
+                    'purchase_number' => $html,
+                    'return_date' => $date,
+                    'supplier' => $supplier,
+                    'total_amount' => $totalAmount,
+                    'refund_amount' => $refundHtml,
+                    'remaining_amount' => $remainingHtml,
+                    'payment_status' => $paymentBadge,
+                    'account' => $account,
+                    'products' => $products,
+                    'status' => $statusBadge,
+                    'action' => $actionHtml,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function dataDeletedPurchaseReturns(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $returns = PurchaseReturn::onlyTrashed()
-            ->with(['supplier', 'items.product'])
+            ->with(['supplier', 'items.product', 'deletedByUser'])
             ->where('status', 'Purchase Returns')
             ->orderByDesc('id');
 
-        return DataTables::eloquent($returns)
-            ->addIndexColumn()
-            ->addColumn('purchase_number', function ($return) {
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $returns;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $returns->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($return) {
                 $date = $return->return_date ? Carbon::parse($return->return_date)->format('j M y') : '-';
-                return '<div>
-                <div>' . $return->purchase_number . '</div>
-                <small class="text-muted">' . $date . '</small>
-            </div>';
-            })
-            ->addColumn('supplier', fn($return) => $return->supplier->name ?? '-')
-            ->addColumn('grand_total', fn($return) => '<span class="text-primary">Rp ' . number_format($return->total_amount, 0, ',', '.') . '</span>')
-            ->addColumn('deleted_at', fn($return) => $return->deleted_at ? $return->deleted_at->format('j M y H:i') : '-')
-            ->addColumn('products', function ($row) {
-                return $row->items->map(function ($item) {
+                $deletedAt = $return->deleted_at ? $return->deleted_at->format('j M y H:i') : '-';
+
+                // 🧾 Purchase Number + Date
+                $purchaseNumberHtml = '
+                <div>
+                    <div>' . e($return->purchase_number) . '</div>
+                    <small class="text-muted">' . $date . '</small>
+                </div>';
+
+                // 👤 Supplier
+                $supplier = e($return->supplier->name ?? '-');
+
+                // 💰 Grand Total
+                $totalAmount = '<span class="text-primary">Rp ' . number_format($return->total_amount, 0, ',', '.') . '</span>';
+
+                // 📦 Products
+                $products = $return->items->map(function ($item) {
                     return [
                         'name'  => $item->product?->name ?? '-',
                         'sku'   => $item->product?->sku ?? '-',
                         'qty'   => number_format($item->quantity ?? 0, 0, ',', '.'),
                         'price' => number_format($item->price ?? 0, 0, ',', '.'),
                         'freight' => number_format($item->freight ?? 0, 0, ',', '.'),
-                        'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.')
+                        'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.'),
                     ];
                 })->toArray();
-            })
-            ->addColumn('delete_notes', fn($return) => $return->delete_notes ?? '-')
-            ->addColumn('deleted_by', fn($return) => $return->deletedByUser->name ?? '-')
-            ->addColumn('action', function ($return) {
+
+                // 📝 Delete notes & Deleted by
+                $deleteNotes = e($return->delete_notes ?? '-');
+                $deletedBy = e($return->deletedByUser->name ?? '-');
+
+                // ⚙️ Action Buttons (Owner only)
+                $action = '';
                 if (Auth::check() && Auth::user()->role === 'Owner') {
-                    return '
-                        <div class="d-flex gap-2">
-                            <button type="button" 
-                                class="btn btn-success btn-sm me-1"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalRestoreOrder"
-                                data-id="' . $return->id . '" 
-                                data-name="' . $return->purchase_number . '"
-                                data-url="' . route('purchase-returns.restore', $return->id) . '">
-                                    Restore
-                            </button>
-                            <button type="button" 
-                                class="btn btn-danger btn-sm"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalForceDeleteOrder"
-                                data-id="' . $return->id . '" 
-                                data-name="' . $return->purchase_number . '"
-                                data-url="' . route('purchase-returns.forceDelete', $return->id) . '">
-                                    Hapus Permanen
-                            </button>
-                        </div>
-                    ';
+                    $action = '
+                    <div class="d-flex gap-2">
+                        <button type="button" 
+                            class="btn btn-success btn-sm me-1"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalRestoreOrder"
+                            data-id="' . $return->id . '" 
+                            data-name="' . e($return->purchase_number) . '"
+                            data-url="' . route('purchase-returns.restore', $return->id) . '">
+                                Restore
+                        </button>
+                        <button type="button" 
+                            class="btn btn-danger btn-sm"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalForceDeleteOrder"
+                            data-id="' . $return->id . '" 
+                            data-name="' . e($return->purchase_number) . '"
+                            data-url="' . route('purchase-returns.forceDelete', $return->id) . '">
+                                Hapus Permanen
+                        </button>
+                    </div>';
                 }
 
-                return ''; // kalau bukan Owner → kosong
-            })
-            ->rawColumns(['purchase_number', 'grand_total', 'action', 'products'])
-            ->make(true);
+                return [
+                    'id' => $return->id,
+                    'purchase_number' => $purchaseNumberHtml,
+                    'supplier' => $supplier,
+                    'total_amount' => $totalAmount,
+                    'deleted_at' => $deletedAt,
+                    'products' => $products,
+                    'delete_notes' => $deleteNotes,
+                    'deleted_by' => $deletedBy,
+                    'action' => $action,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function create($id)

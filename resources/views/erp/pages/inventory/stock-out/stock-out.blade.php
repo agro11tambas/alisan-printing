@@ -163,13 +163,9 @@
                             <table class="table table-hover bg-transparent" id="inventoryTable">
                                 <thead>
                                     <tr>
-                                        <th class="wd-30">No</th>
-                                        <th>Invoice</th>
-                                        <th>Date</th>
-                                        <!-- <th>Customer/Supplier</th> -->
+                                        <th class="wd-200">Number</th>
+                                        <th class="wd-200">Date</th>
                                         <th>Stock Out</th>
-                                        <!-- <th>Status</th> -->
-                                        <!-- <th class="text-end">Actions</th> -->
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -264,17 +260,11 @@
     <script>
         $(document).ready(function() {
 
-            // ====================================================
-            // 🔹 LAZY LOAD VARIABLES
-            // ====================================================
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ====================================================
-            // 🔹 DATATABLE UTAMA
-            // ====================================================
             const dataTable = $('#inventoryTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -284,15 +274,16 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [1, 'desc']
-                // ],
+                order: [
+                    [1, 'desc']
+                ],
                 data: [],
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                     {
                         data: 'transaction_number'
                     },
@@ -305,9 +296,6 @@
                 ]
             });
 
-            // ====================================================
-            // 🔹 FUNGSI LOAD DATA (LAZY)
-            // ====================================================
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -345,14 +333,8 @@
                 });
             }
 
-            // ====================================================
-            // 🔹 LOAD AWAL
-            // ====================================================
             loadMoreData();
 
-            // ====================================================
-            // 🔹 SCROLL UNTUK LAZY LOAD
-            // ====================================================
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -367,9 +349,6 @@
                 }, 200);
             });
 
-            // ====================================================
-            // 🔹 RESET & RELOAD
-            // ====================================================
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -378,9 +357,6 @@
                 loadMoreData();
             }
 
-            // ====================================================
-            // 🔹 EVENT FILTER, SEARCH, DAN ACTION (ASLI KAMU)
-            // ====================================================
             $('#progress_status').on('change', function() {
                 resetAndReload();
             });
@@ -416,9 +392,6 @@
                 searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
 
-            // ====================================================
-            // 🔹 ACTION ROW & CLICK EVENTS (TIDAK DIUBAH)
-            // ====================================================
             $('#inventoryTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -489,9 +462,8 @@
 
         $(document).ready(function() {
             let selectedInventoryId = null;
-            let tempFormData = {}; // simpan data sementara
+            let tempFormData = {};
 
-            // Saat klik tombol "Verifikasi Stock Out"
             $(document).on('click', '.btn-open-stockout-modal', function() {
                 selectedInventoryId = $(this).data('id');
                 const number = $(this).data('number');
@@ -499,7 +471,6 @@
                 $('#modalAddStockOut').modal('show');
             });
 
-            // Tahap 1: Klik tombol Konfirmasi Stock Out di modal pertama
             $('#formAddStockOut').on('submit', function(e) {
                 e.preventDefault();
                 const form = $(this);
@@ -511,14 +482,12 @@
                     notes: form.find('textarea[name="notes"]').val(),
                 };
 
-                // Tutup modal pertama, lalu buka modal konfirmasi tanggung jawab
                 $('#modalAddStockOut').modal('hide');
                 setTimeout(() => {
                     $('#modalResponsibility').modal('show');
                 }, 300);
             });
 
-            // Tahap 2: Klik "Ya, Saya Bertanggung Jawab" di modal kedua
             $('#btnConfirmResponsibility').on('click', function() {
                 $('#modalResponsibility').modal('hide');
 

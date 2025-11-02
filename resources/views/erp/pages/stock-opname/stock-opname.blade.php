@@ -18,6 +18,8 @@
         #stockOpnameTable_wrapper .dataTables_scrollBody {
             /* background: #fff !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
         }
     </style>
 @endpush
@@ -133,7 +135,7 @@
                             <table class="table table-hover bg-transparent" id="stockOpnameTable">
                                 <thead>
                                     <tr>
-                                        <th class="wd-30">No</th>
+                                        {{-- <th class="wd-30">No</th> --}}
                                         <th>Product</th>
                                         <th>Date</th>
                                         <th>Quantity</th>
@@ -184,61 +186,98 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             const dataTable = $('#stockOpnameTable').DataTable({
-                processing: true,
-                serverSide: true,
+                processing: false,
+                serverSide: false,
                 deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
                 lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/inventory/stock-opname/data') }}",
-                    data: function(d) {
-                        d.filter = $('#filter').val();
-                        d.start_date = $('#start_date').val();
-                        d.end_date = $('#end_date').val();
-                        d.status = $('#statusFilter').val();
-                    }
-                },
-                columns: [{
-                        data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
-                    {
-                        data: 'product_name',
-                        name: 'product_name'
-                    },
-                    {
-                        data: 'date',
-                        name: 'date'
-                    },
-                    {
-                        data: 'quantity',
-                        name: 'quantity'
-                    },
-                    {
-                        data: 'status',
-                        name: 'status'
-                    },
-                    {
-                        data: 'notes',
-                        name: 'notes'
-                    },
-                    // {
-                    //     data: 'action',
-                    //     name: 'action',
-                    //     orderable: false,
-                    //     searchable: false,
-                    //     visible: false,
-                    // },
+                order: [
+                    [1, 'asc']
                 ],
+                data: [],
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
+                    {
+                        data: 'product_name'
+                    },
+                    {
+                        data: 'date'
+                    },
+                    {
+                        data: 'quantity'
+                    },
+                    {
+                        data: 'status'
+                    },
+                    {
+                        data: 'notes'
+                    },
+                    // { data: 'action' }
+                ]
+            });
 
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/inventory/stock-opname/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 50,
+                        length: 50,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        status: $('#statusFilter').val()
+                    },
+                    success: function(res) {
+                        if (res && res.data && res.data.length > 0) {
+                            allData = allData.concat(res.data);
+                            dataTable.clear();
+                            dataTable.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error response:', xhr.responseJSON);
+                        isLoading = false;
+                    }
+                });
+            }
+
+            loadMoreData();
+
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
             });
 
             $('#filter').on('change', function() {
@@ -246,16 +285,28 @@
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    dataTable.ajax.reload();
+                    allData = [];
+                    currentPage = 0;
+                    hasMoreData = true;
+                    dataTable.clear().draw();
+                    loadMoreData();
                 }
             });
 
             $('#apply-filter').on('click', function() {
-                dataTable.ajax.reload();
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
             });
 
             $('#statusFilter').change(function() {
-                dataTable.ajax.reload();
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                dataTable.clear().draw();
+                loadMoreData();
             });
 
             $('#stockOpnameTable tbody').on('click', 'tr', function(e) {
@@ -273,14 +324,14 @@
 
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
+                        ${actionHtml}
+                        </div>
+                    </td>
+                </tr>
+            `);
 
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
@@ -289,7 +340,6 @@
 
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#stockOpnameTable').length) return;
-
                 $('#stockOpnameTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
@@ -300,7 +350,8 @@
                         function() {
                             var tr = $(this);
                             var table = tr.closest('table').attr('id') === 'stockOpnameTable' ?
-                                dataTable : dataTableMobile;
+                                dataTable :
+                                dataTableMobile;
                             var row = table.row(tr);
                             if (row.child.isShown()) {
                                 row.child.hide();
@@ -310,6 +361,7 @@
                 }
             });
         });
+
 
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalDeleteStockOpname');

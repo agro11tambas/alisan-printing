@@ -61,330 +61,376 @@ class AccountListController extends Controller
 
     public function dataExpense(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $expense = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Expense');
-            })->orderByDesc('id');
+            })
+            ->orderByDesc('id');
 
+        // 🔹 Filter tanggal
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $expense->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
         }
 
+        // 🔹 Filter particular (keterangan)
         if ($request->filled('search_particular')) {
             $expense->where('particular', 'like', '%' . $request->search_particular . '%');
         }
 
+        // 🔹 Filter tipe akun
         if ($request->filled('search_account_type')) {
             $expense->whereHas('account', function ($q) use ($request) {
                 $q->where('type', 'like', '%' . $request->search_account_type . '%');
             });
         }
 
-        return DataTables::eloquent($expense)
-            ->addIndexColumn()
-            ->addColumn('account_type', function ($expense) {
-                return $expense->account->type ?? '-';
-            })
-            ->addColumn('particular', function ($expense) {
-                return $expense->particular ?? '-';
-            })
-            ->addColumn('transaction_date', function ($expense) {
-                return \Carbon\Carbon::parse($expense->transaction_date)->format('d F Y');
-            })
-            ->addColumn('debit', function ($expense) {
-                return 'Rp ' . number_format($expense->debit, 0, ',', '.');
-            })
-            ->addColumn('credit', function ($expense) {
-                return 'Rp ' . number_format($expense->credit, 0, ',', '.');
-            })
-            ->addColumn('note', function ($expense) {
-                return $expense->note ?? '-';
-            })
-            ->rawColumns(['note'])
-            ->make(true);
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $expense;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $expense->skip($start)->take($length)->get();
+
+        // ✅ Format JSON (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($expense) {
+                return [
+                    'id' => $expense->id,
+                    'account_type' => $expense->account->type ?? '-',
+                    'particular' => $expense->particular ?? '-',
+                    'transaction_date' => \Carbon\Carbon::parse($expense->transaction_date)->format('d F Y'),
+                    'debit' => 'Rp ' . number_format($expense->debit ?? 0, 0, ',', '.'),
+                    'credit' => 'Rp ' . number_format($expense->credit ?? 0, 0, ',', '.'),
+                    'note' => $expense->note ?? '-',
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function getExpense()
     {
         $accountTypes = Account::where('name', 'Expense')
-        ->select('type')
-        ->distinct()
-        ->pluck('type');
+            ->select('type')
+            ->distinct()
+            ->pluck('type');
 
         return view('erp.pages.account-list.expense', compact('accountTypes'));
     }
 
     public function dataBank(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $bank = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Bank');
-            })->orderByDesc('id');
+            })
+            ->orderByDesc('id');
 
+        // 🔹 Filter tanggal
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $bank->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
         }
 
+        // 🔹 Filter particular (uraian)
         if ($request->filled('search_particular')) {
             $bank->where('particular', 'like', '%' . $request->search_particular . '%');
         }
 
+        // 🔹 Filter tipe akun
         if ($request->filled('search_account_type')) {
             $bank->whereHas('account', function ($q) use ($request) {
                 $q->where('type', 'like', '%' . $request->search_account_type . '%');
             });
         }
 
-        return DataTables::eloquent($bank)
-            ->addIndexColumn()
-            ->addColumn('account_type', function ($bank) {
-                return $bank->account->type ?? '-';
-            })
-            ->addColumn('particular', function ($bank) {
-                return $bank->particular ?? '-';
-            })
-            ->addColumn('transaction_date', function ($bank) {
-                return \Carbon\Carbon::parse($bank->transaction_date)->format('d F Y');
-            })
-            ->addColumn('debit', function ($bank) {
-                return 'Rp ' . number_format($bank->debit, 0, ',', '.');
-            })
-            ->addColumn('credit', function ($bank) {
-                return 'Rp ' . number_format($bank->credit, 0, ',', '.');
-            })
-            ->addColumn('note', function ($bank) {
-                return $bank->note ?? '-';
-            })
-            ->rawColumns(['note'])
-            ->make(true);
+        // ✅ Hitung total sebelum pagination
+        $totalQuery = clone $bank;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $bank->skip($start)->take($length)->get();
+
+        // ✅ Return JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($bank) {
+                return [
+                    'id' => $bank->id,
+                    'account_type' => $bank->account->type ?? '-',
+                    'particular' => $bank->particular ?? '-',
+                    'transaction_date' => \Carbon\Carbon::parse($bank->transaction_date)->format('d F Y'),
+                    'debit' => 'Rp ' . number_format($bank->debit ?? 0, 0, ',', '.'),
+                    'credit' => 'Rp ' . number_format($bank->credit ?? 0, 0, ',', '.'),
+                    'note' => $bank->note ?? '-',
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function getBank()
     {
         $accountTypes = Account::where('name', 'Bank')
-        ->select('type')
-        ->distinct()
-        ->pluck('type');
+            ->select('type')
+            ->distinct()
+            ->pluck('type');
 
         return view('erp.pages.account-list.bank', compact('accountTypes'));
     }
 
     public function dataCash(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $cash = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Cash');
-            })->orderByDesc('id');
+            })
+            ->orderByDesc('id');
 
+        // 🔹 Filter tanggal
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $cash->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
         }
 
+        // 🔹 Filter particular
         if ($request->filled('search_particular')) {
             $cash->where('particular', 'like', '%' . $request->search_particular . '%');
         }
 
+        // 🔹 Filter tipe akun
         if ($request->filled('search_account_type')) {
             $cash->whereHas('account', function ($q) use ($request) {
                 $q->where('type', 'like', '%' . $request->search_account_type . '%');
             });
         }
 
-        return DataTables::eloquent($cash)
-            ->addIndexColumn()
-            ->addColumn('account_type', function ($cash) {
-                return $cash->account->type ?? '-';
-            })
-            ->addColumn('particular', function ($cash) {
-                return $cash->particular ?? '-';
-            })
-            ->addColumn('transaction_date', function ($cash) {
-                return \Carbon\Carbon::parse($cash->transaction_date)->format('d F Y');
-            })
-            ->addColumn('debit', function ($cash) {
-                return 'Rp ' . number_format($cash->debit, 0, ',', '.');
-            })
-            ->addColumn('credit', function ($cash) {
-                return 'Rp ' . number_format($cash->credit, 0, ',', '.');
-            })
-            ->addColumn('note', function ($cash) {
-                return $cash->note ?? '-';
-            })
-            ->rawColumns(['note'])
-            ->make(true);
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $cash;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $cash->skip($start)->take($length)->get();
+
+        // ✅ Return JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($cash) {
+                return [
+                    'id' => $cash->id,
+                    'account_type' => $cash->account->type ?? '-',
+                    'particular' => $cash->particular ?? '-',
+                    'transaction_date' => \Carbon\Carbon::parse($cash->transaction_date)->format('d F Y'),
+                    'debit' => 'Rp ' . number_format($cash->debit ?? 0, 0, ',', '.'),
+                    'credit' => 'Rp ' . number_format($cash->credit ?? 0, 0, ',', '.'),
+                    'note' => $cash->note ?? '-',
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function getCash()
     {
         $accountTypes = Account::where('name', 'Cash')
-        ->select('type')
-        ->distinct()
-        ->pluck('type');
+            ->select('type')
+            ->distinct()
+            ->pluck('type');
 
         return view('erp.pages.account-list.cash', compact('accountTypes'));
     }
 
     public function dataSale(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $sale = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Sale');
-            })->orderByDesc('id');
+            })
+            ->orderByDesc('id');
 
+        // 🔹 Filter tanggal
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $sale->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
         }
 
+        // 🔹 Filter particular
         if ($request->filled('search_particular')) {
             $sale->where('particular', 'like', '%' . $request->search_particular . '%');
         }
 
+        // 🔹 Filter tipe akun
         if ($request->filled('search_account_type')) {
             $sale->whereHas('account', function ($q) use ($request) {
                 $q->where('type', 'like', '%' . $request->search_account_type . '%');
             });
         }
 
-        return DataTables::eloquent($sale)
-            ->addIndexColumn()
-            ->addColumn('account_type', function ($sale) {
-                return $sale->account->type ?? '-';
-            })
-            ->addColumn('particular', function ($sale) {
-                return $sale->particular ?? '-';
-            })
-            ->addColumn('transaction_date', function ($sale) {
-                return \Carbon\Carbon::parse($sale->transaction_date)->format('d F Y');
-            })
-            ->addColumn('debit', function ($sale) {
-                return 'Rp ' . number_format($sale->debit, 0, ',', '.');
-            })
-            ->addColumn('credit', function ($sale) {
-                return 'Rp ' . number_format($sale->credit, 0, ',', '.');
-            })
-            ->addColumn('note', function ($sale) {
-                return $sale->note ?? '-';
-            })
-            ->rawColumns(['note'])
-            ->make(true);
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $sale;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $sale->skip($start)->take($length)->get();
+
+        // ✅ Return JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($sale) {
+                return [
+                    'id' => $sale->id,
+                    'account_type' => $sale->account->type ?? '-',
+                    'particular' => $sale->particular ?? '-',
+                    'transaction_date' => \Carbon\Carbon::parse($sale->transaction_date)->format('d F Y'),
+                    'debit' => 'Rp ' . number_format($sale->debit ?? 0, 0, ',', '.'),
+                    'credit' => 'Rp ' . number_format($sale->credit ?? 0, 0, ',', '.'),
+                    'note' => $sale->note ?? '-',
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function getSale()
     {
         $accountTypes = Account::where('name', 'Sale')
-        ->select('type')
-        ->distinct()
-        ->pluck('type');
+            ->select('type')
+            ->distinct()
+            ->pluck('type');
 
         return view('erp.pages.account-list.sale', compact('accountTypes'));
     }
 
     public function dataPurchase(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $purchase = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Purchase');
-            })->orderByDesc('id');
+            })
+            ->orderByDesc('id');
 
+        // 🔹 Filter tanggal
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $purchase->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
         }
 
+        // 🔹 Filter particular (uraian transaksi)
         if ($request->filled('search_particular')) {
             $purchase->where('particular', 'like', '%' . $request->search_particular . '%');
         }
 
+        // 🔹 Filter tipe akun
         if ($request->filled('search_account_type')) {
             $purchase->whereHas('account', function ($q) use ($request) {
                 $q->where('type', 'like', '%' . $request->search_account_type . '%');
             });
         }
 
-        return DataTables::eloquent($purchase)
-            ->addIndexColumn()
-            ->addColumn('account_type', function ($purchase) {
-                return $purchase->account->type ?? '-';
-            })
-            ->addColumn('particular', function ($purchase) {
-                return $purchase->particular ?? '-';
-            })
-            ->addColumn('transaction_date', function ($purchase) {
-                return \Carbon\Carbon::parse($purchase->transaction_date)->format('d F Y');
-            })
-            ->addColumn('debit', function ($purchase) {
-                return 'Rp ' . number_format($purchase->debit, 0, ',', '.');
-            })
-            ->addColumn('credit', function ($purchase) {
-                return 'Rp ' . number_format($purchase->credit, 0, ',', '.');
-            })
-            ->addColumn('note', function ($purchase) {
-                return $purchase->note ?? '-';
-            })
-            ->rawColumns(['note'])
-            ->make(true);
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $purchase;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $purchase->skip($start)->take($length)->get();
+
+        // ✅ Return JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($purchase) {
+                return [
+                    'id' => $purchase->id,
+                    'account_type' => $purchase->account->type ?? '-',
+                    'particular' => $purchase->particular ?? '-',
+                    'transaction_date' => \Carbon\Carbon::parse($purchase->transaction_date)->format('d F Y'),
+                    'debit' => 'Rp ' . number_format($purchase->debit ?? 0, 0, ',', '.'),
+                    'credit' => 'Rp ' . number_format($purchase->credit ?? 0, 0, ',', '.'),
+                    'note' => $purchase->note ?? '-',
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function getPurchase()
     {
         $accountTypes = Account::where('name', 'Purchase')
-        ->select('type')
-        ->distinct()
-        ->pluck('type');
+            ->select('type')
+            ->distinct()
+            ->pluck('type');
 
         return view('erp.pages.account-list.purchase', compact('accountTypes'));
     }
 
     public function dataCapital(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $capital = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Capital');
-            })->orderByDesc('id');
+            })
+            ->orderByDesc('id');
 
+        // 🔹 Filter tanggal
         if ($request->filled('start_date') && $request->filled('end_date')) {
             $capital->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
         }
 
+        // 🔹 Filter particular
         if ($request->filled('search_particular')) {
             $capital->where('particular', 'like', '%' . $request->search_particular . '%');
         }
 
+        // 🔹 Filter tipe akun
         if ($request->filled('search_account_type')) {
             $capital->whereHas('account', function ($q) use ($request) {
                 $q->where('type', 'like', '%' . $request->search_account_type . '%');
             });
         }
 
-        return DataTables::eloquent($capital)
-            ->addIndexColumn()
-            ->addColumn('account_type', function ($capital) {
-                return $capital->account->type ?? '-';
-            })
-            ->addColumn('particular', function ($capital) {
-                return $capital->particular ?? '-';
-            })
-            ->addColumn('transaction_date', function ($capital) {
-                return \Carbon\Carbon::parse($capital->transaction_date)->format('d F Y');
-            })
-            ->addColumn('debit', function ($capital) {
-                return 'Rp ' . number_format($capital->debit, 0, ',', '.');
-            })
-            ->addColumn('credit', function ($capital) {
-                return 'Rp ' . number_format($capital->credit, 0, ',', '.');
-            })
-            ->addColumn('note', function ($capital) {
-                return $capital->note ?? '-';
-            })
-            ->rawColumns(['note'])
-            ->make(true);
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $capital;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $capital->skip($start)->take($length)->get();
+
+        // ✅ Return JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($capital) {
+                return [
+                    'id' => $capital->id,
+                    'account_type' => $capital->account->type ?? '-',
+                    'particular' => $capital->particular ?? '-',
+                    'transaction_date' => \Carbon\Carbon::parse($capital->transaction_date)->format('d F Y'),
+                    'debit' => 'Rp ' . number_format($capital->debit ?? 0, 0, ',', '.'),
+                    'credit' => 'Rp ' . number_format($capital->credit ?? 0, 0, ',', '.'),
+                    'note' => $capital->note ?? '-',
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function getCapital()
     {
         $accountTypes = Account::where('name', 'Capital')
-        ->select('type')
-        ->distinct()
-        ->pluck('type');
+            ->select('type')
+            ->distinct()
+            ->pluck('type');
 
         return view('erp.pages.account-list.capital', compact('accountTypes'));
     }

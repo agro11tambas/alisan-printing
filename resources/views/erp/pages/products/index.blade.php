@@ -145,7 +145,7 @@
                             <table class="table table-hover bg-transparent" id="productTable">
                                 <thead>
                                     <tr>
-                                        <th class="wd-30">No</th>
+                                        {{-- <th class="wd-30">No</th> --}}
                                         {{-- <th>Image</th> --}}
                                         <th>Name</th>
                                         <th>Categories</th>
@@ -161,13 +161,6 @@
 
                                 </tbody>
                             </table>
-                            <div id="loadingIndicator" style="display:none;">
-                                <div class="shimmer-wrapper">
-                                    <div class="shimmer"></div>
-                                    <div class="shimmer"></div>
-                                    <div class="shimmer"></div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -379,17 +372,18 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [1, 'asc']
+                    [3, 'asc']
                 ],
                 data: [], // ⚠️ Mulai dengan array kosong
-                columns: [{
-                        data: null,
-                        orderable: false,
-                        searchable: false,
-                        render: function(data, type, row, meta) {
-                            return meta.row + 1; // Nomor urut otomatis
-                        }
-                    },
+                columns: [
+                    // {
+                    //     data: null,
+                    //     orderable: false,
+                    //     searchable: false,
+                    //     render: function(data, type, row, meta) {
+                    //         return meta.row + 1; // Nomor urut otomatis
+                    //     }
+                    // },
                     {
                         data: 'name'
                     },

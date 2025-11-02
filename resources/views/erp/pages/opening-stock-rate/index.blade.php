@@ -18,6 +18,8 @@
         #openingStockList_wrapper .dataTables_scrollBody {
             /* background: #fff !important; */
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
         }
     </style>
 @endpush
@@ -32,6 +34,14 @@
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item active">Opening Stock Overview</li>
             </ul>
+        </div>
+        <div class="page-header-right ms-auto">
+            <div class="page-header-right-items d-flex align-items-center gap-2">
+                <a href="/erp/opening-stock/edit" class="btn btn-primary" id="btnCreateOpening">
+                    <i class="feather-plus me-2"></i>
+                    <span>Create Opening Stock</span>
+                </a>
+            </div>
         </div>
     </div>
 @endsection
@@ -64,10 +74,6 @@
                         <div class="row px-4 mb-3">
                             <div class="col-lg-12 d-flex justify-content-between align-items-center">
                                 <h4>Opening Stock (Inventory & Production)</h4>
-                                <a href="/erp/opening-stock/edit" class="btn btn-primary" id="btnCreateOpening">
-                                    <i class="feather-plus me-2"></i>
-                                    <span>Create Opening Stock</span>
-                                </a>
                             </div>
                         </div>
 
@@ -97,20 +103,26 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            $('#openingStockList').DataTable({
-                processing: true,
-                serverSide: true,
+
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
+            const table = $('#openingStockList').DataTable({
+                processing: false,
+                serverSide: false,
                 deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
                 lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/opening-stock/data') }}",
-                },
+                order: [
+                    [1, 'asc']
+                ],
+                data: [],
                 columns: [{
                         data: 'DT_RowIndex',
                         name: 'DT_RowIndex',
@@ -124,23 +136,20 @@
                     },
                     {
                         data: 'opening_stock',
-                        name: 'opening_stock',
+                        name: 'opening_stock'
                     },
                     {
                         data: 'production_stock',
-                        name: 'production_stock',
+                        name: 'production_stock'
                     },
                     {
                         data: 'opening_rate',
-                        name: 'opening_rate',
+                        name: 'opening_rate'
                     },
                     {
                         data: 'minimum_stock',
-                        name: 'minimum_stock',
+                        name: 'minimum_stock'
                     },
-                ],
-                order: [
-                    [1, 'asc']
                 ],
                 pageLength: 25,
                 language: {
@@ -152,6 +161,52 @@
                     infoFiltered: "(filtered from _MAX_ total entries)"
                 }
             });
+
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/opening-stock/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 50,
+                        length: 50,
+                    },
+                    success: function(res) {
+                        if (res && res.data && res.data.length > 0) {
+                            allData = allData.concat(res.data);
+                            table.clear();
+                            table.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error response:', xhr.responseJSON);
+                        isLoading = false;
+                    }
+                });
+            }
+
+            loadMoreData();
+
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
         });
     </script>
 @endpush

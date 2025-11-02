@@ -427,13 +427,12 @@
                 return html;
             }
 
-            // ====== Variabel Lazy Load ======
+            // ========== SALE RETURN TABLE (CSR dengan Lazy Load) ==========
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ====== Inisialisasi DataTable utama ======
             const dataTable = $('#saleReturnTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -443,9 +442,9 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [1, 'desc']
-                // ],
+                order: [
+                    [7, 'desc']
+                ],
                 data: [],
                 columns: [{
                         className: 'dt-control text-center',
@@ -471,14 +470,19 @@
                     },
                     {
                         data: 'payment_status'
+                    },
+                    {
+                        data: 'return_date', // tambahkan kolom ini
+                        visible: false, // disembunyikan dari tampilan
+                        searchable: false // tidak perlu di-search
                     }
                 ]
             });
 
-            // ====== Fungsi load data halaman berikut ======
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
+                console.log('🔄 Loading sale return page:', currentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/sales/sale-returns/data') }}",
@@ -494,27 +498,29 @@
                         payment_status: $('#search_payment_status').val(),
                     },
                     success: function(response) {
+                        console.log('✅ Sale return response:', response);
+
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
+                            console.log('📦 Total sale return rows:', allData.length);
                         } else {
                             hasMoreData = false;
+                            console.log('⚠️ No more sale return data');
                         }
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error loading data:', xhr.responseText);
+                        console.error('❌ Error loading sale return:', xhr.responseText);
                         isLoading = false;
                     }
                 });
             }
 
-            // ====== Load pertama kali ======
             loadMoreData();
 
-            // ====== Lazy scroll event ======
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -529,7 +535,6 @@
                 }, 200);
             });
 
-            // ====== Reset filter + reload ======
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -538,7 +543,7 @@
                 loadMoreData();
             }
 
-            // ====== Filter & search handler ======
+            // Event handlers untuk filter
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -564,6 +569,7 @@
                 resetAndReload();
             });
 
+            // Debounce untuk search keyword
             let searchTimeout = null;
             $('#search_keyword').on('keyup', function() {
                 if ($('#search_type').val() !== 'payment_status') {
@@ -576,7 +582,7 @@
                 if ($('#search_type').val() === 'payment_status') resetAndReload();
             });
 
-            // ====== Expand products ======
+            // Expand/collapse products detail
             $('#saleReturnTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);
@@ -593,7 +599,7 @@
                 }
             });
 
-            // ====== Action Row (dropdown di bawah row) ======
+            // Action button dropdown
             $('#saleReturnTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -628,87 +634,177 @@
                 $('#saleReturnTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // ====== DELETED SALE RETURN TABLE (serverSide biasa) ======
+            let deletedAllData = [];
+            let deletedCurrentPage = 0;
+            let deletedIsLoading = false;
+            let deletedHasMoreData = true;
             let deletedTable = null;
+            let deletedTableInitialized = false;
+
+            function initDeletedTable() {
+                if (deletedTableInitialized) return;
+
+                const deletedColumns = [{
+                        className: 'dt-control text-center',
+                        orderable: false,
+                        data: null,
+                        defaultContent: '',
+                        width: "20px"
+                    },
+                    {
+                        data: 'order_number'
+                    },
+                    {
+                        data: 'customer'
+                    },
+                    {
+                        data: 'total_amount'
+                    },
+                    {
+                        data: 'deleted_at'
+                    },
+                    {
+                        data: 'deleted_by'
+                    },
+                    {
+                        data: 'delete_notes'
+                    }
+                ];
+
+                @if (auth()->user()->role === 'Owner')
+                    deletedColumns.push({
+                        data: 'action',
+                        orderable: false,
+                        searchable: false
+                    });
+                @endif
+
+                deletedTable = $('#deletedSaleReturnTable').DataTable({
+                    processing: false,
+                    serverSide: false,
+                    scrollY: '60vh',
+                    scrollCollapse: true,
+                    paging: false,
+                    searching: false,
+                    info: false,
+                    lengthChange: false,
+                    order: [
+                        [4, 'asc']
+                    ],
+                    data: [],
+                    columns: deletedColumns
+                });
+
+                deletedTableInitialized = true;
+
+                $('#deletedSaleReturnTable').closest('.dataTables_scrollBody').on('scroll', function() {
+                    clearTimeout(scrollTimeout);
+
+                    const scrollTop = $(this).scrollTop();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
+
+                    scrollTimeout = setTimeout(() => {
+                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                            loadMoreDeletedData();
+                        }
+                    }, 200);
+                });
+
+                $('#deletedSaleReturnTable tbody').on('click', 'td.dt-control', function() {
+                    let tr = $(this).closest('tr');
+                    let row = deletedTable.row(tr);
+                    let icon = $(this).find('i');
+
+                    if (row.child.isShown()) {
+                        row.child.hide();
+                        tr.removeClass('shown');
+                        icon.removeClass('feather-minus').addClass('feather-plus');
+                    } else {
+                        row.child(formatProducts(row.data().products)).show();
+                        tr.addClass('shown');
+                        icon.removeClass('feather-plus').addClass('feather-minus');
+                    }
+                });
+            }
+
+            function loadMoreDeletedData() {
+                if (deletedIsLoading || !deletedHasMoreData) return;
+
+                deletedIsLoading = true;
+                console.log('🔄 Loading deleted sale return page:', deletedCurrentPage + 1);
+
+                $.ajax({
+                    url: "{{ url('/erp/sales/sale-returns/data-deleted') }}",
+                    type: 'GET',
+                    data: {
+                        start: deletedCurrentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val(),
+                    },
+                    success: function(response) {
+                        console.log('✅ Deleted sale return response:', response);
+
+                        if (response && response.data && response.data.length > 0) {
+                            deletedAllData = deletedAllData.concat(response.data);
+                            deletedTable.clear();
+                            deletedTable.rows.add(deletedAllData);
+                            deletedTable.draw(false);
+                            deletedCurrentPage++;
+                            console.log('📦 Total deleted sale return rows:', deletedAllData.length);
+                        } else {
+                            deletedHasMoreData = false;
+                            console.log('⚠️ No more deleted sale return data');
+                        }
+
+                        deletedIsLoading = false;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ Error loading deleted sale return:', error);
+                        console.error('Response:', xhr.responseText);
+                        deletedIsLoading = false;
+                    }
+                });
+            }
+
+            function resetAndReloadDeleted() {
+                deletedAllData = [];
+                deletedCurrentPage = 0;
+                deletedHasMoreData = true;
+                if (deletedTable) {
+                    deletedTable.clear().draw();
+                }
+                loadMoreDeletedData();
+            }
+
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
                 if ($(e.target).attr('href') === '#deleted-sale-return') {
-                    if (!deletedTable) {
-                        deletedTable = $('#deletedSaleReturnTable').DataTable({
-                            processing: true,
-                            serverSide: true,
-                            scrollY: '60vh',
-                            scrollCollapse: true,
-                            paging: true,
-                            searching: false,
-                            info: false,
-                            lengthChange: false,
-                            // order: [
-                            //     [1, 'desc']
-                            // ],
-                            ajax: {
-                                url: "{{ url('/erp/sales/sale-returns/data-deleted') }}",
-                                data: function(d) {
-                                    d.filter = $('#filter').val();
-                                    d.start_date = $('#start_date').val();
-                                    d.end_date = $('#end_date').val();
-                                    d.search_type = $('#search_type').val();
-                                    d.search_keyword = $('#search_keyword').val();
-                                    d.payment_status = $('#search_payment_status').val();
-                                }
-                            },
-                            columns: [{
-                                    className: 'dt-control text-center',
-                                    orderable: false,
-                                    data: null,
-                                    defaultContent: '',
-                                    width: "20px"
-                                },
-                                {
-                                    data: 'order_number'
-                                },
-                                {
-                                    data: 'customer'
-                                },
-                                {
-                                    data: 'total_amount'
-                                },
-                                {
-                                    data: 'deleted_at'
-                                },
-                                {
-                                    data: 'deleted_by'
-                                },
-                                {
-                                    data: 'delete_notes'
-                                },
-                                @if (auth()->user()->role === 'Owner')
-                                    {
-                                        data: 'action',
-                                        orderable: false,
-                                        searchable: false
-                                    }
-                                @endif
-                            ],
-                            drawCallback: function() {
-                                $('.dataTables_paginate').hide();
-                            }
-                        });
-
-                        // Expand di deleted tab
-                        $('#deletedSaleReturnTable tbody').on('click', 'td.dt-control', function() {
-                            let tr = $(this).closest('tr');
-                            let row = deletedTable.row(tr);
-                            if (row.child.isShown()) {
-                                row.child.hide();
-                                tr.removeClass('shown');
-                            } else {
-                                row.child(formatProducts(row.data().products)).show();
-                                tr.addClass('shown');
-                            }
-                        });
+                    if (!deletedTableInitialized) {
+                        initDeletedTable();
+                        loadMoreDeletedData();
                     } else {
-                        deletedTable.ajax.reload();
+                        resetAndReloadDeleted();
                     }
+                }
+            });
+
+            $('#filter, #apply-filter, #search_type, #search_payment_status').on('change click', function() {
+                if ($('a[data-bs-toggle="tab"][href="#deleted-sale-return"]').parent().hasClass('active')) {
+                    resetAndReloadDeleted();
+                }
+            });
+
+            $('#search_keyword').on('keyup', function() {
+                if ($('a[data-bs-toggle="tab"][href="#deleted-sale-return"]').parent().hasClass('active')) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        resetAndReloadDeleted();
+                    }, 500);
                 }
             });
         });
@@ -835,7 +931,7 @@
         });
 
         document.querySelector("form").addEventListener("submit", function() {
-            paidInput.value = paidInput.value.replace(/\./g, "");
+            refundInput.value = refundInput.value.replace(/\./g, "");
         });
 
         document.addEventListener('DOMContentLoaded', function() {

@@ -24,9 +24,20 @@ class InventoryController extends Controller
 
     public function dataStockIn(Request $request)
     {
-        $inventory = Inventory::with(['items', 'purchase.supplier', 'order.customer'])
-            ->where('status', 'Stock In')->orderByDesc('id');
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
 
+        $inventory = Inventory::with([
+            'items',
+            'purchase.supplier',
+            'order.customer',
+            'saleReturn.customer',
+            'materialRequest',
+        ])
+            ->where('status', 'Stock In')
+            ->orderByDesc('id');
+
+        // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -56,6 +67,7 @@ class InventoryController extends Controller
             }
         }
 
+        // ✅ Filter pencarian
         if ($request->search_type && $request->filled('search_keyword')) {
             if ($request->search_type === 'invoice_number') {
                 $inventory->where(function ($q) use ($request) {
@@ -81,6 +93,7 @@ class InventoryController extends Controller
             }
         }
 
+        // ✅ Filter progress status
         if ($request->filled('progress_status')) {
             if ($request->progress_status === 'completed') {
                 $inventory->whereDoesntHave('items', function ($q) {
@@ -93,45 +106,64 @@ class InventoryController extends Controller
             }
         }
 
-        return DataTables::eloquent($inventory)
-            ->addIndexColumn()
-            ->addColumn('transaction_number', function ($inventory) {
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $inventory;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $inventory->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($inventory) {
+                // 🧾 Transaction number + badge
                 if ($inventory->purchase_id) {
                     $badge = '<span class="badge bg-soft-success text-success mb-1">Purchase</span><br>';
-                    return $badge . $inventory->purchase->purchase_number ?? '-';
+                    $transactionNumber = $badge . e($inventory->purchase->purchase_number ?? '-');
                 } elseif ($inventory->canceled_product_id) {
                     $badge = '<span class="badge bg-soft-warning text-warning mb-1">Canceled Product</span><br>';
-                    return $badge . ($inventory->order_number ?? '-'); // atau pakai kode khusus
+                    $transactionNumber = $badge . e($inventory->order_number ?? '-');
                 } elseif ($inventory->sale_return_id) {
                     $badge = '<span class="badge bg-soft-danger text-danger mb-1">Sale Returns</span><br>';
-                    return $badge . ($inventory->order_number ?? '-');
+                    $transactionNumber = $badge . e($inventory->order_number ?? '-');
                 } elseif ($inventory->material_request_id) {
                     $badge = '<span class="badge bg-soft-primary text-primary mb-1">Material Request</span><br>';
-                    return $badge . ($inventory->material_request_number ?? '-');
+                    $transactionNumber = $badge . e($inventory->material_request_number ?? '-');
+                } else {
+                    $transactionNumber = '-';
                 }
-                return '-';
-            })
-            ->addColumn('date', function ($inventory) {
-                return $inventory->date;
-            })
-            ->addColumn('partner_name', function ($inventory) {
+
+                // 📅 Date
+                $date = e($inventory->date ?? '-');
+
+                // 👤 Partner
                 if ($inventory->purchase_id) {
-                    return optional($inventory->purchase->supplier)->name ?? '-';
+                    $partner = e(optional($inventory->purchase->supplier)->name ?? '-');
                 } elseif ($inventory->production_stock_id) {
-                    return 'Production';
+                    $partner = 'Production';
                 } elseif ($inventory->sale_return_id) {
-                    return optional($inventory->saleReturn->customer)->name ?? '-';
+                    $partner = e(optional($inventory->saleReturn->customer)->name ?? '-');
+                } else {
+                    $partner = '-';
                 }
-                return '-';
-            })
-            ->addColumn('stock_in', function ($inventory) {
-                return view('erp.pages.inventory.stock-in.partials.product-stock-in', compact('inventory'))->render();
-            })
-            ->addColumn('action', function ($inventory) {
-                return view('erp.pages.inventory.stock-in.partials.action-button-stock-in', compact('inventory'))->render();
-            })
-            ->rawColumns(['action', 'stock_in', 'transaction_number'])
-            ->make(true);
+
+                // 📦 Stock in partial
+                $stockInHtml = view('erp.pages.inventory.stock-in.partials.product-stock-in', compact('inventory'))->render();
+
+                // ⚙️ Action partial
+                $actionHtml = view('erp.pages.inventory.stock-in.partials.action-button-stock-in', compact('inventory'))->render();
+
+                return [
+                    'id' => $inventory->id,
+                    'transaction_number' => $transactionNumber,
+                    'date' => $date,
+                    'partner_name' => $partner,
+                    'stock_in' => $stockInHtml,
+                    'action' => $actionHtml,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function getStockOut()
@@ -141,12 +173,17 @@ class InventoryController extends Controller
 
     public function dataStockOut(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $inventory = Inventory::with([
             'items',
             'purchaseReturn.supplier',
             'order.customer',
             'materialRequest.requestedBy',
-        ])->where('status', 'Stock Out')->orderByDesc('id');
+        ])
+            ->where('status', 'Stock Out')
+            ->orderByDesc('id');
 
         // 🔎 Filter tanggal
         if ($request->filter) {
@@ -212,7 +249,7 @@ class InventoryController extends Controller
                 })
                     ->whereNotNull('material_request_id')
                     ->whereHas('materialRequest', function ($q) {
-                        $q->whereNull('deleted_at'); // ✅ hanya tampilkan MR yang belum dihapus
+                        $q->whereNull('deleted_at');
                     });
             } elseif ($request->progress_status === 'progress') {
                 $inventory->whereHas('items', function ($q) {
@@ -221,49 +258,134 @@ class InventoryController extends Controller
             }
         }
 
-        return DataTables::eloquent($inventory)
-            ->addIndexColumn()
-            ->addColumn('transaction_number', function ($inventory) {
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $inventory;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $inventory->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($inventory) {
+                // 🧾 Transaction number + badge
                 if ($inventory->purchase_return_id) {
                     $badge = '<span class="badge bg-soft-danger text-danger mb-1">Purchase Return</span><br>';
-                    return $badge . ($inventory->purchase_number ?? '-');
+                    $transactionNumber = $badge . e($inventory->purchase_number ?? '-');
                 } elseif ($inventory->material_request_id) {
                     $badge = '<span class="badge bg-soft-warning text-warning mb-1">Request Stock</span><br>';
-                    return $badge . ($inventory->material_request_number ?? '-');
+                    $transactionNumber = $badge . e($inventory->material_request_number ?? '-');
+                } else {
+                    $transactionNumber = '-';
                 }
-                return '-';
-            })
-            ->addColumn('date', function ($inventory) {
-                return $inventory->date;
-            })
-            ->addColumn('partner_name', function ($inventory) {
+
+                // 📅 Date
+                $date = e($inventory->date ?? '-');
+
+                // 👤 Partner Name
                 if ($inventory->purchase_return_id) {
-                    return optional($inventory->purchaseReturn->supplier)->name ?? '-';
+                    $partner = e(optional($inventory->purchaseReturn->supplier)->name ?? '-');
                 } elseif ($inventory->material_request_id) {
-                    return optional($inventory->materialRequest->requestedBy)->name ?? '-';
+                    $partner = e(optional($inventory->materialRequest->requestedBy)->name ?? '-');
+                } else {
+                    $partner = '-';
                 }
-                return '-';
-            })
-            ->addColumn('stock_out', function ($inventory) {
-                return view('erp.pages.inventory.stock-out.partials.product-stock-out', compact('inventory'))->render();
-            })
-            ->addColumn('action', function ($inventory) {
-                return view('erp.pages.inventory.stock-out.partials.action-button-stock-out', compact('inventory'))->render();
-            })
-            ->rawColumns(['action', 'stock_out', 'transaction_number'])
-            ->make(true);
+
+                // 📦 Stock Out partial
+                $stockOutHtml = view('erp.pages.inventory.stock-out.partials.product-stock-out', compact('inventory'))->render();
+
+                // ⚙️ Action partial
+                $actionHtml = view('erp.pages.inventory.stock-out.partials.action-button-stock-out', compact('inventory'))->render();
+
+                return [
+                    'id' => $inventory->id,
+                    'transaction_number' => $transactionNumber,
+                    'date' => $date,
+                    'partner_name' => $partner,
+                    'stock_out' => $stockOutHtml,
+                    'action' => $actionHtml,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function getReportItems()
     {
         return view('erp.pages.inventory.report-items');
     }
 
+    // public function dataReportItems(Request $request)
+    // {
+    //     $reportItems = InventoryStock::whereHas('product', function ($q) {
+    //         $q->whereNull('products.deleted_at');
+    //     })->with('product');
+
+    //     if ($request->filled('product_name')) {
+    //         $reportItems->whereHas('product', function ($query) use ($request) {
+    //             $query->where('name', 'like', '%' . $request->product_name . '%');
+    //         });
+    //     }
+
+    //     $reportItems->orderBy(
+    //         Products::select('name')
+    //             ->whereColumn('products.id', 'inventory_stocks.product_id')
+    //     );
+
+    //     $reportItems = $reportItems->get();
+
+    //     return DataTables::of($reportItems)
+    //         ->addIndexColumn()
+    //         ->addColumn('name', function ($reportItem) {
+    //             return $reportItem->product->name;
+    //         })
+    //         ->addColumn('purchase_stocks', function ($reportItem) {
+    //             return $reportItem->purchase_stocks ?? 0;
+    //         })
+    //         ->addColumn('inventory_stock', function ($reportItem) {
+    //             return number_format($reportItem->inventory_stock);
+    //         })
+    //         // ->addColumn('stock_after_sales', function ($reportItem) {
+    //         //     return '<span class="text-danger">' . $reportItem->stock_after_sales . '</span>';
+    //         // })
+    //         ->addColumn('stock_after_sales', function ($reportItem) {
+    //             $stock = number_format($reportItem->stock_after_sales) ?? 0;
+
+    //             // ✅ cek minimum stock
+    //             if ($stock <= $reportItem->minimum_stock) {
+    //                 return $stock . ' <span class="text-danger">(Low Stock)</span>';
+    //             }
+
+    //             return $stock;
+    //         })
+    //         ->addColumn('incoming_stock', function ($reportItem) {
+    //             return number_format($reportItem->incoming_stock) ?? 0;
+    //         })
+    //         ->addColumn('avg_cost', function ($reportItem) {
+    //             return '<span class="text-primary">' . $reportItem->avg_cost . '</span>';
+    //         })
+    //         ->addColumn('action', function ($row) {
+    //             return '
+    //                 <button type="button" class="btn btn-sm btn-outline-danger btnDefect" 
+    //                     data-id="' . $row->product_id . '" 
+    //                     data-name="' . e($row->product->name) . '">
+    //                     <i class="feather-alert-triangle me-1"></i> Defect
+    //                 </button>
+    //             ';
+    //         })
+
+    //         ->rawColumns(['stock_after_sales', 'avg_cost', 'action'])
+    //         ->make(true);
+    // }
+
     public function dataReportItems(Request $request)
     {
         $reportItems = InventoryStock::whereHas('product', function ($q) {
             $q->whereNull('products.deleted_at');
-        })->with('product');
+        })
+            ->with('product')
+            ->orderBy('stock_after_sales', 'desc'); // urutkan berdasarkan kolom stock_after_sales
 
         if ($request->filled('product_name')) {
             $reportItems->whereHas('product', function ($query) use ($request) {
@@ -271,6 +393,7 @@ class InventoryController extends Controller
             });
         }
 
+        // urutkan nama produk setelah stock (opsional, kalau mau tambahan)
         $reportItems->orderBy(
             Products::select('name')
                 ->whereColumn('products.id', 'inventory_stocks.product_id')
@@ -280,47 +403,48 @@ class InventoryController extends Controller
 
         return DataTables::of($reportItems)
             ->addIndexColumn()
-            ->addColumn('name', function ($reportItem) {
-                return $reportItem->product->name;
-            })
-            ->addColumn('purchase_stocks', function ($reportItem) {
-                return $reportItem->purchase_stocks ?? 0;
-            })
-            ->addColumn('inventory_stock', function ($reportItem) {
-                return number_format($reportItem->inventory_stock);
-            })
-            // ->addColumn('stock_after_sales', function ($reportItem) {
-            //     return '<span class="text-danger">' . $reportItem->stock_after_sales . '</span>';
-            // })
-            ->addColumn('stock_after_sales', function ($reportItem) {
-                $stock = number_format($reportItem->stock_after_sales) ?? 0;
+            ->addColumn('name', fn($item) => e($item->product->name))
+            ->addColumn(
+                'purchase_stocks',
+                fn($item) =>
+                number_format($item->purchase_stocks ?? 0, 0, ',', '.')
+            )
+            ->addColumn(
+                'inventory_stock',
+                fn($item) =>
+                number_format($item->inventory_stock ?? 0, 0, ',', '.')
+            )
+            ->addColumn('stock_after_sales', function ($item) {
+                $stock = (int) $item->stock_after_sales;
+                $formatted = number_format($stock, 0, ',', '.');
 
-                // ✅ cek minimum stock
-                if ($stock <= $reportItem->minimum_stock) {
-                    return $stock . ' <span class="text-danger">(Low Stock)</span>';
+                if ($stock <= $item->minimum_stock) {
+                    return $formatted . ' <span class="text-danger">(Low Stock)</span>';
                 }
 
-                return $stock;
+                return $formatted;
             })
-            ->addColumn('incoming_stock', function ($reportItem) {
-                return number_format($reportItem->incoming_stock) ?? 0;
-            })
-            ->addColumn('avg_cost', function ($reportItem) {
-                return '<span class="text-primary">' . $reportItem->avg_cost . '</span>';
-            })
-            ->addColumn('action', function ($row) {
-                return '
-                    <button type="button" class="btn btn-sm btn-outline-danger btnDefect" 
-                        data-id="' . $row->product_id . '" 
-                        data-name="' . e($row->product->name) . '">
-                        <i class="feather-alert-triangle me-1"></i> Defect
-                    </button>
-                ';
-            })
-
+            ->addColumn(
+                'incoming_stock',
+                fn($item) =>
+                number_format($item->incoming_stock ?? 0, 0, ',', '.')
+            )
+            ->addColumn(
+                'avg_cost',
+                fn($item) =>
+                '<span class="text-primary">' . number_format($item->avg_cost, 0, ',', '.') . '</span>'
+            )
+            ->addColumn('action', fn($item) => '
+            <button type="button" class="btn btn-sm btn-outline-danger btnDefect" 
+                data-id="' . $item->product_id . '" 
+                data-name="' . e($item->product->name) . '">
+                <i class="feather-alert-triangle me-1"></i> Defect
+            </button>
+        ')
             ->rawColumns(['stock_after_sales', 'avg_cost', 'action'])
             ->make(true);
     }
+
 
     public function store(Request $request)
     {

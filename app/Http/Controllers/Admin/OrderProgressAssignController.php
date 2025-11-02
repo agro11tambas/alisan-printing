@@ -317,7 +317,13 @@ class OrderProgressAssignController extends Controller
 
     public function dataAssignList(Request $request)
     {
-        $batches = OrderProgressAssignBatch::with(['assigns.operator', 'orderProgress.order.customer'])->orderBy('assign_date', 'desc');
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
+        $batches = OrderProgressAssignBatch::with([
+            'assigns.operator',
+            'orderProgress.order.customer'
+        ])->orderBy('assign_date', 'desc');
 
         // 🔹 Filter berdasarkan status progress
         if ($request->filled('progress_status')) {
@@ -367,50 +373,74 @@ class OrderProgressAssignController extends Controller
             }
         }
 
-        return DataTables::eloquent($batches)
-            ->addIndexColumn()
-            ->addColumn('assign_code', function ($batch) {
+        // ✅ Hindari query count dua kali
+        $totalQuery = clone $batches;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $batches->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($batch) {
                 $date = Carbon::parse($batch->assign_date)->format('d M y');
-                return "<div><div>{$batch->assign_code}</div><small class='text-muted'>{$date}</small></div>";
-            })
-            ->addColumn('order_info', function ($batch) {
+
+                // 🧾 Assign Code + Date
+                $assignCodeHtml = "<div><div>{$batch->assign_code}</div><small class='text-muted'>{$date}</small></div>";
+
+                // 🧍‍♂️ Order info + customer
                 $order = $batch->orderProgress->order ?? null;
-                if (!$order) return '-';
-                $customerName = $order->customer ? $order->customer->name : 'Unknown';
-                return "<div>
-                        <div>" . ($order->order_number ?? '') . "</div>
-                        <small class='text-muted'>{$customerName}</small>
-                    </div>";
-            })
-            ->addColumn('customer', fn($batch) => $batch->orderProgress->order->customer->name ?? '-')
-            ->addColumn('total_items', fn($batch) => $batch->assigns->count())
-            ->addColumn('total_quantity', fn($batch) => number_format($batch->assigns->sum('assigned_quantity'), 0, ',', '.'))
-            ->addColumn('operators', fn($batch) => $batch->assigns->pluck('operator.name')->unique()->implode(', ') ?: '-')
-            ->addColumn('note', fn($batch) => e($batch->note ?? '-'))
-            ->addColumn('assign_products', function ($batch) {
+                $orderInfo = '-';
+                if ($order) {
+                    $customerName = $order->customer ? $order->customer->name : 'Unknown';
+                    $orderInfo = "<div>
+                    <div>" . ($order->order_number ?? '') . "</div>
+                    <small class='text-muted'>{$customerName}</small>
+                </div>";
+                }
+
+                // 👥 Total item, quantity, operator
+                $totalItems = $batch->assigns->count();
+                $totalQuantity = number_format($batch->assigns->sum('assigned_quantity'), 0, ',', '.');
+                $operators = $batch->assigns->pluck('operator.name')->unique()->implode(', ') ?: '-';
+                $note = e($batch->note ?? '-');
+
+                // 📦 Assign products partial
                 $assigns = OrderProgressAssign::with(['operator', 'progressItem.product'])
                     ->where('assign_batch_id', $batch->id)
                     ->get();
-                return view('erp.pages.production.assign-list.partials.assign-product', compact('assigns'))->render();
-            })
-            ->addColumn('action', function ($batch) {
+                $assignProducts = view('erp.pages.production.assign-list.partials.assign-product', compact('assigns'))->render();
+
+                // ⚙️ Action button partial
                 $allCompleted = $batch->assigns->every(function ($assign) {
                     return $assign->change_quantity >= $assign->assigned_quantity;
                 });
 
-                // 🔹 Tambahan: cek apakah SEMUA status masih "progress"
                 $hasOnlyProgressStatus = !DB::table('order_progress_assigns')
                     ->where('assign_batch_id', $batch->id)
                     ->where('status', '!=', 'progress')
                     ->exists();
 
-                return view('erp.pages.production.assign-list.partials.assign-action-button', compact(
+                $action = view('erp.pages.production.assign-list.partials.assign-action-button', compact(
                     'batch',
                     'allCompleted',
                     'hasOnlyProgressStatus'
                 ))->render();
-            })
-            ->rawColumns(['assign_code', 'assign_products', 'order_info', 'action'])
-            ->make(true);
+
+                return [
+                    'id' => $batch->id,
+                    'assign_code' => $assignCodeHtml,
+                    'order_info' => $orderInfo,
+                    'customer' => e($batch->orderProgress->order->customer->name ?? '-'),
+                    'total_items' => $totalItems,
+                    'total_quantity' => $totalQuantity,
+                    'operators' => e($operators),
+                    'note' => $note,
+                    'assign_products' => $assignProducts,
+                    'action' => $action,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 }

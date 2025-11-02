@@ -4,11 +4,11 @@
     <style>
         /* @media (max-width: 768px) {
 
-                            #deliveryListTable td.desktop-only,
-                            #deliveryListTable th.desktop-only {
-                                display: none !important;
-                            }
-                        } */
+                                        #deliveryListTable td.desktop-only,
+                                        #deliveryListTable th.desktop-only {
+                                            display: none !important;
+                                        }
+                                    } */
 
         #deliveryListTable {
             width: 100% !important;
@@ -29,7 +29,6 @@
             animation: fadeIn 0.3s ease-in;
         }
 
-        /* 🚫 Pastikan th.mobile-only HILANG TOTAL di desktop, termasuk versi scrollHead */
         #deliveryListTable th.mobile-only,
         .dataTables_scrollHead thead th.mobile-only {
             display: none !important;
@@ -41,7 +40,6 @@
             border: none !important;
         }
 
-        /* ✅ Mobile mode aktif — tampilkan Summary */
         @media (max-width: 768px) {
 
             #deliveryListTable thead,
@@ -182,11 +180,11 @@
                             <table class="table table-hover bg-transparent" id="deliveryListTable">
                                 <thead>
                                     <tr>
-                                        <th class="desktop-only">Shipment Number</th>
+                                        <th class="desktop-only wd-120">Shipment Number</th>
                                         <th class="desktop-only">Customer</th>
-                                        <th class="desktop-only">Address</th>
+                                        <th class="desktop-only wd-250">Address</th>
                                         <th class="desktop-only">Driver</th>
-                                        <th class="desktop-only">Status</th>
+                                        {{-- <th class="desktop-only">Status</th> --}}
                                         <th class="desktop-only">Items</th>
                                         <th class="mobile-only">Summary</th> <!-- ✅ tambahan -->
                                         <th class="desktop-only">Proof Photos</th>
@@ -283,19 +281,32 @@
             </form>
         </div>
     </div>
+
+    <div class="modal fade" id="modalPreviewProof" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">Proof Photos</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="fw-bold mb-3" id="proofShipment"></h6>
+                    <div id="proofPhotoContainer" class="d-flex flex-wrap gap-3 justify-content-start"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
     <script>
         $(document).ready(function() {
 
-            // ========== VARIABEL UNTUK LAZY LOAD ==========
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ========== INISIALISASI DATATABLE ==========
             const dataTable = $('#deliveryListTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -306,10 +317,12 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [0, 'desc']
+                    [7, 'desc']
                 ],
                 data: [],
-                columns: [{
+                columns: [
+
+                    {
                         data: 'shipment_number',
                         name: 'shipment_number',
                         className: 'desktop-only'
@@ -329,11 +342,11 @@
                         name: 'driver',
                         className: 'desktop-only'
                     },
-                    {
-                        data: 'status',
-                        name: 'status',
-                        className: 'desktop-only'
-                    },
+                    // {
+                    //     data: 'status',
+                    //     name: 'status',
+                    //     className: 'desktop-only'
+                    // },
                     {
                         data: 'items',
                         name: 'items',
@@ -349,10 +362,14 @@
                         name: 'proof_photos',
                         className: 'desktop-only'
                     },
+                    {
+                        data: 'id',
+                        visible: false,
+                        searchable: false
+                    }
                 ],
             });
 
-            // ========== FUNGSI LOAD DATA ==========
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -389,10 +406,8 @@
                 });
             }
 
-            // ========== LOAD PERTAMA ==========
             loadMoreData();
 
-            // ========== SCROLL EVENT UNTUK LAZY LOAD ==========
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -407,7 +422,6 @@
                 }, 200);
             });
 
-            // ========== RESET & RELOAD ==========
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -416,7 +430,6 @@
                 loadMoreData();
             }
 
-            // ========== SEMUA EVENT LAMA TETAP, CUMA GANTI .ajax.reload() ==========
             $('#status, #search_type').on('change', function() {
                 resetAndReload();
             });
@@ -440,7 +453,6 @@
                 searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
 
-            // ========== ACTION ROW (TIDAK DIUBAH) ==========
             $('#deliveryListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
                 let $tr = $(this);
@@ -472,7 +484,6 @@
                 $('#deliveryListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // ========== UPLOAD PROOF (TETAP) ==========
             $(document).on('click', '.btn-upload-proof', function() {
                 const url = $(this).data('url');
                 const id = $(this).data('id');
@@ -536,7 +547,6 @@
                 if (!valid) e.preventDefault();
             });
 
-            // ========== VERIFY & DELETE MODAL (TIDAK DIUBAH) ==========
             $(document).on('click', '.btn-verify', function() {
                 let name = $(this).data('name');
                 let url = $(this).data('url');
@@ -556,7 +566,6 @@
             });
         });
 
-        // Fungsi kompresi gambar pakai canvas
         function compressImage(file, quality = 0.7) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
@@ -567,7 +576,7 @@
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
                         const ctx = canvas.getContext('2d');
-                        const MAX_WIDTH = 1280; // batas resolusi maksimal
+                        const MAX_WIDTH = 1280;
                         const scaleSize = MAX_WIDTH / img.width;
                         canvas.width = MAX_WIDTH;
                         canvas.height = img.height * scaleSize;
@@ -584,14 +593,12 @@
             });
         }
 
-        let photoFiles = []; // simpan semua foto yang diambil
+        let photoFiles = [];
 
-        // 📸 Saat ambil foto dari kamera
         $(document).on('change', '#proof_camera', function(e) {
             const file = e.target.files[0];
             if (!file) return;
 
-            // Simpan ke array (buat dikirim nanti)
             photoFiles.push(file);
 
             const reader = new FileReader();
@@ -606,7 +613,6 @@
             };
             reader.readAsDataURL(file);
 
-            // Reset input supaya bisa buka kamera lagi
             e.target.value = '';
         });
 
@@ -620,7 +626,6 @@
 
             const formData = new FormData(this);
 
-            // Kompres dan tambahkan semua file
             for (const file of photoFiles) {
                 const compressed = await compressImage(file, 0.6);
                 formData.append('proof_photos[]', compressed, file.name);
@@ -638,6 +643,41 @@
             } else {
                 Swal.fire('Gagal!', 'Terjadi kesalahan saat upload.', 'error');
             }
+        });
+
+        $(document).on('click', '.btn-preview-proof', function() {
+            const photos = $(this).data('photos');
+            const shipment = $(this).data('shipment');
+            const container = $('#proofPhotoContainer');
+
+            $('#proofShipment').text(`Shipment: ${shipment}`);
+            container.empty();
+
+            if (Array.isArray(photos) && photos.length > 0) {
+                photos.forEach((path, idx) => {
+                    const src = path.startsWith('http') ? path :
+                        `${window.location.origin}/${path.replace(/^\/+/, '')}`;
+                    const html = `
+                <div class="text-center border rounded p-2" style="max-width:240px;">
+                    <img src="${src}" 
+                        class="img-fluid rounded mb-2 proof-image" 
+                        style="width:180px;height:180px;object-fit:cover;cursor:pointer;"
+                        data-full="${src}" alt="Proof ${idx + 1}">
+                    <p class="small text-muted mb-0">Photo ${idx + 1}</p>
+                </div>
+            `;
+                    container.append(html);
+                });
+            } else {
+                container.html('<p class="text-muted">No proof images available.</p>');
+            }
+
+            $('#modalPreviewProof').modal('show');
+        });
+
+        $(document).on('click', '.proof-image', function() {
+            const src = $(this).data('full');
+            window.open(src, '_blank');
         });
     </script>
 @endpush

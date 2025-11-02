@@ -19,12 +19,15 @@ class WaitingListController extends Controller
 
     public function dataWaitingList(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $progresses = OrderProgress::with([
             'order.customer',
             'items.product.productionStocks'
         ])->orderBy('created_at', 'desc');
 
-        // Filter tanggal (pakai date dari OrderProgress atau order?)
+        // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -54,6 +57,7 @@ class WaitingListController extends Controller
             }
         }
 
+        // ✅ Filter pencarian
         if ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
                 $progresses->whereHas('order.customer', function ($q) use ($request) {
@@ -66,6 +70,7 @@ class WaitingListController extends Controller
             }
         }
 
+        // ✅ Filter status progress
         if ($request->filled('progress_status')) {
             if ($request->progress_status === 'completed') {
                 $progresses->whereDoesntHave('items', function ($q) {
@@ -78,48 +83,63 @@ class WaitingListController extends Controller
             }
         }
 
-        return DataTables::eloquent($progresses)
-            ->addIndexColumn()
-            ->addColumn('invoice_number', function ($progress) {
+        // ✅ Hitung total data untuk lazy-load
+        $totalQuery = clone $progresses;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $progresses->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load / infinite scroll)
+        return response()->json([
+            'data' => $data->map(function ($progress) {
                 $date = Carbon::parse($progress->date)->format('j M y');
 
+                // 🏷️ Edited badge
                 $editedBadge = $progress->status_edited == 1
                     ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
                     : '';
 
-                // Contoh tambahan badge jika progress sudah complete
+                // ✅ Completed badge
                 $completeBadge = $progress->items->every(fn($item) => $item->completed_quantity >= $item->quantity)
                     ? '<div><span class="badge bg-soft-success text-success mb-1">Completed</span></div>'
                     : '';
 
-                return $completeBadge . '
-            <div>
-                <div>' . e($progress->invoice_number) . $editedBadge . '</div>
-                <small class="text-muted">' . $date . '</small>
-            </div>';
-            })
-            ->addColumn('customer', function ($progress) {
-                return $progress->order->customer->name;
-            })
-            ->addColumn('progress', function ($progress) {
-                return view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
-            })
-            ->addColumn('shipping_address', function ($progress) {
-                return $progress->order->shipping_address;
-            })
-            // ->addColumn('notes', function ($progress) {
-            //     return $progress->notes;
-            // })
-            ->addColumn('action', function ($progress) {
+                // 🧾 Invoice display
+                $invoiceNumberHtml = $completeBadge . '
+                <div>
+                    <div>' . e($progress->invoice_number) . $editedBadge . '</div>
+                    <small class="text-muted">' . $date . '</small>
+                </div>';
+
+                // 👤 Customer
+                $customer = e($progress->order->customer->name ?? '-');
+
+                // 📦 Product progress partial
+                $progressView = view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
+
+                // 📍 Shipping address
+                $shipping = e($progress->order->shipping_address ?? '-');
+
+                // ⚙️ Action button partial
                 $allCompleted = $progress->items->every(function ($item) {
                     return ($item->completed_quantity ?? 0) >= ($item->quantity ?? 0);
                 });
+                $actionButtons = view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();
 
-                return view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();
-            })
-            ->rawColumns(['invoice_number', 'payment_status', 'progress', 'status', 'action', 'sale_list'])
-            ->make(true);
+                return [
+                    'id' => $progress->id,
+                    'invoice_number' => $invoiceNumberHtml,
+                    'customer' => $customer,
+                    'progress' => $progressView,
+                    'shipping_address' => $shipping,
+                    'action' => $actionButtons,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function getCompleteList()
     {

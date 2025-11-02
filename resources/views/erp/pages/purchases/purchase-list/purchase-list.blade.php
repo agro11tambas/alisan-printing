@@ -520,17 +520,6 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // ====================================================
-            // 🔹 LAZY LOAD VARIABLES
-            // ====================================================
-            let allData = [];
-            let currentPage = 0;
-            let isLoading = false;
-            let hasMoreData = true;
-
-            // ====================================================
-            // 🔹 FORMAT PRODUK
-            // ====================================================
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
@@ -573,9 +562,11 @@
                 return html;
             }
 
-            // ====================================================
-            // 🔹 DATATABLE UTAMA
-            // ====================================================
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             const dataTable = $('#purchaseListTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -586,7 +577,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [1, 'desc']
+                    [7, 'desc']
                 ],
                 data: [],
                 columns: [{
@@ -614,15 +605,19 @@
                     {
                         data: 'payment_status'
                     },
+                    {
+                        data: 'purchase_date',
+                        visible: false,
+                        searchable: false
+                    }
                 ]
             });
 
-            // ====================================================
-            // 🔹 FUNGSI LOAD DATA
-            // ====================================================
+            // Fungsi load data dari server
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
+                console.log('🔄 Loading purchase page:', currentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/purchases/purchase-list/data') }}",
@@ -639,32 +634,31 @@
                         due_date_order: $('#due_date_order').val(),
                     },
                     success: function(response) {
+                        console.log('✅ Purchase response:', response);
+
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
+                            console.log('📦 Total purchase rows:', allData.length);
                         } else {
                             hasMoreData = false;
+                            console.log('⚠️ No more purchase data');
                         }
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error response:', xhr.responseJSON);
-                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        console.error('❌ Error loading purchase:', xhr.responseText);
                         isLoading = false;
                     }
                 });
             }
 
-            // ====================================================
-            // 🔹 LOAD PERTAMA
-            // ====================================================
+            // Load pertama kali
             loadMoreData();
 
-            // ====================================================
-            // 🔹 SCROLL UNTUK LAZY LOAD
-            // ====================================================
+            // Lazy load saat scroll
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -679,9 +673,7 @@
                 }, 200);
             });
 
-            // ====================================================
-            // 🔹 RESET & RELOAD
-            // ====================================================
+            // Reset dan reload saat filter berubah
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -690,148 +682,7 @@
                 loadMoreData();
             }
 
-            // ====================================================
-            // 🔹 TAB DATA TERHAPUS (DELETED)
-            // ====================================================
-            let deletedTable = null;
-
-            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
-                if ($(e.target).attr('href') === '#deleted-purchase-list') {
-                    if (!deletedTable) {
-                        deletedTable = $('#deletedPurchaseListTable').DataTable({
-                            processing: true,
-                            serverSide: true,
-                            deferRender: true,
-                            scrollY: 600,
-                            scroller: true,
-                            paging: true,
-                            searching: false,
-                            lengthChange: false,
-                            info: false,
-                            pagingType: "simple",
-                            ajax: "{{ url('/erp/purchases/purchase-list/data-deleted') }}",
-                            columns: [{
-                                    className: 'dt-control text-center',
-                                    orderable: false,
-                                    data: null,
-                                    defaultContent: '',
-                                    width: "20px"
-                                },
-                                {
-                                    data: 'purchase_number'
-                                },
-                                {
-                                    data: 'supplier'
-                                },
-                                {
-                                    data: 'total_amount'
-                                },
-                                {
-                                    data: 'deleted_at'
-                                },
-                                {
-                                    data: 'deleted_by'
-                                },
-                                {
-                                    data: 'delete_notes'
-                                },
-                                @if (auth()->user()->role === 'Owner')
-                                    {
-                                        data: 'action',
-                                        orderable: false,
-                                        searchable: false
-                                    }
-                                @endif
-                            ]
-                        });
-
-                        $('#deletedPurchaseListTable tbody').on('click', 'td.dt-control', function() {
-                            let tr = $(this).closest('tr');
-                            let row = deletedTable.row(tr);
-                            if (row.child.isShown()) {
-                                row.child.hide();
-                                tr.removeClass('shown');
-                            } else {
-                                row.child(formatProducts(row.data().products)).show();
-                                tr.addClass('shown');
-                            }
-                        });
-                    } else {
-                        deletedTable.ajax.reload();
-                    }
-                }
-            });
-
-            // ====================================================
-            // 🔹 EXPAND PRODUK & ACTION ROW
-            // ====================================================
-            $('#purchaseListTable tbody').on('click', 'td.dt-control', function() {
-                let tr = $(this).closest('tr');
-                let row = dataTable.row(tr);
-                let icon = $(this).find('i');
-
-                if (row.child.isShown()) {
-                    row.child.hide();
-                    tr.removeClass('shown');
-                    icon.removeClass('feather-minus').addClass('feather-plus');
-                } else {
-                    row.child(formatProducts(row.data().products)).show();
-                    tr.addClass('shown');
-                    icon.removeClass('feather-plus').addClass('feather-minus');
-                }
-            });
-
-            $('#purchaseListTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return;
-
-                let $tr = $(this);
-                let row = dataTable.row($tr);
-
-                $('#purchaseListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-
-                if ($tr.hasClass('action-shown')) {
-                    $tr.removeClass('action-shown');
-                } else {
-                    let actionHtml = row.data().action;
-                    let colCount = $tr.find('td').length;
-                    let $actionRow = $(`
-                <tr class="action-row">
-                    <td colspan="${colCount}">
-                        <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                        </div>
-                    </td>
-                </tr>
-            `);
-                    $tr.after($actionRow);
-                    $tr.addClass('action-shown');
-                }
-            });
-
-            $('#deletedPurchaseListTable tbody').on('click', 'td.dt-control', function() {
-                let tr = $(this).closest('tr');
-                let row = deletedTable.row(tr);
-                let icon = $(this).find('i');
-
-                if (row.child.isShown()) {
-                    row.child.hide();
-                    tr.removeClass('shown');
-                    icon.removeClass('feather-minus').addClass('feather-plus');
-                } else {
-                    row.child(formatProducts(row.data().products)).show();
-                    tr.addClass('shown');
-                    icon.removeClass('feather-plus').addClass('feather-minus');
-                }
-            });
-
-            $(document).on('click', function(e) {
-                if ($(e.target).closest('#purchaseListTable').length) return;
-                $('#purchaseListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-            });
-
-            // ====================================================
-            // 🔹 FILTER, SEARCH, DUE DATE (SEMUA TETAP)
-            // ====================================================
+            // Event handlers untuk filter
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
@@ -871,6 +722,7 @@
                 }
             });
 
+            // Debounce untuk search keyword
             let searchTimeout = null;
             $('#search_keyword').on('keyup', function() {
                 if ($('#search_type').val() !== 'payment_status') {
@@ -884,8 +736,243 @@
                     resetAndReload();
                 }
             });
+
+            // Expand/collapse products detail
+            $('#purchaseListTable tbody').on('click', 'td.dt-control', function() {
+                let tr = $(this).closest('tr');
+                let row = dataTable.row(tr);
+                let icon = $(this).find('i');
+
+                if (row.child.isShown()) {
+                    row.child.hide();
+                    tr.removeClass('shown');
+                    icon.removeClass('feather-minus').addClass('feather-plus');
+                } else {
+                    row.child(formatProducts(row.data().products)).show();
+                    tr.addClass('shown');
+                    icon.removeClass('feather-plus').addClass('feather-minus');
+                }
+            });
+
+            // Action button dropdown
+            $('#purchaseListTable tbody').on('click', 'tr', function(e) {
+                if ($(e.target).closest('td.dt-control').length) return;
+
+                let $tr = $(this);
+                let row = dataTable.row($tr);
+
+                $('#purchaseListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+
+                if ($tr.hasClass('action-shown')) {
+                    $tr.removeClass('action-shown');
+                } else {
+                    let actionHtml = row.data().action;
+                    let colCount = $tr.find('td').length;
+                    let $actionRow = $(`
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
+                            ${actionHtml}
+                        </div>
+                    </td>
+                </tr>
+            `);
+                    $tr.after($actionRow);
+                    $tr.addClass('action-shown');
+                }
+            });
+
+            // Close action dropdown saat klik di luar
+            $(document).on('click', function(e) {
+                if ($(e.target).closest('#purchaseListTable').length) return;
+                $('#purchaseListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+            });
+
+            // ========== DELETED PURCHASE LIST TABLE (CSR dengan Lazy Load) ==========
+            let deletedAllData = [];
+            let deletedCurrentPage = 0;
+            let deletedIsLoading = false;
+            let deletedHasMoreData = true;
+            let deletedTable = null;
+            let deletedTableInitialized = false;
+
+            function initDeletedTable() {
+                if (deletedTableInitialized) return;
+
+                const deletedColumns = [{
+                        className: 'dt-control text-center',
+                        orderable: false,
+                        data: null,
+                        defaultContent: '',
+                        width: "20px"
+                    },
+                    {
+                        data: 'purchase_number'
+                    },
+                    {
+                        data: 'supplier'
+                    },
+                    {
+                        data: 'total_amount'
+                    },
+                    {
+                        data: 'deleted_at'
+                    },
+                    {
+                        data: 'deleted_by'
+                    },
+                    {
+                        data: 'delete_notes'
+                    }
+                ];
+
+                @if (auth()->user()->role === 'Owner')
+                    deletedColumns.push({
+                        data: 'action',
+                        orderable: false,
+                        searchable: false
+                    });
+                @endif
+
+                deletedTable = $('#deletedPurchaseListTable').DataTable({
+                    processing: false,
+                    serverSide: false,
+                    scrollY: '60vh',
+                    scrollCollapse: true,
+                    paging: false,
+                    searching: false,
+                    info: false,
+                    lengthChange: false,
+                    order: [
+                        [4, 'asc']
+                    ],
+                    data: [],
+                    columns: deletedColumns
+                });
+
+                deletedTableInitialized = true;
+
+                // Lazy load saat scroll untuk deleted table
+                $('#deletedPurchaseListTable').closest('.dataTables_scrollBody').on('scroll', function() {
+                    clearTimeout(scrollTimeout);
+
+                    const scrollTop = $(this).scrollTop();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
+
+                    scrollTimeout = setTimeout(() => {
+                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                            loadMoreDeletedData();
+                        }
+                    }, 200);
+                });
+
+                // Expand products di deleted table
+                $('#deletedPurchaseListTable tbody').on('click', 'td.dt-control', function() {
+                    let tr = $(this).closest('tr');
+                    let row = deletedTable.row(tr);
+                    let icon = $(this).find('i');
+
+                    if (row.child.isShown()) {
+                        row.child.hide();
+                        tr.removeClass('shown');
+                        icon.removeClass('feather-minus').addClass('feather-plus');
+                    } else {
+                        row.child(formatProducts(row.data().products)).show();
+                        tr.addClass('shown');
+                        icon.removeClass('feather-plus').addClass('feather-minus');
+                    }
+                });
+            }
+
+            function loadMoreDeletedData() {
+                if (deletedIsLoading || !deletedHasMoreData) return;
+
+                deletedIsLoading = true;
+                console.log('🔄 Loading deleted purchase page:', deletedCurrentPage + 1);
+
+                $.ajax({
+                    url: "{{ url('/erp/purchases/purchase-list/data-deleted') }}",
+                    type: 'GET',
+                    data: {
+                        start: deletedCurrentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val(),
+                        due_date_order: $('#due_date_order').val(),
+                    },
+                    success: function(response) {
+                        console.log('✅ Deleted purchase response:', response);
+
+                        if (response && response.data && response.data.length > 0) {
+                            deletedAllData = deletedAllData.concat(response.data);
+                            deletedTable.clear();
+                            deletedTable.rows.add(deletedAllData);
+                            deletedTable.draw(false);
+                            deletedCurrentPage++;
+                            console.log('📦 Total deleted purchase rows:', deletedAllData.length);
+                        } else {
+                            deletedHasMoreData = false;
+                            console.log('⚠️ No more deleted purchase data');
+                        }
+
+                        deletedIsLoading = false;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ Error loading deleted purchase:', error);
+                        console.error('Response:', xhr.responseText);
+                        deletedIsLoading = false;
+                    }
+                });
+            }
+
+            function resetAndReloadDeleted() {
+                deletedAllData = [];
+                deletedCurrentPage = 0;
+                deletedHasMoreData = true;
+                if (deletedTable) {
+                    deletedTable.clear().draw();
+                }
+                loadMoreDeletedData();
+            }
+
+            // Tab switch handler
+            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
+                if ($(e.target).attr('href') === '#deleted-purchase-list') {
+                    if (!deletedTableInitialized) {
+                        initDeletedTable();
+                        loadMoreDeletedData();
+                    } else {
+                        resetAndReloadDeleted();
+                    }
+                }
+            });
+
+            // Filter change untuk deleted table
+            $('#filter, #apply-filter, #search_type, #due_date_order, #search_payment_status').on('change click',
+                function() {
+                    if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent().hasClass(
+                        'active')) {
+                        resetAndReloadDeleted();
+                    }
+                });
+
+            $('#search_keyword').on('keyup', function() {
+                if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent().hasClass(
+                    'active')) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        resetAndReloadDeleted();
+                    }, 400);
+                }
+            });
         });
 
+        // ========== Modal Handlers ==========
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalDeletePurchase');
             const form = document.getElementById('formDeletePurchase');
@@ -908,8 +995,8 @@
 
                 const purchaseId = btn.dataset.id;
                 const url = btn.dataset.url;
-                const totalAmount = parseFloat(btn.dataset.totalAmountProduct) || 0; // <-- pakai totalAmountProduct
-                const paidAmount = parseFloat(btn.dataset.paidAmountProduct) || 0; // <-- pakai paidAmountProduct
+                const totalAmount = parseFloat(btn.dataset.totalAmountProduct) || 0;
+                const paidAmount = parseFloat(btn.dataset.paidAmountProduct) || 0;
                 const remaining = Math.max(totalAmount - paidAmount, 0);
 
                 const fmt = new Intl.NumberFormat('id-ID');
@@ -929,8 +1016,8 @@
 
                 const purchaseId = btn.dataset.id;
                 const url = btn.dataset.url;
-                const totalAmount = parseFloat(btn.dataset.totalAmountFreight) || 0; // <-- totalAmountFreight
-                const paidAmount = parseFloat(btn.dataset.paidAmountFreight) || 0; // <-- paidAmountFreight
+                const totalAmount = parseFloat(btn.dataset.totalAmountFreight) || 0;
+                const paidAmount = parseFloat(btn.dataset.paidAmountFreight) || 0;
                 const remaining = Math.max(totalAmount - paidAmount, 0);
 
                 const fmt = new Intl.NumberFormat('id-ID');
@@ -944,14 +1031,7 @@
                 const paidDisplay = document.getElementById('paid_amount_display_freight');
                 if (paidDisplay) paidDisplay.innerText = 'Paid: Rp. ' + fmt.format(paidAmount);
             }
-
         });
-
-        // const paidInput = document.getElementById("paid_amount");
-        // paidInput.addEventListener("input", function() {
-        //     let angka = this.value.replace(/\D/g, "") || "0";
-        //     this.value = new Intl.NumberFormat('id-ID').format(angka);
-        // });
 
         const paidInputProduct = document.getElementById("paid_amount_product");
         paidInputProduct.addEventListener("input", function() {
@@ -1119,10 +1199,6 @@
                 if (display) display.innerText = 'Paid: Rp. ' + this.value;
             });
         });
-
-        // document.querySelector("form").addEventListener("submit", function() {
-        //     paidInput.value = paidInput.value.replace(/\./g, "");
-        // });
 
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalForceDeleteOrder');

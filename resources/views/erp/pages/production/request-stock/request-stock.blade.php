@@ -155,12 +155,12 @@
                                     <table class="table table-hover bg-transparent" id="requestStockTable">
                                         <thead>
                                             <tr>
-                                                <th class="wd-30">No</th>
-                                                <th>Request By</th>
-                                                <th>Date</th>
-                                                <th>Items</th>
-                                                <th>Warehouse Status</th>
-                                                <th>Verified By</th>
+                                                {{-- <th class="wd-30">No</th> --}}
+                                                <th class="wd-150">Request By</th>
+                                                <th class="wd-150">Date</th>
+                                                <th class="wd-400">Items</th>
+                                                <th class="wd-200">Warehouse Status</th>
+                                                <th class="wd-200">Verified By</th>
                                                 {{-- <th>Status</th> --}}
                                             </tr>
                                         </thead>
@@ -170,7 +170,7 @@
                                     <table class="table table-hover bg-transparent" id="deletedRequestStockTable">
                                         <thead>
                                             <tr>
-                                                <th class="wd-30">No</th>
+                                                {{-- <th class="wd-30">No</th> --}}
                                                 <th>Request By</th>
                                                 <th>Date</th>
                                                 <th>Items</th>
@@ -344,13 +344,11 @@
     <script>
         $(document).ready(function() {
 
-            // ===== LAZY LOAD VARIABEL =====
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ===== MAIN DATATABLE =====
             const dataTable = $('#requestStockTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -364,11 +362,12 @@
                     [1, 'desc']
                 ],
                 data: [],
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                     {
                         data: 'requested_by',
                         name: 'requested_by'
@@ -392,10 +391,10 @@
                 ],
             });
 
-            // ===== FUNGSI LOAD DATA =====
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
+                console.log('🔄 Loading request stock page:', currentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/productions/material-request/data') }}",
@@ -409,13 +408,17 @@
                         progress_status: $('#progress_status').val(),
                     },
                     success: function(response) {
+                        console.log('✅ Request stock response:', response);
+
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
+                            console.log('📦 Total request stock rows:', allData.length);
                         } else {
                             hasMoreData = false;
+                            console.log('⚠️ No more request stock data');
                         }
                         isLoading = false;
                     },
@@ -427,10 +430,8 @@
                 });
             }
 
-            // ===== LOAD PERTAMA =====
             loadMoreData();
 
-            // ===== SCROLL UNTUK LAZY LOAD =====
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -445,7 +446,6 @@
                 }, 200);
             });
 
-            // ===== RESET DAN RELOAD =====
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -454,108 +454,79 @@
                 loadMoreData();
             }
 
-            // ====== DELETED TABLE (TETAP SERVER SIDE) ======
-            let deletedTable = null;
+            $('#progress_status').on('change', function() {
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
+                    .hasClass('active');
 
-            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
-                if ($(e.target).attr('href') === '#deleted-request-stock') {
-                    if (!deletedTable) {
-                        deletedTable = $('#deletedRequestStockTable').DataTable({
-                            processing: true,
-                            serverSide: true,
-                            deferRender: true,
-                            scrollY: 600,
-                            scroller: true,
-                            paging: true,
-                            searching: false,
-                            lengthChange: false,
-                            info: false,
-                            pagingType: "simple",
-                            ajax: "{{ url('/erp/productions/stock-request/data-deleted') }}",
-                            columns: [{
-                                    data: 'DT_RowIndex',
-                                    orderable: false,
-                                    searchable: false
-                                },
-                                {
-                                    data: 'requested_by',
-                                    name: 'requested_by'
-                                },
-                                {
-                                    data: 'requested_at',
-                                    name: 'requested_at'
-                                },
-                                {
-                                    data: 'items',
-                                    name: 'items'
-                                },
-                                {
-                                    data: 'deleted_at',
-                                    name: 'deleted_at'
-                                },
-                                {
-                                    data: 'action',
-                                    orderable: false,
-                                    searchable: false
-                                },
-                            ]
-                        });
-
-                        $('#deletedRequestStockTable tbody').on('click', 'td.dt-control', function() {
-                            let tr = $(this).closest('tr');
-                            let row = deletedTable.row(tr);
-
-                            if (row.child.isShown()) {
-                                row.child.hide();
-                                tr.removeClass('shown');
-                            } else {
-                                row.child(formatProducts(row.data().products)).show();
-                                tr.addClass('shown');
-                            }
-                        });
-                    } else {
-                        deletedTable.ajax.reload();
-                    }
+                if (!isDeletedTab) {
+                    resetAndReload();
+                } else {
+                    resetAndReloadDeleted();
                 }
             });
 
-            // ===== FILTERS =====
-            $('#progress_status').on('change', function() {
-                resetAndReload();
-            });
-
             $('#filter').on('change', function() {
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
+                    .hasClass('active');
+
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    resetAndReload();
+                    if (!isDeletedTab) {
+                        resetAndReload();
+                    } else {
+                        resetAndReloadDeleted();
+                    }
                 }
             });
 
             $('#apply-filter').on('click', function() {
-                resetAndReload();
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
+                    .hasClass('active');
+
+                if (!isDeletedTab) {
+                    resetAndReload();
+                } else {
+                    resetAndReloadDeleted();
+                }
             });
 
             $('#search_type').on('change', function() {
                 const selected = $(this).val();
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
+                    .hasClass('active');
+
                 if (selected === 'payment_status') {
                     $('#search_keyword').addClass('d-none').val('');
                 } else {
                     $('#search_keyword').removeClass('d-none');
                 }
-                resetAndReload();
+
+                if (!isDeletedTab) {
+                    resetAndReload();
+                } else {
+                    resetAndReloadDeleted();
+                }
             });
 
             let searchTimeout = null;
             $('#search_keyword').on('keyup', function() {
+                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
+                    .hasClass('active');
+
                 if ($('#search_type').val() !== 'payment_status') {
                     clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => resetAndReload(), 400);
+                    searchTimeout = setTimeout(() => {
+                        if (!isDeletedTab) {
+                            resetAndReload();
+                        } else {
+                            resetAndReloadDeleted();
+                        }
+                    }, 400);
                 }
             });
 
-            // ===== ACTION ROW (TIDAK DIUBAH) =====
             $('#requestStockTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -568,7 +539,6 @@
                     $tr.removeClass('action-shown');
                 } else {
                     let actionHtml = row.data().action;
-
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
                 <tr class="action-row">
@@ -587,8 +557,137 @@
 
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#requestStockTable').length) return;
-
                 $('#requestStockTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+            });
+
+            let deletedAllData = [];
+            let deletedCurrentPage = 0;
+            let deletedIsLoading = false;
+            let deletedHasMoreData = true;
+            let deletedTable = null;
+            let deletedTableInitialized = false;
+
+            function initDeletedTable() {
+                if (deletedTableInitialized) return;
+
+                deletedTable = $('#deletedRequestStockTable').DataTable({
+                    processing: false,
+                    serverSide: false,
+                    scrollY: '60vh',
+                    scrollCollapse: true,
+                    paging: false,
+                    searching: false,
+                    info: false,
+                    lengthChange: false,
+                    data: [],
+                    columns: [
+                        // {
+                        //     data: 'DT_RowIndex',
+                        //     orderable: false,
+                        //     searchable: false
+                        // },
+                        {
+                            data: 'requested_by',
+                            name: 'requested_by'
+                        },
+                        {
+                            data: 'requested_at',
+                            name: 'requested_at'
+                        },
+                        {
+                            data: 'items',
+                            name: 'items'
+                        },
+                        {
+                            data: 'deleted_at',
+                            name: 'deleted_at'
+                        },
+                        {
+                            data: 'action',
+                            orderable: false,
+                            searchable: false
+                        },
+                    ]
+                });
+
+                deletedTableInitialized = true;
+
+                $('#deletedRequestStockTable').closest('.dataTables_scrollBody').on('scroll', function() {
+                    clearTimeout(scrollTimeout);
+
+                    const scrollTop = $(this).scrollTop();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
+
+                    scrollTimeout = setTimeout(() => {
+                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                            loadMoreDeletedData();
+                        }
+                    }, 200);
+                });
+            }
+
+            function loadMoreDeletedData() {
+                if (deletedIsLoading || !deletedHasMoreData) return;
+
+                deletedIsLoading = true;
+                console.log('🔄 Loading deleted request stock page:', deletedCurrentPage + 1);
+
+                $.ajax({
+                    url: "{{ url('/erp/productions/stock-request/data-deleted') }}",
+                    type: 'GET',
+                    data: {
+                        start: deletedCurrentPage * 15,
+                        length: 15,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        progress_status: $('#progress_status').val(),
+                    },
+                    success: function(response) {
+                        console.log('✅ Deleted request stock response:', response);
+
+                        if (response && response.data && response.data.length > 0) {
+                            deletedAllData = deletedAllData.concat(response.data);
+                            deletedTable.clear();
+                            deletedTable.rows.add(deletedAllData);
+                            deletedTable.draw(false);
+                            deletedCurrentPage++;
+                            console.log('📦 Total deleted request stock rows:', deletedAllData.length);
+                        } else {
+                            deletedHasMoreData = false;
+                            console.log('⚠️ No more deleted request stock data');
+                        }
+
+                        deletedIsLoading = false;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ Error loading deleted request stock:', error);
+                        console.error('Response:', xhr.responseText);
+                        deletedIsLoading = false;
+                    }
+                });
+            }
+
+            function resetAndReloadDeleted() {
+                deletedAllData = [];
+                deletedCurrentPage = 0;
+                deletedHasMoreData = true;
+                if (deletedTable) {
+                    deletedTable.clear().draw();
+                }
+                loadMoreDeletedData();
+            }
+
+            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
+                if ($(e.target).attr('href') === '#deleted-request-stock') {
+                    if (!deletedTableInitialized) {
+                        initDeletedTable();
+                        loadMoreDeletedData();
+                    } else {
+                        resetAndReloadDeleted();
+                    }
+                }
             });
 
             $(document).on('click', function(e) {

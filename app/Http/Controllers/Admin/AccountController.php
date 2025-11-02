@@ -20,30 +20,52 @@ class AccountController extends Controller
 
     public function dataAccount(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $account = Account::query();
         $hasDefault = Account::where('is_default', true)->exists();
 
+        // 🔍 Filter by name
         if ($request->filled('name')) {
             $account->where('name', 'like', '%' . $request->name . '%');
         }
 
+        // 🔍 Filter by type
         if ($request->filled('type')) {
             $account->where('type', 'like', '%' . $request->type . '%');
         }
 
-        return DataTables::eloquent($account)
-            ->addIndexColumn()
-            ->addColumn('name', function ($account) {
+        // ✅ Hitung total data sebelum pagination
+        $totalQuery = clone $account;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $account->orderBy('id', 'desc')->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($account) use ($hasDefault) {
+                // 🏷️ Nama + Badge Default
                 $badge = $account->is_default ? ' <span class="badge bg-success ms-2">Default</span>' : '';
-                return $account->name . $badge;
-            })
-            ->addColumn('type', fn($account) => $account->type)
-            ->addColumn('has_default', fn() => $hasDefault) // untuk dikirim ke JS
-            ->addColumn('action', function ($account) use ($hasDefault) {
-                return view('erp.pages.account.partials.action-button', compact('account', 'hasDefault'))->render();
-            })
-            ->rawColumns(['name', 'action'])
-            ->make(true);
+                $name = e($account->name) . $badge;
+
+                // 📘 Type
+                $type = e($account->type ?? '-');
+
+                // ⚙️ Action Partial
+                $action = view('erp.pages.account.partials.action-button', compact('account', 'hasDefault'))->render();
+
+                return [
+                    'id' => $account->id,
+                    'name' => $name,
+                    'type' => $type,
+                    'has_default' => $hasDefault,
+                    'action' => $action,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
 
     public function create()

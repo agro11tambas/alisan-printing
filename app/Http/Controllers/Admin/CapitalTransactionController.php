@@ -20,11 +20,16 @@ class CapitalTransactionController extends Controller
 
     public function dataCapitalTransaction(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $capitalTransactions = AccountTransaction::with('account')
             ->whereHas('account', function ($q) {
                 $q->where('name', 'Capital');
-            })->orderByDesc('id');
+            })
+            ->orderByDesc('id');
 
+        // 🔹 Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -57,26 +62,44 @@ class CapitalTransactionController extends Controller
             }
         }
 
-        return DataTables::eloquent($capitalTransactions)
-            ->addIndexColumn()
-            ->addColumn('type', function ($capitalTransactions) {
-                return $capitalTransactions->account->type;
-            })
-            ->addColumn('transaction_date', function ($capitalTransactions) {
-                return $capitalTransactions->transaction_date;
-            })
-            ->addColumn('credit', function ($capitalTransactions) {
-                return 'Rp ' . number_format($capitalTransactions->credit, 0, ',', '.');
-            })
-            ->addColumn('note', function ($capitalTransactions) {
-                return $capitalTransactions->note;
-            })
-            ->addColumn('action', function ($capitalTransactions) {
-                return view('erp.pages.capital-transactions.partials.action-button', compact('capitalTransactions'))->render();
-            })
-            ->rawColumns(['action'])
-            ->make(true);
+        // ✅ Hitung total sebelum pagination
+        $totalQuery = clone $capitalTransactions;
+        $totalData = $totalQuery->count();
+
+        // ✅ Ambil data sesuai offset dan limit
+        $data = $capitalTransactions->skip($start)->take($length)->get();
+
+        // ✅ Format JSON ringan (lazy-load)
+        return response()->json([
+            'data' => $data->map(function ($capitalTransactions) {
+                // 🏷️ Type (Account type)
+                $type = e($capitalTransactions->account->type ?? '-');
+
+                // 📅 Transaction date
+                $transactionDate = e($capitalTransactions->transaction_date ?? '-');
+
+                // 💰 Credit (Rupiah format)
+                $credit = 'Rp ' . number_format($capitalTransactions->credit ?? 0, 0, ',', '.');
+
+                // 📝 Note
+                $note = e($capitalTransactions->note ?? '-');
+
+                // ⚙️ Action partial
+                $action = view('erp.pages.capital-transactions.partials.action-button', compact('capitalTransactions'))->render();
+
+                return [
+                    'id' => $capitalTransactions->id,
+                    'type' => $type,
+                    'transaction_date' => $transactionDate,
+                    'credit' => $credit,
+                    'note' => $note,
+                    'action' => $action,
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function create()
     {

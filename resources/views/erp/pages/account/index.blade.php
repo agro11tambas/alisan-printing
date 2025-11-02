@@ -108,7 +108,7 @@
                     <table class="table bg-transparent table-hover table-vcenter text-nowrap mb-0" id="accountList">
                         <thead>
                             <tr>
-                                <th class="wd-30">No</th>
+                                {{-- <th class="wd-30">No</th> --}}
                                 <th>Account Name</th>
                                 <th>Account Type</th>
                                 <!-- <th class="text-end">Actions</th> -->
@@ -196,17 +196,11 @@
     <script>
         $(document).ready(function() {
 
-            // ====================================================
-            // 🔹 LAZY LOAD VARIABLES
-            // ====================================================
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ====================================================
-            // 🔹 DATATABLE UTAMA
-            // ====================================================
             const dataTable = $('#accountList').DataTable({
                 processing: false,
                 serverSide: false,
@@ -216,15 +210,16 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [1, 'asc']
-                // ],
+                order: [
+                    [0, 'asc']
+                ],
                 data: [],
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                     {
                         data: 'name'
                     },
@@ -234,9 +229,6 @@
                 ]
             });
 
-            // ====================================================
-            // 🔹 FUNGSI LOAD DATA (LAZY)
-            // ====================================================
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -269,14 +261,8 @@
                 });
             }
 
-            // ====================================================
-            // 🔹 LOAD PERTAMA
-            // ====================================================
             loadMoreData();
 
-            // ====================================================
-            // 🔹 SCROLL UNTUK LAZY LOAD
-            // ====================================================
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -291,9 +277,6 @@
                 }, 200);
             });
 
-            // ====================================================
-            // 🔹 RESET & RELOAD (DIPAKAI FILTER DAN SEARCH)
-            // ====================================================
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -302,16 +285,10 @@
                 loadMoreData();
             }
 
-            // ====================================================
-            // 🔹 EVENT SEARCH / FILTER (TIDAK DIUBAH)
-            // ====================================================
             $('#name, #type').on('change keyup', function() {
                 resetAndReload();
             });
 
-            // ====================================================
-            // 🔹 ACTION ROW & CLICK EVENTS (ASLI KAMU, TIDAK DIUBAH)
-            // ====================================================
             $('#accountList tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -384,7 +361,7 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            // mark default
+
             const modalMark = document.getElementById('modalMarkDefault');
             const formMark = document.getElementById('formMarkDefault');
             const nameMark = document.getElementById('markDefaultName');
@@ -395,7 +372,6 @@
                 nameMark.textContent = button.getAttribute('data-name');
             });
 
-            // remove default
             const modalRemove = document.getElementById('modalRemoveDefault');
             const formRemove = document.getElementById('formRemoveDefault');
             const nameRemove = document.getElementById('removeDefaultName');

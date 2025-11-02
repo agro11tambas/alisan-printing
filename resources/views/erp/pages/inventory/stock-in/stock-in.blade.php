@@ -116,9 +116,9 @@
                                             <div class="col-md-6">
                                                 <select id="search_type" class="form-control"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                                    <option value="invoice_number">Invoice / Order No</option>
-                                                    <option value="partner">Supplier / Customer</option>
-                                                    <option value="type">Transaction Type</option>
+                                                    <option value="invoice_number">Invoice Number</option>
+                                                    {{-- <option value="partner">Supplier / Customer</option> --}}
+                                                    {{-- <option value="type">Transaction Type</option> --}}
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
@@ -127,12 +127,12 @@
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;"
                                                     placeholder="Search..." />
 
-                                                <select id="search_type_dropdown" class="form-control search-input d-none"
+                                                {{-- <select id="search_type_dropdown" class="form-control search-input d-none"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;">
                                                     <option value="">All</option>
                                                     <option value="purchase">Purchase</option>
                                                     <option value="sale_return">Sale Return</option>
-                                                </select>
+                                                </select> --}}
                                             </div>
                                         </div>
                                     </div>
@@ -143,13 +143,9 @@
                             <table class="table table-hover bg-transparent" id="inventoryTable">
                                 <thead>
                                     <tr>
-                                        <th class="wd-30">No</th>
-                                        <th>Number</th>
-                                        <th>Date</th>
-                                        <!-- <th>Supplier/Customer</th> -->
+                                        <th class="wd-200">Number</th>
+                                        <th class="wd-200">Date</th>
                                         <th>Stock In</th>
-                                        <!-- <th>Status</th> -->
-                                        <!-- <th class="text-end">Actions</th> -->
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -168,17 +164,11 @@
     <script>
         $(document).ready(function() {
 
-            // ====================================================
-            // 🔹 LAZY LOAD VARIABLES
-            // ====================================================
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            // ====================================================
-            // 🔹 DATATABLE UTAMA
-            // ====================================================
             const dataTable = $('#inventoryTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -188,15 +178,16 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                // order: [
-                //     [1, 'desc']
-                // ],
+                order: [
+                    [1, 'desc']
+                ],
                 data: [],
-                columns: [{
-                        data: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                     {
                         data: 'transaction_number'
                     },
@@ -209,9 +200,6 @@
                 ]
             });
 
-            // ====================================================
-            // 🔹 FUNGSI LOAD DATA (LAZY)
-            // ====================================================
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -249,14 +237,8 @@
                 });
             }
 
-            // ====================================================
-            // 🔹 LOAD PERTAMA
-            // ====================================================
             loadMoreData();
 
-            // ====================================================
-            // 🔹 SCROLL UNTUK LAZY LOAD
-            // ====================================================
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -271,9 +253,6 @@
                 }, 200);
             });
 
-            // ====================================================
-            // 🔹 RESET & RELOAD
-            // ====================================================
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
@@ -282,9 +261,6 @@
                 loadMoreData();
             }
 
-            // ====================================================
-            // 🔹 EVENT FILTER, SEARCH, DAN ACTION (ASLI KAMU)
-            // ====================================================
             $('#progress_status').on('change', function() {
                 resetAndReload();
             });
@@ -320,9 +296,6 @@
                 searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
 
-            // ====================================================
-            // 🔹 ACTION ROW & CLICK EVENTS (TIDAK DIUBAH)
-            // ====================================================
             $('#inventoryTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
@@ -361,16 +334,16 @@
                 if (!$(e.target).closest('#inventoryTable tbody tr, #inventoryTableMobile tbody tr')
                     .length) {
                     $('#inventoryTable tbody tr.shown, #inventoryTableMobile tbody tr.shown').each(
-                    function() {
-                        var tr = $(this);
-                        var table = tr.closest('table').attr('id') === 'inventoryTable' ?
-                            dataTable : dataTableMobile;
-                        var row = table.row(tr);
-                        if (row.child.isShown()) {
-                            row.child.hide();
-                            tr.removeClass('shown');
-                        }
-                    });
+                        function() {
+                            var tr = $(this);
+                            var table = tr.closest('table').attr('id') === 'inventoryTable' ?
+                                dataTable : dataTableMobile;
+                            var row = table.row(tr);
+                            if (row.child.isShown()) {
+                                row.child.hide();
+                                tr.removeClass('shown');
+                            }
+                        });
                 }
             });
         });

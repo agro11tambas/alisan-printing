@@ -17,13 +17,17 @@ class ProductBundleController extends Controller
         return view('erp.pages.product-bundles.index', compact('bundles'));
     }
 
-    public function dataProductBundles()
+    public function dataProductBundles(Request $request)
     {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
         $bundles = ProductBundle::with('items.product');
 
-        if (request()->filled('search_type') && request()->filled('search_keyword')) {
-            $searchType = request()->search_type;
-            $keyword = request()->search_keyword;
+        // 🔍 Filter pencarian
+        if ($request->filled('search_type') && $request->filled('search_keyword')) {
+            $searchType = $request->search_type;
+            $keyword = $request->search_keyword;
 
             if ($searchType === 'name') {
                 $bundles->where('name', 'like', '%' . $keyword . '%');
@@ -32,39 +36,42 @@ class ProductBundleController extends Controller
             }
         }
 
-        $bundles = $bundles->orderBy('name', 'asc')->get();
+        $bundles->orderBy('name', 'asc');
 
-        return DataTables::of($bundles)
-            ->addIndexColumn()
-            ->addColumn('id', function ($bundle) {
-                return $bundle->id;
-            })
-            ->addColumn('name', function ($bundle) {
+        // 🔹 Hindari query count dua kali
+        $totalQuery = clone $bundles;
+        $totalData = $totalQuery->count();
+
+        // 🔹 Ambil data sesuai offset dan limit
+        $data = $bundles->skip($start)->take($length)->get();
+
+        // 🔹 Return JSON versi lazy-load
+        return response()->json([
+            'data' => $data->values()->map(function ($bundle, $index) use ($start) {
                 $productNames = $bundle->items->map(function ($item) {
                     return $item->product->name ?? '-';
                 })->implode(' + ');
 
-                return $productNames ?: '-';
-            })
-            ->addColumn('sku', function ($bundle) {
-                return $bundle->sku;
-            })
-            ->addColumn('price', function ($bundle) {
-                return 'Rp ' . number_format($bundle->price, 0);
-            })
-            ->addColumn('products', function ($bundle) {
-                return $bundle->items->map(function ($item) {
+                $productBadges = $bundle->items->map(function ($item) {
                     return '<span class="badge bg-soft-primary text-primary">'
-                        . $item->product->name .
-                        ' (' . $item->quantity . ')</span>';
+                        . e($item->product->name)
+                        . ' (' . e($item->quantity) . ')</span>';
                 })->implode(' ');
-            })
-            ->addColumn('action', function ($bundle) {
-                return view('erp.pages.product-bundles.partials.action-button', compact('bundle'))->render();
-            })
-            ->rawColumns(['products', 'action'])
-            ->toJson();
+
+                return [
+                    'DT_RowIndex' => $start + $index + 1, // ✅ FIXED
+                    'id' => $bundle->id,
+                    'name' => $productNames ?: '-',
+                    'sku' => e($bundle->sku),
+                    'price' => 'Rp ' . number_format($bundle->price, 0, ',', '.'),
+                    'products' => $productBadges,
+                    'action' => view('erp.pages.product-bundles.partials.action-button', compact('bundle'))->render(),
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
     }
+
 
     public function search(Request $request)
     {
@@ -98,13 +105,23 @@ class ProductBundleController extends Controller
     {
         $request->validate([
             'name'     => 'required|string|max:255',
-            'sku'      => 'required|string|max:255|unique:product_bundles,sku',
+            'sku'      => 'required|string|max:255',
             'price'    => 'required|numeric|min:0',
             'products' => 'required|array|min:1',
         ]);
 
+        // 🧩 Cek SKU di tabel product_bundles dan products
+        $skuExists = \App\Models\ProductBundle::where('sku', $request->sku)->exists()
+            || \App\Models\Products::where('sku', $request->sku)->exists();
+
+        if ($skuExists) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Product Bundle dengan SKU yang sama sudah ada di ERP dengan nama ' . ProductBundle::where('sku', $request->sku)->first()->name . '. Silakan gunakan SKU lain.');
+        }
+
         // Simpan bundle
-        $bundle = ProductBundle::create([
+        $bundle = \App\Models\ProductBundle::create([
             'name'  => trim($request->name) . ' (BUNDLE)',
             'sku'   => $request->sku,
             'price' => $request->price,
@@ -112,7 +129,7 @@ class ProductBundleController extends Controller
 
         // Simpan item bundle
         foreach ($request->products as $product_id) {
-            ProductBundleItem::create([
+            \App\Models\ProductBundleItem::create([
                 'bundle_id'  => $bundle->id,
                 'product_id' => $product_id,
             ]);
@@ -120,6 +137,7 @@ class ProductBundleController extends Controller
 
         return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dibuat!');
     }
+
 
     public function edit($id)
     {
@@ -138,22 +156,33 @@ class ProductBundleController extends Controller
 
         $request->validate([
             'name'     => 'required|string|max:255',
-            'sku'      => 'required|string|max:255|unique:product_bundles,sku,' . $bundle->id,
+            'sku'      => 'required|string|max:255',
             'price'    => 'required|numeric|min:0',
             'products' => 'required|array|min:1',
         ]);
 
-        // Update data bundle
+        // 🧩 Cek SKU duplikat di product_bundles (kecuali bundle ini) dan di products
+        $skuExists = ProductBundle::where('sku', $request->sku)
+            ->where('id', '!=', $bundle->id)
+            ->exists()
+            || Products::where('sku', $request->sku)->exists();
+
+        if ($skuExists) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Product Bundle dengan SKU yang sama sudah ada di ERP dengan nama ' . ProductBundle::where('sku', $request->sku)->first()->name . '. Silakan gunakan SKU lain.');
+        }
+
+        // 🔄 Update data utama bundle
         $bundle->update([
-            'name'  => $request->name,
+            'name'  => trim($request->name),
             'sku'   => $request->sku,
             'price' => $request->price,
         ]);
 
-        // Hapus semua item bundle lama
+        // 🔁 Hapus item lama & simpan ulang produk baru
         ProductBundleItem::where('bundle_id', $bundle->id)->delete();
 
-        // Simpan item bundle baru
         foreach ($request->products as $product_id) {
             ProductBundleItem::create([
                 'bundle_id'  => $bundle->id,
@@ -161,7 +190,8 @@ class ProductBundleController extends Controller
             ]);
         }
 
-        return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil diperbarui!');
+        return redirect('/erp/products/product-bundles')
+            ->with('success', 'Product Bundle berhasil diperbarui!');
     }
 
     public function delete($id)

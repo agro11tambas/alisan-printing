@@ -238,6 +238,17 @@
                 }
             }
 
+            function showFieldError(el, message) {
+                el.classList.add('is-invalid');
+                const td = el.closest('td');
+                $(td).find('.invalid-feedback').remove();
+
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback d-block';
+                feedback.textContent = message;
+                td.appendChild(feedback);
+            }
+
 
             $(document).on("change input", "#driver_id", function() {
                 if ($(this).hasClass("select2-hidden-accessible")) {
@@ -263,7 +274,21 @@
                 }
 
                 $('input[name^="items"][name$="[shipped_quantity]"]').each(function() {
-                    $(this).val($(this).val().replace(/\./g, ''));
+                    const val = $(this).val().replace(/\./g, '');
+                    const td = $(this).closest('td');
+                    $(td).find('.invalid-feedback').remove();
+
+                    if (val === '' || parseInt(val) === 0) {
+                        isValid = false;
+                        showFieldError(this, 'Harus diisi lebih dari 0');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+                });
+
+                $('input[name^="items"][name$="[shipped_quantity]"]').each(function() {
+                    let cleaned = $(this).val().replace(/\./g, '');
+                    $(this).val(cleaned);
                 });
 
                 if (isValid) this.submit();

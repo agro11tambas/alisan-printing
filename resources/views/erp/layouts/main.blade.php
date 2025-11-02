@@ -368,14 +368,12 @@
 
                 const $tr = $(this);
                 const dt = $table.DataTable();
-
-                // 🔹 Hapus action lama dan highlight aktif sebelumnya
+                
                 $(`${tableSelector} tbody tr`)
                     .removeClass('action-shown action-active')
                     .next('.action-row').remove();
                 $(`${tableSelector} tbody tr`).prev('.action-row').remove();
 
-                // 🔹 Kalau klik baris yang sama → tutup dan hilangkan highlight
                 if ($tr.hasClass('action-shown')) {
                     $tr.removeClass('action-shown action-active');
                     return;
@@ -385,7 +383,6 @@
                 const actionHtml = row.data().action;
                 const colCount = $tr.find('td').length;
 
-                // 🔹 Posisi dropdown tergantung tabel
                 let menuPosition = 'left:50%; transform:translateX(-50%);';
                 if (tableSelector === '#deliveryListTable') {
                     menuPosition = 'left: 20px; transform:none;';
@@ -406,13 +403,11 @@
                     </tr>
                 `);
 
-                // Hitung posisi row di viewport
                 const rowRect = $tr[0].getBoundingClientRect();
                 const viewportHeight = window.innerHeight;
                 const spaceBelow = viewportHeight - rowRect.bottom;
                 const spaceAbove = rowRect.top;
 
-                // Arah tampil otomatis (atas/bawah)
                 const $menu = $actionRow.find('.static-action-menu');
                 if (spaceBelow < 250 && spaceAbove > spaceBelow) {
                     $menu.css({
@@ -428,11 +423,9 @@
                     });
                 }
 
-                // 🔹 Tambahkan highlight aktif
                 $tr.after($actionRow).addClass('action-shown action-active');
             });
 
-            // Tutup otomatis kalau klik di luar
             $(document).on('click', function(e) {
                 if (!$(e.target).closest(`${tableSelector}`).length) {
                     $(`${tableSelector} tbody tr`)
@@ -446,7 +439,7 @@
             initRowActionHandler('#saleListTable');
             initRowActionHandler('#purchaseListTable');
             initRowActionHandler('#deliveryListTable');
-            initRowActionHandler('#deliveryOrderTable'); // ✅ ini yang diubah jadi kiri
+            initRowActionHandler('#deliveryOrderTable');
             initRowActionHandler('#productTable');
             initRowActionHandler('#productBundleTable');
             initRowActionHandler('#categoryTable');
@@ -455,7 +448,7 @@
             initRowActionHandler('#rejectDetailTable');
             initRowActionHandler('#defectProductsTable');
             initRowActionHandler('#defectDetailTable');
-            initRowActionHandler('#reportItemsTable');
+            // initRowActionHandler('#reportItemsTable');
             initRowActionHandler('#canceledDetailTable');
             initRowActionHandler('#discountList');
             initRowActionHandler('#stockOpnameTable');
@@ -478,7 +471,6 @@
     </script>
 
     <script>
-        // 🔥 SOLUSI ANTI DOUBLE SUBMIT - UNLOCK SAAT KLIK DI MANA AJA
 
         (function() {
             'use strict';
@@ -527,7 +519,6 @@
 
             function initProtection() {
 
-                // 🎯 PROTECT ALL SUBMIT BUTTONS
                 document.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function(btn) {
 
                     if (btn.dataset.protected) return;
@@ -537,7 +528,6 @@
                         const now = Date.now();
                         const lastClick = clickTimestamps.get(btn) || 0;
 
-                        // 🚫 Block jika klik dalam 2 detik
                         if (now - lastClick < 2000) {
                             e.preventDefault();
                             e.stopPropagation();
@@ -548,30 +538,25 @@
 
                         clickTimestamps.set(btn, now);
 
-                        // Lock button
                         setTimeout(() => lockButton(btn), 10);
 
-                        // Auto unlock setelah 5 detik (fallback)
                         setTimeout(() => unlockButton(btn), 5000);
 
                     }, true);
 
                 });
 
-                // 🎯 PROTECT ALL FORMS
                 document.querySelectorAll('form').forEach(function(form) {
 
                     if (form.dataset.protected) return;
                     form.dataset.protected = 'true';
 
-                    // Reset saat validation error
                     form.addEventListener('invalid', function(e) {
                         setTimeout(function() {
                             unlockAllCurrentButtons();
                         }, 100);
                     }, true);
 
-                    // Reset saat submit 
                     form.addEventListener('submit', function(e) {
                         setTimeout(function() {
                             unlockAllCurrentButtons();
@@ -580,23 +565,18 @@
 
                 });
 
-                // 🔥 UNLOCK SAAT KLIK DI MANA SAJA (KECUALI SUBMIT BUTTON SENDIRI)
                 document.addEventListener('click', function(e) {
-                    // Jika yang diklik BUKAN submit button yang sedang processing, unlock semua
                     if (!e.target.matches('button[type="submit"], input[type="submit"]')) {
                         unlockAllCurrentButtons();
                     }
                 }, true);
 
-                // 🔥 UNLOCK SAAT KETIK (OPSIONAL)
                 document.addEventListener('keydown', function(e) {
-                    // Unlock saat user mulai ketik (kecuali Tab)
                     if (e.key !== 'Tab') {
                         unlockAllCurrentButtons();
                     }
                 }, true);
 
-                // Observer untuk element baru (AJAX loaded)
                 const observer = new MutationObserver(function(mutations) {
                     mutations.forEach(function(mutation) {
                         mutation.addedNodes.forEach(function(node) {

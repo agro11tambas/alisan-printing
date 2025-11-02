@@ -17,6 +17,8 @@
 
         #combinedReportTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
         }
     </style>
 @endpush
@@ -80,75 +82,114 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+
             let table = $('#combinedReportTable').DataTable({
-                processing: true,
-                serverSide: true,
+                processing: false,
+                serverSide: false,
                 deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
                 searching: false,
                 lengthChange: false,
                 info: false,
-                pagingType: "simple",
-                ajax: {
-                    url: "{{ url('/erp/report-items/data') }}",
-                    data: function(d) {
-                        d.product_name = $('#product_name').val();
-                    }
-                },
+                order: [
+                    [1, 'asc']
+                ],
+                data: [],
                 columns: [{
                         data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
                         orderable: false,
                         searchable: false
                     },
                     {
-                        data: 'name',
-                        name: 'name'
+                        data: 'name'
                     },
                     {
-                        data: 'stock_after_sales',
-                        name: 'stock_after_sales'
+                        data: 'stock_after_sales'
                     },
                     {
-                        data: 'inventory_stock',
-                        name: 'inventory_stock'
-                    },
-
-                    {
-                        data: 'production_available',
-                        name: 'production_available'
+                        data: 'inventory_stock'
                     },
                     {
-                        data: 'finished_product_stock',
-                        name: 'finished_product_stock'
-                    },
-                    // {
-                    //     data: 'order_progress_remaining',
-                    //     name: 'order_progress_remaining'
-                    // },
-                    {
-                        data: 'incoming_stock',
-                        name: 'incoming_stock'
+                        data: 'production_available'
                     },
                     {
-                        data: 'incoming_stock_production',
-                        name: 'incoming_stock_production'
+                        data: 'finished_product_stock'
+                    },
+                    // { data: 'order_progress_remaining' },
+                    {
+                        data: 'incoming_stock'
                     },
                     {
-                        data: 'avg_cost',
-                        name: 'avg_cost'
+                        data: 'incoming_stock_production'
                     },
                     {
-                        data: 'fixed_cost',
-                        name: 'fixed_cost'
+                        data: 'avg_cost'
+                    },
+                    {
+                        data: 'fixed_cost'
                     }
                 ]
             });
 
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+
+                $.ajax({
+                    url: "{{ url('/erp/report-items/data') }}",
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        product_name: $('#product_name').val(),
+                    },
+                    success: function(res) {
+                        if (res && res.data && res.data.length > 0) {
+                            allData = allData.concat(res.data);
+                            table.clear();
+                            table.rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                        }
+                        isLoading = false;
+                    },
+                    error: function(xhr) {
+                        console.error('❌ error response:', xhr.responseJSON);
+                        isLoading = false;
+                    }
+                });
+            }
+
+            loadMoreData();
+
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 200);
+            });
+
             $('#product_name').on('keyup change', function() {
-                table.ajax.reload();
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                table.clear().draw();
+                loadMoreData();
             });
         });
     </script>
