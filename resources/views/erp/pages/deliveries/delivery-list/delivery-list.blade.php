@@ -399,7 +399,6 @@
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error response:', xhr.responseJSON);
                         alert(xhr.responseJSON?.message || 'Gagal memuat data.');
                         isLoading = false;
                     }
@@ -498,13 +497,11 @@
                 $('#error-proof_photos').text('');
                 $('#proof-preview').html('');
 
-                console.log('📷 Raw data-photos:', existingPhotosRaw);
 
                 if (existingPhotosRaw && existingPhotosRaw !== '[]') {
                     try {
                         existingPhotos = JSON.parse(existingPhotosRaw);
                     } catch (err) {
-                        console.warn('❌ JSON parse error:', err);
                     }
                 }
 

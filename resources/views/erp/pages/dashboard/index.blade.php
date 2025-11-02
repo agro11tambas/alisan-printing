@@ -341,7 +341,6 @@
                     }
                 },
                 error: function(err) {
-                    console.error(err);
                 }
             });
         }

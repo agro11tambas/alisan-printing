@@ -394,7 +394,6 @@
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
-                console.log('🔄 Loading request stock page:', currentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/productions/material-request/data') }}",
@@ -408,22 +407,18 @@
                         progress_status: $('#progress_status').val(),
                     },
                     success: function(response) {
-                        console.log('✅ Request stock response:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
-                            console.log('📦 Total request stock rows:', allData.length);
                         } else {
                             hasMoreData = false;
-                            console.log('⚠️ No more request stock data');
                         }
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error:', xhr.responseJSON);
                         alert(xhr.responseJSON?.message || 'Gagal memuat data.');
                         isLoading = false;
                     }
@@ -631,7 +626,6 @@
                 if (deletedIsLoading || !deletedHasMoreData) return;
 
                 deletedIsLoading = true;
-                console.log('🔄 Loading deleted request stock page:', deletedCurrentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/productions/stock-request/data-deleted') }}",
@@ -645,7 +639,6 @@
                         progress_status: $('#progress_status').val(),
                     },
                     success: function(response) {
-                        console.log('✅ Deleted request stock response:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             deletedAllData = deletedAllData.concat(response.data);
@@ -653,17 +646,13 @@
                             deletedTable.rows.add(deletedAllData);
                             deletedTable.draw(false);
                             deletedCurrentPage++;
-                            console.log('📦 Total deleted request stock rows:', deletedAllData.length);
                         } else {
                             deletedHasMoreData = false;
-                            console.log('⚠️ No more deleted request stock data');
                         }
 
                         deletedIsLoading = false;
                     },
                     error: function(xhr, status, error) {
-                        console.error('❌ Error loading deleted request stock:', error);
-                        console.error('Response:', xhr.responseText);
                         deletedIsLoading = false;
                     }
                 });

@@ -258,7 +258,6 @@
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error response:', xhr.responseJSON);
                         isLoading = false;
                     }
                 });

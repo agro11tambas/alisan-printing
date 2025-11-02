@@ -293,7 +293,6 @@
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ AJAX Error:', xhr.responseText);
                         isLoading = false;
                     }
                 });

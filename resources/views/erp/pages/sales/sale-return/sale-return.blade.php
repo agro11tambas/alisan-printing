@@ -482,7 +482,6 @@
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
-                console.log('🔄 Loading sale return page:', currentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/sales/sale-returns/data') }}",
@@ -498,22 +497,18 @@
                         payment_status: $('#search_payment_status').val(),
                     },
                     success: function(response) {
-                        console.log('✅ Sale return response:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
-                            console.log('📦 Total sale return rows:', allData.length);
                         } else {
                             hasMoreData = false;
-                            console.log('⚠️ No more sale return data');
                         }
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error loading sale return:', xhr.responseText);
                         isLoading = false;
                     }
                 });
@@ -732,7 +727,6 @@
                 if (deletedIsLoading || !deletedHasMoreData) return;
 
                 deletedIsLoading = true;
-                console.log('🔄 Loading deleted sale return page:', deletedCurrentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/sales/sale-returns/data-deleted') }}",
@@ -748,7 +742,6 @@
                         payment_status: $('#search_payment_status').val(),
                     },
                     success: function(response) {
-                        console.log('✅ Deleted sale return response:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             deletedAllData = deletedAllData.concat(response.data);
@@ -756,17 +749,13 @@
                             deletedTable.rows.add(deletedAllData);
                             deletedTable.draw(false);
                             deletedCurrentPage++;
-                            console.log('📦 Total deleted sale return rows:', deletedAllData.length);
                         } else {
                             deletedHasMoreData = false;
-                            console.log('⚠️ No more deleted sale return data');
                         }
 
                         deletedIsLoading = false;
                     },
                     error: function(xhr, status, error) {
-                        console.error('❌ Error loading deleted sale return:', error);
-                        console.error('Response:', xhr.responseText);
                         deletedIsLoading = false;
                     }
                 });

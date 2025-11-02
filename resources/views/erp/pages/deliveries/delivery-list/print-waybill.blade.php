@@ -200,7 +200,6 @@
                 window.close();
             } catch (e) {
                 alert('Gagal print:\n' + e.message);
-                console.error(e);
             }
         });
     </script>

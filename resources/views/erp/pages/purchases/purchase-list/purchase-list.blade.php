@@ -617,7 +617,6 @@
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
-                console.log('🔄 Loading purchase page:', currentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/purchases/purchase-list/data') }}",
@@ -634,22 +633,18 @@
                         due_date_order: $('#due_date_order').val(),
                     },
                     success: function(response) {
-                        console.log('✅ Purchase response:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
-                            console.log('📦 Total purchase rows:', allData.length);
                         } else {
                             hasMoreData = false;
-                            console.log('⚠️ No more purchase data');
                         }
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error loading purchase:', xhr.responseText);
                         isLoading = false;
                     }
                 });
@@ -889,7 +884,6 @@
                 if (deletedIsLoading || !deletedHasMoreData) return;
 
                 deletedIsLoading = true;
-                console.log('🔄 Loading deleted purchase page:', deletedCurrentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/purchases/purchase-list/data-deleted') }}",
@@ -906,7 +900,6 @@
                         due_date_order: $('#due_date_order').val(),
                     },
                     success: function(response) {
-                        console.log('✅ Deleted purchase response:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             deletedAllData = deletedAllData.concat(response.data);
@@ -914,17 +907,13 @@
                             deletedTable.rows.add(deletedAllData);
                             deletedTable.draw(false);
                             deletedCurrentPage++;
-                            console.log('📦 Total deleted purchase rows:', deletedAllData.length);
                         } else {
                             deletedHasMoreData = false;
-                            console.log('⚠️ No more deleted purchase data');
                         }
 
                         deletedIsLoading = false;
                     },
                     error: function(xhr, status, error) {
-                        console.error('❌ Error loading deleted purchase:', error);
-                        console.error('Response:', xhr.responseText);
                         deletedIsLoading = false;
                     }
                 });
@@ -1110,7 +1099,6 @@
             }
 
             if (!valid) {
-                console.log('❌ Form invalid, tidak disubmit');
                 return false;
             }
 
@@ -1182,7 +1170,6 @@
             }
 
             if (!valid) {
-                console.log('❌ Form invalid, tidak disubmit');
                 return false;
             }
 

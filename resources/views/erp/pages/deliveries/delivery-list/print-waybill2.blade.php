@@ -207,7 +207,6 @@
                 alert('✅ Dikirim ke LX-310 (80 kolom, margin fix)');
             } catch (e) {
                 alert('❌ Gagal print:\n' + e.message);
-                console.error(e);
             }
         }
 

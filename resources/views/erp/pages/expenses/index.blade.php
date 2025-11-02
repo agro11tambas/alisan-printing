@@ -239,7 +239,6 @@
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error response:', xhr.responseJSON);
                         alert(xhr.responseJSON?.message || 'Error loading data.');
                         isLoading = false;
                     }

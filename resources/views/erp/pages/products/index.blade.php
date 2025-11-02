@@ -273,7 +273,6 @@
 
         //                 // ⚠️ Log sebelum load
         //                 const rowsBefore = $('#productTable tbody tr').length;
-        //                 console.log('📦 Rows sebelum load:', rowsBefore);
 
         //                 $('#loadingIndicator').show();
 
@@ -285,8 +284,6 @@
         //                     setTimeout(() => {
         //                         // ⚠️ Log setelah load
         //                         const rowsAfter = $('#productTable tbody tr').length;
-        //                         console.log('📦 Rows setelah load:', rowsAfter);
-        //                         console.log('✅ Bertambah:', rowsAfter - rowsBefore, 'rows');
 
         //                         isLoading = false;
         //                         $('#loadingIndicator').hide();
@@ -427,7 +424,6 @@
                         tag_id: $('#tag_id').val()
                     },
                     success: function(response) {
-                        console.log('📦 Data loaded:', response.data.length, 'rows');
 
                         if (response.data.length > 0) {
                             // ⚠️ Append data baru ke array
@@ -440,7 +436,6 @@
 
                             currentPage++;
 
-                            console.log('✅ Total rows sekarang:', allData.length);
                         } else {
                             hasMoreData = false;
                             $('#loadingIndicator').html('✅ All products loaded').show();
@@ -451,7 +446,6 @@
                         $('#loadingIndicator').hide();
                     },
                     error: function(xhr) {
-                        console.error('❌ Error loading data:', xhr);
                         isLoading = false;
                         $('#loadingIndicator').hide();
                     }
@@ -471,7 +465,6 @@
                 const clientHeight = $(this).height();
                 const scrollPercent = ((scrollTop + clientHeight) / scrollHeight * 100).toFixed(1);
 
-                // console.log('📜 Scroll:', scrollPercent + '%');
 
                 scrollTimeout = setTimeout(() => {
                     if (scrollTop + clientHeight >= scrollHeight * 0.85) {

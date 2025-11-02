@@ -236,7 +236,6 @@
                     files: [file],
                     title: 'Invoice',
                     text: shareText
-                }).catch(error => console.log('Share dibatalkan', error));
             } else {
                 alert('Browser tidak mendukung share langsung. Gambar akan di-download.');
                 const link = document.createElement('a');

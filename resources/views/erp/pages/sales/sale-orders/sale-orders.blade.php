@@ -433,7 +433,6 @@
                         isLoading = false;
                     },
                     error: function(xhr, status, error) {
-                        console.error('❌ Error:', error);
                         isLoading = false;
                     }
                 });

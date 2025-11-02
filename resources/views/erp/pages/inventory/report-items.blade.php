@@ -230,7 +230,6 @@
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ error response:', xhr.responseJSON);
                         isLoading = false;
                     }
                 });

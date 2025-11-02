@@ -869,7 +869,6 @@
                     }
                 },
                 error: function(xhr, status, error) {
-                    console.error("Error checking invoice:", error);
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal Mengecek Nomor Invoice!',

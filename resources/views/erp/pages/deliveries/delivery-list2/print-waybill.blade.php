@@ -217,7 +217,6 @@
                 await qz.print(config, data);
                 alert('Dikirim ke LX-310 ✅');
             } catch (e) {
-                console.error(e);
                 alert('Gagal kirim ke printer.\nPastikan QZ Tray aktif & nama printer benar.\n' + e.message);
             }
         }

@@ -564,7 +564,6 @@
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
-                console.log('🔄 Loading purchase return page:', currentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/purchases/purchase-returns/data') }}",
@@ -580,22 +579,18 @@
                         payment_status: $('#search_payment_status').val(),
                     },
                     success: function(response) {
-                        console.log('✅ Purchase return response:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
-                            console.log('📦 Total purchase return rows:', allData.length);
                         } else {
                             hasMoreData = false;
-                            console.log('⚠️ No more purchase return data');
                         }
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('❌ Error loading purchase return:', xhr.responseText);
                         isLoading = false;
                     }
                 });
@@ -810,7 +805,6 @@
                 if (deletedIsLoading || !deletedHasMoreData) return;
 
                 deletedIsLoading = true;
-                console.log('🔄 Loading deleted purchase return page:', deletedCurrentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/purchases/purchase-returns/data-deleted') }}",
@@ -826,7 +820,6 @@
                         payment_status: $('#search_payment_status').val(),
                     },
                     success: function(response) {
-                        console.log('✅ Deleted purchase return response:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             deletedAllData = deletedAllData.concat(response.data);
@@ -834,18 +827,14 @@
                             deletedTable.rows.add(deletedAllData);
                             deletedTable.draw(false);
                             deletedCurrentPage++;
-                            console.log('📦 Total deleted purchase return rows:', deletedAllData
                                 .length);
                         } else {
                             deletedHasMoreData = false;
-                            console.log('⚠️ No more deleted purchase return data');
                         }
 
                         deletedIsLoading = false;
                     },
                     error: function(xhr, status, error) {
-                        console.error('❌ Error loading deleted purchase return:', error);
-                        console.error('Response:', xhr.responseText);
                         deletedIsLoading = false;
                     }
                 });

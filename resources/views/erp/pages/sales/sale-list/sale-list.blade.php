@@ -629,7 +629,6 @@
                 if (isLoading || !hasMoreData) return;
 
                 isLoading = true;
-                console.log('🔄 Loading page:', currentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/sales/sale-list/data') }}",
@@ -646,7 +645,6 @@
                         due_date_order: $('#due_date_order').val()
                     },
                     success: function(response) {
-                        console.log('✅ Response received:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
@@ -654,17 +652,13 @@
                             dataTable.rows.add(allData);
                             dataTable.draw(false);
                             currentPage++;
-                            console.log('📦 Total rows:', allData.length);
                         } else {
                             hasMoreData = false;
-                            console.log('⚠️ No more data');
                         }
 
                         isLoading = false;
                     },
                     error: function(xhr, status, error) {
-                        console.error('❌ Error:', error);
-                        console.error('Response:', xhr.responseText);
                         isLoading = false;
                     }
                 });
@@ -950,7 +944,6 @@
                 if (deletedIsLoading || !deletedHasMoreData) return;
 
                 deletedIsLoading = true;
-                console.log('🔄 Loading deleted page:', deletedCurrentPage + 1);
 
                 $.ajax({
                     url: "{{ url('/erp/sales/sale-list/data-deleted') }}",
@@ -967,7 +960,6 @@
                         due_date_order: $('#due_date_order').val()
                     },
                     success: function(response) {
-                        console.log('✅ Deleted response received:', response);
 
                         if (response && response.data && response.data.length > 0) {
                             deletedAllData = deletedAllData.concat(response.data);
@@ -975,17 +967,13 @@
                             deletedTable.rows.add(deletedAllData);
                             deletedTable.draw(false);
                             deletedCurrentPage++;
-                            console.log('📦 Total deleted rows:', deletedAllData.length);
                         } else {
                             deletedHasMoreData = false;
-                            console.log('⚠️ No more deleted data');
                         }
 
                         deletedIsLoading = false;
                     },
                     error: function(xhr, status, error) {
-                        console.error('❌ Error loading deleted:', error);
-                        console.error('Response:', xhr.responseText);
                         deletedIsLoading = false;
                     }
                 });

@@ -201,7 +201,6 @@
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error(xhr.responseText);
                         isLoading = false;
                     }
                 });

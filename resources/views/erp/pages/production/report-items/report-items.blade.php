@@ -224,7 +224,6 @@
                         isLoading = false;
                     },
                     error: function(xhr) {
-                        console.error('Error loading data:', xhr.responseJSON);
                         isLoading = false;
                     }
                 });
