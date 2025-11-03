@@ -104,9 +104,9 @@
                             <table class="table table-hover bg-transparent" id="designListTable">
                                 <thead>
                                     <tr>
-                                        <th class="w-30">Design Number</th>
-                                        <th class="w-20">Customer</th>
-                                        <th class="w-50">Products</th>
+                                        <th class="wd-250">Design Number</th>
+                                        <th class="wd-350">Customer</th>
+                                        <th>Products</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>

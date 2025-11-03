@@ -598,6 +598,7 @@ Route::middleware(isLogin::class)->group(function () {
         Route::put('/erp/shop-manager/operators/update/{id}', [OperatorController::class, 'update']);
         Route::delete('/erp/shop-manager/operators/delete/{id}', [OperatorController::class, 'delete']);
         Route::get('/erp/shop-manager/operators/{id}/detail', [OperatorController::class, 'show'])->name('operators.show');
+        Route::get('/erp/shop-manager/operators/detail/{id}/data', [OperatorController::class, 'dataShow']);
     });
 
     Route::middleware(['auth', 'permission:customer'])->group(function () {

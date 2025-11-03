@@ -273,7 +273,7 @@ class HistoryProgressOrderController extends Controller
                 $totalInput = $completed + $reject + $defect;
 
                 if ($totalInput !== (int) $assign->assigned_quantity) {
-                    DB::rollBack(); 
+                    DB::rollBack();
                     return back()
                         ->with('error', "Total progress untuk produk {$assign->progressItem->product->name} harus sama dengan Assigned Qty (" . number_format($assign->assigned_quantity, 0, ',', '.') . ").");
                 }
@@ -322,7 +322,7 @@ class HistoryProgressOrderController extends Controller
                             'canceled_product_stock' => 0
                         ]
                     );
-                    $ps->decrement('available_quantity', $completed);
+                    // $ps->decrement('available_quantity', $completed);
                     $ps->increment('finished_product_stock', $completed);
 
                     $deliveryOrderItem = DeliveryOrderItem::where('order_progress_id', $assignBatch->order_progress_id)
@@ -361,6 +361,19 @@ class HistoryProgressOrderController extends Controller
                         'user_id'                  => Auth::id(),
                     ]);
 
+                    // 🔹 Tambahkan kembali ke pending waiting list
+                    $ps = ProductionStock::firstOrCreate(
+                        ['product_id' => $product->id, 'production_warehouse_id' => 2],
+                        [
+                            'opening_stock' => 0,
+                            'available_quantity' => 0,
+                            'finished_product_stock' => 0,
+                            'canceled_product_stock' => 0,
+                            'pending_waiting_list' => 0,
+                        ]
+                    );
+                    $ps->increment('pending_waiting_list', $reject);
+
                     // bisa tambahkan RejectProductHistory di sini jika kamu ingin
                     // RejectProductHistory::create([...]);
                 }
@@ -390,6 +403,19 @@ class HistoryProgressOrderController extends Controller
                         'order_progress_batch_id' => $mainBatch->id,
                         'assign_id'              => $assign->id,
                     ]);
+
+                    // 🔹 Tambahkan kembali ke pending waiting list
+                    $ps = ProductionStock::firstOrCreate(
+                        ['product_id' => $product->id, 'production_warehouse_id' => 2],
+                        [
+                            'opening_stock' => 0,
+                            'available_quantity' => 0,
+                            'finished_product_stock' => 0,
+                            'canceled_product_stock' => 0,
+                            'pending_waiting_list' => 0,
+                        ]
+                    );
+                    $ps->increment('pending_waiting_list', $defect);
                 }
 
                 // ================== STATUS ASSIGN ==================

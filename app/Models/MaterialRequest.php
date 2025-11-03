@@ -30,12 +30,12 @@ class MaterialRequest extends Model
 
     public function requestedBy()
     {
-        return $this->belongsTo(User::class, 'requested_by');
+        return $this->belongsTo(User::class, 'requested_by')->withTrashed();
     }
 
     public function items()
     {
-        return $this->hasMany(MaterialRequestItem::class)->withTrashed();;
+        return $this->hasMany(MaterialRequestItem::class)->withTrashed();
     }
 
     public function receipt()

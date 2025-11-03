@@ -87,7 +87,7 @@
                                                     ];
                                                 @endphp
                                                 <select class="form-select form-control max-select"
-                                                    data-select2-selector="tag" id="customers" name="customers[]">
+                                                    data-select2-selector="tag" id="customers" name="customer_id">
                                                     <option disabled selected hidden>Choose Customer</option>
                                                     @foreach ($customers as $index => $customer)
                                                         @php
@@ -108,7 +108,7 @@
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <select class="form-select form-control max-select"
-                                                    data-select2-selector="tag" id="addresses" name="address_id">
+                                                    data-select2-selector="tag" id="addresses" name="customer_address_id">
                                                     <option disabled hidden>Pilih alamat</option>
                                                     @if ($order->customer)
                                                         @foreach ($order->customer->addresses as $index => $address)
@@ -122,17 +122,32 @@
                                                 </select>
                                             </div>
                                             <div id="google-maps-link" class="mt-2">
-                                                @if ($order->address)
-                                                    @if ($order->address->google_maps)
-                                                        <a href="{{ $order->address->google_maps }}" target="_blank"
-                                                            class="btn btn-sm btn-outline-primary mt-2">
-                                                            Lihat di Google Maps
-                                                        </a>
-                                                    @endif
+                                                @if ($order->customerAddress && $order->customerAddress->google_maps)
+                                                    <a href="{{ $order->customerAddress->google_maps }}" target="_blank"
+                                                        class="btn btn-sm btn-outline-primary mt-2">
+                                                        Lihat di Google Maps
+                                                    </a>
                                                 @endif
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label class="fw-semibold">Diskon:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="toggleDiscount"
+                                                    name="discount_active" {{ $order->discount_active ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="toggleDiscount">
+                                                    {{ $order->discount_active ? 'Aktifkan Diskon' : 'Diskon Nonaktif' }}
+                                                </label>
+                                            </div>
+                                            <input type="hidden" id="discount_active_hidden" name="discount_active_hidden"
+                                                value="{{ $order->discount_active ? 1 : 0 }}">
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -304,9 +319,75 @@
     </div>
 @endsection
 
+@push('modals')
+    <!-- Modal Konfirmasi Matikan Diskon -->
+    <div class="modal fade" id="confirmDisableDiscountModal" tabindex="-1"
+        aria-labelledby="confirmDisableDiscountLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-semibold text-dark">Nonaktifkan Diskon</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-dark">
+                    Apakah kamu yakin ingin menonaktifkan semua diskon?
+                    Semua harga akan dihitung ulang tanpa potongan harga.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-warning text-dark" id="confirmDisableDiscountBtn">Matikan
+                        Diskon</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Kedua: Konfirmasi Tanggung Jawab -->
+    <div class="modal fade" id="confirmResponsibilityModal" tabindex="-1" aria-labelledby="confirmResponsibilityLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-semibold">Konfirmasi Tanggung Jawab</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-dark">
+                    Apakah Anda bersedia <strong>bertanggung jawab</strong> atas keputusan menonaktifkan semua diskon ini?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-danger text-white" id="confirmResponsibilityBtn">
+                        Ya, Saya Bertanggung Jawab
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endpush
+
 @push('scripts')
     <script>
         const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
+
+        let discountEnabled = {{ $order->discount_active ? 'true' : 'false' }};
+        let pendingToggleOff = false;
+
+        // 🔥 Inisialisasi label dan hidden input sesuai kondisi awal
+        $(document).ready(function() {
+            const label = $('#toggleDiscount').next('label');
+            if (discountEnabled) {
+                $('#toggleDiscount').prop('checked', true);
+                $('#discount_active_hidden').val(1);
+                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
+            } else {
+                $('#toggleDiscount').prop('checked', false);
+                $('#discount_active_hidden').val(0);
+                label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+            }
+
+            recalcAllRows(); // ✅ hitung ulang setelah semuanya siap
+        });
 
         const customerAddresses = <?php echo json_encode(
             $customers->mapWithKeys(function ($customer) {
@@ -316,6 +397,7 @@
                             'id' => $address->id,
                             'address' => $address->address,
                             'google_maps' => $address->google_maps,
+                            'business_name' => $address->business_name,
                         ];
                     }),
                 ];
@@ -336,19 +418,13 @@
             })),
         ];
 
-        function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(num);
-        }
-
+        // Populate dropdown produk
         function populateProducts(selectEl, selectedId = null, selectedType = null) {
             $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
             allProducts.forEach(item => {
                 const option = $('<option>', {
                         value: item.type + '_' + item.id,
-                        text: `[${item.sku || '-'}] ${item.name}`
+                        text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? '' : '')
                     })
                     .data('price', item.price)
                     .data('discounts', item.discounts || [])
@@ -363,10 +439,393 @@
             });
         }
 
-        // ✅ Format otomatis titik ribuan & update hidden value untuk perhitungan
+        function formatNumber(num) {
+            return new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(num);
+        }
+
+        $(document).on('change', '#toggleDiscount', function() {
+            const isChecked = $(this).is(':checked');
+            const label = $(this).next('label');
+
+            if (!isChecked) {
+                pendingToggleOff = true;
+                $('#confirmDisableDiscountModal').modal('show');
+                $(this).prop('checked', true);
+            } else {
+                discountEnabled = true;
+                $('#discount_active_hidden').val(1);
+                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
+                recalcAllRows();
+            }
+        });
+
+        $('#confirmDisableDiscountBtn').on('click', function() {
+            $('#confirmDisableDiscountModal').modal('hide');
+            if (pendingToggleOff) $('#confirmResponsibilityModal').modal('show');
+        });
+
+        $('#confirmResponsibilityBtn').on('click', function() {
+            $('#confirmResponsibilityModal').modal('hide');
+            discountEnabled = false;
+            $('#toggleDiscount').prop('checked', false);
+            $('#discount_active_hidden').val(0);
+            const label = $('#toggleDiscount').next('label');
+            label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+            recalcAllRows();
+            pendingToggleOff = false;
+        });
+
+        function calculateRow(row) {
+            const selectedOption = row.find('select[name="product[]"] option:selected');
+            const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
+            const basePrice = manualPrice > 0 ? manualPrice : (parseFloat(selectedOption.data('price')) || 0);
+            const discounts = selectedOption.data('discounts') || [];
+            const categories = selectedOption.data('categories') || [];
+            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
+
+            const priceBeforeDiscount = basePrice;
+            const totalBeforeDiscount = basePrice * qty;
+            let finalPrice = priceBeforeDiscount;
+
+            // let allDiscounts = [...discounts];
+            // categories.forEach(cat => {
+            //     if (cat.discounts) allDiscounts = allDiscounts.concat(cat.discounts);
+            // });
+
+            let allDiscounts = discountEnabled ? [...discounts] : [];
+
+            if (discountEnabled) {
+                categories.forEach(cat => {
+                    if (cat.discounts) allDiscounts = allDiscounts.concat(cat.discounts);
+                });
+            }
+
+            allDiscounts.forEach(discount => {
+                let eligible = false;
+
+                if (discount.apply_on === 'Product') {
+                    if (discount.minimum_based_on === 'Quantity of Items' && qty >= discount.minimum_qty_or_amount)
+                        eligible = true;
+                    else if (discount.minimum_based_on === 'Purchase Amount' && totalBeforeDiscount >= discount
+                        .minimum_qty_or_amount) eligible = true;
+                } else if (discount.apply_on === 'Category') {
+                    let totalQtyCategory = 0;
+                    let totalAmountCategory = 0;
+
+                    $('select[name="product[]"]').each(function(i, el) {
+                        const opt = $(el).find('option:selected');
+                        const cats = opt.data('categories') || [];
+                        const price = parseFloat(opt.data('price')) || 0;
+                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
+                            '')) || 0;
+
+                        if (cats.some(c => c.id === discount.category_id)) {
+                            totalQtyCategory += qtyVal;
+                            totalAmountCategory += price * qtyVal;
+                        }
+                    });
+
+                    if (discount.minimum_based_on === 'Quantity of Items' && totalQtyCategory >= discount
+                        .minimum_qty_or_amount) eligible = true;
+                    else if (discount.minimum_based_on === 'Purchase Amount' && totalAmountCategory >= discount
+                        .minimum_qty_or_amount) eligible = true;
+                }
+
+                if (eligible) {
+                    if (discount.type === 'Percentage') finalPrice = priceBeforeDiscount - (priceBeforeDiscount * (
+                        discount.amount / 100));
+                    else finalPrice = Math.max(0, priceBeforeDiscount - discount.amount);
+                }
+            });
+
+            const totalAfterDiscount = finalPrice * qty;
+
+            row.find('input.price_before_discount').val(priceBeforeDiscount.toFixed(2));
+            row.find('input.total_before_discount').val(totalBeforeDiscount.toFixed(2));
+            row.find('input.price_after_discount').val(finalPrice.toFixed(2));
+            row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
+
+            row.find('input.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
+            row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
+            row.find('input.price_after_discount_display').val(formatNumber(finalPrice));
+            row.find('input.total_after_discount_display').val(formatNumber(totalAfterDiscount));
+        }
+
+        function recalcAllRows() {
+            $('tr[id^="addr"]').each(function() {
+                calculateRow($(this));
+            });
+            calcTotalSummary();
+        }
+
+        function calcTotalSummary() {
+            let subTotal = 0;
+            let totalAfterDiscount = 0;
+
+            $(".total_before_discount").each(function() {
+                subTotal += parseFloat($(this).val()) || 0;
+            });
+
+            $(".total_after_discount").each(function() {
+                totalAfterDiscount += parseFloat($(this).val()) || 0;
+            });
+
+            const totalDiscount = subTotal - totalAfterDiscount;
+
+            $("#sub_total").val(subTotal.toFixed(2));
+            $("#total_discount").val(totalDiscount.toFixed(2));
+            $("#total_amount").val(totalAfterDiscount.toFixed(2));
+
+            $("#sub_total_display").val(formatNumber(subTotal));
+            $("#total_discount_display").val(formatNumber(totalDiscount));
+            $("#total_amount_display").val(formatNumber(totalAfterDiscount));
+        }
+
+        function updateRowTypeAndPrice(row) {
+            const selectedOption = row.find('select[name="product[]"] option:selected');
+            if (!selectedOption.length) return;
+            const type = selectedOption.data('type') || '';
+            row.find('.product-type').val(type);
+            calculateRow(row);
+        }
+
+        function initSelect2() {
+            $('[data-select2-selector="status"]').select2({
+                placeholder: 'Pilih produk',
+                width: '100%'
+            }).each(function() {
+                if ($(this).hasClass('select-product')) {
+                    const selectedVal = $(this).val();
+                    const selectedType = $(this).closest('tr').find('.product-type').val();
+                    const selectedId = selectedVal ? selectedVal.split('_')[1] : null;
+                    populateProducts(this, selectedId, selectedType);
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initSelect2();
+            recalcAllRows();
+
+            let rowCount = document.querySelectorAll('#tab_logic tbody tr').length;
+
+            $('#add_row').on('click', function() {
+                const tableBody = $('#tab_logic tbody');
+                const newRow = $(`
+            <tr id="addr${rowCount}">
+                <td>${rowCount + 1}</td>
+                <td>
+                    <select class="form-control select-product" name="product[]" id="product_${rowCount}" data-select2-selector="status">
+                        <option value="" disabled selected hidden>Pilih produk</option>
+                    </select>
+                </td>
+                <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
+                <td><input type="number" name="qty[]" class="form-control qty" min="1" value="1"></td>
+                <td>
+                    <input type="text" inputmode="numeric" class="form-control price_before_discount_display">
+                    <input type="hidden" name="price_before_discount[]" class="price_before_discount">
+                </td>
+                <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
+                <td class="text-center">
+                    <div class="d-flex justify-content-center">
+                        <button type="button" class="btn btn-danger delete-row">
+                            <i class="feather-trash"></i>
+                        </button>
+                    </div>
+                </td>
+                <input type="hidden" name="price_after_discount[]" class="form-control price_after_discount" readonly>
+                <input type="hidden" name="total_after_discount[]" class="form-control total_after_discount" readonly>
+            </tr>
+        `);
+
+                tableBody.append(newRow);
+                initSelect2(newRow.find('.select-product'));
+                rowCount++;
+            });
+
+            $(document).on('click', '.delete-row', function() {
+                $(this).closest('tr').remove();
+
+                $('#tab_logic tbody tr').each(function(i, el) {
+                    $(el).find('td:first').text(i + 1);
+                });
+
+                rowCount = $('#tab_logic tbody tr').length;
+                recalcAllRows();
+            });
+
+            $(document).on('change', 'select[name="product[]"]', function() {
+                const row = $(this).closest('tr');
+                updateRowTypeAndPrice(row);
+                recalcAllRows();
+            });
+
+            $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
+        });
+
+        $(document).ready(function() {
+            const initialCustomerId = $('#customers').val();
+            if (initialCustomerId) {
+                updateAddresses(initialCustomerId);
+            }
+
+            $('#customers').on('change', function() {
+                const customerId = $(this).val();
+                updateAddresses(customerId);
+            });
+
+            $('#addresses').on('change', function() {
+                updateGoogleMapsLink();
+            });
+
+            function updateAddresses(customerId) {
+                const addresses = customerAddresses[customerId] || [];
+                const $addressSelect = $('#addresses');
+                const selectedAddressId = "{{ $order->customer_address_id ?? '' }}";
+
+                $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
+
+                addresses.forEach(function(address, index) {
+                    const isSelected = address.id == selectedAddressId;
+                    $addressSelect.append(
+                        `<option value="${address.id}" data-map="${address.google_maps}" ${isSelected ? 'selected' : ''}>
+                        ${address.business_name ?? 'None'} - ${address.address}
+                    </option>`
+                    );
+                });
+
+                updateGoogleMapsLink();
+            }
+
+            function updateGoogleMapsLink() {
+                const selectedOption = $('#addresses').find('option:selected');
+                const mapUrl = selectedOption.data('map');
+
+                if (mapUrl) {
+                    $('#google-maps-link').html(`
+                    <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                        Lihat di Google Maps
+                    </a>
+                `);
+                } else {
+                    $('#google-maps-link').empty();
+                }
+            }
+        });
+
+        function showError(element, message) {
+            $(element).next(".invalid-feedback").remove();
+
+            $(element).after(`<div class="invalid-feedback">${message}</div>`);
+
+            $(element).addClass("is-invalid");
+        }
+
+        $("#customers, #addresses").on("change", function() {
+            $(this).removeClass("is-invalid");
+            $(this).next(".invalid-feedback").remove();
+        });
+
+        $("form").on("submit", function(e) {
+            let valid = true;
+
+            if (!$("#customers").val()) {
+                showError($("#customers"), "Customer wajib dipilih");
+                valid = false;
+            }
+
+            if (!$("#addresses").val()) {
+                showError($("#addresses"), "Alamat wajib dipilih");
+                valid = false;
+            }
+
+            if (!valid) {
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const optionEl = document.getElementById('due_date_option');
+            const dateInput = document.getElementById('custom_due_date');
+
+            const savedDate = dateInput.value ? new Date(dateInput.value) : null;
+            const today = new Date();
+            let defaultOption = 'custom';
+
+            if (savedDate) {
+                const diffDays = Math.floor((savedDate - today) / (1000 * 60 * 60 * 24));
+
+                if (diffDays === 0) {
+                    defaultOption = 'today';
+                } else if (diffDays === 7) {
+                    defaultOption = '1_week';
+                } else if (diffDays === 30) {
+                    defaultOption = '1_month';
+                } else if (diffDays === 90) {
+                    defaultOption = '3_months';
+                } else {
+                    defaultOption = 'custom';
+                }
+            } else {
+                defaultOption = 'none';
+            }
+
+            optionEl.value = defaultOption;
+
+            function updateDueDate() {
+                const val = optionEl.value;
+                let newDate = null;
+
+                if (val === 'today') {
+                    newDate = new Date();
+                    dateInput.readOnly = true;
+                } else if (val === '1_week') {
+                    newDate = new Date();
+                    newDate.setDate(newDate.getDate() + 7);
+                    dateInput.readOnly = true;
+                } else if (val === '1_month') {
+                    newDate = new Date();
+                    newDate.setMonth(newDate.getMonth() + 1);
+                    dateInput.readOnly = true;
+                } else if (val === '3_months') {
+                    newDate = new Date();
+                    newDate.setMonth(newDate.getMonth() + 3);
+                    dateInput.readOnly = true;
+                } else if (val === 'custom') {
+                    newDate = null;
+                    dateInput.readOnly = false;
+                } else {
+                    newDate = null;
+                    dateInput.readOnly = true;
+                    dateInput.value = "";
+                }
+
+                if (newDate) {
+                    const yyyy = newDate.getFullYear();
+                    const mm = String(newDate.getMonth() + 1).padStart(2, '0');
+                    const dd = String(newDate.getDate()).padStart(2, '0');
+                    dateInput.value = `${yyyy}-${mm}-${dd}`;
+                }
+            }
+
+            optionEl.addEventListener('change', updateDueDate);
+
+            updateDueDate();
+        });
+
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
+        });
+
+        // === Harga bisa diubah hanya oleh Owner ===
         let priceInputTimeout;
         $(document).on('input', '.price_before_discount_display', function() {
-            if (!isOwner) return;
+            if (!isOwner) return; // hanya Owner yang bisa ubah harga
 
             const row = $(this).closest('tr');
             let rawValue = $(this).val().replace(/\D/g, '');
@@ -388,191 +847,18 @@
             $(this).val(new Intl.NumberFormat('id-ID').format(val));
         });
 
-        function calculateRow(row) {
-            const selectedOption = row.find('select[name="product[]"] option:selected');
-            const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
-            const basePrice = manualPrice > 0 ? manualPrice : (parseFloat(selectedOption.data('price')) || 0);
-            const discounts = selectedOption.data('discounts') || [];
-            const categories = selectedOption.data('categories') || [];
-            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
+        $(document).on('input', 'input[name="qty[]"]', function(e) {
+            let rawValue = $(this).val().replace(/\D/g, '');
 
-            const priceBeforeDiscount = basePrice;
-            const totalBeforeDiscount = basePrice * qty;
-            let finalPrice = priceBeforeDiscount;
-            let allDiscounts = [...discounts];
+            let formatted = new Intl.NumberFormat('id-ID').format(rawValue);
 
-            categories.forEach(cat => {
-                if (cat.discounts) allDiscounts = allDiscounts.concat(cat.discounts);
-            });
+            $(this).val(formatted);
+        });
 
-            allDiscounts.forEach(discount => {
-                let eligible = false;
-
-                if (discount.apply_on === 'Product') {
-                    if (discount.minimum_based_on === 'Quantity of Items' && qty >= discount.minimum_qty_or_amount)
-                        eligible = true;
-                    else if (discount.minimum_based_on === 'Purchase Amount' && totalBeforeDiscount >= discount
-                        .minimum_qty_or_amount)
-                        eligible = true;
-                } else if (discount.apply_on === 'Category') {
-                    let totalQtyCategory = 0,
-                        totalAmountCategory = 0;
-
-                    $('select[name="product[]"]').each(function(i, el) {
-                        const opt = $(el).find('option:selected');
-                        const cats = opt.data('categories') || [];
-                        const price = parseFloat(opt.data('price')) || 0;
-                        const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
-                            '')) || 0;
-
-                        if (cats.some(c => c.id === discount.category_id)) {
-                            totalQtyCategory += qtyVal;
-                            totalAmountCategory += price * qtyVal;
-                        }
-                    });
-
-                    if (discount.minimum_based_on === 'Quantity of Items' && totalQtyCategory >= discount
-                        .minimum_qty_or_amount)
-                        eligible = true;
-                    else if (discount.minimum_based_on === 'Purchase Amount' && totalAmountCategory >= discount
-                        .minimum_qty_or_amount)
-                        eligible = true;
-                }
-
-                if (eligible) {
-                    if (discount.type === 'Percentage')
-                        finalPrice = priceBeforeDiscount - (priceBeforeDiscount * (discount.amount / 100));
-                    else
-                        finalPrice = Math.max(0, priceBeforeDiscount - discount.amount);
-                }
-            });
-
-            const totalAfterDiscount = finalPrice * qty;
-
-            // simpan nilai perhitungan
-            row.find('input.price_before_discount').val(priceBeforeDiscount.toFixed(2));
-            row.find('input.total_before_discount').val(totalBeforeDiscount.toFixed(2));
-            row.find('input.price_after_discount').val(finalPrice.toFixed(2));
-            row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
-
-            // tampilkan dengan titik ribuan
-            if (!row.find('.price_before_discount_display').is(':focus')) {
-                row.find('input.price_before_discount_display').val(formatNumber(basePrice));
-            }
-            row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
-        }
-
-        function recalcAllRows() {
-            $('tr[id^="addr"]').each(function() {
-                calculateRow($(this));
-            });
-            calcTotalSummary();
-        }
-
-        function calcTotalSummary() {
-            let subTotal = 0,
-                totalAfterDiscount = 0;
-            $(".total_before_discount").each(function() {
-                subTotal += parseFloat($(this).val()) || 0;
-            });
-            $(".total_after_discount").each(function() {
-                totalAfterDiscount += parseFloat($(this).val()) || 0;
-            });
-
-            const totalDiscount = subTotal - totalAfterDiscount;
-
-            $("#sub_total").val(subTotal.toFixed(2));
-            $("#total_discount").val(totalDiscount.toFixed(2));
-            $("#total_amount").val(totalAfterDiscount.toFixed(2));
-
-            $("#sub_total_display").val(formatNumber(subTotal));
-            $("#total_discount_display").val(formatNumber(totalDiscount));
-            $("#total_amount_display").val(formatNumber(totalAfterDiscount));
-        }
-
-        function initSelect2() {
-            $('[data-select2-selector="status"]').select2({
-                placeholder: 'Pilih produk',
-                width: '100%'
-            }).each(function() {
-                const selectedVal = $(this).val();
-                const selectedType = $(this).closest('tr').find('.product-type').val();
-                const selectedId = selectedVal ? selectedVal.split('_')[1] : null;
-                populateProducts(this, selectedId, selectedType);
-            });
-        }
-
-        $(document).ready(function() {
-            initSelect2();
-            recalcAllRows();
-
-            let rowCount = $('#tab_logic tbody tr').length;
-
-            $('#add_row').on('click', function() {
-                const tableBody = $('#tab_logic tbody');
-                const newRow = $(`
-                <tr id="addr${rowCount}">
-                    <td>${rowCount + 1}</td>
-                    <td>
-                        <select class="form-control select-product" name="product[]" data-select2-selector="status"></select>
-                    </td>
-                    <input type="hidden" name="product_type[]" class="product-type" readonly>
-                    <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="1"></td>
-                    <td>
-                        <input type="text" class="form-control price_before_discount_display">
-                        <input type="hidden" name="price_before_discount[]" class="price_before_discount">
-                    </td>
-                    <td>
-                        <input type="text" class="form-control total_before_discount_display" readonly>
-                        <input type="hidden" name="total_before_discount[]" class="total_before_discount">
-                    </td>
-                    <td class="text-center">
-                        <div class="d-flex justify-content-center">
-                            <button type="button" class="btn btn-danger delete-row">
-                                <i class="feather-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                    <input type="hidden" name="price_after_discount[]" class="price_after_discount">
-                    <input type="hidden" name="total_after_discount[]" class="total_after_discount">
-                </tr>
-            `);
-
-                tableBody.append(newRow);
-                populateProducts(newRow.find('.select-product'));
-                newRow.find('.select-product').select2({
-                    placeholder: 'Pilih produk',
-                    width: '100%'
-                });
-                rowCount++;
-            });
-
-            $(document).on('click', '.delete-row', function() {
-                $(this).closest('tr').remove();
-                $('#tab_logic tbody tr').each(function(i, el) {
-                    $(el).find('td:first').text(i + 1);
-                });
-                recalcAllRows();
-            });
-
-            $(document).on('change', 'select[name="product[]"]', function() {
-                const row = $(this).closest('tr');
-                const type = $(this).find('option:selected').data('type') || '';
-                row.find('.product-type').val(type);
-                recalcAllRows();
-            });
-
-            $(document).on('input', 'input[name="qty[]"]', function() {
-                let val = $(this).val().replace(/\D/g, '');
-                if (val.length > 12) val = val.substring(0, 12);
-                $(this).val(val.replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
-                recalcAllRows();
-            });
-
-            $('#orderForm').on('submit', function() {
-                $('input[name="qty[]"]').each(function() {
-                    $(this).val($(this).val().replace(/\./g, ''));
-                });
+        $('#orderForm').on('submit', function() {
+            $('input[name="qty[]"]').each(function() {
+                const raw = $(this).val().replace(/\./g, '');
+                $(this).val(raw);
             });
         });
     </script>

@@ -54,7 +54,7 @@ class PurchaseReturn extends Model
 
     public function supplier()
     {
-        return $this->belongsTo(Supplier::class, 'supplier_id');
+        return $this->belongsTo(Supplier::class, 'supplier_id')->withTrashed();
     }
 
     public function items()
@@ -79,7 +79,7 @@ class PurchaseReturn extends Model
 
     public function deletedByUser()
     {
-        return $this->belongsTo(User::class, 'deleted_by');
+        return $this->belongsTo(User::class, 'deleted_by')->withTrashed();
     }
 
     public function inventories()

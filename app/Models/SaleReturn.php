@@ -18,6 +18,7 @@ class SaleReturn extends Model
         'status_edited',
         'sale_order_id',
         'customer_id',
+        'customer_address_id',
         'order_number',
         'return_date',
         'payment_status',
@@ -26,6 +27,7 @@ class SaleReturn extends Model
         'status',
         'refund_amount',
         'remaining_amount',
+        'business_name',
         'return_address',
         'google_map',
         'return_image',
@@ -40,19 +42,21 @@ class SaleReturn extends Model
         'deleted_at' => 'datetime',
     ];
 
-    // Relasi ke Order (sale order)
     public function saleOrder()
     {
         return $this->belongsTo(Order::class, 'sale_order_id');
     }
 
-    // Relasi ke Customer
     public function customer()
     {
-        return $this->belongsTo(Customers::class, 'customer_id');
+        return $this->belongsTo(Customers::class, 'customer_id')->withTrashed();
     }
 
-    // Relasi ke akun kas/bank
+    public function customerAddress()
+    {
+        return $this->belongsTo(CustomerAddresses::class, 'customer_address_id')->withTrashed();
+    }
+
     public function cashBankAccount()
     {
         return $this->belongsTo(Account::class, 'cash_bank_account_id');
@@ -63,7 +67,6 @@ class SaleReturn extends Model
         return $this->hasMany(AccountTransaction::class, 'sale_return_id', 'id');
     }
 
-    // Relasi ke SaleReturnItems
     public function items()
     {
         return $this->hasMany(SaleReturnItem::class, 'sale_return_id')->withTrashed();
@@ -76,7 +79,7 @@ class SaleReturn extends Model
 
     public function deletedByUser()
     {
-        return $this->belongsTo(User::class, 'deleted_by');
+        return $this->belongsTo(User::class, 'deleted_by')->withTrashed();
     }
 
     public function canceledProducts()

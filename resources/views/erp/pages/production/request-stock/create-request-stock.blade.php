@@ -142,16 +142,29 @@
             });
         }
 
+        // function initSelect2(el) {
+        //     $(el).select2({
+        //         placeholder: 'Pilih produk',
+        //         width: '100%',
+        //         matcher: (params, data) => {
+        //             if ($.trim(params.term) === '') return data;
+        //             return data.text.toLowerCase().includes(params.term.toLowerCase()) ? data : null;
+        //         }
+        //     });
+        //     populateProducts(el);
+        // }
+
         function initSelect2(el) {
-            $(el).select2({
-                placeholder: 'Pilih produk',
-                width: '100%',
-                matcher: (params, data) => {
-                    if ($.trim(params.term) === '') return data;
-                    return data.text.toLowerCase().includes(params.term.toLowerCase()) ? data : null;
-                }
-            });
-            populateProducts(el);
+            if (!$(el).hasClass('select2-hidden-accessible')) {
+                $(el).select2({
+                    placeholder: 'Pilih produk',
+                    width: '100%',
+                    matcher: (params, data) => {
+                        if ($.trim(params.term) === '') return data;
+                        return data.text.toLowerCase().includes(params.term.toLowerCase()) ? data : null;
+                    }
+                });
+            }
         }
 
         $(document).ready(function() {
@@ -272,28 +285,28 @@
             $('#add_row').on('click', function() {
                 const tableBody = $('#tab_logic_body');
                 const newRow = $(`
-            <tr id="addr${rowCount}">
-                <td>${rowCount + 1}</td>
-                <td>
-                    <select class="form-control select-product" name="product[]" required>
-                        <option value="" disabled selected hidden>Pilih produk</option>
-                    </select>
-                </td>
-                <td>
-                    <input type="text" class="form-control stock bg-light" readonly value="0">
-                </td>
-                <td>
-                    <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0" required>
-                </td>
-                <td class="text-center">
-                    <div class="d-flex justify-content-center">
-                        <button type="button" class="btn btn-danger delete-row">
-                            <i class="feather-trash"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `);
+                    <tr id="addr${rowCount}">
+                        <td>${rowCount + 1}</td>
+                        <td>
+                            <select class="form-control select-product" name="product[]" required>
+                                <option value="" disabled selected hidden>Pilih produk</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control stock bg-light" readonly value="0">
+                        </td>
+                        <td>
+                            <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0" required>
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center">
+                                <button type="button" class="btn btn-danger delete-row">
+                                    <i class="feather-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `);
                 tableBody.append(newRow);
                 initSelect2(newRow.find('.select-product'));
                 rowCount++;
@@ -306,6 +319,58 @@
                     $(this).find('td:first').text(index + 1);
                 });
             });
+
+            // 🧩 Produk yang dikirim dari halaman Report Items
+            const selectedProducts = @json($selectedProducts ?? []);
+
+            if (selectedProducts.length > 0) {
+                const tableBody = $('#tab_logic_body');
+                tableBody.empty(); // hapus baris default
+
+                selectedProducts.forEach((item, index) => {
+                    const newRow = $(`
+                        <tr id="addr${index}">
+                            <td>${index + 1}</td>
+                            <td>
+                                <select class="form-control select-product" name="product[]" required></select>
+                            </td>
+                            <td>
+                                <input type="text" class="form-control stock bg-light" readonly value="${(item.inventory_stock ?? 0).toLocaleString('id-ID')}">
+                            </td>
+                            <td>
+                                <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0" required>
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center">
+                                    <button type="button" class="btn btn-danger delete-row">
+                                        <i class="feather-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `);
+
+                    tableBody.append(newRow);
+
+                    const select = newRow.find('.select-product');
+
+                    // 🔹 Populate dulu semua produk (masukkan option ke select)
+                    populateProducts(select);
+
+                    // 🔹 Set value produk yang dipilih
+                    select.val(item.id);
+
+                    // 🔹 Baru init Select2 (setelah ada valuenya)
+                    initSelect2(select);
+                });
+
+
+                // Fokus ke input qty pertama agar user bisa langsung isi
+                // setTimeout(() => {
+                //     $('#tab_logic_body tr:first .qty').focus().select();
+                // }, 200);
+            }
+
         });
 
         // Autofokus pencarian select2

@@ -107,21 +107,22 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <select class="form-select form-control max-select" id="addresses"
-                                                data-select2-selector="tag"name="address_id">
+                                                data-select2-selector="tag" name="customer_address_id">
                                                 @if ($order->customer)
                                                     @foreach ($order->customer->addresses as $index => $address)
                                                         <option value="{{ $address->id }}"
                                                             data-map="{{ $address->google_maps }}"
-                                                            {{ $saleReturn->return_address_id == $address->id ? 'selected' : '' }}>
-                                                            Alamat ke-{{ $index + 1 }} - {{ $address->address }}
+                                                            {{ $saleReturn->customer_address_id == $address->id ? 'selected' : '' }}>
+                                                            {{ $address->business_name ?? 'None' }} -
+                                                            {{ $address->address }}
                                                         </option>
                                                     @endforeach
                                                 @endif
                                             </select>
                                             <div id="google-maps-link" class="mt-2">
-                                                @if ($saleReturn->google_map)
-                                                    <a href="{{ $saleReturn->google_map }}" target="_blank"
-                                                        class="btn btn-sm btn-outline-primary mt-2">
+                                                @if ($saleReturn->customerAddress && $saleReturn->customerAddress->google_maps)
+                                                    <a href="{{ $saleReturn->customerAddress->google_maps }}"
+                                                        target="_blank" class="btn btn-sm btn-outline-primary mt-2">
                                                         Lihat di Google Maps
                                                     </a>
                                                 @endif
@@ -330,7 +331,7 @@
             function updateAddresses(customerId) {
                 const addresses = customerAddresses[customerId] || [];
                 const $addressSelect = $('#addresses');
-                const selectedAddressId = "{{ $order->address_id ?? '' }}";
+                const selectedAddressId = "{{ $saleReturn->customer_address_id ?? '' }}";
 
                 $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
 
@@ -338,8 +339,8 @@
                     const isSelected = address.id == selectedAddressId;
                     $addressSelect.append(
                         `<option value="${address.id}" data-map="${address.google_maps}" ${isSelected ? 'selected' : ''}>
-                        Alamat ke-${index + 1} - ${address.address}
-                    </option>`
+                            ${address.business_name ?? 'None'} - ${address.address}
+                        </option>`
                     );
                 });
 

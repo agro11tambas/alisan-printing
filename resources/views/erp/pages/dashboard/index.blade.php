@@ -72,6 +72,9 @@
                     <div class="card-body">
                         <div class="hstack justify-content-between lh-base mb-3">
                             <span class="fs-12 fw-medium text-muted">Sale Order</span>
+                            <div class="hstack gap-2 fs-11 text-success">
+                                <i class="feather-circle fs-14"></i>
+                            </div>
                         </div>
                         <h4 class="fw-bolder mb-3"><span id="SaleOrderDisplay">Rp 0</span></h4>
                         <p class="fs-12 text-muted mb-0">Total Orders: <span class="fw-semibold text-dark"
@@ -84,6 +87,9 @@
                     <div class="card-body">
                         <div class="hstack justify-content-between lh-base mb-3">
                             <span class="fs-12 fw-medium text-muted">Purchase Order</span>
+                            <div class="hstack gap-2 fs-11 text-success">
+                                <i class="feather-circle fs-14"></i>
+                            </div>
                         </div>
                         <h4 class="fw-bolder mb-3"><span id="PurchaseOrderDisplay">Rp 0</span></h4>
                         <p class="fs-12 text-muted mb-0">Total Orders: <span class="fw-semibold text-dark"
@@ -113,8 +119,7 @@
                             <span class="mx-2">|</span>
                             <span>Overdue: <span class="fw-semibold text-dark" id="SaleOverdue">0</span></span>
                             <span class="mx-2">|</span>
-                            <span>Partially Paid: <span class="fw-semibold text-dark"
-                                    id="SalePartiallyPaid">0</span></span>
+                            <span>Partially Paid: <span class="fw-semibold text-dark" id="SalePartiallyPaid">0</span></span>
                         </div>
                     </div>
                 </div>
@@ -213,6 +218,9 @@
                     <div class="card-body">
                         <div class="hstack justify-content-between lh-base mb-3">
                             <span class="fs-12 fw-medium text-muted">Expense</span>
+                            <div class="hstack gap-2 fs-11 text-success">
+                                <i class="feather-circle fs-14"></i>
+                            </div>
                         </div>
                         <div class="hstack justify-content-between lh-base">
                             <h4 class="fw-bolder mb-3"><span class="counter" id="ExpenseTotalDisplay">0</span></h4>
@@ -226,6 +234,9 @@
                     <div class="card-body">
                         <div class="hstack justify-content-between lh-base mb-3">
                             <span class="fs-12 fw-medium text-muted">Bank</span>
+                            <div class="hstack gap-2 fs-11 text-success">
+                                <i class="feather-circle fs-14"></i>
+                            </div>
                         </div>
                         <div class="hstack justify-content-between lh-base">
                             <h4 class="fw-bolder mb-3">
@@ -241,6 +252,9 @@
                     <div class="card-body">
                         <div class="hstack justify-content-between lh-base mb-3">
                             <span class="fs-12 fw-medium text-muted">Cash</span>
+                            <div class="hstack gap-2 fs-11 text-success">
+                                <i class="feather-circle fs-14"></i>
+                            </div>
                         </div>
                         <div class="hstack justify-content-between lh-base">
                             <h4 class="fw-bolder mb-3"><span class="counter" id="CashTotalDisplay">0</span></h4>
@@ -249,6 +263,46 @@
                     </div>
                 </div>
             </div>
+            <div class="col-xxl-3 col-lg-4 col-md-6">
+                <div class="card stretch stretch-full">
+                    <div class="card-body">
+                        <div class="hstack justify-content-between lh-base mb-3">
+                            <span class="fs-12 fw-medium text-muted">Inventory Valuation</span>
+                            <div class="hstack gap-2 fs-11 text-success">
+                                <i class="feather-circle fs-14"></i>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <p class="fs-12 text-muted mb-0">Inventory Warehouse</p>
+                                <div class="hstack justify-content-between lh-base">
+                                    <h5 class="fw-bolder mt-2">
+                                        <span class="counter" id="InventoryValue">0</span>
+                                    </h5>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <p class="fs-12 text-muted mb-0">Production Warehouse</p>
+                                <div class="hstack justify-content-between lh-base">
+                                    <h5 class="fw-bolder mt-2">
+                                        <span class="counter" id="ProductionValue">0</span>
+                                    </h5>
+                                </div>
+                            </div>
+                            {{-- <hr>
+                            <div class="col-12">
+                                <p class="fs-12 text-muted mb-0 fw-medium text-dark">Total Valuation</p>
+                                <div class="hstack justify-content-between lh-base">
+                                    <h5 class="fw-bolder mt-2 text-primary">
+                                        <span class="counter" id="TotalInventoryValuation">0</span>
+                                    </h5>
+                                </div>
+                            </div> --}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 @endsection
@@ -339,9 +393,12 @@
                             );
                         });
                     }
+
+                    $('#InventoryValue').text('Rp ' + formatRupiah(response.inventoryValue));
+                    $('#ProductionValue').text('Rp ' + formatRupiah(response.productionValue));
+                    $('#TotalInventoryValuation').text('Rp ' + formatRupiah(response.totalInventoryValuation));
                 },
-                error: function(err) {
-                }
+                error: function(err) {}
             });
         }
 

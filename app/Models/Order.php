@@ -15,6 +15,7 @@ class Order extends Model
     protected $fillable = [
         'status_edited',
         'customer_id',
+        'customer_address_id',
         'order_number',
         'order_date',
         'due_date',
@@ -26,6 +27,7 @@ class Order extends Model
         'grand_total',
         'paid_amount',
         'remaining_amount',
+        'business_name',
         'shipping_address',
         'google_maps',
         'notes',
@@ -33,6 +35,7 @@ class Order extends Model
         'transaction_group_id',
         'deleted_by',
         'deleted_notes',
+        'discount_active',
     ];
 
     protected $casts = [
@@ -43,7 +46,12 @@ class Order extends Model
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customers::class, 'customer_id');
+        return $this->belongsTo(Customers::class, 'customer_id')->withTrashed();;
+    }
+
+    public function customerAddress(): BelongsTo
+    {
+        return $this->belongsTo(CustomerAddresses::class, 'customer_address_id')->withTrashed();
     }
 
     public function orderItems()
@@ -83,7 +91,7 @@ class Order extends Model
 
     public function deletedByUser()
     {
-        return $this->belongsTo(User::class, 'deleted_by');
+        return $this->belongsTo(User::class, 'deleted_by')->withTrashed();
     }
 
     public function deliveryOrders()

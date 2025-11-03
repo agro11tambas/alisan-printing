@@ -123,27 +123,25 @@
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <select class="form-select form-control max-select"
-                                                    data-select2-selector="tag" id="addresses" name="address_id">
+                                                    data-select2-selector="tag" id="addresses" name="customer_address_id">
                                                     <option disabled hidden>Pilih alamat</option>
                                                     @if ($order->customer)
                                                         @foreach ($order->customer->addresses as $index => $address)
                                                             <option value="{{ $address->id }}"
                                                                 data-map="{{ $address->google_maps }}"
-                                                                {{ $order->address_id == $address->id ? 'selected' : '' }}>
-                                                                Alamat ke-{{ $index + 1 }} - {{ $address->address }}
+                                                                {{ $order->customer_address_id == $address->id ? 'selected' : '' }}>
+                                                                {{ $address->business_name ?? 'None' }} - {{ $address->address }}
                                                             </option>
                                                         @endforeach
                                                     @endif
                                                 </select>
                                             </div>
                                             <div id="google-maps-link" class="mt-2">
-                                                @if ($order->address)
-                                                    @if ($order->address->google_maps)
-                                                        <a href="{{ $order->address->google_maps }}" target="_blank"
-                                                            class="btn btn-sm btn-outline-primary mt-2">
-                                                            Lihat di Google Maps
-                                                        </a>
-                                                    @endif
+                                                @if ($order->customerAddress && $order->customerAddress->google_maps)
+                                                    <a href="{{ $order->customerAddress->google_maps }}" target="_blank"
+                                                        class="btn btn-sm btn-outline-primary mt-2">
+                                                        Lihat di Google Maps
+                                                    </a>
                                                 @endif
                                             </div>
                                         </div>
@@ -306,6 +304,7 @@
                             'id' => $address->id,
                             'address' => $address->address,
                             'google_maps' => $address->google_maps,
+                            'business_name' => $address->business_name,
                         ];
                     }),
                 ];
@@ -378,7 +377,7 @@
             function updateAddresses(customerId) {
                 const addresses = customerAddresses[customerId] || [];
                 const $addressSelect = $('#addresses');
-                const selectedAddressId = "{{ $order->address_id ?? '' }}";
+                const selectedAddressId = "{{ $order->customer_address_id ?? '' }}";
 
                 $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
 
@@ -386,8 +385,8 @@
                     const isSelected = address.id == selectedAddressId;
                     $addressSelect.append(
                         `<option value="${address.id}" data-map="${address.google_maps}" ${isSelected ? 'selected' : ''}>
-                        Alamat ke-${index + 1} - ${address.address}
-                    </option>`
+                            ${address.business_name ?? 'None'} - ${address.address}
+                        </option>`
                     );
                 });
 
@@ -555,7 +554,7 @@
         // === Harga bisa diubah hanya oleh Owner ===
         let priceEditTimeout;
         $(document).on('input', '.price_display', function() {
-            if (!isOwner) return; // Non-owner gak bisa ubah harga
+            // if (!isOwner) return; // Non-owner gak bisa ubah harga
 
             const row = $(this).closest('tr');
             let rawValue = $(this).val().replace(/\D/g, '');

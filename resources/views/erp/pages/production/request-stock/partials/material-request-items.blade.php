@@ -8,19 +8,18 @@
         </thead>
         <tbody>
             @foreach ($materialRequest->items as $item)
-            <tr>
-                <td>
-                    <span class="fw-bold text-dark">
-                        {{ $item->product->name }}
-                    </span>
-                </td>
-                
-                <td>
-                    <span class="fw-bold text-primary">
-                        {{ number_format($item->requested_qty, 0, ',', '.') }}
-                    </span>
-                </td>
-            </tr>
+                <tr>
+                    <td>
+                        <span class="fw-bold text-dark">
+                            {{ $item->product->name ?? '-' }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="fw-bold text-primary">
+                            {{ number_format($item->requested_qty ?? 0, 0, ',', '.') }}
+                        </span>
+                    </td>
+                </tr>
             @endforeach
         </tbody>
     </table>

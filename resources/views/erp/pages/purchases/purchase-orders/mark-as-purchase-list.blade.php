@@ -67,7 +67,7 @@
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <input type="text" class="form-control" id="purchase_number"
-                                                    name="purchase_number" value="{{ $purchase->purchase_number }}">
+                                                    name="purchase_number" value="">
                                             </div>
                                         </div>
                                     </div>
@@ -189,15 +189,15 @@
                                                         </td>
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="price[]"
-                                                                class="form-control price">
+                                                                class="form-control price" value="0">
                                                         </td>
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="freight[]"
-                                                                class="form-control freight">
+                                                                class="form-control freight" value="0">
                                                         </td>
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="total[]"
-                                                                class="form-control total" readonly value="">
+                                                                class="form-control total" readonly value="0">
                                                         </td>
                                                     </tr>
                                                 @endforeach
@@ -290,30 +290,42 @@
 
 @push('scripts')
     <script>
-        /* ==================== FORMAT & PARSING ==================== */
         function formatRibuan(value) {
             if (value === null || value === undefined || value === '') return '';
+
             const num = parseFloat(value);
             if (isNaN(num)) return '';
-            const [intPart, decPart] = num.toFixed(2).split('.');
+
+            const parts = num.toFixed(2).split('.');
+            const intPart = parts[0];
+            const decPart = parts[1];
+
             const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+            // ✅ kalau desimal = 00, gak usah tampilkan
             return decPart === '00' ? formattedInt : `${formattedInt},${decPart}`;
         }
 
         function unformatRibuan(value) {
             if (!value) return 0;
-            value = value.toString().replace(/[^0-9,.-]/g, '');
+
+            value = value.toString().trim();
+
+            // kalau format Indonesia (koma desimal, titik ribuan)
             if (value.includes(',')) {
                 value = value.replace(/\./g, '').replace(',', '.');
             } else {
+                // kalau cuma titik, artinya ribuan, bukan desimal
                 value = value.replace(/\./g, '');
             }
+
             const num = parseFloat(value);
             return isNaN(num) ? 0 : num;
         }
 
         /* ==================== PERHITUNGAN TOTAL ==================== */
         function updateRowTotal(row) {
+            // ✅ Gunakan unformatRibuan untuk semua field supaya konsisten
             const qty = parseFloat(unformatRibuan(row.find(".qty").val())) || 0;
             const price = parseFloat(unformatRibuan(row.find(".price").val())) || 0;
             const freight = parseFloat(unformatRibuan(row.find(".freight").val())) || 0;
@@ -335,15 +347,18 @@
 
             $('#tab_logic tbody tr').each(function() {
                 const row = $(this);
-                const qty = parseFloat(unformatRibuan(row.find('.qty').val())) || 0;
+
+                // ✅ Qty harus dianggap bilangan bulat (hapus titik)
+                const qtyVal = row.find('.qty').val().toString().replace(/\./g, '');
+                const qty = parseFloat(qtyVal) || 0;
+
+                // ✅ Price & Freight boleh desimal
                 const price = parseFloat(unformatRibuan(row.find('.price').val())) || 0;
                 const freight = parseFloat(unformatRibuan(row.find('.freight').val())) || 0;
 
                 subtotalProduct += qty * price;
                 subtotalFreight += qty * freight;
 
-                if (price === 0) row.find('.price').val('');
-                if (freight === 0) row.find('.freight').val('');
                 const totalRow = qty * (price + freight);
                 row.find('.total').val(totalRow > 0 ? formatRibuan(totalRow.toFixed(2)) : '');
             });
@@ -361,11 +376,11 @@
             $("#tax_amount").val(taxAmount.toFixed(2));
             $("#total_amount").val(grandTotal.toFixed(2));
 
-            $("#total_amount_product_display").val(formatRibuan(totalProduct.toFixed(2)));
-            $("#total_amount_freight_display").val(formatRibuan(subtotalFreight.toFixed(2)));
-            $("#sub_total_display").val(formatRibuan(subTotal.toFixed(2)));
-            $("#tax_amount_display").val(formatRibuan(taxAmount.toFixed(2)));
-            $("#total_amount_display").val(formatRibuan(grandTotal.toFixed(2)));
+            $("#total_amount_product_display").val(totalProduct > 0 ? formatRibuan(totalProduct.toFixed(0)) : '0');
+            $("#total_amount_freight_display").val(subtotalFreight > 0 ? formatRibuan(subtotalFreight.toFixed(0)) : '0');
+            $("#sub_total_display").val(subTotal > 0 ? formatRibuan(subTotal.toFixed(0)) : '0');
+            $("#tax_amount_display").val(taxAmount > 0 ? formatRibuan(taxAmount.toFixed(0)) : '0');
+            $("#total_amount_display").val(grandTotal > 0 ? formatRibuan(grandTotal.toFixed(0)) : '0');
         }
 
         /* ==================== SELECT2 & INIT ==================== */
@@ -386,9 +401,22 @@
             initSelect2('#suppliers');
 
             // Format awal
-            $('.price, .freight').each(function() {
-                const val = $(this).val();
-                if (val && !isNaN(val)) $(this).val(formatRibuan(parseFloat(val)));
+            $('.qty, .price, .freight').each(function() {
+                let val = $(this).val();
+
+                // kalau kosong/null/undefined → isi 0
+                if (val === '' || val === null || val === undefined) {
+                    val = '0';
+                }
+
+                const num = unformatRibuan(val);
+
+                // khusus qty, selalu tanpa koma desimal (bilangan bulat)
+                if ($(this).hasClass('qty')) {
+                    $(this).val(num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
+                } else {
+                    $(this).val(num > 0 ? formatRibuan(num) : '0');
+                }
             });
 
             // Auto price dari data attribute
@@ -411,7 +439,7 @@
 
                 $newRow.attr('id', 'addr' + newIndex);
                 $newRow.find('td:first').text(newIndex + 1);
-                $newRow.find('input').val('');
+                $newRow.find('input').val('0'); // Set default ke 0
                 $newRow.find('.select2').remove();
                 $newRow.find('select').removeClass('select2-hidden-accessible').val('');
 
@@ -435,7 +463,7 @@
 
                 const lastPrice = parseFloat(selectedOption.data('price')) || 0;
                 row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
-                row.find('.freight').val('');
+                row.find('.freight').val('0');
                 updateRowTotal(row);
 
                 if (!productId) return;
@@ -456,49 +484,124 @@
             });
 
             $(document).on('input', '.qty', function() {
-                let val = $(this).val().replace(/\D/g, '');
-                $(this).val(val ? val.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
-                updateRowTotal($(this).closest('tr'));
-            });
+                let val = $(this).val();
 
-            $(document).on('input', '.price', function() {
-                let val = $(this).val().replace(/[^\d,]/g, '');
+                // Hanya izinkan angka dan koma
+                val = val.replace(/[^0-9,]/g, '');
+
+                // Kalau ada lebih dari satu koma, hapus sisanya
                 const parts = val.split(',');
-                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
-                $(this).val(val);
-                updateRowTotal($(this).closest('tr'));
-            });
+                if (parts.length > 2) {
+                    val = parts[0] + ',' + parts[1];
+                }
 
-            $(document).on('input', '.freight', function() {
-                let val = $(this).val().replace(/[^\d,]/g, '');
-                if (val === '0' || val === '0,00') {
-                    $(this).val('0');
-                    updateRowTotal($(this).closest('tr'));
+                // Jangan format dulu kalau baru ngetik koma
+                if (val.endsWith(',')) {
+                    $(this).val(val);
                     return;
                 }
-                const parts = val.split(',');
-                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
-                $(this).val(val);
+
+                // Kalau ada desimal (setelah koma)
+                if (parts.length === 2) {
+                    let intPart = parts[0];
+                    let decPart = parts[1].slice(0, 5); // maks 5 digit desimal
+
+                    // Format ribuan untuk bagian integer
+                    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+                    $(this).val(`${intPart},${decPart}`);
+                } else {
+                    // Belum ada desimal → format biasa
+                    val = val.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                    $(this).val(val);
+                }
+
+                // ✅ Hitung total realtime
                 updateRowTotal($(this).closest('tr'));
             });
 
-            $(document).on('blur', '.freight', function() {
+
+            $(document).on('input', '.price, .freight', function() {
+                let val = $(this).val();
+
+                // Hanya izinkan angka dan koma
+                val = val.replace(/[^0-9,]/g, '');
+
+                // Kalau ada lebih dari satu koma, hapus sisanya
+                const parts = val.split(',');
+                if (parts.length > 2) {
+                    val = parts[0] + ',' + parts[1];
+                }
+
+                // Jangan format dulu kalau baru ngetik koma (biar gak kehapus)
+                if (val.endsWith(',')) {
+                    $(this).val(val);
+                    return;
+                }
+
+                // Kalau ada desimal (setelah koma)
+                if (parts.length === 2) {
+                    let intPart = parts[0];
+                    let decPart = parts[1].slice(0, 5); // maks 5 digit desimal
+
+                    // Format ribuan untuk bagian integer
+                    intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+                    $(this).val(`${intPart},${decPart}`);
+                } else {
+                    // Belum ada desimal → format biasa
+                    val = val.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                    $(this).val(val);
+                }
+
+                // ✅ Hitung total realtime tiap ketik
+                const row = $(this).closest('tr');
+                updateRowTotal(row);
+            });
+
+            $(document).on('focus', '.qty', function() {
+                const val = unformatRibuan($(this).val());
+                if (val === 0 || $(this).val().trim() === '') {
+                    $(this).val(''); // kosongkan saat fokus
+                }
+            });
+
+            $(document).on('blur', '.qty', function() {
                 let val = $(this).val().trim();
-                if (val === '' || val === null) {
+                const row = $(this).closest('tr');
+
+                // kalau dikosongkan → isi 0
+                if (val === '' || val === null || val === undefined) {
                     $(this).val('0');
                 } else {
+                    // format ulang kalau ada angka
+                    $(this).val(formatRibuan(val));
+                }
+
+                updateRowTotal(row);
+            });
+
+            /* ==================== FOCUS & BLUR HANDLER - Price & Freight ==================== */
+            $(document).on('focus', '.price, .freight', function() {
+                const val = unformatRibuan($(this).val());
+                if (val === 0 || $(this).val().trim() === '') {
+                    $(this).val(''); // kosongkan saat fokus
+                }
+            });
+
+            $(document).on('blur', '.price, .freight', function() {
+                let val = $(this).val().trim();
+                const row = $(this).closest('tr');
+
+                if (val === '' || val === null || val === undefined) {
+                    $(this).val('0');
+                } else {
+                    // 💡 konversi dulu ke angka real (support koma)
                     const num = unformatRibuan(val);
                     $(this).val(formatRibuan(num));
                 }
-                updateRowTotal($(this).closest('tr'));
-            });
 
-            $(document).on('blur', '.price', function() {
-                const num = unformatRibuan($(this).val());
-                $(this).val(formatRibuan(num));
-                updateRowTotal($(this).closest('tr'));
+                updateRowTotal(row);
             });
 
             $(document).on('input', '#tax_percent', calc_total);
@@ -508,12 +611,6 @@
                     const cleanVal = unformatRibuan($(this).val());
                     $(this).val(cleanVal);
                 });
-            });
-
-            /* ==================== CLEAR ZERO ON FOCUS ==================== */
-            $(document).on('focus', '.qty, .price, .freight, #tax_percent', function() {
-                const num = unformatRibuan($(this).val());
-                if (num === 0) $(this).val('');
             });
 
             /* ==================== DUE DATE HANDLER ==================== */
@@ -554,6 +651,15 @@
 
             dueDateSelect.on('change', setDueDate);
             purchaseDateEl.on('change', setDueDate);
+
+            $('.price').each(function() {
+                const val = $(this).val().trim();
+                if (val === '000' || val === '0.00' || val === '0,00' || val === '0.00000' || val ===
+                    '0,00000') {
+                    $(this).val('0');
+                }
+            });
+
         });
 
         /* ==================== VALIDASI FORM ==================== */
@@ -634,17 +740,16 @@
                 }
                 if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
                     isValid = false;
-                    showError(qty[0], 'Qty wajib diisi dan harus > 0');
+                    showError(qty[0], 'Qty harus lebih dari 0');
                 }
                 if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
                     isValid = false;
-                    showError(price[0], 'Harga wajib diisi dan harus > 0');
+                    showError(price[0], 'Harga harus lebih dari 0');
                 }
 
+                // Freight boleh 0, tapi tidak boleh kosong
                 const freightVal = freight.val().trim();
                 if (freightVal === '' || freightVal === null) {
-                    isValid = false;
-                    showError(freight[0], 'Freight harus diisi (minimal 0)');
                     freight.val('0');
                 } else {
                     const freightNum = unformatRibuan(freightVal);

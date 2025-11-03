@@ -60,6 +60,7 @@ class CustomerController extends Controller
             'name' => 'required|string',
             'phone' => 'required|string',
             'addresses' => 'array|required',
+            'addresses.*.business_name' => 'nullable|string',
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
         ]);
@@ -74,6 +75,7 @@ class CustomerController extends Controller
             // Simpan setiap alamat
             foreach ($request->addresses as $addr) {
                 $customer->addresses()->create([
+                    'business_name' => $addr['business_name'] ?? null,
                     'address' => $addr['address'],
                     'google_maps' => $addr['google_maps'],
                 ]);
@@ -100,6 +102,7 @@ class CustomerController extends Controller
             'name' => 'required|string',
             'phone' => 'required|string',
             'addresses' => 'array|required',
+            'addresses.*.business_name' => 'nullable|string',
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
         ]);
@@ -116,6 +119,7 @@ class CustomerController extends Controller
         // Simpan ulang alamat baru
         foreach ($request->addresses as $addr) {
             $customer->addresses()->create([
+                'business_name' => $addr['business_name'] ?? null,
                 'address' => $addr['address'],
                 'google_maps' => $addr['google_maps'],
             ]);

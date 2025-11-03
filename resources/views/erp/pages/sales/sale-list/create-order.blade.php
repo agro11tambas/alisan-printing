@@ -109,7 +109,7 @@
                                                     ];
                                                 @endphp
                                                 <select class="form-select max-select" data-select2-selector="tag"
-                                                    id="customers" name="customers[]" required>
+                                                    id="customers" name="customer_id" required>
                                                     <option disabled selected hidden>Choose Customer</option>
                                                     @foreach ($customers as $index => $customer)
                                                         @php
@@ -129,7 +129,7 @@
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <select class="form-select max-select" data-select2-selector="tag"
-                                                    id="addresses" name="addresses[]" required>
+                                                    id="addresses" name="customer_address_id" required>
                                                     <option disabled selected hidden>Pilih alamat</option>
                                                 </select>
                                             </div>
@@ -148,6 +148,21 @@
                                                     <option value="11" data-bg="bg-success">Sale Account</option>
                                                 </select>
                                             </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label class="fw-semibold">Diskon:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="toggleDiscount"
+                                                    name="discount_active" checked>
+                                                <label class="form-check-label" for="toggleDiscount">Aktifkan
+                                                    Diskon</label>
+                                            </div>
+                                            <input type="hidden" id="discount_active_hidden"
+                                                name="discount_active_hidden" value="1">
                                         </div>
                                     </div>
                                 </div>
@@ -288,9 +303,68 @@
     </div>
 @endsection
 
+@push('modals')
+    <!-- Modal Konfirmasi Matikan Diskon -->
+    <div class="modal fade" id="confirmDisableDiscountModal" tabindex="-1"
+        aria-labelledby="confirmDisableDiscountLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-semibold text-dark" id="confirmDisableDiscountLabel">
+                        Nonaktifkan Diskon
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0 text-dark">
+                        Apakah kamu yakin ingin menonaktifkan semua diskon?
+                        Semua harga akan dihitung ulang tanpa potongan harga.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-warning text-dark" id="confirmDisableDiscountBtn">Matikan
+                        Diskon</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Kedua: Konfirmasi Tanggung Jawab -->
+    <div class="modal fade" id="confirmResponsibilityModal" tabindex="-1" aria-labelledby="confirmResponsibilityLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-semibold" id="confirmResponsibilityLabel">
+                        Konfirmasi Tanggung Jawab
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0 text-dark">
+                        Apakah Anda bersedia untuk <strong>bertanggung jawab</strong> atas keputusan menonaktifkan semua
+                        diskon ini?
+                        Perubahan ini dapat mempengaruhi total harga penjualan.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-danger text-white" id="confirmResponsibilityBtn">
+                        Ya, Saya Bertanggung Jawab
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endpush
+
 @push('scripts')
     <script>
         const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
+
+        let discountEnabled = true;
 
         const customerAddresses = <?php echo json_encode(
             $customers->mapWithKeys(function ($customer) {
@@ -300,6 +374,7 @@
                             'id' => $address->id,
                             'address' => $address->address,
                             'google_maps' => $address->google_maps,
+                            'business_name' => $address->business_name,
                         ];
                     }),
                 ];
@@ -346,7 +421,7 @@
         // ✅ Format otomatis titik ribuan + update hidden input untuk perhitungan
         let priceInputTimeout;
         $(document).on('input', '.price_before_discount_display', function() {
-            if (!isOwner) return; // cuma Owner bisa edit harga
+            // if (!isOwner) return; // cuma Owner bisa edit harga
 
             const row = $(this).closest('tr');
             let rawValue = $(this).val().replace(/\D/g, '');
@@ -368,71 +443,119 @@
             $(this).val(new Intl.NumberFormat('id-ID').format(val));
         });
 
+        let pendingToggleOff = false;
+
+        $(document).on('change', '#toggleDiscount', function() {
+            const isChecked = $(this).is(':checked');
+            const label = $(this).next('label');
+
+            if (!isChecked) {
+                // simpan state kalau user mau OFF
+                pendingToggleOff = true;
+                // tampilkan modal konfirmasi
+                $('#confirmDisableDiscountModal').modal('show');
+                // kembalikan toggle ke posisi ON sementara
+                $(this).prop('checked', true);
+            } else {
+                // aktifkan diskon
+                discountEnabled = true;
+                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
+                recalcAllRows();
+            }
+        });
+
+        // Ketika user konfirmasi matikan diskon dari modal pertama
+        $('#confirmDisableDiscountBtn').on('click', function() {
+            $('#confirmDisableDiscountModal').modal('hide');
+            if (pendingToggleOff) {
+                // Tampilkan modal kedua: tanggung jawab
+                $('#confirmResponsibilityModal').modal('show');
+            }
+        });
+
+        $('#confirmResponsibilityBtn').on('click', function() {
+            $('#confirmResponsibilityModal').modal('hide');
+
+            discountEnabled = false;
+            $('#toggleDiscount').prop('checked', false);
+            $('#discount_active_hidden').val(0); // ✅ ini akan tersimpan
+            const label = $('#toggleDiscount').next('label');
+            label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+            recalcAllRows();
+            pendingToggleOff = false;
+        })
+
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
             const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
             const basePrice = manualPrice > 0 ? manualPrice : (parseFloat(selectedOption.data('price')) || 0);
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
-            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/[.,]/g, '')) || 0;
+            const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
 
             const priceBeforeDiscount = basePrice;
             const totalBeforeDiscount = basePrice * qty;
 
+            // let finalPrice = priceBeforeDiscount;
+            // let allDiscounts = [...discounts];
+
             let finalPrice = priceBeforeDiscount;
-            let allDiscounts = [...discounts];
+            let allDiscounts = discountEnabled ? [...discounts] : [];
 
-            categories.forEach(cat => {
-                if (cat.discounts) {
-                    allDiscounts = allDiscounts.concat(cat.discounts);
-                }
-            });
-
-            allDiscounts.forEach(discount => {
-                let eligible = false;
-
-                if (discount.apply_on === 'Product') {
-                    if (discount.minimum_based_on === 'Quantity of Items' && qty >= discount
-                        .minimum_qty_or_amount) {
-                        eligible = true;
-                    } else if (discount.minimum_based_on === 'Purchase Amount' && totalBeforeDiscount >= discount
-                        .minimum_qty_or_amount) {
-                        eligible = true;
+            // 🔥 Tambahan logika baru: hanya jalankan perhitungan diskon kalau discountEnabled = true
+            if (discountEnabled) {
+                categories.forEach(cat => {
+                    if (cat.discounts) {
+                        allDiscounts = allDiscounts.concat(cat.discounts);
                     }
-                } else if (discount.apply_on === 'Category') {
-                    let totalQtyCategory = 0,
-                        totalAmountCategory = 0;
+                });
 
-                    $('select[name="product[]"]').each(function(i, el) {
-                        const opt = $(el).find('option:selected');
-                        const cats = opt.data('categories') || [];
-                        const price = parseFloat(opt.data('price')) || 0;
-                        const qtyVal = parseFloat(($('input[name="qty[]"]').eq(i).val() || '0').replace(
-                            /[.,]/g, '')) || 0;
+                allDiscounts.forEach(discount => {
+                    let eligible = false;
 
-                        if (cats.some(c => c.id === discount.category_id)) {
-                            totalQtyCategory += qtyVal;
-                            totalAmountCategory += price * qtyVal;
+                    if (discount.apply_on === 'Product') {
+                        if (discount.minimum_based_on === 'Quantity of Items' && qty >= discount
+                            .minimum_qty_or_amount) {
+                            eligible = true;
+                        } else if (discount.minimum_based_on === 'Purchase Amount' && totalBeforeDiscount >=
+                            discount.minimum_qty_or_amount) {
+                            eligible = true;
                         }
-                    });
+                    } else if (discount.apply_on === 'Category') {
+                        let totalQtyCategory = 0,
+                            totalAmountCategory = 0;
 
-                    if (discount.minimum_based_on === 'Quantity of Items' && totalQtyCategory >= discount
-                        .minimum_qty_or_amount) {
-                        eligible = true;
-                    } else if (discount.minimum_based_on === 'Purchase Amount' && totalAmountCategory >= discount
-                        .minimum_qty_or_amount) {
-                        eligible = true;
-                    }
-                }
+                        $('select[name="product[]"]').each(function(i, el) {
+                            const opt = $(el).find('option:selected');
+                            const cats = opt.data('categories') || [];
+                            const price = parseFloat(opt.data('price')) || 0;
+                            const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
+                                '')) || 0;
 
-                if (eligible) {
-                    if (discount.type === 'Percentage') {
-                        finalPrice = priceBeforeDiscount - (priceBeforeDiscount * (discount.amount / 100));
-                    } else {
-                        finalPrice = Math.max(0, priceBeforeDiscount - discount.amount);
+                            if (cats.some(c => c.id === discount.category_id)) {
+                                totalQtyCategory += qtyVal;
+                                totalAmountCategory += price * qtyVal;
+                            }
+                        });
+
+                        if (discount.minimum_based_on === 'Quantity of Items' && totalQtyCategory >= discount
+                            .minimum_qty_or_amount) {
+                            eligible = true;
+                        } else if (discount.minimum_based_on === 'Purchase Amount' && totalAmountCategory >=
+                            discount.minimum_qty_or_amount) {
+                            eligible = true;
+                        }
                     }
-                }
-            });
+
+                    if (eligible) {
+                        if (discount.type === 'Percentage') {
+                            finalPrice = priceBeforeDiscount - (priceBeforeDiscount * (discount.amount / 100));
+                        } else {
+                            finalPrice = Math.max(0, priceBeforeDiscount - discount.amount);
+                        }
+                    }
+                });
+            }
 
             const totalAfterDiscount = finalPrice * qty;
 
@@ -441,10 +564,13 @@
             row.find('input.price_after_discount').val(finalPrice.toFixed(2));
             row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
 
-            row.find('input.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
+            // row.find('input.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
+            // row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
+
+            if (!row.find('.price_before_discount_display').is(':focus')) {
+                row.find('input.price_before_discount_display').val(formatNumber(basePrice));
+            }
             row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
-            row.find('input.price_after_discount_display').val(formatNumber(finalPrice));
-            row.find('input.total_after_discount_display').val(formatNumber(totalAfterDiscount));
         }
 
         function recalcAllRows() {
@@ -639,7 +765,9 @@
                 $('#addresses').empty().append('<option disabled selected hidden>Pilih alamat</option>');
                 addresses.forEach((address, i) => {
                     $('#addresses').append(
-                        `<option value="${address.id}" data-map="${address.google_maps}">Alamat ke-${i+1} - ${address.address}</option>`
+                        `<option value="${address.id}" data-map="${address.google_maps}">
+                            ${address.business_name ?? 'None'} - ${address.address}
+                        </option>`
                     );
                 });
             });

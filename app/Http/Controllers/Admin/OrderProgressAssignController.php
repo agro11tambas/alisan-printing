@@ -8,6 +8,7 @@ use App\Models\OrderProgress;
 use App\Models\OrderProgressAssign;
 use App\Models\OrderProgressAssignBatch;
 use App\Models\OrderProgressItem;
+use App\Models\ProductionStock;
 use App\Services\AssignCode;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -110,7 +111,6 @@ class OrderProgressAssignController extends Controller
                     continue;
                 }
 
-                /** @var \App\Models\OrderProgressItem $item */
                 $item = OrderProgressItem::query()
                     ->withSum('assigns as total_completed', 'completed_quantity') // alias total_completed
                     ->findOrFail($data['order_progress_item_id']);
@@ -120,7 +120,6 @@ class OrderProgressAssignController extends Controller
                 $remainingAllowed  = max($quantity - $completed, 0);      // <= inilah batas yang boleh di-assign lagi
                 $requested         = (int) $data['assigned_quantity'];
 
-                // ❗ HARD RULE: tidak boleh lebih dari remaining
                 if ($requested > $remainingAllowed) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi remaining ($remainingAllowed) untuk produk {$item->product->name}.",
@@ -138,9 +137,24 @@ class OrderProgressAssignController extends Controller
                     'operator_id'            => (int) $data['operator_id'],
                     'assigned_quantity'      => $requested, // aman karena <= remaining
                     'completed_quantity'     => 0,
-                    // ❌ defect_quantity jangan disimpan di tabel assign (itu milik progress)
                     'note'                   => $data['note'] ?? null,
                 ]);
+
+                $productionStock = ProductionStock::firstOrCreate(
+                    [
+                        'product_id' => $item->product_id,
+                        'production_warehouse_id' => 2, // sesuaikan jika perlu
+                    ],
+                    [
+                        'opening_stock' => 0,
+                        'available_quantity' => 0,
+                        'finished_product_stock' => 0,
+                        'canceled_product_stock' => 0,
+                    ]
+                );
+
+                $productionStock->decrement('available_quantity', $requested);
+                $productionStock->decrement('pending_waiting_list', $requested);
             }
 
             DB::commit();
@@ -427,11 +441,18 @@ class OrderProgressAssignController extends Controller
                     'hasOnlyProgressStatus'
                 ))->render();
 
+                $customerHtml = '
+                    <div>
+                        <div class="fw-semibold">' . e($batch->orderProgress?->order?->customerAddress?->business_name ?? '-') . '</div>
+                        <small class="text-muted">' . e($batch->orderProgress?->order?->customer?->name ?? '-') . '</small>
+                    </div>
+                ';
+
                 return [
                     'id' => $batch->id,
                     'assign_code' => $assignCodeHtml,
                     'order_info' => $orderInfo,
-                    'customer' => e($batch->orderProgress->order->customer->name ?? '-'),
+                    'customer' => $customerHtml,
                     'total_items' => $totalItems,
                     'total_quantity' => $totalQuantity,
                     'operators' => e($operators),

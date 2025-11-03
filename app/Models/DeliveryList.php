@@ -47,7 +47,7 @@ class DeliveryList extends Model
 
     public function driverUser()
     {
-        return $this->belongsTo(User::class, 'driver_id');
+        return $this->belongsTo(User::class, 'driver_id')->withTrashed();
     }
 
     protected static function booted()

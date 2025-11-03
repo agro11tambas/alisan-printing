@@ -33,47 +33,166 @@
                             {{ $operator->active ? 'Active' : 'Inactive' }}
                         </span>
                     </div>
-
                     <div class="card-body">
-                        @if ($products->count() > 0)
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-hover align-middle">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>No</th>
-                                            <th>Product</th>
-                                            <th>SKU</th>
-                                            <th class="text-end">Completed</th>
-                                            <th class="text-end">Defect</th>
-                                            <th class="text-end">Reject</th>
-                                            <th class="text-end">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($products as $i => $p)
-                                            <tr>
-                                                <td>{{ $loop->iteration }}</td>
-                                                <td>{{ $p['product_name'] }}</td>
-                                                <td>{{ $p['sku'] }}</td>
-                                                <td class="text-end text-success fw-bold">
-                                                    {{ number_format($p['completed']) }}</td>
-                                                <td class="text-end text-warning fw-bold">{{ number_format($p['defect']) }}
-                                                </td>
-                                                <td class="text-end text-danger fw-bold">{{ number_format($p['reject']) }}
-                                                </td>
-                                                <td class="text-end fw-bold">
-                                                    {{ number_format($p['completed'] + $p['defect'] + $p['reject']) }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                    
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" id="OperatorProductTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Product</th>
+                                        <th>SKU</th>
+                                        <th class="text-end">Completed</th>
+                                        <th class="text-end">Defect</th>
+                                        <th class="text-end">Reject</th>
+                                        <th class="text-end">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                            <div id="loadingIndicator" class="text-center text-muted py-2" style="display:none;">
+                                Loading...
                             </div>
-                        @else
-                            <p class="text-muted mb-0">No product progress history found for this operator.</p>
-                        @endif
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        $(document).ready(function() {
+            const operatorId = {{ $operator->id }};
+            let allData = [];
+            let currentPage = 0;
+            let isLoading = false;
+            let hasMoreData = true;
+            let filter = '';
+            let startDate = '';
+            let endDate = '';
+
+            const table = $('#OperatorProductTable').DataTable({
+                processing: false,
+                serverSide: false,
+                scrollY: '60vh',
+                scrollCollapse: true,
+                paging: false,
+                searching: false,
+                info: false,
+                lengthChange: false,
+                data: [],
+                columns: [
+                    {
+                        data: 'last_date'
+                    },
+                    {
+                        data: 'product_name'
+                    },
+                    {
+                        data: 'sku'
+                    },
+                    {
+                        data: 'completed',
+                        className: 'text-end text-success fw-bold',
+                        render: d => d.toLocaleString()
+                    },
+                    {
+                        data: 'defect',
+                        className: 'text-end text-warning fw-bold',
+                        render: d => d.toLocaleString()
+                    },
+                    {
+                        data: 'reject',
+                        className: 'text-end text-danger fw-bold',
+                        render: d => d.toLocaleString()
+                    },
+                    {
+                        data: 'total',
+                        className: 'text-end fw-bold',
+                        render: d => d.toLocaleString()
+                    },
+                ]
+            });
+
+            function loadMoreData() {
+                if (isLoading || !hasMoreData) return;
+                isLoading = true;
+                $('#loadingIndicator').show();
+
+                $.ajax({
+                    url: `/erp/shop-manager/operators/detail/${operatorId}/data`,
+                    type: 'GET',
+                    data: {
+                        start: currentPage * 15,
+                        length: 15,
+                        filter: filter,
+                        start_date: startDate,
+                        end_date: endDate
+                    },
+                    success: function(res) {
+                        if (res.data.length > 0) {
+                            allData = allData.concat(res.data);
+                            table.clear().rows.add(allData).draw(false);
+                            currentPage++;
+                        } else {
+                            hasMoreData = false;
+                            $('#loadingIndicator').html('✅ All data loaded').show();
+                            setTimeout(() => $('#loadingIndicator').hide(), 2000);
+                        }
+                        isLoading = false;
+                        $('#loadingIndicator').hide();
+                    },
+                    error: function() {
+                        isLoading = false;
+                        $('#loadingIndicator').hide();
+                    }
+                });
+            }
+
+            // Initial load
+            loadMoreData();
+
+            // Infinite scroll
+            let scrollTimeout = null;
+            $('.dataTables_scrollBody').on('scroll', function() {
+                clearTimeout(scrollTimeout);
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
+
+                scrollTimeout = setTimeout(() => {
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreData();
+                    }
+                }, 100);
+            });
+
+            // Filter tanggal
+            $('#filter').on('change', function() {
+                filter = $(this).val();
+                if (filter === 'custom') {
+                    $('#start_date, #end_date').prop('disabled', false);
+                } else {
+                    $('#start_date, #end_date').val('').prop('disabled', true);
+                    resetAndReload();
+                }
+            });
+
+            $('#start_date, #end_date').on('change', function() {
+                startDate = $('#start_date').val();
+                endDate = $('#end_date').val();
+                if (filter === 'custom' && startDate && endDate) resetAndReload();
+            });
+
+            function resetAndReload() {
+                allData = [];
+                currentPage = 0;
+                hasMoreData = true;
+                table.clear().draw();
+                loadMoreData();
+            }
+        });
+    </script>
+@endpush

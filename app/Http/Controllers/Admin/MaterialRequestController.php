@@ -237,10 +237,36 @@ class MaterialRequestController extends Controller
             ->make(true);
     }
 
-    public function create()
-    {
-        $products = Products::with('inventoryStock')->orderBy('name', 'asc')->get();
+    // public function create()
+    // {
+    //     $products = Products::with('inventoryStock')->orderBy('name', 'asc')->get();
 
+    //     $productsJson = $products->map(function ($product) {
+    //         return [
+    //             'id' => $product->id,
+    //             'name' => $product->name,
+    //             'sku'  => $product->sku,
+    //             'inventory_stock' => optional($product->inventoryStock)->inventory_stock ?? 0,
+    //         ];
+    //     })->toArray();
+
+    //     return view('erp.pages.production.request-stock.create-request-stock', compact('productsJson'));
+    // }
+
+    public function create(Request $request)
+    {
+        // 🔹 Ambil daftar ID produk dari parameter URL (?products=1,2,3)
+        $selectedIds = collect(explode(',', $request->get('products', '')))
+            ->filter()
+            ->map(fn($id) => (int) $id)
+            ->toArray();
+
+        // 🔹 Ambil semua produk dengan stok inventory
+        $products = \App\Models\Products::with('inventoryStock')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        // 🔹 Produk dalam bentuk JSON untuk Select2
         $productsJson = $products->map(function ($product) {
             return [
                 'id' => $product->id,
@@ -250,7 +276,24 @@ class MaterialRequestController extends Controller
             ];
         })->toArray();
 
-        return view('erp.pages.production.request-stock.create-request-stock', compact('productsJson'));
+        // 🔹 Produk yang terpilih dari halaman sebelumnya (Report Items)
+        $selectedProducts = [];
+        if (!empty($selectedIds)) {
+            $selectedProducts = $products
+                ->whereIn('id', $selectedIds)
+                ->values()
+                ->map(function ($product) {
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'sku'  => $product->sku,
+                        'inventory_stock' => optional($product->inventoryStock)->inventory_stock ?? 0,
+                    ];
+                })
+                ->toArray();
+        }
+
+        return view('erp.pages.production.request-stock.create-request-stock', compact('productsJson', 'selectedProducts'));
     }
 
     public function store(Request $request)

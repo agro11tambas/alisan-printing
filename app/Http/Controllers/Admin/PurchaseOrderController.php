@@ -122,21 +122,14 @@ class PurchaseOrderController extends Controller
                 // 🧾 Account & Payment Method
                 $accountName = e(optional($purchase->purchaseAccount)->type ?? '-');
                 $paymentMethod = e($purchase->payment_method ?? '-');
-
-                // 📦 Product Items
-                $productsHtml = '';
-                if ($purchase->purchaseItems->isNotEmpty()) {
-                    $productsHtml = '<ul class="list-unstyled m-0">';
-                    foreach ($purchase->purchaseItems as $item) {
-                        $productsHtml .= '<li>' .
-                            e($item->purchaseProduct->name ?? '-') .
-                            ' <small class="text-muted">(x' . number_format($item->quantity ?? 0, 0, ',', '.') . ')</small>' .
-                            '</li>';
-                    }
-                    $productsHtml .= '</ul>';
-                } else {
-                    $productsHtml = '<span class="text-muted">No items</span>';
-                }
+                $items = $purchase->purchaseItems()->with(['purchaseProduct' => fn($q) => $q->withTrashed()])->get();
+                $products = $items->map(function ($item) {
+                    return [
+                        'name' => $item->purchaseProduct->name ?? '-',
+                        'sku' => $item->purchaseProduct->sku ?? '-',
+                        'qty' => number_format($item->quantity, 0, ',', '.'),
+                    ];
+                })->toArray();
 
                 // 🏷️ Status
                 $status = strtolower($purchase->status);
@@ -158,7 +151,7 @@ class PurchaseOrderController extends Controller
                     'payment_status' => $paymentBadge,
                     'account_name' => $accountName,
                     'payment_method' => $paymentMethod,
-                    'products' => $productsHtml,
+                    'products' => $products,
                     'status' => $statusBadge,
                     'action' => $actionHtml,
                 ];

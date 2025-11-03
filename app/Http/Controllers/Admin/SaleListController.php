@@ -479,17 +479,47 @@ class SaleListController extends Controller
     public function dataDeletedSaleList(Request $request)
     {
         $length = (int) $request->input('length', 15);
-        $start = (int) $request->input('start', 0);
+        $start  = (int) $request->input('start', 0);
 
         $orders = Order::onlyTrashed()
-            ->with(['customer', 'orderItems.product', 'orderItems.productBundle'])
+            ->with(['customer'])
             ->where('status', 'sale list')
-            ->orderBy('deleted_at', 'desc');
+            ->orderByDesc('deleted_at');
 
-        // 🔹 Filter by customer (optional sama kayak SaleList)
+        // 🔹 Filter tanggal
+        if ($request->filter) {
+            switch ($request->filter) {
+                case 'today':
+                    $orders->whereDate('order_date', Carbon::today());
+                    break;
+                case 'last_7_days':
+                    $orders->whereBetween('order_date', [Carbon::now()->subDays(7), Carbon::now()]);
+                    break;
+                case 'this_month':
+                    $orders->whereMonth('order_date', Carbon::now()->month)
+                        ->whereYear('order_date', Carbon::now()->year);
+                    break;
+                case 'last_30_days':
+                    $orders->whereBetween('order_date', [Carbon::now()->subDays(30), Carbon::now()]);
+                    break;
+                case 'year_to_date':
+                    $orders->whereBetween('order_date', [Carbon::now()->startOfYear(), Carbon::now()]);
+                    break;
+                case 'yearly':
+                    $orders->whereYear('order_date', Carbon::now()->year);
+                    break;
+                case 'custom':
+                    if ($request->filled('start_date') && $request->filled('end_date')) {
+                        $orders->whereBetween('order_date', [$request->start_date, $request->end_date]);
+                    }
+                    break;
+            }
+        }
+
+        // 🔹 Filter berdasarkan customer
         if ($request->search_type === 'customer' && $request->filled('search_keyword')) {
-            $orders->whereHas('customer', function ($query) use ($request) {
-                $query->where('name', 'like', '%' . $request->search_keyword . '%');
+            $orders->whereHas('customer', function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search_keyword . '%');
             });
         }
 
@@ -500,24 +530,39 @@ class SaleListController extends Controller
         // 🔹 Ambil data sesuai offset dan limit
         $data = $orders->skip($start)->take($length)->get();
 
-        // 🔹 Return format JSON ringan untuk infinite scroll
         return response()->json([
             'data' => $data->map(function ($order) {
-                $date = \Carbon\Carbon::parse($order->order_date)->format('j M y');
 
-                $orderNumber = '<div>
-                <div>' . e($order->order_number) . '</div>
-                <small class="text-muted">' . $date . '</small>
-            </div>';
+                $date = Carbon::parse($order->order_date)->format('j M y');
+                $dueDate = $order->due_date ? Carbon::parse($order->due_date)->format('j M y') : '-';
 
-                // 🔹 Produk (ambil dari orderItems + relasi produk & bundle)
+                $orderNumber = '
+                <div>
+                    <div>' . e($order->order_number) . '</div>
+                    <small class="text-muted">' . $date . '</small>,
+                    <small class="text-danger">Due: ' . $dueDate . '</small>
+                </div>';
+
+                $status = strtolower($order->payment_status ?? 'unknown');
+                $badge = match ($status) {
+                    'paid' => 'bg-soft-success text-success',
+                    'unpaid' => 'bg-soft-dark text-dark',
+                    'overdue' => 'bg-soft-danger text-danger',
+                    'overpaid' => 'bg-soft-primary text-primary',
+                    'partially paid' => 'bg-soft-warning text-warning',
+                    default => 'bg-secondary',
+                };
+                $paymentStatus = '<div class="badge ' . $badge . '">' . ucfirst($status) . '</div>';
+
+                // 🔹 Produk (mengikuti logika dataSaleList)
                 $items = $order->orderItems()
                     ->with([
                         'product' => fn($q) => $q->withTrashed(),
-                        'productBundle.items.product'
+                        'productBundle.items.product',
+                        'deliveryItems.deliveryOrder'
                     ])
                     ->get()
-                    ->map(function ($item) {
+                    ->map(function ($item) use ($order) {
                         if ($item->product) {
                             $name = $item->product->name;
                             $sku = $item->product->sku;
@@ -526,14 +571,14 @@ class SaleListController extends Controller
                                 ->map(fn($b) => $b->product->name ?? '-')
                                 ->implode(' + ');
                             $name = $bundleNames ?: '-';
-                            $sku = $item->productBundle->sku ?? '-';
+                            $sku  = $item->productBundle->sku ?? '-';
                         } else {
                             $name = '-';
-                            $sku = '-';
+                            $sku  = '-';
                         }
 
-                        $deliveryData = $item->order
-                            ->deliveryOrders()
+                        // 💡 gunakan $order langsung (bukan $item->order)
+                        $deliveryData = $order->deliveryOrders()
                             ->with(['items' => function ($q) use ($item) {
                                 $q->where('order_item_id', $item->id);
                             }])
@@ -543,21 +588,15 @@ class SaleListController extends Controller
 
                         if ($item->productBundle) {
                             $progressQty = $deliveryData->first()->progress_qty ?? 0;
-                            $readyQty = $deliveryData->first()->ready_qty ?? 0;
-                            $shippedQty = $deliveryData->first()->shipped_qty ?? 0;
+                            $readyQty    = $deliveryData->first()->ready_qty ?? 0;
+                            $shippedQty  = $deliveryData->first()->shipped_qty ?? 0;
                         } else {
                             $progressQty = $deliveryData->sum('progress_qty');
-                            $readyQty = $deliveryData->sum('ready_qty');
-                            $shippedQty = $deliveryData->sum('shipped_qty');
+                            $readyQty    = $deliveryData->sum('ready_qty');
+                            $shippedQty  = $deliveryData->sum('shipped_qty');
                         }
 
-                        $deliveryOrders = $item->order->deliveryOrders()
-                            ->with(['shipments', 'items' => function ($q) use ($item) {
-                                $q->where('order_item_id', $item->id);
-                            }])
-                            ->get();
-
-                        $deliveryListItems = $item->order->deliveryOrders()
+                        $deliveryListItems = $order->deliveryOrders()
                             ->with(['items.deliveryListItems.shipment'])
                             ->get()
                             ->pluck('items')
@@ -574,19 +613,19 @@ class SaleListController extends Controller
                             ->sum('shipped_quantity');
 
                         return [
-                            'name' => e($name),
-                            'sku' => e($sku),
-                            'qty' => number_format($item->quantity, 0, ',', '.'),
-                            'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
-                            'progress_qty' => number_format($progressQty, 0, ',', '.'),
-                            'ready_qty' => number_format($readyQty, 0, ',', '.'),
-                            'shipped_qty' => number_format($shippedQty, 0, ',', '.'),
-                            'delivered' => number_format($deliveredQty, 0, ',', '.'),
-                            'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
+                            'name'           => e($name),
+                            'sku'            => e($sku),
+                            'qty'            => number_format($item->quantity, 0, ',', '.'),
+                            'price'          => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                            'progress_qty'   => number_format($progressQty, 0, ',', '.'),
+                            'ready_qty'      => number_format($readyQty, 0, ',', '.'),
+                            'shipped_qty'    => number_format($shippedQty, 0, ',', '.'),
+                            'delivered'      => number_format($deliveredQty, 0, ',', '.'),
+                            'on_delivery'    => number_format($onDeliveryQty, 0, ',', '.'),
                         ];
                     });
 
-                // 🔹 Tampilkan tombol Restore & Delete Permanen (hanya Owner)
+                // 🔹 Tombol aksi untuk Owner saja
                 $action = '';
                 if (Auth::check() && Auth::user()->role === 'Owner') {
                     $action = '
@@ -598,7 +637,7 @@ class SaleListController extends Controller
                             data-id="' . $order->id . '" 
                             data-name="' . e($order->order_number) . '"
                             data-url="' . route('sales.restore', $order->id) . '">
-                                Restore
+                            Restore
                         </button>
                         <button type="button" 
                             class="btn btn-danger btn-sm"
@@ -607,27 +646,29 @@ class SaleListController extends Controller
                             data-id="' . $order->id . '" 
                             data-name="' . e($order->order_number) . '"
                             data-url="' . route('sales.forceDelete', $order->id) . '">
-                                Hapus Permanen
+                            Hapus Permanen
                         </button>
                     </div>
                 ';
                 }
 
                 return [
-                    'id' => $order->id,
-                    'order_number' => $orderNumber,
-                    'customer' => e($order->customer->name ?? '-'),
-                    'grand_total' => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
-                    'deleted_at' => $order->deleted_at ? $order->deleted_at->format('j M y H:i') : '-',
-                    'products' => $items,
-                    'delete_notes' => e($order->delete_notes ?? '-'),
-                    'deleted_by' => e(optional($order->deletedByUser)->name ?? '-'),
-                    'action' => $action,
+                    'id'               => $order->id,
+                    'order_number'     => $orderNumber,
+                    'customer'         => e($order->customer->name ?? '-'),
+                    'grand_total'      => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
+                    'deleted_at'       => $order->deleted_at ? $order->deleted_at->format('j M y H:i') : '-',
+                    'deleted_by'       => e(optional($order->deletedByUser)->name ?? '-'),
+                    'delete_notes'     => e($order->delete_notes ?? '-'),
+                    'products'         => $items,
+                    'payment_status'   => $paymentStatus,
+                    'action'           => $action,
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
         ]);
     }
+
 
     public function create()
     {
@@ -722,10 +763,12 @@ class SaleListController extends Controller
             'order_date'           => 'required|date',
             'due_date_option'      => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
             'custom_due_date'      => 'nullable|date',
-            'customers'            => 'required|array',
-            'customers.*'          => 'exists:customers,id',
-            'addresses'            => 'required|array',
-            'addresses.*'          => 'exists:customer_addresses,id',
+            // 'customers'            => 'required|array',
+            // 'customers.*'          => 'exists:customers,id',
+            'customer_id'          => 'required|exists:customers,id',
+            'customer_address_id'  => 'required|exists:customer_addresses,id',
+            // 'addresses'            => 'required|array',
+            // 'addresses.*'          => 'exists:customer_addresses,id',
             'notes'                => 'nullable|string',
             'product_type'         => 'required|array',
             'product_type.*'       => 'in:satuan,bundle',
@@ -779,11 +822,12 @@ class SaleListController extends Controller
 
             $orderNumber = InvoiceNumberService::generate('INV', $orderDate);
 
-            $addressModel = CustomerAddresses::find($request->addresses[0]);
+            $addressModel = CustomerAddresses::find($request->customer_address_id);
 
             // ================== BUAT ORDER ==================
             $order = Order::create([
-                'customer_id'      => $request->customers[0],
+                'customer_id'        => $request->customer_id,
+                'customer_address_id' => $request->customer_address_id,
                 'order_number'     => $orderNumber,
                 'order_date'       => $request->order_date,
                 'due_date'         => $dueDate,
@@ -791,6 +835,7 @@ class SaleListController extends Controller
                 'status'           => $status,
                 'payment_status'   => ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid'),
                 'paid_amount'      => $paidAmount,
+                'business_name'    => $addressModel?->business_name,
                 'shipping_address' => $addressModel?->address,
                 'google_maps'      => $addressModel?->google_maps,
                 'notes'            => $request->notes,
@@ -798,6 +843,7 @@ class SaleListController extends Controller
                 'grand_total'      => $request->total_amount,
                 'discount'         => $request->total_discount,
                 'remaining_amount' => $remainingAmount,
+                'discount_active' => (int) $request->input('discount_active_hidden', 1),
             ]);
 
             // === BUAT ORDER ITEMS ===
@@ -1094,7 +1140,7 @@ class SaleListController extends Controller
 
     public function edit($id)
     {
-        $order = Order::with('orderItems', 'customer.addresses')->findOrFail($id);
+        $order = Order::with(['orderItems', 'customer.addresses', 'customerAddress'])->findOrFail($id);
 
         // 🔹 Tentukan default due_date_option berdasarkan nilai due_date
         $dueDateOption = 'none';
@@ -1205,9 +1251,8 @@ class SaleListController extends Controller
             'order_date'              => 'required|date',
             'due_date_option'         => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
             'custom_due_date'         => 'nullable|date',
-            'customers'               => 'required|array',
-            'customers.*'             => 'exists:customers,id',
-            'address_id'              => 'required|exists:customer_addresses,id',
+            'customer_id' => 'required|exists:customers,id',
+            'customer_address_id' => 'required|exists:customer_addresses,id',
             'notes'                   => 'nullable|string',
             'product_type'            => 'required|array',
             'product_type.*'          => 'in:satuan,bundle',
@@ -1265,6 +1310,7 @@ class SaleListController extends Controller
             // pilih field header yang mau kamu track (boleh tambah/kurang)
             $orderFieldsToTrack = [
                 'customer_id',
+                'customer_address_id',
                 'order_number',
                 'order_date',
                 'due_date',
@@ -1317,17 +1363,19 @@ class SaleListController extends Controller
 
             $status        = 'Sale List';
             $paymentMethod = 'Sale Account';
-            $addressModel  = CustomerAddresses::find($request->address_id);
+            $addressModel = CustomerAddresses::find($request->customer_address_id);
 
             // ================== UPDATE ORDER HEADER ==================
             $order->update([
-                'customer_id'      => $request->customers[0],
+                'customer_id' => $request->customer_id,
+                'customer_address_id' => $request->customer_address_id,
                 'order_date'       => $request->order_date,
                 'due_date'         => $dueDate,
                 'payment_method'   => $paymentMethod,
                 'status'           => $status,
                 'payment_status'   => ($newPaidAmount <= 0) ? 'Unpaid' : (($newPaidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid'),
                 'paid_amount'      => $newPaidAmount,
+                'business_name'    => $addressModel?->business_name,
                 'shipping_address' => $addressModel?->address,
                 'google_maps'      => $addressModel?->google_maps,
                 'notes'            => $request->notes,
@@ -1335,6 +1383,7 @@ class SaleListController extends Controller
                 'grand_total'      => $request->total_amount,
                 'discount'         => $request->total_discount,
                 'remaining_amount' => $remainingAmount,
+                'discount_active'  => (int) $request->input('discount_active_hidden', 1),
             ]);
 
             // ================== SYNC ORDER ITEMS ==================

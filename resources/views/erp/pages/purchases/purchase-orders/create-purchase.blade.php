@@ -141,7 +141,7 @@
                                                     <td>
                                                         <input type="text" inputmode="numeric" name="qty[]"
                                                             class="form-control qty" id="qty_0" placeholder="Qty"
-                                                            min="1">
+                                                            min="1" value="0">
                                                     </td>
                                                     <td class="text-center">
                                                         <div class="d-flex justify-content-center">
@@ -244,6 +244,20 @@
             $(document).on('input', '.qty', function() {
                 const val = $(this).val().replace(/\D/g, '');
                 $(this).val(formatRibuan(val));
+            });
+
+            $(document).on('focus', '.qty', function() {
+                const currentVal = unformatRibuan($(this).val());
+                if (currentVal === 0) {
+                    $(this).val('');
+                }
+            });
+
+            $(document).on('blur', '.qty', function() {
+                const val = $(this).val().trim();
+                if (val === '' || val === null || val === undefined) {
+                    $(this).val('0');
+                }
             });
 
             $('#add_row').on('click', function() {

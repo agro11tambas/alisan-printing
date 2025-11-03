@@ -102,12 +102,11 @@ class AccountController extends Controller
             'type' => 'required',
         ]);
 
-        $account = Account::where('id', $id);
+        $account = Account::findOrFail($id);
 
-        $account->update([
-            'name' => $request->name,
-            'type' => $request->type,
-        ]);
+        $account->name = $request->name;
+        $account->type = $request->type;
+        $account->save();
 
         return redirect('/erp/accounts')->with('success', 'Account updated successfully');
     }

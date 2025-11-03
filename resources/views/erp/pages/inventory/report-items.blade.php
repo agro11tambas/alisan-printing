@@ -176,7 +176,7 @@
                 lengthChange: false,
                 info: false,
                 order: [
-                    [3, 'desc']
+                    [3, 'asc']
                 ],
                 data: [],
                 columns: [{

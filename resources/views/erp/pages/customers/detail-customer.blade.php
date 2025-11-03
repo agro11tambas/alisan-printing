@@ -60,16 +60,28 @@
                     <div class="col-lg-2 fw-medium">Phone Number</div>
                     <div class="col-lg-10"><strong class="text-black">{{ $customer->phone }}</strong></div>
                 </div>
-                <div class="-0">
+                <div class="border-top pt-4">
                     @foreach ($customer->addresses as $index => $address)
                     <div class="row mb-3">
-                        <div class="col-lg-2 fw-medium">Address</div>
+                        <div class="col-lg-2 fw-medium">Business {{ $index + 1 }}</div>
                         <div class="row col-lg-4">
-                            <div class="col-lg-6">
-                                <strong class="text-black">{{ $address->address }}</strong>
+                            <div class="col-lg-4">
+                                <div class="d-flex flex-column">
+                                    <span>Business Name</span>
+                                    <strong class="text-black fs-6">{{ $address->business_name }}</strong>
+                                </div>
                             </div>
-                            <div class="col-lg-6">
-                                <strong class="text-black"><a class="btn btn-primary btn-sm" href="{{ $address->google_maps }}" target="_blank">Google Map</a></strong>
+                            <div class="col-lg-4">
+                                <div class="d-flex flex-column">
+                                    <span>Address</span>
+                                    <strong class="text-black fs-6">{{ $address->address }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="d-flex flex-column">
+                                    <span>Google Map</span>
+                                    <strong class="text-black"><a class="btn btn-primary btn-sm" href="{{ $address->google_maps }}" target="_blank">Google Map</a></strong>
+                                </div>
                             </div>
                         </div>
                     </div>

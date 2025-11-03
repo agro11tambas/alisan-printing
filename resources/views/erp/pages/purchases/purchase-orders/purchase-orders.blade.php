@@ -449,9 +449,6 @@
                             <th>Product</th>
                             <th>SKU</th>
                             <th>Qty</th>
-                            <th class="text-end">Price</th>
-                            <th class="text-end">Freight</th>
-                            <th class="text-end">Total</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -463,9 +460,6 @@
                     <td>${p.name}</td>
                     <td>${p.sku}</td>
                     <td>${p.qty}</td>
-                    <td class="text-end">${p.price}</td>
-                    <td class="text-end">${p.freight}</td>
-                    <td class="text-end">${Number(p.price) + Number(p.freight)}</td>
                 </tr>
             `;
                 });

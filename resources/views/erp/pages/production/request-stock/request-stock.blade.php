@@ -158,9 +158,9 @@
                                                 {{-- <th class="wd-30">No</th> --}}
                                                 <th class="wd-150">Request By</th>
                                                 <th class="wd-150">Date</th>
-                                                <th class="wd-400">Items</th>
-                                                <th class="wd-200">Warehouse Status</th>
-                                                <th class="wd-200">Verified By</th>
+                                                <th class="wd-550">Items</th>
+                                                <th class="wd-100">Warehouse Status</th>
+                                                <th class="wd-150">Verified By</th>
                                                 {{-- <th>Status</th> --}}
                                             </tr>
                                         </thead>
@@ -171,11 +171,11 @@
                                         <thead>
                                             <tr>
                                                 {{-- <th class="wd-30">No</th> --}}
-                                                <th>Request By</th>
-                                                <th>Date</th>
-                                                <th>Items</th>
-                                                <th>Deleted At</th>
-                                                <th>Action</th>
+                                                <th class="wd-150">Request By</th>
+                                                <th class="wd-150">Date</th>
+                                                <th class="wd-550">Items</th>
+                                                <th class="wd-150">Deleted At</th>
+                                                <th class="wd-100">Action</th>
                                             </tr>
                                         </thead>
                                     </table>
@@ -795,7 +795,7 @@
                             title: 'Berhasil!',
                             text: 'Status Request Stock berhasil diperbarui.',
                         }).then(() => {
-                            $('#requestStockTable').DataTable().ajax.reload();
+                            resetAndReload();
                         });
                     },
                     error: function(xhr) {

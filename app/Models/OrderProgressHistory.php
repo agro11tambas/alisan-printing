@@ -42,7 +42,7 @@ class OrderProgressHistory extends Model
 
     public function operators()
     {
-        return $this->belongsTo(Operator::class, 'operator_id', 'id');
+        return $this->belongsTo(Operator::class, 'operator_id', 'id')->withTrashed();
     }
 
     public function assign()

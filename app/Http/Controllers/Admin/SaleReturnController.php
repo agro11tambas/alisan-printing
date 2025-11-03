@@ -267,7 +267,7 @@ class SaleReturnController extends Controller
 
     public function create($id)
     {
-        $order = Order::with(['orderItems.product', 'orderItems.productBundle.items.product'])
+        $order = Order::with(['orderItems.product', 'orderItems.productBundle.items.product', 'customer.addresses', 'customerAddress'])
             ->findOrFail($id);
 
         $expandedItems = collect();
@@ -335,7 +335,8 @@ class SaleReturnController extends Controller
         $request->validate([
             'order_number'      => 'required|string',
             'sale_order_id'     => 'required|exists:orders,id',
-            'customer_id'       => 'required|exists:customers,id',
+            'customer_id'           => 'required|exists:customers,id',
+            'customer_address_id'   => 'required|exists:customer_addresses,id',
             'return_date'       => 'required|date',
             'order_item_ids'    => 'required|array',
             'product_id'        => 'required|array',
@@ -353,7 +354,7 @@ class SaleReturnController extends Controller
             $order = Order::with(['orderItems.product', 'orderItems.productBundle.items.product'])
                 ->findOrFail($request->sale_order_id);
 
-            $address = CustomerAddresses::where('customer_id', $request->customer_id)->first();
+            $address = CustomerAddresses::find($request->customer_address_id);
 
             $grandTotal = array_sum($request->total);
             $paidAmount = $request->refund_amount ?? 0;
@@ -365,7 +366,8 @@ class SaleReturnController extends Controller
             // Buat SaleReturn
             $saleReturn = SaleReturn::create([
                 'sale_order_id'     => $order->id,
-                'customer_id'       => $request->customer_id,
+                'customer_id'          => $request->customer_id,
+                'customer_address_id'  => $request->customer_address_id,
                 'order_number'      => $request->order_number,
                 'return_date'       => $request->return_date,
                 'payment_status'    => $paymentStatus,
@@ -374,6 +376,7 @@ class SaleReturnController extends Controller
                 'total_amount'      => $grandTotal,
                 'refund_amount'     => $paidAmount,
                 'remaining_amount'  => $remainingAmount,
+                'business_name'     => $address?->business_name,
                 'return_address'    => $address?->address,
                 'google_map'        => $address?->google_maps,
                 'note'              => $request->note,
@@ -554,7 +557,9 @@ class SaleReturnController extends Controller
         $saleReturn = SaleReturn::with([
             'items.product',
             'items.orderItem.product',
-            'items.orderItem.productBundle.items.product'
+            'items.orderItem.productBundle.items.product',
+            'customer.addresses',
+            'customerAddress',
         ])->findOrFail($id);
 
         $order = $saleReturn->saleOrder()
@@ -637,7 +642,8 @@ class SaleReturnController extends Controller
         $request->validate([
             'order_number'      => 'required|string',
             'sale_order_id'     => 'required|exists:orders,id',
-            'customer_id'       => 'required|exists:customers,id',
+            'customer_id'         => 'required|exists:customers,id',
+            'customer_address_id' => 'required|exists:customer_addresses,id',
             'return_date'       => 'required|date',
             'order_item_ids'    => 'required|array',
             'product_id'        => 'required|array',
@@ -688,7 +694,7 @@ class SaleReturnController extends Controller
                 }
             }
 
-            $address = CustomerAddresses::where('customer_id', $request->customer_id)->first();
+            $address = CustomerAddresses::find($request->customer_address_id);
 
             $grandTotal = array_sum($request->total);
             $paidAmount = $request->refund_amount ?? $saleReturn->refund_amount ?? 0;
@@ -701,6 +707,7 @@ class SaleReturnController extends Controller
             $oldHeader = Arr::only($saleReturn->toArray(), [
                 'order_number',
                 'customer_id',
+                'customer_address_id',
                 'return_date',
                 'payment_status',
                 'status',
@@ -726,7 +733,8 @@ class SaleReturnController extends Controller
             // === UPDATE SALE RETURN HEADER ===
             $saleReturn->update([
                 'sale_order_id'     => $order->id,
-                'customer_id'       => $request->customer_id,
+                'customer_id'          => $request->customer_id,
+                'customer_address_id'  => $request->customer_address_id,
                 'order_number'      => $request->order_number,
                 'return_date'       => $request->return_date,
                 'payment_status'    => $paymentStatus,
@@ -735,6 +743,7 @@ class SaleReturnController extends Controller
                 'total_amount'      => $grandTotal,
                 'refund_amount'     => $paidAmount,
                 'remaining_amount'  => $remainingAmount,
+                'business_name'     => $address?->business_name,
                 'return_address'    => $address?->address,
                 'google_map'        => $address?->google_maps,
                 'note'              => $request->edit_note,

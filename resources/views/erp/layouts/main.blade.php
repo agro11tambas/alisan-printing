@@ -87,7 +87,7 @@
         .select2-container,
         .select2-dropdown,
         .select2-container--open {
-            z-index: 2050 !important;
+            /* z-index: 2050 !important; */
         }
     </style>
 
@@ -190,7 +190,7 @@
 
         .page-header.sticky-top,
         .page-header {
-            z-index: 2500 !important;
+            /* z-index: 2500 !important; */
             /* lebih tinggi dari 2050 */
         }
 
@@ -199,11 +199,11 @@
         .topbar,
         .navbar,
         .page-header-title {
-            z-index: 2660 !important;
+            /* z-index: 2660 !important; */
         }
 
         .modal {
-            z-index: 3000 !important;
+            /* z-index: 3000 !important; */
         }
 
         .dataTables_scrollBody {
@@ -232,13 +232,13 @@
         /* Biar action menu nongol di atas */
         tr.action-row {
             position: relative;
-            z-index: 1050;
+            /* z-index: 1050; */
         }
 
         /* Dropdown style tetap rapi */
         .static-action-menu {
             position: absolute !important;
-            z-index: 1100 !important;
+            /* z-index: 1100 !important; */
             left: 50%;
             transform: translateX(-50%);
             background: #fff;

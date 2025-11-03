@@ -419,10 +419,12 @@ class SaleOrderController extends Controller
     {
         $request->validate([
             'order_date'            => 'required|date',
-            'customers'             => 'required|array',
-            'customers.*'           => 'exists:customers,id',
-            'addresses'             => 'required|array',
-            'addresses.*'           => 'exists:customer_addresses,id',
+            // 'customers'             => 'required|array',
+            // 'customers.*'           => 'exists:customers,id',
+            // 'addresses'             => 'required|array',
+            // 'addresses.*'           => 'exists:customer_addresses,id',
+            'customer_id'          => 'required|exists:customers,id',
+            'customer_address_id'  => 'required|exists:customer_addresses,id',
             'notes'                 => 'nullable|string',
             'product'               => 'required|array',
             'product.*'             => 'required',
@@ -454,16 +456,18 @@ class SaleOrderController extends Controller
 
             $orderNumber = InvoiceNumberService::generate('SO', $orderDate);
 
-            $addressModel = CustomerAddresses::find($request->addresses[0]);
+            $addressModel = CustomerAddresses::find($request->customer_address_id);
 
             // ================== BUAT ORDER ==================
             $order = Order::create([
-                'customer_id'      => $request->customers[0],
+                'customer_id'      => $request->customer_id,
+                'customer_address_id' => $request->customer_address_id,
                 'order_number'     => $orderNumber,
                 'order_date'       => $request->order_date,
                 'status'           => $status,
                 'payment_status'   => ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid'),
                 'paid_amount'      => $paidAmount,
+                'business_name'    => $addressModel?->business_name,
                 'shipping_address' => $addressModel?->address,
                 'google_maps'      => $addressModel?->google_maps,
                 'notes'            => $request->notes,
@@ -471,6 +475,7 @@ class SaleOrderController extends Controller
                 'grand_total'      => $request->total_amount,
                 'discount'         => $request->total_discount,
                 'remaining_amount' => $remainingAmount,
+                'discount_active' => (int) $request->input('discount_active_hidden', 1),
             ]);
 
             // ================== BUAT ORDER ITEMS ==================
@@ -583,7 +588,7 @@ class SaleOrderController extends Controller
 
     public function edit($id)
     {
-        $order = Order::with('orderItems', 'customer.addresses')->findOrFail($id);
+        $order = Order::with(['orderItems', 'customer.addresses', 'customerAddress'])->findOrFail($id);
 
         // 🔹 Tentukan default due_date_option berdasarkan nilai due_date
         $dueDateOption = 'none';
@@ -696,173 +701,12 @@ class SaleOrderController extends Controller
         ));
     }
 
-    // public function update(Request $request, $id)
-    // {
-    //     $request->validate([
-    //         'order_date'              => 'required|date',
-    //         'customers'               => 'required|array',
-    //         'customers.*'             => 'exists:customers,id',
-    //         'address_id'              => 'required|exists:customer_addresses,id',
-    //         'notes'                   => 'nullable|string',
-    //         'product'                 => 'required|array',
-    //         'product.*'               => 'required',
-    //         'product_type'            => 'required|array',
-    //         'product_type.*'          => 'in:satuan,bundle',
-    //         'qty'                     => 'required|array',
-    //         'qty.*'                   => 'numeric|min:1',
-    //         'price_before_discount'   => 'required|array',
-    //         'price_before_discount.*' => 'numeric|min:0',
-    //         'total_before_discount'   => 'required|array',
-    //         'total_before_discount.*' => 'numeric|min:0',
-    //         'price_after_discount'    => 'required|array',
-    //         'price_after_discount.*'  => 'numeric|min:0',
-    //         'total_after_discount'    => 'required|array',
-    //         'total_after_discount.*'  => 'numeric|min:0',
-    //         'sub_total'               => 'required|numeric|min:0',
-    //         'total_discount'          => 'required|numeric|min:0',
-    //         'total_amount'            => 'required|numeric|min:0',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $order = Order::with('orderItems')->findOrFail($id);
-
-    //         $paidAmount      = $request->paid_amount ?? 0;
-    //         $remainingAmount = $request->total_amount - $paidAmount;
-    //         $status          = 'Sale Order';
-    //         $paymentStatus   = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid');
-
-    //         $addressModel = CustomerAddresses::find($request->address_id);
-
-    //         // ================== BALIKKAN STOK ITEM LAMA ==================
-    //         foreach ($order->orderItems as $oldItem) {
-    //             if ($oldItem->satuan === 'satuan' && $oldItem->product_id) {
-    //                 $product = Products::find($oldItem->product_id);
-    //                 if ($product) {
-    //                     $product->increment('stock_after_sales', $oldItem->quantity);
-    //                 }
-    //             } elseif ($oldItem->satuan === 'bundle' && $oldItem->product_bundle_id) {
-    //                 $bundle = ProductBundle::with('items.product')->find($oldItem->product_bundle_id);
-    //                 if ($bundle) {
-    //                     foreach ($bundle->items as $bundleItem) {
-    //                         if ($bundleItem->product) {
-    //                             $bundleItem->product->increment('stock_after_sales', $bundleItem->quantity * $oldItem->quantity);
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-
-    //         // ================== UPDATE ORDER HEADER ==================
-    //         $order->update([
-    //             'customer_id'      => $request->customers[0],
-    //             'order_date'       => $request->order_date,
-    //             'status'           => $status,
-    //             'payment_status'   => $paymentStatus,
-    //             'paid_amount'      => $paidAmount,
-    //             'shipping_address' => $addressModel?->address,
-    //             'google_maps'      => $addressModel?->google_maps,
-    //             'notes'            => $request->notes,
-    //             'total_amount'     => $request->sub_total,
-    //             'grand_total'      => $request->total_amount,
-    //             'discount'         => $request->total_discount,
-    //             'remaining_amount' => $remainingAmount,
-    //         ]);
-
-    //         // ================== RE-INSERT ORDER ITEMS BARU ==================
-    //         foreach ($request->product as $index => $productInputId) {
-    //             [$type, $id] = explode('_', $productInputId);
-    //             $type = strtolower($type);
-    //             $qty  = (float) $request->qty[$index];
-
-    //             // ======================================================
-    //             // PRODUK SATUAN
-    //             // ======================================================
-    //             if ($type === 'satuan') {
-    //                 $product = Products::findOrFail($id);
-    //                 $inventoryStock = \App\Models\InventoryStock::where('product_id', $product->id)->first();
-    //                 $avgCost = $inventoryStock?->avg_cost ?? 0;
-
-    //                 $orderItem = OrderItem::create([
-    //                     'order_id'             => $order->id,
-    //                     'product_id'           => $product->id,
-    //                     'product_bundle_id'    => null,
-    //                     'product_name'         => $product->name,
-    //                     'satuan'               => 'satuan',
-    //                     'quantity'             => $qty,
-    //                     'completed_quantity'   => 0,
-    //                     'price'                => $request->price_before_discount[$index],
-    //                     'subtotal'             => $request->total_before_discount[$index],
-    //                     'discount_price'       => $request->price_after_discount[$index],
-    //                     'total_after_discount' => $request->total_after_discount[$index],
-    //                 ]);
-
-    //                 OrderItemComponent::create([
-    //                     'order_item_id'    => $orderItem->id,
-    //                     'product_id'       => $product->id,
-    //                     'qty'              => $qty,
-    //                     'avg_cost_at_sale' => $avgCost,
-    //                     'total_cost'       => $avgCost * $qty,
-    //                 ]);
-
-    //                 $product->decrement('stock_after_sales', $qty);
-    //             }
-
-    //             // ======================================================
-    //             // PRODUK BUNDLE
-    //             // ======================================================
-    //             elseif ($type === 'bundle') {
-    //                 $bundle = ProductBundle::with('items.product')->findOrFail($id);
-
-    //                 $orderItem = OrderItem::create([
-    //                     'order_id'             => $order->id,
-    //                     'product_id'           => null,
-    //                     'product_bundle_id'    => $bundle->id,
-    //                     'product_name'         => $bundle->name,
-    //                     'satuan'               => 'bundle',
-    //                     'quantity'             => $qty,
-    //                     'completed_quantity'   => 0,
-    //                     'price'                => $request->price_before_discount[$index],
-    //                     'subtotal'             => $request->total_before_discount[$index],
-    //                     'discount_price'       => $request->price_after_discount[$index],
-    //                     'total_after_discount' => $request->total_after_discount[$index],
-    //                 ]);
-
-    //                 foreach ($bundle->items as $bundleItem) {
-    //                     $component = $bundleItem->product;
-    //                     $componentStock = \App\Models\InventoryStock::where('product_id', $component->id)->first();
-    //                     $componentAvgCost = $componentStock?->avg_cost ?? 0;
-    //                     $totalComponentQty = $bundleItem->quantity * $qty;
-
-    //                     OrderItemComponent::create([
-    //                         'order_item_id'    => $orderItem->id,
-    //                         'product_id'       => $component->id,
-    //                         'qty'              => $totalComponentQty,
-    //                         'avg_cost_at_sale' => $componentAvgCost,
-    //                         'total_cost'       => $componentAvgCost * $totalComponentQty,
-    //                     ]);
-
-    //                     $component->decrement('stock_after_sales', $totalComponentQty);
-    //                 }
-    //             }
-    //         }
-
-
-    //         DB::commit();
-    //         return redirect("/erp/sales/sale-orders")->with('success', 'Order berhasil diperbarui.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         return back()->with('error', 'Gagal memperbarui order: ' . $e->getMessage());
-    //     }
-    // }
-
     public function update(Request $request, $id)
     {
         $request->validate([
             'order_date'              => 'required|date',
-            'customers'               => 'required|array',
-            'customers.*'             => 'exists:customers,id',
-            'address_id'              => 'required|exists:customer_addresses,id',
+            'customer_id' => 'required|exists:customers,id',
+            'customer_address_id' => 'required|exists:customer_addresses,id',
             'notes'                   => 'nullable|string',
             'product'                 => 'required|array',
             'product.*'               => 'required',
@@ -906,14 +750,16 @@ class SaleOrderController extends Controller
                 ? 'Unpaid'
                 : (($paidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid');
 
-            $addressModel = CustomerAddresses::find($request->address_id);
+            $addressModel = CustomerAddresses::find($request->customer_address_id);
 
             $order->update([
-                'customer_id'      => $request->customers[0],
+                'customer_id'      => $request->customer_id,
+                'customer_address_id' => $request->customer_address_id,
                 'order_date'       => $request->order_date,
                 'status'           => $status,
                 'payment_status'   => $paymentStatus,
                 'paid_amount'      => $paidAmount,
+                'business_name'    => $addressModel?->business_name,
                 'shipping_address' => $addressModel?->address,
                 'google_maps'      => $addressModel?->google_maps,
                 'notes'            => $request->notes,
@@ -921,6 +767,7 @@ class SaleOrderController extends Controller
                 'grand_total'      => $request->total_amount,
                 'discount'         => $request->total_discount,
                 'remaining_amount' => $remainingAmount,
+                'discount_active'  => (int) $request->input('discount_active_hidden', 1),
             ]);
 
             // === UPDATE / INSERT ORDER ITEMS BARU ===

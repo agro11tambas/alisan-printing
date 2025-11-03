@@ -270,11 +270,11 @@
                 }
 
                 // 🔹 Validasi Waybill Image
-                const waybillImage = $('#waybill_image');
-                if (!waybillImage[0].files.length) {
-                    isValid = false;
-                    showError(waybillImage[0], 'Gambar waybill wajib diunggah');
-                }
+                // const waybillImage = $('#waybill_image');
+                // if (!waybillImage[0].files.length) {
+                //     isValid = false;
+                //     showError(waybillImage[0], 'Gambar waybill wajib diunggah');
+                // }
 
                 // 🔹 Jika tidak valid, cegah submit
                 if (!isValid) {

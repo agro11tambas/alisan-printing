@@ -61,12 +61,11 @@ class ReportItemsProductionController extends Controller
     //         ->rawColumns(['available_quantity', 'finished_product_stock', 'order_progress_remaining', 'action'])
     //         ->make(true);
     // }
-    
+
     public function dataReportItems(Request $request)
     {
         // ambil semua data dari Eloquent
-        $reportItems = ProductionStock::with(['product' => fn($q) => $q->whereNull('products.deleted_at')])
-            ->get();
+        $reportItems = ProductionStock::with(['product' => fn($q) => $q->withTrashed()])->get();
 
         // filter product name (kalau ada)
         if ($request->filled('product_name')) {
@@ -96,6 +95,7 @@ class ReportItemsProductionController extends Controller
                 fn($item) =>
                 '<span class="text-success">' . number_format($item->remaining_quantity, 0, ',', '.') . '</span>'
             )
+            ->addColumn('pending_waiting_list', fn($item) => number_format($item->pending_waiting_list, 0, ',', '.'))
             ->addColumn('action', fn($row) => '
             <button type="button" 
                 class="btn btn-sm btn-outline-danger btnDefect" 

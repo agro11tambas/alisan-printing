@@ -37,6 +37,6 @@ class PurchaseReturnEditHistory extends Model
     // 🔹 Relasi ke User (siapa yang edit)
     public function user()
     {
-        return $this->belongsTo(User::class, 'edited_by');
+        return $this->belongsTo(User::class, 'edited_by')->withTrashed();
     }
 }

@@ -820,26 +820,23 @@
                         payment_status: $('#search_payment_status').val(),
                     },
                     success: function(response) {
-
                         if (response && response.data && response.data.length > 0) {
                             deletedAllData = deletedAllData.concat(response.data);
                             deletedTable.clear();
-                            deletedTable.rows.add(deletedAllData);
-                            deletedTable.draw(false);
+                            deletedTable.rows.add(deletedAllData).draw(false);
                             deletedCurrentPage++;
-                                .length);
                         } else {
                             deletedHasMoreData = false;
                         }
-
                         deletedIsLoading = false;
                     },
                     error: function(xhr, status, error) {
                         deletedIsLoading = false;
+                        console.error("Error:", error);
                     }
                 });
             }
-
+            
             function resetAndReloadDeleted() {
                 deletedAllData = [];
                 deletedCurrentPage = 0;

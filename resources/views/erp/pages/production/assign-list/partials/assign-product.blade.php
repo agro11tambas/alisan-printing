@@ -4,9 +4,9 @@
             <tr>
                 <th style="width: 20%;">Operator</th>
                 <th style="width: 20%;">Product</th>
-                <th style="width: 20%;">Progress</th>
-                <th style="width: 10%;">Defect Product</th>
-                <th style="width: 10%;">Reject Product</th>
+                <th style="width: 20%;">Assigned</th>
+                {{-- <th style="width: 10%;">Defect Product</th>
+                <th style="width: 10%;">Reject Product</th> --}}
                 <th style="width: 10%;">Note</th>
             </tr>
         </thead>
@@ -29,11 +29,11 @@
                         @endif
                     </span>
                 </td>
-                <td><span class="fw-bold text-success">{{ number_format($assign->change_quantity, 0, ',', '.') }}</span>
+                <td><span class="fw-bold text-success">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span>
                     {{-- /<span class="fw-bold text-primary">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span> --}}
                 </td>
-                <td><span class="fw-bold text-danger">{{ number_format($assign->defect_quantity, 0, ',', '.') }}</span></td>
-                <td><span class="fw-bold text-warning">{{ number_format($assign->reject_quantity, 0, ',', '.') }}</span></td>
+                {{-- <td><span class="fw-bold text-danger">{{ number_format($assign->defect_quantity, 0, ',', '.') }}</span></td>
+                <td><span class="fw-bold text-warning">{{ number_format($assign->reject_quantity, 0, ',', '.') }}</span></td> --}}
                 <td><span class="fw-bold text-dark">{{ $assign->note ?? '-' }}</span></td>
             </tr>
             @endforeach

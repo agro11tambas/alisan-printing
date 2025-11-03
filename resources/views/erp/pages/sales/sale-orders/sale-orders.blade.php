@@ -668,5 +668,51 @@
             // ✅ Jika tanggal order berubah, update juga due date
             orderDateInput.addEventListener("change", updateDueDate);
         });
+
+        $(document).on('click', '.btn-share-invoice-image', async function() {
+            const url = $(this).data('url');
+            const name = $(this).data('customer');
+
+            const response = await fetch(url);
+            const html = await response.text();
+
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.top = '-9999px';
+            tempDiv.style.left = '-9999px';
+            document.body.appendChild(tempDiv);
+
+            const invoiceElement = tempDiv.querySelector('#invoiceContent');
+
+            const canvas = await html2canvas(invoiceElement, {
+                scale: 2
+            });
+            document.body.removeChild(tempDiv);
+
+            const dataUrl = canvas.toDataURL('image/png');
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], 'invoice.png', {
+                type: 'image/png'
+            });
+
+            const shareText = `Halo ${name}, berikut invoice pembelian Anda.`;
+
+            if (navigator.canShare && navigator.canShare({
+                    files: [file]
+                })) {
+                navigator.share({
+                    files: [file],
+                    title: 'Invoice',
+                    text: shareText
+                });
+            } else {
+                alert('Browser tidak mendukung share langsung. Gambar akan di-download.');
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = 'invoice.png';
+                link.click();
+            }
+        });
     </script>
 @endpush

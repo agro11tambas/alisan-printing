@@ -15,7 +15,6 @@ class ProductCategory extends Model
         'slug',
         'description',
         'parent',
-        'woocommerce_id',
     ];
 
     public function discounts()

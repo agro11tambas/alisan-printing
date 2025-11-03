@@ -195,11 +195,12 @@
                                                     </td>
                                                     <td><input type="text" inputmode="numeric" name="qty[]"
                                                             class="form-control qty" id="qty_0" placeholder="Qty"
-                                                            min="1"></td>
+                                                            min="1" value="0"></td>
                                                     <td><input type="text" inputmode="numeric" name="price[]"
-                                                            class="form-control price" id="price_0"></td>
+                                                            class="form-control price" id="price_0" value="0">
+                                                    </td>
                                                     <td><input type="text" inputmode="numeric" name="freight[]"
-                                                            class="form-control freight" id="freight_0">
+                                                            class="form-control freight" id="freight_0" value="0">
                                                     </td>
                                                     <td>
                                                         <input type="hidden" name="total[]" class="form-control total"
@@ -320,16 +321,17 @@
         function formatRibuan(value) {
             if (value === null || value === undefined || value === '') return '';
 
-            // pastikan angka dalam format numerik
             const num = parseFloat(value);
             if (isNaN(num)) return '';
 
-            // format ke Indonesia
-            const [intPart, decPart] = num.toFixed(2).split('.');
+            // Format ke Indonesia dengan maksimal 5 angka di belakang koma
+            let [intPart, decPart] = num.toFixed(5).split('.');
             const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-            // kalau desimalnya 00 -> hilangkan
-            return decPart === '00' ? formattedInt : `${formattedInt},${decPart}`;
+            // Hapus nol di belakang koma biar lebih rapi
+            decPart = decPart.replace(/0+$/, '');
+
+            return decPart ? `${formattedInt},${decPart}` : formattedInt;
         }
 
         function unformatRibuan(value) {
@@ -385,9 +387,9 @@
                 subtotalFreight += qty * freight;
 
                 // Kosongkan jika 0 untuk tampilan (opsional, hapus jika mau tetap tampil 0)
-                if (price === 0) row.find('.price').val('');
+                if (price === 0) row.find('.price').val('0');
                 // ✅ Freight tetap tampilkan 0 jika memang 0
-                if (freight === 0) row.find('.freight').val('');
+                if (freight === 0) row.find('.freight').val('0');
 
                 const totalRow = qty * (price + freight);
                 row.find('.total').val(totalRow > 0 ? formatRibuan(totalRow.toFixed(2)) : '');
@@ -429,9 +431,12 @@
             initSelect2('#suppliers');
 
             $('.price, .freight').each(function() {
-                const val = $(this).val();
-                if (val && !isNaN(val)) {
-                    $(this).val(formatRibuan(parseFloat(val)));
+                let val = $(this).val().trim();
+                if (val === '' || isNaN(unformatRibuan(val))) {
+                    $(this).val('0');
+                } else {
+                    const num = unformatRibuan(val);
+                    $(this).val(formatRibuan(num));
                 }
             });
 
@@ -496,41 +501,13 @@
                 updateRowTotal($(this).closest('tr'));
             });
 
-            $(document).on('blur', '.qty', function() {
-                let val = $(this).val().replace(/\D/g, '');
-                $(this).val(val ? val.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
-            });
-
-            // ✅ Handler untuk PRICE (baru, terpisah)
             $(document).on('input', '.price', function() {
                 let val = $(this).val().replace(/[^\d,]/g, '');
                 const parts = val.split(',');
                 let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
+                // ✅ maksimal 5 angka di belakang koma
+                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 5)}` : integerPart;
                 $(this).val(val);
-                updateRowTotal($(this).closest('tr'));
-            });
-
-            // ✅ BENAR - Biarkan kosong, cuma format kalau ada isi
-            $(document).on('blur', '.freight', function() {
-                let val = $(this).val().trim();
-
-                // Jika kosong, BIARKAN KOSONG (jangan isi 0)
-                if (val === '' || val === null) {
-                    // Do nothing, biarkan kosong
-                    return;
-                }
-
-                const num = unformatRibuan(val);
-
-                // Jika angka valid (termasuk 0), format ulang
-                if (!isNaN(num) && num >= 0) {
-                    $(this).val(formatRibuan(num));
-                } else {
-                    // Jika invalid, kosongkan
-                    $(this).val('');
-                }
-
                 updateRowTotal($(this).closest('tr'));
             });
 
@@ -763,7 +740,6 @@
         $(document).on('input', '.freight', function() {
             let val = $(this).val().replace(/[^\d,]/g, '');
 
-            // Izinkan nilai 0
             if (val === '0' || val === '0,00') {
                 $(this).val('0');
                 updateRowTotal($(this).closest('tr'));
@@ -772,31 +748,22 @@
 
             const parts = val.split(',');
             let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
+            // ✅ maksimal 5 angka di belakang koma
+            val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 5)}` : integerPart;
             $(this).val(val);
             updateRowTotal($(this).closest('tr'));
         });
 
-        $(document).on('blur', '.freight', function() {
+        $(document).on('blur', '.price, .freight, .qty', function() {
             let val = $(this).val().trim();
-
-            // Jika kosong, set ke 0
             if (val === '' || val === null) {
                 $(this).val('0');
             } else {
                 const num = unformatRibuan(val);
-                // Jika angka valid (termasuk 0), format ulang
-                if (!isNaN(num) && num >= 0) {
-                    $(this).val(formatRibuan(num));
-                } else {
-                    // Jika invalid, set ke 0
-                    $(this).val('0');
-                }
+                $(this).val(formatRibuan(num));
             }
-
             updateRowTotal($(this).closest('tr'));
         });
-
 
         $(document).ready(function() {
             const purchaseDateEl = $('#purchase_date');

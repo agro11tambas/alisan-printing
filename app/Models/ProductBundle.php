@@ -29,4 +29,16 @@ class ProductBundle extends Model
     {
         return $this->hasMany(ProductBundleItem::class, 'bundle_id')->with('product');
     }
+
+    public function products()
+    {
+        return $this->hasManyThrough(
+            Products::class,
+            ProductBundleItem::class,
+            'bundle_id',
+            'id',
+            'id',
+            'product_id'
+        );
+    }
 }

@@ -138,10 +138,17 @@ class DesignController extends Controller
                 $allUploaded = $design->items->every(fn($item) => !empty($item->preview_image));
                 $actionButtons = view('erp.pages.designs.partials.action-button', compact('design', 'allUploaded'))->render();
 
+                $customerHtml = '
+                    <div>
+                        <div class="fw-semibold">' . e($design->order?->customerAddress?->business_name ?? '-') . '</div>
+                        <small class="text-muted">' . e($design->order?->customer?->name ?? '-') . '</small>
+                    </div>
+                ';
+
                 return [
                     'id' => $design->id,
                     'design_number' => $designNumberHtml,
-                    'customer' => e($design->order?->customer?->name ?? '-'),
+                    'customer' => $customerHtml,
                     'status' => $statusBadge,
                     'products' => $productList,
                     'proof_photos' => $proofPhotos,
@@ -184,6 +191,23 @@ class DesignController extends Controller
                     'quantity'           => $designItem->quantity,
                     'completed_quantity' => 0,
                 ]);
+
+                // 🔹 Increment pending waiting list di ProductionStock
+                $productionStock = \App\Models\ProductionStock::firstOrCreate(
+                    [
+                        'product_id' => $designItem->product_id,
+                        'production_warehouse_id' => 2, // sesuaikan jika perlu
+                    ],
+                    [
+                        'opening_stock' => 0,
+                        'available_quantity' => 0,
+                        'finished_product_stock' => 0,
+                        'canceled_product_stock' => 0,
+                        'pending_waiting_list' => 0,
+                    ]
+                );
+
+                $productionStock->increment('pending_waiting_list', $designItem->quantity);
             }
 
             $deliveryOrder = DeliveryOrder::create([

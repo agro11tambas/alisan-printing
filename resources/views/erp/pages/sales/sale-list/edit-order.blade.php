@@ -121,14 +121,14 @@
                                                     ];
                                                 @endphp
                                                 <select class="form-select form-control max-select"
-                                                    data-select2-selector="tag" id="customers" name="customers[]">
+                                                    data-select2-selector="tag" id="customers" name="customer_id">
                                                     <option disabled selected hidden>Choose Customer</option>
                                                     @foreach ($customers as $index => $customer)
                                                         @php
                                                             $bg = $bgColors[$loop->index % count($bgColors)];
                                                         @endphp
                                                         <option value="{{ $customer->id }}" data-bg="{{ $bg }}"
-                                                            {{ $customer->id == $order->customer_id ? 'selected' : '' }}>
+                                                            {{ $order->customer_id == $customer->id ? 'selected' : '' }}>
                                                             {{ $customer->name }}</option>
                                                     @endforeach
                                                 </select>
@@ -142,13 +142,13 @@
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <select class="form-select form-control max-select"
-                                                    data-select2-selector="tag" id="addresses" name="address_id">
+                                                    data-select2-selector="tag" id="addresses" name="customer_address_id">
                                                     <option disabled hidden>Pilih alamat</option>
                                                     @if ($order->customer)
                                                         @foreach ($order->customer->addresses as $index => $address)
                                                             <option value="{{ $address->id }}"
                                                                 data-map="{{ $address->google_maps }}"
-                                                                {{ $order->address_id == $address->id ? 'selected' : '' }}>
+                                                                {{ $order->customer_address_id == $address->id ? 'selected' : '' }}>
                                                                 Alamat ke-{{ $index + 1 }} - {{ $address->address }}
                                                             </option>
                                                         @endforeach
@@ -156,13 +156,11 @@
                                                 </select>
                                             </div>
                                             <div id="google-maps-link" class="mt-2">
-                                                @if ($order->address)
-                                                    @if ($order->address->google_maps)
-                                                        <a href="{{ $order->address->google_maps }}" target="_blank"
-                                                            class="btn btn-sm btn-outline-primary mt-2">
-                                                            Lihat di Google Maps
-                                                        </a>
-                                                    @endif
+                                                @if ($order->customerAddress && $order->customerAddress->google_maps)
+                                                    <a href="{{ $order->customerAddress->google_maps }}" target="_blank"
+                                                        class="btn btn-sm btn-outline-primary mt-2">
+                                                        Lihat di Google Maps
+                                                    </a>
                                                 @endif
                                             </div>
                                         </div>
@@ -179,6 +177,23 @@
                                                     <option value="6" data-bg="bg-success">Sale Account</option>
                                                 </select>
                                             </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label class="fw-semibold">Diskon:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="toggleDiscount"
+                                                    name="discount_active" {{ $order->discount_active ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="toggleDiscount">
+                                                    {{ $order->discount_active ? 'Aktifkan Diskon' : 'Diskon Nonaktif' }}
+                                                </label>
+                                            </div>
+                                            <input type="hidden" id="discount_active_hidden"
+                                                name="discount_active_hidden"
+                                                value="{{ $order->discount_active ? 1 : 0 }}">
                                         </div>
                                     </div>
                                     <div class="row mb-3 align-items-center">
@@ -362,9 +377,75 @@
     </div>
 @endsection
 
+@push('modals')
+    <!-- Modal Konfirmasi Matikan Diskon -->
+    <div class="modal fade" id="confirmDisableDiscountModal" tabindex="-1"
+        aria-labelledby="confirmDisableDiscountLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title fw-semibold text-dark">Nonaktifkan Diskon</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-dark">
+                    Apakah kamu yakin ingin menonaktifkan semua diskon?
+                    Semua harga akan dihitung ulang tanpa potongan harga.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-warning text-dark" id="confirmDisableDiscountBtn">Matikan
+                        Diskon</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Kedua: Konfirmasi Tanggung Jawab -->
+    <div class="modal fade" id="confirmResponsibilityModal" tabindex="-1" aria-labelledby="confirmResponsibilityLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-semibold">Konfirmasi Tanggung Jawab</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-dark">
+                    Apakah Anda bersedia <strong>bertanggung jawab</strong> atas keputusan menonaktifkan semua diskon ini?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-danger text-white" id="confirmResponsibilityBtn">
+                        Ya, Saya Bertanggung Jawab
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endpush
+
 @push('scripts')
     <script>
         const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
+
+        let discountEnabled = {{ $order->discount_active ? 'true' : 'false' }};
+        let pendingToggleOff = false;
+
+        // 🔥 Inisialisasi label dan hidden input sesuai kondisi awal
+        $(document).ready(function() {
+            const label = $('#toggleDiscount').next('label');
+            if (discountEnabled) {
+                $('#toggleDiscount').prop('checked', true);
+                $('#discount_active_hidden').val(1);
+                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
+            } else {
+                $('#toggleDiscount').prop('checked', false);
+                $('#discount_active_hidden').val(0);
+                label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+            }
+
+            recalcAllRows(); // ✅ hitung ulang setelah semuanya siap
+        });
 
         const customerAddresses = <?php echo json_encode(
             $customers->mapWithKeys(function ($customer) {
@@ -374,6 +455,7 @@
                             'id' => $address->id,
                             'address' => $address->address,
                             'google_maps' => $address->google_maps,
+                            'business_name' => $address->business_name,
                         ];
                     }),
                 ];
@@ -422,6 +504,38 @@
             }).format(num);
         }
 
+        $(document).on('change', '#toggleDiscount', function() {
+            const isChecked = $(this).is(':checked');
+            const label = $(this).next('label');
+
+            if (!isChecked) {
+                pendingToggleOff = true;
+                $('#confirmDisableDiscountModal').modal('show');
+                $(this).prop('checked', true);
+            } else {
+                discountEnabled = true;
+                $('#discount_active_hidden').val(1);
+                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
+                recalcAllRows();
+            }
+        });
+
+        $('#confirmDisableDiscountBtn').on('click', function() {
+            $('#confirmDisableDiscountModal').modal('hide');
+            if (pendingToggleOff) $('#confirmResponsibilityModal').modal('show');
+        });
+
+        $('#confirmResponsibilityBtn').on('click', function() {
+            $('#confirmResponsibilityModal').modal('hide');
+            discountEnabled = false;
+            $('#toggleDiscount').prop('checked', false);
+            $('#discount_active_hidden').val(0);
+            const label = $('#toggleDiscount').next('label');
+            label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+            recalcAllRows();
+            pendingToggleOff = false;
+        });
+
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
             const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
@@ -434,10 +548,18 @@
             const totalBeforeDiscount = basePrice * qty;
             let finalPrice = priceBeforeDiscount;
 
-            let allDiscounts = [...discounts];
-            categories.forEach(cat => {
-                if (cat.discounts) allDiscounts = allDiscounts.concat(cat.discounts);
-            });
+            // let allDiscounts = [...discounts];
+            // categories.forEach(cat => {
+            //     if (cat.discounts) allDiscounts = allDiscounts.concat(cat.discounts);
+            // });
+
+            let allDiscounts = discountEnabled ? [...discounts] : [];
+
+            if (discountEnabled) {
+                categories.forEach(cat => {
+                    if (cat.discounts) allDiscounts = allDiscounts.concat(cat.discounts);
+                });
+            }
 
             allDiscounts.forEach(discount => {
                 let eligible = false;
@@ -620,7 +742,7 @@
             function updateAddresses(customerId) {
                 const addresses = customerAddresses[customerId] || [];
                 const $addressSelect = $('#addresses');
-                const selectedAddressId = "{{ $order->address_id ?? '' }}";
+                const selectedAddressId = "{{ $order->customer_address_id ?? '' }}";
 
                 $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
 
@@ -628,8 +750,8 @@
                     const isSelected = address.id == selectedAddressId;
                     $addressSelect.append(
                         `<option value="${address.id}" data-map="${address.google_maps}" ${isSelected ? 'selected' : ''}>
-                        Alamat ke-${index + 1} - ${address.address}
-                    </option>`
+                            ${address.business_name ?? 'None'} - ${address.address}
+                        </option>`
                     );
                 });
 

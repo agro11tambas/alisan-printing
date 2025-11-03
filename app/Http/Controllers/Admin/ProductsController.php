@@ -222,6 +222,8 @@ class ProductsController extends Controller
             $bundle->delete();
         }
 
+        $product->update(['sku' => null]);
+
         $product->delete();
 
         return redirect('/erp/products')->with('success', 'Produk dan semua bundle yang terkait berhasil dihapus.');

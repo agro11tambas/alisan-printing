@@ -1,5 +1,36 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        .table-middle {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            /* font lebih kecil */
+        }
+
+        .table-middle th,
+        .table-middle td {
+            padding: 7px 32px !important;
+            /* jarak antar sel kecil */
+            vertical-align: middle;
+            border: 1px solid #dee2e6;
+        }
+
+        .table-middle thead th {
+            /* background-color: #f8f9fa; */
+            /* sedikit abu-abu biar beda */
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .table-middle tbody tr:hover {
+            background-color: #f1f3f5;
+            /* efek hover ringan */
+        }
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header">
         <div class="page-header-left d-flex align-items-center">
@@ -30,7 +61,7 @@
             <div class="col-lg-12">
                 <div class="card invoice-container" id="invoiceContent">
                     <div class="card-body p-0">
-                        <div class="px-4 pt-4">
+                        <div class="px-4 pt-4 border-bottom mb-3">
                             <div class="row justify-content-between">
                                 <div class="col-lg-4">
                                     @php
@@ -46,7 +77,6 @@
                                     </address>
                                 </div>
                                 <div class="col-lg-4">
-                                    <h2 class="fs-4 fw-bold text-primary">Invoice</h2>
                                     <div>
                                         <span class="fw-bold text-dark">Invoice No:</span>
                                         <span class="fw-bold text-primary">{{ $order->order_number }}</span>
@@ -55,11 +85,15 @@
                                         <span class="fw-bold text-dark">Invoice Date:</span>
                                         <span class="text-muted">{{ date('d M Y', strtotime($order->order_date)) }}</span>
                                     </div>
+                                    <div>
+                                        <span class="fw-bold text-dark">Due Date:</span>
+                                        <span
+                                            class="text-muted">{{ date('d M Y', strtotime($order->due_date)) }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <hr class="border-dashed">
-                        <div class="px-4 py-sm-4">
+                        <div class="px-4 py-0">
                             <div class="row gap-4 justify-content-between">
                                 <div class="col-lg-12">
                                     <h2 class="fs-16 fw-bold text-dark mb-3">Invoiced To:</h2>
@@ -69,35 +103,17 @@
                                         {{ $order->shipping_address }}
                                     </address>
                                 </div>
-                                <!-- <div class="border-end border-end-dashed border-gray-500 d-none d-sm-block"></div> -->
-                                <!-- <div class="col-lg-4">
-                                    <h2 class="fs-16 fw-bold text-dark mb-3">Payment Details:</h2>
-                                    <div class="text-muted lh-lg">
-                                        <div>
-                                            <span class="text-muted">Total Due: </span>
-                                            <span class="fw-bold text-dark">Rp. {{ number_format($order->grand_total, 0, ',', '.') }}</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-muted">Bank:</span>
-                                            <span class="fw-bold text-success">{{ $invoice->bank_name }}</span>
-                                        </div>
-                                        <div>
-                                            <span class="text-muted">No Rek:</span>
-                                            <span class="fw-bold text-dark">{{ $invoice->account_number }}</span>
-                                        </div>
-                                    </div>
-                                </div> -->
                             </div>
                         </div>
-                        <hr class="border-dashed mb-0">
+                        {{-- <hr class="border-dashed mb-0"> --}}
                         <div class="table-responsive">
-                            <table class="table">
+                            <table class="table table-middle">
                                 <thead>
                                     <tr>
-                                        <th>Product</th>
-                                        <th>Price</th>
-                                        <th>QTY</th>
-                                        <th class="text-end">Amount</th>
+                                        <th class="wd-300">Product</th>
+                                        <th class="wd-100">Price</th>
+                                        <th class="wd-100">QTY</th>
+                                        <th class="text-end wd-100">Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -107,25 +123,32 @@
 
                                     @foreach ($items as $item)
                                         <tr>
-                                            <td>
+                                            <td style="white-space: normal; word-break: break-word; max-width: 250px;">
                                                 @if ($item->product)
                                                     {{ $item->product->name }}
-                                                @endif
-
-                                                @if ($item->productBundle)
-                                                    {{ $item->productBundle->name }}
+                                                @elseif ($item->productBundle)
+                                                    @php
+                                                        $productNames = $item->productBundle->products
+                                                            ->pluck('name')
+                                                            ->toArray();
+                                                    @endphp
+                                                    {{ implode(' + ', $productNames) }}
+                                                @else
+                                                    -
                                                 @endif
                                             </td>
                                             <td>
                                                 @if ($item->product)
-                                                    Rp. {{ number_format($item->product->price, 0, ',', '.') }}
+                                                    Rp.
+                                                    {{ number_format($item->discount_price ?? $item->price, 0, ',', '.') }}
                                                 @endif
 
                                                 @if ($item->productBundle)
-                                                    Rp. {{ number_format($item->productBundle->price, 0, ',', '.') }}
+                                                    Rp.
+                                                    {{ number_format($item->discount_price ?? $item->price, 0, ',', '.') }}
                                                 @endif
                                             </td>
-                                            <td>{{ $item->quantity }}</td>
+                                            <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
                                             <td class="text-end">Rp. {{ number_format($item->subtotal, 0, ',', '.') }}</td>
                                         </tr>
                                     @endforeach
@@ -144,15 +167,15 @@
                                     <tr>
                                         <td colspan="2" class="border-0"></td>
                                         <td class="fw-semibold text-dark text-lg-end border-0 text-end">Grand Total</td>
-                                        <td class="fw-bold text-success border-0 text-end">Rp.
+                                        <td class="fw-bold text-primary border-0 text-end">Rp.
                                             {{ number_format($order->grand_total, 0, ',', '.') }}</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
-                        <hr class="border-dashed mt-0">
+                        {{-- <hr class="border-dashed mt-0"> --}}
                         <div class="px-4">
-                            <div class="alert alert-dismissible p-4 mt-3 alert-soft-primary-message" role="alert">
+                            <div class="alert alert-dismissible p-4 alert-soft-primary-message" role="alert">
                                 <h5 class="mb-4">Syarat & Ketentuan</h5>
                                 <p class="mb-0">
                                     @forelse($invoice->termAndConditions as $term)
@@ -163,11 +186,11 @@
                                 </p>
                             </div>
                         </div>
-                        <div class="px-4 pt-4 d-sm-flex align-items-center justify-content-between">
+                        <div class="px-4 d-sm-flex align-items-center justify-content-between">
                             <div class="mb-5 mb-sm-0">
                                 <h6 class="fs-14 fw-bold">Bank</h6>
                                 <p class="fs-14">BANK: {{ $invoice->bank_name }}<br>
-                                    Atas Nama: <strong class="text-success">{{ $invoice->name }}</strong><br>
+                                    Atas Nama: <strong class="text-primary">{{ $invoice->name }}</strong><br>
                                     No Rek: <strong class="text-danger">{{ $invoice->account_number }}</strong></p>
                             </div>
                             <div class="text-end align-self-end">
@@ -220,37 +243,38 @@
         }
 
         document.getElementById('shareInvoiceBtn').addEventListener('click', async function() {
-            const dataUrl = await captureInvoice();
-            const response = await fetch(dataUrl);
-            const blob = await response.blob();
-            const file = new File([blob], 'invoice.png', {
-                type: 'image/png'
-            });
+                        const dataUrl = await captureInvoice();
+                        const response = await fetch(dataUrl);
+                        const blob = await response.blob();
+                        const file = new File([blob], 'invoice.png', {
+                            type: 'image/png'
+                        });
 
-            const shareText = `Halo {{ $order->customer->name }}, berikut invoice pembelian Anda.`;
+                        const shareText = `Halo {{ $order->customer->name }}, berikut invoice pembelian Anda.`;
 
-            if (navigator.canShare && navigator.canShare({
-                    files: [file]
-                })) {
-                navigator.share({
-                    files: [file],
-                    title: 'Invoice',
-                    text: shareText
-            } else {
-                alert('Browser tidak mendukung share langsung. Gambar akan di-download.');
-                const link = document.createElement('a');
-                link.href = dataUrl;
-                link.download = 'invoice.png';
-                link.click();
-            }
-        });
+                        if (navigator.canShare && navigator.canShare({
+                                files: [file]
+                            })) {
+                            navigator.share({
+                                    files: [file],
+                                    title: 'Invoice',
+                                    text: shareText
+                                }
+                                else {
+                                    alert('Browser tidak mendukung share langsung. Gambar akan di-download.');
+                                    const link = document.createElement('a');
+                                    link.href = dataUrl;
+                                    link.download = 'invoice.png';
+                                    link.click();
+                                }
+                            });
 
-        document.getElementById('downloadInvoiceBtn').addEventListener('click', async function() {
-            const dataUrl = await captureInvoice();
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = 'invoice-{{ $order->order_number }}.png';
-            link.click();
-        });
+                        document.getElementById('downloadInvoiceBtn').addEventListener('click', async function() {
+                            const dataUrl = await captureInvoice();
+                            const link = document.createElement('a');
+                            link.href = dataUrl;
+                            link.download = 'invoice-{{ $order->order_number }}.png';
+                            link.click();
+                        });
     </script>
 @endpush

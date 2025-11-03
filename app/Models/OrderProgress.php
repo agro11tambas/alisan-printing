@@ -42,10 +42,10 @@ class OrderProgress extends Model
         return $this->belongsTo(Products::class, 'product_id');
     }
 
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    // public function user()
+    // {
+    //     return $this->belongsTo(User::class)->withTrashed();
+    // }
 
     public function materialRequests()
     {

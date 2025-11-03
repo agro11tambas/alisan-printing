@@ -12,26 +12,13 @@
                 <li class="breadcrumb-item">History</li>
             </ul>
         </div>
-        <!-- <div class="page-header-right ms-auto">
-                                <div class="page-header-right-items">
-                                    <div class="d-flex d-md-none">
-                                        <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                                            <i class="feather-arrow-left me-2"></i><span>Back</span>
-                                        </a>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                                        <a href="/erp/orders/create-order" class="btn btn-primary">
-                                            <i class="feather-plus me-2"></i>
-                                            <span>Create Order</span>
-                                        </a>
-                                    </div>
-                                </div>
-                                <div class="d-md-none d-flex align-items-center">
-                                    <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                                        <i class="feather-align-right fs-20"></i>
-                                    </a>
-                                </div>
-                            </div> -->
+        <div class="page-header-right ms-auto">            
+            <div class="d-md-none d-flex align-items-center">
+                <a href="javascript:void(0)" class="page-header-right-open-toggle">
+                    <i class="feather-align-right fs-20"></i>
+                </a>
+            </div>
+        </div>
     </div>
 @endsection
 

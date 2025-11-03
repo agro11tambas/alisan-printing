@@ -79,10 +79,7 @@
                     <div class="card-body p-0">
                         <div class="row g-3 p-4 justify-content-between">
                             <div class="col-lg-4 me-2">
-
-                            </div>
-                            <div class="col-lg-4">
-                                <div class="row g-3 justify-content-end">
+                                <div class="row g-3 justify-content-strart">
                                     <div class="col-lg-6">
                                         <label for="product_name" class="fw-semibold fs-12">Item Name</label>
                                         <input type="text" id="product_name" name="product_name" class="form-control"
@@ -90,12 +87,19 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-lg-4">
+                                <div class="d-flex justify-content-end align-items-center p-3">
+                                    <button id="btnRequestStock" class="btn btn-primary d-none">
+                                        <i class="feather-plus me-2"></i>Request Stock
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-hover bg-transparent" id="reportItemsTable">
                                 <thead>
                                     <tr>
-                                        <th class="wd-30">No</th>
+                                        <th><input type="checkbox" id="selectAll"></th>
                                         <th>Item Name</th>
                                         <!-- <th>Purchase Stock</th> -->
                                         <th>Current Stock</th>
@@ -172,13 +176,16 @@
                 lengthChange: false,
                 info: false,
                 order: [
-                    [3, 'desc']
+                    [4, 'desc']
                 ],
                 data: [],
                 columns: [{
-                        data: 'DT_RowIndex',
+                        data: null,
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        render: function(data, type, row) {
+                            return `<input type="checkbox" class="row-checkbox" value="${row.product_id}">`;
+                        }
                     },
                     {
                         data: 'name'
@@ -189,8 +196,11 @@
                     {
                         data: 'finished_product_stock'
                     },
+                    // {
+                    //     data: 'order_progress_remaining'
+                    // },
                     {
-                        data: 'order_progress_remaining'
+                        data: 'pending_waiting_list'
                     },
                     {
                         data: 'action',
@@ -290,6 +300,41 @@
                     });
                 }
             });
+        });
+
+        // Handle checkbox behavior
+        $(document).on('change', '.row-checkbox', function() {
+            toggleRequestButton();
+        });
+
+        $('#selectAll').on('change', function() {
+            $('.row-checkbox').prop('checked', $(this).prop('checked'));
+            toggleRequestButton();
+        });
+
+        function toggleRequestButton() {
+            const selected = $('.row-checkbox:checked').length > 0;
+            if (selected) {
+                $('#btnRequestStock').removeClass('d-none');
+            } else {
+                $('#btnRequestStock').addClass('d-none');
+            }
+        }
+
+        $('#btnRequestStock').on('click', function() {
+            const selectedProducts = $('.row-checkbox:checked').map(function() {
+                return $(this).val();
+            }).get();
+
+            if (selectedProducts.length === 0) {
+                Swal.fire('Peringatan', 'Pilih minimal 1 produk untuk request stock.', 'warning');
+                return;
+            }
+
+            // Redirect ke halaman create request stock dengan parameter produk
+            const url = "{{ url('/erp/productions/material-request/create') }}" + '?products=' + selectedProducts
+                .join(',');
+            window.location.href = url;
         });
     </script>
 @endpush

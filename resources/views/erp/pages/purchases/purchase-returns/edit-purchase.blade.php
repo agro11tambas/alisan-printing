@@ -196,17 +196,18 @@
                                                         </td>
                                                         <td><input type="text" inputmode="numeric" name="price[]"
                                                                 class="form-control price" id="price_{{ $index }}"
-                                                                value="{{ $item->price ?? '' }}"></td>
+                                                                value="{{ number_format($item->price ?? 0, 2, '.', '') }}">
+                                                        </td>
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="freight[]"
                                                                 class="form-control freight"
                                                                 id="freight_{{ $index }}"
-                                                                value="{{ $item->freight ?? 0 }}">
+                                                                value="{{ number_format($item->freight ?? 0, 2, '.', '') }}">
                                                         </td>
                                                         <td><input type="text" inputmode="numeric" name="total[]"
                                                                 class="form-control total" id="total_{{ $index }}"
                                                                 readonly
-                                                                value="{{ $item->total ?? $item->quantity * $item->price }}">
+                                                                value="{{ number_format($item->total ?? $item->quantity * $item->price, 2, '.', '') }}">
                                                         </td>
                                                     </tr>
                                                 @endforeach
@@ -277,41 +278,55 @@
 
 @push('scripts')
     <script>
-        function formatRibuanID(angka, withDecimal = true) {
-            if (angka === null || angka === undefined || angka === '') return '';
-
-            // pastikan angka beneran number
-            let num = typeof angka === 'number' ?
-                angka :
-                parseFloat(
-                    angka.toString()
-                    .replace(/\./g, '') // hapus titik ribuan
-                    .replace(',', '.') // ubah koma jadi titik
-                );
-
-            if (isNaN(num)) num = 0;
-
-            const [integer, decimal] = num.toFixed(2).split('.');
-            const formatted = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
-            return withDecimal ? `${formatted},${decimal}` : formatted;
+        /* ===================== FORMAT / PARSING ===================== */
+        function formatRibuan(value) {
+            if (value === null || value === undefined || value === '') return '';
+            const num = parseFloat(value);
+            if (isNaN(num)) return '';
+            let [intPart, decPart] = num.toFixed(5).split('.');
+            const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            decPart = decPart.replace(/0+$/, '');
+            return decPart ? `${formattedInt},${decPart}` : formattedInt;
         }
 
-        function unformatRibuanID(angka) {
-            if (!angka) return 0;
-            return parseFloat(
-                angka.toString()
-                .replace(/\./g, '')
-                .replace(',', '.')
-            ) || 0;
+        function unformatRibuan(value) {
+            if (!value) return 0;
+            value = value.toString().trim();
+
+            // 1️⃣ Hapus semua spasi dan simbol selain angka/koma/titik/minus
+            value = value.replace(/[^0-9.,-]/g, '');
+
+            // 2️⃣ Deteksi pola ribuan Indonesia (pakai koma desimal)
+            const hasComma = value.includes(',');
+            const hasDot = value.includes('.');
+
+            if (hasComma && hasDot) {
+                // Contoh: 1.234,56 → hapus titik ribuan → ganti koma jadi titik
+                value = value.replace(/\./g, '').replace(',', '.');
+            } else if (!hasComma && hasDot) {
+                // Contoh: 1234.56 → titik dianggap desimal
+                value = value;
+            } else if (hasComma && !hasDot) {
+                // Contoh: 1234,56 → koma dianggap desimal
+                value = value.replace(',', '.');
+            } else {
+                // Contoh: 1.234 atau 1234 → hapus titik ribuan
+                value = value.replace(/\./g, '');
+            }
+
+            const num = parseFloat(value);
+            return isNaN(num) ? 0 : num;
         }
 
+
+        /* ===================== HITUNG TOTAL ===================== */
         function updateRowTotal(row) {
-            const qty = unformatRibuanID(row.find('.qty').val());
-            const price = unformatRibuanID(row.find('.price').val());
-            const freight = unformatRibuanID(row.find('.freight').val());
+            const qty = parseFloat(unformatRibuan(row.find(".qty").val())) || 0;
+            const price = parseFloat(unformatRibuan(row.find(".price").val())) || 0;
+            const freight = parseFloat(unformatRibuan(row.find(".freight").val())) || 0;
             const total = qty * (price + freight);
-            row.find('.total').val(formatRibuanID(total, true));
+
+            row.find(".total").val(total > 0 ? formatRibuan(total.toFixed(2)) : '');
             calc_total();
         }
 
@@ -319,9 +334,10 @@
             let subtotalProduct = 0,
                 subtotalFreight = 0;
             $('#tab_logic tbody tr').each(function() {
-                const qty = unformatRibuanID($(this).find('.qty').val());
-                const price = unformatRibuanID($(this).find('.price').val());
-                const freight = unformatRibuanID($(this).find('.freight').val());
+                const row = $(this);
+                const qty = parseFloat(unformatRibuan(row.find('.qty').val())) || 0;
+                const price = parseFloat(unformatRibuan(row.find('.price').val())) || 0;
+                const freight = parseFloat(unformatRibuan(row.find('.freight').val())) || 0;
                 subtotalProduct += qty * price;
                 subtotalFreight += qty * freight;
             });
@@ -329,17 +345,18 @@
             const subTotal = subtotalProduct + subtotalFreight;
             const grandTotal = subTotal;
 
-            $('#total_amount_product').val(subtotalProduct.toFixed(2));
-            $('#total_amount_freight').val(subtotalFreight.toFixed(2));
-            $('#sub_total').val(subTotal.toFixed(2));
-            $('#total_amount').val(grandTotal.toFixed(2));
+            $("#total_amount_product").val(subtotalProduct.toFixed(2));
+            $("#total_amount_freight").val(subtotalFreight.toFixed(2));
+            $("#sub_total").val(subTotal.toFixed(2));
+            $("#total_amount").val(grandTotal.toFixed(2));
 
-            $('#total_amount_product_display').val(formatRibuanID(subtotalProduct, true));
-            $('#total_amount_freight_display').val(formatRibuanID(subtotalFreight, true));
-            $('#sub_total_display').val(formatRibuanID(subTotal, true));
-            $('#total_amount_display').val(formatRibuanID(grandTotal, true));
+            $("#total_amount_product_display").val(formatRibuan(subtotalProduct.toFixed(2)));
+            $("#total_amount_freight_display").val(formatRibuan(subtotalFreight.toFixed(2)));
+            $("#sub_total_display").val(formatRibuan(subTotal.toFixed(2)));
+            $("#total_amount_display").val(formatRibuan(grandTotal.toFixed(2)));
         }
 
+        /* ===================== INIT ===================== */
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih produk',
@@ -354,147 +371,165 @@
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
-            initSelect2('#transaction_type');
 
-            $('.qty').each(function() {
-                const val = $(this).val();
-                if (val && !isNaN(val)) $(this).val(formatRibuanID(parseFloat(val), false));
-            });
-            $('.price, .freight, .total').each(function() {
-                const val = $(this).val();
-                if (val && !isNaN(val)) $(this).val(formatRibuanID(parseFloat(val), true));
-            });
-
-            $(document).on('change', '.select-product', function() {
-                const row = $(this).closest('tr');
-                const price = parseFloat($(this).find('option:selected').data('price')) || 0;
-                row.find('.price').val(formatRibuanID(price, true));
-                updateRowTotal(row);
-            });
-
-            $(document).on('input', '.qty', function() {
-                const input = $(this);
-                let raw = input.val().replace(/\./g, '').replace(/\D/g, '');
-                if (raw === '') return;
-
-                let value = parseInt(raw) || 0;
-                const max = parseInt(input.attr('max')) || 0;
-
-                if (value > max) {
-                    value = max;
-                    Swal.fire({
-                        toast: true,
-                        position: 'top-end',
-                        icon: 'warning',
-                        title: 'Qty tidak boleh melebihi sisa maksimum (' + max.toLocaleString(
-                            'id-ID') + ')',
-                        showConfirmButton: false,
-                        timer: 1500
-                    });
-                }
-
-                input.val(formatRibuanID(value.toString(), false));
-                updateRowTotal(input.closest('tr'));
-            });
-
-            $(document).on('input', '.price, .freight', function() {
-                let val = $(this).val().replace(/[^\d,]/g, '');
-                const parts = val.split(',');
-
-                let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : integerPart;
-
-                $(this).val(val);
-                updateRowTotal($(this).closest('tr'));
-            });
-
-            $(document).on('blur', '.price, .freight', function() {
-                const val = $(this).val();
-                const clean = val.replace(/\./g, '').replace(',', '.'); // ubah jadi angka float
-                const num = parseFloat(clean) || 0;
-                $(this).val(formatRibuanID(num, true)); // format ulang ke ribuan + koma
-                updateRowTotal($(this).closest('tr'));
+            $('.price, .freight').each(function() {
+                const num = unformatRibuan($(this).val());
+                $(this).val(formatRibuan(num));
             });
 
             $('#tab_logic tbody tr').each(function() {
                 updateRowTotal($(this));
             });
             calc_total();
-
-            $('#purchaseForm').on('submit', function() {
-                $('.qty, .price, .freight, .total').each(function() {
-                    $(this).val(unformatRibuanID($(this).val()));
-                });
-            });
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('purchaseForm');
-            form.addEventListener('submit', function(e) {
-                let isValid = true;
-                form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                form.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+        /* ===================== HANDLER INPUT QTY (LIMIT + TOAST) ===================== */
+        $(document).on('input', '.qty', function() {
+            const input = $(this);
+            const row = input.closest('tr');
+            const max = parseInt(input.attr('max')) || 0;
 
-                const purchaseNumber = document.getElementById('purchase_number');
-                if (!purchaseNumber.value.trim()) {
-                    isValid = false;
-                    showError(purchaseNumber, 'Invoice number wajib diisi');
-                }
+            // ambil angka mentah tanpa titik
+            const raw = input.val().replace(/\./g, '');
+            if (raw === '') return;
 
-                const supplierSelect = $('#suppliers');
-                if (!supplierSelect.val()) {
-                    isValid = false;
-                    showError(supplierSelect[0], 'Supplier wajib dipilih');
-                }
+            let value = parseInt(raw) || 0;
 
-                const editNote = document.getElementById('edit_note');
-                if (!editNote.value.trim()) {
-                    isValid = false;
-                    showError(editNote, 'Catatan edit wajib diisi');
-                }
+            // kalau melebihi sisa max
+            if (value > max) {
+                value = max;
 
-                const rows = form.querySelectorAll('#tab_logic tbody tr');
-                rows.forEach((row, i) => {
-                    const product = row.querySelector('select[name="product[]"]');
-                    const qty = row.querySelector('input[name="qty[]"]');
-                    if (!product.value) {
-                        isValid = false;
-                        showError(product, `Produk baris ${i + 1} wajib dipilih`);
-                    }
-                    if (!qty.value || parseFloat(qty.value) < 1) {
-                        isValid = false;
-                        showError(qty, 'Qty minimal 1');
-                    }
+                // tampilkan toast kecil di pojok kanan atas
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'warning',
+                    title: 'Qty tidak boleh melebihi sisa maksimum (' + max.toLocaleString('id-ID') + ')',
+                    showConfirmButton: false,
+                    timer: 1500,
                 });
-
-                if (!isValid) e.preventDefault();
-            });
-
-            function showError(el, message) {
-                if ($(el).hasClass('select2-hidden-accessible')) {
-                    const select2Container = $(el).next('.select2');
-                    select2Container.next('.invalid-feedback').remove();
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback d-block';
-                    feedback.textContent = message;
-                    select2Container[0].after(feedback);
-                } else {
-                    el.classList.add('is-invalid');
-                    const parent = el.closest('.input-group') || el.parentNode;
-                    const existing = parent.querySelector('.invalid-feedback');
-                    if (existing) existing.remove();
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback d-block';
-                    feedback.textContent = message;
-                    parent.appendChild(feedback);
-                }
             }
+
+            // format angka dengan titik ribuan
+            input.val(value.toLocaleString('id-ID'));
+
+            updateRowTotal(row);
         });
 
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
+
+        $(document).on('input', '.price, .freight', function() {
+            let val = $(this).val().replace(/[^\d,]/g, '');
+            const parts = val.split(',');
+            const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 5)}` : integerPart;
+            $(this).val(val);
+            updateRowTotal($(this).closest('tr'));
+        });
+
+        $(document).on('blur', '.price, .freight, .qty', function() {
+            let val = $(this).val().trim();
+            if (val === '' || val === null) {
+                $(this).val('0');
+            } else {
+                const num = unformatRibuan(val);
+                $(this).val(formatRibuan(num));
+            }
+            updateRowTotal($(this).closest('tr'));
+        });
+
+        /* ===================== AUTO CLEAR 0 SAAT FOCUS ===================== */
+        $(document).on('focus', '.price, .freight, .qty', function() {
+            const num = unformatRibuan($(this).val());
+            if (num === 0) $(this).val('');
+        });
+
+        /* ===================== VALIDASI FORM ===================== */
+        function showError(el, message) {
+            el.classList.add('is-invalid');
+            const container = el.closest('.input-group') || el.parentNode;
+            const existing = container.querySelector('.invalid-feedback');
+            if (existing) existing.remove();
+            const feedback = document.createElement('div');
+            feedback.className = 'invalid-feedback';
+            feedback.textContent = message;
+            feedback.style.display = 'block';
+            container.appendChild(feedback);
+        }
+
+        $('#purchaseForm').on('submit', function(e) {
+            let isValid = true;
+            $(this).find('.is-invalid').removeClass('is-invalid');
+            $(this).find('.invalid-feedback').remove();
+
+            const purchaseNumber = $('#purchase_number');
+            if (!purchaseNumber.val().trim()) {
+                isValid = false;
+                showError(purchaseNumber[0], 'Nomor invoice wajib diisi');
+            }
+
+            const returnDate = $('#return_date');
+            if (!returnDate.val().trim()) {
+                isValid = false;
+                showError(returnDate[0], 'Tanggal retur wajib diisi');
+            }
+
+            const supplier = $('#suppliers');
+            if (!supplier.val()) {
+                isValid = false;
+                showError(supplier[0], 'Supplier wajib dipilih');
+            }
+
+            const editNote = document.getElementById('edit_note');
+            if (editNote && !editNote.value.trim()) {
+                isValid = false;
+                showError(editNote, 'Catatan edit wajib diisi');
+            }
+
+            $('#tab_logic tbody tr').each(function() {
+                const product = $(this).find('select[name="product[]"]');
+                const qty = $(this).find('input[name="qty[]"]');
+                const price = $(this).find('input[name="price[]"]');
+                const freight = $(this).find('input[name="freight[]"]');
+
+                if (!product.val()) {
+                    isValid = false;
+                    showError(product[0], 'Produk wajib dipilih');
+                }
+
+                if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
+                    isValid = false;
+                    showError(qty[0], 'Qty harus lebih dari 0');
+                }
+
+                const priceVal = unformatRibuan(price.val());
+                if (!price.val() || priceVal <= 0) {
+                    isValid = false;
+                    showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
+                }
+
+                const freightVal = freight.val().trim();
+                if (freightVal === '' || freightVal === null) {
+                    isValid = false;
+                    showError(freight[0], 'Freight wajib diisi (minimal 0)');
+                    freight.val('0');
+                }
+            });
+
+            if (!isValid) {
+                e.preventDefault();
+                const firstError = $(this).find('.is-invalid').first();
+                if (firstError.length) {
+                    $('html, body').animate({
+                        scrollTop: firstError.offset().top - 100
+                    }, 300);
+                }
+            } else {
+                // Sebelum submit, bersihkan format angka
+                $('.qty, .price, .freight, .total').each(function() {
+                    const cleanVal = unformatRibuan($(this).val());
+                    $(this).val(cleanVal);
+                });
+            }
         });
     </script>
 @endpush

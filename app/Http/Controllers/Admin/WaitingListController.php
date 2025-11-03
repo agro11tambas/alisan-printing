@@ -112,8 +112,12 @@ class WaitingListController extends Controller
                     <small class="text-muted">' . $date . '</small>
                 </div>';
 
-                // 👤 Customer
-                $customer = e($progress->order->customer->name ?? '-');
+                $customerHtml = '
+                    <div>
+                        <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
+                        <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
+                    </div>
+                ';
 
                 // 📦 Product progress partial
                 $progressView = view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
@@ -130,7 +134,7 @@ class WaitingListController extends Controller
                 return [
                     'id' => $progress->id,
                     'invoice_number' => $invoiceNumberHtml,
-                    'customer' => $customer,
+                    'customer' => $customerHtml,
                     'progress' => $progressView,
                     'shipping_address' => $shipping,
                     'action' => $actionButtons,
