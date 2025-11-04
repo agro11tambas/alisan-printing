@@ -133,6 +133,16 @@
                                     </div>
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
+                                            <label for="notes" class="fw-semibold">Note:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <textarea name="notes" id="notes" class="form-control" rows="2" placeholder="Tambahkan catatan (opsional)">{{ $order->notes }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
                                             <label class="fw-semibold">Diskon:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -143,7 +153,8 @@
                                                     {{ $order->discount_active ? 'Aktifkan Diskon' : 'Diskon Nonaktif' }}
                                                 </label>
                                             </div>
-                                            <input type="hidden" id="discount_active_hidden" name="discount_active_hidden"
+                                            <input type="hidden" id="discount_active_hidden"
+                                                name="discount_active_hidden"
                                                 value="{{ $order->discount_active ? 1 : 0 }}">
                                         </div>
                                     </div>

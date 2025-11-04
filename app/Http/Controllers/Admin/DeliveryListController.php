@@ -60,6 +60,15 @@ class DeliveryListController extends Controller
             }
         }
 
+        if ($request->filled('search_product')) {
+            $productKeyword = trim(strtolower($request->search_product));
+
+            $deliveryLists->whereHas('items.product', function ($q) use ($productKeyword) {
+                // gunakan COLLATE biar bisa handle tanda kurung
+                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+            });
+        }
+
         if ($request->filled('status') && strtolower($request->status) != 'all') {
             $deliveryLists->where('status', $request->status);
         }
@@ -177,33 +186,44 @@ class DeliveryListController extends Controller
                     }
 
                     $itemsMobile = "
-                    <div style='background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;
-                                padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);
-                                font-size:13px;line-height:1.5;'>
-                        <div style='margin-bottom:10px;'>
-                            <div><strong>Shipment:</strong> <span style='color:#2563eb;'>{$dl->shipment_number}</span></div>
-                            <div><strong>Customer:</strong> " . e($dl->deliveryOrder->customer ?? '-') . "</div>
-                            <div><strong>Address:</strong><br>
-                                <div style='color:#4b5563;max-width:300px;white-space:normal;word-break:break-word;overflow-wrap:break-word;'>
-                                    " . e($dl->deliveryOrder->shipping_address ?? '-') . "
+                        <div style='background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;
+                            padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);
+                            font-size:13px;line-height:1.5;'>
+                            <div style='margin-bottom:10px;'>
+                                <div><strong>Shipment:</strong> <span style='color:#2563eb;'>{$dl->shipment_number}</span></div>
+                                <div><strong>Customer:</strong> " . e($dl->deliveryOrder->customer ?? '-') . "</div>
+                                <div><strong>Address:</strong><br>
+                                    <div style='color:#4b5563;max-width:300px;white-space:normal;word-break:break-word;overflow-wrap:break-word;'>
+                                        " . e($dl->deliveryOrder->shipping_address ?? '-') . "
+                                    </div>
+                                </div>
+                            " . (
+                        $dl->deliveryOrder->google_map_link
+                        ? "<a href='" . e($dl->deliveryOrder->google_map_link) . "' 
+                                        target='_blank'
+                                        style='display:inline-block;margin-top:8px;padding:6px 10px;
+                                        background:#2563eb;color:white;border-radius:6px;
+                                        font-size:12px;text-decoration:none;'>
+                                        <i class=\"feather-map-pin\"></i> Lihat di Maps
+                                    </a>"
+                        : "<span class='text-muted' style='font-size:12px;'>Tidak ada link Maps</span>"
+                    ) . "
+                            </div>
+                            <div>
+                                <strong>Items:</strong>
+                                <div class='table-responsive' style='margin-top:6px;'>
+                                    <table style='width:100%; border-collapse:collapse;'>
+                                        <thead>
+                                            <tr style=\"background:#f3f4f6; text-align:left;\">
+                                                <th style='padding:6px 8px; font-size:12px; font-weight:600; color:#374151;'>Product</th>
+                                                <th style='padding:6px 8px; text-align:right; font-size:12px; font-weight:600; color:#374151;'>Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>$rows</tbody>
+                                    </table>
                                 </div>
                             </div>
-                        </div>
-                        <div>
-                            <strong>Items:</strong>
-                            <div class='table-responsive' style='margin-top:6px;'>
-                                <table style='width:100%; border-collapse:collapse;'>
-                                    <thead>
-                                        <tr style=\"background:#f3f4f6; text-align:left;\">
-                                            <th style='padding:6px 8px; font-size:12px; font-weight:600; color:#374151;'>Product</th>
-                                            <th style='padding:6px 8px; text-align:right; font-size:12px; font-weight:600; color:#374151;'>Qty</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>$rows</tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>";
+                        </div>";
                 }
 
                 // ⚙️ Action button partial
@@ -461,9 +481,9 @@ class DeliveryListController extends Controller
         $deliveryList = DeliveryList::findOrFail($id);
 
         // ✅ Pastikan bukti sudah lengkap sebelum bisa diverifikasi
-        if (!$deliveryList->proof_photos) {
-            return redirect()->back()->with('error', 'Bukti pengantaran dan surat jalan belum lengkap.');
-        }
+        // if (!$deliveryList->proof_photos) {
+        //     return redirect()->back()->with('error', 'Bukti pengantaran dan surat jalan belum lengkap.');
+        // }
 
         $deliveryList->status = 'Finished';
         $deliveryList->verified_by = Auth::id(); // kalau kamu mau catat siapa yang verifikasi

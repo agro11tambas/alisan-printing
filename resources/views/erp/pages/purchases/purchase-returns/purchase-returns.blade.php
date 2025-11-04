@@ -34,6 +34,39 @@
         #purchaseReturnTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
+
+        .static-action-menu {
+            padding: 12px;
+            min-width: 500px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px 20px;
+        }
+
+        .action-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .action-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #6c757d;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 7px;
+            padding-bottom: 4px;
+        }
+
+        .dropdown-item {
+            font-size: 13px;
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
     </style>
 @endpush
 
@@ -225,7 +258,7 @@
                     <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger close-icon"
                         data-bs-dismiss="modal"><i class="feather-x text-danger"></i></a>
                 </div>
-                <form method="POST" id="refundFormProduct">
+                <form method="POST" id="refundFormProduct" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" id="purchase_return_id_product" name="purchase_return_id">
                     <div class="modal-body">
@@ -302,6 +335,22 @@
                                 <span class="fw-semibold fs-12" id="refund_amount_display_product">Refund: Rp. 0</span>
                             </div>
                         </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="payment_proof" name="payment_proof"
+                                        accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
+                                </div>
+                                <small class="text-muted">Upload foto bukti transfer (Gambar)</small>
+                                <small class="text-danger d-none" id="error_payment_proof"></small>
+                                <div class="mt-2 d-none" id="proof_preview_wrapper">
+                                    <p class="fw-semibold mb-1">Preview:</p>
+                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
+                                        style="max-height: 200px;">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer d-flex justify-content-between">
                         <div>
@@ -323,7 +372,7 @@
                     <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger close-icon"
                         data-bs-dismiss="modal"><i class="feather-x text-danger"></i></a>
                 </div>
-                <form method="POST" id="refundFormFreight">
+                <form method="POST" id="refundFormFreight" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" id="purchase_return_id_freight" name="purchase_return_id">
                     <div class="modal-body">
@@ -398,6 +447,22 @@
                                 </div>
                                 <small class="text-danger d-none" id="error_refund_amount_freight"></small>
                                 <span class="fw-semibold fs-12" id="refund_amount_display_freight">Refund: Rp. 0</span>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="payment_proof" name="payment_proof"
+                                        accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
+                                </div>
+                                <small class="text-muted">Upload foto bukti transfer (Gambar)</small>
+                                <small class="text-danger d-none" id="error_payment_proof"></small>
+                                <div class="mt-2 d-none" id="proof_preview_wrapper">
+                                    <p class="fw-semibold mb-1">Preview:</p>
+                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
+                                        style="max-height: 200px;">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -836,7 +901,7 @@
                     }
                 });
             }
-            
+
             function resetAndReloadDeleted() {
                 deletedAllData = [];
                 deletedCurrentPage = 0;
@@ -960,57 +1025,115 @@
 
             let valid = true;
 
-            const transactionType = document.getElementById('transaction_type_product').value.trim();
-            const transactionDate = document.getElementById('transaction_date_product').value.trim();
-            const cashBankAccount = document.getElementById('cash_bank_account_id_product').value.trim();
-            const refundAmountRaw = document.getElementById('refund_amount_product').value.trim();
-            const refundAmount = refundAmountRaw.replace(/\./g, '');
-            const remainingRaw = document.getElementById('total_amount_display_product').innerText.trim().replace(
-                /\./g, '');
-            const remainingAmount = parseInt(remainingRaw) || 0;
+            const transactionType = document.getElementById('transaction_type_product')?.value.trim() || '';
+            const transactionDate = document.getElementById('transaction_date_product')?.value.trim() || '';
+            const cashBankAccount = document.getElementById('cash_bank_account_id_product')?.value.trim() || '';
+
+            // const paidAmountRaw = document.getElementById('paid_amount_product')?.value.trim() || '0';
+            // const paidAmount = paidAmountRaw.replace(/\./g, "");
+
+            // const remainingRaw = document.getElementById('total_amount_display_product')?.innerText.trim().replace(
+            //     /\./g, "") || '0';
+            // const remainingAmount = parseInt(remainingRaw) || 0;
+
+            const refundAmountRaw = document.getElementById('refund_amount_product')?.value.trim() || '0';
+            // Bersihkan format Indonesia: hapus titik (pemisah ribuan), ganti koma dengan titik (desimal)
+            const refundAmount = parseFloat(refundAmountRaw.replace(/\./g, "").replace(",", ".")) || 0;
+
+            const remainingRaw = document.getElementById('total_amount_display_product')?.innerText.trim()
+                .replace(/\./g, "").replace(",", ".") || '0';
+            const remainingAmount = parseFloat(remainingRaw) || 0; // ✅ parseFloat!
 
             if (!transactionType) {
                 const el = document.getElementById('error_transaction_type_product');
-                el.innerText = 'Purchase Return Account wajib dipilih';
-                el.classList.remove('d-none');
+                if (el) {
+                    el.innerText = 'Purchase Account wajib dipilih';
+                    el.classList.remove('d-none');
+                }
                 valid = false;
             }
 
             if (!transactionDate) {
                 const el = document.getElementById('error_transaction_date_product');
-                el.innerText = 'Tanggal transaksi wajib diisi';
-                el.classList.remove('d-none');
+                if (el) {
+                    el.innerText = 'Tanggal transaksi wajib diisi';
+                    el.classList.remove('d-none');
+                }
                 valid = false;
             }
 
             if (!cashBankAccount) {
                 const el = document.getElementById('error_cash_bank_account_id_product');
-                el.innerText = 'Pilih Cash/Bank Account';
+                if (el) {
+                    el.innerText = 'Pilih Cash/Bank Account';
+                    el.classList.remove('d-none');
+                }
+                valid = false;
+            }
+
+            if (!refundAmount || isNaN(refundAmount) || refundAmount <= 0) {
+                const el = document.getElementById('error_refund_amount_product');
+                if (el) {
+                    el.innerText = 'refund amount harus diisi dan lebih dari 0';
+                    el.classList.remove('d-none');
+                }
+                valid = false;
+            } else if (refundAmount > remainingAmount) { // ✅ Float vs Float
+                const el = document.getElementById('error_refund_amount_product');
+                if (el) {
+                    el.innerText = 'refund amount tidak boleh melebihi Balance';
+                    el.classList.remove('d-none');
+                }
+                valid = false;
+            }
+
+            // 💾 Validasi file
+            const fileInput = document.getElementById('payment_proof');
+            const file = fileInput.files[0];
+            if (file) {
+                const allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+                const ext = file.name.split('.').pop().toLowerCase();
+
+                if (!allowedExt.includes(ext)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format Tidak Valid!',
+                        text: 'File harus berupa JPG, JPEG, PNG, atau WEBP.',
+                    });
+                    return; // 🚫 stop total
+                }
+
+                if (file.size > 2 * 1024 * 1024) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'File Terlalu Besar!',
+                        text: 'Ukuran file maksimal 2MB.',
+                    });
+                    return; // 🚫 stop total
+                }
+            }
+
+            if (!valid) {
+                return false;
+            }
+
+            const cleanRefund = refundAmountRaw
+                .replace(/\./g, '') // Hapus titik (pemisah ribuan)
+                .replace(',', '.'); // Ganti koma dengan titik (desimal)
+
+            // Validasi final sebelum submit
+            const parsedRefund = parseFloat(cleanRefund);
+            if (isNaN(parsedRefund) || parsedRefund <= 0) {
+                const el = document.getElementById('error_refund_amount_product');
+                el.innerText = 'refund amount tidak valid';
                 el.classList.remove('d-none');
-                valid = false;
+                return false;
             }
 
-            if (!refundAmount || isNaN(refundAmount) || parseInt(refundAmount) <= 0) {
-                const el = document.getElementById('error_refund_amount_product');
-                if (el) {
-                    el.innerText = 'Refund amount harus diisi dan lebih dari 0';
-                    el.classList.remove('d-none');
-                }
-                valid = false;
-            } else if (parseInt(refundAmount) > remainingAmount) {
-                const el = document.getElementById('error_refund_amount_product');
-                if (el) {
-                    el.innerText = 'Refund amount tidak boleh melebihi Balance';
-                    el.classList.remove('d-none');
-                }
-                valid = false;
-            }
-
-            if (!valid) return;
-
-            document.getElementById('refund_amount_product').value = refundAmount;
-
+            // Set nilai yang sudah dibersihkan ke input
+            document.getElementById('refund_amount_product').value = cleanRefund;
             this.submit();
+
         });
 
         document.getElementById('refundFormFreight').addEventListener('submit', function(e) {
@@ -1023,18 +1146,20 @@
 
             let valid = true;
 
-            const transactionType = document.getElementById('transaction_type_freight').value.trim();
-            const transactionDate = document.getElementById('transaction_date_freight').value.trim();
-            const cashBankAccount = document.getElementById('cash_bank_account_id_freight').value.trim();
-            const refundAmountRaw = document.getElementById('refund_amount_freight').value.trim();
-            const refundAmount = refundAmountRaw.replace(/\./g, '');
-            const remainingRaw = document.getElementById('total_amount_display_freight').innerText.trim().replace(
-                /\./g, '');
-            const remainingAmount = parseInt(remainingRaw) || 0;
+            const transactionType = document.getElementById('transaction_type_freight')?.value.trim() || '';
+            const transactionDate = document.getElementById('transaction_date_freight')?.value.trim() || '';
+            const cashBankAccount = document.getElementById('cash_bank_account_id_freight')?.value.trim() || '';
+
+            const refundAmountRaw = document.getElementById('refund_amount_freight')?.value.trim() || '0';
+            const refundAmount = parseFloat(refundAmountRaw.replace(/\./g, "").replace(",", ".")) || 0;
+
+            const remainingRaw = document.getElementById('total_amount_display_freight')?.innerText.trim()
+                .replace(/\./g, "").replace(",", ".") || '0';
+            const remainingAmount = parseFloat(remainingRaw) || 0;
 
             if (!transactionType) {
                 const el = document.getElementById('error_transaction_type_freight');
-                el.innerText = 'Purchase Return Account wajib dipilih';
+                el.innerText = 'Purchase Account wajib dipilih';
                 el.classList.remove('d-none');
                 valid = false;
             }
@@ -1053,25 +1178,31 @@
                 valid = false;
             }
 
-            if (!refundAmount || isNaN(refundAmount) || parseInt(refundAmount) <= 0) {
+            if (!refundAmount || isNaN(refundAmount) || refundAmount <= 0) {
                 const el = document.getElementById('error_refund_amount_freight');
-                if (el) {
-                    el.innerText = 'Refund amount harus diisi dan lebih dari 0';
-                    el.classList.remove('d-none');
-                }
+                el.innerText = 'refund amount harus diisi dan lebih dari 0';
+                el.classList.remove('d-none');
                 valid = false;
-            } else if (parseInt(refundAmount) > remainingAmount) {
+            } else if (refundAmount > remainingAmount) {
                 const el = document.getElementById('error_refund_amount_freight');
-                if (el) {
-                    el.innerText = 'Refund amount tidak boleh melebihi Balance';
-                    el.classList.remove('d-none');
-                }
+                el.innerText = 'refund amount tidak boleh melebihi Balance';
+                el.classList.remove('d-none');
                 valid = false;
             }
 
-            if (!valid) return;
+            if (!valid) return false;
 
-            document.getElementById('refund_amount_freight').value = refundAmount;
+            // Bersihkan angka sebelum kirim
+            const cleanRefund = refundAmountRaw.replace(/\./g, '').replace(',', '.');
+            const parsedRefund = parseFloat(cleanRefund);
+            if (isNaN(parsedRefund) || parsedRefund <= 0) {
+                const el = document.getElementById('error_refund_amount_freight');
+                el.innerText = 'refund amount tidak valid';
+                el.classList.remove('d-none');
+                return false;
+            }
+
+            document.getElementById('refund_amount_freight').value = cleanRefund;
             this.submit();
         });
 
@@ -1130,6 +1261,24 @@
         $('#modalRefundProduct, #modalRefundFreight').on('shown.bs.modal', function() {
             if ($.fn.select2) {
                 $('#cash_bank_account_id_product, #cash_bank_account_id_freight').trigger('change.select2');
+            }
+        });
+
+        document.getElementById('payment_proof').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const previewWrapper = document.getElementById('proof_preview_wrapper');
+            const preview = document.getElementById('proof_preview');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    previewWrapper.classList.remove('d-none');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                previewWrapper.classList.add('d-none');
+                preview.src = '#';
             }
         });
     </script>

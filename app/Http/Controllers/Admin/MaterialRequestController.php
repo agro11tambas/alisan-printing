@@ -67,6 +67,15 @@ class MaterialRequestController extends Controller
             }
         }
 
+        if ($request->filled('search_product')) {
+            $productKeyword = trim(strtolower($request->search_product));
+
+            $materialRequest->whereHas('items.product', function ($q) use ($productKeyword) {
+                // gunakan COLLATE biar bisa handle tanda kurung
+                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+            });
+        }
+
         // ✅ Filter status progress
         if ($request->has('progress_status')) {
             if ($request->progress_status === 'completed') {
@@ -262,7 +271,7 @@ class MaterialRequestController extends Controller
             ->toArray();
 
         // 🔹 Ambil semua produk dengan stok inventory
-        $products = \App\Models\Products::with('inventoryStock')
+        $products = \App\Models\Products::with('inventoryStock', 'productionStocks')
             ->orderBy('name', 'asc')
             ->get();
 
@@ -273,6 +282,7 @@ class MaterialRequestController extends Controller
                 'name' => $product->name,
                 'sku'  => $product->sku,
                 'inventory_stock' => optional($product->inventoryStock)->inventory_stock ?? 0,
+                'pending_waiting_list' => optional($product->productionStocks)->pending_waiting_list ?? 0,
             ];
         })->toArray();
 
@@ -288,6 +298,7 @@ class MaterialRequestController extends Controller
                         'name' => $product->name,
                         'sku'  => $product->sku,
                         'inventory_stock' => optional($product->inventoryStock)->inventory_stock ?? 0,
+                        'pending_waiting_list' => optional($product->productionStocks)->pending_waiting_list ?? 0,
                     ];
                 })
                 ->toArray();

@@ -110,6 +110,11 @@
                                             <option value="completed">Completed</option>
                                         </select>
                                     </div>
+                                    <div class="col-lg-3">
+                                        <label for="search_product" class="fw-semibold fs-12">Search Product</label>
+                                        <input type="text" id="search_product" class="form-control"
+                                            placeholder="Product name...">
+                                    </div>
                                     <div class="col-lg-6">
                                         <label for="search_type" class="fw-semibold fs-12">Filter By</label>
                                         <div class="row g-3">
@@ -217,6 +222,7 @@
                         search_keyword: $('#search_keyword').val(),
                         search_type_dropdown: $('#search_type_dropdown').val(),
                         progress_status: $('#progress_status').val(),
+                        search_product: $('#search_product').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -290,7 +296,7 @@
             });
 
             let searchTimeout = null;
-            $('#search_keyword, #search_type_dropdown').on('keyup change', function() {
+            $('#search_keyword, #search_type_dropdown, #search_product').on('keyup change input paste', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => resetAndReload(), 400);
             });

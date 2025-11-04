@@ -17,6 +17,7 @@ class OrderProgressHistory extends Model
     protected $fillable = [
         'order_progress_batch_id',
         'order_progress_item_id',
+        'product_id',
         'order_progress_assign_id',
         'change_quantity',
         'completed_quantity',
@@ -29,6 +30,11 @@ class OrderProgressHistory extends Model
     protected $casts = [
         'deleted_at' => 'datetime',
     ];
+
+    public function product()
+    {
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
+    }
 
     public function batch()
     {

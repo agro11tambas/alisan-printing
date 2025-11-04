@@ -72,15 +72,18 @@ class OrderProgress extends Model
         static::deleting(function ($progress) {
             if ($progress->isForceDeleting()) {
                 $progress->items()->withTrashed()->get()->each->forceDelete();
+                $progress->assignBatches()->withTrashed()->get()->each->forceDelete();
                 $progress->batches()->withTrashed()->get()->each->forceDelete();
             } else {
                 $progress->items()->get()->each->delete();
+                $progress->assignBatches()->get()->each->delete();
                 $progress->batches()->get()->each->delete();
             }
         });
 
         static::restoring(function ($progress) {
             $progress->items()->withTrashed()->get()->each->restore();
+            $progress->assignBatches()->withTrashed()->get()->each->restore();
             $progress->batches()->withTrashed()->get()->each->restore();
         });
     }

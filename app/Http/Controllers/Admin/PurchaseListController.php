@@ -504,14 +504,14 @@ class PurchaseListController extends Controller
                 'purchase_number'      => $purchase->purchase_number,
                 'transaction_date'     => $purchase->purchase_date,
                 'account_id'           => $purchaseAccount->id,
-                'debit'                => $purchase->total_amount_product, // hanya product
+                'debit'                => $grandTotal, // hanya product
                 'credit'               => 0,
                 'note'                 => 'Purchase Account Transaction',
                 'particular'           => 'Purchase Invoice',
                 'transaction_group_id' => $groupId,
             ]);
 
-            $purchaseAccount->increment('closing_balance', $purchase->total_amount_product);
+            $purchaseAccount->increment('closing_balance', $grandTotal);
 
             DB::commit();
             return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase order created successfully');
@@ -562,6 +562,7 @@ class PurchaseListController extends Controller
 
     public function update(Request $request, $id)
     {
+        // dd($request->all());
         $request->validate([
             'purchase_date'   => 'required|date',
             'due_date_option' => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
@@ -859,6 +860,46 @@ class PurchaseListController extends Controller
 
             $purchase->update(['status_edited' => true]);
 
+            // ===== 9️⃣ UPDATE ACCOUNT TRANSACTION
+            try {
+                $purchaseAccount = Account::where('type', 'Purchase Account')->firstOrFail();
+
+                $accountTransaction = AccountTransaction::where('purchase_id', $purchase->id)
+                    ->where('account_id', $purchaseAccount->id)
+                    ->first();
+
+                $groupId = $accountTransaction->transaction_group_id ?? Str::uuid();
+
+                if ($accountTransaction) {
+                    // 💰 Kurangi dulu balance lama, lalu tambahkan balance baru
+                    $purchaseAccount->decrement('closing_balance', $accountTransaction->debit);
+
+                    $accountTransaction->update([
+                        'transaction_date'     => $purchase->purchase_date,
+                        'debit'                => $grandTotal,
+                        'credit'               => 0,
+                        'note'                 => 'Purchase Account Transaction (Edited)',
+                        'particular'           => 'Purchase Invoice Updated',
+                    ]);
+                } else {
+                    AccountTransaction::create([
+                        'purchase_id'          => $purchase->id,
+                        'purchase_number'      => $purchase->purchase_number,
+                        'transaction_date'     => $purchase->purchase_date,
+                        'account_id'           => $purchaseAccount->id,
+                        'debit'                => $grandTotal,
+                        'credit'               => 0,
+                        'note'                 => 'Purchase Account Transaction (Created via Edit)',
+                        'particular'           => 'Purchase Invoice Updated',
+                        'transaction_group_id' => $groupId,
+                    ]);
+                }
+
+                $purchaseAccount->increment('closing_balance', $grandTotal);
+            } catch (\Exception $e) {
+                Log::warning("Gagal update account transaction untuk purchase {$purchase->id}: " . $e->getMessage());
+            }
+
             DB::commit();
             return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase updated successfully.');
         } catch (\Exception $e) {
@@ -986,9 +1027,9 @@ class PurchaseListController extends Controller
 
     public function markAsPaidProduct($id, Request $request)
     {
-        $request->merge([
-            'paid_amount' => str_replace('.', '', $request->paid_amount),
-        ]);
+        // $request->merge([
+        //     'paid_amount' => str_replace(',', '.', str_replace('.', '', $request->paid_amount)),
+        // ]);
 
         $request->validate([
             'purchase_id' => 'required|exists:purchases,id',
@@ -998,6 +1039,7 @@ class PurchaseListController extends Controller
             'transaction_type' => 'required|exists:accounts,id',
             'note' => 'nullable|string',
             'particular' => 'nullable|string',
+            'payment_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         DB::beginTransaction();
@@ -1008,6 +1050,24 @@ class PurchaseListController extends Controller
 
             $purchaseAccount = Account::findOrFail($request->transaction_type);
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
+
+            $proofPath = null;
+            if ($request->hasFile('payment_proof')) {
+                $file = $request->file('payment_proof');
+                $uploadPath = public_path('uploads/payment_proofs');
+
+                // Buat folder jika belum ada
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                // Generate nama unik
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move($uploadPath, $fileName);
+
+                // Simpan path relatif
+                $proofPath = 'uploads/payment_proofs/' . $fileName;
+            }
 
             // =========================
             // 1️⃣ Kas / Bank - CREDIT
@@ -1022,6 +1082,7 @@ class PurchaseListController extends Controller
                 'note'                 => $request->note ?? '',
                 'particular'           => 'Purchase Product Payment - ' . $purchaseAccount->name,
                 'transaction_group_id' => $groupId,
+                'proof'           => $proofPath
             ]);
 
             $cashBankAccount->decrement('closing_balance', $request->paid_amount);
@@ -1039,6 +1100,7 @@ class PurchaseListController extends Controller
                 'note'                 => $request->note ?? '',
                 'particular'           => 'Purchase Product Payment - ' . $cashBankAccount->name,
                 'transaction_group_id' => $groupId,
+                'proof'         => $proofPath
             ]);
 
             $purchaseAccount->increment('closing_balance', $request->paid_amount);
@@ -1074,9 +1136,9 @@ class PurchaseListController extends Controller
 
     public function markAsPaidFreight($id, Request $request)
     {
-        $request->merge([
-            'paid_amount' => str_replace('.', '', $request->paid_amount),
-        ]);
+        // $request->merge([
+        //     'paid_amount' => str_replace(',', '.', str_replace('.', '', $request->paid_amount)),
+        // ]);
 
         $request->validate([
             'purchase_id' => 'required|exists:purchases,id',
@@ -1086,6 +1148,7 @@ class PurchaseListController extends Controller
             'transaction_type' => 'required|exists:accounts,id',
             'note' => 'nullable|string',
             'particular' => 'nullable|string',
+            'proof' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         DB::beginTransaction();
@@ -1096,6 +1159,24 @@ class PurchaseListController extends Controller
 
             $purchaseAccount = Account::findOrFail($request->transaction_type);
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
+
+            $proofPath = null;
+            if ($request->hasFile('payment_proof')) {
+                $file = $request->file('payment_proof');
+                $uploadPath = public_path('uploads/payment_proofs');
+
+                // Buat folder jika belum ada
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                // Generate nama unik
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move($uploadPath, $fileName);
+
+                // Simpan path relatif
+                $proofPath = 'uploads/payment_proofs/' . $fileName;
+            }
 
             // =========================
             // 1️⃣ Kas / Bank - CREDIT
@@ -1110,6 +1191,7 @@ class PurchaseListController extends Controller
                 'note'                 => $request->note ?? '',
                 'particular'           => 'Freight Payment - ' . $purchaseAccount->name,
                 'transaction_group_id' => $groupId,
+                'proof'         => $proofPath
             ]);
 
             $cashBankAccount->decrement('closing_balance', $request->paid_amount);
@@ -1127,6 +1209,7 @@ class PurchaseListController extends Controller
                 'note'                 => $request->note ?? '',
                 'particular'           => 'Freight Payment - ' . $cashBankAccount->name,
                 'transaction_group_id' => $groupId,
+                'proof'         => $proofPath
             ]);
 
             $purchaseAccount->increment('closing_balance', $request->paid_amount);

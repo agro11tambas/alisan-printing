@@ -22,6 +22,7 @@ use App\Models\InventoryItem;
 use App\Models\ProductCombination;
 use App\Models\Bank;
 use App\Models\CanceledProduct;
+use App\Models\DeliveryList;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
 use App\Models\Design;
@@ -32,6 +33,8 @@ use App\Models\Invoice;
 use App\Models\OrderEditHistory;
 use App\Models\OrderItemComponent;
 use App\Models\OrderProgress;
+use App\Models\OrderProgressAssign;
+use App\Models\OrderProgressAssignBatch;
 use App\Models\OrderProgressHistory;
 use App\Models\OrderProgressItem;
 use App\Models\ProductBundle;
@@ -469,6 +472,7 @@ class SaleListController extends Controller
                     'status' => $statusBadge,
                     'payment_method' => e($order->payment_method ?? '-'),
                     'products' => $items,
+                    'notes' => e($order->notes ?? '-'),
                     'action' => view('erp.pages.sales.sale-list.partials.action-button', compact('order'))->render(),
                 ];
             }),
@@ -787,6 +791,7 @@ class SaleListController extends Controller
             'sub_total'            => 'required|numeric|min:0',
             'total_discount'       => 'required|numeric|min:0',
             'total_amount'         => 'required|numeric|min:0',
+            'notes'                => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -944,70 +949,6 @@ class SaleListController extends Controller
                     }
                 }
             }
-
-            // $orderProgress = OrderProgress::create([
-            //     'order_id' => $order->id,
-            //     'date'     => now()->format('Y-m-d'),
-            //     'status'   => 'Pending',
-            //     'notes'    => null,
-            //     'invoice_number' => $order->order_number,
-
-            // ]);
-
-            // foreach ($order->orderItems as $orderItem) {
-            //     $qty = $orderItem->quantity;
-
-            //     if ($orderItem->satuan === 'satuan') {
-            //         // buat progress biasa
-            //         OrderProgressItem::create([
-            //             'order_progress_id' => $orderProgress->id,
-            //             'order_item_id'     => $orderItem->id,
-            //             'product_id'        => $orderItem->product_id,
-            //             'quantity'          => $qty,
-            //             'completed_quantity' => 0,
-            //         ]);
-            //     } elseif ($orderItem->satuan === 'bundle') {
-            //         // buat progress per product dalam bundle
-            //         foreach ($orderItem->productBundle->items as $productBundle) {
-            //             $bundleProduct = $productBundle->product;
-            //             if (!$bundleProduct) continue;
-
-            //             OrderProgressItem::create([
-            //                 'order_progress_id' => $orderProgress->id,
-            //                 'order_item_id'     => $orderItem->id,
-            //                 'product_id'        => $bundleProduct->id,
-            //                 'quantity'          => $qty,
-            //                 'completed_quantity' => 0,
-            //             ]);
-            //         }
-            //     }
-            // }
-
-            // // ================== BUAT DELIVERY ORDER ==================
-            // $deliveryOrder = DeliveryOrder::create([
-            //     'order_id'        => $order->id,
-            //     'delivery_number' => 'DO/' . $orderNumber, // bisa pakai format sendiri
-            //     'delivery_date'   => now()->format('Y-m-d'),
-            //     'note'            => $request->notes ?? '',
-            //     'status'          => 'Ongoing', // default
-            //     'shipping_address' => $addressModel?->address,
-            //     'created_by'      => Auth::id(),
-            // ]);
-
-            // // Isi Delivery Order Item dari OrderProgressItem
-            // foreach ($orderProgress->items as $progressItem) {
-            //     DeliveryOrderItem::create([
-            //         'delivery_order_id' => $deliveryOrder->id,
-            //         'order_progress_id' => $orderProgress->id,
-            //         'order_item_id'     => $progressItem->order_item_id,
-            //         'order_progress_item_id' => $progressItem->id,
-            //         'product_id'        => $progressItem->product_id,
-            //         'status'            => $orderProgress->status, // Pending
-            //         'progress_qty'      => $progressItem->quantity,
-            //         'ready_qty'         => 0, // belum siap kirim
-            //         'note'              => null,
-            //     ]);
-            // }
 
             // ================== GANTI OrderProgress → Design ==================
             $designNumber = $orderNumber;
@@ -1492,6 +1433,42 @@ class SaleListController extends Controller
                     // update item lama
                     $orderItem = $existingItems[$key];
                     $diffQty   = $qty - $orderItem->quantity;
+
+                    // cek jika ada progress
+                    $orderProgressExists = \App\Models\OrderProgress::where('order_id', $order->id)->exists();
+
+                    if ($orderProgressExists && $diffQty !== 0) {
+                        if ($type === 'satuan') {
+                            $productionStock = \App\Models\ProductionStock::firstOrCreate(
+                                ['product_id' => $productId],
+                                ['pending_waiting_list' => 0]
+                            );
+
+                            if ($diffQty > 0) {
+                                // qty bertambah → tambahkan pending_waiting_list
+                                $productionStock->increment('pending_waiting_list', $diffQty);
+                            } else {
+                                // qty berkurang → kurangi pending_waiting_list
+                                $productionStock->decrement('pending_waiting_list', abs($diffQty));
+                            }
+                        } elseif ($type === 'bundle') {
+                            $bundle = \App\Models\ProductBundle::with('items')->find($productId);
+                            if ($bundle) {
+                                foreach ($bundle->items as $bundleItem) {
+                                    $productionStock = \App\Models\ProductionStock::firstOrCreate(
+                                        ['product_id' => $bundleItem->product_id],
+                                        ['pending_waiting_list' => 0]
+                                    );
+
+                                    if ($diffQty > 0) {
+                                        $productionStock->increment('pending_waiting_list', $diffQty);
+                                    } else {
+                                        $productionStock->decrement('pending_waiting_list', abs($diffQty));
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     $orderItem->update([
                         'quantity'             => $qty,
@@ -2302,47 +2279,86 @@ class SaleListController extends Controller
             }
 
             // 🔁 Ambil semua progress item untuk order ini
-            $progressItems = OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->get();
+            // $progressItems = OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->get();
+
+            // foreach ($progressItems as $progressItem) {
+            //     $completedQty = (int) $progressItem->completed_quantity;
+            //     if ($completedQty <= 0 || !$progressItem->product_id) continue;
+
+            //     $productionStock = ProductionStock::firstOrCreate(
+            //         ['product_id' => $progressItem->product_id, 'production_warehouse_id' => 2],
+            //         ['canceled_product_stock' => 0, 'finished_product_stock' => 0]
+            //     );
+
+            //     // 🔎 cek apakah progress ini sudah ada di delivery_order_items dengan shipped_qty > 0
+            //     $hasShipped = DeliveryOrderItem::where(function ($q) use ($progressItem) {
+            //         $q->where('order_progress_id', $progressItem->id)
+            //             ->orWhere('order_item_id', $progressItem->order_item_id);
+            //     })
+            //         ->where('shipped_qty', '>', 0)
+            //         ->exists();
+
+            //     // ✅ canceled product selalu bertambah
+            //     $productionStock->increment('canceled_product_stock', $completedQty);
+
+            //     // ✅ Simpan ke tabel canceled_products (ledger detail)
+            //     CanceledProduct::create([
+            //         'production_stock_id' => $productionStock->id,
+            //         'product_id'          => $progressItem->product_id,
+            //         'warehouse_id'        => $productionStock->production_warehouse_id,
+            //         'order_id'            => $order->id,
+            //         'order_item_id'       => $progressItem->order_item_id,
+            //         'quantity'            => $completedQty,
+            //         'date'                => now(),
+            //         'type'                => 'from_order_delete',
+            //         'status'              => 'pending', // masih di pool canceled
+            //         'note'                => 'Canceled product from order delete',
+            //         'created_by'          => Auth::id(),
+            //     ]);
+
+            //     if (!$hasShipped) {
+            //         // ✅ hanya kalau BELUM dikirim: kurangi finished_product_stock
+            //         $productionStock->decrement('finished_product_stock', $completedQty);
+            //     }
+            // }
+
+            // 🔁 Ambil semua progress item untuk order ini
+            $progressItems = OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))
+                ->get(['id', 'product_id', 'order_item_id', 'quantity']);
 
             foreach ($progressItems as $progressItem) {
-                $completedQty = (int) $progressItem->completed_quantity;
-                if ($completedQty <= 0 || !$progressItem->product_id) continue;
+                $qty = (int) $progressItem->quantity;
+                if ($qty <= 0 || !$progressItem->product_id) continue;
 
                 $productionStock = ProductionStock::firstOrCreate(
                     ['product_id' => $progressItem->product_id, 'production_warehouse_id' => 2],
-                    ['canceled_product_stock' => 0, 'finished_product_stock' => 0]
+                    [
+                        'available_quantity'     => 0,
+                        'finished_product_stock' => 0,
+                        'pending_waiting_list'   => 0,
+                        'canceled_product_stock' => 0,
+                    ]
                 );
 
-                // 🔎 cek apakah progress ini sudah ada di delivery_order_items dengan shipped_qty > 0
-                $hasShipped = DeliveryOrderItem::where(function ($q) use ($progressItem) {
-                    $q->where('order_progress_id', $progressItem->id)
-                        ->orWhere('order_item_id', $progressItem->order_item_id);
-                })
-                    ->where('shipped_qty', '>', 0)
-                    ->exists();
+                // snapshot sebelum
+                $beforeAvail   = (int) $productionStock->available_quantity;
+                $beforeFinish  = (int) $productionStock->finished_product_stock;
+                $beforePending = (int) $productionStock->pending_waiting_list;
 
-                // ✅ canceled product selalu bertambah
-                $productionStock->increment('canceled_product_stock', $completedQty);
+                // ✅ Kurangi finished & pending (tidak boleh minus)
+                // $productionStock->finished_product_stock = max(0, $beforeFinish - min($qty, $beforeFinish));
+                $productionStock->pending_waiting_list   = max(0, $beforePending - min($qty, $beforePending));
 
-                // ✅ Simpan ke tabel canceled_products (ledger detail)
-                CanceledProduct::create([
-                    'production_stock_id' => $productionStock->id,
-                    'product_id'          => $progressItem->product_id,
-                    'warehouse_id'        => $productionStock->production_warehouse_id,
-                    'order_id'            => $order->id,
-                    'order_item_id'       => $progressItem->order_item_id,
-                    'quantity'            => $completedQty,
-                    'date'                => now(),
-                    'type'                => 'from_order_delete',
-                    'status'              => 'pending', // masih di pool canceled
-                    'note'                => 'Canceled product from order delete',
-                    'created_by'          => Auth::id(),
-                ]);
+                // 🔍 Cek apakah ada assign di order_progress_assigns untuk progress item ini
+                $totalAssigned = \App\Models\OrderProgressAssign::where('order_progress_item_id', $progressItem->id)
+                    ->sum('assigned_quantity');
 
-                if (!$hasShipped) {
-                    // ✅ hanya kalau BELUM dikirim: kurangi finished_product_stock
-                    $productionStock->decrement('finished_product_stock', $completedQty);
+                if ($totalAssigned > 0) {
+                    // ✅ Kembalikan assign ke stok available & pending
+                    $productionStock->available_quantity   = $beforeAvail + $totalAssigned;
                 }
+
+                $productionStock->save();
             }
 
             // 🔁 Handle account transactions
@@ -2365,9 +2381,22 @@ class SaleListController extends Controller
             }
 
             // 🔁 Bersihkan relasi lain
-            OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->delete();
-            OrderItem::where('order_id', $order->id)->delete();
-            OrderProgress::where('order_id', $order->id)->delete();
+            // OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->delete();
+            // OrderItem::where('order_id', $order->id)->delete();
+            // OrderProgress::where('order_id', $order->id)->delete();
+
+            $progresses = OrderProgress::where('order_id', $order->id)->get();
+
+            foreach ($progresses as $progress) {
+                $progress->delete(); // ini akan trigger booted() di OrderProgress
+            }
+
+            // Setelah itu, hapus design dan item-nya juga
+            $designs = Design::where('order_id', $order->id)->get();
+            foreach ($designs as $design) {
+                $design->delete(); // trigger booted() di Design kalau ditambah event
+            }
+
             OrderEditHistory::where('order_id', $order->id)->delete();
 
             // Simpan delete_notes & deleted_by sebelum soft delete
@@ -2391,6 +2420,226 @@ class SaleListController extends Controller
         }
     }
 
+    public function forceDeleteOwner($id, Request $request)
+    {
+        // ⛔️ batasi hanya Owner
+        if (!Auth::check() || Auth::user()->role !== 'Owner') {
+            abort(403, 'Only Owner can force delete.');
+        }
+
+        $request->validate([
+            'delete_notes' => 'required|string|max:1000',
+            'inventory_warehouse_id' => 'nullable|integer',
+            'production_warehouse_id' => 'nullable|integer',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // ambil order + relasi inti
+            $order = Order::with(['orderItems'])->findOrFail($id);
+
+            $hasSaleReturn = SaleReturn::where('sale_order_id', $order->id)->exists();
+
+            if ($hasSaleReturn) {
+                DB::rollBack();
+                return back()->with('swal_warning', 'Order ini masih memiliki Sale Return. Hapus Sale Return terlebih dahulu sebelum menghapus order ini.');
+            }
+
+            $inventoryWarehouseId  = $request->inventory_warehouse_id  ?? 1;
+            $productionWarehouseId = $request->production_warehouse_id ?? 2;
+
+            /**
+             * 1) Rollback INVENTORY STOCK (seperti delete biasa)
+             */
+            foreach ($order->orderItems as $item) {
+                if ($item->satuan === 'satuan' && $item->product_id) {
+                    $inventoryStock = InventoryStock::firstOrCreate(
+                        ['product_id' => $item->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
+                        ['stock_after_sales' => 0]
+                    );
+                    $inventoryStock->increment('stock_after_sales', $item->quantity);
+                } elseif ($item->satuan === 'bundle' && $item->product_bundle_id) {
+                    $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
+                    if ($bundle) {
+                        foreach ($bundle->items as $bundleItem) {
+                            if (!$bundleItem->product_id) continue;
+
+                            // NOTE: tetap pakai quantity = qty order item (sesuai delete() normal kamu)
+                            $inventoryStock = InventoryStock::firstOrCreate(
+                                ['product_id' => $bundleItem->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
+                                ['stock_after_sales' => 0]
+                            );
+                            $inventoryStock->increment('stock_after_sales', $item->quantity);
+                        }
+                    }
+                }
+            }
+
+            /**
+             * 2) Rollback PRODUCTION STOCK berdasar PROGRESS HISTORY
+             *    - available_quantity += completed_quantity
+             *    - finished_product_stock -= min(completed_quantity, finished_product_stock) (tidak minus)
+             *    - pending_waiting_list  -= min(completed_quantity, pending_waiting_list)  (tidak minus)
+             */
+            // ambil semua progress item utk order ini
+            $progressItems = OrderProgressItem::whereHas('progress', function ($q) use ($order) {
+                $q->where('order_id', $order->id);
+            })
+                ->get(['id', 'product_id', 'order_item_id', 'quantity']);
+
+            foreach ($progressItems as $pi) {
+                $qty = (int) $pi->quantity;
+                if ($qty <= 0 || !$pi->product_id) continue;
+
+                $ps = ProductionStock::firstOrCreate(
+                    ['product_id' => $pi->product_id, 'production_warehouse_id' => $productionWarehouseId],
+                    [
+                        'available_quantity'     => 0,
+                        'finished_product_stock' => 0,
+                        'pending_waiting_list'   => 0,
+                        'canceled_product_stock' => 0,
+                    ]
+                );
+
+                // snapshot sebelum
+                $beforeAvail   = (int) $ps->available_quantity;
+                $beforeFinish  = (int) $ps->finished_product_stock;
+                $beforePending = (int) $ps->pending_waiting_list;
+
+                // ✅ kembalikan ke available
+                $ps->available_quantity = $beforeAvail + $qty;
+
+                // ✅ kurangi finished (tidak boleh minus)
+                $decFinish = min($qty, $beforeFinish);
+                $ps->finished_product_stock = $beforeFinish - $decFinish;
+
+                // ✅ kurangi pending (tidak boleh minus)
+                $decPending = min($qty, $beforePending);
+                $ps->pending_waiting_list = $beforePending - $decPending;
+
+                $ps->save();
+
+                // logging biar tau hasil
+                Log::info('Force delete rollback stock', [
+                    'product_id'      => $pi->product_id,
+                    'rollback_qty'    => $qty,
+                    'avail_before'    => $beforeAvail,
+                    'avail_after'     => $ps->available_quantity,
+                    'finish_before'   => $beforeFinish,
+                    'finish_after'    => $ps->finished_product_stock,
+                    'pending_before'  => $beforePending,
+                    'pending_after'   => $ps->pending_waiting_list,
+                ]);
+            }
+
+            /**
+             * 3) Handle transaksi akun (sama seperti delete biasa)
+             *    - Sale Account: balikin balance dan hapus trx
+             *    - Lainnya: lepas link ke order, tandai notenya
+             */
+            $transactions = AccountTransaction::where('order_id', $order->id)->get();
+            foreach ($transactions as $trx) {
+                $account = Account::find($trx->account_id);
+                if (!$account) {
+                    $trx->delete();
+                    continue;
+                }
+
+                if ($account->type === 'Sale Account') {
+                    $account->closing_balance += $trx->debit;
+                    $account->closing_balance -= $trx->credit;
+                    $trx->delete();
+                } else {
+                    $trx->order_id = null;
+                    $trx->note = trim(($trx->note ?? '') . ' [Order force-deleted by Owner]');
+                    $trx->save();
+                }
+                $account->save();
+            }
+
+            /**
+             * 4) Bersihkan relasi lain (lebih tegas daripada delete biasa)
+             */
+            // Hapus semua history progress lebih dulu
+            OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
+                $q->where('order_id', $order->id);
+            })->delete();
+
+            // Lalu item progress, progress, item order, edit history
+            OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->delete();
+            OrderProgress::where('order_id', $order->id)->delete();
+            OrderItem::where('order_id', $order->id)->delete();
+            OrderEditHistory::where('order_id', $order->id)->delete();
+
+            /**
+             * 4.5) 🧹 Hapus semua DELIVERY ORDER dan DELIVERY LIST terkait order ini
+             */
+            // Hapus semua Delivery Order dan item/shipments-nya
+            $deliveryOrders = DeliveryOrder::with(['items', 'shipments'])
+                ->where('order_id', $order->id)
+                ->get();
+
+            foreach ($deliveryOrders as $do) {
+                // Hapus semua item di delivery order
+                if (method_exists($do, 'items')) {
+                    $do->items()->forceDelete();
+                }
+
+                // Hapus semua shipments kalau ada
+                if (method_exists($do, 'shipments')) {
+                    $do->shipments()->forceDelete();
+                }
+
+                $do->forceDelete();
+
+                Log::info('Force deleted DeliveryOrder', [
+                    'delivery_order_id' => $do->id,
+                    'order_id' => $order->id,
+                ]);
+            }
+
+            // Hapus semua Delivery List dan item-nya
+            $deliveryLists = DeliveryList::with(['items'])
+                ->whereHas('deliveryOrder', fn($q) => $q->where('order_id', $order->id))
+                ->get();
+
+            foreach ($deliveryLists as $dl) {
+                if (method_exists($dl, 'items')) {
+                    $dl->items()->forceDelete();
+                }
+
+                $dl->forceDelete();
+
+                Log::info('Force deleted DeliveryList', [
+                    'delivery_list_id' => $dl->id,
+                    'order_id' => $order->id,
+                ]);
+            }
+
+            /**
+             * 5) Tandai laporan keuangan
+             */
+            FinancialReport::where('reference_table', 'orders')
+                ->where('reference_id', $order->id)
+                ->update(['deleted_at' => now()]);
+
+            /**
+             * 6) Soft delete Order + catat notes
+             */
+            $order->delete_notes = $request->input('delete_notes');
+            $order->deleted_by   = Auth::id();
+            $order->save();
+            $order->delete();
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Order berhasil dihapus (force delete oleh Owner).');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Force delete owner failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
+        }
+    }
+
     public function getSaleListDetail($id)
     {
         $order = Order::with('orderItems')->findOrFail($id);
@@ -2411,6 +2660,7 @@ class SaleListController extends Controller
             'transaction_type' => 'required|exists:accounts,id',
             'note' => 'nullable|string',
             'particular' => 'nullable|string',
+            'payment_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         DB::beginTransaction();
@@ -2423,6 +2673,25 @@ class SaleListController extends Controller
 
             $saleAccount = Account::findOrFail($request->transaction_type); // Akun pembelian (debit)
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id); // Akun kas/bank (kredit)
+
+            // 🟩 Handle upload manual (tanpa storage)
+            $proofPath = null;
+            if ($request->hasFile('payment_proof')) {
+                $file = $request->file('payment_proof');
+                $uploadPath = public_path('uploads/payment_proofs');
+
+                // Buat folder jika belum ada
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                // Generate nama unik
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move($uploadPath, $fileName);
+
+                // Simpan path relatif
+                $proofPath = 'uploads/payment_proofs/' . $fileName;
+            }
 
             // Transaksi DEBIT (akun pembelian bertambah)
             // AccountTransaction::create([
@@ -2450,6 +2719,7 @@ class SaleListController extends Controller
                 'note' => $request->note ?? '',
                 'particular' => $saleAccount->name . ' - ' . $saleAccount->type,
                 'transaction_group_id' => $groupId,
+                'proof' => $proofPath,
             ]);
 
             $cashBankAccount->closing_balance += $request->paid_amount;
@@ -2581,106 +2851,6 @@ class SaleListController extends Controller
         );
     }
 
-    // public function updatePayment(Request $request, $groupId)
-    // {
-    //     $request->merge([
-    //         'paid_amount' => str_replace('.', '', $request->paid_amount), // hapus titik ribuan
-    //     ]);
-
-    //     $request->validate([
-    //         'transaction_date'      => 'required|date',
-    //         'paid_amount'           => 'required|numeric|min:1',
-    //         'cash_bank_account_id'  => 'required|exists:accounts,id',
-    //         'note'                  => 'nullable|string',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
-    //         if ($transactions->isEmpty()) {
-    //             throw new \Exception("Payment not found");
-    //         }
-
-    //         $orderId = $transactions->first()->order_id;
-    //         $order   = Order::findOrFail($orderId);
-
-    //         // rollback saldo lama
-    //         foreach ($transactions as $trx) {
-    //             $acc = $trx->account;
-    //             if ($trx->credit > 0) {
-    //                 $acc->closing_balance -= $trx->credit;
-    //             } elseif ($trx->debit > 0) {
-    //                 $acc->closing_balance += $trx->debit;
-    //             }
-    //             $acc->save();
-    //         }
-
-    //         // hapus transaksi lama
-    //         AccountTransaction::where('transaction_group_id', $groupId)->delete();
-
-    //         // ambil akun sale & akun cash/bank
-    //         $saleAccount     = Account::where('type', 'Sale Account')->firstOrFail();
-    //         $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
-
-    //         // insert ulang transaksi Sale (CREDIT)
-    //         // AccountTransaction::create([
-    //         //     'order_id'            => $order->id,
-    //         //     'transaction_date'    => $request->transaction_date,
-    //         //     'account_id'          => $saleAccount->id,
-    //         //     'debit'               => 0,
-    //         //     'credit'              => $request->paid_amount,
-    //         //     'note'                => $request->note ?? '',
-    //         //     'particular'          => $cashBankAccount->name . ' - ' . $cashBankAccount->type,
-    //         //     'transaction_group_id' => $groupId,
-    //         // ]);
-
-    //         // insert ulang transaksi Cash/Bank (DEBIT)
-    //         AccountTransaction::create([
-    //             'order_id'            => $order->id,
-    //             'transaction_date'    => $request->transaction_date,
-    //             'account_id'          => $cashBankAccount->id,
-    //             'debit'               => $request->paid_amount,
-    //             'credit'              => 0,
-    //             'note'                => $request->note ?? '',
-    //             'particular'          => $saleAccount->name . ' - ' . $saleAccount->type,
-    //             'transaction_group_id' => $groupId,
-    //         ]);
-
-    //         // update saldo baru
-    //         $cashBankAccount->closing_balance += $request->paid_amount;
-    //         $cashBankAccount->save();
-
-    //         // $saleAccount->closing_balance -= $request->paid_amount;
-    //         // $saleAccount->save();
-
-    //         // hitung ulang payment status order
-    //         $totalPaid = AccountTransaction::where('order_id', $order->id)
-    //             ->where('credit', '>', 0) // hanya transaksi credit ke akun Sale
-    //             ->sum('credit');
-
-    //         $order->paid_amount      = $totalPaid;
-    //         $order->remaining_amount = max(0, $order->grand_total - $totalPaid);
-
-    //         if ($order->paid_amount == 0) {
-    //             $order->payment_status = 'Unpaid';
-    //         } elseif ($order->paid_amount < $order->grand_total) {
-    //             $order->payment_status = 'Partially Paid';
-    //         } elseif ($order->paid_amount == $order->grand_total) {
-    //             $order->payment_status = 'Paid';
-    //         } else {
-    //             $order->payment_status = 'Overpaid';
-    //         }
-
-    //         $order->save();
-
-    //         DB::commit();
-    //         return redirect()->back()->with('success', 'Payment berhasil diperbarui.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         return redirect()->back()->with('error', 'Gagal update payment: ' . $e->getMessage());
-    //     }
-    // }
-
     public function updatePayment(Request $request, $groupId)
     {
         $request->merge([
@@ -2806,42 +2976,167 @@ class SaleListController extends Controller
         }
     }
 
+    // public function restore($id)
+    // {
+    //     DB::beginTransaction();
+
+    //     try {
+    //         $order = Order::onlyTrashed()->findOrFail($id);
+
+    //         $hasStockIn = Inventory::whereNotNull('canceled_product_id')
+    //             ->whereHas('items', function ($q) use ($order) {
+    //                 $q->whereIn('order_item_id', $order->orderItems()->withTrashed()->pluck('id'))
+    //                     ->where('stock_in', '>', 0);
+    //             })
+    //             ->exists();
+
+    //         if ($hasStockIn) {
+    //             DB::rollBack();
+    //             return redirect()->back()->with('error', 'Tidak bisa restore! Order ini sudah pernah masuk ke Warehouse (Stock In dari Canceled Product).');
+    //         }
+
+    //         // ✅ restore order dulu
+    //         $order->restore();
+
+    //         // ✅ restore relasi kalau ada
+    //         if (method_exists($order, 'orderItems')) {
+    //             $order->orderItems()->withTrashed()->restore();
+    //         }
+
+    //         $warehouseId = 1; // default atau ambil dari order kalau ada
+
+    //         // 🔁 Kurangi kembali stock_after_sales (kebalikan dari delete)
+    //         foreach ($order->orderItems as $item) {
+    //             if ($item->satuan === 'satuan' && $item->product_id) {
+    //                 $inventoryStock = InventoryStock::firstOrCreate(
+    //                     ['product_id' => $item->product_id, 'inventory_warehouse_id' => $warehouseId],
+    //                     ['stock_after_sales' => 0]
+    //                 );
+    //                 $inventoryStock->decrement('stock_after_sales', $item->quantity);
+    //             } elseif ($item->satuan === 'bundle' && $item->product_bundle_id) {
+    //                 $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
+    //                 if ($bundle) {
+    //                     foreach ($bundle->items as $bundleItem) {
+    //                         if (!$bundleItem->product_id) continue;
+
+    //                         $inventoryStock = InventoryStock::firstOrCreate(
+    //                             ['product_id' => $bundleItem->product_id, 'inventory_warehouse_id' => $warehouseId],
+    //                             ['stock_after_sales' => 0]
+    //                         );
+    //                         $inventoryStock->decrement('stock_after_sales', $item->quantity);
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+    //         // 🔁 Ambil progress item dan rollback canceled_product_stock
+    //         $progressItems = OrderProgressItem::withTrashed()
+    //             ->whereHas('progress', fn($q) => $q->withTrashed()->where('order_id', $order->id))
+    //             ->get();
+
+    //         foreach ($progressItems as $progressItem) {
+    //             $completedQty = (int) $progressItem->completed_quantity;
+    //             if ($completedQty <= 0 || !$progressItem->product_id) continue;
+
+    //             $productionStock = ProductionStock::firstOrCreate(
+    //                 ['product_id' => $progressItem->product_id, 'production_warehouse_id' => 2],
+    //                 ['canceled_product_stock' => 0, 'finished_product_stock' => 0]
+    //             );
+
+    //             // 🔎 cek apakah progress ini sudah ada delivery dengan shipped_qty > 0
+    //             $hasShipped = DeliveryOrderItem::where('order_progress_id', $progressItem->id)
+    //                 ->where('shipped_qty', '>', 0)
+    //                 ->exists();
+
+    //             // ✅ canceled selalu dikurangi
+    //             $productionStock->decrement('canceled_product_stock', $completedQty);
+
+    //             if (!$hasShipped) {
+    //                 // ✅ hanya kalau BELUM dikirim: finished ditambah lagi
+    //                 $productionStock->increment('finished_product_stock', $completedQty);
+    //             }
+    //         }
+
+    //         // ✅ rollback juga ledger canceled_products
+    //         // CanceledProduct::where('order_id', $order->id)
+    //         //     ->where('type', 'from_order_delete')
+    //         //     ->forceDelete();
+
+    //         // ✅ Restore relasi yang dihapus soft delete
+    //         OrderProgress::withTrashed()->where('order_id', $order->id)->restore();
+    //         OrderProgressItem::withTrashed()->whereHas('progress', fn($q) => $q->withTrashed()->where('order_id', $order->id))->restore();
+    //         OrderEditHistory::withTrashed()->where('order_id', $order->id)->restore();
+
+    //         // ✅ Restore transaksi akun
+    //         $transactions = AccountTransaction::whereNull('order_id')
+    //             ->where(function ($q) {
+    //                 $q->where('note', 'like', '%[Order deleted]%');
+    //             })
+    //             ->get();
+
+    //         foreach ($transactions as $trx) {
+    //             $trx->note = str_replace('[Order deleted]', '', $trx->note);
+    //             $trx->order_id = $order->id;
+    //             $trx->save();
+    //         }
+
+    //         FinancialReport::withTrashed()
+    //             ->where('reference_table', 'orders')
+    //             ->where('reference_id', $order->id)
+    //             ->update(['deleted_at' => null]);
+
+    //         DB::commit();
+    //         return redirect()->back()->with('success', 'Order berhasil direstore!');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         Log::error('Restore order gagal', [
+    //             'order_id' => $id,
+    //             'error' => $e->getMessage()
+    //         ]);
+    //         return redirect()->back()->with('error', 'Gagal mengembalikan order!');
+    //     }
+    // }
+
     public function restore($id)
     {
         DB::beginTransaction();
 
         try {
-            $order = Order::onlyTrashed()->findOrFail($id);
+            $order = Order::onlyTrashed()
+                ->with(['orderItems' => fn($q) => $q->withTrashed()])
+                ->findOrFail($id);
 
+            // ⛔️ Cegah restore kalau order sudah pernah stock in dari canceled product
             $hasStockIn = Inventory::whereNotNull('canceled_product_id')
                 ->whereHas('items', function ($q) use ($order) {
-                    $q->whereIn('order_item_id', $order->orderItems()->withTrashed()->pluck('id'))
+                    $q->whereIn('order_item_id', $order->orderItems->pluck('id'))
                         ->where('stock_in', '>', 0);
                 })
                 ->exists();
 
             if ($hasStockIn) {
                 DB::rollBack();
-                return redirect()->back()->with('error', 'Tidak bisa restore! Order ini sudah pernah masuk ke Warehouse (Stock In dari Canceled Product).');
+                return back()->with('error', 'Tidak bisa restore! Order ini sudah pernah masuk ke Warehouse (Stock In dari Canceled Product).');
             }
 
-            // ✅ restore order dulu
+            /**
+             * ✅ 1️⃣ Restore order dan item utamanya
+             */
             $order->restore();
+            $order->orderItems()->withTrashed()->restore();
 
-            // ✅ restore relasi kalau ada
-            if (method_exists($order, 'orderItems')) {
-                $order->orderItems()->withTrashed()->restore();
-            }
+            $warehouseId = 1; // default warehouse
 
-            $warehouseId = 1; // default atau ambil dari order kalau ada
-
-            // 🔁 Kurangi kembali stock_after_sales (kebalikan dari delete)
+            /**
+             * ✅ 2️⃣ Balikkan efek stok INVENTORY (kebalikan dari delete)
+             */
             foreach ($order->orderItems as $item) {
                 if ($item->satuan === 'satuan' && $item->product_id) {
                     $inventoryStock = InventoryStock::firstOrCreate(
                         ['product_id' => $item->product_id, 'inventory_warehouse_id' => $warehouseId],
                         ['stock_after_sales' => 0]
                     );
+                    // saat delete: increment => restore: decrement
                     $inventoryStock->decrement('stock_after_sales', $item->quantity);
                 } elseif ($item->satuan === 'bundle' && $item->product_bundle_id) {
                     $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
@@ -2859,71 +3154,94 @@ class SaleListController extends Controller
                 }
             }
 
-            // 🔁 Ambil progress item dan rollback canceled_product_stock
+            /**
+             * ✅ 3️⃣ Balikkan efek stok PRODUKSI (kebalikan dari delete)
+             */
             $progressItems = OrderProgressItem::withTrashed()
                 ->whereHas('progress', fn($q) => $q->withTrashed()->where('order_id', $order->id))
-                ->get();
+                ->get(['id', 'product_id', 'order_item_id', 'quantity']);
 
             foreach ($progressItems as $progressItem) {
-                $completedQty = (int) $progressItem->completed_quantity;
-                if ($completedQty <= 0 || !$progressItem->product_id) continue;
+                $qty = (int) $progressItem->quantity;
+                if ($qty <= 0 || !$progressItem->product_id) continue;
 
                 $productionStock = ProductionStock::firstOrCreate(
                     ['product_id' => $progressItem->product_id, 'production_warehouse_id' => 2],
-                    ['canceled_product_stock' => 0, 'finished_product_stock' => 0]
+                    [
+                        'available_quantity'     => 0,
+                        'finished_product_stock' => 0,
+                        'pending_waiting_list'   => 0,
+                        'canceled_product_stock' => 0,
+                    ]
                 );
 
-                // 🔎 cek apakah progress ini sudah ada delivery dengan shipped_qty > 0
-                $hasShipped = DeliveryOrderItem::where('order_progress_id', $progressItem->id)
-                    ->where('shipped_qty', '>', 0)
-                    ->exists();
+                // Ambil total assign quantity (karena saat delete stok available ditambah dari assign)
+                $totalAssigned = \App\Models\OrderProgressAssign::withTrashed()
+                    ->where('order_progress_item_id', $progressItem->id)
+                    ->sum('assigned_quantity');
 
-                // ✅ canceled selalu dikurangi
-                $productionStock->decrement('canceled_product_stock', $completedQty);
+                // snapshot sebelum restore
+                $beforeAvail   = (int) $productionStock->available_quantity;
+                $beforeFinish  = (int) $productionStock->finished_product_stock;
+                $beforePending = (int) $productionStock->pending_waiting_list;
 
-                if (!$hasShipped) {
-                    // ✅ hanya kalau BELUM dikirim: finished ditambah lagi
-                    $productionStock->increment('finished_product_stock', $completedQty);
-                }
+                // waktu delete: available += assign, finished/pending -= qty
+                // waktu restore: available -= assign, finished/pending += qty
+                $productionStock->available_quantity = max(0, $beforeAvail - $totalAssigned);
+                // $productionStock->finished_product_stock = $beforeFinish + $qty;
+                $productionStock->pending_waiting_list = $beforePending + $qty;
+
+                $productionStock->save();
             }
 
-            // ✅ rollback juga ledger canceled_products
-            // CanceledProduct::where('order_id', $order->id)
-            //     ->where('type', 'from_order_delete')
-            //     ->forceDelete();
+            /**
+             * ✅ 4️⃣ Restore semua relasi yang ikut kehapus waktu delete
+             */
+            // restore progress + cascading ke items, assignBatch, batches
+            $progresses = OrderProgress::withTrashed()->where('order_id', $order->id)->get();
+            foreach ($progresses as $progress) {
+                $progress->restore(); // trigger booted() restore
+            }
 
-            // ✅ Restore relasi yang dihapus soft delete
-            OrderProgress::withTrashed()->where('order_id', $order->id)->restore();
-            OrderProgressItem::withTrashed()->whereHas('progress', fn($q) => $q->withTrashed()->where('order_id', $order->id))->restore();
+            // restore design + design items
+            $designs = Design::withTrashed()->where('order_id', $order->id)->get();
+            foreach ($designs as $design) {
+                $design->restore(); // trigger booted() restore
+            }
+
+            // restore edit history
             OrderEditHistory::withTrashed()->where('order_id', $order->id)->restore();
 
-            // ✅ Restore transaksi akun
-            $transactions = AccountTransaction::whereNull('order_id')
-                ->where(function ($q) {
-                    $q->where('note', 'like', '%[Order deleted]%');
-                })
+            /**
+             * ✅ 5️⃣ Restore transaksi akun (hapus flag [Order deleted])
+             */
+            $transactions = AccountTransaction::where('note', 'like', '%[Order deleted]%')
+                ->whereNull('order_id')
                 ->get();
 
             foreach ($transactions as $trx) {
-                $trx->note = str_replace('[Order deleted]', '', $trx->note);
+                $trx->note = trim(str_replace('[Order deleted]', '', $trx->note));
                 $trx->order_id = $order->id;
                 $trx->save();
             }
 
+            /**
+             * ✅ 6️⃣ Restore laporan keuangan
+             */
             FinancialReport::withTrashed()
                 ->where('reference_table', 'orders')
                 ->where('reference_id', $order->id)
                 ->update(['deleted_at' => null]);
 
             DB::commit();
-            return redirect()->back()->with('success', 'Order berhasil direstore!');
-        } catch (\Exception $e) {
+            return back()->with('success', 'Order berhasil direstore!');
+        } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Restore order gagal', [
                 'order_id' => $id,
-                'error' => $e->getMessage()
+                'error'    => $e->getMessage(),
             ]);
-            return redirect()->back()->with('error', 'Gagal mengembalikan order!');
+            return back()->with('error', 'Gagal mengembalikan order: ' . $e->getMessage());
         }
     }
 }

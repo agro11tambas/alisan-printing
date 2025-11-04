@@ -12,17 +12,17 @@
                     </a>
                 </li>
 
-                @if ($dl->proof_photos)
-                    <li>
-                        <button type="button" class="dropdown-item btn-verify" data-bs-toggle="modal"
-                            data-bs-target="#modalChangeStatus" data-id="{{ $dl->id }}"
-                            data-name="{{ $dl->shipment_number ?? 'Delivery #' . $dl->id }}"
-                            data-url="{{ route('delivery-list.verify', $dl->id) }}">
-                            <i class="feather feather-check me-3"></i>
-                            <span>Verified</span>
-                        </button>
-                    </li>
-                @endif
+                <li>
+                    <button type="button" class="dropdown-item btn-verify" data-bs-toggle="modal"
+                        data-bs-target="#modalChangeStatus" data-id="{{ $dl->id }}"
+                        data-name="{{ $dl->shipment_number ?? 'Delivery #' . $dl->id }}"
+                        data-url="{{ route('delivery-list.verify', $dl->id) }}">
+                        <i class="feather feather-check me-3"></i>
+                        <span>Verified</span>
+                    </button>
+                </li>
+                {{-- @if ($dl->proof_photos)
+                @endif --}}
 
                 <li>
                     <a href="{{ url('/erp/deliveries/delivery-list/edit-delivery-list/' . $dl->id) }}"
@@ -45,7 +45,7 @@
             @endif
         @endif
 
-        @if (Auth::user()->role === 'Kurir' || Auth::user()->role === 'Owner')
+        @if (Auth::user()->role === 'Kurir' || Auth::user()->role === 'Admin' || Auth::user()->role === 'Owner')
             {{-- ✅ Tombol upload bukti hanya muncul jika belum upload bukti --}}
             @if (empty($dl->proof_photos) || $dl->proof_photos === '[]')
                 <li>

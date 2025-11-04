@@ -12,30 +12,28 @@
         </thead>
         <tbody>
             @foreach ($assigns as $assign)
-            <tr>
-                <td>
-                    <span class="fw-bold text-dark">@if($assign->operator)
-                        {{ $assign->operator->name }}
-                        @else
-                        -
-                        @endif
-                    </span>
-                </td>
-                <td>
-                    <span class="fw-bold text-dark">@if($assign->progressItem->product)
-                        {{ $assign->progressItem->product->name }}
-                        @else
-                        -
-                        @endif
-                    </span>
-                </td>
-                <td><span class="fw-bold text-success">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span>
-                    {{-- /<span class="fw-bold text-primary">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span> --}}
-                </td>
-                {{-- <td><span class="fw-bold text-danger">{{ number_format($assign->defect_quantity, 0, ',', '.') }}</span></td>
+                <tr>
+                    <td>
+                        <span class="fw-bold text-dark">
+                            @if ($assign->operator)
+                                {{ $assign->operator->name }}
+                            @else
+                                -
+                            @endif
+                        </span>
+                    </td>
+                    <td>
+                        <span class="fw-bold text-dark">{{ $assign->progressItem?->product?->name ?? '-' }}
+                        </span>
+                    </td>
+                    <td><span
+                            class="fw-bold text-success">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span>
+                        {{-- /<span class="fw-bold text-primary">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span> --}}
+                    </td>
+                    {{-- <td><span class="fw-bold text-danger">{{ number_format($assign->defect_quantity, 0, ',', '.') }}</span></td>
                 <td><span class="fw-bold text-warning">{{ number_format($assign->reject_quantity, 0, ',', '.') }}</span></td> --}}
-                <td><span class="fw-bold text-dark">{{ $assign->note ?? '-' }}</span></td>
-            </tr>
+                    <td><span class="fw-bold text-dark">{{ $assign->note ?? '-' }}</span></td>
+                </tr>
             @endforeach
         </tbody>
     </table>

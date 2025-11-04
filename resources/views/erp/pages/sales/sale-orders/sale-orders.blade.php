@@ -158,6 +158,7 @@
                                         <!-- <th class="d-none d-md-table-cell">Order Date</th> -->
                                         <th class="d-none d-md-table-cell">Customer</th>
                                         <th>Grand Total</th>
+                                        <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -394,6 +395,9 @@
                     },
                     {
                         data: 'grand_total'
+                    },
+                    {
+                        data: 'notes'
                     },
                     {
                         data: 'order_date', // tambahkan kolom ini

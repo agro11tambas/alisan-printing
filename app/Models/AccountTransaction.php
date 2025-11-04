@@ -27,6 +27,7 @@ class AccountTransaction extends Model
         'debit',
         'balance',
         'note',
+        'proof',
         'particular',
         'transaction_group_id',
     ];

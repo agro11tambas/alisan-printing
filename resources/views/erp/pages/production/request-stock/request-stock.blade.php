@@ -136,6 +136,11 @@
                                             <option value="completed">Completed</option>
                                         </select>
                                     </div>
+                                    <div class="col-lg-3">
+                                        <label for="search_product" class="fw-semibold fs-12">Search Product</label>
+                                        <input type="text" id="search_product" class="form-control"
+                                            placeholder="Product name...">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -405,6 +410,7 @@
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
                         progress_status: $('#progress_status').val(),
+                        search_product: $('#search_product').val(),
                     },
                     success: function(response) {
 
@@ -520,6 +526,11 @@
                         }
                     }, 400);
                 }
+            });
+
+            $('#search_keyword, #search_product').on('keyup input paste', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
 
             $('#requestStockTable tbody').on('click', 'tr', function(e) {

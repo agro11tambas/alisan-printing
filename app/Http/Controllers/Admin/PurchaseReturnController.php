@@ -1358,6 +1358,7 @@ class PurchaseReturnController extends Controller
             'transaction_type'       => 'required|exists:accounts,id',
             'note'                   => 'nullable|string',
             'particular'             => 'nullable|string',
+            'payment_proof'         => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         DB::beginTransaction();
@@ -1367,6 +1368,24 @@ class PurchaseReturnController extends Controller
 
             $purchaseReturnAccount = Account::findOrFail($request->transaction_type);
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
+
+            $proofPath = null;
+            if ($request->hasFile('payment_proof')) {
+                $file = $request->file('payment_proof');
+                $uploadPath = public_path('uploads/payment_proofs');
+
+                // Buat folder jika belum ada
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                // Generate nama unik
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move($uploadPath, $fileName);
+
+                // Simpan path relatif
+                $proofPath = 'uploads/payment_proofs/' . $fileName;
+            }
 
             // 1️⃣ Cash/Bank → DEBIT (uang keluar untuk refund)
             AccountTransaction::create([
@@ -1379,7 +1398,9 @@ class PurchaseReturnController extends Controller
                 'note'                  => $request->note ?? '',
                 'particular'            => 'Refund Product - ' . $purchaseReturnAccount->name,
                 'transaction_group_id'  => $groupId,
+                'proof'         => $proofPath,
             ]);
+
             $cashBankAccount->decrement('closing_balance', $request->refund_amount);
 
             // 2️⃣ Purchase Return Account → CREDIT
@@ -1393,6 +1414,7 @@ class PurchaseReturnController extends Controller
                 'note'                  => $request->note ?? '',
                 'particular'            => 'Refund Product - ' . $cashBankAccount->name,
                 'transaction_group_id'  => $groupId,
+                'proof'         => $proofPath,
             ]);
             $purchaseReturnAccount->decrement('closing_balance', $request->refund_amount);
 
@@ -1438,6 +1460,7 @@ class PurchaseReturnController extends Controller
             'transaction_type'       => 'required|exists:accounts,id',
             'note'                   => 'nullable|string',
             'particular'             => 'nullable|string',
+            'payment_proof'         => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         DB::beginTransaction();
@@ -1447,6 +1470,24 @@ class PurchaseReturnController extends Controller
 
             $purchaseReturnAccount = Account::findOrFail($request->transaction_type);
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
+
+            $proofPath = null;
+            if ($request->hasFile('payment_proof')) {
+                $file = $request->file('payment_proof');
+                $uploadPath = public_path('uploads/payment_proofs');
+
+                // Buat folder jika belum ada
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                // Generate nama unik
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move($uploadPath, $fileName);
+
+                // Simpan path relatif
+                $proofPath = 'uploads/payment_proofs/' . $fileName;
+            }
 
             // 1️⃣ Cash/Bank → DEBIT (uang keluar)
             AccountTransaction::create([
@@ -1459,6 +1500,7 @@ class PurchaseReturnController extends Controller
                 'note'                  => $request->note ?? '',
                 'particular'            => 'Refund Freight - ' . $purchaseReturnAccount->name,
                 'transaction_group_id'  => $groupId,
+                'proof'         => $proofPath,
             ]);
             $cashBankAccount->decrement('closing_balance', $request->refund_amount);
 
@@ -1473,6 +1515,7 @@ class PurchaseReturnController extends Controller
                 'note'                  => $request->note ?? '',
                 'particular'            => 'Refund Freight - ' . $cashBankAccount->name,
                 'transaction_group_id'  => $groupId,
+                'proof'         => $proofPath,
             ]);
             $purchaseReturnAccount->decrement('closing_balance', $request->refund_amount);
 

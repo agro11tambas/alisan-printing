@@ -70,6 +70,15 @@ class WaitingListController extends Controller
             }
         }
 
+        if ($request->filled('search_product')) {
+            $productKeyword = trim(strtolower($request->search_product));
+
+            $progresses->whereHas('items.product', function ($q) use ($productKeyword) {
+                // gunakan COLLATE biar bisa handle tanda kurung
+                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+            });
+        }
+
         // ✅ Filter status progress
         if ($request->filled('progress_status')) {
             if ($request->progress_status === 'completed') {

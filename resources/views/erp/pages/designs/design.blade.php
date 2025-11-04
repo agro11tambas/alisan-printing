@@ -56,11 +56,11 @@
                                 <label for="filter" class="fw-semibold fs-12">Date Filter</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                     <select id="filter" class="form-control" style="width:180px;">
+                                        <option value="this_month">This Month</option>
                                         <option value="all">All Time</option>
                                         <option value="yearly">Yearly</option>
                                         <option value="year_to_date">Year to Date</option>
                                         <option value="last_30_days">Last 30 Days</option>
-                                        <option value="this_month">This Month</option>
                                         <option value="last_7_days">Last 7 Days</option>
                                         <option value="today">Today</option>
                                         <option value="custom">Custom Range</option>
@@ -82,6 +82,11 @@
                                             <option value="Verified">Verified</option>
                                         </select>
                                     </div>
+                                    <div class="col-lg-3">
+                                        <label for="search_product" class="fw-semibold fs-12">Search Product</label>
+                                        <input type="text" id="search_product" class="form-control"
+                                            placeholder="Product name...">
+                                    </div>
                                     <div class="col-lg-6">
                                         <label for="search_type" class="fw-semibold fs-12">Search</label>
                                         <div class="row g-2">
@@ -89,6 +94,7 @@
                                                 <select id="search_type" class="form-control">
                                                     <option value="design_number">Design Number</option>
                                                     <option value="customer">Customer</option>
+                                                    <option value="product">Product</option>
                                                 </select>
                                             </div>
                                             <div class="col-md-7">
@@ -281,6 +287,7 @@
                         search_type: $('#search_type').val(),
                         search_keyword: $('#search_keyword').val(),
                         status: $('#status').val(),
+                        search_product: $('#search_product').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -337,7 +344,7 @@
                 resetAndReload();
             });
 
-            $('#search_keyword').on('keyup', function() {
+            $('#search_keyword, #search_product').on('keyup input paste', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => resetAndReload(), 400);
             });

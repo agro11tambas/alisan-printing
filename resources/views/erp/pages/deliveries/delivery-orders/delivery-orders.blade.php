@@ -103,8 +103,13 @@
                                         <label for="status" class="fw-semibold fs-12">DO Status</label>
                                         <select id="status" class="form-control">
                                             <option value="Ongoing">Ongoing</option>
-                                            <option value="Finished">Finished</option>
+                                            <option value="Shipped">Finished</option>
                                         </select>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label for="search_product" class="fw-semibold fs-12">Search Product</label>
+                                        <input type="text" id="search_product" class="form-control"
+                                            placeholder="Product name...">
                                     </div>
                                     <div class="col-lg-6">
                                         <label for="search_type" class="fw-semibold fs-12">Filter By</label>
@@ -127,10 +132,10 @@
                         <div class="table-responsive">
                             <table class="table table-hover bg-transparent table-hover" id="deliveryOrderTable">
                                 <thead>
-                                    <tr>                                        
-                                        <th class="wd-250">Delivery Number</th>                                        
-                                        <th class="wd-250">Customer</th>                                        
-                                        <th>Products</th>                                        
+                                    <tr>
+                                        <th class="wd-250">Delivery Number</th>
+                                        <th class="wd-250">Customer</th>
+                                        <th>Products</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -315,6 +320,7 @@
                         search_type: $('#search_type').val(),
                         search_keyword: $('#search_keyword').val(),
                         status: $('#status').val(),
+                        search_product: $('#search_product').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -384,12 +390,12 @@
             });
 
             let searchTimeout = null;
-            $('#search_keyword').on('keyup', function() {
+            $('#search_keyword, #search_product').on('keyup input paste', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
 
-            // ========== ACTION ROW (TIDAK DIUBAH) ==========
+            // ========= ACTION ROW (TIDAK DIUBAH) ==========
             $('#deliveryOrderTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 

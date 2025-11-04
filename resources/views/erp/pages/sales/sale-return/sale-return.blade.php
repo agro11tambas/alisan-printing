@@ -34,6 +34,39 @@
         #saleReturnTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
+
+        .static-action-menu {
+            padding: 12px;
+            min-width: 500px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px 20px;
+        }
+
+        .action-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .action-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #6c757d;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 7px;
+            padding-bottom: 4px;
+        }
+
+        .dropdown-item {
+            font-size: 13px;
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
     </style>
 @endpush
 
@@ -231,7 +264,7 @@
                         <i class="feather-x text-danger"></i>
                     </a>
                 </div>
-                <form method="POST" id="markAsSaleForm">
+                <form method="POST" id="markAsSaleForm" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" id="sale_return_id" name="sale_return_id">
 
@@ -324,6 +357,22 @@
                                 <span class="fw-semibold fs-12" id="paid_amount_display">Paid: Rp. 0</span>
                             </div>
                         </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="payment_proof" name="payment_proof"
+                                        accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
+                                </div>
+                                <small class="text-muted">Upload foto bukti transfer (Gambar)</small>
+                                <small class="text-danger d-none" id="error_payment_proof"></small>
+                                <div class="mt-2 d-none" id="proof_preview_wrapper">
+                                    <p class="fw-semibold mb-1">Preview:</p>
+                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
+                                        style="max-height: 200px;">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer d-flex justify-content-between">
                         <div>
@@ -385,6 +434,32 @@
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalForceDeleteOwner" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="POST" id="forceDeleteOwnerForm">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title text-danger">Force Delete Sale Return</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Yakin ingin menghapus permanen Sale Return <b id="fd-order-number"></b>?</p>
+                        <p class="text-danger fw-bold mb-0">Tindakan ini tidak dapat dibatalkan.</p>
+                        <div class="mt-3">
+                            <label for="fd-delete-notes" class="form-label">Alasan Penghapusan</label>
+                            <textarea class="form-control" name="delete_notes" id="fd-delete-notes" rows="2" required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger">Hapus Permanen</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 @endpush
@@ -912,6 +987,32 @@
                 valid = false;
             }
 
+            // 💾 Validasi file
+            const fileInput = document.getElementById('payment_proof');
+            const file = fileInput.files[0];
+            if (file) {
+                const allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+                const ext = file.name.split('.').pop().toLowerCase();
+
+                if (!allowedExt.includes(ext)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format Tidak Valid!',
+                        text: 'File harus berupa JPG, JPEG, PNG, atau WEBP.',
+                    });
+                    return; // 🚫 stop total
+                }
+
+                if (file.size > 2 * 1024 * 1024) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'File Terlalu Besar!',
+                        text: 'Ukuran file maksimal 2MB.',
+                    });
+                    return; // 🚫 stop total
+                }
+            }
+
             if (!valid) return;
 
             document.getElementById('refund_amount').value = refundAmount;
@@ -958,6 +1059,35 @@
         $('#modalChangeStatus').on('shown.bs.modal', function() {
             if ($.fn.select2) {
                 $('#cash_bank_account_id').trigger('change.select2');
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-force-delete-owner');
+            if (!btn) return;
+
+            const form = document.getElementById('forceDeleteOwnerForm');
+            form.action = btn.dataset.url;
+
+            const nameEl = document.getElementById('fd-order-number');
+            if (nameEl) nameEl.textContent = btn.dataset.name || '';
+        });
+
+        document.getElementById('payment_proof').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const previewWrapper = document.getElementById('proof_preview_wrapper');
+            const preview = document.getElementById('proof_preview');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    previewWrapper.classList.remove('d-none');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                previewWrapper.classList.add('d-none');
+                preview.src = '#';
             }
         });
     </script>

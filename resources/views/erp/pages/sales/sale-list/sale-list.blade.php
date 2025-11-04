@@ -38,6 +38,39 @@
         #saleListTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
+
+        .static-action-menu {
+            padding: 12px;
+            min-width: 700px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px 20px;
+        }
+
+        .action-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .action-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #6c757d;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 7px;
+            padding-bottom: 4px;
+        }
+
+        .dropdown-item {
+            font-size: 13px;
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
     </style>
 @endpush
 
@@ -185,6 +218,7 @@
                                                 <th>Paid Amount</th>
                                                 <th>Remaining Amount</th>
                                                 <th>Payment Status</th>
+                                                <th>Note</th>
                                             </tr>
                                         </thead>
                                     </table>
@@ -275,7 +309,7 @@
                         <i class="feather-x text-danger"></i>
                     </a>
                 </div>
-                <form method="POST" id="markAsSaleForm">
+                <form method="POST" id="markAsSaleForm" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" id="order_id" name="order_id">
                     <div class="modal-body">
@@ -368,6 +402,22 @@
                                 </div>
                                 <small class="text-danger d-none" id="error_paid_amount"></small>
                                 <span class="fw-semibold fs-12" id="paid_amount_display">Paid: Rp. 0</span>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="payment_proof" name="payment_proof"
+                                        accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
+                                </div>
+                                <small class="text-muted">Upload foto bukti transfer (Gambar)</small>
+                                <small class="text-danger d-none" id="error_payment_proof"></small>
+                                <div class="mt-2 d-none" id="proof_preview_wrapper">
+                                    <p class="fw-semibold mb-1">Preview:</p>
+                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
+                                        style="max-height: 200px;">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -523,6 +573,36 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="modalForceDeleteOwner" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" id="forceDeleteOwnerForm">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Force Delete Order (Owner)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">Anda akan menghapus <strong id="fd-order-number"></strong> secara permanen
+                            beserta rollback stok produksi.</p>
+                        <div class="mb-3">
+                            <label class="form-label">Delete Notes <span class="text-danger">*</span></label>
+                            <textarea name="delete_notes" class="form-control" rows="3" required placeholder="Alasan penghapusan..."></textarea>
+                        </div>
+                        {{-- opsional: pilih gudang --}}
+                        <input type="hidden" name="inventory_warehouse_id" value="1">
+                        <input type="hidden" name="production_warehouse_id" value="2">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger">Force Delete</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
 @endpush
 
 @push('scripts')
@@ -589,7 +669,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [7, 'desc']
+                    [8, 'desc']
                 ],
                 columns: [{
                         className: 'dt-control text-center',
@@ -615,6 +695,9 @@
                     },
                     {
                         data: 'payment_status'
+                    },
+                    {
+                        data: 'notes'
                     },
                     {
                         data: 'order_date', // tambahkan kolom ini
@@ -1105,6 +1188,32 @@
                 valid = false;
             }
 
+            // 💾 Validasi file
+            const fileInput = document.getElementById('payment_proof');
+            const file = fileInput.files[0];
+            if (file) {
+                const allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+                const ext = file.name.split('.').pop().toLowerCase();
+
+                if (!allowedExt.includes(ext)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format Tidak Valid!',
+                        text: 'File harus berupa JPG, JPEG, PNG, atau WEBP.',
+                    });
+                    return; // 🚫 stop total
+                }
+
+                if (file.size > 2 * 1024 * 1024) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'File Terlalu Besar!',
+                        text: 'Ukuran file maksimal 2MB.',
+                    });
+                    return; // 🚫 stop total
+                }
+            }
+
             if (!valid) return;
 
             document.getElementById('paid_amount').value = paidAmount;
@@ -1261,6 +1370,32 @@
 
         $('#modalChangeStatus').on('shown.bs.modal', function() {
             $('#cash_bank_account_id').trigger('change.select2');
+        });
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-force-delete-owner');
+            if (!btn) return;
+            const form = document.getElementById('forceDeleteOwnerForm');
+            form.action = btn.dataset.url;
+            document.getElementById('fd-order-number').textContent = btn.dataset.name || '';
+        });
+
+        document.getElementById('payment_proof').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const previewWrapper = document.getElementById('proof_preview_wrapper');
+            const preview = document.getElementById('proof_preview');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    previewWrapper.classList.remove('d-none');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                previewWrapper.classList.add('d-none');
+                preview.src = '#';
+            }
         });
     </script>
 @endpush

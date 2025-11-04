@@ -44,25 +44,25 @@
             </ul>
         </div>
         <!-- <div class="page-header-right ms-auto">
-                                    <div class="page-header-right-items">
-                                        <div class="d-flex d-md-none">
-                                            <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                                                <i class="feather-arrow-left me-2"></i><span>Back</span>
+                                        <div class="page-header-right-items">
+                                            <div class="d-flex d-md-none">
+                                                <a href="javascript:void(0)" class="page-header-right-close-toggle">
+                                                    <i class="feather-arrow-left me-2"></i><span>Back</span>
+                                                </a>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
+                                                <a href="/erp/inventory/stock-out/add-stock-out/" class="btn btn-primary">
+                                                    <i class="feather-plus me-2"></i>
+                                                    <span>Add Stock Out</span>
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="d-md-none d-flex align-items-center">
+                                            <a href="javascript:void(0)" class="page-header-right-open-toggle">
+                                                <i class="feather-align-right fs-20"></i>
                                             </a>
                                         </div>
-                                        <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                                            <a href="/erp/inventory/stock-out/add-stock-out/" class="btn btn-primary">
-                                                <i class="feather-plus me-2"></i>
-                                                <span>Add Stock Out</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                    <div class="d-md-none d-flex align-items-center">
-                                        <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                                            <i class="feather-align-right fs-20"></i>
-                                        </a>
-                                    </div>
-                                </div> -->
+                                    </div> -->
     </div>
 @endsection
 
@@ -130,6 +130,11 @@
                                             <option value="completed">Completed</option>
                                         </select>
                                     </div>
+                                    <div class="col-lg-3">
+                                        <label for="search_product" class="fw-semibold fs-12">Search Product</label>
+                                        <input type="text" id="search_product" class="form-control"
+                                            placeholder="Product name...">
+                                    </div>
                                     <div class="col-lg-6">
                                         <label for="search_type" class="fw-semibold fs-12">Filter By</label>
                                         <div class="row g-3">
@@ -181,7 +186,8 @@
 @endsection
 
 @push('modals')
-    <div class="modal fade" id="modalDeleteStockOut" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal fade" id="modalDeleteStockOut" tabindex="-1" aria-labelledby="deleteModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog">
             <form method="POST" id="formDeleteStockOut">
                 @csrf
@@ -313,6 +319,7 @@
                         search_keyword: $('#search_keyword').val(),
                         search_type_dropdown: $('#search_type_dropdown').val(),
                         progress_status: $('#progress_status').val(),
+                        search_product: $('#search_product').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -386,7 +393,7 @@
             });
 
             let searchTimeout = null;
-            $('#search_keyword, #search_type_dropdown').on('keyup change', function() {
+            $('#search_keyword, #search_type_dropdown, #search_product').on('keyup change input paste', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
@@ -429,16 +436,16 @@
                 if (!$(e.target).closest('#inventoryTable tbody tr, #inventoryTableMobile tbody tr')
                     .length) {
                     $('#inventoryTable tbody tr.shown, #inventoryTableMobile tbody tr.shown').each(
-                    function() {
-                        var tr = $(this);
-                        var table = tr.closest('table').attr('id') === 'inventoryTable' ?
-                            dataTable : dataTableMobile;
-                        var row = table.row(tr);
-                        if (row.child.isShown()) {
-                            row.child.hide();
-                            tr.removeClass('shown');
-                        }
-                    });
+                        function() {
+                            var tr = $(this);
+                            var table = tr.closest('table').attr('id') === 'inventoryTable' ?
+                                dataTable : dataTableMobile;
+                            var row = table.row(tr);
+                            if (row.child.isShown()) {
+                                row.child.hide();
+                                tr.removeClass('shown');
+                            }
+                        });
                 }
             });
         });

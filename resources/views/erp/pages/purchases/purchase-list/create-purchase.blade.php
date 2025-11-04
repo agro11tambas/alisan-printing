@@ -516,12 +516,39 @@
 
             $(document).on('input', '#tax_percent', calc_total);
 
-            $('#purchaseForm').on('submit', function() {
-                $('.qty, .price, .freight, .total').each(function() {
-                    const cleanVal = unformatRibuan($(this).val());
-                    $(this).val(cleanVal);
-                });
-            });
+            // $('#purchaseForm').on('submit', function(e) {
+            //     let ok = true;
+
+            //     // bersihkan hidden clone sebelumnya
+            //     $(this).find('input[type="hidden"].submit-clone').remove();
+
+            //     // proses semua field numeric
+            //     $('.qty, .price, .freight, .total').each(function() {
+            //         const val = $(this).val();
+            //         const num = parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+            //         const safe = isNaN(num) ? 0 : num;
+            //         const name = $(this).attr('name');
+
+            //         // buat clone tersembunyi dengan nama sama biar kirim ke Laravel
+            //         $(this).after(
+            //             `<input type="hidden" class="submit-clone" name="${name}" value="${safe}">`
+            //             );
+            //     });
+
+            //     // validasi manual
+            //     $('#tab_logic tbody tr').each(function() {
+            //         const product = $(this).find('select[name="product[]"]');
+            //         if (!product.val()) {
+            //             ok = false;
+            //             product.addClass('is-invalid');
+            //         }
+            //     });
+
+            //     if (!ok) {
+            //         e.preventDefault();
+            //         Swal.fire('Gagal!', 'Masih ada kolom yang belum diisi.', 'error');
+            //     }
+            // });
 
             // ✅ AUTO CLEAR ANGKA 0 SAAT FOCUS (untuk semua field angka)
 
@@ -640,13 +667,113 @@
 
         // ✅ VALIDASI SUBMIT - TAMPILKAN ERROR FREIGHT LALU AUTO-FILL 0
 
+        // $('#purchaseForm').on('submit', function(e) {
+        //     let isValid = true;
+
+        //     $(this).find('.is-invalid').removeClass('is-invalid');
+        //     $(this).find('.invalid-feedback').remove();
+
+        //     // ✅ STEP 1: VALIDASI FIELD UTAMA
+        //     const purchaseNumber = $('#purchase_number');
+        //     if (!purchaseNumber.val().trim()) {
+        //         isValid = false;
+        //         showError(purchaseNumber[0], 'Nomor invoice wajib diisi');
+        //     }
+
+        //     const purchaseDate = $('#purchase_date');
+        //     if (!purchaseDate.val().trim()) {
+        //         isValid = false;
+        //         showError(purchaseDate[0], 'Tanggal pembelian wajib diisi');
+        //     }
+
+        //     const supplier = $('#suppliers');
+        //     if (!supplier.val()) {
+        //         isValid = false;
+        //         showError(supplier[0], 'Supplier wajib dipilih');
+        //     }
+
+        //     const editNote = document.getElementById('edit_note');
+        //     if (editNote && !editNote.value.trim()) {
+        //         isValid = false;
+        //         showError(editNote, 'Catatan edit wajib diisi');
+        //     }
+
+        //     const transactionType = $('#transaction_type');
+        //     if (!transactionType.val()) {
+        //         isValid = false;
+        //         showError(transactionType[0], 'Tipe transaksi wajib dipilih');
+        //     }
+
+        //     // ✅ STEP 2: VALIDASI SETIAP BARIS PRODUK
+        //     $('#tab_logic tbody tr').each(function() {
+        //         const product = $(this).find('select[name="product[]"]');
+        //         const qty = $(this).find('input[name="qty[]"]');
+        //         const price = $(this).find('input[name="price[]"]');
+        //         const freight = $(this).find('input[name="freight[]"]');
+
+        //         // Validasi Product
+        //         if (!product.val()) {
+        //             isValid = false;
+        //             showError(product[0], 'Produk wajib dipilih');
+        //         }
+
+        //         // Validasi Qty (harus > 0)
+        //         if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
+        //             isValid = false;
+        //             showError(qty[0], 'Qty wajib diisi dan harus lebih dari 0');
+        //         }
+
+        //         // Validasi Price (harus > 0)
+        //         const priceVal = unformatRibuan(price.val());
+        //         if (!price.val() || priceVal <= 0) {
+        //             isValid = false;
+        //             showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
+        //         }
+
+        //         // ✅ Validasi Freight
+        //         const freightVal = freight.val().trim();
+
+        //         if (freightVal === '' || freightVal === null) {
+        //             // 🔴 Tampilkan error bahwa freight harus diisi
+        //             isValid = false;
+        //             showError(freight[0], 'Freight harus diisi (minimal 0)');
+
+        //             // ✅ Setelah error, auto-fill dengan 0
+        //             freight.val('0');
+
+        //         } else {
+        //             // Jika sudah diisi, cek apakah angka valid
+        //             const freightNum = unformatRibuan(freightVal);
+        //             if (isNaN(freightNum) || freightNum < 0) {
+        //                 isValid = false;
+        //                 showError(freight[0], 'Freight harus berupa angka valid (minimal 0)');
+        //             }
+        //         }
+        //     });
+
+        //     // ✅ STEP 3: Jika tidak valid, cegah submit dan scroll ke error
+        //     if (!isValid) {
+        //         e.preventDefault();
+
+        //         const firstError = $(this).find('.is-invalid, .select2 + .invalid-feedback').first();
+        //         if (firstError.length) {
+        //             $('html, body').animate({
+        //                 scrollTop: firstError.offset().top - 100
+        //             }, 300);
+        //         }
+        //     }
+        // });
+
         $('#purchaseForm').on('submit', function(e) {
             let isValid = true;
+            const form = $(this);
 
-            $(this).find('.is-invalid').removeClass('is-invalid');
-            $(this).find('.invalid-feedback').remove();
+            // 🔹 Hapus semua error dan clone lama dulu
+            form.find('.is-invalid').removeClass('is-invalid');
+            form.find('.invalid-feedback').remove();
+            form.find('input[type="hidden"].submit-clone').remove();
 
-            // ✅ STEP 1: VALIDASI FIELD UTAMA
+            // 🔹 Validasi field utama
             const purchaseNumber = $('#purchase_number');
             if (!purchaseNumber.val().trim()) {
                 isValid = false;
@@ -665,11 +792,11 @@
                 showError(supplier[0], 'Supplier wajib dipilih');
             }
 
-            const editNote = document.getElementById('edit_note');
-            if (editNote && !editNote.value.trim()) {
-                isValid = false;
-                showError(editNote, 'Catatan edit wajib diisi');
-            }
+            // const editNote = $('#edit_note');
+            // if (!editNote.val().trim()) {
+            //     isValid = false;
+            //     showError(editNote[0], 'Catatan edit wajib diisi');
+            // }
 
             const transactionType = $('#transaction_type');
             if (!transactionType.val()) {
@@ -677,45 +804,35 @@
                 showError(transactionType[0], 'Tipe transaksi wajib dipilih');
             }
 
-            // ✅ STEP 2: VALIDASI SETIAP BARIS PRODUK
+            // 🔹 Validasi setiap baris produk
             $('#tab_logic tbody tr').each(function() {
-                const product = $(this).find('select[name="product[]"]');
-                const qty = $(this).find('input[name="qty[]"]');
-                const price = $(this).find('input[name="price[]"]');
-                const freight = $(this).find('input[name="freight[]"]');
+                const row = $(this);
+                const product = row.find('select[name="product[]"]');
+                const qty = row.find('input[name="qty[]"]');
+                const price = row.find('input[name="price[]"]');
+                const freight = row.find('input[name="freight[]"]');
 
-                // Validasi Product
                 if (!product.val()) {
                     isValid = false;
                     showError(product[0], 'Produk wajib dipilih');
                 }
 
-                // Validasi Qty (harus > 0)
                 if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
                     isValid = false;
                     showError(qty[0], 'Qty wajib diisi dan harus lebih dari 0');
                 }
 
-                // Validasi Price (harus > 0)
-                const priceVal = unformatRibuan(price.val());
-                if (!price.val() || priceVal <= 0) {
+                if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
                     isValid = false;
                     showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
                 }
 
-                // ✅ Validasi Freight
                 const freightVal = freight.val().trim();
-
                 if (freightVal === '' || freightVal === null) {
-                    // 🔴 Tampilkan error bahwa freight harus diisi
                     isValid = false;
                     showError(freight[0], 'Freight harus diisi (minimal 0)');
-
-                    // ✅ Setelah error, auto-fill dengan 0
                     freight.val('0');
-
                 } else {
-                    // Jika sudah diisi, cek apakah angka valid
                     const freightNum = unformatRibuan(freightVal);
                     if (isNaN(freightNum) || freightNum < 0) {
                         isValid = false;
@@ -724,16 +841,34 @@
                 }
             });
 
-            // ✅ STEP 3: Jika tidak valid, cegah submit dan scroll ke error
+            // 🔹 Jika tidak valid, cegah submit
             if (!isValid) {
                 e.preventDefault();
 
-                const firstError = $(this).find('.is-invalid, .select2 + .invalid-feedback').first();
+                const firstError = form.find('.is-invalid, .select2 + .invalid-feedback').first();
                 if (firstError.length) {
                     $('html, body').animate({
                         scrollTop: firstError.offset().top - 100
                     }, 300);
                 }
+
+                return; // stop di sini
+            }
+
+            $('.qty, .price, .freight, .total').each(function() {
+                const val = $(this).val();
+                const num = parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+                if (isNaN(num)) {
+                    ok = false;
+                    $(this).addClass('is-invalid');
+                } else {
+                    $(this).val(num.toFixed(5)); // ubah langsung sebelum submit
+                }
+            });
+
+            if (!ok) {
+                e.preventDefault();
+                Swal.fire('Gagal', 'Ada angka tidak valid', 'error');
             }
         });
 

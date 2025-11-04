@@ -64,15 +64,41 @@ class DesignController extends Controller
 
         // ✅ Filter pencarian
         if ($request->filled('search_keyword')) {
-            if ($request->search_type === 'customer') {
-                $designs->whereHas('order.customer', function ($q) use ($request) {
-                    $q->where('name', 'like', '%' . $request->search_keyword . '%');
-                });
-            } else {
-                $designs->where('design_number', 'like', '%' . $request->search_keyword . '%');
+            $keyword = $request->search_keyword;
+
+            switch ($request->search_type) {
+                case 'customer':
+                    $designs->whereHas('order.customer', function ($q) use ($keyword) {
+                        $q->where('name', 'like', "%{$keyword}%");
+                    });
+                    break;
+
+                // case 'product':
+                //     $keyword = trim(strtolower($request->search_keyword));
+
+                //     $designs->whereHas('items.product', function ($q) use ($keyword) {
+                //         $q->whereRaw(
+                //             "LOWER(name) COLLATE utf8mb4_general_ci LIKE ?",
+                //             ["%{$keyword}%"]
+                //         );
+                //     });
+                //     break;
+
+                default:
+                    $designs->where('design_number', 'like', "%{$keyword}%");
+                    break;
             }
         }
 
+        if ($request->filled('search_product')) {
+            $productKeyword = trim(strtolower($request->search_product));
+
+            $designs->whereHas('items.product', function ($q) use ($productKeyword) {
+                // gunakan COLLATE biar bisa handle tanda kurung
+                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+            });
+        }
+        
         // ✅ Filter status
         if ($request->filled('status')) {
             $designs->where('status', $request->status);

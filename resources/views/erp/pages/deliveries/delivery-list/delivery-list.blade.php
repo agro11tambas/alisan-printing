@@ -4,11 +4,11 @@
     <style>
         /* @media (max-width: 768px) {
 
-                                        #deliveryListTable td.desktop-only,
-                                        #deliveryListTable th.desktop-only {
-                                            display: none !important;
-                                        }
-                                    } */
+                                                    #deliveryListTable td.desktop-only,
+                                                    #deliveryListTable th.desktop-only {
+                                                        display: none !important;
+                                                    }
+                                                } */
 
         #deliveryListTable {
             width: 100% !important;
@@ -156,6 +156,11 @@
                                             <option value="Ongoing">Ongoing</option>
                                             <option value="finished">Finished</option>
                                         </select>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label for="search_product" class="fw-semibold fs-12">Search Product</label>
+                                        <input type="text" id="search_product" class="form-control"
+                                            placeholder="Product name...">
                                     </div>
                                     <div class="col-lg-6">
                                         <label for="search_type" class="fw-semibold fs-12">Filter By</label>
@@ -386,6 +391,7 @@
                         search_type: $('#search_type').val(),
                         search_keyword: $('#search_keyword').val(),
                         status: $('#status').val(),
+                        search_product: $('#search_product').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -447,7 +453,7 @@
             });
 
             let searchTimeout = null;
-            $('#search_keyword').on('keyup', function() {
+            $('#search_keyword, #search_product').on('keyup input paste', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
@@ -501,8 +507,7 @@
                 if (existingPhotosRaw && existingPhotosRaw !== '[]') {
                     try {
                         existingPhotos = JSON.parse(existingPhotosRaw);
-                    } catch (err) {
-                    }
+                    } catch (err) {}
                 }
 
                 if (Array.isArray(existingPhotos) && existingPhotos.length > 0) {

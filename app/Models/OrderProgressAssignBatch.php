@@ -39,4 +39,19 @@ class OrderProgressAssignBatch extends Model
     {
         return $this->belongsTo(User::class, 'created_by')->withTrashed();
     }
+
+    protected static function booted()
+    {
+        static::deleting(function ($batch) {
+            if ($batch->isForceDeleting()) {
+                $batch->assigns()->forceDelete();
+            } else {
+                $batch->assigns()->delete();
+            }
+        });
+
+        static::restoring(function ($batch) {
+            $batch->assigns()->withTrashed()->restore();
+        });
+    }
 }

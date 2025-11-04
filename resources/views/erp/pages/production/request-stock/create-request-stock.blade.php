@@ -82,6 +82,7 @@
                                             <th class="text-center" style="width:50px;">#</th>
                                             <th class="text-center" style="width:450px;">Product</th>
                                             <th class="text-center" style="width:130px;">Stock Warehouse</th>
+                                            <th class="text-center" style="width:130px;">Pending Waiting List</th>
                                             <th class="text-center" style="width:100px;">Qty</th>
                                             <th class="text-center" style="width:80px;">Action</th>
                                         </tr>
@@ -97,6 +98,10 @@
                                             <td>
                                                 <input type="text" class="form-control stock bg-light" readonly
                                                     value="0">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control pending_waiting_list bg-light"
+                                                    readonly value="0">
                                             </td>
                                             <td>
                                                 <input type="text" inputmode="numeric" name="qty[]"
@@ -137,7 +142,8 @@
                 $('<option>', {
                     value: item.id,
                     text: `[${item.sku || '-'}] ${item.name}`,
-                    'data-stock': item.inventory_stock ?? 0
+                    'data-stock': item.inventory_stock ?? 0,
+                    'data-pending-waiting-list': item.pending_waiting_list ?? 0,
                 }).appendTo(selectEl);
             });
         }
@@ -296,6 +302,9 @@
                             <input type="text" class="form-control stock bg-light" readonly value="0">
                         </td>
                         <td>
+                            <input type="text" class="form-control pending_waiting_list bg-light" readonly value="0">
+                        </td>
+                        <td>
                             <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0" required>
                         </td>
                         <td class="text-center">
@@ -305,12 +314,20 @@
                                 </button>
                             </div>
                         </td>
-                    </tr>
+                    </tr>           
                 `);
+
                 tableBody.append(newRow);
+
+                // 🟢 Isi dulu produk baru
+                populateProducts(newRow.find('.select-product'));
+
+                // 🟢 Setelah ada option, baru aktifkan Select2
                 initSelect2(newRow.find('.select-product'));
+
                 rowCount++;
             });
+
 
             // ✅ Hapus baris
             $(document).on('click', '.delete-row', function() {
@@ -336,6 +353,9 @@
                             </td>
                             <td>
                                 <input type="text" class="form-control stock bg-light" readonly value="${(item.inventory_stock ?? 0).toLocaleString('id-ID')}">
+                            </td>
+                            <td>
+                                <input type="text" class="form-control pending_waiting_list bg-light" readonly value="${(item.pending_waiting_list ?? 0).toLocaleString('id-ID')}">
                             </td>
                             <td>
                                 <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0" required>
@@ -371,6 +391,110 @@
                 // }, 200);
             }
 
+            function getSelectedProductIds() {
+                const selectedIds = [];
+                $('.select-product').each(function() {
+                    const val = $(this).val();
+                    if (val) selectedIds.push(val);
+                });
+                return selectedIds;
+            }
+
+            function refreshAllSelectOptions() {
+                const selectedIds = getSelectedProductIds();
+
+                $('.select-product').each(function() {
+                    const select = $(this);
+                    const currentValue = select.val();
+                    const currentText = select.find('option:selected').text(); // simpan text produk aktif
+                    const currentStock = select.find('option:selected').data('stock') ?? 0;
+                    // Hapus semua option
+                    select.empty().append('<option value="" disabled hidden>Pilih produk</option>');
+
+                    // Tambahkan kembali produk yang belum dipilih
+                    products.forEach(item => {
+                        // tampilkan semua produk kecuali yang sudah dipilih di baris lain
+                        // tapi produk aktif tetap muncul
+                        if (!selectedIds.includes(String(item.id)) || String(item.id) === String(
+                                currentValue)) {
+                            $('<option>', {
+                                value: item.id,
+                                text: `[${item.sku || '-'}] ${item.name}`,
+                                'data-stock': item.inventory_stock ?? 0,
+                                'data-pending-waiting-list': item.pending_waiting_list ?? 0,
+                            }).appendTo(select);
+                        }
+                    });
+
+                    // Kembalikan value & text produk yang aktif supaya tidak hilang
+                    if (currentValue) {
+                        select.val(currentValue);
+
+                        // Pastikan teks tampil di UI Select2
+                        const selectedOption = select.find(`option[value="${currentValue}"]`);
+                        if (selectedOption.length === 0) {
+                            // kalau option-nya sempat hilang, tambahkan ulang manual
+                            $('<option>', {
+                                value: currentValue,
+                                text: currentText,
+                                'data-stock': currentStock
+                            }).appendTo(select);
+                            select.val(currentValue);
+                        }
+                    }
+
+                    // Refresh Select2
+                    if (select.hasClass('select2-hidden-accessible')) {
+                        select.trigger('change.select2');
+                    }
+                });
+            }
+
+
+            // 🔹 Event: Saat memilih produk baru
+            $(document).on('change', '.select-product', function() {
+                const currentSelect = $(this);
+                const selectedVal = currentSelect.val();
+                const selectedText = currentSelect.find('option:selected').text();
+                const selectedStock = currentSelect.find('option:selected').data('stock') ?? 0;
+                const selectedPending = currentSelect.find('option:selected').data(
+                    'pending-waiting-list') ?? 0;
+
+
+                // Update stok
+                currentSelect.closest('tr').find('.stock').val(selectedStock.toLocaleString('id-ID'));
+                currentSelect.closest('tr').find('.pending_waiting_list').val(selectedPending.toLocaleString('id-ID'));
+
+                // 🚫 Cegah duplikasi produk di baris lain
+                let duplicate = false;
+                $('.select-product').not(currentSelect).each(function() {
+                    if ($(this).val() === selectedVal) {
+                        duplicate = true;
+                    }
+                });
+
+                if (duplicate) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Produk sudah dipilih!',
+                        text: 'Produk ini sudah ada di baris lain.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    currentSelect.val('').trigger('change.select2');
+                    currentSelect.closest('tr').find('.stock').val('0');
+                    return;
+                }
+            });
+
+
+            // 🔹 Event: Saat baris dihapus → update juga dropdown lain
+            $(document).on('click', '.delete-row', function() {
+                $(this).closest('tr').remove();
+                $('#tab_logic_body tr').each(function(index) {
+                    $(this).find('td:first').text(index + 1);
+                });
+            });
         });
 
         // Autofokus pencarian select2

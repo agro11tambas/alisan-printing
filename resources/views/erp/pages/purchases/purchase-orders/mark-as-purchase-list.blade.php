@@ -606,12 +606,12 @@
 
             $(document).on('input', '#tax_percent', calc_total);
 
-            $('#purchaseForm').on('submit', function() {
-                $('.qty, .price, .freight, .total').each(function() {
-                    const cleanVal = unformatRibuan($(this).val());
-                    $(this).val(cleanVal);
-                });
-            });
+            // $('#purchaseForm').on('submit', function() {
+            //     $('.qty, .price, .freight, .total').each(function() {
+            //         const cleanVal = unformatRibuan($(this).val());
+            //         $(this).val(cleanVal);
+            //     });
+            // });
 
             /* ==================== DUE DATE HANDLER ==================== */
             const purchaseDateEl = $('#purchase_date');
@@ -693,11 +693,92 @@
                 }
             });
 
+        // $('#purchaseForm').on('submit', function(e) {
+        //     let isValid = true;
+        //     $(this).find('.is-invalid').removeClass('is-invalid');
+        //     $(this).find('.invalid-feedback').remove();
+
+        //     const purchaseNumber = $('#purchase_number');
+        //     if (!purchaseNumber.val().trim()) {
+        //         isValid = false;
+        //         showError(purchaseNumber[0], 'Nomor invoice wajib diisi');
+        //     }
+
+        //     const purchaseDate = $('#purchase_date');
+        //     if (!purchaseDate.val().trim()) {
+        //         isValid = false;
+        //         showError(purchaseDate[0], 'Tanggal pembelian wajib diisi');
+        //     }
+
+        //     const supplier = $('#suppliers');
+        //     if (!supplier.val()) {
+        //         isValid = false;
+        //         showError(supplier[0], 'Supplier wajib dipilih');
+        //     }
+
+        //     const editNote = document.getElementById('edit_note');
+        //     if (editNote && !editNote.value.trim()) {
+        //         isValid = false;
+        //         showError(editNote, 'Catatan edit wajib diisi');
+        //     }
+
+        //     const transactionType = $('#transaction_type');
+        //     if (!transactionType.val()) {
+        //         isValid = false;
+        //         showError(transactionType[0], 'Tipe transaksi wajib dipilih');
+        //     }
+
+        //     $('#tab_logic tbody tr').each(function() {
+        //         const product = $(this).find('select[name="product[]"]');
+        //         const qty = $(this).find('input[name="qty[]"]');
+        //         const price = $(this).find('input[name="price[]"]');
+        //         const freight = $(this).find('input[name="freight[]"]');
+
+        //         if (!product.val()) {
+        //             isValid = false;
+        //             showError(product[0], 'Produk wajib dipilih');
+        //         }
+        //         if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
+        //             isValid = false;
+        //             showError(qty[0], 'Qty harus lebih dari 0');
+        //         }
+        //         if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
+        //             isValid = false;
+        //             showError(price[0], 'Harga harus lebih dari 0');
+        //         }
+
+        //         // Freight boleh 0, tapi tidak boleh kosong
+        //         const freightVal = freight.val().trim();
+        //         if (freightVal === '' || freightVal === null) {
+        //             freight.val('0');
+        //         } else {
+        //             const freightNum = unformatRibuan(freightVal);
+        //             if (isNaN(freightNum) || freightNum < 0) {
+        //                 isValid = false;
+        //                 showError(freight[0], 'Freight harus angka valid (≥ 0)');
+        //             }
+        //         }
+        //     });
+
+        //     if (!isValid) {
+        //         e.preventDefault();
+        //         const firstError = $(this).find('.is-invalid, .select2 + .invalid-feedback').first();
+        //         if (firstError.length) $('html, body').animate({
+        //             scrollTop: firstError.offset().top - 100
+        //         }, 300);
+        //     }
+        // });
+
         $('#purchaseForm').on('submit', function(e) {
             let isValid = true;
-            $(this).find('.is-invalid').removeClass('is-invalid');
-            $(this).find('.invalid-feedback').remove();
+            const form = $(this);
 
+            // 🔹 Hapus semua error dan clone lama dulu
+            form.find('.is-invalid').removeClass('is-invalid');
+            form.find('.invalid-feedback').remove();
+            form.find('input[type="hidden"].submit-clone').remove();
+
+            // 🔹 Validasi field utama
             const purchaseNumber = $('#purchase_number');
             if (!purchaseNumber.val().trim()) {
                 isValid = false;
@@ -716,11 +797,11 @@
                 showError(supplier[0], 'Supplier wajib dipilih');
             }
 
-            const editNote = document.getElementById('edit_note');
-            if (editNote && !editNote.value.trim()) {
-                isValid = false;
-                showError(editNote, 'Catatan edit wajib diisi');
-            }
+            // const editNote = $('#edit_note');
+            // if (!editNote.val().trim()) {
+            //     isValid = false;
+            //     showError(editNote[0], 'Catatan edit wajib diisi');
+            // }
 
             const transactionType = $('#transaction_type');
             if (!transactionType.val()) {
@@ -728,44 +809,71 @@
                 showError(transactionType[0], 'Tipe transaksi wajib dipilih');
             }
 
+            // 🔹 Validasi setiap baris produk
             $('#tab_logic tbody tr').each(function() {
-                const product = $(this).find('select[name="product[]"]');
-                const qty = $(this).find('input[name="qty[]"]');
-                const price = $(this).find('input[name="price[]"]');
-                const freight = $(this).find('input[name="freight[]"]');
+                const row = $(this);
+                const product = row.find('select[name="product[]"]');
+                const qty = row.find('input[name="qty[]"]');
+                const price = row.find('input[name="price[]"]');
+                const freight = row.find('input[name="freight[]"]');
 
                 if (!product.val()) {
                     isValid = false;
                     showError(product[0], 'Produk wajib dipilih');
                 }
+
                 if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
                     isValid = false;
-                    showError(qty[0], 'Qty harus lebih dari 0');
-                }
-                if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
-                    isValid = false;
-                    showError(price[0], 'Harga harus lebih dari 0');
+                    showError(qty[0], 'Qty wajib diisi dan harus lebih dari 0');
                 }
 
-                // Freight boleh 0, tapi tidak boleh kosong
+                if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
+                    isValid = false;
+                    showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
+                }
+
                 const freightVal = freight.val().trim();
                 if (freightVal === '' || freightVal === null) {
+                    isValid = false;
+                    showError(freight[0], 'Freight harus diisi (minimal 0)');
                     freight.val('0');
                 } else {
                     const freightNum = unformatRibuan(freightVal);
                     if (isNaN(freightNum) || freightNum < 0) {
                         isValid = false;
-                        showError(freight[0], 'Freight harus angka valid (≥ 0)');
+                        showError(freight[0], 'Freight harus berupa angka valid (minimal 0)');
                     }
                 }
             });
 
+            // 🔹 Jika tidak valid, cegah submit
             if (!isValid) {
                 e.preventDefault();
-                const firstError = $(this).find('.is-invalid, .select2 + .invalid-feedback').first();
-                if (firstError.length) $('html, body').animate({
-                    scrollTop: firstError.offset().top - 100
-                }, 300);
+
+                const firstError = form.find('.is-invalid, .select2 + .invalid-feedback').first();
+                if (firstError.length) {
+                    $('html, body').animate({
+                        scrollTop: firstError.offset().top - 100
+                    }, 300);
+                }
+
+                return; // stop di sini
+            }
+
+            $('.qty, .price, .freight, .total').each(function() {
+                const val = $(this).val();
+                const num = parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+                if (isNaN(num)) {
+                    ok = false;
+                    $(this).addClass('is-invalid');
+                } else {
+                    $(this).val(num.toFixed(5)); // ubah langsung sebelum submit
+                }
+            });
+
+            if (!ok) {
+                e.preventDefault();
+                Swal.fire('Gagal', 'Ada angka tidak valid', 'error');
             }
         });
 

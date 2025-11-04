@@ -298,6 +298,7 @@ class HistoryProgressOrderController extends Controller
                 OrderProgressHistory::create([
                     'order_progress_item_id'    => $progressItem->id,
                     'order_progress_assign_id'  => $assign->id,
+                    'product_id'                => $product->id,
                     'assign_batch_id'           => $assignBatch->id,
                     'order_progress_batch_id'   => $mainBatch->id,
                     'completed_quantity'        => $completed,
@@ -322,7 +323,7 @@ class HistoryProgressOrderController extends Controller
                             'canceled_product_stock' => 0
                         ]
                     );
-                    // $ps->decrement('available_quantity', $completed);
+
                     $ps->increment('finished_product_stock', $completed);
 
                     $deliveryOrderItem = DeliveryOrderItem::where('order_progress_id', $assignBatch->order_progress_id)

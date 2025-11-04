@@ -110,6 +110,11 @@
                                             <option value="completed">Completed</option>
                                         </select>
                                     </div>
+                                    <div class="col-lg-3">
+                                        <label for="search_product" class="fw-semibold fs-12">Search Product</label>
+                                        <input type="text" id="search_product" class="form-control"
+                                            placeholder="Product name...">
+                                    </div>
                                     <div class="col-lg-6">
                                         <label for="search_type" class="fw-semibold fs-12">Filter By</label>
                                         <div class="row g-3">
@@ -302,6 +307,7 @@
                         search_keyword: $('#search_keyword').val(),
                         payment_status: $('#search_payment_status').val(),
                         progress_status: $('#progress_status').val(),
+                        search_product: $('#search_product').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -372,12 +378,18 @@
                 resetAndReload();
             });
 
+            // let searchTimeout = null;
+            // $('#search_keyword').on('keyup', function() {
+            //     if ($('#search_type').val() !== 'payment_status') {
+            //         clearTimeout(searchTimeout);
+            //         searchTimeout = setTimeout(() => resetAndReload(), 400);
+            //     }
+            // });
             let searchTimeout = null;
-            $('#search_keyword').on('keyup', function() {
-                if ($('#search_type').val() !== 'payment_status') {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => resetAndReload(), 400);
-                }
+
+            $('#search_keyword, #search_product').on('keyup input paste', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
 
             $('#waitingListTable tbody').on('click', 'tr', function(e) {

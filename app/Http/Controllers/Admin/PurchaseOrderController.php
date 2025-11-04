@@ -1007,7 +1007,7 @@ class PurchaseOrderController extends Controller
             $trx->fill([
                 'purchase_number'      => $purchase->purchase_number,
                 'transaction_date'     => $purchase->purchase_date,
-                'debit'                => $purchase->total_amount_product,
+                'debit'                => $grandTotal,
                 'credit'               => 0,
                 'note'                 => 'Purchase Account Transaction (Updated)',
                 'particular'           => 'Purchase Invoice',

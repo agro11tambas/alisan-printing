@@ -100,6 +100,11 @@
                                         </select>
                                     </div>
                                     <div class="col-lg-3">
+                                        <label for="search_product" class="fw-semibold fs-12">Search Product</label>
+                                        <input type="text" id="search_product" class="form-control"
+                                            placeholder="Product name...">
+                                    </div>
+                                    <div class="col-lg-3">
                                         <label for="search_type" class="fw-semibold fs-12">Search Assign Code</label>
                                         <div class="row g-3">
                                             <div class="col-md-12">
@@ -245,7 +250,8 @@
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
                         progress_status: $('#progress_status').val(),
-                        search_keyword: $('#search_keyword').val()
+                        search_keyword: $('#search_keyword').val(),
+                        search_product: $('#search_product').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -334,10 +340,17 @@
                 resetAndReload();
             });
 
-            let searchTimeout;
-            $('#search_keyword').on('input', function() {
+            // let searchTimeout;
+            // $('#search_keyword').on('input', function() {
+            //     clearTimeout(searchTimeout);
+            //     searchTimeout = setTimeout(() => resetAndReload(), 500);
+            // });
+
+            let searchTimeout = null;
+
+            $('#search_keyword, #search_product').on('keyup input paste', function() {
                 clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => resetAndReload(), 500);
+                searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
         });
 

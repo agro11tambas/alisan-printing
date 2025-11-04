@@ -259,6 +259,10 @@ Route::middleware(isLogin::class)->group(function () {
             Route::delete('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDelete'])->name('sales.forceDelete');
             Route::post('/erp/sales/sale-list/restore/{id}', [SaleListController::class, 'restore'])->name('sales.restore');
             Route::put('/erp/sales/mark-as-waiting-list/{id}', [SaleListController::class, 'markAsWaitingList']);
+            // routes/web.php
+            Route::post('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDeleteOwner'])
+                ->name('sale-list.force-delete')
+                ->middleware('auth'); // pastikan pakai middlewaremu
         });
 
         Route::middleware(['auth', 'subpermission:sale-returns'])->group(function () {
@@ -278,6 +282,10 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/sales/sale-returns/data-deleted', [SaleReturnController::class, 'dataDeletedSaleReturns']);
             Route::delete('/erp/sales/sale-returns/force-delete/{id}', [SaleReturnController::class, 'forceDelete'])->name('sale-returns.forceDelete');
             Route::post('/erp/sales/sale-returns/restore/{id}', [SaleReturnController::class, 'restore'])->name('sale-returns.restore');
+            Route::post(
+                '/erp/sales/sale-returns/force-delete-owner/{id}',
+                [SaleReturnController::class, 'forceDeleteOwner']
+            )->name('sale-returns.force-delete-owner')->middleware('auth');
         });
     });
 
@@ -298,24 +306,6 @@ Route::middleware(isLogin::class)->group(function () {
             // Route::put('/erp/mark-as-delivery/{id}', [WaitingListController::class, 'markAsDelivery']);
             Route::get('/erp/productions/waiting-list/add-assign/{id}', [OrderProgressAssignController::class, 'create']);
             Route::post('/erp/productions/waiting-list/assign/{id}', [OrderProgressAssignController::class, 'store']);
-            Route::get('/erp/productions/assign-list/edit-assign/{batch_id}', [OrderProgressAssignController::class, 'edit']);
-            Route::put('/erp/productions/assign-list/assign/update/{batch_id}', [OrderProgressAssignController::class, 'update']);
-
-            Route::get('/erp/productions/assign-list/add-progress/{batch_id}', [HistoryProgressOrderController::class, 'create']);
-            Route::post('/erp/productions/assign-list/add-progress/{batch_id}', [HistoryProgressOrderController::class, 'store']);
-
-            // Route::get('/erp/productions/waiting-list/add-progress/{assignId}', [HistoryProgressOrderController::class, 'create']);
-            // Route::post('/erp/productions/waiting-list/progress/{assignId}', [HistoryProgressOrderController::class, 'store']);
-            // Route::get('/erp/productions/waiting-list/add-progress-order/{id}', [HistoryProgressOrderController::class, 'addProgress']);
-            // Route::post('/erp/productions/waiting-list/progress-order/{id}', [HistoryProgressOrderController::class, 'store']);
-
-            // Route::get('/erp/productions/waiting-list/assign-list/{id}/batches', [OrderProgressAssignController::class, 'dataAssignBatch']);
-
-            Route::get('/erp/productions/waiting-list/assign-list/data', [OrderProgressAssignController::class, 'dataAssignList']);
-            Route::get('/erp/productions/waiting-list/assign-list', [OrderProgressAssignController::class, 'getAssignList']);
-            Route::delete('/erp/productions/assign-list/delete/{id}', [OrderProgressAssignController::class, 'delete']);
-
-            Route::get('/erp/productions/waiting-list/assign-batch/{batch}/assigns', [OrderProgressAssignController::class, 'getAssignsByBatch']);
 
             Route::get('/erp/productions/waiting-list/history-order/{id}', [HistoryProgressOrderController::class, 'getHistory']);
 
@@ -324,6 +314,20 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/productions/waiting-list/history-order/{id}', [HistoryProgressOrderController::class, 'getOrderHistory']);
             Route::get('/erp/productions/waiting-list/add-request-stocks/{id}', [StockRequestController::class, 'addRequestStocks']);
             Route::post('/erp/productions/waiting-list/request-stocks/{id}', [StockRequestController::class, 'store']);
+        });
+
+        Route::middleware(['auth', 'subpermission:assign-list'])->group(function () {
+            Route::get('/erp/productions/assign-list/edit-assign/{batch_id}', [OrderProgressAssignController::class, 'edit']);
+            Route::put('/erp/productions/assign-list/assign/update/{batch_id}', [OrderProgressAssignController::class, 'update']);
+
+            Route::get('/erp/productions/assign-list/add-progress/{batch_id}', [HistoryProgressOrderController::class, 'create']);
+            Route::post('/erp/productions/assign-list/add-progress/{batch_id}', [HistoryProgressOrderController::class, 'store']);
+
+            Route::get('/erp/productions/waiting-list/assign-list/data', [OrderProgressAssignController::class, 'dataAssignList']);
+            Route::get('/erp/productions/waiting-list/assign-list', [OrderProgressAssignController::class, 'getAssignList']);
+            Route::delete('/erp/productions/assign-list/delete/{id}', [OrderProgressAssignController::class, 'delete']);
+
+            Route::get('/erp/productions/waiting-list/assign-batch/{batch}/assigns', [OrderProgressAssignController::class, 'getAssignsByBatch']);
         });
 
         Route::middleware(['auth', 'subpermission:request-stocks'])->group(function () {

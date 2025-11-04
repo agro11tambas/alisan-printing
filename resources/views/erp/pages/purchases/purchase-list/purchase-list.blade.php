@@ -34,6 +34,39 @@
         #purchaseListTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
+
+        .static-action-menu {
+            padding: 12px;
+            min-width: 700px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px 20px;
+        }
+
+        .action-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .action-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #6c757d;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 7px;
+            padding-bottom: 4px;
+        }
+
+        .dropdown-item {
+            font-size: 13px;
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
     </style>
 @endpush
 
@@ -254,7 +287,7 @@
                         <i class="feather-x text-danger"></i>
                     </a>
                 </div>
-                <form method="POST" id="markAsPurchaseFormProduct">
+                <form method="POST" id="markAsPurchaseFormProduct" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" id="purchase_id_product" name="purchase_id">
                     <div class="modal-body">
@@ -309,7 +342,7 @@
                                                 {{ $bank->type }}</option>
                                         @endforeach
                                     </select> --}}
-                                    <select class="form-select" id="cash_bank_account_id_freight"
+                                    <select class="form-select" id="cash_bank_account_id_product"
                                         data-select2-selector="tag" name="cash_bank_account_id">
                                         <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
                                             Pilih Cash/Bank Account</option>
@@ -343,6 +376,22 @@
                                 <span class="fw-semibold fs-12" id="paid_amount_display_product">Paid: Rp. 0</span>
                             </div>
                         </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="payment_proof" name="payment_proof"
+                                        accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
+                                </div>
+                                <small class="text-muted">Upload foto bukti transfer (Gambar)</small>
+                                <small class="text-danger d-none" id="error_payment_proof"></small>
+                                <div class="mt-2 d-none" id="proof_preview_wrapper">
+                                    <p class="fw-semibold mb-1">Preview:</p>
+                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
+                                        style="max-height: 200px;">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer d-flex justify-content-between">
                         <div>
@@ -366,7 +415,7 @@
                         <i class="feather-x text-danger"></i>
                     </a>
                 </div>
-                <form method="POST" id="markAsPurchaseFormFreight">
+                <form method="POST" id="markAsPurchaseFormFreight" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" id="purchase_id_freight" name="purchase_id">
                     <div class="modal-body">
@@ -421,7 +470,7 @@
                                                 {{ $bank->type }}</option>
                                         @endforeach
                                     </select> --}}
-                                    <select class="form-select" id="cash_bank_account_id_product"
+                                    <select class="form-select" id="cash_bank_account_id_freight"
                                         data-select2-selector="tag" name="cash_bank_account_id">
                                         <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
                                             Pilih Cash/Bank Account</option>
@@ -453,6 +502,22 @@
                                 </div>
                                 <small class="text-danger d-none" id="error_paid_amount_freight"></small>
                                 <span class="fw-semibold fs-12" id="paid_amount_display_freight">Paid: Rp. 0</span>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="payment_proof" name="payment_proof"
+                                        accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
+                                </div>
+                                <small class="text-muted">Upload foto bukti transfer (Gambar)</small>
+                                <small class="text-danger d-none" id="error_payment_proof"></small>
+                                <div class="mt-2 d-none" id="proof_preview_wrapper">
+                                    <p class="fw-semibold mb-1">Preview:</p>
+                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
+                                        style="max-height: 200px;">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -945,14 +1010,14 @@
             $('#filter, #apply-filter, #search_type, #due_date_order, #search_payment_status').on('change click',
                 function() {
                     if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent().hasClass(
-                        'active')) {
+                            'active')) {
                         resetAndReloadDeleted();
                     }
                 });
 
             $('#search_keyword').on('keyup', function() {
                 if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent().hasClass(
-                    'active')) {
+                        'active')) {
                     clearTimeout(searchTimeout);
                     searchTimeout = setTimeout(() => {
                         resetAndReloadDeleted();
@@ -1022,16 +1087,27 @@
             }
         });
 
-        const paidInputProduct = document.getElementById("paid_amount_product");
-        paidInputProduct.addEventListener("input", function() {
-            let angka = this.value.replace(/\D/g, "") || "0";
-            this.value = new Intl.NumberFormat('id-ID').format(angka);
-        });
+        // const paidInputProduct = document.getElementById("paid_amount_product");
+        // paidInputProduct.addEventListener("input", function() {
+        //     let angka = this.value.replace(/\D/g, "") || "0";
+        //     this.value = new Intl.NumberFormat('id-ID').format(angka);
+        // });
 
-        const paidInputFreight = document.getElementById("paid_amount_freight");
-        paidInputFreight.addEventListener("input", function() {
-            let angka = this.value.replace(/\D/g, "") || "0";
-            this.value = new Intl.NumberFormat('id-ID').format(angka);
+        // const paidInputFreight = document.getElementById("paid_amount_freight");
+        // paidInputFreight.addEventListener("input", function() {
+        //     let angka = this.value.replace(/\D/g, "") || "0";
+        //     this.value = new Intl.NumberFormat('id-ID').format(angka);
+        // });
+
+        // ✅ BARU - Format angka yang benar
+        ['product', 'freight'].forEach(type => {
+            const input = document.getElementById(`paid_amount_${type}`);
+            const display = document.getElementById(`paid_amount_display_${type}`);
+            input.addEventListener('input', function() {
+                let angka = this.value.replace(/\D/g, "") || "0";
+                this.value = new Intl.NumberFormat('id-ID').format(angka);
+                if (display) display.innerText = 'Paid: Rp. ' + this.value;
+            });
         });
 
         document.getElementById('markAsPurchaseFormProduct').addEventListener('submit', function(e) {
@@ -1048,12 +1124,20 @@
             const transactionDate = document.getElementById('transaction_date_product')?.value.trim() || '';
             const cashBankAccount = document.getElementById('cash_bank_account_id_product')?.value.trim() || '';
 
-            const paidAmountRaw = document.getElementById('paid_amount_product')?.value.trim() || '0';
-            const paidAmount = paidAmountRaw.replace(/\./g, "");
+            // const paidAmountRaw = document.getElementById('paid_amount_product')?.value.trim() || '0';
+            // const paidAmount = paidAmountRaw.replace(/\./g, "");
 
-            const remainingRaw = document.getElementById('total_amount_display_product')?.innerText.trim().replace(
-                /\./g, "") || '0';
-            const remainingAmount = parseInt(remainingRaw) || 0;
+            // const remainingRaw = document.getElementById('total_amount_display_product')?.innerText.trim().replace(
+            //     /\./g, "") || '0';
+            // const remainingAmount = parseInt(remainingRaw) || 0;
+
+            const paidAmountRaw = document.getElementById('paid_amount_product')?.value.trim() || '0';
+            // Bersihkan format Indonesia: hapus titik (pemisah ribuan), ganti koma dengan titik (desimal)
+            const paidAmount = parseFloat(paidAmountRaw.replace(/\./g, "").replace(",", ".")) || 0;
+
+            const remainingRaw = document.getElementById('total_amount_display_product')?.innerText.trim()
+                .replace(/\./g, "").replace(",", ".") || '0';
+            const remainingAmount = parseFloat(remainingRaw) || 0; // ✅ parseFloat!
 
             if (!transactionType) {
                 const el = document.getElementById('error_transaction_type_product');
@@ -1082,14 +1166,14 @@
                 valid = false;
             }
 
-            if (!paidAmount || isNaN(paidAmount) || parseInt(paidAmount) <= 0) {
+            if (!paidAmount || isNaN(paidAmount) || paidAmount <= 0) {
                 const el = document.getElementById('error_paid_amount_product');
                 if (el) {
                     el.innerText = 'Paid amount harus diisi dan lebih dari 0';
                     el.classList.remove('d-none');
                 }
                 valid = false;
-            } else if (parseInt(paidAmount) > remainingAmount) {
+            } else if (paidAmount > remainingAmount) { // ✅ Float vs Float
                 const el = document.getElementById('error_paid_amount_product');
                 if (el) {
                     el.innerText = 'Paid amount tidak boleh melebihi Balance';
@@ -1098,13 +1182,53 @@
                 valid = false;
             }
 
+            // 💾 Validasi file
+            const fileInput = document.getElementById('payment_proof');
+            const file = fileInput.files[0];
+            if (file) {
+                const allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+                const ext = file.name.split('.').pop().toLowerCase();
+
+                if (!allowedExt.includes(ext)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format Tidak Valid!',
+                        text: 'File harus berupa JPG, JPEG, PNG, atau WEBP.',
+                    });
+                    return; // 🚫 stop total
+                }
+
+                if (file.size > 2 * 1024 * 1024) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'File Terlalu Besar!',
+                        text: 'Ukuran file maksimal 2MB.',
+                    });
+                    return; // 🚫 stop total
+                }
+            }
+
             if (!valid) {
                 return false;
             }
 
-            document.getElementById('paid_amount_product').value = paidAmount;
+            const cleanPaid = paidAmountRaw
+                .replace(/\./g, '') // Hapus titik (pemisah ribuan)
+                .replace(',', '.'); // Ganti koma dengan titik (desimal)
 
+            // Validasi final sebelum submit
+            const parsedPaid = parseFloat(cleanPaid);
+            if (isNaN(parsedPaid) || parsedPaid <= 0) {
+                const el = document.getElementById('error_paid_amount_product');
+                el.innerText = 'Paid amount tidak valid';
+                el.classList.remove('d-none');
+                return false;
+            }
+
+            // Set nilai yang sudah dibersihkan ke input
+            document.getElementById('paid_amount_product').value = cleanPaid;
             this.submit();
+
         });
 
         document.getElementById('markAsPurchaseFormFreight').addEventListener('submit', function(e) {
@@ -1120,72 +1244,63 @@
             const transactionType = document.getElementById('transaction_type_freight')?.value.trim() || '';
             const transactionDate = document.getElementById('transaction_date_freight')?.value.trim() || '';
             const cashBankAccount = document.getElementById('cash_bank_account_id_freight')?.value.trim() || '';
+
             const paidAmountRaw = document.getElementById('paid_amount_freight')?.value.trim() || '0';
-            const paidAmount = paidAmountRaw.replace(/\./g, "");
-            const remainingRaw = document.getElementById('total_amount_display_freight')?.innerText.trim().replace(
-                /\./g, "") || '0';
-            const remainingAmount = parseInt(remainingRaw) || 0;
+            const paidAmount = parseFloat(paidAmountRaw.replace(/\./g, "").replace(",", ".")) || 0;
+
+            const remainingRaw = document.getElementById('total_amount_display_freight')?.innerText.trim()
+                .replace(/\./g, "").replace(",", ".") || '0';
+            const remainingAmount = parseFloat(remainingRaw) || 0;
 
             if (!transactionType) {
                 const el = document.getElementById('error_transaction_type_freight');
-                if (el) {
-                    el.innerText = 'Purchase Account wajib dipilih';
-                    el.classList.remove('d-none');
-                }
+                el.innerText = 'Purchase Account wajib dipilih';
+                el.classList.remove('d-none');
                 valid = false;
             }
 
             if (!transactionDate) {
                 const el = document.getElementById('error_transaction_date_freight');
-                if (el) {
-                    el.innerText = 'Tanggal transaksi wajib diisi';
-                    el.classList.remove('d-none');
-                }
+                el.innerText = 'Tanggal transaksi wajib diisi';
+                el.classList.remove('d-none');
                 valid = false;
             }
 
             if (!cashBankAccount) {
                 const el = document.getElementById('error_cash_bank_account_id_freight');
-                if (el) {
-                    el.innerText = 'Pilih Cash/Bank Account';
-                    el.classList.remove('d-none');
-                }
+                el.innerText = 'Pilih Cash/Bank Account';
+                el.classList.remove('d-none');
                 valid = false;
             }
 
-            if (!paidAmount || isNaN(paidAmount) || parseInt(paidAmount) <= 0) {
+            if (!paidAmount || isNaN(paidAmount) || paidAmount <= 0) {
                 const el = document.getElementById('error_paid_amount_freight');
-                if (el) {
-                    el.innerText = 'Paid amount harus diisi dan lebih dari 0';
-                    el.classList.remove('d-none');
-                }
+                el.innerText = 'Paid amount harus diisi dan lebih dari 0';
+                el.classList.remove('d-none');
                 valid = false;
-            } else if (parseInt(paidAmount) > remainingAmount) {
+            } else if (paidAmount > remainingAmount) {
                 const el = document.getElementById('error_paid_amount_freight');
-                if (el) {
-                    el.innerText = 'Paid amount tidak boleh melebihi Balance';
-                    el.classList.remove('d-none');
-                }
+                el.innerText = 'Paid amount tidak boleh melebihi Balance';
+                el.classList.remove('d-none');
                 valid = false;
             }
 
-            if (!valid) {
+            if (!valid) return false;
+
+            // Bersihkan angka sebelum kirim
+            const cleanPaid = paidAmountRaw.replace(/\./g, '').replace(',', '.');
+            const parsedPaid = parseFloat(cleanPaid);
+            if (isNaN(parsedPaid) || parsedPaid <= 0) {
+                const el = document.getElementById('error_paid_amount_freight');
+                el.innerText = 'Paid amount tidak valid';
+                el.classList.remove('d-none');
                 return false;
             }
 
-            document.getElementById('paid_amount_freight').value = paidAmount;
+            document.getElementById('paid_amount_freight').value = cleanPaid;
             this.submit();
         });
 
-        ['product', 'freight'].forEach(type => {
-            const input = document.getElementById(`paid_amount_${type}`);
-            const display = document.getElementById(`paid_amount_display_${type}`);
-            input.addEventListener('input', function() {
-                let angka = this.value.replace(/\D/g, "") || "0";
-                this.value = new Intl.NumberFormat('id-ID').format(angka);
-                if (display) display.innerText = 'Paid: Rp. ' + this.value;
-            });
-        });
 
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalForceDeleteOrder');

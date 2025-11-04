@@ -16,6 +16,7 @@ class OrderProgressAssign extends Model
         'assign_batch_id',
         'assign_code',
         'order_progress_item_id',
+        'product_id',
         'operator_id',
         'date',
         'assigned_quantity',
@@ -29,6 +30,11 @@ class OrderProgressAssign extends Model
     protected $casts = [
         'deleted_at' => 'datetime',
     ];
+
+    public function product()
+    {
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
+    }
 
     public function batch()
     {

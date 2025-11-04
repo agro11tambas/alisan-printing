@@ -87,8 +87,9 @@
                                     </div>
                                     <div>
                                         <span class="fw-bold text-dark">Due Date:</span>
-                                        <span
-                                            class="text-muted">{{ date('d M Y', strtotime($order->due_date)) }}</span>
+                                        <span class="text-muted">
+                                            {{ $order->due_date ? date('d M Y', strtotime($order->due_date)) : '-' }}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -186,7 +187,7 @@
                                 </p>
                             </div>
                         </div>
-                        <div class="px-4 d-sm-flex align-items-center justify-content-between">
+                        <div class="px-4 pt-4 d-sm-flex align-items-center justify-content-between">
                             <div class="mb-5 mb-sm-0">
                                 <h6 class="fs-14 fw-bold">Bank</h6>
                                 <p class="fs-14">BANK: {{ $invoice->bank_name }}<br>

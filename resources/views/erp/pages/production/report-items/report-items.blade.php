@@ -99,12 +99,13 @@
                             <table class="table table-hover bg-transparent" id="reportItemsTable">
                                 <thead>
                                     <tr>
-                                        <th><input type="checkbox" id="selectAll"></th>
+                                        <th></th>
                                         <th>Item Name</th>
                                         <!-- <th>Purchase Stock</th> -->
                                         <th>Current Stock</th>
-                                        <th>Finished Products</th>
                                         <th>Pending Waiting List</th>
+                                        <th>Finished Products</th>
+                                        <th>Incoming Stock</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -155,15 +156,16 @@
     </div>
 @endpush
 
-
 @push('scripts')
     <script>
         $(document).ready(function() {
-
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
+
+            // 🟩 simpan ID produk yang sudah dicentang
+            let selectedProducts = [];
 
             let table = $('#reportItemsTable').DataTable({
                 processing: false,
@@ -176,7 +178,7 @@
                 lengthChange: false,
                 info: false,
                 order: [
-                    [4, 'desc']
+                    [3, 'desc']
                 ],
                 data: [],
                 columns: [{
@@ -184,8 +186,11 @@
                         orderable: false,
                         searchable: false,
                         render: function(data, type, row) {
-                            return `<input type="checkbox" class="row-checkbox" value="${row.product_id}">`;
-                        }
+                            // 🟩 jika produk sudah dicentang sebelumnya, tandai checked
+                            const checked = selectedProducts.includes(row.product_id.toString()) ?
+                                'checked' : '';
+                            return `<input type="checkbox" class="row-checkbox" value="${row.product_id}" ${checked}>`;
+                        },
                     },
                     {
                         data: 'name'
@@ -194,20 +199,20 @@
                         data: 'available_quantity'
                     },
                     {
+                        data: 'pending_waiting_list'
+                    },
+                    {
                         data: 'finished_product_stock'
                     },
-                    // {
-                    //     data: 'order_progress_remaining'
-                    // },
                     {
-                        data: 'pending_waiting_list'
+                        data: 'incoming_stock'
                     },
                     {
                         data: 'action',
                         orderable: false,
                         searchable: false
                     },
-                ]
+                ],
             });
 
             function loadMoreData() {
@@ -216,11 +221,11 @@
 
                 $.ajax({
                     url: "{{ url('/erp/productions/report-items/data') }}",
-                    type: 'GET',
+                    type: "GET",
                     data: {
                         start: currentPage * 15,
                         length: 15,
-                        product_name: $('#product_name').val(),
+                        product_name: $("#product_name").val(),
                     },
                     success: function(res) {
                         if (res && res.data && res.data.length > 0) {
@@ -233,16 +238,16 @@
                         }
                         isLoading = false;
                     },
-                    error: function(xhr) {
+                    error: function() {
                         isLoading = false;
-                    }
+                    },
                 });
             }
 
             loadMoreData();
 
             let scrollTimeout = null;
-            $('.dataTables_scrollBody').on('scroll', function() {
+            $(".dataTables_scrollBody").on("scroll", function() {
                 clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
                 const scrollHeight = $(this)[0].scrollHeight;
@@ -255,86 +260,101 @@
                 }, 200);
             });
 
-            $('#product_name').on('keyup change', function() {
+            $("#product_name").on("keyup change", function() {
                 allData = [];
                 currentPage = 0;
                 hasMoreData = true;
+                selectedProducts = []; // reset pilihan saat cari baru
                 table.clear().draw();
                 loadMoreData();
+                toggleRequestButton();
             });
-        });
 
-        $(document).on('click', '.btnDefect', function() {
-            const id = $(this).data('product-id');
-            const name = $(this).data('name');
+            // 🟩 checkbox listener pakai delegated event biar tetap aktif
+            $(document).on("change", ".row-checkbox", function() {
+                const id = $(this).val();
+                if ($(this).is(":checked")) {
+                    if (!selectedProducts.includes(id)) selectedProducts.push(id);
+                } else {
+                    selectedProducts = selectedProducts.filter((x) => x !== id);
+                }
+                toggleRequestButton();
+            });
 
-            $('#defect_product_id').val(id);
-            $('#defect_product_name').val(name);
-            $('#defect_quantity').val('');
-            $('#defect_note').val('');
+            $("#selectAll").on("change", function() {
+                const checked = $(this).prop("checked");
+                $(".row-checkbox").prop("checked", checked).trigger("change");
+            });
 
-            $('#defectModal').modal('show');
-        });
+            function toggleRequestButton() {
+                if (selectedProducts.length > 0) {
+                    $("#btnRequestStock").removeClass("d-none");
+                } else {
+                    $("#btnRequestStock").addClass("d-none");
+                }
+            }
 
-        $('#defectForm').on('submit', function(e) {
-            e.preventDefault();
+            // 🟩 fix tombol request stock
+            $(document).on("click", "#btnRequestStock", function() {
+                if (selectedProducts.length === 0) {
+                    Swal.fire("Peringatan", "Pilih minimal 1 produk untuk request stock.", "warning");
+                    return;
+                }
 
-            $.ajax({
-                url: $(this).attr('action'),
-                type: 'POST',
-                data: $(this).serialize(),
-                success: function(res) {
-                    $('#defectModal').modal('hide');
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Defect saved!',
-                        text: res.message || 'Defect product successfully recorded.'
-                    });
-                    $('#reportItemsTable').DataTable().ajax.reload();
-                },
-                error: function(xhr) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: xhr.responseJSON?.message || 'Failed to save defect product.'
-                    });
+                const url = "{{ url('/erp/productions/material-request/create') }}" + "?products=" +
+                    selectedProducts.join(",");
+                window.location.href = url;
+            });
+
+            $(document).on('click', '#reportItemsTable tbody tr', function(e) {
+                // Hindari klik langsung di tombol / link di kolom aksi
+                if ($(e.target).is('button, a, i, input')) return;
+
+                const checkbox = $(this).find('.row-checkbox');
+                if (checkbox.length > 0) {
+                    const currentState = checkbox.prop('checked');
+                    checkbox.prop('checked', !currentState).trigger('change');
                 }
             });
         });
 
-        // Handle checkbox behavior
-        $(document).on('change', '.row-checkbox', function() {
-            toggleRequestButton();
+        // modal defect tetap sama
+        $(document).on("click", ".btnDefect", function() {
+            const id = $(this).data("product-id");
+            const name = $(this).data("name");
+
+            $("#defect_product_id").val(id);
+            $("#defect_product_name").val(name);
+            $("#defect_quantity").val("");
+            $("#defect_note").val("");
+
+            $("#defectModal").modal("show");
         });
 
-        $('#selectAll').on('change', function() {
-            $('.row-checkbox').prop('checked', $(this).prop('checked'));
-            toggleRequestButton();
-        });
+        $("#defectForm").on("submit", function(e) {
+            e.preventDefault();
 
-        function toggleRequestButton() {
-            const selected = $('.row-checkbox:checked').length > 0;
-            if (selected) {
-                $('#btnRequestStock').removeClass('d-none');
-            } else {
-                $('#btnRequestStock').addClass('d-none');
-            }
-        }
-
-        $('#btnRequestStock').on('click', function() {
-            const selectedProducts = $('.row-checkbox:checked').map(function() {
-                return $(this).val();
-            }).get();
-
-            if (selectedProducts.length === 0) {
-                Swal.fire('Peringatan', 'Pilih minimal 1 produk untuk request stock.', 'warning');
-                return;
-            }
-
-            // Redirect ke halaman create request stock dengan parameter produk
-            const url = "{{ url('/erp/productions/material-request/create') }}" + '?products=' + selectedProducts
-                .join(',');
-            window.location.href = url;
+            $.ajax({
+                url: $(this).attr("action"),
+                type: "POST",
+                data: $(this).serialize(),
+                success: function(res) {
+                    $("#defectModal").modal("hide");
+                    Swal.fire({
+                        icon: "success",
+                        title: "Defect saved!",
+                        text: res.message || "Defect product successfully recorded.",
+                    });
+                    $("#reportItemsTable").DataTable().ajax.reload();
+                },
+                error: function(xhr) {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: xhr.responseJSON?.message || "Failed to save defect product.",
+                    });
+                },
+            });
         });
     </script>
 @endpush

@@ -130,7 +130,7 @@ class UserController extends Controller
                 Rule::unique('users', 'username')->ignore($id),
             ],
             'password'               => 'nullable|min:8',
-            'role'                   => 'required|string|in:Owner,Admin',
+            'role' => 'required|string|in:Owner,Admin,Kurir',
             'permissions'            => 'array',
             'permission_sub_items'   => 'array',
         ], [

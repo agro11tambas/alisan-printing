@@ -95,6 +95,11 @@ class ReportItemsProductionController extends Controller
                 fn($item) =>
                 '<span class="text-success">' . number_format($item->remaining_quantity, 0, ',', '.') . '</span>'
             )
+            ->addColumn(
+                'incoming_stock',
+                fn($item) =>
+                '<span class="text-info">' . number_format($item->incoming_stock, 0, ',', '.') . '</span>'
+            )            
             ->addColumn('pending_waiting_list', fn($item) => number_format($item->pending_waiting_list, 0, ',', '.'))
             ->addColumn('action', fn($row) => '
             <button type="button" 
@@ -104,7 +109,7 @@ class ReportItemsProductionController extends Controller
                 <i class="feather-alert-triangle me-1"></i> Defect
             </button>
         ')
-            ->rawColumns(['available_quantity', 'finished_product_stock', 'order_progress_remaining', 'action'])
+            ->rawColumns(['available_quantity', 'finished_product_stock', 'order_progress_remaining', 'action', 'incoming_stock'])
             ->make(true);
     }
 

@@ -1067,6 +1067,93 @@ class SaleReturnController extends Controller
         }
     }
 
+    public function forceDeleteOwner($id, Request $request)
+    {
+        // ⛔️ Batasi hanya untuk Owner
+        if (!Auth::check() || Auth::user()->role !== 'Owner') {
+            abort(403, 'Only Owner can force delete Sale Return.');
+        }
+
+        $request->validate([
+            'delete_notes' => 'required|string|max:1000',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $saleReturn = SaleReturn::with(['items'])->findOrFail($id);
+
+            // 🔹 rollback stok produksi (canceled_product_stock)
+            foreach ($saleReturn->items as $item) {
+                $productId = $item->product_id;
+                $qty       = $item->quantity;
+
+                $productionStock = ProductionStock::firstOrCreate(
+                    ['product_id' => $productId, 'production_warehouse_id' => 2],
+                    [
+                        'available_quantity'     => 0,
+                        'finished_product_stock' => 0,
+                        'pending_waiting_list'   => 0,
+                        'canceled_product_stock' => 0,
+                    ]
+                );
+
+                // rollback canceled stock (pastikan tidak minus)
+                $beforeCanceled = (int) $productionStock->canceled_product_stock;
+                $productionStock->canceled_product_stock = max(0, $beforeCanceled - $qty);
+                $productionStock->save();
+
+                // hapus ledger canceled_products
+                CanceledProduct::where('sale_return_id', $saleReturn->id)
+                    ->where('product_id', $productId)
+                    ->where('order_item_id', $item->order_item_id)
+                    ->delete();
+
+                Log::info('Force delete SaleReturn rollback stok', [
+                    'sale_return_id' => $saleReturn->id,
+                    'product_id' => $productId,
+                    'qty' => $qty,
+                    'before_canceled' => $beforeCanceled,
+                    'after_canceled' => $productionStock->canceled_product_stock,
+                ]);
+            }
+
+            // 🔹 hapus semua transaksi akunting yang terhubung
+            AccountTransaction::where('sale_return_id', $saleReturn->id)->delete();
+
+            // 🔹 hapus edit history (kalau ada relasi)
+            if (method_exists($saleReturn, 'editHistories')) {
+                $saleReturn->editHistories()->forceDelete();
+            }
+
+            // 🔹 hapus semua item SaleReturn
+            if ($saleReturn->items()->exists()) {
+                $saleReturn->items()->forceDelete();
+            }
+
+            // 🔹 hapus SaleReturn itu sendiri (force delete total)
+            $saleReturn->delete_notes = $request->input('delete_notes');
+            $saleReturn->deleted_by = Auth::id();
+            $saleReturn->save();
+            $saleReturn->forceDelete();
+
+            // 🔹 tandai laporan keuangan
+            FinancialReport::where('reference_table', 'sale_returns')
+                ->where('reference_id', $saleReturn->id)
+                ->update(['deleted_at' => now()]);
+
+            DB::commit();
+            return back()->with('success', 'Sale Return berhasil dihapus permanen oleh Owner.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Force delete SaleReturn failed', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+            return back()->with('error', 'Gagal menghapus Sale Return: ' . $e->getMessage());
+        }
+    }
+
     public function getSaleReturnDetail($id)
     {
         $return = SaleReturn::with('items')->findOrFail($id);
@@ -1087,6 +1174,7 @@ class SaleReturnController extends Controller
             'transaction_type'      => 'required|exists:accounts,id',
             'note'                  => 'nullable|string',
             'particular'            => 'nullable|string',
+            'payment_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
         DB::beginTransaction();
@@ -1099,6 +1187,24 @@ class SaleReturnController extends Controller
 
             $saleAccount     = Account::findOrFail($request->transaction_type); // Akun retur penjualan
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id); // Akun kas/bank
+
+            $proofPath = null;
+            if ($request->hasFile('payment_proof')) {
+                $file = $request->file('payment_proof');
+                $uploadPath = public_path('uploads/payment_proofs');
+
+                // Buat folder jika belum ada
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                // Generate nama unik
+                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move($uploadPath, $fileName);
+
+                // Simpan path relatif
+                $proofPath = 'uploads/payment_proofs/' . $fileName;
+            }
 
             // **Transaksi CREDIT (sale return refund ke customer)**
             // AccountTransaction::create([
@@ -1126,6 +1232,7 @@ class SaleReturnController extends Controller
                 'note'                => $request->note ?? '',
                 'particular'          => $saleAccount->name . ' - ' . $saleAccount->type,
                 'transaction_group_id' => $groupId,
+                'proof'               => $proofPath,
             ]);
 
             $cashBankAccount->closing_balance -= $request->refund_amount;

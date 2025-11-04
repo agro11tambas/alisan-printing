@@ -311,6 +311,7 @@ class SaleOrderController extends Controller
                     'payment_status' => $paymentBadge,
                     'products' => $items,
                     'status' => $statusBadge,
+                    'notes' => e($order->notes ?? '-'),
                     'action' => view('erp.pages.sales.sale-orders.partials.action-button', compact('order'))->render(),
                 ];
             }),
@@ -443,6 +444,7 @@ class SaleOrderController extends Controller
             'sub_total'            => 'required|numeric|min:0',
             'total_discount'       => 'required|numeric|min:0',
             'total_amount'         => 'required|numeric|min:0',
+            'notes'                => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -725,6 +727,7 @@ class SaleOrderController extends Controller
             'sub_total'               => 'required|numeric|min:0',
             'total_discount'          => 'required|numeric|min:0',
             'total_amount'            => 'required|numeric|min:0',
+            'notes'                   => 'nullable|string',
         ]);
 
         DB::beginTransaction();
