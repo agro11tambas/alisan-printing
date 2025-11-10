@@ -1,5 +1,42 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        /* 🔹 Perbesar font pada select bawaan (kalau belum diinisialisasi Select2) */
+        .select-product {
+            font-size: 16px !important;
+            padding: 8px 10px !important;
+            height: 42px !important;
+        }
+
+        /* 🔹 Perbesar font di dalam Select2 container */
+        .select2-container--default .select2-selection--single {
+            height: 42px !important;
+            font-size: 16px !important;
+            line-height: 42px !important;
+        }
+
+        /* 🔹 Perbesar teks hasil pilihan */
+        .select2-selection__rendered {
+            font-size: 16px !important;
+            line-height: 42px !important;
+            padding-left: 10px !important;
+        }
+
+        /* 🔹 Perbesar teks di dropdown Select2 */
+        .select2-results__option {
+            font-size: 16px !important;
+            padding: 8px 12px !important;
+        }
+
+        /* 🔹 Perbesar ikon dropdown */
+        .select2-selection__arrow {
+            height: 42px !important;
+            right: 10px !important;
+        }
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -116,6 +153,21 @@
                                     </div>
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
+                                            <label for="mode" class="fw-semibold">Mode:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <select class="form-select" id="mode" name="mode"
+                                                    data-select2-selector="tag" required>
+                                                    <option disabled selected hidden>Pilih mode</option>
+                                                    <option value="printing">Printing</option>
+                                                    <option value="polosan">Polosan</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -132,10 +184,11 @@
                                             <div class="form-check form-switch">
                                                 <input class="form-check-input" type="checkbox" id="toggleDiscount"
                                                     name="discount_active" checked>
-                                                <label class="form-check-label" for="toggleDiscount">Aktifkan Diskon</label>
+                                                <label class="form-check-label" for="toggleDiscount">Aktifkan
+                                                    Diskon</label>
                                             </div>
-                                            <input type="hidden" id="discount_active_hidden" name="discount_active_hidden"
-                                                value="1">
+                                            <input type="hidden" id="discount_active_hidden"
+                                                name="discount_active_hidden" value="1">
                                         </div>
                                     </div>
                                 </div>
@@ -182,7 +235,7 @@
                                                             class="form-control qty" id="qty_0" min="1"></td>
 
                                                     <!-- <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" id="price_before_discount_0" readonly></td>
-                                                                                                                                                                        <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
+                                                                                                                                                                                <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
                                                     <td>
                                                         @php
                                                             $isOwner = Auth::user()->role === 'Owner';
@@ -711,6 +764,12 @@
             if (!addressSelect.val() || addressSelect.val().length === 0) {
                 isValid = false;
                 showError(addressSelect[0], "Alamat wajib dipilih");
+            }
+
+            const modeSelect = $('#mode');
+            if (!modeSelect.val() || modeSelect.val().length === 0) {
+                isValid = false;
+                showError(modeSelect[0], "Mode wajib dipilih");
             }
 
             const rows = this.querySelectorAll('#tab_logic tbody tr');

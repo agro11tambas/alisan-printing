@@ -118,25 +118,14 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-lg-4">
+                            <div class="col-lg-2">
                                 <div class="row g-3 justify-content-end">
                                     <div class="col-lg-12">
-                                        <label for="search_type" class="fw-semibold fs-12">Filter By</label>
-                                        <div class="row g-3">
-                                            <div class="col-md-4">
-                                                <select id="search_type" class="form-control"
-                                                    style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                                    <option value="name">Product Name</option>
-                                                    <option value="sku">SKU</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-8">
-                                                <input type="text" id="search_keyword" name="search_keyword"
-                                                    class="form-control search-input"
-                                                    style="padding: 0.5rem 1rem; font-size: 0.875rem;"
-                                                    placeholder="Search..." />
-                                            </div>
-                                        </div>
+                                        <label for="search_keyword" class="fw-semibold fs-12">Search</label>
+                                        <input type="text" id="search_keyword" name="search_keyword"
+                                            class="form-control search-input"
+                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;"
+                                            placeholder="Search by Product or SKU..." />
                                     </div>
                                 </div>
                             </div>
@@ -249,6 +238,8 @@
                 ]
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
             // ⚠️ Fungsi untuk load data dari server
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
@@ -256,44 +247,48 @@
                 isLoading = true;
                 $('#loadingIndicator').show();
 
-                $.ajax({
+                // Batalkan request sebelumnya jika masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/products/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
-                        search_type: $('#search_type').val(),
+                        start: currentPage * 200,
+                        length: 200,
                         search_keyword: $('#search_keyword').val(),
                         category_id: $('#category_id').val(),
                         tag_id: $('#tag_id').val()
                     },
                     success: function(response) {
-
                         if (response.data.length > 0) {
-                            // ⚠️ Append data baru ke array
                             allData = allData.concat(response.data);
-
-                            // ⚠️ Update DataTable dengan semua data
                             dataTable.clear();
                             dataTable.rows.add(allData);
-                            dataTable.draw(false); // false = jangan reset scroll position
-
+                            dataTable.draw(false);
                             currentPage++;
-
                         } else {
                             hasMoreData = false;
                             $('#loadingIndicator').html('✅ All products loaded').show();
                             setTimeout(() => $('#loadingIndicator').hide(), 2000);
                         }
-
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                         $('#loadingIndicator').hide();
                     },
                     error: function(xhr) {
+                        if (xhr.statusText !== "abort") {
+                            console.error("AJAX error", xhr);
+                        }
                         isLoading = false;
                         $('#loadingIndicator').hide();
                     }
                 });
+
             }
 
             // ⚠️ Load data pertama kali
@@ -317,14 +312,17 @@
                 }, 100);
             });
 
-            // ⚠️ Reset saat filter berubah
-            $('#search_type, #search_keyword, #category_id, #tag_id').on('change keyup', function() {
-                allData = [];
-                currentPage = 0;
-                hasMoreData = true;
-                dataTable.clear().draw();
-                loadMoreData();
+            $('#search_keyword, #category_id, #tag_id').on('change keyup', function() {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    allData = [];
+                    currentPage = 0;
+                    hasMoreData = true;
+                    dataTable.clear().draw();
+                    loadMoreData();
+                }, 100);
             });
+
 
             // Action button handlers (tetap sama)
             $('#productTable tbody').on('click', 'tr', function(e) {

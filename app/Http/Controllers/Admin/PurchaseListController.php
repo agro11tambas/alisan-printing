@@ -8,6 +8,7 @@ use App\Models\PurchaseItem;
 use App\Models\Supplier;
 use App\Models\Account;
 use App\Models\AccountTransaction;
+use App\Models\FinancialReport;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
 use App\Models\InventoryStock;
@@ -1025,6 +1026,122 @@ class PurchaseListController extends Controller
         }
     }
 
+    public function forceDeleteOwner($id, Request $request)
+    {
+        if (!Auth::check() || Auth::user()->role !== 'Owner') {
+            abort(403, 'Only Owner can force delete.');
+        }
+
+        $request->validate([
+            'delete_notes' => 'required|string|max:1000',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $purchase = Purchase::with(['purchaseItems'])->findOrFail($id);
+            $productIds = $purchase->purchaseItems->pluck('product_id')->filter()->unique()->toArray();
+
+            // 1️⃣ ROLLBACK STOK (Termasuk Stock In)
+            foreach ($purchase->purchaseItems as $item) {
+                if (!$item->product_id) continue;
+
+                $inventoryStock = InventoryStock::firstOrCreate(
+                    ['product_id' => $item->product_id],
+                    [
+                        'incoming_stock'     => 0,
+                        'stock_after_sales'  => 0,
+                        'inventory_stock'    => 0, // stok utama
+                    ]
+                );
+
+                // Ambil total stock_in dari InventoryItem yang terkait purchase ini
+                $stockInQty = InventoryItem::where('purchase_item_id', $item->id)
+                    ->where('stock_in', '>', 0)
+                    ->sum('stock_in');
+
+                // 🔹 Jika ada Stock In → rollback stok utama & after sales
+                if ($stockInQty > 0) {
+                    $inventoryStock->decrement('stock_after_sales', $stockInQty);
+                    $inventoryStock->decrement('inventory_stock', $stockInQty);
+                }
+                // 🔹 Jika belum ada Stock In → rollback incoming stock (barang belum diterima)
+                else {
+                    if ($item->quantity > 0) {
+                        $inventoryStock->decrement('incoming_stock', $item->quantity);
+                    }
+                }
+
+                // 🔹 Hapus semua inventory_item yang terkait purchase ini
+                InventoryItem::where('purchase_item_id', $item->id)->forceDelete();
+
+                $inventoryStock->save();
+            }
+
+            // 2️⃣ HAPUS SEMUA TRANSAKSI KEUANGAN
+            $transactions = AccountTransaction::where('purchase_id', $purchase->id)->get();
+            foreach ($transactions as $trx) {
+                $account = Account::find($trx->account_id);
+                if (!$account) continue;
+
+                if ($account->type === 'Purchase Account') {
+                    $account->closing_balance -= $trx->debit;
+                    $account->closing_balance += $trx->credit;
+                    $trx->forceDelete();
+                } else {
+                    $trx->purchase_id = null;
+                    $trx->note = trim(($trx->note ?? '') . ' [Purchase deleted]');
+                    $trx->save();
+                }
+
+                $account->save();
+            }
+
+            // 3️⃣ HAPUS INVENTORY YANG TERTAUT KE PURCHASE
+            $inventory = Inventory::where('purchase_id', $purchase->id)->first();
+            if ($inventory) {
+                InventoryItem::where('inventory_id', $inventory->id)->forceDelete();
+                $inventory->forceDelete();
+            }
+
+            // 4️⃣ HAPUS PURCHASE ITEM & RELASI LAIN
+            PurchaseItem::where('purchase_id', $purchase->id)->forceDelete();
+            FinancialReport::where('reference_table', 'purchases')
+                ->where('reference_id', $purchase->id)
+                ->forceDelete();
+
+            // 5️⃣ HAPUS FILE IMAGE
+            if ($purchase->image && file_exists(public_path('storage/' . $purchase->image))) {
+                unlink(public_path('storage/' . $purchase->image));
+            }
+
+            // 6️⃣ FORCE DELETE PURCHASE
+            $purchase->delete_notes = $request->input('delete_notes');
+            $purchase->deleted_by   = Auth::id();
+            $purchase->saveQuietly();
+            $purchase->forceDelete();
+
+            // 7️⃣ UPDATE ULANG COST & STOCK PRODUK
+            foreach ($productIds as $productId) {
+                $product = Products::find($productId);
+                if ($product) {
+                    ProductCostService::updateCostAndStock($product);
+                    $product->stock_after_sales = $product->inventory_stock;
+                    $product->save();
+                }
+            }
+
+            DB::commit();
+            return back()->with('success', 'Purchase berhasil dihapus total (force delete oleh Owner). Semua efek stok & transaksi telah direset.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Force delete purchase failed: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
+        }
+    }
+
     public function markAsPaidProduct($id, Request $request)
     {
         // $request->merge([
@@ -1039,7 +1156,9 @@ class PurchaseListController extends Controller
             'transaction_type' => 'required|exists:accounts,id',
             'note' => 'nullable|string',
             'particular' => 'nullable|string',
-            'payment_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
+            'payment_proof'       => 'nullable|array',
+            'payment_proof.*'     => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image'      => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -1051,23 +1170,30 @@ class PurchaseListController extends Controller
             $purchaseAccount = Account::findOrFail($request->transaction_type);
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
 
-            $proofPath = null;
-            if ($request->hasFile('payment_proof')) {
-                $file = $request->file('payment_proof');
-                $uploadPath = public_path('uploads/payment_proofs');
+            // =====================================================
+            // 🔹 Handle Multiple Uploads (bukti + note)
+            // =====================================================
+            $uploadedProofs = [];
+            $notes = $request->note_per_image ?? [];
 
-                // Buat folder jika belum ada
+            if ($request->hasFile('payment_proof')) {
+                $uploadPath = public_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
 
-                // Generate nama unik
-                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->move($uploadPath, $fileName);
+                foreach ($request->file('payment_proof') as $index => $file) {
+                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $file->move($uploadPath, $fileName);
 
-                // Simpan path relatif
-                $proofPath = 'uploads/payment_proofs/' . $fileName;
+                    $uploadedProofs[] = [
+                        'file' => 'uploads/payment_proofs/' . $fileName,
+                        'note' => $notes[$index] ?? '',
+                    ];
+                }
             }
+
+            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // =========================
             // 1️⃣ Kas / Bank - CREDIT
@@ -1082,7 +1208,7 @@ class PurchaseListController extends Controller
                 'note'                 => $request->note ?? '',
                 'particular'           => 'Purchase Product Payment - ' . $purchaseAccount->name,
                 'transaction_group_id' => $groupId,
-                'proof'           => $proofPath
+                'proof'           => $proofJson,
             ]);
 
             $cashBankAccount->decrement('closing_balance', $request->paid_amount);
@@ -1090,20 +1216,20 @@ class PurchaseListController extends Controller
             // =========================
             // 2️⃣ Purchase Account - DEBIT
             // =========================
-            AccountTransaction::create([
-                'purchase_id'          => $purchase->id,
-                'purchase_number'      => $purchase->purchase_number,
-                'transaction_date'     => $request->transaction_date,
-                'account_id'           => $purchaseAccount->id,
-                'debit'                => $request->paid_amount,
-                'credit'               => 0,
-                'note'                 => $request->note ?? '',
-                'particular'           => 'Purchase Product Payment - ' . $cashBankAccount->name,
-                'transaction_group_id' => $groupId,
-                'proof'         => $proofPath
-            ]);
+            // AccountTransaction::create([
+            //     'purchase_id'          => $purchase->id,
+            //     'purchase_number'      => $purchase->purchase_number,
+            //     'transaction_date'     => $request->transaction_date,
+            //     'account_id'           => $purchaseAccount->id,
+            //     'debit'                => $request->paid_amount,
+            //     'credit'               => 0,
+            //     'note'                 => $request->note ?? '',
+            //     'particular'           => 'Purchase Product Payment - ' . $cashBankAccount->name,
+            //     'transaction_group_id' => $groupId,
+            //     'proof'         => $proofJson
+            // ]);
 
-            $purchaseAccount->increment('closing_balance', $request->paid_amount);
+            // $purchaseAccount->increment('closing_balance', $request->paid_amount);
 
             // =========================
             // 3️⃣ Update Purchase Fields
@@ -1127,9 +1253,21 @@ class PurchaseListController extends Controller
             $purchase->save();
 
             DB::commit();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Pembayaran berhasil disimpan.',
+                ]);
+            }
             return back()->with('success', 'Pembayaran produk berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Pembayaran berhasil disimpan.',
+                ]);
+            }
             return back()->with('error', 'Gagal menyimpan pembayaran produk: ' . $e->getMessage());
         }
     }
@@ -1148,35 +1286,44 @@ class PurchaseListController extends Controller
             'transaction_type' => 'required|exists:accounts,id',
             'note' => 'nullable|string',
             'particular' => 'nullable|string',
-            'proof' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
+            'payment_proof'       => 'nullable|array',
+            'payment_proof.*'     => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image'      => 'nullable|array',
         ]);
 
         DB::beginTransaction();
 
         try {
             $purchase = Purchase::findOrFail($request->purchase_id);
-            $groupId = $purchase->transaction_group_id ?? Str::uuid();
+            $groupId = Str::uuid();
 
             $purchaseAccount = Account::findOrFail($request->transaction_type);
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
 
-            $proofPath = null;
-            if ($request->hasFile('payment_proof')) {
-                $file = $request->file('payment_proof');
-                $uploadPath = public_path('uploads/payment_proofs');
+            // =====================================================
+            // 🔹 Handle Multiple Uploads (bukti + note)
+            // =====================================================
+            $uploadedProofs = [];
+            $notes = $request->note_per_image ?? [];
 
-                // Buat folder jika belum ada
+            if ($request->hasFile('payment_proof')) {
+                $uploadPath = public_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
 
-                // Generate nama unik
-                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->move($uploadPath, $fileName);
+                foreach ($request->file('payment_proof') as $index => $file) {
+                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $file->move($uploadPath, $fileName);
 
-                // Simpan path relatif
-                $proofPath = 'uploads/payment_proofs/' . $fileName;
+                    $uploadedProofs[] = [
+                        'file' => 'uploads/payment_proofs/' . $fileName,
+                        'note' => $notes[$index] ?? '',
+                    ];
+                }
             }
+
+            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // =========================
             // 1️⃣ Kas / Bank - CREDIT
@@ -1191,7 +1338,7 @@ class PurchaseListController extends Controller
                 'note'                 => $request->note ?? '',
                 'particular'           => 'Freight Payment - ' . $purchaseAccount->name,
                 'transaction_group_id' => $groupId,
-                'proof'         => $proofPath
+                'proof'                => $proofJson
             ]);
 
             $cashBankAccount->decrement('closing_balance', $request->paid_amount);
@@ -1199,20 +1346,20 @@ class PurchaseListController extends Controller
             // =========================
             // 2️⃣ Purchase Account - DEBIT
             // =========================
-            AccountTransaction::create([
-                'purchase_id'          => $purchase->id,
-                'purchase_number'      => $purchase->purchase_number,
-                'transaction_date'     => $request->transaction_date,
-                'account_id'           => $purchaseAccount->id,
-                'debit'                => $request->paid_amount,
-                'credit'               => 0,
-                'note'                 => $request->note ?? '',
-                'particular'           => 'Freight Payment - ' . $cashBankAccount->name,
-                'transaction_group_id' => $groupId,
-                'proof'         => $proofPath
-            ]);
+            // AccountTransaction::create([
+            //     'purchase_id'          => $purchase->id,
+            //     'purchase_number'      => $purchase->purchase_number,
+            //     'transaction_date'     => $request->transaction_date,
+            //     'account_id'           => $purchaseAccount->id,
+            //     'debit'                => $request->paid_amount,
+            //     'credit'               => 0,
+            //     'note'                 => $request->note ?? '',
+            //     'particular'           => 'Freight Payment - ' . $cashBankAccount->name,
+            //     'transaction_group_id' => $groupId,
+            //     'proof'                => $proofJson
+            // ]);
 
-            $purchaseAccount->increment('closing_balance', $request->paid_amount);
+            // $purchaseAccount->increment('closing_balance', $request->paid_amount);
 
             // =========================
             // 3️⃣ Update Purchase Fields (Freight)
@@ -1236,9 +1383,21 @@ class PurchaseListController extends Controller
             $purchase->save();
 
             DB::commit();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Pembayaran berhasil disimpan.',
+                ]);
+            }
             return back()->with('success', 'Pembayaran freight berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Pembayaran berhasil disimpan.',
+                ]);
+            }
             return back()->with('error', 'Gagal menyimpan pembayaran freight: ' . $e->getMessage());
         }
     }
@@ -1264,6 +1423,92 @@ class PurchaseListController extends Controller
         ]);
     }
 
+    // public function updatePayment(Request $request, $groupId)
+    // {
+    //     $request->merge([
+    //         'paid_amount' => str_replace('.', '', $request->paid_amount),
+    //     ]);
+
+    //     $request->validate([
+    //         'transaction_date'      => 'required|date',
+    //         'paid_amount'           => 'required|numeric|min:1',
+    //         'cash_bank_account_id'  => 'required|exists:accounts,id',
+    //         'note'                  => 'nullable|string',
+    //     ]);
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
+    //         if ($transactions->isEmpty()) {
+    //             throw new \Exception("Payment not found");
+    //         }
+
+    //         $purchaseId = $transactions->first()->purchase_id;
+    //         $purchase   = Purchase::findOrFail($purchaseId);
+
+    //         // cari transaksi credit lama (Cash/Bank)
+    //         $oldCredit = $transactions->firstWhere('credit', '>', 0);
+    //         if (!$oldCredit) {
+    //             throw new \Exception("Credit transaction (Cash/Bank) not found in this group");
+    //         }
+
+    //         $oldAccount = $oldCredit->account;
+    //         $oldAmount  = $oldCredit->credit;
+
+    //         // rollback saldo akun lama
+    //         $oldAccount->closing_balance += $oldAmount;
+    //         $oldAccount->save();
+
+    //         // update transaksi credit lama → ganti akun/amount/date/note
+    //         $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
+    //         $oldCredit->update([
+    //             'transaction_date' => $request->transaction_date,
+    //             'account_id'       => $cashBankAccount->id,
+    //             'credit'           => $request->paid_amount,
+    //             'note'             => $request->note ?? '',
+    //         ]);
+
+    //         // update saldo akun baru
+    //         $cashBankAccount->closing_balance -= $request->paid_amount;
+    //         $cashBankAccount->save();
+
+    //         // update juga tanggal/note untuk baris debit Purchase biar sinkron
+    //         $purchaseTrx = $transactions->firstWhere('debit', '>', 0);
+    //         if ($purchaseTrx) {
+    //             $purchaseTrx->update([
+    //                 'transaction_date' => $request->transaction_date,
+    //                 'note'             => $request->note ?? '',
+    //             ]);
+    //         }
+
+    //         // hitung ulang paid amount
+    //         $totalPaid = AccountTransaction::where('purchase_id', $purchase->id)
+    //             ->where('credit', '>', 0) // hanya ambil pembayaran Cash/Bank
+    //             ->sum('credit');
+
+    //         $purchase->paid_amount      = $totalPaid;
+    //         $purchase->remaining_amount = max(0, $purchase->total_amount - $totalPaid);
+
+    //         if ($purchase->paid_amount == 0) {
+    //             $purchase->payment_status = 'Unpaid';
+    //         } elseif ($purchase->paid_amount < $purchase->total_amount) {
+    //             $purchase->payment_status = 'Partially Paid';
+    //         } elseif ($purchase->paid_amount == $purchase->total_amount) {
+    //             $purchase->payment_status = 'Paid';
+    //         } else {
+    //             $purchase->payment_status = 'Overpaid';
+    //         }
+
+    //         $purchase->save();
+
+    //         DB::commit();
+    //         return redirect()->back()->with('success', 'Payment berhasil diperbarui.');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return redirect()->back()->with('error', 'Gagal update payment: ' . $e->getMessage());
+    //     }
+    // }
+
     public function updatePayment(Request $request, $groupId)
     {
         $request->merge([
@@ -1275,6 +1520,9 @@ class PurchaseListController extends Controller
             'paid_amount'           => 'required|numeric|min:1',
             'cash_bank_account_id'  => 'required|exists:accounts,id',
             'note'                  => 'nullable|string',
+            'payment_proof'         => 'nullable|array',
+            'payment_proof.*'       => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image'        => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -1287,7 +1535,53 @@ class PurchaseListController extends Controller
             $purchaseId = $transactions->first()->purchase_id;
             $purchase   = Purchase::findOrFail($purchaseId);
 
-            // cari transaksi credit lama (Cash/Bank)
+            // =====================================================
+            // 🔹 Handle Multiple Uploads (bukti + note)
+            // =====================================================
+            $uploadedProofs = [];
+            $notes = $request->note_per_image ?? [];
+
+            // Ambil proof lama biar gak hilang
+            $oldProofs = [];
+            $oldProofJson = $transactions->first()?->proof;
+            if ($oldProofJson && is_string($oldProofJson)) {
+                $decoded = json_decode($oldProofJson, true);
+                if (is_array($decoded)) {
+                    $oldProofs = $decoded;
+                }
+            }
+
+            if ($request->hasFile('payment_proof')) {
+                $uploadPath = public_path('uploads/payment_proofs');
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                foreach ($request->file('payment_proof') as $index => $file) {
+                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $file->move($uploadPath, $fileName);
+
+                    $path = 'uploads/payment_proofs/' . $fileName;
+                    $uploadedProofs[] = [
+                        'file' => str_replace('\\', '/', $path),
+                        'note' => $notes[$index] ?? '',
+                    ];
+                }
+            }
+
+            // 🔹 Kalau gak ada file baru → tetap pakai proof lama tapi update note kalau dikirim ulang
+            if (empty($uploadedProofs)) {
+                foreach ($oldProofs as $index => &$proof) {
+                    $proof['note'] = $notes[$index] ?? ($proof['note'] ?? '');
+                }
+                $uploadedProofs = $oldProofs;
+            }
+
+            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+
+            // =====================================================
+            // 🔹 Payment Process (kode lama kamu tetap utuh)
+            // =====================================================
             $oldCredit = $transactions->firstWhere('credit', '>', 0);
             if (!$oldCredit) {
                 throw new \Exception("Credit transaction (Cash/Bank) not found in this group");
@@ -1300,13 +1594,14 @@ class PurchaseListController extends Controller
             $oldAccount->closing_balance += $oldAmount;
             $oldAccount->save();
 
-            // update transaksi credit lama → ganti akun/amount/date/note
+            // update transaksi credit lama → ganti akun/amount/date/note + proof
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
             $oldCredit->update([
                 'transaction_date' => $request->transaction_date,
                 'account_id'       => $cashBankAccount->id,
                 'credit'           => $request->paid_amount,
                 'note'             => $request->note ?? '',
+                'proof'            => $proofJson, // 🔹 bukti disimpan di sini
             ]);
 
             // update saldo akun baru
@@ -1324,7 +1619,7 @@ class PurchaseListController extends Controller
 
             // hitung ulang paid amount
             $totalPaid = AccountTransaction::where('purchase_id', $purchase->id)
-                ->where('credit', '>', 0) // hanya ambil pembayaran Cash/Bank
+                ->where('credit', '>', 0)
                 ->sum('credit');
 
             $purchase->paid_amount      = $totalPaid;

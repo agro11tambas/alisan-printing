@@ -1,17 +1,11 @@
 <div class="dropdown">
     <ul class="dropdown-menu show static-action-menu">
         @php
-            $completed = $do->items->sum(function ($item) {
-                return optional($item->orderProgress->items->where('product_id', $item->product_id)->first())
-                    ->completed_quantity ?? 0;
-            });
-
-            $allShipped = $do->items->every(function ($item) {
-                return $item->shipped_qty >= $item->progress_qty;
-            });
+            $completed = $do->items->sum(fn($item) => $item->shipped_qty);
+            $allShipped = $do->items->every(fn($item) => $item->shipped_qty >= $item->ready_qty);
         @endphp
 
-        @if ($completed > 0 && !$allShipped)
+        @if (!$allShipped)
             <li>
                 <a href="{{ url('/erp/deliveries/delivery-list/create-delivery-list/' . $do->id) }}"
                     class="dropdown-item">

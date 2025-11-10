@@ -259,9 +259,9 @@ Route::middleware(isLogin::class)->group(function () {
             Route::delete('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDelete'])->name('sales.forceDelete');
             Route::post('/erp/sales/sale-list/restore/{id}', [SaleListController::class, 'restore'])->name('sales.restore');
             Route::put('/erp/sales/mark-as-waiting-list/{id}', [SaleListController::class, 'markAsWaitingList']);
-            // routes/web.php
+
             Route::post('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDeleteOwner'])
-                ->name('sale-list.force-delete')
+                ->name('sales.sale-list.forceDeleteOwner')
                 ->middleware('auth'); // pastikan pakai middlewaremu
         });
 
@@ -282,10 +282,6 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/sales/sale-returns/data-deleted', [SaleReturnController::class, 'dataDeletedSaleReturns']);
             Route::delete('/erp/sales/sale-returns/force-delete/{id}', [SaleReturnController::class, 'forceDelete'])->name('sale-returns.forceDelete');
             Route::post('/erp/sales/sale-returns/restore/{id}', [SaleReturnController::class, 'restore'])->name('sale-returns.restore');
-            Route::post(
-                '/erp/sales/sale-returns/force-delete-owner/{id}',
-                [SaleReturnController::class, 'forceDeleteOwner']
-            )->name('sale-returns.force-delete-owner')->middleware('auth');
         });
     });
 
@@ -294,6 +290,7 @@ Route::middleware(isLogin::class)->group(function () {
         Route::get('/erp/design/data', [DesignController::class, 'dataDesign']);
         Route::post('/erp/design-items/{id}/upload', [DesignItemController::class, 'upload'])->name('design-items.upload');
         Route::post('/erp/design/{id}/verify', [DesignController::class, 'verify'])->name('design.verify');
+        Route::post('/erp/design/{id}/unverify', [DesignController::class, 'unverify'])->name('design.unverify');
     });
 
     Route::middleware(['auth', 'permission:production'])->group(function () {
@@ -308,6 +305,8 @@ Route::middleware(isLogin::class)->group(function () {
             Route::post('/erp/productions/waiting-list/assign/{id}', [OrderProgressAssignController::class, 'store']);
 
             Route::get('/erp/productions/waiting-list/history-order/{id}', [HistoryProgressOrderController::class, 'getHistory']);
+            Route::delete('/erp/productions/waiting-list/history-order/delete-history/{id}', [HistoryProgressOrderController::class, 'deleteHistory']);
+            Route::delete('/erp/productions/waiting-list/history-order/delete-batch/{id}', [HistoryProgressOrderController::class, 'deleteBatch']);
 
             Route::put('/erp/productions/waiting-list/history-order/update-history/{id}', [HistoryProgressOrderController::class, 'updateHistory']);
             Route::get('/erp/productions/waiting-list/history-order/{id}/data', [HistoryProgressOrderController::class, 'dataOrderHistory']);
@@ -437,11 +436,15 @@ Route::middleware(isLogin::class)->group(function () {
             Route::post('/erp/purchases/purchase-list/mark-as-paid-product/{id}', [PurchaseListController::class, 'markAsPaidProduct'])->name('purchases.markAsPaidProduct');
             Route::post('/erp/purchases/purchase-list/mark-as-paid-freight/{id}', [PurchaseListController::class, 'markAsPaidFreight'])->name('purchases.markAsPaidFreight');
             Route::get('/erp/purchases/purchase-list/payment-history/{id}', [PurchaseListController::class, 'getPaymentHistory']);
-            Route::put('/erp/purchases/purchase-list/update-payment/{groupId}', [PurchaseListController::class, 'updatePayment']);
+            Route::put('/erp/purchases/purchase-list/update-payment/{id}', [PurchaseListController::class, 'updatePayment']);
+            // Route::post('/erp/purchases/purchase-list/update-payment-item/{id}', [PurchaseListController::class, 'updatePayment'])->name('purchases.updatePaymentItem');
             Route::get('/erp/purchases/purchase-list/edit-history/{id}', [PurchaseListController::class, 'getEditHistory']);
             Route::get('/erp/purchases/purchase-list/data-deleted', [PurchaseListController::class, 'dataDeletedPurchaseList']);
             Route::delete('/erp/purchases/purchase-list/force-delete/{id}', [PurchaseListController::class, 'forceDelete'])->name('purchases.forceDelete');
             Route::post('/erp/purchases/purchase-list/restore/{id}', [PurchaseListController::class, 'restore'])->name('purchases.restore');
+            Route::post('/erp/purchases/purchase-list/force-delete/{id}', [PurchaseListController::class, 'forceDeleteOwner'])
+                ->name('purchases.purchase-list.forceDeleteOwner')
+                ->middleware('auth');
         });
 
         Route::middleware(['auth', 'subpermission:purchase-returns'])->group(function () {

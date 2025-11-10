@@ -74,6 +74,7 @@ class StockOpnameProductionController extends Controller
         // ✅ Format JSON ringan (lazy load)
         return response()->json([
             'data' => $data->map(function ($item) {
+                $date = Carbon::parse($item->created_at)->format('d M Y H:i:s');
                 $status = strtolower($item->status);
                 $badge = match ($status) {
                     'gain' => '<div class="badge bg-soft-success text-success">' . e($item->status) . '</div>',
@@ -84,7 +85,7 @@ class StockOpnameProductionController extends Controller
                 return [
                     'id' => $item->id,
                     'product_name' => e($item->product->name ?? '-'),
-                    'date' => $item->date,
+                    'date' => $date,
                     'available_quantity' => number_format($item->available_quantity, 0, ',', '.'),
                     'finished_product' => number_format($item->finished_product, 0, ',', '.'),
                     'status' => $badge,

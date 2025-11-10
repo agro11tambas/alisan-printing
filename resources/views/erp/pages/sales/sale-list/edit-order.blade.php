@@ -1,5 +1,42 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        /* 🔹 Perbesar font pada select bawaan (kalau belum diinisialisasi Select2) */
+        .select-product {
+            font-size: 16px !important;
+            padding: 8px 10px !important;
+            height: 42px !important;
+        }
+
+        /* 🔹 Perbesar font di dalam Select2 container */
+        .select2-container--default .select2-selection--single {
+            height: 42px !important;
+            font-size: 16px !important;
+            line-height: 42px !important;
+        }
+
+        /* 🔹 Perbesar teks hasil pilihan */
+        .select2-selection__rendered {
+            font-size: 16px !important;
+            line-height: 42px !important;
+            padding-left: 10px !important;
+        }
+
+        /* 🔹 Perbesar teks di dropdown Select2 */
+        .select2-results__option {
+            font-size: 16px !important;
+            padding: 8px 12px !important;
+        }
+
+        /* 🔹 Perbesar ikon dropdown */
+        .select2-selection__arrow {
+            height: 42px !important;
+            right: 10px !important;
+        }
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -142,7 +179,8 @@
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <select class="form-select form-control max-select"
-                                                    data-select2-selector="tag" id="addresses" name="customer_address_id">
+                                                    data-select2-selector="tag" id="addresses"
+                                                    name="customer_address_id">
                                                     <option disabled hidden>Pilih alamat</option>
                                                     @if ($order->customer)
                                                         @foreach ($order->customer->addresses as $index => $address)
@@ -176,6 +214,29 @@
                                                     name="transaction_type">
                                                     <option value="6" data-bg="bg-success">Sale Account</option>
                                                 </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="mode" class="fw-semibold">Mode:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <select class="form-select" id="mode" name="mode" required
+                                                    data-select2-selector="tag">
+                                                    <option disabled {{ !isset($order) ? 'selected' : '' }} hidden>Pilih
+                                                        mode</option>
+                                                    <option value="printing"
+                                                        {{ isset($order) && $order->mode === 'printing' ? 'selected' : '' }}>
+                                                        Printing
+                                                    </option>
+                                                    <option value="polosan"
+                                                        {{ isset($order) && $order->mode === 'polosan' ? 'selected' : '' }}>
+                                                        Polosan
+                                                    </option>
+                                                </select>
+                                                {{-- <input type="hidden" name="mode" value="{{ $order->mode }}"> --}}
                                             </div>
                                         </div>
                                     </div>
@@ -245,6 +306,9 @@
                                             <tbody id="tab_logic">
                                                 @foreach ($order->orderItems as $index => $item)
                                                     <tr id="addr{{ $index }}">
+                                                        <!-- Untuk setiap baris product -->
+                                                        {{-- <input type="hidden" name="order_item_ids[]"
+                                                            value="{{ $item->id ?? null }}"> --}}
                                                         <td>{{ $index + 1 }}</td>
                                                         <td>
                                                             <select class="form-control select-product" name="product[]"

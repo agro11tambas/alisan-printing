@@ -14,6 +14,7 @@ class DefectProduct extends Model
 
     protected $fillable = [
         'product_id',
+        'order_progress_history_2_id',
         'purchase_id',
         'purchase_return_id',
         'supplier_id',

@@ -20,6 +20,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\ProductCostService;
+use App\Services\PurchaseNumberService;
 
 class PurchaseOrderController extends Controller
 {
@@ -196,11 +197,7 @@ class PurchaseOrderController extends Controller
         DB::beginTransaction();
 
         try {
-            $purchaseDate = Carbon::parse($request->purchase_date);
-            $purchaseDateFormatted = $purchaseDate->format('dmy');
-            $todayPurchaseCount = Purchase::whereDate('purchase_date', $purchaseDate->toDateString())->count();
-            $purchaseSequence = $todayPurchaseCount + 1;
-            $purchaseNumber = 'PO/' . $purchaseSequence . '/ALS/' . $purchaseDateFormatted;
+            $purchaseNumber = PurchaseNumberService::generate($request->purchase_date);
 
             $status = 'Purchase Orders';
             $paymentStatus = 'Pending';

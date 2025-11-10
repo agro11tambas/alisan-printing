@@ -3,7 +3,7 @@
         <thead>
             <tr>
                 <th>Product</th>
-                <th>Completed Waiting List</th>
+                <th>Ready Qty</th>
                 <th>Delivered</th>
                 <th>On Delivery</th>
             </tr>
@@ -11,13 +11,12 @@
         <tbody>
             @foreach ($do->items as $item)
                 @php
-                    $completed =
-                        optional($item->orderProgress->items->where('product_id', $item->product_id)->first())
-                            ->completed_quantity ?? 0;
+                    $readyQty = $item->ready_qty ?? 0;
 
-                    $waitingListQty = 
-                        optional($item->orderProgress->items->where('product_id', $item->product_id)->first())
-                            ->quantity ?? 0;
+                    // 🔹 completed_quantity hanya kalau ada design_item_id
+                    $completedQty = $item->design_item_id
+                        ? optional($item->orderProgressItem)->completed_quantity ?? 0
+                        : 0;
 
                     $finishedQty = $item->deliveryListItems
                         ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
@@ -30,12 +29,18 @@
 
                 <tr>
                     <td>
-                        <span class="fw-bold text-primary">
-                            {{ $item->product?->name ?? '-' }}
-                        </span>
+                        <span class="fw-bold text-primary">{{ $item->product?->name ?? '-' }}</span>
+                        @if ($item->satuan)
+                            <span class="badge bg-secondary ms-1">{{ $item->satuan }}</span>
+                        @endif
                     </td>
                     <td>
-                        <span>{{ number_format($completed, 0, ',', '.') }} / {{ number_format($waitingListQty, 0, ',', '.') }}</span>
+                        <span>
+                            {{ number_format($readyQty, 0, ',', '.') }}
+                            @if ($completedQty > 0)
+                                / {{ number_format($completedQty, 0, ',', '.') }}
+                            @endif
+                        </span>
                     </td>
                     <td>
                         <span class="fw-bold text-success">{{ number_format($finishedQty, 0, ',', '.') }}</span>

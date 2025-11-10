@@ -173,6 +173,7 @@
             <form method="POST" id="formDeletePurchase">
                 @csrf
                 @method('DELETE')
+                <input type="hidden" name="id" id="delete_purchase_id">
                 <div class="modal-content">
                     <div class="modal-header bg-danger text-white">
                         <h5 class="modal-title text-white" id="deleteModalLabel">Hapus Purchase</h5>
@@ -509,11 +510,19 @@
                 ],
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request sebelumnya jika masih berjalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/purchases/purchase-orders/data') }}",
                     type: 'GET',
                     data: {
@@ -535,10 +544,16 @@
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
-                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        if (xhr.statusText !== "abort") {
+                            console.error("AJAX error:", xhr);
+                            alert(xhr.responseJSON?.message || 'Error loading data.');
+                        }
                         isLoading = false;
                     }
                 });
@@ -617,14 +632,18 @@
                 $('#purchaseOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
-                }
-            });
+            $('#filter, #apply-filter, #search_type, #search_keyword, #search_payment_status, #start_date, #end_date')
+                .on('change keyup click', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => {
+                        if ($('#filter').val() === 'custom') {
+                            $('.custom-range').removeClass('d-none');
+                        } else {
+                            $('.custom-range').addClass('d-none');
+                        }
+                        resetAndReload();
+                    }, 100);
+                });
 
             $('#apply-filter').on('click', function() {
                 resetAndReload();
@@ -655,6 +674,57 @@
                     resetAndReload();
                 }
             });
+
+            // ========== DELETE PURCHASE ORDER ==========
+            $('#formDeletePurchase').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = this;
+                const url = form.action;
+                const id = form.dataset.id; // ✅ ambil dari dataset
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: $(form).serialize() + '&_method=DELETE',
+                    success: function(res) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Purchase Order berhasil dihapus!',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalDeletePurchase').modal('hide');
+
+                        // 🔥 langsung hapus row sesuai ID
+                        const row = $('#purchaseOrderTable tbody tr').filter(function() {
+                            const rowData = dataTable.row(this).data();
+                            return rowData && String(rowData.id) === String(id);
+                        });
+
+                        if (row.length) {
+                            dataTable.row(row).remove().draw(false);
+                        }
+
+                        if (dataTable.data().count() === 0) {
+                            $('#purchaseOrderTable tbody').empty();
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Terjadi kesalahan saat menghapus data'
+                        });
+                    }
+                });
+            });
+
         });
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -669,6 +739,7 @@
                 const url = button.getAttribute('data-url');
 
                 form.action = url;
+                form.dataset.id = id;
                 nameHolder.textContent = name;
             });
         });

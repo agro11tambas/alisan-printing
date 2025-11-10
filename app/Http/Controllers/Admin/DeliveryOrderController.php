@@ -22,8 +22,12 @@ class DeliveryOrderController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $deliveryOrders = DeliveryOrder::with(['order.customer'])
-            ->orderByDesc('id');
+        $deliveryOrders = DeliveryOrder::with([
+            'order.customer',
+            'items.product',                      // 🔥 load semua item barang
+            'items.orderProgress.items',          // 🔥 load progress per item
+            'items.deliveryListItems.shipment',   // 🔥 load list pengiriman
+        ])->orderByDesc('id');
 
         // 🔎 Filter by date
         if ($request->filter) {
@@ -81,14 +85,21 @@ class DeliveryOrderController extends Controller
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
             'data' => $data->map(function ($do) {
-                $date = Carbon::parse($do->delivery_date)->format('j M y');
+                $date = Carbon::parse($do->created_at)->format('j M y H:i');
                 $deliveryNumberHtml = '
                 <div>
                     <div>' . e($do->delivery_number) . '</div>
                     <small class="text-muted">' . $date . '</small>
                 </div>';
 
-                $customer = e($do->order?->customer?->name ?? '-');
+                // $customer = e($do->order?->customer?->name ?? '-');
+
+                $customerHtml = '
+                    <div>
+                        <div class="fw-semibold">' . e($do->order?->customerAddress?->business_name ?? '-') . '</div>
+                        <small class="text-muted">' . e($do->order?->customer?->name ?? '-') . '</small>
+                    </div>
+                ';
 
                 $status = strtolower($do->status);
                 $badgeClass = match ($status) {
@@ -110,7 +121,7 @@ class DeliveryOrderController extends Controller
                     'id' => $do->id,
                     'delivery_number' => $deliveryNumberHtml,
                     'delivery_date' => $date,
-                    'customer' => $customer,
+                    'customer' => $customerHtml,
                     'status' => $statusHtml,
                     'products' => $productsHtml,
                     'action' => $actionHtml,

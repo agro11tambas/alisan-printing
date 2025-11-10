@@ -55,4 +55,14 @@ class OrderProgressHistory extends Model
     {
         return $this->belongsTo(OrderProgressAssign::class, 'order_progress_assign_id');
     }
+
+    public function rejectProducts()
+    {
+        return $this->hasMany(RejectProduct::class, 'order_progress_history_id');
+    }
+
+    public function defectProducts()
+    {
+        return $this->hasMany(DefectProduct::class, 'order_progress_history_id');
+    }
 }

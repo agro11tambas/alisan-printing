@@ -35,7 +35,7 @@ class MaterialRequest extends Model
 
     public function items()
     {
-        return $this->hasMany(MaterialRequestItem::class)->withTrashed();
+        return $this->hasMany(MaterialRequestItem::class);
     }
 
     public function receipt()

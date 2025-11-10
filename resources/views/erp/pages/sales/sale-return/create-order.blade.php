@@ -1,5 +1,42 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        /* 🔹 Perbesar font pada select bawaan (kalau belum diinisialisasi Select2) */
+        .select-product {
+            font-size: 16px !important;
+            padding: 8px 10px !important;
+            height: 42px !important;
+        }
+
+        /* 🔹 Perbesar font di dalam Select2 container */
+        .select2-container--default .select2-selection--single {
+            height: 42px !important;
+            font-size: 16px !important;
+            line-height: 42px !important;
+        }
+
+        /* 🔹 Perbesar teks hasil pilihan */
+        .select2-selection__rendered {
+            font-size: 16px !important;
+            line-height: 42px !important;
+            padding-left: 10px !important;
+        }
+
+        /* 🔹 Perbesar teks di dropdown Select2 */
+        .select2-results__option {
+            font-size: 16px !important;
+            padding: 8px 12px !important;
+        }
+
+        /* 🔹 Perbesar ikon dropdown */
+        .select2-selection__arrow {
+            height: 42px !important;
+            right: 10px !important;
+        }
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -130,7 +167,8 @@
                                                             <option value="{{ $address->id }}"
                                                                 data-map="{{ $address->google_maps }}"
                                                                 {{ $order->customer_address_id == $address->id ? 'selected' : '' }}>
-                                                                {{ $address->business_name ?? 'None' }} - {{ $address->address }}
+                                                                {{ $address->business_name ?? 'None' }} -
+                                                                {{ $address->address }}
                                                             </option>
                                                         @endforeach
                                                     @endif
@@ -235,8 +273,7 @@
                                                         </td>
                                                         <td>
                                                             <input type="text" inputmode="numeric"
-                                                                class="price_display form-control"
-                                                                >
+                                                                class="price_display form-control">
                                                             <input type="hidden" name="price[]" class="price">
                                                         </td>
                                                         <td>

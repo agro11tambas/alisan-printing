@@ -20,13 +20,20 @@
                 <td>{{ $item->operators->name ?? '-' }}</td>
                 <td>{{ $item->notes ?? '-' }}</td>
                 <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-primary btn-edit-history"
-                        data-id="{{ $item->id }}" data-product="{{ $item->progressItem->product->name }}"
-                        data-quantity="{{ $item->completed_quantity }}" data-defect="{{ $item->defect_quantity }}"
-                        data-reject="{{ $item->reject_quantity }}" data-operator="{{ $item->operators->name ?? '' }}"
-                        data-note="{{ $item->notes ?? '' }}">
-                        Edit
-                    </button>
+                    <div class="d-flex flex-row gap-2">
+                        <button type="button" class="btn btn-sm btn-primary btn-edit-history"
+                            data-id="{{ $item->id }}" data-product="{{ $item->progressItem->product->name }}"
+                            data-quantity="{{ $item->completed_quantity }}" data-defect="{{ $item->defect_quantity }}"
+                            data-reject="{{ $item->reject_quantity }}"
+                            data-operator="{{ $item->operators->name ?? '' }}" data-note="{{ $item->notes ?? '' }}">
+                            Edit
+                        </button>
+
+                        <button type="button" class="btn btn-sm btn-danger btn-delete-history"
+                            data-id="{{ $item->id }}" data-product="{{ $item->progressItem->product->name }}">
+                            Delete
+                        </button>
+                    </div>
                 </td>
             </tr>
         @endforeach

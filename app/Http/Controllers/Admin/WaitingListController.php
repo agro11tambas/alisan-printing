@@ -24,7 +24,8 @@ class WaitingListController extends Controller
 
         $progresses = OrderProgress::with([
             'order.customer',
-            'items.product.productionStocks'
+            'items.product.productionStocks',
+            'items.product.categories'
         ])->orderBy('created_at', 'desc');
 
         // ✅ Filter tanggal
@@ -99,42 +100,57 @@ class WaitingListController extends Controller
         // ✅ Ambil data sesuai offset dan limit
         $data = $progresses->skip($start)->take($length)->get();
 
-        // ✅ Format JSON ringan (lazy-load / infinite scroll)
-        return response()->json([
-            'data' => $data->map(function ($progress) {
-                $date = Carbon::parse($progress->date)->format('j M y');
+        $totalRemaining = 0;
 
-                // 🏷️ Edited badge
+        return response()->json([
+            'data' => $data->map(function ($progress) use (&$totalRemaining) {
+                $orderCreatedAt = optional($progress->order)->created_at;
+                $date = Carbon::parse($orderCreatedAt)->format('d M y H:i');
+
                 $editedBadge = $progress->status_edited == 1
                     ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
                     : '';
 
-                // ✅ Completed badge
                 $completeBadge = $progress->items->every(fn($item) => $item->completed_quantity >= $item->quantity)
                     ? '<div><span class="badge bg-soft-success text-success mb-1">Completed</span></div>'
                     : '';
 
-                // 🧾 Invoice display
                 $invoiceNumberHtml = $completeBadge . '
-                <div>
-                    <div>' . e($progress->invoice_number) . $editedBadge . '</div>
-                    <small class="text-muted">' . $date . '</small>
-                </div>';
+        <div>
+            <div>' . e($progress->invoice_number) . $editedBadge . '</div>
+            <small class="text-muted">' . $date . '</small>
+        </div>';
 
                 $customerHtml = '
-                    <div>
-                        <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
-                        <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
-                    </div>
-                ';
+        <div>
+            <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
+            <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
+        </div>
+    ';
 
-                // 📦 Product progress partial
+                // ✅ Hitung hanya produk kategori "Sablon"
+                $remainingThisProgress = $progress->items->sum(function ($item) {
+                    $product = $item->product;
+                    if (!$product) return 0;
+
+                    $isSablon = $product->categories->contains(function ($category) {
+                        return str_contains(strtolower($category->name), 'sablon');
+                    });
+
+                    if (!$isSablon) return 0;
+
+                    $completed = $item->completed_quantity ?? 0;
+                    $qty = $item->quantity ?? 0;
+                    return max($qty - $completed, 0);
+                });
+
+                // ✅ tambahkan ke total
+                $GLOBALS['totalRemaining'] = ($GLOBALS['totalRemaining'] ?? 0) + $remainingThisProgress;
+
                 $progressView = view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
 
-                // 📍 Shipping address
                 $shipping = e($progress->order->shipping_address ?? '-');
 
-                // ⚙️ Action button partial
                 $allCompleted = $progress->items->every(function ($item) {
                     return ($item->completed_quantity ?? 0) >= ($item->quantity ?? 0);
                 });
@@ -147,12 +163,14 @@ class WaitingListController extends Controller
                     'progress' => $progressView,
                     'shipping_address' => $shipping,
                     'action' => $actionButtons,
+                    'created_at' => $progress->created_at->toDateTimeString(),
+                    'order_created_at' => $orderCreatedAt ? Carbon::parse($orderCreatedAt)->format('d M y H:i') : '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => ($start + $length) < $totalData,
+            'total_remaining' => $GLOBALS['totalRemaining'] ?? 0,
         ]);
     }
-
 
     public function getCompleteList()
     {

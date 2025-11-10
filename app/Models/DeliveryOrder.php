@@ -38,7 +38,7 @@ class DeliveryOrder extends Model
 
     public function items()
     {
-        return $this->hasMany(DeliveryOrderItem::class);
+        return $this->hasMany(DeliveryOrderItem::class, 'delivery_order_id');
     }
 
     public function shipments()

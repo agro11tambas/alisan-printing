@@ -67,6 +67,30 @@
             align-items: center;
             gap: 6px;
         }
+
+        .preview-list {
+            display: block;
+        }
+
+        .preview-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            width: 100%;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            object-fit: cover;
+        }
+
+        .preview-item input.note-input {
+            width: 100%;
+        }
     </style>
 @endpush
 
@@ -376,7 +400,7 @@
                                 <span class="fw-semibold fs-12" id="paid_amount_display_product">Paid: Rp. 0</span>
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        {{-- <div class="row g-3 mb-3">
                             <div class="col-md-12">
                                 <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
                                 <div class="input-group">
@@ -391,7 +415,22 @@
                                         style="max-height: 200px;">
                                 </div>
                             </div>
+                        </div> --}}
+                        <div class="col-md-12">
+                            <label class="fw-semibold">Upload / Paste Proof (optional):</label>
+
+                            <div id="pasteProofAreaProduct" class="border rounded p-3 text-center"
+                                style="min-height: 120px; cursor: pointer;">
+                                <p class="text-muted small mb-2">
+                                    Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot bukti transfer
+                                </p>
+
+                                <div id="proofPreviewContainerProduct" class="preview-list"></div>
+                            </div>
+
+                            <small class="text-danger d-none" id="error_purchase_payment_proof"></small>
                         </div>
+
                     </div>
                     <div class="modal-footer d-flex justify-content-between">
                         <div>
@@ -504,7 +543,7 @@
                                 <span class="fw-semibold fs-12" id="paid_amount_display_freight">Paid: Rp. 0</span>
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        {{-- <div class="row g-3 mb-3">
                             <div class="col-md-12">
                                 <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
                                 <div class="input-group">
@@ -519,7 +558,22 @@
                                         style="max-height: 200px;">
                                 </div>
                             </div>
+                        </div> --}}
+                        <div class="col-md-12">
+                            <label class="fw-semibold">Upload / Paste Proof (optional):</label>
+
+                            <div id="pasteProofAreaFreight" class="border rounded p-3 text-center"
+                                style="min-height: 120px; cursor: pointer;">
+                                <p class="text-muted small mb-2">
+                                    Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot bukti transfer
+                                </p>
+
+                                <div id="proofPreviewContainerFreight" class="preview-list"></div>
+                            </div>
+
+                            <small class="text-danger d-none" id="error_purchase_payment_proof"></small>
                         </div>
+
                     </div>
                     <div class="modal-footer d-flex justify-content-between">
                         <div>
@@ -580,6 +634,40 @@
             </form>
         </div>
     </div>
+
+    <div class="modal fade" id="modalForceDeleteOwnerPurchase" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" id="forceDeleteOwnerPurchaseForm">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Force Delete Purchase (Owner)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">
+                            Anda akan menghapus <strong id="fd-purchase-number"></strong> secara permanen
+                            beserta rollback stok inventory & transaksi pembelian.
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label">Delete Notes <span class="text-danger">*</span></label>
+                            <textarea name="delete_notes" class="form-control" rows="3" required placeholder="Alasan penghapusan..."></textarea>
+                        </div>
+
+                        {{-- Opsional: field tambahan kalau nanti mau perlu warehouse ID --}}
+                        <input type="hidden" name="inventory_warehouse_id" value="1">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="feather feather-zap-off me-2"></i>Force Delete
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
 @endpush
 
 @push('scripts')
@@ -678,12 +766,19 @@
                 ]
             });
 
-            // Fungsi load data dari server
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request lama jika masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/purchases/purchase-list/data') }}",
                     type: 'GET',
                     data: {
@@ -698,7 +793,6 @@
                         due_date_order: $('#due_date_order').val(),
                     },
                     success: function(response) {
-
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
@@ -707,9 +801,15 @@
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
+                        if (xhr.statusText !== "abort") {
+                            console.error("AJAX error:", xhr);
+                        }
                         isLoading = false;
                     }
                 });
@@ -743,14 +843,18 @@
             }
 
             // Event handlers untuk filter
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
-                }
-            });
+            $('#filter, #apply-filter, #search_type, #search_keyword, #search_payment_status, #due_date_order, #start_date, #end_date')
+                .on('change keyup click', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => {
+                        if ($('#filter').val() === 'custom') {
+                            $('.custom-range').removeClass('d-none');
+                        } else {
+                            $('.custom-range').addClass('d-none');
+                        }
+                        resetAndReload();
+                    }, 100);
+                });
 
             $('#apply-filter').on('click', function() {
                 resetAndReload();
@@ -1024,6 +1128,463 @@
                     }, 400);
                 }
             });
+
+            let pastedProofProductBlobs = [];
+            const pasteAreaProduct = document.getElementById('pasteProofAreaProduct');
+            const previewContainerProduct = document.getElementById('proofPreviewContainerProduct');
+
+            if (pasteAreaProduct) {
+                pasteAreaProduct.setAttribute('tabindex', '0'); // bisa fokus
+
+                pasteAreaProduct.addEventListener('click', (e) => {
+                    if (e.target === pasteAreaProduct) {
+                        pasteAreaProduct.focus();
+                    }
+                });
+
+                pasteAreaProduct.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const items = e.clipboardData.items;
+
+                    for (const item of items) {
+                        if (item.type.indexOf("image") === 0) {
+                            const blob = item.getAsFile();
+                            pastedProofProductBlobs.push(blob);
+
+                            const reader = new FileReader();
+                            reader.onload = function(event) {
+                                const wrapper = document.createElement('div');
+                                wrapper.classList.add('preview-item', 'mb-2');
+
+                                const img = document.createElement('img');
+                                img.src = event.target.result;
+                                img.classList.add('img-thumbnail');
+                                img.style.maxHeight = '150px';
+                                img.style.marginBottom = '5px';
+
+                                const noteInput = document.createElement('input');
+                                noteInput.type = 'text';
+                                noteInput.classList.add('form-control', 'form-control-sm',
+                                    'note-input');
+                                noteInput.placeholder = 'Tambahkan catatan...';
+
+                                const removeBtn = document.createElement('button');
+                                removeBtn.type = 'button';
+                                removeBtn.className = 'btn btn-sm btn-danger mt-1';
+                                removeBtn.innerHTML = '<i class="feather-x"></i> Hapus';
+                                removeBtn.onclick = function() {
+                                    const index = Array.from(previewContainerProduct.children)
+                                        .indexOf(wrapper);
+                                    pastedProofProductBlobs.splice(index, 1);
+                                    wrapper.remove();
+                                };
+
+                                wrapper.appendChild(img);
+                                wrapper.appendChild(noteInput);
+                                wrapper.appendChild(removeBtn);
+                                previewContainerProduct.appendChild(wrapper);
+                            };
+                            reader.readAsDataURL(blob);
+                        }
+                    }
+                });
+            }
+
+            // ===== FREIGHT PAYMENT =====
+            let pastedProofFreightBlobs = [];
+            const pasteAreaFreight = document.getElementById('pasteProofAreaFreight');
+            const previewContainerFreight = document.getElementById('proofPreviewContainerFreight');
+
+            if (pasteAreaFreight) {
+                pasteAreaFreight.setAttribute('tabindex', '0');
+
+                pasteAreaFreight.addEventListener('click', (e) => {
+                    if (e.target === pasteAreaFreight) {
+                        pasteAreaFreight.focus();
+                    }
+                });
+
+                pasteAreaFreight.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const items = e.clipboardData.items;
+
+                    for (const item of items) {
+                        if (item.type.indexOf("image") === 0) {
+                            const blob = item.getAsFile();
+                            pastedProofFreightBlobs.push(blob);
+
+                            const reader = new FileReader();
+                            reader.onload = function(event) {
+                                const wrapper = document.createElement('div');
+                                wrapper.classList.add('preview-item', 'mb-2');
+
+                                const img = document.createElement('img');
+                                img.src = event.target.result;
+                                img.classList.add('img-thumbnail');
+                                img.style.maxHeight = '150px';
+                                img.style.marginBottom = '5px';
+
+                                const noteInput = document.createElement('input');
+                                noteInput.type = 'text';
+                                noteInput.classList.add('form-control', 'form-control-sm',
+                                    'note-input');
+                                noteInput.placeholder = 'Tambahkan catatan...';
+
+                                const removeBtn = document.createElement('button');
+                                removeBtn.type = 'button';
+                                removeBtn.className = 'btn btn-sm btn-danger mt-1';
+                                removeBtn.innerHTML = '<i class="feather-x"></i> Hapus';
+                                removeBtn.onclick = function() {
+                                    const index = Array.from(previewContainerFreight.children)
+                                        .indexOf(wrapper);
+                                    pastedProofFreightBlobs.splice(index, 1);
+                                    wrapper.remove();
+                                };
+
+                                wrapper.appendChild(img);
+                                wrapper.appendChild(noteInput);
+                                wrapper.appendChild(removeBtn);
+                                previewContainerFreight.appendChild(wrapper);
+                            };
+                            reader.readAsDataURL(blob);
+                        }
+                    }
+                });
+            }
+
+            // ========== MARK AS PAID PRODUCT ==========
+            $('#markAsPurchaseFormProduct').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = this;
+                const url = form.action;
+                const formData = new FormData(form);
+
+                const notes = [];
+                $('#proofPreviewContainerProduct .note-input').each(function() {
+                    notes.push($(this).val());
+                });
+
+                pastedProofProductBlobs.forEach((blob, index) => {
+                    formData.append('payment_proof[]', blob, `proof_${index + 1}.png`);
+                    formData.append('note_per_image[]', notes[index] || '');
+                });
+
+                // Hapus error lama
+                $('#markAsPurchaseFormProduct small.text-danger').addClass('d-none').text('');
+
+                let valid = true;
+                const transactionType = $('#transaction_type_product').val()?.trim();
+                const transactionDate = $('#transaction_date_product').val()?.trim();
+                const cashBankAccount = $('#cash_bank_account_id_product').val()?.trim();
+                const paidAmountRaw = $('#paid_amount_product').val()?.trim() || '0';
+                const paidAmount = parseFloat(paidAmountRaw.replace(/\./g, '').replace(',', '.')) || 0;
+                const remainingRaw = $('#total_amount_display_product').text().trim().replace(/\./g, '')
+                    .replace(',', '.');
+                const remainingAmount = parseFloat(remainingRaw) || 0;
+
+                // Validasi dasar
+                if (!transactionType) showError('error_transaction_type_product',
+                    'Purchase Account wajib dipilih'), valid = false;
+                if (!transactionDate) showError('error_transaction_date_product',
+                    'Tanggal transaksi wajib diisi'), valid = false;
+                if (!cashBankAccount) showError('error_cash_bank_account_id_product',
+                    'Pilih Cash/Bank Account'), valid = false;
+                if (!paidAmount || isNaN(paidAmount) || paidAmount <= 0) {
+                    showError('error_paid_amount_product', 'Paid amount harus diisi dan lebih dari 0');
+                    valid = false;
+                } else if (paidAmount > remainingAmount) {
+                    showError('error_paid_amount_product', 'Paid amount tidak boleh melebihi Balance');
+                    valid = false;
+                }
+
+                if (!valid) return;
+
+                // Bersihkan nilai angka
+                formData.set('paid_amount', paidAmount);
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Pembayaran produk berhasil disimpan!',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalChangeStatusProduct').modal('hide');
+                        form.reset();
+
+                        // 🔁 reload DataTable tanpa refresh halaman
+                        dataTable.clear();
+                        allData = [];
+                        currentPage = 0;
+                        hasMoreData = true;
+                        loadMoreData();
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Terjadi kesalahan saat menyimpan'
+                        });
+                    }
+                });
+
+                function showError(id, msg) {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.innerText = msg;
+                        el.classList.remove('d-none');
+                    }
+                }
+            });
+
+            // ========== MARK AS PAID FREIGHT ==========
+            $('#markAsPurchaseFormFreight').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = this;
+                const url = form.action;
+                const formData = new FormData(form);
+
+                const notes = [];
+                $('#proofPreviewContainerFreight .note-input').each(function() {
+                    notes.push($(this).val());
+                });
+
+                pastedProofFreightBlobs.forEach((blob, index) => {
+                    formData.append('payment_proof[]', blob, `proof_${index + 1}.png`);
+                    formData.append('note_per_image[]', notes[index] || '');
+                });
+
+                $('#markAsPurchaseFormFreight small.text-danger').addClass('d-none').text('');
+
+                let valid = true;
+                const transactionType = $('#transaction_type_freight').val()?.trim();
+                const transactionDate = $('#transaction_date_freight').val()?.trim();
+                const cashBankAccount = $('#cash_bank_account_id_freight').val()?.trim();
+                const paidAmountRaw = $('#paid_amount_freight').val()?.trim() || '0';
+                const paidAmount = parseFloat(paidAmountRaw.replace(/\./g, '').replace(',', '.')) || 0;
+                const remainingRaw = $('#total_amount_display_freight').text().trim().replace(/\./g, '')
+                    .replace(',', '.');
+                const remainingAmount = parseFloat(remainingRaw) || 0;
+
+                if (!transactionType) showError('error_transaction_type_freight',
+                    'Purchase Account wajib dipilih'), valid = false;
+                if (!transactionDate) showError('error_transaction_date_freight',
+                    'Tanggal transaksi wajib diisi'), valid = false;
+                if (!cashBankAccount) showError('error_cash_bank_account_id_freight',
+                    'Pilih Cash/Bank Account'), valid = false;
+                if (!paidAmount || isNaN(paidAmount) || paidAmount <= 0) {
+                    showError('error_paid_amount_freight', 'Paid amount harus diisi dan lebih dari 0');
+                    valid = false;
+                } else if (paidAmount > remainingAmount) {
+                    showError('error_paid_amount_freight', 'Paid amount tidak boleh melebihi Balance');
+                    valid = false;
+                }
+
+                if (!valid) return;
+
+                formData.set('paid_amount', paidAmount);
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ??
+                                'Pembayaran freight berhasil disimpan!',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalChangeStatusFreight').modal('hide');
+                        form.reset();
+
+                        // 🔁 reload DataTable tanpa refresh
+                        dataTable.clear();
+                        allData = [];
+                        currentPage = 0;
+                        hasMoreData = true;
+                        loadMoreData();
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Terjadi kesalahan saat menyimpan'
+                        });
+                    }
+                });
+
+                function showError(id, msg) {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.innerText = msg;
+                        el.classList.remove('d-none');
+                    }
+                }
+            });
+
+            // ========== DELETE PURCHASE (SOFT DELETE) ==========
+            $('#formDeletePurchase').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = this;
+                const url = form.action;
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: $(form).serialize(),
+                    success: function(res) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Purchase berhasil dihapus!',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalDeletePurchase').modal('hide');
+
+                        // 🔁 Hapus row dari DataTable utama tanpa reload
+                        dataTable.clear();
+                        allData = [];
+                        currentPage = 0;
+                        hasMoreData = true;
+                        loadMoreData();
+
+                        // 🔁 Reload deleted table kalau tab sedang aktif
+                        if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent()
+                            .hasClass('active')) {
+                            resetAndReloadDeleted();
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Terjadi kesalahan saat menghapus data'
+                        });
+                    }
+                });
+            });
+
+            // ========== FORCE DELETE PURCHASE ==========
+            $('#formForceDeleteOrder').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = this;
+                const url = form.action;
+
+                $.ajax({
+                    url: url,
+                    type: 'POST', // tetap POST + _method spoof
+                    data: $(form).serialize() + '&_method=DELETE',
+                    success: function(res) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Purchase dihapus permanen!',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalForceDeleteOrder').modal('hide');
+
+                        // 🔁 Hapus dari deletedTable tanpa reload halaman
+                        if (deletedTable) {
+                            deletedTable.clear().draw(false); // 🔹 paksa refresh tbody kosong
+                            deletedAllData = [];
+                            deletedCurrentPage = 0;
+                            deletedHasMoreData = true;
+                            loadMoreDeletedData();
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Terjadi kesalahan saat menghapus permanen'
+                        });
+                    }
+                });
+            });
+
+            // ========== RESTORE PURCHASE ==========
+            $('#formRestoreOrder').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = this;
+                const url = form.action;
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: $(form).serialize(),
+                    success: function(res) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Purchase berhasil dikembalikan!',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalRestoreOrder').modal('hide');
+
+                        // 🔁 Refresh kedua tabel tanpa reload halaman
+                        dataTable.clear();
+                        allData = [];
+                        currentPage = 0;
+                        hasMoreData = true;
+                        loadMoreData();
+
+                        if (deletedTable) {
+                            deletedTable.clear().draw(false);
+                            deletedAllData = [];
+                            deletedCurrentPage = 0;
+                            deletedHasMoreData = true;
+                            loadMoreDeletedData();
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Terjadi kesalahan saat mengembalikan data'
+                        });
+                    }
+                });
+            });
         });
 
         // ========== Modal Handlers ==========
@@ -1039,6 +1600,7 @@
                 const url = button.getAttribute('data-url');
 
                 form.action = url;
+                form.dataset.id = id;
                 nameHolder.textContent = name;
             });
         });
@@ -1087,18 +1649,6 @@
             }
         });
 
-        // const paidInputProduct = document.getElementById("paid_amount_product");
-        // paidInputProduct.addEventListener("input", function() {
-        //     let angka = this.value.replace(/\D/g, "") || "0";
-        //     this.value = new Intl.NumberFormat('id-ID').format(angka);
-        // });
-
-        // const paidInputFreight = document.getElementById("paid_amount_freight");
-        // paidInputFreight.addEventListener("input", function() {
-        //     let angka = this.value.replace(/\D/g, "") || "0";
-        //     this.value = new Intl.NumberFormat('id-ID').format(angka);
-        // });
-
         // ✅ BARU - Format angka yang benar
         ['product', 'freight'].forEach(type => {
             const input = document.getElementById(`paid_amount_${type}`);
@@ -1109,198 +1659,6 @@
                 if (display) display.innerText = 'Paid: Rp. ' + this.value;
             });
         });
-
-        document.getElementById('markAsPurchaseFormProduct').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            document.querySelectorAll('#markAsPurchaseFormProduct small.text-danger').forEach(el => {
-                el.classList.add('d-none');
-                el.innerText = '';
-            });
-
-            let valid = true;
-
-            const transactionType = document.getElementById('transaction_type_product')?.value.trim() || '';
-            const transactionDate = document.getElementById('transaction_date_product')?.value.trim() || '';
-            const cashBankAccount = document.getElementById('cash_bank_account_id_product')?.value.trim() || '';
-
-            // const paidAmountRaw = document.getElementById('paid_amount_product')?.value.trim() || '0';
-            // const paidAmount = paidAmountRaw.replace(/\./g, "");
-
-            // const remainingRaw = document.getElementById('total_amount_display_product')?.innerText.trim().replace(
-            //     /\./g, "") || '0';
-            // const remainingAmount = parseInt(remainingRaw) || 0;
-
-            const paidAmountRaw = document.getElementById('paid_amount_product')?.value.trim() || '0';
-            // Bersihkan format Indonesia: hapus titik (pemisah ribuan), ganti koma dengan titik (desimal)
-            const paidAmount = parseFloat(paidAmountRaw.replace(/\./g, "").replace(",", ".")) || 0;
-
-            const remainingRaw = document.getElementById('total_amount_display_product')?.innerText.trim()
-                .replace(/\./g, "").replace(",", ".") || '0';
-            const remainingAmount = parseFloat(remainingRaw) || 0; // ✅ parseFloat!
-
-            if (!transactionType) {
-                const el = document.getElementById('error_transaction_type_product');
-                if (el) {
-                    el.innerText = 'Purchase Account wajib dipilih';
-                    el.classList.remove('d-none');
-                }
-                valid = false;
-            }
-
-            if (!transactionDate) {
-                const el = document.getElementById('error_transaction_date_product');
-                if (el) {
-                    el.innerText = 'Tanggal transaksi wajib diisi';
-                    el.classList.remove('d-none');
-                }
-                valid = false;
-            }
-
-            if (!cashBankAccount) {
-                const el = document.getElementById('error_cash_bank_account_id_product');
-                if (el) {
-                    el.innerText = 'Pilih Cash/Bank Account';
-                    el.classList.remove('d-none');
-                }
-                valid = false;
-            }
-
-            if (!paidAmount || isNaN(paidAmount) || paidAmount <= 0) {
-                const el = document.getElementById('error_paid_amount_product');
-                if (el) {
-                    el.innerText = 'Paid amount harus diisi dan lebih dari 0';
-                    el.classList.remove('d-none');
-                }
-                valid = false;
-            } else if (paidAmount > remainingAmount) { // ✅ Float vs Float
-                const el = document.getElementById('error_paid_amount_product');
-                if (el) {
-                    el.innerText = 'Paid amount tidak boleh melebihi Balance';
-                    el.classList.remove('d-none');
-                }
-                valid = false;
-            }
-
-            // 💾 Validasi file
-            const fileInput = document.getElementById('payment_proof');
-            const file = fileInput.files[0];
-            if (file) {
-                const allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
-                const ext = file.name.split('.').pop().toLowerCase();
-
-                if (!allowedExt.includes(ext)) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Format Tidak Valid!',
-                        text: 'File harus berupa JPG, JPEG, PNG, atau WEBP.',
-                    });
-                    return; // 🚫 stop total
-                }
-
-                if (file.size > 2 * 1024 * 1024) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'File Terlalu Besar!',
-                        text: 'Ukuran file maksimal 2MB.',
-                    });
-                    return; // 🚫 stop total
-                }
-            }
-
-            if (!valid) {
-                return false;
-            }
-
-            const cleanPaid = paidAmountRaw
-                .replace(/\./g, '') // Hapus titik (pemisah ribuan)
-                .replace(',', '.'); // Ganti koma dengan titik (desimal)
-
-            // Validasi final sebelum submit
-            const parsedPaid = parseFloat(cleanPaid);
-            if (isNaN(parsedPaid) || parsedPaid <= 0) {
-                const el = document.getElementById('error_paid_amount_product');
-                el.innerText = 'Paid amount tidak valid';
-                el.classList.remove('d-none');
-                return false;
-            }
-
-            // Set nilai yang sudah dibersihkan ke input
-            document.getElementById('paid_amount_product').value = cleanPaid;
-            this.submit();
-
-        });
-
-        document.getElementById('markAsPurchaseFormFreight').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            document.querySelectorAll('#markAsPurchaseFormFreight small.text-danger').forEach(el => {
-                el.classList.add('d-none');
-                el.innerText = '';
-            });
-
-            let valid = true;
-
-            const transactionType = document.getElementById('transaction_type_freight')?.value.trim() || '';
-            const transactionDate = document.getElementById('transaction_date_freight')?.value.trim() || '';
-            const cashBankAccount = document.getElementById('cash_bank_account_id_freight')?.value.trim() || '';
-
-            const paidAmountRaw = document.getElementById('paid_amount_freight')?.value.trim() || '0';
-            const paidAmount = parseFloat(paidAmountRaw.replace(/\./g, "").replace(",", ".")) || 0;
-
-            const remainingRaw = document.getElementById('total_amount_display_freight')?.innerText.trim()
-                .replace(/\./g, "").replace(",", ".") || '0';
-            const remainingAmount = parseFloat(remainingRaw) || 0;
-
-            if (!transactionType) {
-                const el = document.getElementById('error_transaction_type_freight');
-                el.innerText = 'Purchase Account wajib dipilih';
-                el.classList.remove('d-none');
-                valid = false;
-            }
-
-            if (!transactionDate) {
-                const el = document.getElementById('error_transaction_date_freight');
-                el.innerText = 'Tanggal transaksi wajib diisi';
-                el.classList.remove('d-none');
-                valid = false;
-            }
-
-            if (!cashBankAccount) {
-                const el = document.getElementById('error_cash_bank_account_id_freight');
-                el.innerText = 'Pilih Cash/Bank Account';
-                el.classList.remove('d-none');
-                valid = false;
-            }
-
-            if (!paidAmount || isNaN(paidAmount) || paidAmount <= 0) {
-                const el = document.getElementById('error_paid_amount_freight');
-                el.innerText = 'Paid amount harus diisi dan lebih dari 0';
-                el.classList.remove('d-none');
-                valid = false;
-            } else if (paidAmount > remainingAmount) {
-                const el = document.getElementById('error_paid_amount_freight');
-                el.innerText = 'Paid amount tidak boleh melebihi Balance';
-                el.classList.remove('d-none');
-                valid = false;
-            }
-
-            if (!valid) return false;
-
-            // Bersihkan angka sebelum kirim
-            const cleanPaid = paidAmountRaw.replace(/\./g, '').replace(',', '.');
-            const parsedPaid = parseFloat(cleanPaid);
-            if (isNaN(parsedPaid) || parsedPaid <= 0) {
-                const el = document.getElementById('error_paid_amount_freight');
-                el.innerText = 'Paid amount tidak valid';
-                el.classList.remove('d-none');
-                return false;
-            }
-
-            document.getElementById('paid_amount_freight').value = cleanPaid;
-            this.submit();
-        });
-
 
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalForceDeleteOrder');
@@ -1314,6 +1672,7 @@
                 const url = button.getAttribute('data-url');
 
                 form.action = url;
+                form.dataset.id = id;
                 nameHolder.textContent = name;
             });
         });
@@ -1330,6 +1689,7 @@
                 const url = button.getAttribute('data-url');
 
                 form.action = url;
+                form.dataset.id = id;
                 nameHolder.textContent = name;
             });
         });
@@ -1338,6 +1698,18 @@
             if ($.fn.select2) {
                 $('#cash_bank_account_id_product, #cash_bank_account_id_freight').trigger('change.select2');
             }
+        });
+
+        $(document).on('click', '.btn-force-delete-owner', function() {
+            const id = $(this).data('id');
+            const name = $(this).data('name');
+            const url = $(this).data('url');
+
+            // Set judul & nomor purchase di modal
+            $('#fd-purchase-number').text(name || `Purchase #${id}`);
+
+            // Set action form ke URL force delete
+            $('#forceDeleteOwnerPurchaseForm').attr('action', url);
         });
     </script>
 @endpush

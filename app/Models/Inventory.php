@@ -40,7 +40,7 @@ class Inventory extends Model
 
     public function items()
     {
-        return $this->hasMany(InventoryItem::class)->withTrashed();
+        return $this->hasMany(InventoryItem::class);
     }
 
     public function stockIns()

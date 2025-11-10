@@ -118,7 +118,7 @@
                                     <tbody>
                                         @foreach ($deliveryOrder->items as $item)
                                             @php
-                                                // ambil semua delivery_list_items berdasarkan status
+                                                // Hitung pengiriman selesai & sedang dikirim
                                                 $delivered = $item
                                                     ->deliveryListItems()
                                                     ->whereHas('shipment', fn($q) => $q->where('status', 'Finished'))
@@ -129,21 +129,32 @@
                                                     ->whereHas('shipment', fn($q) => $q->where('status', 'Ongoing'))
                                                     ->sum('shipped_quantity');
 
+                                                // Ready tiap item, tidak dijumlah global
                                                 $available = max($item->ready_qty - ($delivered + $shipping), 0);
                                             @endphp
+
                                             <tr>
                                                 <td>
-                                                    {{ $item->product->name }}
+                                                    <span
+                                                        class="fw-bold text-primary">{{ $item->product?->name ?? '-' }}</span>
+                                                    @if ($item->satuan)
+                                                        <span class="badge bg-secondary ms-1">{{ $item->satuan }}</span>
+                                                    @endif
                                                     <input type="hidden"
                                                         name="items[{{ $item->id }}][delivery_order_item_id]"
                                                         value="{{ $item->id }}">
                                                     <input type="hidden" name="items[{{ $item->id }}][product_id]"
                                                         value="{{ $item->product_id }}">
                                                 </td>
-                                                <td><span
+
+                                                {{-- Ready Qty per item (tidak gabung) --}}
+                                                <td>
+                                                    <span
                                                         class="text-primary">{{ number_format($item->ready_qty, 0, ',', '.') }}</span>
-                                                    / <span>{{ number_format($item->progress_qty, 0, ',', '.') }}</span>
+                                                    /
+                                                    <span>{{ number_format($item->progress_qty, 0, ',', '.') }}</span>
                                                 </td>
+
                                                 <td><span
                                                         class="text-success">{{ number_format($delivered, 0, ',', '.') }}</span>
                                                 </td>
@@ -153,13 +164,16 @@
                                                 <td><span
                                                         class="text-danger">{{ number_format($available, 0, ',', '.') }}</span>
                                                 </td>
+
                                                 <td>
                                                     <input type="text" inputmode="numeric" class="form-control"
                                                         name="items[{{ $item->id }}][shipped_quantity]" min="0"
                                                         max="{{ $available }}" value="0">
                                                     <small class="text-muted remaining-info">Remaining:
-                                                        {{ number_format($available, 0, ',', '.') }}</small>
+                                                        {{ number_format($available, 0, ',', '.') }}
+                                                    </small>
                                                 </td>
+
                                                 <td>
                                                     <input type="text" class="form-control"
                                                         name="items[{{ $item->id }}][note]" placeholder="Note">
@@ -167,6 +181,7 @@
                                             </tr>
                                         @endforeach
                                     </tbody>
+
                                 </table>
                             </div>
                         </div>
@@ -263,6 +278,7 @@
                 e.preventDefault();
 
                 let isValid = true;
+                let hasQuantity = false;
 
                 this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
@@ -273,18 +289,45 @@
                     showError(driverSelect, 'Driver wajib dipilih');
                 }
 
+                // $('input[name^="items"][name$="[shipped_quantity]"]').each(function() {
+                //     const val = $(this).val().replace(/\./g, '');
+                //     const td = $(this).closest('td');
+                //     $(td).find('.invalid-feedback').remove();
+
+                //     if (val === '' || parseInt(val) === 0) {
+                //         isValid = false;
+                //         showFieldError(this, 'Harus diisi lebih dari 0');
+                //     } else {
+                //         $(this).removeClass('is-invalid');
+                //     }
+                // });
+
                 $('input[name^="items"][name$="[shipped_quantity]"]').each(function() {
                     const val = $(this).val().replace(/\./g, '');
                     const td = $(this).closest('td');
                     $(td).find('.invalid-feedback').remove();
 
-                    if (val === '' || parseInt(val) === 0) {
+                    if (val === '') {
                         isValid = false;
-                        showFieldError(this, 'Harus diisi lebih dari 0');
+                        showFieldError(this, 'Harus diisi (boleh 0)');
                     } else {
                         $(this).removeClass('is-invalid');
                     }
+
+                    if (parseInt(val) > 0) {
+                        hasQuantity = true;
+                    }
                 });
+
+                // ✅ Kalau semua 0, tampilkan Swal error
+                if (!hasQuantity) {
+                    isValid = false;
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal!',
+                        text: 'Minimal 1 produk harus memiliki jumlah pengiriman lebih dari 0.',
+                    });
+                }
 
                 $('input[name^="items"][name$="[shipped_quantity]"]').each(function() {
                     let cleaned = $(this).val().replace(/\./g, '');

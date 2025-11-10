@@ -256,7 +256,6 @@
     </style>
 
     @stack('styles')
-
 </head>
 
 <body>
@@ -368,7 +367,7 @@
 
                 const $tr = $(this);
                 const dt = $table.DataTable();
-                
+
                 $(`${tableSelector} tbody tr`)
                     .removeClass('action-shown action-active')
                     .next('.action-row').remove();
@@ -471,7 +470,6 @@
     </script>
 
     <script>
-
         (function() {
             'use strict';
 

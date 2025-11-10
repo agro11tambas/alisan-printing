@@ -147,6 +147,7 @@
                                             <th>Assign Now</th>
                                             <th>Operator</th>
                                             <th>Note</th>
+                                            <th>Bypass</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -169,9 +170,9 @@
                                                         value="{{ $item->id }}">
                                                     <input type="text"
                                                         name="items[{{ $index }}][assigned_quantity]"
-                                                        class="form-control text-start" value="0" min="0"
-                                                        max="{{ $item->remaining_quantity }}" placeholder="Qty">
-
+                                                        class="form-control text-start assigned-input" value="0"
+                                                        min="0" max="{{ $item->remaining_quantity }}"
+                                                        placeholder="Qty">
                                                     <small class="text-muted d-block mt-1">
                                                         Remaining:
                                                         {{ number_format($item->remaining_quantity, 0, ',', '.') }}
@@ -193,9 +194,19 @@
                                                     <input type="text" name="items[{{ $index }}][note]"
                                                         class="form-control" placeholder="Catatan singkat">
                                                 </td>
+                                                <td class="text-center">
+                                                    <div class="form-check">
+                                                        <input type="checkbox" class="form-check-input bypass-check"
+                                                            name="items[{{ $index }}][bypass]" value="1"
+                                                            id="bypass_{{ $index }}">
+                                                        <label for="bypass_{{ $index }}"
+                                                            class="form-check-label small">Bypass</label>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
+
                                 </table>
                             </div>
                         </div>
@@ -278,13 +289,34 @@
                 $('.error-operator').addClass('d-none');
 
                 $('.operator-field').each(function() {
-                    if ($(this).val() === '') {
-                        $(this).closest('td').find('.error-operator').removeClass('d-none');
+                    const row = $(this).closest('tr');
+                    const isBypass = row.find('.bypass-check').is(':checked');
+
+                    if (!isBypass && $(this).val() === '') {
+                        row.find('.error-operator').removeClass('d-none');
                         valid = false;
                     }
                 });
 
                 if (valid) $('#assignForm').submit();
+            });
+
+            $(document).on('change', '.bypass-check', function() {
+                const row = $(this).closest('tr');
+                const isBypass = $(this).is(':checked');
+                const qtyInput = row.find('.assigned-input');
+                const operatorSelect = row.find('.operator-field');
+
+                if (isBypass) {
+                    // Disable qty & operator
+                    qtyInput.val('0').prop('disabled', true);
+                    operatorSelect.val('').trigger('change').prop('disabled', true);
+                    row.find('.error-operator').addClass('d-none');
+                } else {
+                    // Re-enable qty & operator
+                    qtyInput.prop('disabled', false);
+                    operatorSelect.prop('disabled', false);
+                }
             });
         });
 

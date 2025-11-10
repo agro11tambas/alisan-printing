@@ -23,6 +23,7 @@ class RejectProduct extends Model
         'status',
         'note',
         'user_id',
+        'order_progress_history_2_id',
     ];
 
     protected $casts = [

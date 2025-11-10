@@ -205,11 +205,19 @@
                 ]
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request sebelumnya kalau masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/inventory/stock-in/data') }}",
                     type: 'GET',
                     data: {
@@ -233,10 +241,16 @@
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
-                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        if (xhr.statusText !== "abort") {
+                            console.error("AJAX error:", xhr);
+                            alert(xhr.responseJSON?.message || 'Error loading data.');
+                        }
                         isLoading = false;
                     }
                 });
@@ -266,22 +280,46 @@
                 loadMoreData();
             }
 
-            $('#progress_status').on('change', function() {
-                resetAndReload();
-            });
+            // $('#progress_status').on('change', function() {
+            //     resetAndReload();
+            // });
 
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
-                }
-            });
+            let lastProgressStatus = $('#progress_status').val();
 
-            $('#apply-filter').on('click', function() {
-                resetAndReload();
-            });
+            $('#filter, #apply-filter, #progress_status, #search_type, #search_keyword, #search_type_dropdown, #search_product, #start_date, #end_date')
+                .on('change keyup input paste click', function(e) {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => {
+                        if (e.target.id === 'progress_status') {
+                            const currentVal = $('#progress_status').val();
+                            if (currentVal === lastProgressStatus)
+                                return; // ⛔ jangan reload kalau gak berubah
+                            lastProgressStatus = currentVal;
+                        }
+
+                        // toggle custom range
+                        if ($('#filter').val() === 'custom') {
+                            $('.custom-range').removeClass('d-none');
+                        } else {
+                            $('.custom-range').addClass('d-none');
+                        }
+
+                        // toggle dropdown vs keyword
+                        if ($('#search_type').val() === 'type') {
+                            $('#search_keyword').addClass('d-none').val('');
+                            $('#search_type_dropdown').removeClass('d-none');
+                        } else {
+                            $('#search_keyword').removeClass('d-none');
+                            $('#search_type_dropdown').addClass('d-none').val('');
+                        }
+
+                        resetAndReload();
+                    }, 100);
+                });
+
+            // $('#apply-filter').on('click', function() {
+            //     resetAndReload();
+            // });
 
             $('#search_type').on('change', function() {
                 const selected = $(this).val();

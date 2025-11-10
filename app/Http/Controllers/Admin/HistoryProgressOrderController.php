@@ -110,7 +110,19 @@ class HistoryProgressOrderController extends Controller
 
                     return view('erp.pages.production.waiting-list.partials.product-progress-histories', compact('items'))->render();
                 })
-                ->rawColumns(['products'])
+                ->addColumn('action', function ($batch) {
+                    return '
+            <div class="text-center">
+                <button type="button" class="btn btn-sm btn-danger btn-delete-batch"
+                    data-id="' . $batch->id . '"
+                    data-date="' . Carbon::parse($batch->date)->format('d M Y') . '"
+                    data-user="' . ($batch->user->name ?? '-') . '">
+                    Delete Batch
+                </button>
+            </div>
+        ';
+                })
+                ->rawColumns(['products', 'action'])
                 ->make(true);
         } catch (\Throwable $e) {
             return response()->json([
@@ -118,16 +130,6 @@ class HistoryProgressOrderController extends Controller
             ]);
         }
     }
-
-    // public function addProgress($id)
-    // {
-    //     $progress = OrderProgress::with(['items.product', 'order.customer'])
-    //         ->findOrFail($id);
-
-    //     $operators = Operator::where('active', 1)->orderBy('name')->get();
-
-    //     return view('erp.pages.production.waiting-list.add-progress-order', compact('progress', 'operators'));
-    // }
 
     public function create($batch_id)
     {
@@ -139,102 +141,6 @@ class HistoryProgressOrderController extends Controller
 
         return view('erp.pages.production.assign-list.add-progress-order', compact('batch'));
     }
-
-    // public function store(Request $request, $id)
-    // {
-    //     // dd($request->all());
-    //     $request->validate([
-    //         'change_date' => 'required|date',
-    //         'note' => 'nullable|string',
-    //         'items' => 'required|array',
-    //         'items.*.order_progress_item_id' => 'required|exists:order_progress_items,id',
-    //         'items.*.change_quantity' => 'required|integer|min:0',
-    //         'items.*.operator_id' => 'nullable|exists:operators,id',
-    //         // 'production_warehouse_id' => 'required|exists:production_warehouses,id',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $orderProgress = OrderProgress::with('items.product')->findOrFail($id);
-
-    //         // 1. Simpan batch
-    //         $batch = OrderProgressBatch::create([
-    //             'order_progress_id' => $orderProgress->id,
-    //             'user_id' => $request->user()->id,
-    //             'date' => $request->change_date,
-    //             'note' => $request->note,
-    //         ]);
-
-    //         // 2. Loop tiap item progress
-    //         foreach ($request->items as $itemData) {
-    //             $progressItem = OrderProgressItem::findOrFail($itemData['order_progress_item_id']);
-
-    //             $changeQty = min(
-    //                 $itemData['change_quantity'],
-    //                 $progressItem->quantity - $progressItem->completed_quantity
-    //             );
-
-    //             // Update completed quantity
-    //             $progressItem->completed_quantity += $changeQty;
-    //             $progressItem->save();
-
-    //             // ✅ Pastikan operator_id benar-benar dikirim
-    //             $operatorId = isset($itemData['operator_id']) && $itemData['operator_id'] !== ''
-    //                 ? $itemData['operator_id']
-    //                 : null;
-
-    //             // 3. Simpan history ke order_progress_histories_2
-    //             OrderProgressHistory::create([
-    //                 'order_progress_item_id'   => $progressItem->id,
-    //                 'order_progress_batch_id'  => $batch->id,
-    //                 'change_quantity'          => $changeQty,
-    //                 'operator_id'              => $operatorId, // ← ini sekarang pasti isi
-    //                 'note'                     => $itemData['note'] ?? null,
-    //             ]);
-
-    //             // Update stok produk (decrement available, increment finished)
-    //             if ($changeQty > 0 && $progressItem->product) {
-    //                 $warehouseId =
-    //                     $progressItem->production_warehouse_id
-    //                     ?? $orderProgress->production_warehouse_id
-    //                     ?? $request->production_warehouse_id
-    //                     ?? 2;
-
-    //                 // Pastikan baris production_stocks ada
-    //                 $ps = ProductionStock::firstOrCreate(
-    //                     ['product_id' => $progressItem->product_id, 'production_warehouse_id' => $warehouseId],
-    //                     ['opening_stock' => 0, 'finished_product_stock' => 0, 'canceled_product_stock' => 0, 'available_quantity' => 0]
-    //                 );
-
-    //                 // Langsung decrement/increment (boleh minus)
-    //                 $ps->decrement('available_quantity', $changeQty);
-    //                 $ps->increment('finished_product_stock', $changeQty);
-
-    //                 // ✅ Update ready_qty di DeliveryOrderItem
-    //                 // $deliveryItem = DeliveryOrderItem::where('order_progress_id', $progressItem->order_progress_id)
-    //                 //     ->where('product_id', $progressItem->product_id)
-    //                 //     ->first();
-
-    //                 // if ($deliveryItem) {
-    //                 //     $deliveryItem->increment('ready_qty', $changeQty);
-    //                 // }
-
-    //                 $deliveryItem = DeliveryOrderItem::where('order_progress_item_id', $progressItem->id)->first();
-
-    //                 if ($deliveryItem) {
-    //                     $deliveryItem->increment('ready_qty', $changeQty);
-    //                 }
-    //             }
-    //         }
-
-    //         DB::commit();
-
-    //         return redirect('/erp/productions/waiting-list')->with('success', 'Progress berhasil ditambahkan.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-    //     }
-    // }
 
     public function store(Request $request, $batch_id)
     {
@@ -327,8 +233,8 @@ class HistoryProgressOrderController extends Controller
                     $ps->increment('finished_product_stock', $completed);
 
                     $deliveryOrderItem = DeliveryOrderItem::where('order_progress_id', $assignBatch->order_progress_id)
+                        ->where('order_progress_item_id', $progressItem->id) // ✅ tambahkan filter item
                         ->where('product_id', $product->id)
-                        ->latest()
                         ->first();
 
                     if ($deliveryOrderItem) {
@@ -457,46 +363,117 @@ class HistoryProgressOrderController extends Controller
     //             'note' => 'nullable|string|max:255',
     //         ]);
 
-    //         // 🔹 Cari data yang akan diupdate
-    //         $history = OrderProgressHistory::findOrFail($id);
+    //         // 🔹 Ambil data history + relasi
+    //         $history = OrderProgressHistory::with(['progressItem', 'assign'])->findOrFail($id);
+    //         $progressItem = $history->progressItem;
+    //         $assign = $history->assign; // relasi ke order_progress_assigns
 
-    //         // 🔹 Update kolom
-    //         $history->completed_quantity = $validated['completed_quantity'];
-    //         $history->defect_quantity = $validated['defect_quantity'] ?? 0;
-    //         $history->reject_quantity = $validated['reject_quantity'] ?? 0;
-    //         $history->note = $validated['note'];
-    //         $history->save();
+    //         if (!$progressItem || !$assign) {
+    //             return response()->json([
+    //                 'status' => 'error',
+    //                 'message' => 'Relasi progress item atau assign tidak ditemukan.'
+    //             ], 404);
+    //         }
 
-    //         return redirect()->back()->with('success', 'History updated successfully.');
+    //         // 🔹 Hitung selisih nilai lama vs baru
+    //         $oldCompleted = $history->completed_quantity ?? 0;
+    //         $newCompleted = (int) $validated['completed_quantity'];
+    //         $deltaCompleted = $newCompleted - $oldCompleted;
+
+    //         $oldDefect = $history->defect_quantity ?? 0;
+    //         $newDefect = (int) ($validated['defect_quantity'] ?? 0);
+    //         $deltaDefect = $newDefect - $oldDefect;
+
+    //         $oldReject = $history->reject_quantity ?? 0;
+    //         $newReject = (int) ($validated['reject_quantity'] ?? 0);
+    //         $deltaReject = $newReject - $oldReject;
+
+    //         $deltaChange = $deltaCompleted + $deltaDefect + $deltaReject;
+
+    //         // 🔹 Validasi batas maksimum quantity
+    //         $totalCompletedNow = ($progressItem->completed_quantity ?? 0) + $deltaCompleted;
+    //         if ($totalCompletedNow > $progressItem->quantity) {
+    //             return response()->json([
+    //                 'status' => 'error',
+    //                 'message' => 'Jumlah selesai melebihi total quantity produk (' . number_format($progressItem->quantity) . ').'
+    //             ], 422);
+    //         }
+
+    //         DB::beginTransaction();
+
+    //         // ===============================
+    //         // 🟩 1. Update HISTORY
+    //         // ===============================
+    //         $history->update([
+    //             'completed_quantity' => $newCompleted,
+    //             'defect_quantity' => $newDefect,
+    //             'reject_quantity' => $newReject,
+    //             'note' => $validated['note'] ?? null,
+    //         ]);
+
+    //         // ===============================
+    //         // 🟩 2. Update ORDER_PROGRESS_ITEMS
+    //         // ===============================
+    //         $progressItem->completed_quantity += $deltaCompleted;
+    //         // $progressItem->defect_quantity += $deltaDefect;
+    //         // $progressItem->reject_quantity += $deltaReject;
+    //         // $progressItem->change_quantity += $deltaChange;
+    //         $progressItem->save();
+
+    //         // ===============================
+    //         // 🟩 3. Update ORDER_PROGRESS_ASSIGNS
+    //         // ===============================
+    //         $assign->completed_quantity += $deltaCompleted;
+    //         $assign->assigned_quantity += $deltaChange;
+    //         $assign->defect_quantity += $deltaDefect;
+    //         $assign->reject_quantity += $deltaReject;
+    //         $assign->change_quantity += $deltaChange;
+
+    //         // 🔹 Update assigned_quantity (berkurang jika completed naik)
+    //         // $assign->assigned_quantity -= $deltaCompleted;
+    //         // if ($assign->assigned_quantity < 0) $assign->assigned_quantity = 0;
+
+    //         $assign->save();
+
+    //         DB::commit();
+
+    //         return response()->json([
+    //             'status' => 'success',
+    //             'message' => 'History, progress item, dan assign berhasil diperbarui.'
+    //         ]);
     //     } catch (\Throwable $e) {
-    //         return redirect()->back()->with('error', 'Something went wrong while updating history: ' . $e->getMessage());
+    //         DB::rollBack();
+
+    //         return response()->json([
+    //             'status' => 'error',
+    //             'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+    //         ], 500);
     //     }
     // }
 
     public function updateHistory(Request $request, $id)
     {
         try {
-            // 🔹 Validasi input
             $validated = $request->validate([
                 'completed_quantity' => 'required|numeric|min:0',
-                'defect_quantity' => 'nullable|numeric|min:0',
-                'reject_quantity' => 'nullable|numeric|min:0',
-                'note' => 'nullable|string|max:255',
+                'defect_quantity'    => 'nullable|numeric|min:0',
+                'reject_quantity'    => 'nullable|numeric|min:0',
+                'note'               => 'nullable|string|max:255',
             ]);
 
-            // 🔹 Ambil data history + relasi
-            $history = OrderProgressHistory::with(['progressItem', 'assign'])->findOrFail($id);
+            $history = OrderProgressHistory::with(['progressItem.product', 'assign'])->findOrFail($id);
             $progressItem = $history->progressItem;
-            $assign = $history->assign; // relasi ke order_progress_assigns
+            $assign = $history->assign;
+            $product = $progressItem?->product;
 
-            if (!$progressItem || !$assign) {
+            if (!$progressItem || !$assign || !$product) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Relasi progress item atau assign tidak ditemukan.'
+                    'message' => 'Relasi progress item, assign, atau product tidak ditemukan.'
                 ], 404);
             }
 
-            // 🔹 Hitung selisih nilai lama vs baru
+            // Hitung delta perubahan
             $oldCompleted = $history->completed_quantity ?? 0;
             $newCompleted = (int) $validated['completed_quantity'];
             $deltaCompleted = $newCompleted - $oldCompleted;
@@ -511,7 +488,7 @@ class HistoryProgressOrderController extends Controller
 
             $deltaChange = $deltaCompleted + $deltaDefect + $deltaReject;
 
-            // 🔹 Validasi batas maksimum quantity
+            // Validasi batas quantity
             $totalCompletedNow = ($progressItem->completed_quantity ?? 0) + $deltaCompleted;
             if ($totalCompletedNow > $progressItem->quantity) {
                 return response()->json([
@@ -527,47 +504,244 @@ class HistoryProgressOrderController extends Controller
             // ===============================
             $history->update([
                 'completed_quantity' => $newCompleted,
-                'defect_quantity' => $newDefect,
-                'reject_quantity' => $newReject,
-                'note' => $validated['note'] ?? null,
+                'defect_quantity'    => $newDefect,
+                'reject_quantity'    => $newReject,
+                'note'               => $validated['note'] ?? null,
             ]);
 
             // ===============================
-            // 🟩 2. Update ORDER_PROGRESS_ITEMS
+            // 🟩 2. Update PROGRESS ITEM & ASSIGN
             // ===============================
-            $progressItem->completed_quantity += $deltaCompleted;
-            // $progressItem->defect_quantity += $deltaDefect;
-            // $progressItem->reject_quantity += $deltaReject;
-            // $progressItem->change_quantity += $deltaChange;
-            $progressItem->save();
+            $progressItem->increment('completed_quantity', $deltaCompleted);
+            $assign->increment('completed_quantity', $deltaCompleted);
+            $assign->increment('defect_quantity', $deltaDefect);
+            $assign->increment('reject_quantity', $deltaReject);
+            $assign->increment('change_quantity', $deltaChange);
 
             // ===============================
-            // 🟩 3. Update ORDER_PROGRESS_ASSIGNS
+            // 🟩 3. Update PRODUCTION STOCK
             // ===============================
-            $assign->completed_quantity += $deltaCompleted;
-            $assign->assigned_quantity += $deltaChange;
-            $assign->defect_quantity += $deltaDefect;
-            $assign->reject_quantity += $deltaReject;
-            $assign->change_quantity += $deltaChange;
+            $ps = ProductionStock::firstOrCreate(
+                ['product_id' => $product->id, 'production_warehouse_id' => 2],
+                [
+                    'opening_stock' => 0,
+                    'available_quantity' => 0,
+                    'finished_product_stock' => 0,
+                    'canceled_product_stock' => 0,
+                    'pending_waiting_list' => 0,
+                ]
+            );
 
-            // 🔹 Update assigned_quantity (berkurang jika completed naik)
-            // $assign->assigned_quantity -= $deltaCompleted;
-            // if ($assign->assigned_quantity < 0) $assign->assigned_quantity = 0;
+            if ($deltaCompleted !== 0) {
+                // Update finished stock
+                $ps->increment('finished_product_stock', $deltaCompleted);
 
-            $assign->save();
+                // Update pending waiting list (kebalikan dari delta)
+                if ($deltaCompleted > 0) {
+                    $ps->decrement('pending_waiting_list', $deltaCompleted);
+                } else {
+                    $ps->increment('pending_waiting_list', abs($deltaCompleted));
+                }
+            }
+
+            $orderProgressHistoryId = $history->exists ? $history->id : null;
+
+            // ===============================
+            // 🟩 4. Update / Tambah REJECT PRODUCT
+            // ===============================
+            if ($deltaReject !== 0) {
+                $avgCost = $product->avg_cost ?? 0;
+                $fixedCost = $product->fixed_cost ?? 0;
+
+                $rejectRecord = RejectProduct::updateOrCreate(
+                    [
+                        'order_progress_history_2_id' => $orderProgressHistoryId,
+                        'order_progress_id'          => $assign->order_progress_id,
+                        // 'assign_id'                  => $assign->id,
+                        'product_id'                 => $product->id,
+                    ],
+                    [
+                        'avg_cost'        => $avgCost,
+                        'fixed_cost'      => $fixedCost,
+                        'reject_date'     => now(),
+                        'status'          => 'pending',
+                        'note'            => 'Auto update from history',
+                        'user_id'         => Auth::id(),
+                    ]
+                );
+
+                $rejectRecord->quantity = ($rejectRecord->quantity ?? 0) + $deltaReject;
+                // $rejectRecord->total_cost = $rejectRecord->quantity * $rejectRecord->avg_cost;
+                // $rejectRecord->total_fixed_cost = $rejectRecord->quantity * $rejectRecord->fixed_cost;
+                $rejectRecord->save();
+            }
+
+            // ===============================
+            // 🟩 5. Update / Tambah DEFECT PRODUCT
+            // ===============================
+            if ($deltaDefect !== 0) {
+                $avgCost = $product->avg_cost ?? 0;
+                $fixedCost = $product->fixed_cost ?? 0;
+
+                $defectRecord = DefectProduct::updateOrCreate(
+                    [
+                        'order_progress_history_2_id' => $orderProgressHistoryId,
+                        // 'order_progress_id'          => $assign->order_progress_id,
+                        // 'assign_id'                  => $assign->id,
+                        'product_id'                 => $product->id,
+                    ],
+                    [
+                        'avg_cost'        => $avgCost,
+                        'fixed_cost'      => $fixedCost,
+                        'defect_date'     => now(),
+                        'defect_type'     => 'production',
+                        'status'          => 'pending',
+                        'note'            => 'Auto update from history',
+                        'user_id'         => Auth::id(),
+                    ]
+                );
+
+                $defectRecord->quantity = ($defectRecord->quantity ?? 0) + $deltaDefect;
+                // $defectRecord->total_cost = $defectRecord->quantity * $defectRecord->avg_cost;
+                // $defectRecord->total_fixed_cost = $defectRecord->quantity * $defectRecord->fixed_cost;
+                $defectRecord->save();
+            }
 
             DB::commit();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'History, progress item, dan assign berhasil diperbarui.'
+                'message' => 'History, stok produksi, dan produk reject/defect berhasil diperbarui.'
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function deleteHistory($id)
+    {
+        DB::beginTransaction();
+        try {
+            $history = OrderProgressHistory::with(['progressItem.product', 'assign'])->findOrFail($id);
+            $progressItem = $history->progressItem;
+            $assign = $history->assign;
+            $product = $progressItem?->product;
+
+            if (!$progressItem || !$assign || !$product) {
+                return response()->json(['message' => 'Relasi progress item, assign, atau product tidak ditemukan.'], 404);
+            }
+
+            // Ambil nilai lama sebelum dihapus
+            $completed = $history->completed_quantity ?? 0;
+            $defect = $history->defect_quantity ?? 0;
+            $reject = $history->reject_quantity ?? 0;
+            $totalChange = $completed + $defect + $reject;
+
+            // 1️⃣ Balikkan nilai ke progress item dan assign
+            $progressItem->decrement('completed_quantity', $completed);
+            $assign->decrement('completed_quantity', $completed);
+            $assign->decrement('defect_quantity', $defect);
+            $assign->decrement('reject_quantity', $reject);
+            $assign->decrement('change_quantity', $totalChange);
+
+            // 2️⃣ Update stok produksi
+            $ps = ProductionStock::where('product_id', $product->id)
+                ->where('production_warehouse_id', 2)
+                ->first();
+
+            if ($ps) {
+                if ($completed > 0) {
+                    $ps->decrement('finished_product_stock', $completed);
+                    $ps->increment('pending_waiting_list', $completed);
+                    $ps->increment('available_quantity', $completed);
+                }
+            }
+
+            // 3️⃣ Hapus record defect & reject terkait
+            RejectProduct::where('order_progress_history_2_id', $history->id)->forceDelete();
+            DefectProduct::where('order_progress_history_2_id', $history->id)->forceDelete();
+
+            // 4️⃣ Hapus history
+            $history->forceDelete();
+
+            DB::commit();
+            return response()->json(['message' => 'History berhasil dihapus dan stok telah diperbarui.']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Gagal menghapus history: ' . $e->getMessage()], 500);
+        }
+    }
+
+    public function deleteBatch($batchId)
+    {
+        DB::beginTransaction();
+        try {
+            $batch = OrderProgressBatch::with([
+                'histories.progressItem.product',
+                'histories.assign'
+            ])->findOrFail($batchId);
+
+            foreach ($batch->histories as $history) {
+                $progressItem = $history->progressItem;
+                $assign = $history->assign;
+                $product = $progressItem?->product;
+
+                $completed = $history->completed_quantity ?? 0;
+                $defect = $history->defect_quantity ?? 0;
+                $reject = $history->reject_quantity ?? 0;
+                $totalChange = $completed + $defect + $reject;
+
+                // 🔹 Balikkan nilai progress item & assign
+                if ($progressItem) {
+                    $progressItem->decrement('completed_quantity', $completed);
+                }
+
+                if ($assign) {
+                    $assign->decrement('completed_quantity', $completed);
+                    $assign->decrement('defect_quantity', $defect);
+                    $assign->decrement('reject_quantity', $reject);
+                    $assign->decrement('change_quantity', $totalChange);
+                }
+
+                // 🔹 Update stok produksi
+                if ($product && $completed > 0) {
+                    $ps = ProductionStock::where('product_id', $product->id)
+                        ->where('production_warehouse_id', 2)
+                        ->first();
+
+                    if ($ps) {
+                        $ps->decrement('finished_product_stock', $completed);
+                        $ps->increment('pending_waiting_list', $completed);
+                        $ps->increment('available_quantity', $completed);
+                    }
+                }
+
+                // 🔹 Hapus defect & reject terkait
+                RejectProduct::where('order_progress_history_2_id', $history->id)->forceDelete();
+                DefectProduct::where('order_progress_history_2_id', $history->id)->forceDelete();
+
+                // 🔹 Hapus history
+                $history->forceDelete();
+            }
+
+            // 🔹 Terakhir, hapus batch
+            $batch->forceDelete();
+
+            DB::commit();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Batch dan seluruh history terkait berhasil dihapus serta stok diperbarui.'
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal menghapus batch: ' . $e->getMessage()
             ], 500);
         }
     }

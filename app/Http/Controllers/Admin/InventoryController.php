@@ -143,7 +143,7 @@ class InventoryController extends Controller
                 }
 
                 // 📅 Date
-                $date = e($inventory->date ?? '-');
+                $date = Carbon::parse($inventory->created_at)->format('j M y H:i');
 
                 // 👤 Partner
                 if ($inventory->purchase_id) {
@@ -293,18 +293,24 @@ class InventoryController extends Controller
                 } elseif ($inventory->material_request_id) {
                     $badge = '<span class="badge bg-soft-warning text-warning mb-1">Request Stock</span><br>';
                     $transactionNumber = $badge . e($inventory->material_request_number ?? '-');
+                } elseif ($inventory->order_id) {
+                    $badge = '<span class="badge bg-soft-success text-success mb-1">Sale List</span><br>';
+                    $transactionNumber = $badge . e($inventory->order->order_number ?? '-');
                 } else {
                     $transactionNumber = '-';
                 }
 
                 // 📅 Date
-                $date = e($inventory->date ?? '-');
+                $date = Carbon::parse($inventory->created_at)->format('j M y H:i');
+                // $date = e($inventory->date ?? '-');
 
                 // 👤 Partner Name
                 if ($inventory->purchase_return_id) {
                     $partner = e(optional($inventory->purchaseReturn->supplier)->name ?? '-');
                 } elseif ($inventory->material_request_id) {
                     $partner = e(optional($inventory->materialRequest->requestedBy)->name ?? '-');
+                } else if ($inventory->order_id) {
+                    $partner = e(optional($inventory->order->customer)->name ?? '-');
                 } else {
                     $partner = '-';
                 }

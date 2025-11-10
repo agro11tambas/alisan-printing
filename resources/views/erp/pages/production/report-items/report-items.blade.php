@@ -215,16 +215,24 @@
                 ],
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // Batalkan request sebelumnya jika masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/productions/report-items/data') }}",
                     type: "GET",
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
+                        start: currentPage * 200,
+                        length: 200,
                         product_name: $("#product_name").val(),
                     },
                     success: function(res) {
@@ -233,12 +241,19 @@
                             table.clear();
                             table.rows.add(allData).draw(false);
                             currentPage++;
+                            restoreCheckboxState();
                         } else {
                             hasMoreData = false;
                         }
-                        isLoading = false;
                     },
-                    error: function() {
+                    complete: function() {
+                        isLoading = false;
+                        currentRequest = null;
+                    },
+                    error: function(xhr) {
+                        if (xhr.statusText !== "abort") {
+                            console.error("AJAX error", xhr);
+                        }
                         isLoading = false;
                     },
                 });
@@ -261,13 +276,15 @@
             });
 
             $("#product_name").on("keyup change", function() {
-                allData = [];
-                currentPage = 0;
-                hasMoreData = true;
-                selectedProducts = []; // reset pilihan saat cari baru
-                table.clear().draw();
-                loadMoreData();
-                toggleRequestButton();
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    allData = [];
+                    currentPage = 0;
+                    hasMoreData = true;
+                    table.clear().draw();
+                    loadMoreData();
+                    toggleRequestButton();
+                }, 100); // delay 400 ms setelah user berhenti ngetik
             });
 
             // 🟩 checkbox listener pakai delegated event biar tetap aktif
@@ -292,6 +309,16 @@
                 } else {
                     $("#btnRequestStock").addClass("d-none");
                 }
+            }
+
+            function restoreCheckboxState() {
+                $(".row-checkbox").each(function() {
+                    const id = $(this).val();
+                    if (selectedProducts.includes(id)) {
+                        $(this).prop("checked", true);
+                    }
+                });
+                toggleRequestButton();
             }
 
             // 🟩 fix tombol request stock

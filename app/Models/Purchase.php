@@ -57,7 +57,7 @@ class Purchase extends Model
 
     public function purchaseItems()
     {
-        return $this->hasMany(PurchaseItem::class, 'purchase_id')->withTrashed();
+        return $this->hasMany(PurchaseItem::class, 'purchase_id');
     }
 
     public function purchaseReturn()
@@ -82,7 +82,7 @@ class Purchase extends Model
 
     public function inventories()
     {
-        return $this->hasMany(Inventory::class, 'purchase_id')->withTrashed();
+        return $this->hasMany(Inventory::class, 'purchase_id');
     }
 
     public function deletedByUser()

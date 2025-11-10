@@ -93,11 +93,21 @@
                 @php $isOwner = auth()->check() && auth()->user()->role === 'Owner'; @endphp
 
                 @if ($isOwner)
+                    {{-- <li>
+                        <button type="button" class="dropdown-item text-danger btn-force-delete-owner"
+                            data-bs-toggle="modal" data-bs-target="#modalForceDeleteOwner"
+                            data-id="{{ $order->id }}" data-name="{{ $order->order_number }}"
+                            data-url="{{ route('sales.forceDeleteOwner', $order->id) }}">
+                            <i class="feather feather-zap-off me-3"></i>
+                            <span>Force Delete (Owner)</span>
+                        </button>
+                    </li> --}}
+
                     <li>
                         <button type="button" class="dropdown-item text-danger btn-force-delete-owner"
                             data-bs-toggle="modal" data-bs-target="#modalForceDeleteOwner"
                             data-id="{{ $order->id }}" data-name="{{ $order->order_number }}"
-                            data-url="{{ route('sale-list.force-delete', $order->id) }}">
+                            data-url="{{ route('sales.sale-list.forceDeleteOwner', $order->id) }}">
                             <i class="feather feather-zap-off me-3"></i>
                             <span>Force Delete (Owner)</span>
                         </button>

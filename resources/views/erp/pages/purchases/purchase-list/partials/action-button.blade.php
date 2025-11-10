@@ -36,6 +36,18 @@
                         <span>Payment History</span>
                     </a>
                 </li>
+                @if (!$purchase->is_fully_returned && $purchase->hasStockIn())
+                    {{-- <li>
+                        <hr class="my-2">
+                    </li> --}}
+                    <li>
+                        <a href="/erp/purchases/purchase-returns/create-purchase-return/{{ $purchase->id }}"
+                            class="dropdown-item">
+                            <i class="feather feather-corner-down-left me-3"></i>
+                            <span>Make Purchase Return</span>
+                        </a>
+                    </li>
+                @endif
             </div>
             {{-- <li>
             <hr class="my-2">
@@ -73,16 +85,19 @@
                         <span>Delete</span>
                     </button>
                 </li>
-                @if (!$purchase->is_fully_returned && $purchase->hasStockIn())
-                    {{-- <li>
-                        <hr class="my-2">
-                    </li> --}}
+
+                @php $isOwner = auth()->check() && auth()->user()->role === 'Owner'; @endphp
+
+                @if ($isOwner)
                     <li>
-                        <a href="/erp/purchases/purchase-returns/create-purchase-return/{{ $purchase->id }}"
-                            class="dropdown-item">
-                            <i class="feather feather-corner-down-left me-3"></i>
-                            <span>Make Purchase Return</span>
-                        </a>
+                        <button type="button" class="dropdown-item text-danger btn-force-delete-owner"
+                            data-bs-toggle="modal" data-bs-target="#modalForceDeleteOwnerPurchase"
+                            data-id="{{ $purchase->id }}"
+                            data-name="{{ $purchase->purchase_number ?? 'Purchase #' . $purchase->id }}"
+                            data-url="{{ route('purchases.purchase-list.forceDeleteOwner', $purchase->id) }}">
+                            <i class="feather feather-zap-off me-3"></i>
+                            <span>Force Delete (Owner)</span>
+                        </button>
                     </li>
                 @endif
             </div>

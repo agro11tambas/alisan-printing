@@ -158,6 +158,7 @@
                                         <!-- <th class="d-none d-md-table-cell">Order Date</th> -->
                                         <th class="d-none d-md-table-cell">Customer</th>
                                         <th>Grand Total</th>
+                                        <th>Type</th>
                                         <th>Notes</th>
                                     </tr>
                                 </thead>
@@ -377,7 +378,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [4, 'desc']
+                    [6, 'desc']
                 ],
                 data: [],
                 columns: [{
@@ -397,6 +398,9 @@
                         data: 'grand_total'
                     },
                     {
+                        data: 'mode'
+                    },
+                    {
                         data: 'notes'
                     },
                     {
@@ -407,12 +411,19 @@
                 ]
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
             // ========== FUNGSI LOAD DATA ==========
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request sebelumnya jika masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/sales/sale-orders/data') }}",
                     type: 'GET',
                     data: {
@@ -434,9 +445,15 @@
                         } else {
                             hasMoreData = false;
                         }
-                        isLoading = false;
                     },
-                    error: function(xhr, status, error) {
+                    complete: function() {
+                        isLoading = false;
+                        currentRequest = null;
+                    },
+                    error: function(xhr) {
+                        if (xhr.statusText !== "abort") {
+                            console.error("AJAX error:", xhr);
+                        }
                         isLoading = false;
                     }
                 });
@@ -469,14 +486,19 @@
                 loadMoreData();
             }
 
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
-                }
-            });
+            $('#filter, #search_type, #search_keyword, #search_payment_status, #start_date, #end_date').on(
+                'change keyup',
+                function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => {
+                        if ($('#filter').val() === 'custom') {
+                            $('.custom-range').removeClass('d-none');
+                        } else {
+                            $('.custom-range').addClass('d-none');
+                        }
+                        resetAndReload();
+                    }, 100);
+                });
 
             $('#apply-filter').on('click', function() {
                 resetAndReload();
@@ -557,6 +579,46 @@
                 if ($(e.target).closest('#saleOrderTable').length) return;
                 $('#saleOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
+
+            $(document).on('submit', '#formDeleteOrder', function(e) {
+                e.preventDefault();
+                const form = $(this);
+                const url = form.attr('action');
+                const orderName = $('#OrderName').text();
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: form.serialize(),
+                    success: function() {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: `Order ${orderName} berhasil dihapus.`
+                        });
+
+                        $('#modalDeleteOrder').modal('hide');
+                        $('#formDeleteOrder')[0].reset();
+
+                        // ✅ reload data baru biar aman (hapus data lama dari array)
+                        allData = [];
+                        currentPage = 0;
+                        hasMoreData = true;
+                        dataTable.clear().draw();
+                        loadMoreData();
+                    },
+                    error: function() {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: 'Terjadi kesalahan saat menghapus order.'
+                        });
+                    }
+                });
+            });
+
         });
 
         document.addEventListener('DOMContentLoaded', function() {

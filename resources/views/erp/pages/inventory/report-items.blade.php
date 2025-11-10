@@ -78,7 +78,7 @@
                     <div class="card-body p-0">
                         <div class="row g-3 p-4 justify-content-between">
                             <div class="col-lg-4 me-2">
-                                <div class="row g-3 justify-content-end">
+                                <div class="row g-3 justify-content-start">
                                     <div class="col-lg-6">
                                         <label for="product_name" class="fw-semibold fs-12">Item Name</label>
                                         <input type="text" id="product_name" name="product_name" class="form-control"

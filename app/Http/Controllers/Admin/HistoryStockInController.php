@@ -39,7 +39,7 @@ class HistoryStockInController extends Controller
             'waybill_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'items' => 'required|array',
             'items.*.inventory_item_id' => 'required|exists:inventory_items_2,id',
-            'items.*.stock_in' => 'required|integer|min:1',
+            'items.*.stock_in' => 'required|integer|min:0',
         ]);
 
         DB::beginTransaction();

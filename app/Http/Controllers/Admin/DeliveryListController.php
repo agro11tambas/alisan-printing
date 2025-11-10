@@ -82,6 +82,11 @@ class DeliveryListController extends Controller
                 case 'vehicle':
                     $deliveryLists->where('vehicle', 'like', '%' . $request->search_keyword . '%');
                     break;
+                case 'customer':
+                    $deliveryLists->whereHas('deliveryOrder', function ($q) use ($request) {
+                        $q->where('customer', 'like', '%' . $request->search_keyword . '%');
+                    });
+                    break;
                 default:
                     $deliveryLists->where('shipment_number', 'like', '%' . $request->search_keyword . '%');
                     break;
@@ -98,7 +103,7 @@ class DeliveryListController extends Controller
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
             'data' => $data->map(function ($dl) {
-                $date = Carbon::parse($dl->shipment_date)->format('j M y');
+                $date = Carbon::parse($dl->created_at)->format('j M y H:i');
                 $shipmentNumber = '
                 <div>
                     <div>' . e($dl->shipment_number) . '</div>
@@ -107,7 +112,14 @@ class DeliveryListController extends Controller
 
                 $driver = e($dl->driver ?? '-');
                 $vehicle = e($dl->vehicle ?? '-');
-                $customer = e($dl->deliveryOrder->customer ?? '-');
+                // $customer = e($dl->deliveryOrder->customer ?? '-');
+
+                $customerHtml = '
+                    <div>
+                        <div class="fw-semibold">' . e($dl->deliveryOrder->order?->customerAddress?->business_name ?? '-') . '</div>
+                        <small class="text-muted">' . e($dl->deliveryOrder->order?->customer?->name ?? '-') . '</small>
+                    </div>
+                ';
 
                 $address = $dl->deliveryOrder->shipping_address ?? '-';
                 $mapLink = $dl->deliveryOrder->google_map_link ?? '#';
@@ -235,7 +247,7 @@ class DeliveryListController extends Controller
                     'shipment_date' => $date,
                     'driver' => $driver,
                     'vehicle' => $vehicle,
-                    'customer' => $customer,
+                    'customer' => $customerHtml,
                     'address' => $addressHtml,
                     'status' => $statusHtml,
                     'items' => $itemsHtml,
@@ -263,8 +275,11 @@ class DeliveryListController extends Controller
 
     public function create($doId)
     {
-        $deliveryOrder = DeliveryOrder::with(['items.product', 'items.deliveryListItems'])
-            ->findOrFail($doId);
+        $deliveryOrder = DeliveryOrder::with([
+            'items' => fn($q) => $q->orderBy('id', 'asc'),
+            'items.product',
+            'items.deliveryListItems'
+        ])->findOrFail($doId);
 
         // Generate nomor otomatis
         $shipmentNumber = \App\Services\DeliveryListService::generateShipmentNumber($deliveryOrder);
@@ -286,24 +301,24 @@ class DeliveryListController extends Controller
         $request->validate([
             'shipment_number' => 'required|string|max:255|unique:delivery_lists,shipment_number',
             'shipment_date'   => 'required|date',
-            'driver_id'       => 'required|exists:users,id', // ✅ ganti jadi ambil dari dropdown driver
+            'driver_id'       => 'required|exists:users,id',
             'vehicle'         => 'nullable|string|max:255',
             'note'            => 'nullable|string',
             'items'           => 'required|array',
             'items.*.shipped_quantity' => 'nullable|numeric|min:0',
         ]);
 
-        $deliveryOrder = DeliveryOrder::findOrFail($doId);
+        $deliveryOrder = DeliveryOrder::with('order')->findOrFail($doId);
 
-        // 🔹 Ambil data driver berdasarkan ID untuk isi nama otomatis
+        // 🔹 Ambil data driver
         $driver = User::find($request->driver_id);
 
         $deliveryList = DeliveryList::create([
             'delivery_order_id' => $deliveryOrder->id,
             'shipment_number'   => $request->shipment_number,
             'shipment_date'     => $request->shipment_date,
-            'driver_id'         => $driver->id,     // ✅ simpan relasi driver
-            'driver'            => $driver->name,   // ✅ isi juga nama driver (biar tetap bisa dibaca di laporan)
+            'driver_id'         => $driver->id,
+            'driver'            => $driver->name,
             'vehicle'           => $request->vehicle,
             'note'              => $request->note,
             'status'            => 'Ongoing',
@@ -321,28 +336,28 @@ class DeliveryListController extends Controller
                 // ✅ Update DeliveryOrderItem
                 $doItem = DeliveryOrderItem::find($item['delivery_order_item_id']);
                 if ($doItem) {
-                    // $newReadyQty   = max(0, $doItem->ready_qty - $item['shipped_quantity']);
                     $newShippedQty = $doItem->shipped_qty + $item['shipped_quantity'];
 
                     $doItem->update([
-                        // 'ready_qty'   => $newReadyQty,
                         'shipped_qty' => $newShippedQty,
                         'status'      => $newShippedQty >= $doItem->progress_qty ? 'Shipped' : $doItem->status,
                     ]);
                 }
 
-                // ✅ Decrement finished_product_stock di ProductionStock
-                $productionStock = ProductionStock::where('product_id', $item['product_id'])->first();
-                if ($productionStock) {
-                    $productionStock->decrement('finished_product_stock', $item['shipped_quantity']);
+                // ✅ Hanya decrement jika mode order BUKAN polosan
+                if ($deliveryOrder->order && $deliveryOrder->order->mode !== 'polosan') {
+                    $productionStock = ProductionStock::where('product_id', $item['product_id'])->first();
+                    if ($productionStock) {
+                        $productionStock->decrement('finished_product_stock', $item['shipped_quantity']);
+                    }
                 }
             }
         }
 
-        // ✅ Kalau semua item DO sudah shipped, update status DO
+        // ✅ Update status DeliveryOrder jika semua item sudah shipped
         $allShipped = $deliveryOrder->items()->where('status', '!=', 'Shipped')->count() === 0;
         if ($allShipped) {
-            $deliveryOrder->update(['status' => 'Shipped']);
+            $deliveryOrder->update(['status' => 'Finished']);
         }
 
         return redirect('/erp/deliveries/delivery-list')
@@ -426,7 +441,7 @@ class DeliveryListController extends Controller
         $deliveryOrder = $deliveryList->deliveryOrder;
         $allShipped = $deliveryOrder->items()->where('status', '!=', 'Shipped')->count() === 0;
         if ($allShipped) {
-            $deliveryOrder->update(['status' => 'Shipped']);
+            $deliveryOrder->update(['status' => 'Finished']);
         }
 
         return redirect('/erp/deliveries/delivery-list')

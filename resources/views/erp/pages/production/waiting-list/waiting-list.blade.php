@@ -136,6 +136,17 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="px-4 pb-2">
+                            <div class="d-flex justify-content-between align-items-center border rounded p-3 bg-light">
+                                <div>
+                                    <h6 class="mb-0 fw-semibold">Total Remaining Progress</h6>
+                                    <small class="text-muted">Jumlah total produk yang belum selesai</small>
+                                </div>
+                                <div>
+                                    <h4 class="fw-bold text-danger mb-0" id="totalRemaining">0</h4>
+                                </div>
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover bg-transparent" id="waitingListTable">
                                 <thead>
@@ -260,7 +271,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [3, 'desc']
+                    [3, 'asc']
                 ],
                 data: [],
                 columns: [
@@ -282,19 +293,27 @@
                         name: 'progress'
                     },
                     {
-                        data: 'id',
-                        name: 'id',
+                        data: 'order_created_at',
+                        name: 'order_created_at',
                         visible: false,
                         searchable: false
                     }
                 ],
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request sebelumnya kalau masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/productions/waiting-list/data') }}",
                     type: 'GET',
                     data: {
@@ -315,13 +334,26 @@
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
+
+                            // 🧮 Update total remaining
+                            if (response.total_remaining !== undefined) {
+                                $('#totalRemaining').text(
+                                    new Intl.NumberFormat('id-ID').format(response.total_remaining)
+                                );
+                            }
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
-                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        if (xhr.statusText !== 'abort') {
+                            console.error('AJAX error:', xhr);
+                            alert(xhr.responseJSON?.message || 'Error loading data.');
+                        }
                         isLoading = false;
                     }
                 });
@@ -355,14 +387,18 @@
                 resetAndReload();
             });
 
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
-                }
-            });
+            $('#filter, #apply-filter, #progress_status, #search_type, #search_keyword, #search_product, #start_date, #end_date, #search_payment_status')
+                .on('change keyup input paste click', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => {
+                        if ($('#filter').val() === 'custom') {
+                            $('.custom-range').removeClass('d-none');
+                        } else {
+                            $('.custom-range').addClass('d-none');
+                        }
+                        resetAndReload();
+                    }, 100);
+                });
 
             $('#apply-filter').on('click', function() {
                 resetAndReload();

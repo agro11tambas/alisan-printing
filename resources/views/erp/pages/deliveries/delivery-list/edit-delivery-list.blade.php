@@ -284,6 +284,7 @@
                 e.preventDefault();
 
                 let isValid = true;
+                let hasQuantity = false; // ✅ Tambahan untuk cek minimal 1 qty > 0
 
                 this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
                 this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
@@ -295,11 +296,46 @@
                 }
 
                 $('input[name^="items"][name$="[shipped_quantity]"]').each(function() {
+                    const val = $(this).val().replace(/\./g, '');
+                    const td = $(this).closest('td');
+                    $(td).find('.invalid-feedback').remove();
+
+                    // ✅ validasi input kosong
+                    if (val === '') {
+                        isValid = false;
+                        $(this).addClass('is-invalid');
+                        const feedback = document.createElement('div');
+                        feedback.className = 'invalid-feedback d-block';
+                        feedback.textContent = 'Harus diisi (boleh 0)';
+                        td.appendChild(feedback);
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+
+                    // ✅ cek kalau ada minimal 1 qty > 0
+                    if (parseInt(val) > 0) {
+                        hasQuantity = true;
+                    }
+                });
+
+                // ✅ kalau semua 0 → tampilkan swal error
+                if (!hasQuantity) {
+                    isValid = false;
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal!',
+                        text: 'Minimal 1 produk harus memiliki jumlah pengiriman lebih dari 0.',
+                    });
+                }
+
+                // ✅ bersihkan titik sebelum submit
+                $('input[name^="items"][name$="[shipped_quantity]"]').each(function() {
                     $(this).val($(this).val().replace(/\./g, ''));
                 });
 
                 if (isValid) this.submit();
             });
+
 
             $(document).on('focus', 'input[name^="items"][name$="[shipped_quantity]"]', function() {
                 if ($(this).val() === '0') $(this).val('');

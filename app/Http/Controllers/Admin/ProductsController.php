@@ -45,19 +45,12 @@ class ProductsController extends Controller
             ->orderBy('name', 'asc');
 
         // ✅ Filter berdasarkan nama atau SKU
-        if ($request->filled('search_type') && $request->filled('search_keyword')) {
-            $type = $request->search_type;
+        if ($request->search_keyword) {
             $keyword = $request->search_keyword;
-
-            $products->when(
-                $type === 'name',
-                fn($q) =>
+            $products->where(function ($q) use ($keyword) {
                 $q->where('name', 'like', "%{$keyword}%")
-            )->when(
-                $type === 'sku',
-                fn($q) =>
-                $q->where('sku', 'like', "%{$keyword}%")
-            );
+                    ->orWhere('sku', 'like', "%{$keyword}%");
+            });
         }
 
         // ✅ Filter berdasarkan kategori

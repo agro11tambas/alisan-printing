@@ -78,8 +78,21 @@ class CapitalTransactionController extends Controller
                 // 📅 Transaction date
                 $transactionDate = e($capitalTransactions->transaction_date ?? '-');
 
-                // 💰 Credit (Rupiah format)
-                $credit = 'Rp ' . number_format($capitalTransactions->credit ?? 0, 0, ',', '.');
+                // 💰 Credit / Debit (Rupiah format)
+                $trxType = $capitalTransactions->transaction_type ?? $type;
+
+                if (str_contains(strtolower($trxType), 'owner')) {
+                    $nominal = $capitalTransactions->credit ?? 0;
+                } elseif (str_contains(strtolower($trxType), 'withdraw')) {
+                    $nominal = $capitalTransactions->debit ?? 0;
+                } else {
+                    // fallback kalau gak ketemu
+                    $nominal = ($capitalTransactions->credit > 0)
+                        ? $capitalTransactions->credit
+                        : $capitalTransactions->debit;
+                }
+
+                $credit = 'Rp ' . number_format($nominal, 0, ',', '.');
 
                 // 📝 Note
                 $note = e($capitalTransactions->note ?? '-');
@@ -99,6 +112,7 @@ class CapitalTransactionController extends Controller
             'has_more' => $totalData > ($start + $length),
         ]);
     }
+
 
 
     public function create()

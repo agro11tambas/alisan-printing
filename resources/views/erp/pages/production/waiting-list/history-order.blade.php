@@ -12,7 +12,7 @@
                 <li class="breadcrumb-item">History</li>
             </ul>
         </div>
-        <div class="page-header-right ms-auto">            
+        <div class="page-header-right ms-auto">
             <div class="d-md-none d-flex align-items-center">
                 <a href="javascript:void(0)" class="page-header-right-open-toggle">
                     <i class="feather-align-right fs-20"></i>
@@ -221,6 +221,7 @@
                                         <th>Updated By</th>
                                         <th>Histories</th>
                                         <th>Note</th>
+                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -289,6 +290,79 @@
             </div>
         </div>
     </div>
+
+    <!-- 🔻 Modal Konfirmasi Delete -->
+    <div class="modal fade" id="deleteHistoryModal" tabindex="-1" aria-labelledby="deleteHistoryModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="deleteHistoryForm" method="POST">
+                    @csrf
+                    @method('DELETE')
+                    <input type="hidden" id="delete_history_id" name="id">
+
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title text-white" id="deleteHistoryModalLabel">Konfirmasi Hapus</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body text-center">
+                        <p class="fs-14 mb-0">
+                            Apakah kamu yakin ingin menghapus history untuk produk:
+                        </p>
+                        <p class="fw-bold text-danger fs-16 mt-1" id="delete_product_name">-</p>
+                        <p class="text-muted fs-13">
+                            Data progress, stok produksi, defect, dan reject akan disesuaikan secara otomatis.
+                        </p>
+                    </div>
+
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger px-4">Hapus</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔻 Modal Konfirmasi Delete Batch -->
+    <div class="modal fade" id="deleteBatchModal" tabindex="-1" aria-labelledby="deleteBatchModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form id="deleteBatchForm" method="POST">
+                    @csrf
+                    @method('DELETE')
+                    <input type="hidden" id="delete_batch_id" name="id">
+
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title text-white" id="deleteBatchModalLabel">Konfirmasi Hapus Batch</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body text-center">
+                        <p class="fs-14 mb-1">Apakah kamu yakin ingin menghapus batch ini?</p>
+                        <p class="text-muted mb-1 fs-13">
+                            Semua history dan progress dalam batch ini juga akan dihapus.
+                        </p>
+                        <p class="fw-bold text-danger fs-16 mt-2 mb-0">
+                            <span id="delete_batch_date">-</span>
+                        </p>
+                        <p class="text-secondary fs-13 mb-0">
+                            Dibuat oleh: <span id="delete_batch_user">-</span>
+                        </p>
+                    </div>
+
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger px-4">Hapus Batch</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
@@ -333,6 +407,12 @@
                         data: 'notes',
                         name: 'notes'
                     },
+                    {
+                        data: 'action',
+                        name: 'action',
+                        orderable: false,
+                        searchable: false
+                    }
                 ]
             });
 
@@ -387,6 +467,78 @@
                         title: 'Error!',
                         text: xhr.responseJSON?.message ?? 'Failed to update data'
                     });
+                }
+            });
+        });
+
+        // 🔻 Klik tombol delete → buka modal konfirmasi
+        $(document).on('click', '.btn-delete-history', function() {
+            const id = $(this).data('id');
+            const product = $(this).data('product');
+
+            $('#delete_history_id').val(id);
+            $('#delete_product_name').text(product);
+            $('#deleteHistoryModal').modal('show');
+        });
+
+        $('#deleteHistoryForm').on('submit', function(e) {
+            e.preventDefault();
+            const id = $('#delete_history_id').val();
+
+            $.ajax({
+                url: `/erp/productions/waiting-list/history-order/delete-history/${id}`,
+                type: 'DELETE',
+                data: $(this).serialize(),
+                success: function(response) {
+                    $('#deleteHistoryModal').modal('hide');
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: response.message ?? 'History berhasil dihapus.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+
+                    $('#progress-history-table').DataTable().ajax.reload(null, false);
+                },
+                error: function(xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal!',
+                        text: xhr.responseJSON?.message ?? 'Gagal menghapus data.'
+                    });
+                }
+            });
+        });
+
+        $(document).on('click', '.btn-delete-batch', function() {
+            const id = $(this).data('id');
+            const date = $(this).data('date');
+            const user = $(this).data('user');
+
+            $('#delete_batch_id').val(id);
+            $('#delete_batch_date').text(date);
+            $('#delete_batch_user').text(user);
+            $('#deleteBatchModal').modal('show');
+        });
+
+        // 🔻 Submit form delete batch
+        $('#deleteBatchForm').on('submit', function(e) {
+            e.preventDefault();
+            const id = $('#delete_batch_id').val();
+
+            $.ajax({
+                url: `/erp/productions/waiting-list/history-order/delete-batch/${id}`,
+                type: 'DELETE',
+                data: $(this).serialize(),
+                success: function() {
+                    $('#deleteBatchModal').modal('hide');
+                    $('#progress-history-table').DataTable().ajax.reload(null, false);
+                },
+                error: function(xhr) {
+                    $('#deleteBatchModal').modal('hide');
+                    console.error(xhr.responseJSON?.message ?? 'Gagal menghapus batch');
                 }
             });
         });

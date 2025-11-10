@@ -396,11 +396,20 @@
                 ],
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
+            let currentDeletedRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request sebelumnya kalau masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/productions/material-request/data') }}",
                     type: 'GET',
                     data: {
@@ -413,7 +422,6 @@
                         search_product: $('#search_product').val(),
                     },
                     success: function(response) {
-
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
@@ -422,10 +430,16 @@
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
-                        alert(xhr.responseJSON?.message || 'Gagal memuat data.');
+                        if (xhr.statusText !== 'abort') {
+                            console.error('Error:', xhr.responseJSON?.message);
+                            alert(xhr.responseJSON?.message || 'Gagal memuat data.');
+                        }
                         isLoading = false;
                     }
                 });
@@ -455,83 +469,56 @@
                 loadMoreData();
             }
 
-            $('#progress_status').on('change', function() {
-                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
-                    .hasClass('active');
+            // ============================================================
+            // 🔹 FIXED FILTER HANDLER (same behavior as design/assign batch)
+            // ============================================================
 
-                if (!isDeletedTab) {
-                    resetAndReload();
-                } else {
-                    resetAndReloadDeleted();
-                }
-            });
-
+            // 🔸 Kalau filter tanggal berubah
             $('#filter').on('change', function() {
+                const val = $(this).val();
                 const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
                     .hasClass('active');
 
-                if ($(this).val() === 'custom') {
+                // Kalau custom range → tampilkan input tanggal tapi jangan reload
+                if (val === 'custom') {
                     $('.custom-range').removeClass('d-none');
+                    return;
+                }
+
+                // Selain custom → sembunyikan input dan reload
+                $('.custom-range').addClass('d-none');
+                if (isDeletedTab) {
+                    resetAndReloadDeleted();
                 } else {
-                    $('.custom-range').addClass('d-none');
-                    if (!isDeletedTab) {
-                        resetAndReload();
-                    } else {
-                        resetAndReloadDeleted();
-                    }
+                    resetAndReload();
                 }
             });
 
+            // 🔸 Tombol Apply Filter → baru reload kalau pakai custom range
             $('#apply-filter').on('click', function() {
                 const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
                     .hasClass('active');
-
-                if (!isDeletedTab) {
-                    resetAndReload();
-                } else {
+                if (isDeletedTab) {
                     resetAndReloadDeleted();
+                } else {
+                    resetAndReload();
                 }
             });
 
-            $('#search_type').on('change', function() {
-                const selected = $(this).val();
-                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
-                    .hasClass('active');
-
-                if (selected === 'payment_status') {
-                    $('#search_keyword').addClass('d-none').val('');
-                } else {
-                    $('#search_keyword').removeClass('d-none');
-                }
-
-                if (!isDeletedTab) {
-                    resetAndReload();
-                } else {
-                    resetAndReloadDeleted();
-                }
-            });
-
-            let searchTimeout = null;
-            $('#search_keyword').on('keyup', function() {
-                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
-                    .hasClass('active');
-
-                if ($('#search_type').val() !== 'payment_status') {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => {
-                        if (!isDeletedTab) {
-                            resetAndReload();
-                        } else {
+            // 🔸 Filter lain (progress, search, product, date input) tetap auto reload
+            $('#progress_status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+                .on('change keyup input paste', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => {
+                        const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]')
+                            .parent().hasClass('active');
+                        if (isDeletedTab) {
                             resetAndReloadDeleted();
+                        } else {
+                            resetAndReload();
                         }
-                    }, 400);
-                }
-            });
-
-            $('#search_keyword, #search_product').on('keyup input paste', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => resetAndReload(), 400);
-            });
+                    }, 100);
+                });
 
             $('#requestStockTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
@@ -635,10 +622,13 @@
 
             function loadMoreDeletedData() {
                 if (deletedIsLoading || !deletedHasMoreData) return;
-
                 deletedIsLoading = true;
 
-                $.ajax({
+                if (currentDeletedRequest) {
+                    currentDeletedRequest.abort();
+                }
+
+                currentDeletedRequest = $.ajax({
                     url: "{{ url('/erp/productions/stock-request/data-deleted') }}",
                     type: 'GET',
                     data: {
@@ -650,24 +640,28 @@
                         progress_status: $('#progress_status').val(),
                     },
                     success: function(response) {
-
                         if (response && response.data && response.data.length > 0) {
                             deletedAllData = deletedAllData.concat(response.data);
                             deletedTable.clear();
-                            deletedTable.rows.add(deletedAllData);
-                            deletedTable.draw(false);
+                            deletedTable.rows.add(deletedAllData).draw(false);
                             deletedCurrentPage++;
                         } else {
                             deletedHasMoreData = false;
                         }
-
-                        deletedIsLoading = false;
                     },
-                    error: function(xhr, status, error) {
+                    complete: function() {
+                        deletedIsLoading = false;
+                        currentDeletedRequest = null;
+                    },
+                    error: function(xhr) {
+                        if (xhr.statusText !== 'abort') {
+                            console.error('Error:', xhr.responseJSON?.message);
+                        }
                         deletedIsLoading = false;
                     }
                 });
             }
+
 
             function resetAndReloadDeleted() {
                 deletedAllData = [];
@@ -806,7 +800,7 @@
                             title: 'Berhasil!',
                             text: 'Status Request Stock berhasil diperbarui.',
                         }).then(() => {
-                            resetAndReload();
+                            window.location.reload();
                         });
                     },
                     error: function(xhr) {

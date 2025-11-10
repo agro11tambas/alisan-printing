@@ -76,7 +76,8 @@
                                     <div class="input-group">
                                         <div class="input-group-text"><i class="feather-phone"></i></div>
                                         <input type="text" class="form-control" id="phone" name="phone"
-                                            value="{{ old('phone') }}" placeholder="Phone">
+                                            value="{{ old('phone') }}" placeholder="Phone"
+                                            oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                                     </div>
                                 </div>
                             </div>

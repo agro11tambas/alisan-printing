@@ -20,99 +20,60 @@ class ReportItemsProductionController extends Controller
         return view('erp.pages.production.report-items.report-items');
     }
 
-    // public function dataReportItems(Request $request)
-    // {
-    //     $reportItems = ProductionStock::whereHas('product', function ($q) {
-    //         $q->whereNull('products.deleted_at');
-    //     })->with('product')->orderBy('remaining_quantity', 'desc');;
-
-    //     if ($request->filled('product_name')) {
-    //         $reportItems->whereHas('product', function ($q) use ($request) {
-    //             $q->where('name', 'like', '%' . $request->product_name . '%');
-    //         });
-    //     }
-
-    //     return DataTables::eloquent($reportItems)
-    //         ->addIndexColumn()
-    //         ->addColumn('name', function ($reportItem) {
-    //             return $reportItem->product->name;
-    //         })
-    //         ->addColumn('available_quantity', function ($reportItem) {
-    //             return '<span class="text-danger">' . number_format($reportItem->available_quantity, 0, ',', '.') . '</span>';
-    //         })
-    //         ->addColumn('finished_product_stock', function ($reportItem) {
-    //             return '<span class="text-primary">' . number_format($reportItem->finished_product_stock, 0, ',', '.') . '</span>';
-    //         })
-    //         ->addColumn(
-    //             'order_progress_remaining',
-    //             fn($reportItem) =>
-    //             '<span class="text-success">' . number_format($reportItem->remaining_quantity, 0, ',', '.') . '</span>'
-    //         )
-    //         ->addColumn('action', function ($row) {
-    //             return '
-    //                 <button type="button" 
-    //                     class="btn btn-sm btn-outline-danger btnDefect" 
-    //                     data-product-id="' . $row->product_id . '" 
-    //                     data-name="' . e($row->product->name) . '">
-    //                     <i class="feather-alert-triangle me-1"></i> Defect
-    //                 </button>
-    //             ';
-    //         })
-    //         ->rawColumns(['available_quantity', 'finished_product_stock', 'order_progress_remaining', 'action'])
-    //         ->make(true);
-    // }
-
     public function dataReportItems(Request $request)
     {
-        // ambil semua data dari Eloquent
-        $reportItems = ProductionStock::with(['product' => fn($q) => $q->withTrashed()])->get();
-
-        // filter product name (kalau ada)
+        // 🔹 Query utama, hanya ambil yang punya product aktif (tidak soft-deleted)
+        $reportItems = ProductionStock::whereHas('product', function ($q) {
+            $q->whereNull('products.deleted_at');
+        })
+            ->with('product');
+            
+        // 🔍 Filter berdasarkan nama produk (kalau ada)
         if ($request->filled('product_name')) {
-            $reportItems = $reportItems->filter(function ($item) use ($request) {
-                return stripos($item->product->name, $request->product_name) !== false;
+            $reportItems->whereHas('product', function ($query) use ($request) {
+                $query->where('name', 'like', '%' . $request->product_name . '%');
             });
         }
 
-        // urutkan berdasarkan accessor remaining_quantity (dari besar ke kecil)
-        $reportItems = $reportItems->sortByDesc(fn($item) => $item->remaining_quantity)->values();
+        // 🔤 Urutkan nama produk setelah stok (opsional, kayak di Inventory)
+        $reportItems->orderBy(
+            Products::select('name')
+                ->whereColumn('products.id', 'production_stocks.product_id')
+        );
 
+        // ✅ Eksekusi query
+        $reportItems = $reportItems->get();
+
+        // 🔹 DataTables response
         return DataTables::of($reportItems)
             ->addIndexColumn()
-            ->addColumn('name', fn($item) => e($item->product->name))
+            ->addColumn('name', fn($item) => e($item->product->name ?? '-'))
             ->addColumn(
                 'available_quantity',
-                fn($item) =>
-                '<span class="text-danger">' . number_format($item->available_quantity, 0, ',', '.') . '</span>'
+                fn($item) => number_format($item->available_quantity ?? 0, 0, ',', '.')
             )
             ->addColumn(
                 'finished_product_stock',
-                fn($item) =>
-                '<span class="text-primary">' . number_format($item->finished_product_stock, 0, ',', '.') . '</span>'
-            )
-            ->addColumn(
-                'order_progress_remaining',
-                fn($item) =>
-                '<span class="text-success">' . number_format($item->remaining_quantity, 0, ',', '.') . '</span>'
+                fn($item) => number_format($item->finished_product_stock ?? 0, 0, ',', '.')
             )
             ->addColumn(
                 'incoming_stock',
-                fn($item) =>
-                '<span class="text-info">' . number_format($item->incoming_stock, 0, ',', '.') . '</span>'
-            )            
-            ->addColumn('pending_waiting_list', fn($item) => number_format($item->pending_waiting_list, 0, ',', '.'))
-            ->addColumn('action', fn($row) => '
-            <button type="button" 
-                class="btn btn-sm btn-outline-danger btnDefect" 
-                data-product-id="' . $row->product_id . '" 
-                data-name="' . e($row->product->name) . '">
+                fn($item) => number_format($item->incoming_stock ?? 0, 0, ',', '.')
+            )
+            ->addColumn(
+                'pending_waiting_list',
+                fn($item) => number_format($item->pending_waiting_list ?? 0, 0, ',', '.')
+            )
+            ->addColumn('action', fn($item) => '
+            <button type="button" class="btn btn-sm btn-outline-danger btnDefect" 
+                data-product-id="' . $item->product_id . '" 
+                data-name="' . e($item->product->name ?? '-') . '">
                 <i class="feather-alert-triangle me-1"></i> Defect
             </button>
         ')
-            ->rawColumns(['available_quantity', 'finished_product_stock', 'order_progress_remaining', 'action', 'incoming_stock'])
+            ->rawColumns(['action'])
             ->make(true);
     }
-
 
     public function storeProduction(Request $request)
     {

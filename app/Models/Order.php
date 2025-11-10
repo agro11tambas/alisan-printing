@@ -30,6 +30,7 @@ class Order extends Model
         'business_name',
         'shipping_address',
         'google_maps',
+        'mode',
         'notes',
         'delivery_image',
         'transaction_group_id',
@@ -46,7 +47,7 @@ class Order extends Model
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customers::class, 'customer_id')->withTrashed();;
+        return $this->belongsTo(Customers::class, 'customer_id')->withTrashed();
     }
 
     public function customerAddress(): BelongsTo
@@ -56,7 +57,7 @@ class Order extends Model
 
     public function orderItems()
     {
-        return $this->hasMany(OrderItem::class)->withTrashed();
+        return $this->hasMany(OrderItem::class);
     }
 
     public function saleReturns()
@@ -162,26 +163,25 @@ class Order extends Model
     {
         static::deleting(function ($order) {
             if ($order->isForceDeleting()) {
-                // pakai each supaya event anak terpanggil
-                $order->orderItems()->withTrashed()->get()->each->forceDelete();
+                $order->orderItems()->get()->each->forceDelete();
 
-                $order->orderProgress()->withTrashed()->get()->each(function ($progress) {
-                    $progress->items()->withTrashed()->get()->each->forceDelete();
+                $order->orderProgress()->get()->each(function ($progress) {
+                    $progress->items()->get()->each->forceDelete();
                     $progress->forceDelete();
                 });
 
-                $order->deliveryOrders()->withTrashed()->get()->each(function ($deliveryOrder) {
-                    $deliveryOrder->items()->withTrashed()->get()->each->forceDelete();
+                $order->deliveryOrders()->get()->each(function ($deliveryOrder) {
+                    $deliveryOrder->items()->get()->each->forceDelete();
                     $deliveryOrder->forceDelete();
                 });
 
-                $order->designs()->withTrashed()->get()->each(function ($design) {
-                    $design->items()->withTrashed()->get()->each->forceDelete();
+                $order->designs()->get()->each(function ($design) {
+                    $design->items()->get()->each->forceDelete();
                     $design->forceDelete();
                 });
 
                 $order->orderEditHistories()->forceDelete();
-                $order->saleReturns()->withTrashed()->get()->each->forceDelete();
+                $order->saleReturns()->get()->each->forceDelete();
                 $order->accountTransactions()->forceDelete();
 
                 $order->Inventories()

@@ -89,9 +89,9 @@
                                     <button id="apply-filter" class="btn btn-primary custom-range d-none">Apply</button>
                                 </div>
                             </div>
-                            <div class="col-lg-6">
+                            <div class="col-lg-8">
                                 <div class="row justify-content-end">
-                                    <div class="col-lg-3">
+                                    <div class="col-lg-2">
                                         <label for="progress_status" class="fw-semibold fs-12">Progress Status</label>
                                         <select id="progress_status" class="form-control"
                                             style="padding: 0.5rem 1rem; font-size: 0.875rem;">
@@ -99,15 +99,22 @@
                                             <option value="completed">Completed</option>
                                         </select>
                                     </div>
-                                    <div class="col-lg-3">
+                                    <div class="col-lg-2">
                                         <label for="search_product" class="fw-semibold fs-12">Search Product</label>
                                         <input type="text" id="search_product" class="form-control"
                                             placeholder="Product name...">
                                     </div>
-                                    <div class="col-lg-3">
+                                    <div class="col-lg-5">
                                         <label for="search_type" class="fw-semibold fs-12">Search Assign Code</label>
                                         <div class="row g-3">
-                                            <div class="col-md-12">
+                                            <div class="col-md-6">
+                                                <select id="search_type" class="form-control"
+                                                    style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                                    <option value="customer">Customer</option>
+                                                    <option value="order_number">Order Number</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
                                                 <input type="text" id="search_keyword" name="search_keyword"
                                                     class="form-control search-input"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;"
@@ -198,7 +205,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [3, 'desc']
+                    [3, 'asc']
                 ],
                 data: [],
                 columns: [
@@ -226,7 +233,7 @@
                     //     searchable: false
                     // },
                     {
-                        data: 'id',
+                        data: 'created_at',
                         visible: false,
                         searchable: false
                     }
@@ -236,11 +243,19 @@
                 }
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request sebelumnya kalau masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: `/erp/productions/waiting-list/assign-list/data`,
                     type: 'GET',
                     data: {
@@ -250,6 +265,7 @@
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
                         progress_status: $('#progress_status').val(),
+                        search_type: $('#search_type').val(),
                         search_keyword: $('#search_keyword').val(),
                         search_product: $('#search_product').val(),
                     },
@@ -262,10 +278,16 @@
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
-                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        if (xhr.statusText !== 'abort') {
+                            console.error('AJAX error:', xhr);
+                            alert(xhr.responseJSON?.message || 'Error loading data.');
+                        }
                         isLoading = false;
                     }
                 });
@@ -323,35 +345,37 @@
                 $('#assignBatchTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
+            // ==========================
+            // 🔹 FILTER HANDLER — SAME AS DESIGN LIST BEHAVIOR
+            // ==========================
+
+            // Kalau dropdown filter berubah
             $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
+                const val = $(this).val();
+
+                // Kalau custom range → tampilkan input tanggal, tapi JANGAN reload dulu
+                if (val === 'custom') {
                     $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
+                    return;
                 }
+
+                // Kalau bukan custom → sembunyikan input tanggal dan reload
+                $('.custom-range').addClass('d-none');
+                resetAndReload();
             });
 
+            // Tombol Apply untuk custom range
             $('#apply-filter').on('click', function() {
                 resetAndReload();
             });
 
-            $('#progress_status').on('change', function() {
-                resetAndReload();
-            });
+            // Filter lain tetap auto reload
+            $('#progress_status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+                .on('change keyup input paste', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => resetAndReload(), 200);
+                });
 
-            // let searchTimeout;
-            // $('#search_keyword').on('input', function() {
-            //     clearTimeout(searchTimeout);
-            //     searchTimeout = setTimeout(() => resetAndReload(), 500);
-            // });
-
-            let searchTimeout = null;
-
-            $('#search_keyword, #search_product').on('keyup input paste', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => resetAndReload(), 400);
-            });
         });
 
         $(document).on('click', '.btn-open-delete-modal', function() {

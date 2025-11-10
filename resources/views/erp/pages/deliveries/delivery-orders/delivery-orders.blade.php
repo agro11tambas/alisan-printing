@@ -103,7 +103,8 @@
                                         <label for="status" class="fw-semibold fs-12">DO Status</label>
                                         <select id="status" class="form-control">
                                             <option value="Ongoing">Ongoing</option>
-                                            <option value="Shipped">Finished</option>
+                                            <option value="Shipped">Shipped</option>
+                                            <option value="Finished">Finished</option>
                                         </select>
                                     </div>
                                     <div class="col-lg-3">
@@ -116,8 +117,8 @@
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <select id="search_type" class="form-control">
-                                                    <option value="delivery_number">Delivery Number</option>
                                                     <option value="customer">Customer</option>
+                                                    <option value="delivery_number">Delivery Number</option>
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
@@ -303,12 +304,19 @@
                 ],
             });
 
-            // ========== FUNGSI LOAD DATA ==========
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request sebelumnya jika masih berjalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/deliveries/delivery-orders/data') }}",
                     type: 'GET',
                     data: {
@@ -331,10 +339,16 @@
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
-                        alert(xhr.responseJSON?.message || 'Error loading data.');
+                        if (xhr.statusText !== 'abort') {
+                            console.error('AJAX Error:', xhr);
+                            alert(xhr.responseJSON?.message || 'Error loading data.');
+                        }
                         isLoading = false;
                     }
                 });
@@ -372,28 +386,37 @@
                 resetAndReload();
             });
 
+            // ==========================================================
+            // 🔹 FIXED FILTER HANDLER (no reload on custom range)
+            // ==========================================================
+
+            // Kalau dropdown filter berubah
             $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
+                const val = $(this).val();
+
+                // Kalau custom range → tampilkan input tanggal tapi jangan reload
+                if (val === 'custom') {
                     $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
+                    return;
                 }
+
+                // Selain custom → sembunyikan input tanggal dan reload
+                $('.custom-range').addClass('d-none');
+                resetAndReload();
             });
 
+            // Tombol Apply Filter → reload manual untuk custom range
             $('#apply-filter').on('click', function() {
                 resetAndReload();
             });
 
-            $('#search_type').on('change', function() {
-                resetAndReload();
-            });
+            // Filter lain tetap auto reload
+            $('#status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+                .on('change keyup input paste', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => resetAndReload(), 200);
+                });
 
-            let searchTimeout = null;
-            $('#search_keyword, #search_product').on('keyup input paste', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => resetAndReload(), 400);
-            });
 
             // ========= ACTION ROW (TIDAK DIUBAH) ==========
             $('#deliveryOrderTable tbody').on('click', 'tr', function(e) {

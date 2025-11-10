@@ -107,6 +107,7 @@
                                             <th>Assign Now</th>
                                             <th>Operator</th>
                                             <th>Note</th>
+                                            <th>Bypass</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -171,6 +172,18 @@
                                                         class="form-control" value="{{ $note }}"
                                                         placeholder="Catatan singkat">
                                                 </td>
+                                                <td class="text-center">
+                                                    <div class="form-check">
+                                                        <input type="hidden" name="items[{{ $index }}][bypass]"
+                                                            value="0">
+                                                        <input type="checkbox" class="form-check-input bypass-check"
+                                                            name="items[{{ $index }}][bypass]" value="1"
+                                                            id="bypass_{{ $index }}"
+                                                            {{ $assign && $assign->operator_id == null ? 'checked' : '' }}>
+                                                        <label for="bypass_{{ $index }}"
+                                                            class="form-check-label small">Bypass</label>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -229,14 +242,43 @@
                 });
             });
 
+            $(document).on('change', '.bypass-check', function() {
+                const row = $(this).closest('tr');
+                const isBypass = $(this).is(':checked');
+                const qtyInput = row.find('input[name$="[assigned_quantity]"]');
+                const operatorSelect = row.find('.operator-field');
+
+                if (isBypass) {
+                    qtyInput.val('0').prop('readonly', true);
+                    const name = operatorSelect.attr('name');
+                    row.find(`input[name="${name}"]`).remove();
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: name,
+                        value: ''
+                    }).appendTo(row);
+                    operatorSelect.prop('disabled', true).val('').trigger('change');
+                    row.find('.error-operator').addClass('d-none');
+                    row.addClass('table-secondary');
+                } else {
+                    qtyInput.prop('readonly', false);
+                    operatorSelect.prop('disabled', false);
+                    const name = operatorSelect.attr('name');
+                    row.find(`input[name="${name}"]`).remove();
+                    row.removeClass('table-secondary');
+                }
+            });
+
             $('#btnSubmitForm').on('click', function(e) {
                 e.preventDefault();
                 let valid = true;
                 $('.error-operator').addClass('d-none');
 
                 $('.operator-field').each(function() {
-                    if ($(this).val() === '') {
-                        $(this).closest('td').find('.error-operator').removeClass('d-none');
+                    const row = $(this).closest('tr');
+                    const isBypass = row.find('.bypass-check').is(':checked');
+                    if (!isBypass && $(this).val() === '') {
+                        row.find('.error-operator').removeClass('d-none');
                         valid = false;
                     }
                 });

@@ -98,7 +98,7 @@ class DesignController extends Controller
                 $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
             });
         }
-        
+
         // ✅ Filter status
         if ($request->filled('status')) {
             $designs->where('status', $request->status);
@@ -114,6 +114,8 @@ class DesignController extends Controller
         // ✅ Format JSON ringan (lazy load)
         return response()->json([
             'data' => $data->map(function ($design) {
+                // 📅 Format tanggal
+                $orderCreatedAt = optional($design->order)->created_at;
                 $date = $design->date ? Carbon::parse($design->date)->format('j M y') : '-';
 
                 // 🏷️ Badge status
@@ -136,7 +138,7 @@ class DesignController extends Controller
                 $designNumberHtml = '
                 <div>
                     <div><span class="me-2">' . e($design->design_number) . '</span>' . $verifiedBadge . '</div>
-                    <small class="text-muted">' . $date . '</small>
+                    <small class="text-muted">' . $orderCreatedAt->format('j M y H:i') . '</small>
                 </div>';
 
                 // 📦 Product list partial
@@ -179,6 +181,7 @@ class DesignController extends Controller
                     'products' => $productList,
                     'proof_photos' => $proofPhotos,
                     'action' => $actionButtons,
+                    'created_at' => $orderCreatedAt->format('j M y H:i'),
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
@@ -285,6 +288,84 @@ class DesignController extends Controller
             }
 
             return redirect()->back()->with('error', 'Failed to verify design: ' . $e->getMessage());
+        }
+    }
+
+    public function unverify(Request $request, $id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $design = Design::with(['order', 'items.product'])->findOrFail($id);
+            $order = $design->order;
+
+            // Pastikan hanya design yang sudah verified yang bisa di-unverify
+            if ($design->status !== 'Verified') {
+                return back()->with('error', 'Design belum diverifikasi atau sudah di-unverify.');
+            }
+
+            // Ambil OrderProgress dan DeliveryOrder terkait design ini
+            $orderProgress = OrderProgress::where('design_id', $design->id)->first();
+            $deliveryOrder = DeliveryOrder::where('design_id', $design->id)->first();
+
+            // 🔹 Kembalikan stok pending_waiting_list di ProductionStock
+            if ($orderProgress && $orderProgress->items) {
+                foreach ($orderProgress->items as $progressItem) {
+                    $productionStock = \App\Models\ProductionStock::where('product_id', $progressItem->product_id)
+                        ->where('production_warehouse_id', 2)
+                        ->first();
+
+                    if ($productionStock) {
+                        $productionStock->decrement('pending_waiting_list', $progressItem->quantity);
+                        if ($productionStock->pending_waiting_list < 0) {
+                            $productionStock->update(['pending_waiting_list' => 0]);
+                        }
+                    }
+                }
+            }
+
+            // 🔹 Hapus DeliveryOrderItem dan DeliveryOrder
+            if ($deliveryOrder) {
+                $deliveryOrder->items()->delete();
+                $deliveryOrder->delete();
+            }
+
+            // 🔹 Hapus OrderProgressItem dan OrderProgress
+            if ($orderProgress) {
+                $orderProgress->items()->delete();
+                $orderProgress->delete();
+            }
+
+            // 🔹 Update kembali status design ke Unverified
+            $design->update([
+                'verification_status' => 'pending',
+                'status'              => 'Pending',
+                'verified_by'         => null,
+                'verified_at'         => null,
+            ]);
+
+            DB::commit();
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Design unverified successfully.'
+                ]);
+            }
+
+            return redirect()->back()->with('success', 'Design berhasil di-unverify.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error unverify design: ' . $e->getMessage());
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to unverify design: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return redirect()->back()->with('error', 'Gagal unverify design: ' . $e->getMessage());
         }
     }
 }

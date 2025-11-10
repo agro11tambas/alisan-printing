@@ -1174,7 +1174,9 @@ class SaleReturnController extends Controller
             'transaction_type'      => 'required|exists:accounts,id',
             'note'                  => 'nullable|string',
             'particular'            => 'nullable|string',
-            'payment_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:2048',
+            'payment_proof'        => 'nullable|array',
+            'payment_proof.*'      => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image'       => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -1188,23 +1190,32 @@ class SaleReturnController extends Controller
             $saleAccount     = Account::findOrFail($request->transaction_type); // Akun retur penjualan
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id); // Akun kas/bank
 
-            $proofPath = null;
+            // =====================================================
+            // 🔹 Handle Multiple Uploads (bukti + note)
+            // =====================================================
+            $uploadedProofs = [];
+            $notes = $request->note_per_image ?? [];
+
             if ($request->hasFile('payment_proof')) {
-                $file = $request->file('payment_proof');
                 $uploadPath = public_path('uploads/payment_proofs');
 
-                // Buat folder jika belum ada
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
 
-                // Generate nama unik
-                $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->move($uploadPath, $fileName);
+                foreach ($request->file('payment_proof') as $index => $file) {
+                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $file->move($uploadPath, $fileName);
 
-                // Simpan path relatif
-                $proofPath = 'uploads/payment_proofs/' . $fileName;
+                    $uploadedProofs[] = [
+                        'file' => 'uploads/payment_proofs/' . $fileName,
+                        'note' => $notes[$index] ?? '',
+                    ];
+                }
             }
+
+            // Simpan ke kolom proof (JSON)
+            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // **Transaksi CREDIT (sale return refund ke customer)**
             // AccountTransaction::create([
@@ -1232,7 +1243,7 @@ class SaleReturnController extends Controller
                 'note'                => $request->note ?? '',
                 'particular'          => $saleAccount->name . ' - ' . $saleAccount->type,
                 'transaction_group_id' => $groupId,
-                'proof'               => $proofPath,
+                'proof'               => $proofJson,
             ]);
 
             $cashBankAccount->closing_balance -= $request->refund_amount;
@@ -1258,6 +1269,12 @@ class SaleReturnController extends Controller
             $saleReturn->save();
 
             DB::commit();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Pembayaran berhasil disimpan.',
+                ]);
+            }
             return redirect()->back()->with('success', 'Refund berhasil diproses.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1266,6 +1283,12 @@ class SaleReturnController extends Controller
                 'line' => $e->getLine(),
                 'file' => $e->getFile(),
             ]);
+            if ($request->ajax()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Pembayaran berhasil disimpan.',
+                ]);
+            }
             return redirect()->back()->with('error', 'Gagal memproses refund: ' . $e->getMessage());
         }
     }
@@ -1299,6 +1322,92 @@ class SaleReturnController extends Controller
         ]);
     }
 
+    // public function updatePayment(Request $request, $groupId)
+    // {
+    //     $request->merge([
+    //         'paid_amount' => str_replace('.', '', $request->paid_amount),
+    //     ]);
+
+    //     $request->validate([
+    //         'transaction_date'      => 'required|date',
+    //         'paid_amount'           => 'required|numeric|min:1',
+    //         'cash_bank_account_id'  => 'required|exists:accounts,id',
+    //         'note'                  => 'nullable|string',
+    //     ]);
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
+    //         if ($transactions->isEmpty()) {
+    //             throw new \Exception("Refund not found");
+    //         }
+
+    //         $saleReturnId = $transactions->first()->sale_return_id;
+    //         $saleReturn   = SaleReturn::findOrFail($saleReturnId);
+
+    //         // cari transaksi credit lama (Cash/Bank)
+    //         $oldCredit = $transactions->firstWhere('credit', '>', 0);
+    //         if (!$oldCredit) {
+    //             throw new \Exception("Credit transaction not found in this group");
+    //         }
+
+    //         $oldAccount = $oldCredit->account;
+    //         $oldAmount  = $oldCredit->credit;
+
+    //         // rollback saldo akun lama
+    //         $oldAccount->closing_balance += $oldAmount;
+    //         $oldAccount->save();
+
+    //         // update transaksi credit lama → ganti akun/amount/date/note
+    //         $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
+    //         $oldCredit->update([
+    //             'transaction_date' => $request->transaction_date,
+    //             'account_id'       => $cashBankAccount->id,
+    //             'credit'           => $request->paid_amount,
+    //             'note'             => $request->note ?? '',
+    //         ]);
+
+    //         // update saldo akun baru
+    //         $cashBankAccount->closing_balance -= $request->paid_amount;
+    //         $cashBankAccount->save();
+
+    //         // update juga tanggal/note untuk baris debit Sale Return biar sinkron
+    //         $returnTrx = $transactions->firstWhere('debit', '>', 0);
+    //         if ($returnTrx) {
+    //             $returnTrx->update([
+    //                 'transaction_date' => $request->transaction_date,
+    //                 'note'             => $request->note ?? '',
+    //             ]);
+    //         }
+
+    //         // hitung ulang refund status sale return (sum credit)
+    //         $totalRefund = AccountTransaction::where('sale_return_id', $saleReturn->id)
+    //             ->where('credit', '>', 0)
+    //             ->sum('credit');
+
+    //         $saleReturn->refund_amount    = $totalRefund;
+    //         $saleReturn->remaining_amount = max(0, $saleReturn->total_amount - $totalRefund);
+
+    //         if ($saleReturn->refund_amount == 0) {
+    //             $saleReturn->payment_status = 'Unpaid';
+    //         } elseif ($saleReturn->refund_amount < $saleReturn->total_amount) {
+    //             $saleReturn->payment_status = 'Partially Paid';
+    //         } elseif ($saleReturn->refund_amount == $saleReturn->total_amount) {
+    //             $saleReturn->payment_status = 'Refunded';
+    //         } else {
+    //             $saleReturn->payment_status = 'Overpaid';
+    //         }
+
+    //         $saleReturn->save();
+
+    //         DB::commit();
+    //         return redirect()->back()->with('success', 'Refund berhasil diperbarui.');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         return redirect()->back()->with('error', 'Gagal update refund: ' . $e->getMessage());
+    //     }
+    // }
+
     public function updatePayment(Request $request, $groupId)
     {
         $request->merge([
@@ -1310,6 +1419,9 @@ class SaleReturnController extends Controller
             'paid_amount'           => 'required|numeric|min:1',
             'cash_bank_account_id'  => 'required|exists:accounts,id',
             'note'                  => 'nullable|string',
+            'payment_proof'         => 'nullable|array',
+            'payment_proof.*'       => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image'        => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -1322,7 +1434,53 @@ class SaleReturnController extends Controller
             $saleReturnId = $transactions->first()->sale_return_id;
             $saleReturn   = SaleReturn::findOrFail($saleReturnId);
 
-            // cari transaksi credit lama (Cash/Bank)
+            // =====================================================
+            // 🔹 Handle Multiple Uploads (bukti + note)
+            // =====================================================
+            $uploadedProofs = [];
+            $notes = $request->note_per_image ?? [];
+
+            // Ambil proof lama biar gak hilang
+            $oldProofs = [];
+            $oldProofJson = $transactions->first()?->proof;
+            if ($oldProofJson && is_string($oldProofJson)) {
+                $decoded = json_decode($oldProofJson, true);
+                if (is_array($decoded)) {
+                    $oldProofs = $decoded;
+                }
+            }
+
+            if ($request->hasFile('payment_proof')) {
+                $uploadPath = public_path('uploads/payment_proofs');
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                foreach ($request->file('payment_proof') as $index => $file) {
+                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $file->move($uploadPath, $fileName);
+
+                    $path = 'uploads/payment_proofs/' . $fileName;
+                    $uploadedProofs[] = [
+                        'file' => str_replace('\\', '/', $path),
+                        'note' => $notes[$index] ?? '',
+                    ];
+                }
+            }
+
+            // 🔹 Kalau gak ada file baru → pakai proof lama tapi update note kalau dikirim ulang
+            if (empty($uploadedProofs)) {
+                foreach ($oldProofs as $index => &$proof) {
+                    $proof['note'] = $notes[$index] ?? ($proof['note'] ?? '');
+                }
+                $uploadedProofs = $oldProofs;
+            }
+
+            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+
+            // =====================================================
+            // 🔹 Refund Process (asli dari kode lama)
+            // =====================================================
             $oldCredit = $transactions->firstWhere('credit', '>', 0);
             if (!$oldCredit) {
                 throw new \Exception("Credit transaction not found in this group");
@@ -1335,13 +1493,14 @@ class SaleReturnController extends Controller
             $oldAccount->closing_balance += $oldAmount;
             $oldAccount->save();
 
-            // update transaksi credit lama → ganti akun/amount/date/note
+            // update transaksi credit lama → ganti akun/amount/date/note/proof
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
             $oldCredit->update([
                 'transaction_date' => $request->transaction_date,
                 'account_id'       => $cashBankAccount->id,
                 'credit'           => $request->paid_amount,
                 'note'             => $request->note ?? '',
+                'proof'            => $proofJson, // 🔹 disimpan ke kolom proof
             ]);
 
             // update saldo akun baru
@@ -1357,7 +1516,7 @@ class SaleReturnController extends Controller
                 ]);
             }
 
-            // hitung ulang refund status sale return (sum credit)
+            // hitung ulang refund status sale return
             $totalRefund = AccountTransaction::where('sale_return_id', $saleReturn->id)
                 ->where('credit', '>', 0)
                 ->sum('credit');

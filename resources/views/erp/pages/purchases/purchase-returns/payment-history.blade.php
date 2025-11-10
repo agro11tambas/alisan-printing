@@ -1,4 +1,56 @@
 @extends('erp.layouts.main')
+@push('styles')
+    <style>
+        .preview-list {
+            display: block;
+            width: 100%;
+            max-height: 300px;
+            overflow-y: auto;
+            background: #fafafa;
+            border: 1px dashed #ccc;
+            border-radius: 6px;
+            padding: 8px;
+        }
+
+        .preview-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            margin-bottom: 12px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            position: relative;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            object-fit: contain;
+        }
+
+        .preview-item .note-input {
+            width: 100%;
+            font-size: 13px;
+        }
+
+        .preview-item .btn-remove-proof {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            border: none;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+    </style>
+@endpush
 
 @section('breadcrumb')
     <div class="page-header sticky-top">
@@ -38,7 +90,6 @@
                     <div class="card-body">
                         @forelse($transactions as $groupId => $trxGroup)
                             @php
-
                                 $debitGroup = $trxGroup->where('debit', '>', 0);
                             @endphp
 
@@ -55,7 +106,8 @@
                                             data-date="{{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('Y-m-d') }}"
                                             data-amount="{{ $debitGroup->sum('debit') }}"
                                             data-account="{{ optional($debitGroup->first())->account_id }}"
-                                            data-note="{{ $debitGroup->first()->note }}">
+                                            data-note="{{ $debitGroup->first()->note }}"
+                                            data-proof='@json($debitGroup->first()->proof)'>
                                             <i class="feather feather-edit-3 me-2"></i>Edit
                                         </button>
                                     </div>
@@ -67,7 +119,7 @@
                                                     <th>Akun</th>
                                                     <th>Debit</th>
                                                     <th>Keterangan</th>
-                                                    <th>Particular</th>
+                                                    {{-- <th>Particular</th> --}}
                                                     <th>Proof</th>
                                                 </tr>
                                             </thead>
@@ -79,27 +131,20 @@
                                                         </td>
                                                         <td>{{ number_format($trx->debit, 0, ',', '.') }}</td>
                                                         <td>{{ $trx->note }}</td>
-                                                        <td>{{ $trx->particular }}</td>
+                                                        {{-- <td>{{ $trx->particular }}</td> --}}
                                                         <td class="text-center">
                                                             @if ($trx->proof)
                                                                 @php
-                                                                    $ext = pathinfo($trx->proof, PATHINFO_EXTENSION);
+                                                                    $proofData = json_decode($trx->proof, true);
                                                                 @endphp
 
-                                                                {{-- Jika file gambar --}}
-                                                                @if (in_array(strtolower($ext), ['jpg', 'jpeg', 'png']))
-                                                                    <a href="javascript:void(0)" class="proof-thumb"
-                                                                        data-img="{{ asset($trx->proof) }}">
-                                                                        <img src="{{ asset($trx->proof) }}" alt="Proof"
-                                                                            class="img-thumbnail shadow-sm"
-                                                                            style="max-height: 60px; cursor: zoom-in;">
-                                                                    </a>
-                                                                    {{-- Jika file PDF --}}
-                                                                @elseif(strtolower($ext) === 'pdf')
-                                                                    <a href="{{ asset($trx->proof) }}" target="_blank"
-                                                                        class="btn btn-outline-danger btn-sm">
-                                                                        <i class="feather-file-text me-1"></i> View PDF
-                                                                    </a>
+                                                                @if (is_array($proofData))
+                                                                    <button type="button"
+                                                                        class="btn btn-sm btn-outline-primary btn-preview-proof"
+                                                                        data-proofs='@json($proofData)'>
+                                                                        <i class="feather-image me-1"></i> Preview
+                                                                        ({{ count($proofData) }})
+                                                                    </button>
                                                                 @else
                                                                     <span class="text-muted">Unknown File</span>
                                                                 @endif
@@ -125,6 +170,7 @@
 @endsection
 
 @push('modals')
+    {{-- 🔹 Modal Edit Payment --}}
     <div class="modal fade-scale" id="modalEditPayment" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -161,6 +207,27 @@
                             </select>
                         </div>
 
+                        {{-- 🔹 Preview bukti EXISTING (dari DB) --}}
+                        <div id="payment_proof_preview" class="d-flex gap-2 flex-wrap mb-2"></div>
+
+                        {{-- 🔹 Upload / Paste Proof baru --}}
+                        <div class="mb-3">
+                            <label class="fw-semibold">Upload / Paste Proof (optional):</label>
+
+                            <div id="pasteProofArea" class="border rounded p-3 text-center"
+                                style="min-height: 120px; cursor: pointer;">
+                                <p class="text-muted small mb-2">
+                                    Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot bukti transfer
+                                </p>
+                                <div id="proofPreviewContainer" class="preview-list"></div>
+                            </div>
+
+                            <input type="file" id="payment_proof" name="payment_proof[]" multiple hidden
+                                accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
+
+                            <small class="text-danger d-none" id="error_payment_proof"></small>
+                        </div>
+
                         <div class="mb-3">
                             <label>Note</label>
                             <input type="text" name="note" id="edit_note" class="form-control">
@@ -174,13 +241,16 @@
         </div>
     </div>
 
-    <div class="modal fade" id="lightboxModal" tabindex="-1" aria-hidden="true">
+    {{-- 🔹 Modal Preview Proof (2 kolom besar) --}}
+    <div class="modal fade" id="multiProofModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content bg-dark border-0">
-                <div class="modal-body p-0 text-center position-relative">
-                    <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
-                        data-bs-dismiss="modal"></button>
-                    <img id="lightboxImage" src="" alt="Proof Preview" class="img-fluid rounded">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Proof Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div id="multiProofContainer" class="row g-4"></div>
                 </div>
             </div>
         </div>
@@ -190,47 +260,284 @@
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const editButtons = document.querySelectorAll('.btn-edit-payment');
             const form = document.getElementById('editPaymentForm');
+            const previewDiv = document.getElementById('payment_proof_preview');
 
-            editButtons.forEach(btn => {
+            // Saat tombol Edit diklik
+            document.querySelectorAll('.btn-edit-payment').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const groupId = this.dataset.group || '';
                     const date = this.dataset.date || '';
-                    const amount = this.dataset.amount || 0;
+                    const amount = this.dataset.amount || '';
                     const account = this.dataset.account || '';
                     const note = this.dataset.note || '';
+                    const proofRaw = this.dataset.proof || '';
 
+                    // isi data ke form
                     document.getElementById('transaction_group_id').value = groupId;
                     document.getElementById('edit_transaction_date').value = date;
-                    document.getElementById('edit_paid_amount').value = amount;
+                    document.getElementById('edit_paid_amount').value =
+                        new Intl.NumberFormat('id-ID').format(amount);
                     document.getElementById('edit_cash_bank_account_id').value = account;
                     document.getElementById('edit_note').value = note;
-
                     form.action = `/erp/purchases/purchase-returns/update-payment/${groupId}`;
+
+                    // reset preview existing
+                    previewDiv.innerHTML = '';
+
+                    // render preview EXISTING proof (dari DB)
+                    try {
+                        const proofs = JSON.parse(proofRaw);
+                        if (Array.isArray(proofs)) {
+                            proofs.forEach(item => {
+                                const fileUrl = '/' + item.file;
+                                const noteText = item.note || '';
+
+                                const wrapper = document.createElement('div');
+                                wrapper.classList.add('text-center');
+
+                                const img = document.createElement('img');
+                                img.src = fileUrl;
+                                img.classList.add('shadow-sm', 'rounded');
+                                img.style.maxHeight = '120px';
+                                img.style.maxWidth = '120px';
+                                img.style.objectFit = 'cover';
+                                img.onclick = () => openLightbox(fileUrl);
+
+                                const caption = document.createElement('small');
+                                caption.classList.add('text-muted', 'd-block', 'mt-1');
+                                caption.innerText = noteText ? `Note: ${noteText}` :
+                                    'No note';
+
+                                wrapper.appendChild(img);
+                                wrapper.appendChild(caption);
+                                previewDiv.appendChild(wrapper);
+                            });
+                            return;
+                        }
+                    } catch (e) {
+                        // bukan JSON, cek string tunggal di bawah
+                    }
+
+                    // kalau proof cuma satu file (string path)
+                    if (proofRaw) {
+                        const ext = proofRaw.split('.').pop().toLowerCase();
+                        if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+                            previewDiv.innerHTML = `
+                                <a href="javascript:void(0)" onclick="openLightbox('${proofRaw}')">
+                                    <img src="${proofRaw}" alt="Proof" class="img-thumbnail shadow-sm" style="max-height: 100px;">
+                                </a>`;
+                        } else if (ext === 'pdf') {
+                            previewDiv.innerHTML = `
+                                <a href="${proofRaw}" target="_blank" class="btn btn-outline-danger btn-sm">
+                                    <i class="feather-file-text me-1"></i> View PDF
+                                </a>`;
+                        } else {
+                            previewDiv.innerHTML = `<span class="text-muted">Unknown File</span>`;
+                        }
+                    } else {
+                        previewDiv.innerHTML = `<span class="text-muted">No proof uploaded</span>`;
+                    }
                 });
+            });
+
+            // format angka input
+            const paidInput = document.getElementById('edit_paid_amount');
+            paidInput.addEventListener('input', function() {
+                let angka = this.value.replace(/\D/g, "") || "0";
+                this.value = new Intl.NumberFormat('id-ID').format(angka);
+            });
+
+            // hapus titik sebelum submit (fallback non-AJAX)
+            form.addEventListener('submit', function() {
+                paidInput.value = paidInput.value.replace(/\./g, "");
             });
         });
 
-        const paidInput = document.getElementById("edit_paid_amount");
-        paidInput.addEventListener("input", function() {
-            let angka = this.value.replace(/\D/g, "") || "0";
-            this.value = new Intl.NumberFormat('id-ID').format(angka);
-        });
+        // helper lightbox
+        function openLightbox(imgSrc) {
+            const lbId = 'lightboxModal';
+            let modalEl = document.getElementById(lbId);
+            if (!modalEl) {
+                const tpl = `
+                <div class="modal fade" id="${lbId}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content bg-dark">
+                            <div class="modal-body p-0 text-center">
+                                <img id="lightboxImage" src="" class="img-fluid" />
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                document.body.insertAdjacentHTML('beforeend', tpl);
+                modalEl = document.getElementById(lbId);
+            }
+            const modal = new bootstrap.Modal(modalEl);
+            modalEl.querySelector('#lightboxImage').src = imgSrc;
+            modal.show();
+        }
 
-        document.querySelector("#editPaymentForm").addEventListener("submit", function() {
-            paidInput.value = paidInput.value.replace(/\./g, "");
-        });
-
+        // ===== Preview Proof (2 kolom besar) =====
         document.addEventListener('DOMContentLoaded', function() {
-            const lightboxModal = new bootstrap.Modal(document.getElementById('lightboxModal'));
-            const lightboxImage = document.getElementById('lightboxImage');
+            const multiProofModal = new bootstrap.Modal(document.getElementById('multiProofModal'));
+            const multiProofContainer = document.getElementById('multiProofContainer');
 
-            document.querySelectorAll('.proof-thumb').forEach(el => {
-                el.addEventListener('click', function() {
-                    const imgSrc = this.dataset.img;
-                    lightboxImage.src = imgSrc;
-                    lightboxModal.show();
+            $(document).on('click', '.btn-preview-proof', function() {
+                const proofs = JSON.parse($(this).attr('data-proofs'));
+                const multiProofModal = new bootstrap.Modal($('#multiProofModal')[0]);
+                const multiProofContainer = $('#multiProofContainer');
+                multiProofContainer.html('');
+
+                proofs.forEach(item => {
+                    const col = $(`
+            <div class="col-md-6 col-sm-12">
+                <div class="border rounded shadow-sm p-2 bg-white h-100 text-center">
+                    <img src="/${item.file}" class="img-fluid rounded mb-2" style="max-height:400px;object-fit:contain;">
+                    <p class="small text-muted mt-2 mb-0">Note: ${item.note || '-'}</p>
+                </div>
+            </div>
+        `);
+                    multiProofContainer.append(col);
+                });
+
+                multiProofModal.show();
+            });
+        });
+
+        // ===== Paste / Upload bukti + AJAX Submit =====
+        document.addEventListener('DOMContentLoaded', function() {
+            let pastedProofBlobs = [];
+            const form = document.getElementById('editPaymentForm');
+            const pasteArea = document.getElementById('pasteProofArea');
+            const previewContainer = document.getElementById('proofPreviewContainer');
+            const fileInput = document.getElementById('payment_proof');
+
+            function addPreview(url, file) {
+                const wrapper = document.createElement('div');
+                wrapper.classList.add('preview-item');
+
+                const img = document.createElement('img');
+                img.src = url;
+                img.classList.add('img-thumbnail');
+                img.style.maxHeight = '150px';
+                img.style.marginBottom = '5px';
+
+                const noteInput = document.createElement('input');
+                noteInput.type = 'text';
+                noteInput.classList.add('form-control', 'form-control-sm', 'note-input');
+                noteInput.placeholder = 'Tambahkan catatan...';
+                noteInput.style.width = '100%';
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-sm btn-danger mt-1';
+                removeBtn.innerHTML = '<i class="feather-x"></i> Hapus';
+                removeBtn.onclick = function() {
+                    const index = Array.from(previewContainer.children).indexOf(wrapper);
+                    pastedProofBlobs.splice(index, 1);
+                    wrapper.remove();
+                };
+
+                wrapper.appendChild(img);
+                wrapper.appendChild(noteInput);
+                wrapper.appendChild(removeBtn);
+                previewContainer.appendChild(wrapper);
+            }
+
+            if (pasteArea) {
+                pasteArea.setAttribute('tabindex', '0');
+                pasteArea.addEventListener('click', (e) => {
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+                        pasteArea.focus();
+                    }
+                });
+
+                pasteArea.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const items = e.clipboardData.items;
+
+                    for (const item of items) {
+                        if (item.type.indexOf("image") === 0) {
+                            const blob = item.getAsFile();
+                            pastedProofBlobs.push(blob);
+
+                            const reader = new FileReader();
+                            reader.onload = function(event) {
+                                addPreview(event.target.result, blob);
+                            };
+                            reader.readAsDataURL(blob);
+                        }
+                    }
+                });
+            }
+
+            fileInput.addEventListener('change', (e) => {
+                [...e.target.files].forEach(file => {
+                    pastedProofBlobs.push(file);
+                    const url = URL.createObjectURL(file);
+                    addPreview(url, file);
+                });
+            });
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const url = form.getAttribute('action');
+                const formData = new FormData(form);
+
+                const notes = [];
+                $('#proofPreviewContainer .note-input').each(function() {
+                    notes.push($(this).val());
+                });
+
+                // sesuai pola yang kamu minta: payment_proof[index] & note_per_image[index]
+                pastedProofBlobs.forEach((blob, index) => {
+                    formData.append(`payment_proof[${index}]`, blob, `proof_${index + 1}.png`);
+                    formData.append(`note_per_image[${index}]`, notes[index] || '');
+                });
+
+                const paidInput = document.getElementById('edit_paid_amount');
+                formData.set('paid_amount', paidInput.value.replace(/\./g, ""));
+
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Payment updated successfully',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalEditPayment').modal('hide');
+                        $.get(window.location.href, function(html) {
+                            const newDoc = new DOMParser().parseFromString(html,
+                                'text/html');
+                            const updatedCard = newDoc.querySelector(
+                                    `[data-group="${form.transaction_group_id.value}"]`)
+                                ?.closest('.border.rounded');
+
+                            if (updatedCard) {
+                                // ganti card lama dengan versi baru dari server
+                                const oldCard = document.querySelector(
+                                    `[data-group="${form.transaction_group_id.value}"]`
+                                )?.closest('.border.rounded');
+                                if (oldCard) oldCard.replaceWith(updatedCard);
+                            }
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Terjadi kesalahan saat update'
+                        });
+                    }
                 });
             });
         });

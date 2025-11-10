@@ -26,14 +26,21 @@
 
     @php
         $itemsJs = $deliveryList->items
+            ->groupBy(fn($item) => $item->product->name ?? '-') // 🔹 group berdasarkan nama produk
+            ->map(function ($group, $name) {
+                $totalQty = $group->sum('shipped_quantity');
+                $first = $group->first();
+
+                return [
+                    'name' => $name,
+                    'sku' => $first->product->sku ?? '-',
+                    'qty' => (string) $totalQty,
+                ];
+            })
             ->values()
             ->map(function ($item, $i) {
-                return [
-                    'no' => $i + 1,
-                    'name' => $item->product->name ?? '-',
-                    'sku' => $item->product->sku ?? '-',
-                    'qty' => (string) ($item->shipped_quantity ?? 0),
-                ];
+                $item['no'] = $i + 1;
+                return $item;
             })
             ->all();
 
@@ -58,7 +65,7 @@
         function buildText96() {
             const width = 96,
                 CRLF = "\r\n";
-            const ITEMS_PER_PAGE = 10;
+            const ITEMS_PER_PAGE = 8;
             const FIX_LINES = 40;
 
             const center = t => {
@@ -79,7 +86,7 @@
                     } else line += w + ' ';
                 }
                 if (line.trim() !== '') lines.push(line.trim());
-                return lines.slice(0, 2);
+                return lines.slice(0, 4);
             };
 
             let out = '';
@@ -97,12 +104,12 @@
 
                 const kiri = [
                     'ALISAN PRINTING',
-                    ...wrapText('Jl. Dummy Raya No. 123, Bandung ABC ABC ABC ABC', 30),
-                    'Telp: 0812-3456-7890'
+                    ...wrapText('Jl. Karya Indah No 32', 30),
+                    'Telp: 0822-7272-2188'
                 ];
                 const kanan = [
-                    ...(wrapText(customer.name || '-', 38)),
-                    ...(wrapText(customer.address || '-', 38)),
+                    ...(wrapText(customer.name || '-', 35)),
+                    ...(wrapText(customer.address || '-', 35)),
                     customer.phone || '-'
                 ];
                 const max = Math.max(kiri.length, kanan.length);
@@ -123,13 +130,14 @@
                 pageItems.forEach((row) => {
                     const name = String(row.name).substring(0, 37);
                     const sku = String(row.sku).substring(0, 10);
-                    pageOut += padR(row.no, 4) + ' ' + padR(name, 55) + ' ' + padR(sku, 15) + ' ' + padL(row.qty,
-                        8) + CRLF;
+                    const qtyFormatted = Number(row.qty).toLocaleString('id-ID'); // ✅ format angka Indonesia
+                    pageOut += padR(row.no, 4) + ' ' + padR(name, 55) + ' ' + padR(sku, 15) + ' ' + padL(
+                        qtyFormatted, 8) + CRLF;
                 });
 
                 pageOut += '-'.repeat(width) + CRLF.repeat(2);
                 const linesNow = pageOut.split(/\r\n/).length;
-                const signBlockLines = 17;
+                const signBlockLines = 20;
                 const remaining = Math.max(0, FIX_LINES - (linesNow + signBlockLines));
                 pageOut += CRLF.repeat(remaining);
 
@@ -137,9 +145,9 @@
                     const pad = Math.floor((width - t.length) / 2);
                     return ' '.repeat(Math.max(pad, 0)) + t + CRLF;
                 };
-                pageOut += centerLine('   Admin             Kurir           Customer');
+                pageOut += centerLine('    Admin                         Kurir                       Customer   ');
                 pageOut += CRLF.repeat(2);
-                pageOut += centerLine('______________    ______________    ______________');
+                pageOut += centerLine('______________                ______________               ______________');
                 pageOut += CRLF.repeat(2);
                 pageOut += center('Halaman ' + (page + 1) + ' dari ' + totalPages);
 

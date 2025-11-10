@@ -208,6 +208,35 @@
         </div>
     </div>
 
+    <div class="modal fade" id="unverifyDesignModal" tabindex="-1" aria-labelledby="unverifyDesignModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="formUnverifyDesign" method="POST">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title text-white">Batalkan Verifikasi Design</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>
+                            Apakah Anda yakin ingin <strong>membatalkan verifikasi</strong> design
+                            <strong id="UnverifyDesignName"></strong>?
+                        </p>
+                        <p class="text-muted small mb-0">
+                            Tindakan ini akan menghapus data <strong>Order Progress</strong>,
+                            <strong>Delivery Order</strong>, dan stok <strong>Pending Waiting List</strong> yang terkait.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger">Ya, Batalkan</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal fade" id="multiImageViewerModal" tabindex="-1" aria-labelledby="multiImageViewerModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -245,7 +274,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [3, 'desc']
+                    [3, 'asc']
                 ],
                 data: [],
                 columns: [{
@@ -263,19 +292,27 @@
                         searchable: false
                     },
                     {
-                        data: 'id',
-                        name: 'id',
+                        data: 'created_at',
+                        name: 'created_at',
                         visible: false,
                         searchable: false
                     }
                 ]
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request lama jika masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/design/data') }}",
                     type: 'GET',
                     data: {
@@ -292,18 +329,26 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            table.clear().rows.add(allData).draw(false);
+                            table.clear();
+                            table.rows.add(allData).draw(false);
                             currentPage++;
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
+                        if (xhr.statusText !== 'abort') {
+                            console.error('AJAX Error:', xhr);
+                        }
                         isLoading = false;
                     }
                 });
             }
+
 
             function resetAndReload() {
                 allData = [];
@@ -327,15 +372,25 @@
                 }, 200);
             });
 
+            // 🔹 Hanya filter lain yang trigger reload otomatis (bukan #filter)
+            $('#status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+                .on('change keyup input paste', function() {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        resetAndReload();
+                    }, 100);
+                });
+
+            // 🔹 Kalau dropdown filter diubah, cuma toggle custom date range TANPA reload
             $('#filter').on('change', function() {
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    resetAndReload();
                 }
             });
 
+            // 🔹 Tombol apply baru reload data
             $('#apply-filter').on('click', function() {
                 resetAndReload();
             });
@@ -503,6 +558,46 @@
                         resetAndReload();
                     },
 
+                    error: function(err) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal',
+                            text: err.responseJSON?.message || 'Terjadi kesalahan'
+                        });
+                    }
+                });
+            });
+
+            // ========== Handle BATAL VERIFIED (UNVERIFY) ==========
+            $(document).on('click', '.btn-unverify', function() {
+                let id = $(this).data('id');
+                let name = $(this).data('name');
+                let url = $(this).data('url');
+
+                $('#UnverifyDesignName').text(name);
+                $('#formUnverifyDesign').attr('action', url);
+            });
+
+            $('#formUnverifyDesign').on('submit', function(e) {
+                e.preventDefault();
+                const url = $(this).attr('action');
+                const token = $('meta[name="csrf-token"]').attr('content');
+
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: {
+                        _token: token
+                    },
+                    success: function(res) {
+                        $('#unverifyDesignModal').modal('hide');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil',
+                            text: res.message
+                        });
+                        resetAndReload();
+                    },
                     error: function(err) {
                         Swal.fire({
                             icon: 'error',

@@ -254,11 +254,20 @@
                 }
 
                 // 🔹 Validasi setiap kolom Stock In
+                // $('input[name^="items"][name$="[stock_in]"]').each(function() {
+                //     const val = parseInt($(this).val().trim() || 0);
+                //     if (val <= 0) {
+                //         isValid = false;
+                //         showError(this, 'Harus diisi lebih dari 0');
+                //     }
+                // });
+
                 $('input[name^="items"][name$="[stock_in]"]').each(function() {
-                    const val = parseInt($(this).val().trim() || 0);
-                    if (val <= 0) {
+                    const val = $(this).val().trim();
+                    const num = parseInt(val.replace(/\./g, '')) || 0;
+                    if (val === '' || isNaN(num) || num < 0) {
                         isValid = false;
-                        showError(this, 'Harus diisi lebih dari 0');
+                        showError(this, 'Tidak boleh kosong atau negatif');
                     }
                 });
 

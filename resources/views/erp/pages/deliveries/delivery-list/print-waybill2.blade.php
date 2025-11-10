@@ -7,61 +7,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
         body {
-            background: #f3f4f6;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        .sheet {
             background: #fff;
-            margin: 0px auto;
-            box-shadow: 0 2mm 6mm rgba(0, 0, 0, .08);
-            padding: 30px;
-            width: 21cm;
-            height: 14cm;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
         }
 
         pre {
-            font: 14px/1.25 'Courier New', monospace;
+            font-size: 14px;
             white-space: pre;
             margin: 0;
-        }
-
-        .noprint {
-            text-align: center;
-            padding: 10px;
-        }
-
-        @media print {
-            body {
-                background: #fff;
-            }
-
-            .sheet {
-                margin: 0px;
-                box-shadow: none;
-            }
-
-            .noprint {
-                display: none !important;
-            }
         }
     </style>
 </head>
 
 <body>
-    <div class="noprint">
-        <button onclick="window.print()"
-            style="padding:8px 12px; border:1px solid #ccc; background:#fff; border-radius:6px;">🖨️ Print
-            (Browser)</button>
-        <button id="btnRawPrint" style="padding:8px 12px; border:1px solid #ccc; background:#fff; border-radius:6px;">⚡
-            Cetak Direct (RAW LX-310)</button>
-    </div>
-
-    <div class="sheet">
-        <pre id="rawDoc"></pre>
-    </div>
+    <pre id="rawDoc"></pre>
 
     @php
         $itemsJs = $deliveryList->items
@@ -98,100 +59,133 @@
             const width = 96,
                 CRLF = "\r\n";
             const ITEMS_PER_PAGE = 10;
-            const FIX_LINES = 40; // fix tinggi tiap halaman (~14cm)
-            const center = t => ' '.repeat(Math.max(0, Math.floor((width - String(t).length) / 2))) + t;
+            const FIX_LINES = 40;
+
+            const center = t => {
+                const pad = Math.floor((width - String(t).length) / 2);
+                return ' '.repeat(Math.max(pad, 0)) + t;
+            };
+            const padR = (s, w) => (String(s) + ' '.repeat(w)).slice(0, w);
+            const padL = (s, w) => (' '.repeat(w) + String(s)).slice(-w);
+
+            const wrapText = (text, maxLen) => {
+                const words = String(text).split(/\s+/);
+                const lines = [];
+                let line = '';
+                for (const w of words) {
+                    if ((line + w).length > maxLen) {
+                        lines.push(line.trim());
+                        line = w + ' ';
+                    } else line += w + ' ';
+                }
+                if (line.trim() !== '') lines.push(line.trim());
+                return lines.slice(0, 4);
+            };
 
             let out = '';
             const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
 
             for (let page = 0; page < totalPages; page++) {
-                // ambil data per halaman
                 const start = page * ITEMS_PER_PAGE;
                 const end = Math.min(start + ITEMS_PER_PAGE, items.length);
                 const pageItems = items.slice(start, end);
 
                 let pageOut = '';
 
-                // ===== HEADER =====
-                pageOut += center('SURAT JALAN') + CRLF + CRLF;
-                pageOut += padR('No Surat : ' + orderNumber, 35) +
-                    padR('', 30) +
-                    padR('Customer : ' + (customer.name || '-'), 31) + CRLF;
-                pageOut += padR('Tanggal : ' + orderDate, 35) +
-                    padR('', 30) +
-                    padR('Alamat   : ' + (customer.address || '-'), 31) + CRLF;
-                pageOut += padR('', 35) +
-                    padR('', 30) +
-                    padR('Telp     : ' + (customer.phone || '-'), 31) + CRLF;
-                pageOut += '-'.repeat(width) + CRLF;
-                pageOut += line4('No', 'Nama Barang', 'SKU', 'Qty') + CRLF;
+                pageOut += center('SURAT JALAN') + CRLF;
+                pageOut += center(orderNumber) + CRLF + CRLF;
+
+                const kiri = [
+                    'ALISAN PRINTING',
+                    ...wrapText('Jl. Karya Indah No 32', 30),
+                    'Telp: 0822-7272-2188'
+                ];
+                
+                const kanan = [
+                    ...(wrapText(customer.name || '-', 35)),
+                    ...(wrapText(customer.address || '-', 35)),
+                    customer.phone || '-'
+                ];
+                const max = Math.max(kiri.length, kanan.length);
+                for (let i = 0; i < max; i++) {
+                    const left = padR(kiri[i] || '', 45);
+                    const rightZoneStart = 60;
+                    const rightText = kanan[i] || '';
+                    const spacing = ' '.repeat(Math.max(0, rightZoneStart - left.length));
+                    pageOut += left + spacing + rightText + CRLF;
+                }
+
                 pageOut += '-'.repeat(width) + CRLF;
 
-                // ===== BARANG =====
+                pageOut += padR('No', 4) + ' ' + padR('Nama Barang', 55) + ' ' + padR('SKU', 15) + ' ' + padL('Qty', 8) +
+                    CRLF;
+                pageOut += '-'.repeat(width) + CRLF;
+
                 pageItems.forEach((row) => {
                     const name = String(row.name).substring(0, 37);
                     const sku = String(row.sku).substring(0, 10);
-                    pageOut += line4(row.no, name, sku, row.qty) + CRLF;
+                    const qtyFormatted = Number(row.qty).toLocaleString('id-ID'); // ✅ format angka Indonesia
+                    pageOut += padR(row.no, 4) + ' ' + padR(name, 55) + ' ' + padR(sku, 15) + ' ' + padL(
+                        qtyFormatted, 8) + CRLF;
                 });
 
                 pageOut += '-'.repeat(width) + CRLF.repeat(2);
-
-                // ===== HITUNG RUANG UNTUK BLOK TANDA TANGAN =====
                 const linesNow = pageOut.split(/\r\n/).length;
-                const signBlockLines = 16; // tinggi blok tanda tangan
+                const signBlockLines = 19;
                 const remaining = Math.max(0, FIX_LINES - (linesNow + signBlockLines));
                 pageOut += CRLF.repeat(remaining);
 
-                // ===== BLOK TANDA TANGAN =====
-                const centerLine = (text) => {
-                    const pad = Math.floor((width - text.length) / 2);
-                    return ' '.repeat(Math.max(pad, 0)) + text + CRLF;
+                const centerLine = t => {
+                    const pad = Math.floor((width - t.length) / 2);
+                    return ' '.repeat(Math.max(pad, 0)) + t + CRLF;
                 };
-
-                pageOut += centerLine('   Admin             Kurir           Customer');
+                pageOut += centerLine('    Admin                         Kurir                       Customer   ');
                 pageOut += CRLF.repeat(2);
-                pageOut += centerLine('______________    ______________    ______________');
+                pageOut += centerLine('______________                ______________               ______________');
                 pageOut += CRLF.repeat(2);
                 pageOut += center('Halaman ' + (page + 1) + ' dari ' + totalPages);
 
-                // ===== GABUNGKAN KE OUT DAN KASIH SPASI ANTAR HALAMAN =====
                 out += pageOut;
-                if (page + 1 < totalPages) out += CRLF.repeat(5); // jeda antar halaman
+                if (page + 1 < totalPages) out += CRLF.repeat(5);
             }
 
             return out;
         }
 
-
         document.getElementById('rawDoc').textContent = buildText96();
 
-        if (window.qz) {
-            if (window.crypto && crypto.subtle) {
-                qz.api.setSha256Type(d => crypto.subtle.digest("SHA-256", new TextEncoder().encode(d)));
-            } else qz.api.setSha256Type(d => d);
-            qz.api.setPromiseType(fn => new Promise(fn));
-        }
-
-        async function connectQZ() {
-            if (!window.qz) throw new Error("QZ Tray belum aktif");
-            if (!qz.websocket.isActive()) await qz.websocket.connect();
-        }
-
-        async function rawPrint() {
+        window.addEventListener('load', async () => {
             try {
-                await connectQZ();
+                if (!window.qz) throw new Error("QZ Tray tidak aktif. Jalankan QZ Tray terlebih dahulu.");
+                if (!qz.websocket.isActive()) await qz.websocket.connect();
+
+                function feedToBottom(text, totalHeightMm = 140) {
+                    const lines = text.split(/\r\n/).length;
+                    const printedHeightMm = lines * 3.5;
+                    const remainingMm = Math.max(0, totalHeightMm - printedHeightMm);
+                    const feedLines = Math.round(remainingMm / 3.5);
+                    return '\x1B' + 'd' + String.fromCharCode(feedLines > 255 ? 255 : feedLines);
+                }
+
+                const textOut = buildText96();
                 const ESC = '\x1B';
+
+                const setPageLength = ESC + 'C' + String.fromCharCode(33);
+
                 const payload =
                     ESC + '@' +
+                    setPageLength +
                     ESC + 'x' + '\x00' +
                     ESC + 'U' + '\x01' +
-                    ESC + 'E' + '\x01' +
-                    ESC + 'l' + '\x00' +
-                    ESC + '$' + '\xD0' + '\xFF' +
-                    ESC + 'Q' + '\x50' +
+                    ESC + 'E' + '\x00' +
+                    ESC + 'g' + '\x00' +
                     ESC + 'M' +
-                    ESC + '2' + // normal line spacing
-                    buildText96();
+                    ESC + 'l' + '\x00' +
+                    ESC + 'Q' + '\x00' +
+                    ESC + '2' +
+                    textOut +
+                    feedToBottom(textOut, 140) +
+                    ESC + '2';
 
                 const config = qz.configs.create("EPSON LX-310", {
                     encoding: "CP437",
@@ -203,14 +197,13 @@
                     format: 'command',
                     data: payload
                 }];
-                await qz.print(config, data);
-                alert('✅ Dikirim ke LX-310 (80 kolom, margin fix)');
-            } catch (e) {
-                alert('❌ Gagal print:\n' + e.message);
-            }
-        }
 
-        document.getElementById('btnRawPrint').addEventListener('click', rawPrint);
+                await qz.print(config, data);
+                window.close();
+            } catch (e) {
+                alert('Gagal print:\n' + e.message);
+            }
+        });
     </script>
 </body>
 

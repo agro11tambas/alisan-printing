@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 
 use App\Models\Customers;
 use App\Models\CustomerAddresses;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class CustomerController extends Controller
@@ -64,8 +65,16 @@ class CustomerController extends Controller
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
         ]);
-
+        
         try {
+            $hasDuplicate = Customers::where('phone', $request->phone)->exists();
+
+            if ($hasDuplicate) {
+                DB::rollBack();
+                $msg = 'Nomor telepon sudah terdaftar. Gunakan nomor lain.';
+                return back()->with('error', $msg);
+            }
+
             // Buat customer
             $customer = Customers::create([
                 'name' => $request->name,

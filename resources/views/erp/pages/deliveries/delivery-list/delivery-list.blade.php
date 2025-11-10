@@ -4,11 +4,11 @@
     <style>
         /* @media (max-width: 768px) {
 
-                                                    #deliveryListTable td.desktop-only,
-                                                    #deliveryListTable th.desktop-only {
-                                                        display: none !important;
-                                                    }
-                                                } */
+                                                                            #deliveryListTable td.desktop-only,
+                                                                            #deliveryListTable th.desktop-only {
+                                                                                display: none !important;
+                                                                            }
+                                                                        } */
 
         #deliveryListTable {
             width: 100% !important;
@@ -75,6 +75,51 @@
             #deliveryListTable td.desktop-only,
             #deliveryListTable th.desktop-only {
                 display: table-cell !important;
+            }
+        }
+
+        .static-action-menu {
+            padding: 12px;
+            min-width: 450px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px 20px;
+        }
+
+        .action-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .action-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #6c757d;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 7px;
+            padding-bottom: 4px;
+        }
+
+        .dropdown-item {
+            font-size: 13px;
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        @media (max-width: 768px) {
+            .action-grid {
+                grid-template-columns: 1fr !important;
+                gap: 10px;
+            }
+
+            .static-action-menu {
+                min-width: 100% !important;
+                padding: 10px;
             }
         }
     </style>
@@ -167,6 +212,7 @@
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <select id="search_type" class="form-control">
+                                                    <option value="customer">Customer</option>
                                                     <option value="shipment_number">Shipment Number</option>
                                                     <option value="driver">Driver</option>
                                                     <option value="vehicle">Vehicle</option>
@@ -375,11 +421,19 @@
                 ],
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request sebelumnya kalau masih jalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/deliveries/delivery-list/data') }}",
                     type: 'GET',
                     data: {
@@ -402,10 +456,16 @@
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
-                        alert(xhr.responseJSON?.message || 'Gagal memuat data.');
+                        if (xhr.statusText !== 'abort') {
+                            console.error('AJAX Error:', xhr);
+                            alert(xhr.responseJSON?.message || 'Gagal memuat data.');
+                        }
                         isLoading = false;
                     }
                 });
@@ -435,28 +495,37 @@
                 loadMoreData();
             }
 
-            $('#status, #search_type').on('change', function() {
+            // ==========================================================
+            // 🔹 FIXED FILTER HANDLER (no reload on custom range)
+            // ==========================================================
+
+            // Kalau dropdown filter berubah
+            $('#filter').on('change', function() {
+                const val = $(this).val();
+
+                // Kalau custom range → tampilkan input tanggal, tapi jangan reload
+                if (val === 'custom') {
+                    $('.custom-range').removeClass('d-none');
+                    return;
+                }
+
+                // Selain custom → sembunyikan input tanggal dan reload
+                $('.custom-range').addClass('d-none');
                 resetAndReload();
             });
 
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
-                }
-            });
-
+            // Tombol Apply Filter → reload manual untuk custom range
             $('#apply-filter').on('click', function() {
                 resetAndReload();
             });
 
-            let searchTimeout = null;
-            $('#search_keyword, #search_product').on('keyup input paste', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => resetAndReload(), 400);
-            });
+            // Filter lain tetap auto reload
+            $('#status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+                .on('change keyup input paste', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => resetAndReload(), 200);
+                });
+
 
             $('#deliveryListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;

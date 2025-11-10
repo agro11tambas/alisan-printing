@@ -36,11 +36,6 @@ class OrderItem extends Model
         return $this->belongsTo(Order::class);
     }
 
-    public function orderProgress(): HasMany
-    {
-        return $this->hasMany(OrderProgress::class, 'order_item_id');
-    }
-
     public function deliveryItems()
     {
         return $this->hasMany(DeliveryItemHistory::class);
@@ -85,8 +80,33 @@ class OrderItem extends Model
 
     protected static function booted()
     {
+        static::deleting(function ($orderItem) {
+            if ($orderItem->isForceDeleting()) {
+                // ✅ Force delete semua relasi anak
+                $orderItem->components()->get()->each->forceDelete();
+                $orderItem->designItems()->get()->each->forceDelete();
+                $orderItem->deliveryItems()->get()->each->forceDelete();
+                $orderItem->inventoryItems()->get()->each->forceDelete();
+                // $orderItem->orderProgress()->get()->each->forceDelete();                
+
+                // kalau nanti ada relasi tambahan lain, tinggal tambahkan di sini
+            } else {
+                // 💤 Soft delete semua relasi anak
+                $orderItem->components()->get()->each->delete();
+                $orderItem->designItems()->get()->each->delete();
+                $orderItem->deliveryItems()->get()->each->delete();
+                $orderItem->inventoryItems()->get()->each->delete();
+                // $orderItem->orderProgress()->get()->each->delete();
+            }
+        });
+
         static::restoring(function ($orderItem) {
-            $orderItem->components()->withTrashed()->restore();
+            // ♻️ Restore semua anak yang ikut soft delete
+            $orderItem->components()->get()->each->restore();
+            $orderItem->designItems()->get()->each->restore();
+            $orderItem->deliveryItems()->get()->each->restore();
+            $orderItem->inventoryItems()->get()->each->restore();
+            // $orderItem->orderProgress()->get()->each->restore();
         });
     }
 }

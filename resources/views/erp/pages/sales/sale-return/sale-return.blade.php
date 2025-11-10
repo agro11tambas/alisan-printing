@@ -67,6 +67,30 @@
             align-items: center;
             gap: 6px;
         }
+
+        .preview-list {
+            display: block;
+        }
+
+        .preview-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            width: 100%;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            object-fit: cover;
+        }
+
+        .preview-item input.note-input {
+            width: 100%;
+        }
     </style>
 @endpush
 
@@ -357,7 +381,7 @@
                                 <span class="fw-semibold fs-12" id="paid_amount_display">Paid: Rp. 0</span>
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        {{-- <div class="row g-3 mb-3">
                             <div class="col-md-12">
                                 <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
                                 <div class="input-group">
@@ -372,7 +396,27 @@
                                         style="max-height: 200px;">
                                 </div>
                             </div>
+                        </div> --}}
+
+                        <div class="col-md-12">
+                            <label class="fw-semibold">Upload / Paste Proof (optional):</label>
+
+                            <div id="pasteProofArea" class="border rounded p-3 text-center"
+                                style="min-height: 120px; cursor: pointer;">
+                                <p class="text-muted small mb-2">
+                                    Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot bukti transfer
+                                </p>
+
+                                <!-- 🔹 ubah layout preview -->
+                                <div id="proofPreviewContainer" class="preview-list"></div>
+                            </div>
+
+                            {{-- <input type="file" class="form-control mt-2" id="payment_proof" name="payment_proof[]"
+                                accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf" multiple> --}}
+
+                            <small class="text-danger d-none" id="error_payment_proof"></small>
                         </div>
+
                     </div>
                     <div class="modal-footer d-flex justify-content-between">
                         <div>
@@ -554,11 +598,19 @@
                 ]
             });
 
+            let searchTimer = null;
+            let currentRequest = null;
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                $.ajax({
+                // 🚫 Batalkan request sebelumnya jika masih berjalan
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/sales/sale-returns/data') }}",
                     type: 'GET',
                     data: {
@@ -572,7 +624,6 @@
                         payment_status: $('#search_payment_status').val(),
                     },
                     success: function(response) {
-
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             dataTable.clear();
@@ -581,13 +632,20 @@
                         } else {
                             hasMoreData = false;
                         }
+                    },
+                    complete: function() {
                         isLoading = false;
+                        currentRequest = null;
                     },
                     error: function(xhr) {
+                        if (xhr.statusText !== "abort") {
+                            console.error("AJAX error:", xhr);
+                        }
                         isLoading = false;
                     }
                 });
             }
+
 
             loadMoreData();
 
@@ -613,15 +671,18 @@
                 loadMoreData();
             }
 
-            // Event handlers untuk filter
-            $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
-                    $('.custom-range').removeClass('d-none');
-                } else {
-                    $('.custom-range').addClass('d-none');
-                    resetAndReload();
-                }
-            });
+            $('#filter, #apply-filter, #search_type, #search_keyword, #search_payment_status, #start_date, #end_date')
+                .on('change keyup click', function() {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => {
+                        if ($('#filter').val() === 'custom') {
+                            $('.custom-range').removeClass('d-none');
+                        } else {
+                            $('.custom-range').addClass('d-none');
+                        }
+                        resetAndReload();
+                    }, 100);
+                });
 
             $('#apply-filter').on('click', function() {
                 resetAndReload();
@@ -871,6 +932,372 @@
                     }, 500);
                 }
             });
+
+            // Paste proof functionality
+            let pastedProofBlobs = [];
+
+            const pasteArea = document.getElementById('pasteProofArea');
+            const previewContainer = document.getElementById('proofPreviewContainer');
+
+            if (pasteArea) {
+                pasteArea.setAttribute('tabindex', '0'); // Make focusable
+
+                pasteArea.addEventListener('click', () => {
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+                        pasteArea.focus();
+                    }
+                });
+
+                pasteArea.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const items = e.clipboardData.items;
+
+                    for (const item of items) {
+                        if (item.type.indexOf("image") === 0) {
+                            const blob = item.getAsFile();
+                            pastedProofBlobs.push(blob);
+
+                            const reader = new FileReader();
+                            reader.onload = function(event) {
+                                const wrapper = document.createElement('div');
+                                wrapper.classList.add('preview-item');
+
+                                const img = document.createElement('img');
+                                img.src = event.target.result;
+                                img.classList.add('img-thumbnail');
+                                img.style.maxHeight = '150px';
+                                img.style.marginBottom = '5px';
+
+                                const noteInput = document.createElement('input');
+                                noteInput.type = 'text';
+                                noteInput.classList.add('form-control', 'form-control-sm',
+                                    'note-input');
+                                noteInput.placeholder = 'Tambahkan catatan...';
+                                noteInput.style.width = '100%';
+
+                                // Add remove button
+                                const removeBtn = document.createElement('button');
+                                removeBtn.type = 'button';
+                                removeBtn.className = 'btn btn-sm btn-danger mt-1';
+                                removeBtn.innerHTML = '<i class="feather-x"></i> Hapus';
+                                removeBtn.onclick = function() {
+                                    const index = Array.from(previewContainer.children).indexOf(
+                                        wrapper);
+                                    pastedProofBlobs.splice(index, 1);
+                                    wrapper.remove();
+                                };
+
+                                wrapper.appendChild(img);
+                                wrapper.appendChild(noteInput);
+                                wrapper.appendChild(removeBtn);
+                                previewContainer.appendChild(wrapper);
+                            };
+                            reader.readAsDataURL(blob);
+                        }
+                    }
+                });
+            }
+
+            // ========= MARK AS REFUND (di dalam $(document).ready) =========
+            $('#markAsSaleForm').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = $(this);
+                const url = form.attr('action');
+                const formData = new FormData(this);
+
+                // Reset error messages
+                form.find('small.text-danger').addClass('d-none').text('');
+
+                let valid = true;
+
+                const transactionType = $('#transaction_type').val()?.trim();
+                const transactionDate = $('#transaction_date').val()?.trim();
+                const cashBankAccount = $('#cash_bank_account_id').val()?.trim();
+
+                let refundAmountRaw = $('#refund_amount').val()?.trim() || '0';
+                const refundAmount = refundAmountRaw.replace(/\./g, '');
+                const remainingRaw = $('#total_amount_display').text().trim().replace(/[^\d]/g,
+                    ''); // Hapus semua non-digit
+                const remainingAmount = parseInt(remainingRaw) || 0;
+
+                // ====== VALIDASI ======
+                if (!transactionType) {
+                    $('#error_transaction_type').text('Account wajib dipilih').removeClass('d-none');
+                    valid = false;
+                }
+
+                if (!transactionDate) {
+                    $('#error_transaction_date').text('Tanggal transaksi wajib diisi').removeClass(
+                        'd-none');
+                    valid = false;
+                }
+
+                if (!cashBankAccount) {
+                    $('#error_cash_bank_account_id').text('Pilih cash atau bank account').removeClass(
+                        'd-none');
+                    valid = false;
+                }
+
+                if (!refundAmount || isNaN(refundAmount) || parseInt(refundAmount) <= 0) {
+                    $('#error_refund_amount').text('Refund amount harus diisi dan lebih dari 0')
+                        .removeClass('d-none');
+                    valid = false;
+                } else if (parseInt(refundAmount) > remainingAmount) {
+                    $('#error_refund_amount').text('Refund amount tidak boleh melebihi Balance')
+                        .removeClass('d-none');
+                    valid = false;
+                }
+
+                if (!valid) return;
+
+                // Tampilkan loading
+                Swal.fire({
+                    title: 'Processing...',
+                    text: 'Mohon tunggu',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Format angka
+                $('#refund_amount').val(refundAmount);
+
+                const notes = [];
+                $('#proofPreviewContainer .note-input').each(function() {
+                    notes.push($(this).val());
+                });
+
+                // 🔹 Tambahkan hasil paste screenshot dan note ke FormData
+                if (typeof pastedProofBlobs !== 'undefined' && pastedProofBlobs.length > 0) {
+                    pastedProofBlobs.forEach((blob, index) => {
+                        formData.append('payment_proof[]', blob, `proof_${index + 1}.png`);
+                        formData.append('note_per_image[]', notes[index] || '');
+                    });
+                }
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function() {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: 'Sale Return berhasil ditandai sebagai Refund.'
+                        });
+
+                        $('#modalChangeStatus').modal('hide');
+                        form[0].reset();
+
+                        // Reset pasted proof
+                        if (typeof pastedProofBlobs !== 'undefined') {
+                            pastedProofBlobs = [];
+                        }
+                        const previewContainer = document.getElementById(
+                            'proofPreviewContainer');
+                        if (previewContainer) previewContainer.innerHTML = '';
+
+                        // 🔁 Refresh tabel tanpa reload halaman
+                        allData = [];
+                        currentPage = 0;
+                        hasMoreData = true;
+                        dataTable.clear().draw();
+                        loadMoreData();
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        let msg = 'Gagal menandai Refund.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON
+                            .message;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: msg
+                        });
+                    }
+                });
+            });
+
+            $('#formDeleteOrder').on('submit', function(e) {
+                e.preventDefault();
+                const form = this;
+                const url = form.action;
+                const formData = new FormData(form);
+
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Sale Return berhasil dihapus!',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalDeleteOrder').modal('hide');
+                        form.reset();
+
+                        // 🔥 ambil id dari modal
+                        const id = form.dataset.id;
+
+                        // 🔥 cari baris di DataTable sesuai id, langsung hapus DOM-nya tanpa reload
+                        const table = $('#saleReturnTable').DataTable();
+                        const rowNode = table.rows().nodes().to$().filter(function() {
+                            const rowData = table.row(this).data();
+                            return rowData && rowData.id == id;
+                        });
+
+                        if (rowNode.length) {
+                            rowNode.fadeOut(300, function() {
+                                table.row(rowNode).remove().draw(false);
+                            });
+                        }
+
+                        // 🔥 hapus dari array JS juga
+                        const index = allData.findIndex(r => r.id == id);
+                        if (index !== -1) allData.splice(index, 1);
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Gagal menghapus sale return',
+                        });
+                    }
+                });
+            });
+
+            $('#formRestoreOrder').on('submit', function(e) {
+                e.preventDefault();
+                const form = this;
+                const url = form.action;
+                const formData = new FormData(form);
+
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ?? 'Sale Return berhasil direstore!',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalRestoreOrder').modal('hide');
+                        form.reset();
+
+                        // 🔥 ambil id dari form
+                        const id = form.dataset.id;
+                        const table = $('#deletedSaleReturnTable').DataTable();
+
+                        // 🔥 cari baris di Deleted Table, langsung hapus DOM-nya
+                        const rowNode = table.rows().nodes().to$().filter(function() {
+                            const rowData = table.row(this).data();
+                            return rowData && rowData.id == id;
+                        });
+
+                        if (rowNode.length) {
+                            rowNode.fadeOut(300, function() {
+                                table.row(rowNode).remove().draw(false);
+                            });
+                        }
+
+                        // 🔥 hapus dari array JS deleted
+                        const index = deletedAllData.findIndex(r => r.id == id);
+                        if (index !== -1) deletedAllData.splice(index, 1);
+
+                        // 🔥 langsung refresh tabel aktif (tanpa reload halaman)
+                        allData = [];
+                        currentPage = 0;
+                        hasMoreData = true;
+                        dataTable.clear().draw();
+                        loadMoreData();
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Gagal merestore Sale Return'
+                        });
+                    }
+                });
+            });
+
+            $('#formForceDeleteOrder, #forceDeleteOwnerForm').on('submit', function(e) {
+                e.preventDefault();
+                const form = this;
+                const url = form.action;
+                const formData = new FormData(form);
+
+                $.ajax({
+                    url: url,
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(res) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: res.message ??
+                                'Sale Return berhasil dihapus permanen!',
+                            timer: 1800,
+                            showConfirmButton: false
+                        });
+
+                        $('.modal').modal('hide');
+                        form.reset();
+
+                        // 🔥 ambil id dari modal
+                        const id = form.dataset.id;
+                        const table = $('#deletedSaleReturnTable').DataTable();
+
+                        // 🔥 cari baris sesuai id dan langsung remove DOM-nya
+                        const rowNode = table.rows().nodes().to$().filter(function() {
+                            const rowData = table.row(this).data();
+                            return rowData && rowData.id == id;
+                        });
+
+                        if (rowNode.length) {
+                            rowNode.fadeOut(300, function() {
+                                table.row(rowNode).remove().draw(false);
+                            });
+                        }
+
+                        // 🔥 hapus dari array JS biar data bersih
+                        const index = deletedAllData.findIndex(r => r.id == id);
+                        if (index !== -1) deletedAllData.splice(index, 1);
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Gagal menghapus permanen Sale Return'
+                        });
+                    }
+                });
+            });
+
         });
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -885,49 +1312,41 @@
                 const url = button.getAttribute('data-url');
 
                 form.action = url;
+                form.dataset.id = id;
                 nameHolder.textContent = name;
             });
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('modalChangeStatus');
-            const form = document.getElementById('formChangeStatus');
-            const nameHolder = document.getElementById('OrderName');
+        // Event handler untuk button Mark As Paid
+        $(document).on('click', '.btn-mark-paid', function(e) {
+            e.preventDefault();
 
-            modal.addEventListener('show.bs.modal', function(event) {
-                const button = event.relatedTarget;
-                const id = button.getAttribute('data-id');
-                const name = button.getAttribute('data-name');
-                const url = button.getAttribute('data-url');
+            const button = $(this);
+            const saleReturnId = button.data('id');
+            const url = button.data('url');
+            const totalAmount = parseFloat(button.data('total-amount')) || 0;
+            const paidAmount = parseFloat(button.data('paid-amount')) || 0;
+            const remainingAmount = totalAmount - paidAmount;
 
-                form.action = url;
-                nameHolder.textContent = name;
-            });
-        });
+            // Set form values
+            $('#sale_return_id').val(saleReturnId);
+            $('#markAsSaleForm').attr('action', url);
 
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.btn-mark-paid')) {
-                const button = e.target.closest('.btn-mark-paid');
-                const saleReturnId = button.getAttribute('data-id');
-                const url = button.getAttribute('data-url');
-                const totalAmount = parseFloat(button.getAttribute('data-total-amount')) || 0;
-                const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
-                const remainingAmount = totalAmount - paidAmount;
+            // Set remaining amount display
+            $('#total_amount_display').text(new Intl.NumberFormat('id-ID').format(remainingAmount));
 
-                document.getElementById('sale_return_id').value = saleReturnId;
-                document.getElementById('markAsSaleForm').setAttribute('action', url);
+            // Set refund amount input
+            const formatted = new Intl.NumberFormat('id-ID').format(remainingAmount);
+            $('#refund_amount').val(formatted);
 
-                document.getElementById('total_amount_display').innerText =
-                    new Intl.NumberFormat('id-ID').format(remainingAmount);
-
-                const formatted = new Intl.NumberFormat('id-ID').format(remainingAmount);
-                document.getElementById('refund_amount').value = formatted;
-
-                const paidDisplay = document.getElementById('paid_amount_display');
-                if (paidDisplay) {
-                    paidDisplay.innerText = 'Paid: Rp. ' + formatted;
-                }
+            // Set paid amount display
+            const paidDisplay = $('#paid_amount_display');
+            if (paidDisplay.length) {
+                paidDisplay.text('Paid: Rp. ' + formatted);
             }
+
+            // Show modal
+            $('#modalChangeStatus').modal('show');
         });
 
         const refundInput = document.getElementById("refund_amount");
@@ -937,88 +1356,7 @@
             this.value = new Intl.NumberFormat("id-ID").format(angka);
         });
 
-        document.getElementById('markAsSaleForm').addEventListener('submit', function(e) {
-            e.preventDefault();
 
-            document.querySelectorAll('#markAsSaleForm small.text-danger').forEach(el => {
-                el.classList.add('d-none');
-                el.innerText = '';
-            });
-
-            let valid = true;
-
-            let transactionType = document.getElementById('transaction_type').value.trim();
-            let transactionDate = document.getElementById('transaction_date').value.trim();
-            let cashBankAccount = document.getElementById('cash_bank_account_id').value.trim();
-
-            let refundAmountRaw = document.getElementById('refund_amount').value.trim();
-            let refundAmount = refundAmountRaw.replace(/\./g, "");
-
-            let remainingRaw = document.getElementById('total_amount_display').innerText.trim().replace(/\./g, "");
-            let remainingAmount = parseInt(remainingRaw) || 0;
-
-            if (!transactionType) {
-                document.getElementById('error_transaction_type').innerText = 'Account wajib dipilih';
-                document.getElementById('error_transaction_type').classList.remove('d-none');
-                valid = false;
-            }
-
-            if (!transactionDate) {
-                document.getElementById('error_transaction_date').innerText = 'Tanggal transaksi wajib diisi';
-                document.getElementById('error_transaction_date').classList.remove('d-none');
-                valid = false;
-            }
-
-            if (!cashBankAccount) {
-                document.getElementById('error_cash_bank_account_id').innerText = 'Pilih cash atau bank account';
-                document.getElementById('error_cash_bank_account_id').classList.remove('d-none');
-                valid = false;
-            }
-
-            if (!refundAmount || isNaN(refundAmount) || parseInt(refundAmount) <= 0) {
-                document.getElementById('error_refund_amount').innerText =
-                    'Refund amount harus diisi dan lebih dari 0';
-                document.getElementById('error_refund_amount').classList.remove('d-none');
-                valid = false;
-            } else if (parseInt(refundAmount) > remainingAmount) {
-                document.getElementById('error_refund_amount').innerText =
-                    'Refund amount tidak boleh melebihi Balance';
-                document.getElementById('error_refund_amount').classList.remove('d-none');
-                valid = false;
-            }
-
-            // 💾 Validasi file
-            const fileInput = document.getElementById('payment_proof');
-            const file = fileInput.files[0];
-            if (file) {
-                const allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
-                const ext = file.name.split('.').pop().toLowerCase();
-
-                if (!allowedExt.includes(ext)) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Format Tidak Valid!',
-                        text: 'File harus berupa JPG, JPEG, PNG, atau WEBP.',
-                    });
-                    return; // 🚫 stop total
-                }
-
-                if (file.size > 2 * 1024 * 1024) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'File Terlalu Besar!',
-                        text: 'Ukuran file maksimal 2MB.',
-                    });
-                    return; // 🚫 stop total
-                }
-            }
-
-            if (!valid) return;
-
-            document.getElementById('refund_amount').value = refundAmount;
-
-            this.submit();
-        });
 
         document.querySelector("form").addEventListener("submit", function() {
             refundInput.value = refundInput.value.replace(/\./g, "");
@@ -1037,6 +1375,7 @@
 
                 form.action = url;
                 nameHolder.textContent = name;
+                form.dataset.id = id;
             });
         });
 
@@ -1052,6 +1391,7 @@
                 const url = button.getAttribute('data-url');
 
                 form.action = url;
+                form.dataset.id = id;
                 nameHolder.textContent = name;
             });
         });
@@ -1071,6 +1411,28 @@
 
             const nameEl = document.getElementById('fd-order-number');
             if (nameEl) nameEl.textContent = btn.dataset.name || '';
+        });
+
+        document.getElementById('payment_proof').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const previewWrapper = document.getElementById('proof_preview_wrapper');
+            const preview = document.getElementById('proof_preview');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    previewWrapper.classList.remove('d-none');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                previewWrapper.classList.add('d-none');
+                preview.src = '#';
+            }
+        });
+
+        $('#modalChangeStatus').on('shown.bs.modal', function() {
+            $('#cash_bank_account_id').trigger('change.select2');
         });
 
         document.getElementById('payment_proof').addEventListener('change', function(event) {
