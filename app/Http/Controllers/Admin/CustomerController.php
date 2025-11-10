@@ -142,10 +142,10 @@ class CustomerController extends Controller
         $customer = Customers::findOrFail($id);
 
         // Hapus semua alamat terkait
-        $customer->addresses()->delete();
+        $customer->addresses()->forceDelete();
 
         // Hapus data customer
-        $customer->delete();
+        $customer->forceDelete();
 
         return redirect('/erp/customers')->with('success', 'Customer berhasil dihapus.');
     }
