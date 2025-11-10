@@ -2,7 +2,6 @@
     <ul class="dropdown-menu show static-action-menu">
         <div class="action-grid">
             <div class="action-col">
-                <span class="action-title">Invoice</span>
                 @if ($return->payment_status !== 'Paid')
                     <li>
                         <button type="button" class="dropdown-item btn-mark-paid" data-bs-toggle="modal"
@@ -34,7 +33,6 @@
 
 
             <div class="action-col">
-                <span class="action-title">Edit</span>
                 <li>
                     <a class="dropdown-item" href="/erp/sales/sale-returns/edit-sale-return/{{ $return->id }}">
                         <i class="feather feather-edit-3 me-3"></i>

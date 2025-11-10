@@ -41,12 +41,12 @@
 
         .static-action-menu {
             padding: 12px;
-            min-width: 700px;
+            min-width: 850px;
         }
 
         .action-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 12px 20px;
         }
 

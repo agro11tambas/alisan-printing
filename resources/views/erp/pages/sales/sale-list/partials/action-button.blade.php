@@ -2,7 +2,6 @@
     <ul class="dropdown-menu show static-action-menu">
         <div class="action-grid">
             <div class="action-col">
-                <span class="action-title">Invoice</span>
                 <li>
                     <button type="button" class="dropdown-item btn-share-invoice-image" data-id="{{ $order->id }}"
                         data-url="{{ url('/erp/sales/sale-list/invoice/' . $order->id) }}"
@@ -35,7 +34,6 @@
                 @endif
             </div>
             <div class="action-col">
-                <span class="action-title">Payment</span>
                 @if ($order->payment_status !== 'Paid' && $order->payment_status !== 'Overpaid')
                     <li>
                         <button type="button" class="dropdown-item btn-mark-paid" data-bs-toggle="modal"
@@ -68,7 +66,6 @@
                 @endif
             </div>
             <div class="action-col">
-                <span class="action-title">General</span>
                 <li>
                     <a class="dropdown-item" href="/erp/sales/sale-list/edit-order/{{ $order->id }}">
                         <i class="feather feather-edit-3 me-3"></i>
@@ -91,7 +88,8 @@
                     </button>
                 </li>
                 @php $isOwner = auth()->check() && auth()->user()->role === 'Owner'; @endphp
-
+            </div>
+            <div class="action-col">
                 @if ($isOwner)
                     {{-- <li>
                         <button type="button" class="dropdown-item text-danger btn-force-delete-owner"
@@ -115,11 +113,5 @@
                 @endif
             </div>
         </div>
-        {{-- <li>
-            <hr class="my-2">
-        </li> --}}
-        {{-- <li>
-            <hr class="my-2">
-        </li> --}}
     </ul>
 </div>

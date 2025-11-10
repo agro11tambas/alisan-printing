@@ -2,7 +2,6 @@
     <ul class="dropdown-menu show static-action-menu">
         <div class="action-grid">
             <div class="action-col">
-                <span class="action-title">Invoice</span>
                 @if ($purchase->payment_status !== 'Paid')
                     @if ($purchase->remaining_amount_product > 0)
                         <li>
@@ -53,7 +52,6 @@
             <hr class="my-2">
         </li> --}}
             <div class="action-col">
-                <span class="action-title">Edit</span>
                 <li>
                     <a href="/erp/purchases/purchase-list/detail-purchase/{{ $purchase->id }}" class="dropdown-item">
                         <i class="feather feather-eye"></i>
@@ -74,7 +72,6 @@
                 </li>
             </div>
             <div class="action-col">
-                <span class="action-title">Delete</span>
                 <li>
                     <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
                         data-bs-target="#modalDeletePurchase" data-id="{{ $purchase->id }}"
