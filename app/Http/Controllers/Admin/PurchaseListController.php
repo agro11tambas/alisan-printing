@@ -127,7 +127,7 @@ class PurchaseListController extends Controller
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
             'data' => $data->map(function ($purchase) {
-                $date = Carbon::parse($purchase->purchase_date)->format('j M y');
+                $date = Carbon::parse($purchase->crated_at)->format('j M y');
                 $dueDate = $purchase->due_date ? Carbon::parse($purchase->due_date)->format('j M y') : '-';
 
                 // 🏷️ Edited dan Return badge
@@ -1206,7 +1206,7 @@ class PurchaseListController extends Controller
                 'debit'                => 0,
                 'credit'               => $request->paid_amount,
                 'note'                 => $request->note ?? '',
-                'particular'           => 'Purchase Product Payment - ' . $purchaseAccount->name,
+                'particular'           => 'Product Payment - ' . $purchaseAccount->name,
                 'transaction_group_id' => $groupId,
                 'proof'           => $proofJson,
             ]);
@@ -1253,12 +1253,31 @@ class PurchaseListController extends Controller
             $purchase->save();
 
             DB::commit();
-            if ($request->ajax()) {
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Pembayaran berhasil disimpan.',
-                ]);
-            }
+
+            $paymentBadge = match (strtolower($purchase->payment_status)) {
+                'paid' => '<div class="badge bg-soft-success text-success">Paid</div>',
+                'partially paid' => '<div class="badge bg-soft-warning text-warning">Partially Paid</div>',
+                'unpaid' => '<div class="badge bg-soft-dark text-dark">Unpaid</div>',
+                default => '<div class="badge bg-secondary text-white">' . e($purchase->payment_status) . '</div>',
+            };
+
+            // 💰 Hitung ulang total gabungan
+            $paidTotal = ($purchase->paid_amount_product ?? 0) + ($purchase->paid_amount_freight ?? 0);
+            $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Pembayaran produk berhasil disimpan!',
+                'purchase' => [
+                    'id'               => $purchase->id,
+                    'paid_amount_html' => '<span class="text-success">Rp ' . number_format($paidTotal, 0, ',', '.') . '</span>',
+                    'remaining_amount_html' => '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>',
+                    'payment_status_html' => $paymentBadge,
+                    'action_html' => view('erp.pages.purchases.purchase-list.partials.action-button', [
+                        'purchase' => $purchase
+                    ])->render(),
+                ],
+            ]);
             return back()->with('success', 'Pembayaran produk berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1383,12 +1402,30 @@ class PurchaseListController extends Controller
             $purchase->save();
 
             DB::commit();
-            if ($request->ajax()) {
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Pembayaran berhasil disimpan.',
-                ]);
-            }
+            $paymentBadge = match (strtolower($purchase->payment_status)) {
+                'paid' => '<div class="badge bg-soft-success text-success">Paid</div>',
+                'partially paid' => '<div class="badge bg-soft-warning text-warning">Partially Paid</div>',
+                'unpaid' => '<div class="badge bg-soft-dark text-dark">Unpaid</div>',
+                default => '<div class="badge bg-secondary text-white">' . e($purchase->payment_status) . '</div>',
+            };
+
+            // 💰 Hitung ulang total gabungan
+            $paidTotal = ($purchase->paid_amount_product ?? 0) + ($purchase->paid_amount_freight ?? 0);
+            $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Pembayaran freight berhasil disimpan!',
+                'purchase' => [
+                    'id'               => $purchase->id,
+                    'paid_amount_html' => '<span class="text-success">Rp ' . number_format($paidTotal, 0, ',', '.') . '</span>',
+                    'remaining_amount_html' => '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>',
+                    'payment_status_html' => $paymentBadge,
+                    'action_html' => view('erp.pages.purchases.purchase-list.partials.action-button', [
+                        'purchase' => $purchase
+                    ])->render(),
+                ],
+            ]);
             return back()->with('success', 'Pembayaran freight berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1434,6 +1471,9 @@ class PurchaseListController extends Controller
     //         'paid_amount'           => 'required|numeric|min:1',
     //         'cash_bank_account_id'  => 'required|exists:accounts,id',
     //         'note'                  => 'nullable|string',
+    //         'payment_proof'         => 'nullable|array',
+    //         'payment_proof.*'       => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+    //         'note_per_image'        => 'nullable|array',
     //     ]);
 
     //     DB::beginTransaction();
@@ -1446,7 +1486,53 @@ class PurchaseListController extends Controller
     //         $purchaseId = $transactions->first()->purchase_id;
     //         $purchase   = Purchase::findOrFail($purchaseId);
 
-    //         // cari transaksi credit lama (Cash/Bank)
+    //         // =====================================================
+    //         // 🔹 Handle Multiple Uploads (bukti + note)
+    //         // =====================================================
+    //         $uploadedProofs = [];
+    //         $notes = $request->note_per_image ?? [];
+
+    //         // Ambil proof lama biar gak hilang
+    //         $oldProofs = [];
+    //         $oldProofJson = $transactions->first()?->proof;
+    //         if ($oldProofJson && is_string($oldProofJson)) {
+    //             $decoded = json_decode($oldProofJson, true);
+    //             if (is_array($decoded)) {
+    //                 $oldProofs = $decoded;
+    //             }
+    //         }
+
+    //         if ($request->hasFile('payment_proof')) {
+    //             $uploadPath = public_path('uploads/payment_proofs');
+    //             if (!file_exists($uploadPath)) {
+    //                 mkdir($uploadPath, 0755, true);
+    //             }
+
+    //             foreach ($request->file('payment_proof') as $index => $file) {
+    //                 $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+    //                 $file->move($uploadPath, $fileName);
+
+    //                 $path = 'uploads/payment_proofs/' . $fileName;
+    //                 $uploadedProofs[] = [
+    //                     'file' => str_replace('\\', '/', $path),
+    //                     'note' => $notes[$index] ?? '',
+    //                 ];
+    //             }
+    //         }
+
+    //         // 🔹 Kalau gak ada file baru → tetap pakai proof lama tapi update note kalau dikirim ulang
+    //         if (empty($uploadedProofs)) {
+    //             foreach ($oldProofs as $index => &$proof) {
+    //                 $proof['note'] = $notes[$index] ?? ($proof['note'] ?? '');
+    //             }
+    //             $uploadedProofs = $oldProofs;
+    //         }
+
+    //         $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+
+    //         // =====================================================
+    //         // 🔹 Payment Process (kode lama kamu tetap utuh)
+    //         // =====================================================
     //         $oldCredit = $transactions->firstWhere('credit', '>', 0);
     //         if (!$oldCredit) {
     //             throw new \Exception("Credit transaction (Cash/Bank) not found in this group");
@@ -1459,13 +1545,14 @@ class PurchaseListController extends Controller
     //         $oldAccount->closing_balance += $oldAmount;
     //         $oldAccount->save();
 
-    //         // update transaksi credit lama → ganti akun/amount/date/note
+    //         // update transaksi credit lama → ganti akun/amount/date/note + proof
     //         $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
     //         $oldCredit->update([
     //             'transaction_date' => $request->transaction_date,
     //             'account_id'       => $cashBankAccount->id,
     //             'credit'           => $request->paid_amount,
     //             'note'             => $request->note ?? '',
+    //             'proof'            => $proofJson, // 🔹 bukti disimpan di sini
     //         ]);
 
     //         // update saldo akun baru
@@ -1483,7 +1570,7 @@ class PurchaseListController extends Controller
 
     //         // hitung ulang paid amount
     //         $totalPaid = AccountTransaction::where('purchase_id', $purchase->id)
-    //             ->where('credit', '>', 0) // hanya ambil pembayaran Cash/Bank
+    //             ->where('credit', '>', 0)
     //             ->sum('credit');
 
     //         $purchase->paid_amount      = $totalPaid;
@@ -1541,7 +1628,6 @@ class PurchaseListController extends Controller
             $uploadedProofs = [];
             $notes = $request->note_per_image ?? [];
 
-            // Ambil proof lama biar gak hilang
             $oldProofs = [];
             $oldProofJson = $transactions->first()?->proof;
             if ($oldProofJson && is_string($oldProofJson)) {
@@ -1553,23 +1639,18 @@ class PurchaseListController extends Controller
 
             if ($request->hasFile('payment_proof')) {
                 $uploadPath = public_path('uploads/payment_proofs');
-                if (!file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
-                }
+                if (!file_exists($uploadPath)) mkdir($uploadPath, 0755, true);
 
                 foreach ($request->file('payment_proof') as $index => $file) {
                     $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                     $file->move($uploadPath, $fileName);
-
-                    $path = 'uploads/payment_proofs/' . $fileName;
                     $uploadedProofs[] = [
-                        'file' => str_replace('\\', '/', $path),
+                        'file' => 'uploads/payment_proofs/' . $fileName,
                         'note' => $notes[$index] ?? '',
                     ];
                 }
             }
 
-            // 🔹 Kalau gak ada file baru → tetap pakai proof lama tapi update note kalau dikirim ulang
             if (empty($uploadedProofs)) {
                 foreach ($oldProofs as $index => &$proof) {
                     $proof['note'] = $notes[$index] ?? ($proof['note'] ?? '');
@@ -1580,35 +1661,44 @@ class PurchaseListController extends Controller
             $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // =====================================================
-            // 🔹 Payment Process (kode lama kamu tetap utuh)
+            // 🔹 Identify Payment Type: Product vs Freight
+            // =====================================================
+            $isFreight = false;
+            $isProduct = false;
+
+            $firstTrx = $transactions->first();
+            if ($firstTrx && str_contains(strtolower($firstTrx->particular), 'freight')) {
+                $isFreight = true;
+            } elseif ($firstTrx && str_contains(strtolower($firstTrx->particular), 'product')) {
+                $isProduct = true;
+            }
+
+            // =====================================================
+            // 🔹 Payment Process
             // =====================================================
             $oldCredit = $transactions->firstWhere('credit', '>', 0);
-            if (!$oldCredit) {
-                throw new \Exception("Credit transaction (Cash/Bank) not found in this group");
-            }
+            if (!$oldCredit) throw new \Exception("Credit transaction not found in this group");
 
             $oldAccount = $oldCredit->account;
             $oldAmount  = $oldCredit->credit;
 
-            // rollback saldo akun lama
-            $oldAccount->closing_balance += $oldAmount;
-            $oldAccount->save();
+            // rollback saldo lama
+            $oldAccount->increment('closing_balance', $oldAmount);
 
-            // update transaksi credit lama → ganti akun/amount/date/note + proof
+            // update transaksi credit
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
             $oldCredit->update([
                 'transaction_date' => $request->transaction_date,
                 'account_id'       => $cashBankAccount->id,
                 'credit'           => $request->paid_amount,
                 'note'             => $request->note ?? '',
-                'proof'            => $proofJson, // 🔹 bukti disimpan di sini
+                'proof'            => $proofJson,
             ]);
 
-            // update saldo akun baru
-            $cashBankAccount->closing_balance -= $request->paid_amount;
-            $cashBankAccount->save();
+            // kurangi saldo akun baru
+            $cashBankAccount->decrement('closing_balance', $request->paid_amount);
 
-            // update juga tanggal/note untuk baris debit Purchase biar sinkron
+            // update juga baris debit (biar tanggal + note sama)
             $purchaseTrx = $transactions->firstWhere('debit', '>', 0);
             if ($purchaseTrx) {
                 $purchaseTrx->update([
@@ -1617,31 +1707,68 @@ class PurchaseListController extends Controller
                 ]);
             }
 
-            // hitung ulang paid amount
-            $totalPaid = AccountTransaction::where('purchase_id', $purchase->id)
+            // =====================================================
+            // 🔹 Recalculate purchase paid amount
+            // =====================================================
+            // Total kredit untuk produk
+            $totalProductPaid = AccountTransaction::where('purchase_id', $purchase->id)
                 ->where('credit', '>', 0)
+                ->where('particular', 'like', '%product%')
                 ->sum('credit');
 
-            $purchase->paid_amount      = $totalPaid;
-            $purchase->remaining_amount = max(0, $purchase->total_amount - $totalPaid);
+            // Total kredit untuk freight
+            $totalFreightPaid = AccountTransaction::where('purchase_id', $purchase->id)
+                ->where('credit', '>', 0)
+                ->where('particular', 'like', '%freight%')
+                ->sum('credit');
 
-            if ($purchase->paid_amount == 0) {
+            // update field spesifik
+            $purchase->paid_amount_product = $totalProductPaid;
+            $purchase->remaining_amount_product = max(0, $purchase->total_amount_product - $totalProductPaid);
+
+            $purchase->paid_amount_freight = $totalFreightPaid;
+            $purchase->remaining_amount_freight = max(0, $purchase->total_amount_freight - $totalFreightPaid);
+
+            // gabungan
+            $totalPaid = $totalProductPaid + $totalFreightPaid;
+            $totalAll  = ($purchase->total_amount_product ?? 0) + ($purchase->total_amount_freight ?? 0);
+
+            if ($totalPaid == 0) {
                 $purchase->payment_status = 'Unpaid';
-            } elseif ($purchase->paid_amount < $purchase->total_amount) {
+            } elseif ($totalPaid < $totalAll) {
                 $purchase->payment_status = 'Partially Paid';
-            } elseif ($purchase->paid_amount == $purchase->total_amount) {
+            } elseif ($totalPaid >= $totalAll) {
                 $purchase->payment_status = 'Paid';
-            } else {
-                $purchase->payment_status = 'Overpaid';
             }
 
             $purchase->save();
 
             DB::commit();
-            return redirect()->back()->with('success', 'Payment berhasil diperbarui.');
+            return back()->with('success', 'Payment berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal update payment: ' . $e->getMessage());
+            return back()->with('error', 'Gagal update payment: ' . $e->getMessage());
+        }
+    }
+
+    public function verifyPayment($groupId)
+    {
+        try {
+            $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
+
+            if ($transactions->isEmpty()) {
+                return response()->json(['message' => 'Transaksi tidak ditemukan.'], 404);
+            }
+
+            foreach ($transactions as $trx) {
+                $trx->update(['verified' => true]);
+            }
+
+            return response()->json(['message' => 'Payment berhasil diverifikasi.']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal verifikasi payment: ' . $e->getMessage()
+            ], 500);
         }
     }
 

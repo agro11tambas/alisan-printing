@@ -28,6 +28,23 @@
         #waitingListTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
+
+        #previewImageContainer .image-item {
+            width: 100%;
+        }
+
+        #previewImageContainer .image-item img {
+            width: 100%;
+            height: auto;
+            max-height: 500px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        #previewImageContainer .image-item p {
+            margin-top: 8px;
+        }
     </style>
 @endpush
 
@@ -245,7 +262,7 @@
                 </div>
                 <div class="modal-body">
                     <h6 class="fw-bold mb-3" id="previewProductName"></h6>
-                    <div id="previewImageContainer" class="d-flex flex-wrap gap-3 justify-content-start"></div>
+                    <div id="previewImageContainer" class="d-flex flex-column gap-3"></div>
                 </div>
             </div>
         </div>
@@ -536,13 +553,13 @@
                     const fileUrl = img.file ? `/${img.file}`.replace(/\/{2,}/g, '/') : '';
                     const note = img.note || '-';
                     const html = `
-                <div class="text-center border rounded p-2" style="max-width:250px;">
-                    <img src="${fileUrl}" class="img-fluid rounded mb-2" 
-                         style="width:180px;height:180px;object-fit:cover;cursor:pointer;"
-                         data-full="${fileUrl}">
-                    <p class="small text-muted mb-0">${note}</p>
-                </div>
-            `;
+                        <div class="image-item border rounded p-3">
+                            <img src="${fileUrl}" class="img-fluid rounded mb-2" 
+                                style="cursor:pointer;" 
+                                data-full="${fileUrl}">
+                                <p class="small text-muted mb-0">${note}</p>
+                        </div>
+                    `;
                     container.append(html);
                 });
             } else {

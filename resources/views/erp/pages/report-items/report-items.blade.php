@@ -146,8 +146,8 @@
                     url: "{{ url('/erp/report-items/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
+                        start: currentPage * 200,
+                        length: 200,
                         product_name: $('#product_name').val(),
                     },
                     success: function(res) {

@@ -259,6 +259,7 @@ Route::middleware(isLogin::class)->group(function () {
             Route::delete('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDelete'])->name('sales.forceDelete');
             Route::post('/erp/sales/sale-list/restore/{id}', [SaleListController::class, 'restore'])->name('sales.restore');
             Route::put('/erp/sales/mark-as-waiting-list/{id}', [SaleListController::class, 'markAsWaitingList']);
+            Route::post('/erp/sales/sale-list/verify-payment/{groupId}', [SaleListController::class, 'verifyPayment'])->name('sale-list.verify-payment');
 
             Route::post('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDeleteOwner'])
                 ->name('sales.sale-list.forceDeleteOwner')

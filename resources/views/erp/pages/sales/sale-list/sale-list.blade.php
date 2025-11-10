@@ -39,6 +39,13 @@
             animation: fadeIn 0.3s ease-in;
         }
 
+        table.dataTable td.customer-cell {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            max-width: 200px;
+            /* bebas ubah */
+        }
+
         .static-action-menu {
             padding: 12px;
             min-width: 850px;
@@ -1009,7 +1016,8 @@
                         data: 'order_number'
                     },
                     {
-                        data: 'customer'
+                        data: 'customer',
+                        className: 'customer-cell'
                     },
                     {
                         data: 'grand_total'
@@ -1292,14 +1300,63 @@
                         pastedProofBlobs = [];
                         if (previewContainer) previewContainer.innerHTML = '';
 
-                        // 🔁 reload dataTable tanpa refresh
-                        if (typeof dataTable !== 'undefined') {
-                            dataTable.clear();
-                            allData = [];
-                            currentPage = 0;
-                            hasMoreData = true;
-                            loadMoreData();
+                        // 🔥 update manual tampilan row di tabel TANPA reload & TANPA rubah HTML badge backend
+                        const orderId = $('#order_id').val();
+
+                        // ambil row target
+                        const rowNode = dataTable.rows().nodes().to$().filter(function() {
+                            const rowData = dataTable.row(this).data();
+                            return rowData && String(rowData.id) === String(orderId);
+                        });
+
+                        if (rowNode.length) {
+                            const row = dataTable.row(rowNode);
+                            const d = row.data();
+
+                            // 🔹 Ambil dari backend biar sesuai logika real
+                            d.paid_amount =
+                                `<span class="text-success">Rp ${res.order.paid_amount}</span>`;
+                            d.remaining_amount =
+                                `<span class="text-danger">Rp ${res.order.remaining_amount}</span>`;
+
+                            // 🔹 Render badge dinamis dari status backend
+                            const status = res.order.payment_status?.toLowerCase() ?? '';
+                            let statusBadge = '';
+
+                            if (status === 'paid') {
+                                statusBadge =
+                                    '<div class="badge bg-soft-success text-success">Paid</div>';
+                            } else if (status === 'partially paid') {
+                                statusBadge =
+                                    '<div class="badge bg-soft-warning text-warning">Partially Paid</div>';
+                            } else {
+                                statusBadge =
+                                    '<div class="badge bg-soft-danger text-danger">Unpaid</div>';
+                            }
+
+                            d.payment_status = statusBadge;
+
+                            // 🔹 Update kolom action dari backend
+                            if (res.order.action) {
+                                $(rowNode).find('td:last-child').html(res.order.action);
+                                d.action = res.order.action;
+                            }
+
+                            // 🔹 Update tampilan tabel
+                            $(rowNode).find('td[data-column="paid_amount"]').html(d
+                            .paid_amount);
+                            $(rowNode).find('td[data-column="remaining_amount"]').html(d
+                                .remaining_amount);
+                            $(rowNode).find('td[data-column="payment_status"]').html(
+                                statusBadge);
+
+                            row.data(d).invalidate();
+
+                            // 🔥 efek visual
+                            rowNode.addClass('bg-success-subtle');
+                            setTimeout(() => rowNode.removeClass('bg-success-subtle'), 1500);
                         }
+
                     },
                     error: function(xhr) {
                         Swal.close();

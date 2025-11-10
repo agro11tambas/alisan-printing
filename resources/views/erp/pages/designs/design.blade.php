@@ -28,6 +28,23 @@
         #designListTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
+
+        #multiViewerContainer .image-item {
+            width: 100%;
+        }
+
+        #multiViewerContainer .image-item img {
+            width: 100%;
+            height: auto;
+            max-height: 500px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        #multiViewerContainer .image-item p {
+            margin-top: 8px;
+        }
     </style>
 @endpush
 
@@ -247,7 +264,7 @@
                 </div>
                 <div class="modal-body">
                     <h6 class="fw-bold mb-3" id="multiViewerProduct"></h6>
-                    <div id="multiViewerContainer" class="d-flex flex-wrap gap-3 justify-content-start"></div>
+                    <div id="multiViewerContainer" class="d-flex flex-column gap-3"></div>
                 </div>
             </div>
         </div>
@@ -679,13 +696,13 @@
                     const fileUrl = img.file ? `/${img.file}`.replace(/\/{2,}/g, '/') : '';
                     const note = img.note || '-';
                     const itemHTML = `
-                <div class="text-center border rounded p-2" style="max-width:260px;">
-                    <img src="${fileUrl}" class="img-fluid rounded mb-2" 
-                        style="width:180px;height:180px;object-fit:cover;cursor:pointer;"
-                        onclick="window.open('${fileUrl}', '_blank')">
-                    <p class="small text-muted mb-0">${note}</p>
-                </div>
-            `;
+    <div class="image-item border rounded p-3">
+        <img src="${fileUrl}" class="img-fluid rounded mb-2" 
+             style="cursor:pointer;" 
+             onclick="window.open('${fileUrl}', '_blank')">
+        <p class="small text-muted mb-0">${note}</p>
+    </div>
+`;
                     container.append(itemHTML);
                 });
             } else {

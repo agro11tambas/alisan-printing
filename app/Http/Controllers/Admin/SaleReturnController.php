@@ -1544,6 +1544,27 @@ class SaleReturnController extends Controller
         }
     }
 
+    public function verifyPayment($groupId)
+    {
+        try {
+            $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
+
+            if ($transactions->isEmpty()) {
+                return response()->json(['message' => 'Transaksi tidak ditemukan.'], 404);
+            }
+
+            foreach ($transactions as $trx) {
+                $trx->update(['verified' => true]);
+            }
+
+            return response()->json(['message' => 'Payment berhasil diverifikasi.']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal verifikasi payment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function getEditHistory($id)
     {
         $saleReturn = SaleReturn::findOrFail($id);

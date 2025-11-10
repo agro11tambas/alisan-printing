@@ -2,7 +2,7 @@
     <ul class="dropdown-menu show static-action-menu">
         <div class="action-grid">
             <div class="action-col">
-                @if ($return->payment_status !== 'Paid')
+                @if ($return->payment_status !== 'Refunded')
                     <li>
                         <button type="button" class="dropdown-item btn-mark-paid" data-bs-toggle="modal"
                             data-bs-target="#modalChangeStatus" data-id="{{ $return->id }}"

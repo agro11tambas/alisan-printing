@@ -136,8 +136,8 @@ class SaleListController extends Controller
         // 🔹 Return format sama seperti product → JSON ringan untuk lazy load
         return response()->json([
             'data' => $data->map(function ($order) {
-                $orderCreatedAt = Carbon::parse($order->order_date)->format('d M y H:i');
-                $date = Carbon::parse($order->order_date)->format('j M y');
+                $orderCreatedAt = Carbon::parse($order->created_at)->format('d M y H:i');
+                $date = Carbon::parse($order->created_at)->format('j M y');
                 $dueDate = $order->due_date ? Carbon::parse($order->due_date)->format('j M y') : '-';
 
                 $editedBadge = $order->status_edited == 1
@@ -243,15 +243,16 @@ class SaleListController extends Controller
                         //     ->sum('shipped_quantity');
 
                         if ($item->productBundle) {
-                            $deliveredQty = $deliveryListItems
-                                ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
-                                ->first()
-                                ->shipped_quantity ?? 0;
+                            $uniqueDeliveries = $deliveryListItems
+                                ->unique('delivery_list_id');
 
-                            $onDeliveryQty = $deliveryListItems
+                            $deliveredQty = $uniqueDeliveries
+                                ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
+                                ->sum('shipped_quantity');
+
+                            $onDeliveryQty = $uniqueDeliveries
                                 ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
-                                ->first()
-                                ->shipped_quantity ?? 0;
+                                ->sum('shipped_quantity');
                         } else {
                             $deliveredQty = $deliveryListItems
                                 ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
@@ -279,7 +280,9 @@ class SaleListController extends Controller
                     'id' => $order->id,
                     'order_number' => $orderNumber,
                     'order_date' => $date,
-                    'customer' => e($order->customer->name ?? '-'),
+                    'customer' => '<div style="white-space: normal; word-break: break-word; max-width: 180px;">'
+                        . e($order->customer->name ?? '-') .
+                        '</div>',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
                     'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
                     'grand_total' => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
@@ -3990,12 +3993,37 @@ class SaleListController extends Controller
             $order->save();
 
             DB::commit();
-            if ($request->ajax()) {
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Pembayaran berhasil disimpan.',
-                ]);
-            }
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Pembayaran berhasil disimpan.',
+                'order'   => [
+                    'id'               => $order->id,
+                    'order_number'     => $order->order_number,
+                    'customer'         => optional($order->customer)->name ?? '-',
+                    'grand_total'      => number_format($order->grand_total, 0, ',', '.'),
+                    'paid_amount'      => number_format($order->paid_amount, 0, ',', '.'),
+                    'remaining_amount' => number_format($order->remaining_amount, 0, ',', '.'),
+                    'payment_status'   => $order->payment_status,
+                    'mode'             => $order->mode,
+                    'notes'            => $order->notes,
+                    'created_at'       => $order->created_at->format('Y-m-d H:i:s'),
+                    'action'           => view('erp.pages.sales.sale-list.partials.action-button', [
+                        'order' => $order
+                    ])->render(), // 🔥 ini penting
+                    'products'         => $order->orderItems->map(function ($item) {
+                        return [
+                            'name'         => $item->product->name ?? '-',
+                            'sku'          => $item->product->sku ?? '-',
+                            'qty'          => $item->quantity,
+                            'price'        => number_format($item->price, 0, ',', '.'),
+                            'ready_qty'    => $item->ready_qty ?? 0,
+                            'progress_qty' => $item->progress_qty ?? 0,
+                            'delivered'    => $item->delivered_qty ?? 0,
+                            'on_delivery'  => $item->on_delivery ?? 0,
+                        ];
+                    }),
+                ],
+            ]);
             return redirect()->back()->with('success', 'Pembayaran berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -4354,10 +4382,37 @@ class SaleListController extends Controller
             $order->save();
 
             DB::commit();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Payment berhasil diperbarui.'
+                ]);
+            }
             return redirect()->back()->with('success', 'Payment berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', 'Gagal update payment: ' . $e->getMessage());
+        }
+    }
+
+    public function verifyPayment($groupId)
+    {
+        try {
+            $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
+
+            if ($transactions->isEmpty()) {
+                return response()->json(['message' => 'Transaksi tidak ditemukan.'], 404);
+            }
+
+            foreach ($transactions as $trx) {
+                $trx->update(['verified' => true]);
+            }
+
+            return response()->json(['message' => 'Payment berhasil diverifikasi.']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal verifikasi payment: ' . $e->getMessage()
+            ], 500);
         }
     }
 

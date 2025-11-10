@@ -34,6 +34,37 @@
             height: 42px !important;
             right: 10px !important;
         }
+
+        /* 🔹 Perbesar font untuk kolom Qty, Price, dan Total */
+        #tab_logic input.form-control.qty,
+        #tab_logic input.form-control.price_before_discount_display,
+        #tab_logic input.form-control.total_before_discount_display {
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            height: 44px !important;
+            padding: 6px 10px !important;
+        }
+
+        /* 🔹 Untuk tampilan readonly total biar lebih kontras */
+        #tab_logic input.total_before_discount_display[readonly] {
+            background-color: #f8f9fa !important;
+            color: #198754 !important;
+        }
+
+        /* 🔹 Perbesar juga font di header tabel produk (Qty, Price, Total) */
+        /* #tab_logic th {
+                    font-size: 15px !important;
+                    font-weight: 700 !important;
+                    vertical-align: middle !important;
+                    text-transform: uppercase;
+                } */
+
+        /* 🔹 Perbesar font Grand Total biar seragam */
+        #tab_logic_total input.form-control {
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            height: 44px !important;
+        }
     </style>
 @endpush
 
@@ -151,7 +182,7 @@
                                             <div id="google-maps-link" class="mt-2"></div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    {{-- <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="mode" class="fw-semibold">Mode:</label>
                                         </div>
@@ -165,7 +196,7 @@
                                                 </select>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
@@ -176,7 +207,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    {{-- <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label class="fw-semibold">Diskon:</label>
                                         </div>
@@ -190,7 +221,50 @@
                                             <input type="hidden" id="discount_active_hidden"
                                                 name="discount_active_hidden" value="1">
                                         </div>
+                                    </div> --}}
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label class="fw-semibold">Mode & Diskon:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="row align-items-center">
+                                                <!-- 🔹 Kolom Diskon -->
+                                                <div class="col-md-6">
+                                                    <div class="d-flex flex-column">
+                                                        <label class="fw-semibold mb-1">Diskon:</label>
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                id="toggleDiscount" name="discount_active" checked>
+                                                            <label class="form-check-label fw-semibold"
+                                                                for="toggleDiscount">
+                                                                Aktifkan Diskon
+                                                            </label>
+                                                        </div>
+                                                        <input type="hidden" id="discount_active_hidden"
+                                                            name="discount_active_hidden" value="1">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 🔹 Kolom Mode -->
+                                                <div class="col-md-6 mb-3 mb-md-0">
+                                                    <div class="d-flex flex-column">
+                                                        <label class="fw-semibold mb-1">Mode:</label>
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox"
+                                                                id="toggleMode" name="mode_toggle" checked>
+                                                            <label class="form-check-label fw-semibold" for="toggleMode"
+                                                                id="modeLabel">
+                                                                Printing
+                                                            </label>
+                                                        </div>
+                                                        <input type="hidden" id="mode" name="mode"
+                                                            value="printing">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
+
                                 </div>
                             </div>
                         </div>
@@ -206,12 +280,12 @@
                                         <table class="table table-bordered overflow-hidden" id="tab_logic">
                                             <thead>
                                                 <tr class="single-item">
-                                                    <th class="text-center wd-50">#</th>
+                                                    <th class="text-center wd-20">#</th>
                                                     <th class="text-center wd-450">Product</th>
                                                     <!-- <th class="text-center wd-200">Product Type</th> -->
                                                     <th class="text-center wd-100">Qty</th>
-                                                    <th class="text-center wd-150">Price</th>
-                                                    <th class="text-center wd-150">Total</th>
+                                                    <th class="text-center wd-100">Price</th>
+                                                    <th class="text-center wd-100">Total</th>
                                                     <th class="text-center wd-50">Action</th>
                                                 </tr>
                                             </thead>
@@ -235,7 +309,7 @@
                                                             class="form-control qty" id="qty_0" min="1"></td>
 
                                                     <!-- <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" id="price_before_discount_0" readonly></td>
-                                                                                                                                                                                <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
+                                                                                                                                                                                                    <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
                                                     <td>
                                                         @php
                                                             $isOwner = Auth::user()->role === 'Owner';
@@ -336,7 +410,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title fw-semibold text-dark" id="confirmDisableDiscountLabel">
+                    <h5 class="modal-title fw-semibold text-white" id="confirmDisableDiscountLabel">
                         Nonaktifkan Diskon
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -362,7 +436,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title fw-semibold" id="confirmResponsibilityLabel">
+                    <h5 class="modal-title fw-semibold text-white" id="confirmResponsibilityLabel">
                         Konfirmasi Tanggung Jawab
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
@@ -378,6 +452,63 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
                     <button type="button" class="btn btn-danger text-white" id="confirmResponsibilityBtn">
+                        Ya, Saya Bertanggung Jawab
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Ganti Mode -->
+    <div class="modal fade" id="confirmChangeModeModal" tabindex="-1" aria-labelledby="confirmChangeModeLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title fw-semibold text-white" id="confirmChangeModeLabel">
+                        Ganti Mode Produksi
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0 text-dark">
+                        Apakah kamu yakin ingin mengganti mode produksi menjadi
+                        <strong id="nextModeText">Polosan</strong>?<br>
+                        Perubahan ini akan mempengaruhi alur produksi dan stok barang.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-info text-white" id="confirmChangeModeBtn">
+                        Ya, Ganti Mode
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Tanggung Jawab Ganti Mode -->
+    <div class="modal fade" id="confirmModeResponsibilityModal" tabindex="-1"
+        aria-labelledby="confirmModeResponsibilityLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-semibold text-white" id="confirmModeResponsibilityLabel">
+                        Konfirmasi Tanggung Jawab
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0 text-dark">
+                        Apakah kamu <strong>bertanggung jawab penuh</strong> atas keputusan mengganti mode ini?<br>
+                        Perubahan mode dapat mempengaruhi sistem produksi dan penghitungan stok.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-danger text-white" id="confirmModeResponsibilityBtn">
                         Ya, Saya Bertanggung Jawab
                     </button>
                 </div>
@@ -831,6 +962,54 @@
             $('input[name="qty[]"]').each(function() {
                 const raw = $(this).val().replace(/\./g, '');
                 $(this).val(raw);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggle = document.getElementById('toggleMode');
+            const label = document.getElementById('modeLabel');
+            const hidden = document.getElementById('mode');
+            const nextModeText = document.getElementById('nextModeText');
+            const confirmChangeBtn = document.getElementById('confirmChangeModeBtn');
+            const confirmResponsibilityBtn = document.getElementById('confirmModeResponsibilityBtn');
+
+            // default
+            label.textContent = 'Printing';
+            hidden.value = 'printing';
+            let pendingMode = null;
+
+            toggle.addEventListener('change', function() {
+                const nextMode = toggle.checked ? 'printing' : 'polosan';
+                const currentMode = hidden.value;
+
+                // Kalau beda, munculkan konfirmasi modal
+                if (nextMode !== currentMode) {
+                    pendingMode = nextMode;
+                    nextModeText.textContent = nextMode === 'printing' ? 'Printing' : 'Polosan';
+
+                    // balikin toggle sementara
+                    toggle.checked = currentMode === 'printing';
+                    $('#confirmChangeModeModal').modal('show');
+                }
+            });
+
+            // Tombol konfirmasi pertama
+            confirmChangeBtn.addEventListener('click', function() {
+                $('#confirmChangeModeModal').modal('hide');
+                $('#confirmModeResponsibilityModal').modal('show');
+            });
+
+            // Tombol tanggung jawab
+            confirmResponsibilityBtn.addEventListener('click', function() {
+                $('#confirmModeResponsibilityModal').modal('hide');
+
+                // apply perubahan mode
+                if (pendingMode) {
+                    hidden.value = pendingMode;
+                    label.textContent = pendingMode === 'printing' ? 'Printing' : 'Polosan';
+                    toggle.checked = pendingMode === 'printing';
+                    pendingMode = null;
+                }
             });
         });
     </script>

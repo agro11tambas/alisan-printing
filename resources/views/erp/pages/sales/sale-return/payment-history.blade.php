@@ -66,12 +66,22 @@
         </div>
         <div class="page-header-right ms-auto">
             <div class="page-header-right-items">
+                <div class="d-flex d-md-none">
+                    <a href="javascript:void(0)" class="page-header-right-close-toggle" onclick="goBack()">
+                        <i class="feather-arrow-left me-2"></i><span>Back</span>
+                    </a>
+                </div>
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="/erp/sales/sale-return" class="btn btn-light-brand">
+                    <a href="javascript:history.back()" class="btn btn-light-brand">
                         <i class="feather-arrow-left me-2"></i>
                         <span>Back</span>
                     </a>
                 </div>
+            </div>
+            <div class="d-md-none d-flex align-items-center">
+                <a href="javascript:void(0)" class="page-header-right-open-toggle">
+                    <i class="feather-align-right fs-20"></i>
+                </a>
             </div>
         </div>
     </div>
@@ -103,16 +113,24 @@
                                     <div class="d-flex justify-content-between align-items-center bg-light p-2">
                                         <span><strong>Tanggal:</strong>
                                             {{ \Carbon\Carbon::parse($creditGroup->first()->transaction_date)->format('d-m-Y') }}</span>
-                                        <button type="button" class="btn btn-sm btn-primary btn-edit-payment"
-                                            data-bs-toggle="modal" data-bs-target="#modalEditPayment"
-                                            data-group="{{ $groupId }}"
-                                            data-date="{{ \Carbon\Carbon::parse($creditGroup->first()->transaction_date)->format('Y-m-d') }}"
-                                            data-amount="{{ $creditGroup->sum('credit') }}"
-                                            data-account="{{ optional($creditGroup->first())->account_id }}"
-                                            data-note="{{ $creditGroup->first()->note }}"
-                                            data-proof='@json($creditGroup->first()->proof)'>
-                                            <i class="feather feather-edit-3 me-2"></i>Edit
-                                        </button>
+                                        <div class="d-flex gap-3">
+                                            <button type="button" class="btn btn-sm btn-primary btn-edit-payment"
+                                                data-bs-toggle="modal" data-bs-target="#modalEditPayment"
+                                                data-group="{{ $groupId }}"
+                                                data-date="{{ \Carbon\Carbon::parse($creditGroup->first()->transaction_date)->format('Y-m-d') }}"
+                                                data-amount="{{ $creditGroup->sum('credit') }}"
+                                                data-account="{{ optional($creditGroup->first())->account_id }}"
+                                                data-note="{{ $creditGroup->first()->note }}"
+                                                data-proof='@json($creditGroup->first()->proof)'>
+                                                <i class="feather feather-edit-3 me-2"></i>Edit
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-success btn-verify-payment"
+                                                data-group="{{ $groupId }}"
+                                                data-date="{{ \Carbon\Carbon::parse($creditGroup->first()->transaction_date)->format('d-m-Y') }}"
+                                                data-amount="{{ number_format($creditGroup->sum('credit'), 0, ',', '.') }}">
+                                                <i class="feather-check-circle me-1"></i> Verify
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div class="table-responsive">
@@ -124,6 +142,7 @@
                                                     <th>Keterangan</th>
                                                     {{-- <th>Particular</th> --}}
                                                     <th>Proof</th>
+                                                    <th>Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -150,6 +169,13 @@
                                                                 @endif
                                                             @else
                                                                 <span class="text-muted">No Proof</span>
+                                                            @endif
+                                                        </td>
+                                                        <td>
+                                                            @if ($trx->verified)
+                                                                <span class="badge bg-success">Verified</span>
+                                                            @else
+                                                                <span class="badge bg-secondary">Pending</span>
                                                             @endif
                                                         </td>
                                                     </tr>
@@ -247,6 +273,36 @@
             </div>
         </div>
     </div>
+
+    {{-- 🔹 Modal Konfirmasi Verify --}}
+    <div class="modal fade-scale" id="modalVerifyPayment" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title text-white">
+                        <i class="feather-check-circle me-2"></i>Konfirmasi Verifikasi Pembayaran
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Apakah kamu yakin ingin menandai pembayaran berikut sebagai
+                        <strong>Verified</strong>?
+                    </p>
+                    <ul class="list-unstyled mb-3">
+                        <li><strong>Tanggal:</strong> <span id="verifyDate" class="text-dark"></span></li>
+                        <li><strong>Jumlah:</strong> <span id="verifyAmount" class="text-dark"></span></li>
+                    </ul>
+                    <input type="hidden" id="verifyGroupId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" id="btnConfirmVerify" class="btn btn-success">
+                        <i class="feather-check-circle me-1"></i>Ya, Verify
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
@@ -258,7 +314,7 @@
             const previewContainer = document.getElementById('proofPreviewContainer');
             const fileInput = document.getElementById('payment_proof');
 
-            // edit button
+            // 🔹 Tombol edit
             document.querySelectorAll('.btn-edit-payment').forEach(btn => {
                 btn.addEventListener('click', function() {
                     document.getElementById('transaction_group_id').value = this.dataset.group;
@@ -274,7 +330,7 @@
                 });
             });
 
-            // paste upload
+            // 🔹 Paste Upload
             function addPreview(url, file) {
                 const wrap = document.createElement('div');
                 wrap.classList.add('preview-item');
@@ -317,14 +373,14 @@
                 });
             });
 
-            // format angka
+            // 🔹 Format angka
             const paidInput = document.getElementById('edit_paid_amount');
             paidInput.addEventListener('input', function() {
                 let val = this.value.replace(/\D/g, '') || '0';
                 this.value = new Intl.NumberFormat('id-ID').format(val);
             });
 
-            // submit
+            // 🔹 Submit Form (AJAX)
             form.addEventListener('submit', e => {
                 e.preventDefault();
                 const data = new FormData(form);
@@ -340,30 +396,15 @@
                     data,
                     processData: false,
                     contentType: false,
-                    success: r => {
+                    success: function(res) {
                         Swal.fire({
                             icon: 'success',
                             title: 'Berhasil!',
-                            text: r.message ?? 'Updated',
-                            timer: 1500,
+                            text: res.message ?? 'Payment updated successfully',
                             showConfirmButton: false
                         });
                         $('#modalEditPayment').modal('hide');
-                        $.get(window.location.href, function(html) {
-                            const newDoc = new DOMParser().parseFromString(html,
-                                'text/html');
-                            const updatedCard = newDoc.querySelector(
-                                    `[data-group="${form.transaction_group_id.value}"]`)
-                                ?.closest('.border.rounded');
-
-                            if (updatedCard) {
-                                // ganti card lama dengan versi baru dari server
-                                const oldCard = document.querySelector(
-                                    `[data-group="${form.transaction_group_id.value}"]`
-                                )?.closest('.border.rounded');
-                                if (oldCard) oldCard.replaceWith(updatedCard);
-                            }
-                        });
+                        setTimeout(() => window.location.reload(), 300);
                     },
                     error: x => Swal.fire({
                         icon: 'error',
@@ -373,34 +414,89 @@
                 });
             });
 
-            // preview proof
+            // 🔹 Preview Proof
             const multiProofModal = new bootstrap.Modal(document.getElementById('multiProofModal'));
-            const multiProofContainer = document.getElementById('multiProofContainer');
-            // ===== Preview Proof (2 kolom besar) =====
-            document.addEventListener('DOMContentLoaded', function() {
-                const multiProofModal = new bootstrap.Modal(document.getElementById('multiProofModal'));
-                const multiProofContainer = document.getElementById('multiProofContainer');
+            const multiProofContainer = $('#multiProofContainer');
 
-                $(document).on('click', '.btn-preview-proof', function() {
-                    const proofs = JSON.parse($(this).attr('data-proofs'));
-                    const multiProofModal = new bootstrap.Modal($('#multiProofModal')[0]);
-                    const multiProofContainer = $('#multiProofContainer');
-                    multiProofContainer.html('');
-
-                    proofs.forEach(item => {
-                        const col = $(`
-            <div class="col-md-6 col-sm-12">
-                <div class="border rounded shadow-sm p-2 bg-white h-100 text-center">
-                    <img src="/${item.file}" class="img-fluid rounded mb-2" style="max-height:400px;object-fit:contain;">
-                    <p class="small text-muted mt-2 mb-0">Note: ${item.note || '-'}</p>
+            $(document).on('click', '.btn-preview-proof', function() {
+                const proofs = JSON.parse($(this).attr('data-proofs') || '[]');
+                multiProofContainer.html('');
+                proofs.forEach(item => {
+                    const col = $(`
+                <div class="col-md-6 col-sm-12">
+                    <div class="border rounded shadow-sm p-2 bg-white h-100 text-center">
+                        <img src="/${item.file}" class="img-fluid rounded mb-2" style="max-height:400px;object-fit:contain;">
+                        <p class="small text-muted mt-2 mb-0">Note: ${item.note || '-'}</p>
+                    </div>
                 </div>
-            </div>
-        `);
-                        multiProofContainer.append(col);
-                    });
-
-                    multiProofModal.show();
+            `);
+                    multiProofContainer.append(col);
                 });
+                multiProofModal.show();
+            });
+
+            // ============================
+            // 🔹 MODAL VERIFY LOGIC
+            // ============================
+            const modalVerify = new bootstrap.Modal(document.getElementById('modalVerifyPayment'));
+            const verifyDate = document.getElementById('verifyDate');
+            const verifyAmount = document.getElementById('verifyAmount');
+            const verifyGroupId = document.getElementById('verifyGroupId');
+            const btnConfirmVerify = document.getElementById('btnConfirmVerify');
+
+            // Klik tombol Verify → buka modal
+            $(document).on('click', '.btn-verify-payment', function() {
+                const group = $(this).data('group');
+                const date = $(this).data('date');
+                const amount = $(this).data('amount');
+
+                verifyGroupId.value = group;
+                verifyDate.textContent = date;
+                verifyAmount.textContent = 'Rp ' + amount;
+                modalVerify.show();
+            });
+
+            // Klik tombol "Ya, Verify" di modal
+            btnConfirmVerify.addEventListener('click', function() {
+                const groupId = verifyGroupId.value;
+                btnConfirmVerify.disabled = true;
+                btnConfirmVerify.innerHTML =
+                    '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
+
+                fetch(`/erp/sales/sale-list/verify-payment/${groupId}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(async (res) => {
+                        const data = await res.json();
+                        if (!res.ok) throw data;
+                        modalVerify.hide();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: data.message ?? 'Payment berhasil diverifikasi',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                        setTimeout(() => window.location.reload(), 1000);
+                    })
+                    .catch(err => {
+                        modalVerify.hide();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: err.message ?? 'Terjadi kesalahan saat verifikasi'
+                        });
+                    })
+                    .finally(() => {
+                        btnConfirmVerify.disabled = false;
+                        btnConfirmVerify.innerHTML =
+                            '<i class="feather-check-circle me-1"></i>Ya, Verify';
+                    });
             });
         });
     </script>

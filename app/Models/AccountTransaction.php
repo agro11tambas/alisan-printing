@@ -28,6 +28,7 @@ class AccountTransaction extends Model
         'balance',
         'note',
         'proof',
+        'verified',
         'particular',
         'transaction_group_id',
     ];

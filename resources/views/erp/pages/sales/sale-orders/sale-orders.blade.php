@@ -404,7 +404,7 @@
                         data: 'notes'
                     },
                     {
-                        data: 'order_date', // tambahkan kolom ini
+                        data: 'created_at', // tambahkan kolom ini
                         visible: false, // disembunyikan dari tampilan
                         searchable: false // tidak perlu di-search
                     }

@@ -167,7 +167,7 @@ class DesignController extends Controller
                 $actionButtons = view('erp.pages.designs.partials.action-button', compact('design', 'allUploaded'))->render();
 
                 $customerHtml = '
-                    <div>
+                    <div style="white-space: normal; word-break: break-word; max-width:180px;">
                         <div class="fw-semibold">' . e($design->order?->customerAddress?->business_name ?? '-') . '</div>
                         <small class="text-muted">' . e($design->order?->customer?->name ?? '-') . '</small>
                     </div>

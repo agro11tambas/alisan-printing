@@ -1589,6 +1589,27 @@ class PurchaseReturnController extends Controller
         }
     }
 
+    public function verifyPayment($groupId)
+    {
+        try {
+            $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
+
+            if ($transactions->isEmpty()) {
+                return response()->json(['message' => 'Transaksi tidak ditemukan.'], 404);
+            }
+
+            foreach ($transactions as $trx) {
+                $trx->update(['verified' => true]);
+            }
+
+            return response()->json(['message' => 'Payment berhasil diverifikasi.']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal verifikasi payment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function getPaymentHistory($id)
     {
         $purchaseReturn = PurchaseReturn::with('supplier')->findOrFail($id);
@@ -1621,6 +1642,9 @@ class PurchaseReturnController extends Controller
     //         'paid_amount'           => 'required|numeric|min:1',
     //         'cash_bank_account_id'  => 'required|exists:accounts,id',
     //         'note'                  => 'nullable|string',
+    //         'payment_proof'         => 'nullable|array',
+    //         'payment_proof.*'       => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+    //         'note_per_image'        => 'nullable|array',
     //     ]);
 
     //     DB::beginTransaction();
@@ -1633,7 +1657,53 @@ class PurchaseReturnController extends Controller
     //         $purchaseReturnId = $transactions->first()->purchase_return_id;
     //         $purchaseReturn   = PurchaseReturn::findOrFail($purchaseReturnId);
 
-    //         // cari transaksi debit lama (Cash/Bank masuk)
+    //         // =====================================================
+    //         // 🔹 Handle Multiple Uploads (bukti + note)
+    //         // =====================================================
+    //         $uploadedProofs = [];
+    //         $notes = $request->note_per_image ?? [];
+
+    //         // Ambil proof lama biar gak hilang
+    //         $oldProofs = [];
+    //         $oldProofJson = $transactions->first()?->proof;
+    //         if ($oldProofJson && is_string($oldProofJson)) {
+    //             $decoded = json_decode($oldProofJson, true);
+    //             if (is_array($decoded)) {
+    //                 $oldProofs = $decoded;
+    //             }
+    //         }
+
+    //         if ($request->hasFile('payment_proof')) {
+    //             $uploadPath = public_path('uploads/payment_proofs');
+    //             if (!file_exists($uploadPath)) {
+    //                 mkdir($uploadPath, 0755, true);
+    //             }
+
+    //             foreach ($request->file('payment_proof') as $index => $file) {
+    //                 $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+    //                 $file->move($uploadPath, $fileName);
+
+    //                 $path = 'uploads/payment_proofs/' . $fileName;
+    //                 $uploadedProofs[] = [
+    //                     'file' => str_replace('\\', '/', $path),
+    //                     'note' => $notes[$index] ?? '',
+    //                 ];
+    //             }
+    //         }
+
+    //         // 🔹 Kalau gak ada file baru → tetap pakai proof lama tapi update note kalau dikirim ulang
+    //         if (empty($uploadedProofs)) {
+    //             foreach ($oldProofs as $index => &$proof) {
+    //                 $proof['note'] = $notes[$index] ?? ($proof['note'] ?? '');
+    //             }
+    //             $uploadedProofs = $oldProofs;
+    //         }
+
+    //         $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+
+    //         // =====================================================
+    //         // 🔹 Refund Process (kode lama kamu tetap utuh)
+    //         // =====================================================
     //         $oldDebit = $transactions->firstWhere('debit', '>', 0);
     //         if (!$oldDebit) {
     //             throw new \Exception("Debit transaction (Cash/Bank) not found in this group");
@@ -1646,13 +1716,14 @@ class PurchaseReturnController extends Controller
     //         $oldAccount->closing_balance -= $oldAmount;
     //         $oldAccount->save();
 
-    //         // update transaksi debit lama → ganti akun/amount/date/note
+    //         // update transaksi debit lama → ganti akun/amount/date/note + proof
     //         $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
     //         $oldDebit->update([
     //             'transaction_date' => $request->transaction_date,
     //             'account_id'       => $cashBankAccount->id,
     //             'debit'            => $request->paid_amount,
     //             'note'             => $request->note ?? '',
+    //             'proof'            => $proofJson, // 🔹 simpan bukti di kolom proof
     //         ]);
 
     //         // update saldo akun baru (Cash/Bank)
@@ -1670,7 +1741,7 @@ class PurchaseReturnController extends Controller
 
     //         // hitung ulang total refund
     //         $totalRefund = AccountTransaction::where('purchase_return_id', $purchaseReturn->id)
-    //             ->where('debit', '>', 0) // ambil refund Cash/Bank masuk
+    //             ->where('debit', '>', 0)
     //             ->sum('debit');
 
     //         $purchaseReturn->refund_amount     = $totalRefund;
@@ -1728,7 +1799,6 @@ class PurchaseReturnController extends Controller
             $uploadedProofs = [];
             $notes = $request->note_per_image ?? [];
 
-            // Ambil proof lama biar gak hilang
             $oldProofs = [];
             $oldProofJson = $transactions->first()?->proof;
             if ($oldProofJson && is_string($oldProofJson)) {
@@ -1739,7 +1809,7 @@ class PurchaseReturnController extends Controller
             }
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/payment_proofs');
+                $uploadPath = public_path('uploads/refund_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
@@ -1748,15 +1818,13 @@ class PurchaseReturnController extends Controller
                     $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                     $file->move($uploadPath, $fileName);
 
-                    $path = 'uploads/payment_proofs/' . $fileName;
                     $uploadedProofs[] = [
-                        'file' => str_replace('\\', '/', $path),
+                        'file' => 'uploads/refund_proofs/' . $fileName,
                         'note' => $notes[$index] ?? '',
                     ];
                 }
             }
 
-            // 🔹 Kalau gak ada file baru → tetap pakai proof lama tapi update note kalau dikirim ulang
             if (empty($uploadedProofs)) {
                 foreach ($oldProofs as $index => &$proof) {
                     $proof['note'] = $notes[$index] ?? ($proof['note'] ?? '');
@@ -1767,35 +1835,44 @@ class PurchaseReturnController extends Controller
             $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // =====================================================
-            // 🔹 Refund Process (kode lama kamu tetap utuh)
+            // 🔹 Identify Refund Type: Product vs Freight
+            // =====================================================
+            $isFreight = false;
+            $isProduct = false;
+
+            $firstTrx = $transactions->first();
+            if ($firstTrx && str_contains(strtolower($firstTrx->particular), 'freight')) {
+                $isFreight = true;
+            } elseif ($firstTrx && str_contains(strtolower($firstTrx->particular), 'product')) {
+                $isProduct = true;
+            }
+
+            // =====================================================
+            // 🔹 Refund Process
             // =====================================================
             $oldDebit = $transactions->firstWhere('debit', '>', 0);
-            if (!$oldDebit) {
-                throw new \Exception("Debit transaction (Cash/Bank) not found in this group");
-            }
+            if (!$oldDebit) throw new \Exception("Debit transaction (Cash/Bank) not found in this group");
 
             $oldAccount = $oldDebit->account;
             $oldAmount  = $oldDebit->debit;
 
-            // rollback saldo akun lama (Cash/Bank)
-            $oldAccount->closing_balance -= $oldAmount;
-            $oldAccount->save();
+            // rollback saldo lama (refund = uang keluar → tambahkan kembali)
+            $oldAccount->increment('closing_balance', $oldAmount);
 
-            // update transaksi debit lama → ganti akun/amount/date/note + proof
+            // update transaksi debit lama → akun/amount/date/note + proof
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
             $oldDebit->update([
                 'transaction_date' => $request->transaction_date,
                 'account_id'       => $cashBankAccount->id,
                 'debit'            => $request->paid_amount,
                 'note'             => $request->note ?? '',
-                'proof'            => $proofJson, // 🔹 simpan bukti di kolom proof
+                'proof'            => $proofJson,
             ]);
 
-            // update saldo akun baru (Cash/Bank)
-            $cashBankAccount->closing_balance += $request->paid_amount;
-            $cashBankAccount->save();
+            // update saldo akun baru (refund = uang keluar → kurangi saldo)
+            $cashBankAccount->decrement('closing_balance', $request->paid_amount);
 
-            // update juga baris kredit Purchase Return biar sinkron
+            // update juga baris kredit (Purchase Return) biar sinkron
             $returnTrx = $transactions->firstWhere('credit', '>', 0);
             if ($returnTrx) {
                 $returnTrx->update([
@@ -1804,31 +1881,45 @@ class PurchaseReturnController extends Controller
                 ]);
             }
 
-            // hitung ulang total refund
-            $totalRefund = AccountTransaction::where('purchase_return_id', $purchaseReturn->id)
+            // =====================================================
+            // 🔹 Recalculate Refund Amount
+            // =====================================================
+            $totalRefundProduct = AccountTransaction::where('purchase_return_id', $purchaseReturn->id)
                 ->where('debit', '>', 0)
+                ->where('particular', 'like', '%product%')
                 ->sum('debit');
 
-            $purchaseReturn->refund_amount     = $totalRefund;
-            $purchaseReturn->remaining_amount  = max(0, $purchaseReturn->total_amount - $totalRefund);
+            $totalRefundFreight = AccountTransaction::where('purchase_return_id', $purchaseReturn->id)
+                ->where('debit', '>', 0)
+                ->where('particular', 'like', '%freight%')
+                ->sum('debit');
 
-            if ($purchaseReturn->refund_amount == 0) {
-                $purchaseReturn->payment_status = 'Unpaid';
-            } elseif ($purchaseReturn->refund_amount < $purchaseReturn->total_amount) {
+            $purchaseReturn->refund_amount_product = $totalRefundProduct;
+            $purchaseReturn->remaining_amount_product = max(0, $purchaseReturn->total_amount_product - $totalRefundProduct);
+
+            $purchaseReturn->refund_amount_freight = $totalRefundFreight;
+            $purchaseReturn->remaining_amount_freight = max(0, $purchaseReturn->total_amount_freight - $totalRefundFreight);
+
+            $totalRefunded = $totalRefundProduct + $totalRefundFreight;
+            $totalAll = ($purchaseReturn->total_amount_product ?? 0) + ($purchaseReturn->total_amount_freight ?? 0);
+
+            if ($totalRefunded == 0) {
+                $purchaseReturn->payment_status = 'Unrefunded';
+            } elseif ($totalRefunded < $totalAll) {
                 $purchaseReturn->payment_status = 'Partially Refunded';
-            } elseif ($purchaseReturn->refund_amount == $purchaseReturn->total_amount) {
+            } elseif ($totalRefunded == $totalAll) {
                 $purchaseReturn->payment_status = 'Refunded';
-            } else {
+            } elseif ($totalRefunded > $totalAll) {
                 $purchaseReturn->payment_status = 'Over Refunded';
             }
 
             $purchaseReturn->save();
 
             DB::commit();
-            return redirect()->back()->with('success', 'Refund berhasil diperbarui.');
+            return back()->with('success', 'Refund berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal update refund: ' . $e->getMessage());
+            return back()->with('error', 'Gagal update refund: ' . $e->getMessage());
         }
     }
 

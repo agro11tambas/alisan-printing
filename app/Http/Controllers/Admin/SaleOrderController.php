@@ -108,7 +108,7 @@ class SaleOrderController extends Controller
         // 🔹 Return format JSON ringan (lazy load style)
         return response()->json([
             'data' => $data->map(function ($order) {
-                $date = Carbon::parse($order->created_at)->format('j M y H:i');
+                $date = Carbon::parse($order->created_at)->format('d M y H:i');
                 $orderNumber = '
                 <div>
                     <div>' . e($order->order_number) . '</div>
