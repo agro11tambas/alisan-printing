@@ -133,14 +133,22 @@ class PurchaseReturnController extends Controller
                 $refundHtml = '<span class="text-success">Rp ' . number_format($refundTotal, 0, ',', '.') . '</span>';
                 $remainingHtml = '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
 
-                // 🏷️ Payment Status
+                // 🏷️ Payment Status + Verified check
                 $paymentStatus = strtolower($purchase->payment_status);
-                $paymentBadge = match ($paymentStatus) {
-                    'paid' => '<div class="badge bg-soft-success text-success">' . e($purchase->payment_status) . '</div>',
-                    'overpaid' => '<div class="badge bg-soft-primary text-primary">' . e($purchase->payment_status) . '</div>',
-                    'unpaid' => '<div class="badge bg-soft-danger text-danger">' . e($purchase->payment_status) . '</div>',
-                    default => '<div class="badge bg-soft-warning text-warning">' . e($purchase->payment_status) . '</div>',
+                $badgeClass = match ($paymentStatus) {
+                    'paid'          => 'bg-soft-success text-success',
+                    'over refunded' => 'bg-soft-primary text-primary',
+                    'unpaid'        => 'bg-soft-danger text-danger',
+                    'partially paid' => 'bg-soft-warning text-warning',
+                    default          => 'bg-secondary',
                 };
+
+                $verifiedIcon = '';
+                if ($purchase->verified) {
+                    $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
+                }
+
+                $paymentBadge = '<div class="badge ' . $badgeClass . '">' . ucfirst($paymentStatus) . '</div>' . $verifiedIcon;
 
                 // 🏦 Account
                 $account = e($purchase->account ?? '-');
@@ -473,6 +481,7 @@ class PurchaseReturnController extends Controller
                     'note'                 => $request->note ?? '',
                     'particular'           => 'Purchase Return',
                     'transaction_group_id' => $groupId,
+                    'verified'             => 1,
                 ]);
 
                 // jika tipe akun liability, credit akan menambah saldo hutang
@@ -540,324 +549,6 @@ class PurchaseReturnController extends Controller
             'remainingItems' => $expandedItems, // jangan filter → tampil semua
         ]);
     }
-
-    // public function update(Request $request, $id)
-    // {
-    //     $request->validate([
-    //         'return_date'             => 'required|date',
-    //         'suppliers'               => 'required|exists:suppliers,id',
-    //         'purchase_number'         => 'required|string',
-    //         'status'                  => 'required|string',
-    //         'notes'                   => 'nullable|string',
-    //         'inventory_warehouse_id'  => 'required|exists:inventory_warehouses,id',
-    //         'product'                 => 'required|array',
-    //         'product.*'               => 'exists:products,id',
-    //         'qty'                     => 'required|array',
-    //         'qty.*'                   => 'numeric|min:1',
-    //         'price'                   => 'required|array',
-    //         'price.*'                 => 'numeric|min:0',
-    //         'freight'                 => 'required|array',
-    //         'freight.*'               => 'numeric|min:0',
-    //         'total'                   => 'required|array',
-    //         'total.*'                 => 'numeric|min:0',
-    //         'sub_total'               => 'required|numeric|min:0',
-    //         'total_amount'            => 'required|numeric|min:0',
-    //         'image'                   => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-    //         'note'                    => 'nullable|string',
-    //         'edit_note'               => 'required|string|max:500',
-    //         // optional:
-    //         // 'purchase_item_ids'     => 'nullable|array',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $purchaseReturn = PurchaseReturn::with(['items', 'accountTransactions'])->findOrFail($id);
-
-    //         // 🚫 Blokir kalau sudah ada stock out
-    //         if ($purchaseReturn->hasStockOut()) {
-    //             DB::rollBack();
-    //             return back()->with('error', 'Purchase Return ini sudah memiliki Stock Out dan tidak bisa diedit lagi.');
-    //         }
-
-    //         // ===== 1) SNAPSHOT LAMA
-    //         $oldReturn = $purchaseReturn->only([
-    //             'purchase_number',
-    //             'return_date',
-    //             'supplier_id',
-    //             'status',
-    //             'total_amount',
-    //             'refund_amount',
-    //             'remaining_amount',
-    //             'payment_status'
-    //         ]);
-    //         $oldItems = $purchaseReturn->items->mapWithKeys(fn($i) => [
-    //             $i->product_id => [
-    //                 'product'  => $i->product_name,
-    //                 'quantity' => $i->quantity,
-    //                 'price'    => $i->price,
-    //                 'total'    => $i->total,
-    //             ]
-    //         ]);
-
-    //         $grandTotal      = array_sum($request->total);
-    //         $paidAmount      = $request->refund_amount ?? $purchaseReturn->refund_amount ?? 0;
-    //         $remainingAmount = $grandTotal - $paidAmount;
-    //         $paymentStatus   = $paidAmount <= 0 ? 'Unpaid' : ($paidAmount < $grandTotal ? 'Partially Paid' : 'Refunded');
-
-    //         // === Handle image (opsional)
-    //         if ($request->hasFile('image')) {
-    //             if ($purchaseReturn->image && file_exists(public_path('storage/' . $purchaseReturn->image))) {
-    //                 @unlink(public_path('storage/' . $purchaseReturn->image));
-    //             }
-    //             $image    = $request->file('image');
-    //             $filename = time() . '_' . $image->getClientOriginalName();
-    //             $image->move(public_path('storage/uploads/purchase_returns'), $filename);
-    //             $purchaseReturn->image = 'uploads/purchase_returns/' . $filename;
-    //         }
-
-    //         // Update header PurchaseReturn
-    //         $purchaseReturn->update([
-    //             'purchase_number'  => $request->purchase_number,
-    //             'return_date'      => $request->return_date,
-    //             'supplier_id'      => $request->suppliers,
-    //             'payment_status'   => $paymentStatus,
-    //             'total_amount'     => $grandTotal,
-    //             'refund_amount'    => $paidAmount,
-    //             'remaining_amount' => $remainingAmount,
-    //             'status'           => $request->status,
-    //             'note'             => $request->notes,
-    //         ]);
-
-    //         // Pastikan ada transaction_group_id
-    //         if (empty($purchaseReturn->transaction_group_id)) {
-    //             $purchaseReturn->transaction_group_id = \Illuminate\Support\Str::uuid();
-    //             $purchaseReturn->save();
-    //         }
-
-    //         // ===== 2) INVENTORY HEADER (BUAT/UPDATE DULU)
-    //         $inventory = Inventory::where('purchase_return_id', $purchaseReturn->id)->first();
-    //         if ($inventory) {
-    //             $inventory->update([
-    //                 'purchase_number' => $request->purchase_number,
-    //                 'date'            => $request->return_date,
-    //                 'status'          => 'Stock Out',
-    //                 'note'            => 'Purchase Returns',
-    //             ]);
-    //         } else {
-    //             $inventory = Inventory::create([
-    //                 'purchase_return_id' => $purchaseReturn->id,
-    //                 'purchase_number'    => $request->purchase_number,
-    //                 'date'               => $request->return_date,
-    //                 'status'             => 'Stock Out',
-    //                 'note'               => 'Purchase Returns',
-    //             ]);
-    //         }
-
-    //         // ===== 3) ITEMS (DELTA-BASED) + INVENTORY ITEMS (STOCK OUT = QTY)
-    //         $existingItems      = $purchaseReturn->items->keyBy('product_id');
-    //         $requestKeys        = [];
-    //         $touchedProductIds  = [];
-
-    //         foreach ($request->product as $idx => $productId) {
-    //             $qty = (int) $request->qty[$idx];
-    //             if ($qty <= 0) continue;
-
-    //             $price    = (float) $request->price[$idx];
-    //             $freight  = (float) $request->freight[$idx];
-    //             $subtotal = (float) ($request->total[$idx] ?? ($qty * $price));
-    //             $product  = Products::findOrFail($productId);
-
-    //             $requestKeys[]       = $productId;
-    //             $touchedProductIds[] = $productId;
-
-    //             if ($existingItems->has($productId)) {
-    //                 // UPDATE ITEM LAMA
-    //                 $item = $existingItems[$productId];
-    //                 $item->update([
-    //                     'quantity'               => $qty,
-    //                     'price'                  => $price,
-    //                     'freight'                => $freight,
-    //                     'total'                  => $subtotal,
-    //                     // kalau mau dukung pindah gudang
-    //                     'inventory_warehouse_id' => $request->inventory_warehouse_id,
-    //                     // optional kalau purchase_item_ids berubah:
-    //                     'purchase_item_id'       => $request->purchase_item_ids[$idx] ?? $item->purchase_item_id,
-    //                 ]);
-
-    //                 // Upsert InventoryItem (PASTI stock_out = qty agar stok berkurang)
-    //                 InventoryItem::updateOrCreate(
-    //                     ['purchase_return_item_id' => $item->id],
-    //                     [
-    //                         'inventory_id'            => $inventory->id,
-    //                         'product_id'              => $productId,
-    //                         'inventory_warehouse_id'  => $request->inventory_warehouse_id,
-    //                         'quantity'                => $qty,
-    //                         'price'                   => $price,
-    //                         'stock_in'                => 0,
-    //                         'stock_out'               => 0,   // <-- kunci decrement
-    //                         'remaining_stock_in'      => $qty,
-    //                     ]
-    //                 );
-    //             } else {
-    //                 // INSERT ITEM BARU
-    //                 $newItem = PurchaseReturnItem::create([
-    //                     'purchase_return_id'     => $purchaseReturn->id,
-    //                     'product_id'             => $productId,
-    //                     'inventory_warehouse_id' => $request->inventory_warehouse_id,
-    //                     'purchase_item_id'       => $request->purchase_item_ids[$idx] ?? null,
-    //                     'product_name'           => $product->name,
-    //                     'status'                 => 'Purchase Return',
-    //                     'quantity'               => $qty,
-    //                     'price'                  => $price,
-    //                     'freight'                => $freight,
-    //                     'total'                  => $subtotal,
-    //                 ]);
-
-    //                 // InventoryItem: STOCK OUT = QTY
-    //                 InventoryItem::create([
-    //                     'inventory_id'            => $inventory->id,
-    //                     'product_id'              => $productId,
-    //                     'inventory_warehouse_id'  => $newItem->inventory_warehouse_id,
-    //                     'purchase_return_item_id' => $newItem->id,
-    //                     'quantity'                => $qty,
-    //                     'price'                   => $price,
-    //                     'stock_in'                => 0,
-    //                     'stock_out'               => $qty,   // <-- kunci decrement
-    //                     'remaining_stock_in'      => 0,
-    //                 ]);
-    //             }
-    //         }
-
-    //         // HAPUS ITEM YANG TIDAK ADA DI REQUEST
-    //         foreach ($existingItems as $pid => $item) {
-    //             if (!in_array($pid, $requestKeys)) {
-    //                 $touchedProductIds[] = $pid;
-    //                 InventoryItem::where('purchase_return_item_id', $item->id)->delete();
-    //                 $item->delete();
-    //             }
-    //         }
-
-    //         // ===== 4) SNAPSHOT BARU + DIFF
-    //         $purchaseReturn->load('items');
-    //         $newReturn = $purchaseReturn->only([
-    //             'purchase_number',
-    //             'return_date',
-    //             'supplier_id',
-    //             'status',
-    //             'total_amount',
-    //             'refund_amount',
-    //             'remaining_amount',
-    //             'payment_status'
-    //         ]);
-    //         $newItems = $purchaseReturn->items->mapWithKeys(fn($i) => [
-    //             $i->product_id => [
-    //                 'product'  => $i->product_name,
-    //                 'quantity' => $i->quantity,
-    //                 'price'    => $i->price,
-    //                 'total'    => $i->total,
-    //             ]
-    //         ]);
-
-    //         $returnDiff = ['old' => [], 'new' => []];
-    //         foreach ($newReturn as $field => $newVal) {
-    //             $oldVal = $oldReturn[$field] ?? null;
-    //             if ($oldVal != $newVal) {
-    //                 $returnDiff['old'][$field] = $oldVal;
-    //                 $returnDiff['new'][$field] = $newVal;
-    //             }
-    //         }
-
-    //         $itemsDiff = [];
-    //         $allKeys = array_unique(array_merge(array_keys($oldItems->toArray()), array_keys($newItems->toArray())));
-    //         foreach ($allKeys as $pid) {
-    //             $old = $oldItems[$pid] ?? null;
-    //             $new = $newItems[$pid] ?? null;
-
-    //             if ($old && !$new) {
-    //                 $itemsDiff[] = ['product' => $old['product'], 'action' => 'removed'];
-    //             } elseif (!$old && $new) {
-    //                 $itemsDiff[] = ['product' => $new['product'], 'action' => 'added'];
-    //             } elseif ($old && $new) {
-    //                 $changed = [];
-    //                 foreach (['quantity', 'price', 'total'] as $f) {
-    //                     if ($old[$f] != $new[$f]) {
-    //                         $changed[$f] = ['old' => $old[$f], 'new' => $new[$f]];
-    //                     }
-    //                 }
-    //                 if ($changed) {
-    //                     $itemsDiff[] = ['product' => $new['product'], 'action' => 'updated', 'fields' => $changed];
-    //                 }
-    //             }
-    //         }
-
-    //         $changes = ['purchase_return' => $returnDiff, 'items' => $itemsDiff];
-
-    //         // ===== 5) RECALC COST & STOCK (decrement terjadi karena stock_out di atas)
-    //         $touchedProductIds = array_values(array_unique($touchedProductIds));
-    //         foreach ($touchedProductIds as $productId) {
-    //             if ($product = Products::find($productId)) {
-    //                 ProductCostService::updateCostAndStock($product);
-    //             }
-    //         }
-
-    //         // ===== 6) ACCOUNT TRANSACTIONS (akun type: Purchase Return)
-    //         $purchaseReturnAccount = Account::where('type', 'Purchase Return')->firstOrFail();
-    //         $existingTx = AccountTransaction::where('purchase_return_id', $purchaseReturn->id)
-    //             ->where('account_id', $purchaseReturnAccount->id)
-    //             ->where('credit', '>', 0)
-    //             ->first();
-
-    //         if (!$existingTx) {
-    //             AccountTransaction::create([
-    //                 'purchase_return_id'   => $purchaseReturn->id,
-    //                 'purchase_number'      => $request->purchase_number,
-    //                 'transaction_date'     => $request->return_date,
-    //                 'account_id'           => $purchaseReturnAccount->id,
-    //                 'credit'               => $grandTotal,
-    //                 'debit'                => 0,
-    //                 'note'                 => $request->note ?? '',
-    //                 'particular'           => 'Purchase Return',
-    //                 'transaction_group_id' => $purchaseReturn->transaction_group_id,
-    //             ]);
-    //             $purchaseReturnAccount->increment('closing_balance', $grandTotal);
-    //         } else {
-    //             $diff = $grandTotal - $existingTx->credit;
-    //             $existingTx->update([
-    //                 'transaction_date' => $request->return_date,
-    //                 'credit'           => $grandTotal,
-    //                 'note'             => $request->note ?? '',
-    //             ]);
-    //             if ($diff != 0) {
-    //                 $purchaseReturnAccount->increment('closing_balance', $diff);
-    //             }
-    //         }
-
-    //         // ===== 7) SAVE EDIT HISTORY
-    //         PurchaseReturnEditHistory::create([
-    //             'purchase_return_id' => $purchaseReturn->id,
-    //             'edited_by'          => Auth::id(),
-    //             'changes'            => $changes,
-    //             'text'               => $request->edit_note,
-    //             'edited_at'          => now(),
-    //         ]);
-
-    //         $purchaseReturn->update([
-    //             'status_edited' => true,
-    //         ]);
-
-    //         DB::commit();
-    //         return redirect('/erp/purchases/purchase-returns')->with('success', 'Purchase Return updated successfully.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         Log::error('Purchase Return Update Error', [
-    //             'message' => $e->getMessage(),
-    //             'line'    => $e->getLine(),
-    //             'file'    => $e->getFile(),
-    //             'trace'   => $e->getTraceAsString(),
-    //         ]);
-    //         return redirect()->back()->with('error', 'Update failed: ' . $e->getMessage());
-    //     }
-    // }
 
     public function update(Request $request, $id)
     {
@@ -1378,7 +1069,7 @@ class PurchaseReturnController extends Controller
             $notes = $request->note_per_image ?? [];
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/refund_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
@@ -1445,6 +1136,7 @@ class PurchaseReturnController extends Controller
             }
 
             $purchaseReturn->transaction_group_id = $groupId;
+            $purchaseReturn->verified = false;
             $purchaseReturn->save();
 
             DB::commit();
@@ -1501,7 +1193,7 @@ class PurchaseReturnController extends Controller
             $notes = $request->note_per_image ?? [];
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/refund_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
@@ -1567,6 +1259,7 @@ class PurchaseReturnController extends Controller
             }
 
             $purchaseReturn->transaction_group_id = $groupId;
+            $purchaseReturn->verified = false;
             $purchaseReturn->save();
 
             DB::commit();
@@ -1592,20 +1285,45 @@ class PurchaseReturnController extends Controller
     public function verifyPayment($groupId)
     {
         try {
+            // 🔍 Ambil semua transaksi dalam group ini
             $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
 
             if ($transactions->isEmpty()) {
                 return response()->json(['message' => 'Transaksi tidak ditemukan.'], 404);
             }
 
+            // ✅ Update semua transaksi di group ini jadi verified
             foreach ($transactions as $trx) {
                 $trx->update(['verified' => true]);
             }
 
-            return response()->json(['message' => 'Payment berhasil diverifikasi.']);
+            // ✅ Ambil purchase_return_id dari transaksi pertama
+            $purchaseReturnId = $transactions->first()->purchase_return_id;
+
+            if ($purchaseReturnId) {
+                // 🔍 Ambil semua transaksi dengan purchase_return_id sama
+                $purchaseReturnTransactions = AccountTransaction::where('purchase_return_id', $purchaseReturnId)->get();
+
+                // 🔎 Hitung total transaksi & yang sudah verified
+                $verifiedCount = $purchaseReturnTransactions->where('verified', true)->count();
+                $totalCount = $purchaseReturnTransactions->count();
+
+                // ✅ Kalau semua transaksi verified → PurchaseReturn verified = true
+                if ($totalCount > 0 && $verifiedCount === $totalCount) {
+                    \App\Models\PurchaseReturn::where('id', $purchaseReturnId)->update(['verified' => true]);
+                } else {
+                    // ❌ Kalau masih ada transaksi belum verified → tetap false
+                    \App\Models\PurchaseReturn::where('id', $purchaseReturnId)->update(['verified' => false]);
+                }
+            }
+
+            return response()->json([
+                'message' => 'Refund berhasil diverifikasi.',
+                'group_id' => $groupId
+            ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Gagal verifikasi payment: ' . $e->getMessage()
+                'message' => 'Gagal verifikasi refund: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -1630,142 +1348,6 @@ class PurchaseReturnController extends Controller
             'bankAccounts'   => $bankAccounts,
         ]);
     }
-
-    // public function updatePayment(Request $request, $groupId)
-    // {
-    //     $request->merge([
-    //         'paid_amount' => str_replace('.', '', $request->paid_amount),
-    //     ]);
-
-    //     $request->validate([
-    //         'transaction_date'      => 'required|date',
-    //         'paid_amount'           => 'required|numeric|min:1',
-    //         'cash_bank_account_id'  => 'required|exists:accounts,id',
-    //         'note'                  => 'nullable|string',
-    //         'payment_proof'         => 'nullable|array',
-    //         'payment_proof.*'       => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
-    //         'note_per_image'        => 'nullable|array',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
-    //         if ($transactions->isEmpty()) {
-    //             throw new \Exception("Refund not found");
-    //         }
-
-    //         $purchaseReturnId = $transactions->first()->purchase_return_id;
-    //         $purchaseReturn   = PurchaseReturn::findOrFail($purchaseReturnId);
-
-    //         // =====================================================
-    //         // 🔹 Handle Multiple Uploads (bukti + note)
-    //         // =====================================================
-    //         $uploadedProofs = [];
-    //         $notes = $request->note_per_image ?? [];
-
-    //         // Ambil proof lama biar gak hilang
-    //         $oldProofs = [];
-    //         $oldProofJson = $transactions->first()?->proof;
-    //         if ($oldProofJson && is_string($oldProofJson)) {
-    //             $decoded = json_decode($oldProofJson, true);
-    //             if (is_array($decoded)) {
-    //                 $oldProofs = $decoded;
-    //             }
-    //         }
-
-    //         if ($request->hasFile('payment_proof')) {
-    //             $uploadPath = public_path('uploads/payment_proofs');
-    //             if (!file_exists($uploadPath)) {
-    //                 mkdir($uploadPath, 0755, true);
-    //             }
-
-    //             foreach ($request->file('payment_proof') as $index => $file) {
-    //                 $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-    //                 $file->move($uploadPath, $fileName);
-
-    //                 $path = 'uploads/payment_proofs/' . $fileName;
-    //                 $uploadedProofs[] = [
-    //                     'file' => str_replace('\\', '/', $path),
-    //                     'note' => $notes[$index] ?? '',
-    //                 ];
-    //             }
-    //         }
-
-    //         // 🔹 Kalau gak ada file baru → tetap pakai proof lama tapi update note kalau dikirim ulang
-    //         if (empty($uploadedProofs)) {
-    //             foreach ($oldProofs as $index => &$proof) {
-    //                 $proof['note'] = $notes[$index] ?? ($proof['note'] ?? '');
-    //             }
-    //             $uploadedProofs = $oldProofs;
-    //         }
-
-    //         $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
-
-    //         // =====================================================
-    //         // 🔹 Refund Process (kode lama kamu tetap utuh)
-    //         // =====================================================
-    //         $oldDebit = $transactions->firstWhere('debit', '>', 0);
-    //         if (!$oldDebit) {
-    //             throw new \Exception("Debit transaction (Cash/Bank) not found in this group");
-    //         }
-
-    //         $oldAccount = $oldDebit->account;
-    //         $oldAmount  = $oldDebit->debit;
-
-    //         // rollback saldo akun lama (Cash/Bank)
-    //         $oldAccount->closing_balance -= $oldAmount;
-    //         $oldAccount->save();
-
-    //         // update transaksi debit lama → ganti akun/amount/date/note + proof
-    //         $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
-    //         $oldDebit->update([
-    //             'transaction_date' => $request->transaction_date,
-    //             'account_id'       => $cashBankAccount->id,
-    //             'debit'            => $request->paid_amount,
-    //             'note'             => $request->note ?? '',
-    //             'proof'            => $proofJson, // 🔹 simpan bukti di kolom proof
-    //         ]);
-
-    //         // update saldo akun baru (Cash/Bank)
-    //         $cashBankAccount->closing_balance += $request->paid_amount;
-    //         $cashBankAccount->save();
-
-    //         // update juga baris kredit Purchase Return biar sinkron
-    //         $returnTrx = $transactions->firstWhere('credit', '>', 0);
-    //         if ($returnTrx) {
-    //             $returnTrx->update([
-    //                 'transaction_date' => $request->transaction_date,
-    //                 'note'             => $request->note ?? '',
-    //             ]);
-    //         }
-
-    //         // hitung ulang total refund
-    //         $totalRefund = AccountTransaction::where('purchase_return_id', $purchaseReturn->id)
-    //             ->where('debit', '>', 0)
-    //             ->sum('debit');
-
-    //         $purchaseReturn->refund_amount     = $totalRefund;
-    //         $purchaseReturn->remaining_amount  = max(0, $purchaseReturn->total_amount - $totalRefund);
-
-    //         if ($purchaseReturn->refund_amount == 0) {
-    //             $purchaseReturn->payment_status = 'Unpaid';
-    //         } elseif ($purchaseReturn->refund_amount < $purchaseReturn->total_amount) {
-    //             $purchaseReturn->payment_status = 'Partially Refunded';
-    //         } elseif ($purchaseReturn->refund_amount == $purchaseReturn->total_amount) {
-    //             $purchaseReturn->payment_status = 'Refunded';
-    //         } else {
-    //             $purchaseReturn->payment_status = 'Over Refunded';
-    //         }
-
-    //         $purchaseReturn->save();
-
-    //         DB::commit();
-    //         return redirect()->back()->with('success', 'Refund berhasil diperbarui.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         return redirect()->back()->with('error', 'Gagal update refund: ' . $e->getMessage());
-    //     }
-    // }
 
     public function updatePayment(Request $request, $groupId)
     {
@@ -1809,7 +1391,7 @@ class PurchaseReturnController extends Controller
             }
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/refund_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
@@ -1916,6 +1498,23 @@ class PurchaseReturnController extends Controller
             $purchaseReturn->save();
 
             DB::commit();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status'  => 'success',
+                    'message' => 'Refund berhasil diperbarui.',
+                    'data'    => [
+                        'transaction_group_id' => $groupId,
+                        'transaction_date'     => \Carbon\Carbon::parse($request->transaction_date)->format('d-m-Y'),
+                        'paid_amount'          => number_format($request->paid_amount, 0, ',', '.'),
+                        'account_id'           => $cashBankAccount->id,
+                        'account_name'         => $cashBankAccount->name,
+                        'account_type'         => $cashBankAccount->type,
+                        'note'                 => $request->note ?? '',
+                        'proofs'               => $uploadedProofs,
+                    ],
+                ]);
+            }
+
             return back()->with('success', 'Refund berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();

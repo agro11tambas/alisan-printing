@@ -20,7 +20,11 @@ class ReportItemsProductionAndWarehouseController extends Controller
         $products = Products::whereNull('deleted_at')
             ->with(['productionStocks', 'inventoryStock'])
             ->when($request->filled('product_name'), function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->product_name . '%');
+                $search = $request->product_name;
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('sku', 'like', '%' . $search . '%');
+                });
             })
             ->orderBy('name', 'asc') // urut di query juga (optional)
             ->get();

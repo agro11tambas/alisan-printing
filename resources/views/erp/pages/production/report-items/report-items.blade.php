@@ -163,6 +163,7 @@
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
+            let lastKeyword = '';
 
             // 🟩 simpan ID produk yang sudah dicentang
             let selectedProducts = [];
@@ -218,9 +219,17 @@
             let searchTimer = null;
             let currentRequest = null;
 
-            function loadMoreData() {
-                if (isLoading || !hasMoreData) return;
+            function loadMoreData(reset = false) {
+                if (isLoading) return;
+                if (!hasMoreData && !reset) return;
                 isLoading = true;
+
+                if (reset) {
+                    allData = [];
+                    currentPage = 0;
+                    hasMoreData = true;
+                    table.clear().draw();
+                }
 
                 // Batalkan request sebelumnya jika masih jalan
                 if (currentRequest) {
@@ -237,13 +246,21 @@
                     },
                     success: function(res) {
                         if (res && res.data && res.data.length > 0) {
+                            if (reset) allData = []; // hapus data lama kalau reset
                             allData = allData.concat(res.data);
                             table.clear();
                             table.rows.add(allData).draw(false);
                             currentPage++;
+                            hasMoreData = true;
                             restoreCheckboxState();
                         } else {
-                            hasMoreData = false;
+                            if (reset) {
+                                // kalau pencarian kosong dan gak ada hasil, load semua ulang
+                                hasMoreData = true;
+                                currentPage = 0;
+                            } else {
+                                hasMoreData = false;
+                            }
                         }
                     },
                     complete: function() {
@@ -278,14 +295,14 @@
             $("#product_name").on("keyup change", function() {
                 clearTimeout(searchTimer);
                 searchTimer = setTimeout(() => {
-                    allData = [];
-                    currentPage = 0;
-                    hasMoreData = true;
-                    table.clear().draw();
-                    loadMoreData();
-                    toggleRequestButton();
-                }, 100); // delay 400 ms setelah user berhenti ngetik
+                    const keyword = $(this).val().trim();
+                    if (keyword !== lastKeyword) {
+                        lastKeyword = keyword;
+                        loadMoreData(true); // reset total
+                    }
+                }, 200); // debounce biar gak spam
             });
+
 
             // 🟩 checkbox listener pakai delegated event biar tetap aktif
             $(document).on("change", ".row-checkbox", function() {

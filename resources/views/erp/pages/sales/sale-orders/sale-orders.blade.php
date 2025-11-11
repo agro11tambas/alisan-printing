@@ -427,8 +427,8 @@
                     url: "{{ url('/erp/sales/sale-orders/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
+                        start: currentPage * 50,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -486,18 +486,33 @@
                 loadMoreData();
             }
 
-            $('#filter, #search_type, #search_keyword, #search_payment_status, #start_date, #end_date').on(
-                'change keyup',
-                function() {
+            $('#search_keyword, #search_payment_status, #filter, #start_date, #end_date')
+                .on('input change', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
-                        if ($('#filter').val() === 'custom') {
+                        const keyword = $('#search_keyword').val().trim();
+                        const paymentStatus = $('#search_payment_status').val();
+                        const startDate = $('#start_date').val();
+                        const endDate = $('#end_date').val();
+                        const filter = $('#filter').val();
+
+                        // tampilkan custom date range kalau pilih custom
+                        if (filter === 'custom') {
                             $('.custom-range').removeClass('d-none');
                         } else {
                             $('.custom-range').addClass('d-none');
                         }
-                        resetAndReload();
-                    }, 100);
+
+                        // ⛔ kalau semua input kosong → jangan reload
+                        if (!keyword && !paymentStatus && !startDate && !endDate) return;
+
+                        // ✅ kalau ada isi → reload ulang
+                        allData = [];
+                        currentPage = 0;
+                        hasMoreData = true;
+                        dataTable.clear().draw();
+                        loadMoreData();
+                    }, 200);
                 });
 
             $('#apply-filter').on('click', function() {
@@ -513,7 +528,7 @@
                     $('#search_keyword').removeClass('d-none');
                     $('#search_payment_status').addClass('d-none').val('');
                 }
-                resetAndReload();
+                // resetAndReload();
             });
 
             let searchTimeout = null;

@@ -104,8 +104,22 @@ class DeliveryListController extends Controller
         return response()->json([
             'data' => $data->map(function ($dl) {
                 $date = Carbon::parse($dl->created_at)->format('j M y H:i');
+                $badges = '';
+
+                if (!empty($dl->proof_photos)) {
+                    $photos = json_decode($dl->proof_photos, true);
+                    if (!empty($photos)) {
+                        $badges .= '<div class="badge bg-soft-success text-success me-1">Foto Diupload</div>';
+                    }
+                }
+
+                if ($dl->printed) {
+                    $badges .= '<div class="badge bg-soft-primary text-primary me-1">Sudah Print</div>';
+                }
+
                 $shipmentNumber = '
                 <div>
+                    ' . ($badges ? '<div class="mb-1">' . $badges . '</div>' : '') . '
                     <div>' . e($dl->shipment_number) . '</div>
                     <small class="text-muted">' . $date . '</small>
                 </div>';
@@ -201,6 +215,9 @@ class DeliveryListController extends Controller
                         <div style='background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;
                             padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);
                             font-size:13px;line-height:1.5;'>
+            
+                            " . ($badges ? "<div class='mb-2'>$badges</div>" : "") . "
+                    
                             <div style='margin-bottom:10px;'>
                                 <div><strong>Shipment:</strong> <span style='color:#2563eb;'>{$dl->shipment_number}</span></div>
                                 <div><strong>Customer:</strong> " . e($dl->deliveryOrder->customer ?? '-') . "</div>
@@ -209,17 +226,17 @@ class DeliveryListController extends Controller
                                         " . e($dl->deliveryOrder->shipping_address ?? '-') . "
                                     </div>
                                 </div>
-                            " . (
-                        $dl->deliveryOrder->google_map_link
-                        ? "<a href='" . e($dl->deliveryOrder->google_map_link) . "' 
-                                        target='_blank'
-                                        style='display:inline-block;margin-top:8px;padding:6px 10px;
-                                        background:#2563eb;color:white;border-radius:6px;
-                                        font-size:12px;text-decoration:none;'>
-                                        <i class=\"feather-map-pin\"></i> Lihat di Maps
-                                    </a>"
-                        : "<span class='text-muted' style='font-size:12px;'>Tidak ada link Maps</span>"
-                    ) . "
+                                " . (
+                                        $dl->deliveryOrder->google_map_link
+                                        ? "<a href='" . e($dl->deliveryOrder->google_map_link) . "' 
+                                                target='_blank'
+                                                style='display:inline-block;margin-top:8px;padding:6px 10px;
+                                                background:#2563eb;color:white;border-radius:6px;
+                                                font-size:12px;text-decoration:none;'>
+                                                <i class=\"feather-map-pin\"></i> Lihat di Maps
+                                            </a>"
+                                        : "<span class='text-muted' style='font-size:12px;'>Tidak ada link Maps</span>"
+                                    ) . "
                             </div>
                             <div>
                                 <strong>Items:</strong>
@@ -455,10 +472,16 @@ class DeliveryListController extends Controller
             'items.product'
         ])->findOrFail($id);
 
+        // ✅ Set kolom printed = true jika belum pernah diprint
+        if (!$deliveryList->printed) {
+            $deliveryList->update(['printed' => true]);
+        }
+
         $order = $deliveryList->deliveryOrder->order;
 
         return view('erp.pages.deliveries.delivery-list.print-waybill', compact('deliveryList', 'order'));
     }
+
 
     public function uploadProof(Request $request, $id)
     {

@@ -1103,7 +1103,7 @@
         // === Harga bisa diubah hanya oleh Owner ===
         let priceInputTimeout;
         $(document).on('input', '.price_before_discount_display', function() {
-            if (!isOwner) return; // hanya Owner yang bisa ubah harga
+            // if (!isOwner) return; // hanya Owner yang bisa ubah harga
 
             const row = $(this).closest('tr');
             let rawValue = $(this).val().replace(/\D/g, '');

@@ -163,6 +163,7 @@
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
+            let lastKeyword = '';
 
             let table = $('#reportItemsTable').DataTable({
                 processing: false,
@@ -205,26 +206,41 @@
                 ]
             });
 
-            function loadMoreData() {
-                if (isLoading || !hasMoreData) return;
+            function loadMoreData(reset = false) {
+                if (isLoading) return;
+                if (!hasMoreData && !reset) return;
                 isLoading = true;
+
+                if (reset) {
+                    allData = [];
+                    currentPage = 0;
+                    hasMoreData = true;
+                    table.clear().draw();
+                }
 
                 $.ajax({
                     url: "{{ url('/erp/inventory/report-items/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 200,
+                        start: (reset ? 0 : currentPage * 200),
                         length: 200,
-                        product_name: $('#product_name').val(),
+                        product_name: $('#product_name').val().trim() || null,
                     },
                     success: function(res) {
                         if (res && res.data && res.data.length > 0) {
+                            if (reset) allData = [];
                             allData = allData.concat(res.data);
                             table.clear();
                             table.rows.add(allData).draw(false);
                             currentPage++;
+                            hasMoreData = true;
                         } else {
-                            hasMoreData = false;
+                            if (reset) {
+                                currentPage = 0;
+                                hasMoreData = true;
+                            } else {
+                                hasMoreData = false;
+                            }
                         }
                         isLoading = false;
                     },
@@ -250,12 +266,16 @@
                 }, 200);
             });
 
+            let searchTimer;
             $('#product_name').on('keyup change', function() {
-                allData = [];
-                currentPage = 0;
-                hasMoreData = true;
-                table.clear().draw();
-                loadMoreData();
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    const keyword = $(this).val().trim();
+                    if (keyword !== lastKeyword) {
+                        lastKeyword = keyword;
+                        loadMoreData(true); // 🔹 reset total, biar hasil balik lagi
+                    }
+                }, 200);
             });
         });
 

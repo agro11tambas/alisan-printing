@@ -156,7 +156,6 @@ class SaleListController extends Controller
                     <small class="text-danger">Due: ' . $dueDate . '</small>
                 </div>';
 
-                // 🔸 Status pembayaran
                 $status = strtolower($order->payment_status);
                 $badge = match ($status) {
                     'paid' => 'bg-soft-success text-success',
@@ -166,7 +165,14 @@ class SaleListController extends Controller
                     'partially paid' => 'bg-soft-warning text-warning',
                     default => 'bg-secondary',
                 };
-                $paymentStatus = '<div class="badge ' . $badge . '">' . ucfirst($status) . '</div>';
+
+                // 🔹 Tambahkan centang jika verified = true
+                $verifiedIcon = '';
+                if ($order->verified) {
+                    $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
+                }
+
+                $paymentStatus = '<div class="badge ' . $badge . '">' . ucfirst($status) . '</div>' . $verifiedIcon;
 
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
 
@@ -304,7 +310,7 @@ class SaleListController extends Controller
 
     public function dataDeletedSaleList(Request $request)
     {
-        $length = (int) $request->input('length', 15);
+        $length = (int) $request->input('length', 50);
         $start  = (int) $request->input('start', 0);
 
         $orders = Order::onlyTrashed()
@@ -914,6 +920,7 @@ class SaleListController extends Controller
                 'note' => $request->note ?? '',
                 'particular' => '',
                 'transaction_group_id' => $groupId,
+                'verified' => 1,
             ]);
 
             $saleAccount->closing_balance += $request->total_amount;
@@ -1159,16 +1166,17 @@ class SaleListController extends Controller
                 return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah ada Delivery List yang selesai.');
             }
 
-            $designVerified = \App\Models\Design::where('order_id', $id)
-                ->where(function ($q) {
-                    $q->whereRaw('LOWER(status) = ?', ['verified'])
-                        ->orWhereRaw('LOWER(verification_status) = ?', ['verified']);
-                })
-                ->exists();
+            // $designVerified = \App\Models\Design::where('order_id', $id)
+            //     ->where(function ($q) {
+            //         $q->whereRaw('LOWER(status) = ?', ['verified'])
+            //             ->orWhereRaw('LOWER(verification_status) = ?', ['approved']);
+            //     })
+            //     ->exists();
 
-            if ($designVerified) {
-                return back()->with('error', 'Order tidak dapat diupdate karena design sudah diverifikasi.');
-            }
+            // if ($designVerified) {
+            //     DB::rollBack();
+            //     return back()->with('error', 'Order tidak dapat diupdate karena design sudah diverifikasi. Silahkan Batalkan Verifikasinya');
+            // }
 
             if (SaleReturn::where('sale_order_id', $order->id)->exists()) {
                 DB::rollBack(); // rollback supaya transaksi clear
@@ -1177,17 +1185,17 @@ class SaleListController extends Controller
 
             $orderMode = $request->mode ?? $order->mode;
 
-            // 🚫 Cegah perubahan mode jika design sudah diverifikasi
-            if ($order->mode !== $orderMode) {
-                $designVerified = \App\Models\Design::where('order_id', $order->id)
-                    ->whereRaw('LOWER(status) = ?', ['verified'])
-                    ->exists();
+            // // 🚫 Cegah perubahan mode jika design sudah diverifikasi
+            // if ($order->mode !== $orderMode) {
+            //     $designVerified = \App\Models\Design::where('order_id', $order->id)
+            //         ->whereRaw('LOWER(status) = ?', ['verified'])
+            //         ->exists();
 
-                if ($designVerified) {
-                    DB::rollBack();
-                    return back()->with('error', 'Tidak dapat mengubah mode order (Printing ⇄ Polosan) karena design sudah diverifikasi.');
-                }
-            }
+            //     if ($designVerified) {
+            //         DB::rollBack();
+            //         return back()->with('error', 'Tidak dapat mengubah mode order (Printing ⇄ Polosan) karena design sudah diverifikasi.');
+            //     }
+            // }
 
             // ================== HANDLE PERUBAHAN MODE PRINTING ↔ POLOSAN ==================
             if ($order->mode !== $orderMode) {
@@ -2131,42 +2139,39 @@ class SaleListController extends Controller
                 $design = $order->designs()->with('items')->first();
 
                 if ($design) {
-                    // Jika design sudah ada → update tanggal, status, dll
+                    // Jika design sudah ada → update tanggal & notes saja (status biarkan)
                     $design->update([
-                        'date'                 => now()->format('Y-m-d'),
-                        'notes'                => $request->notes ?? $design->notes,
+                        'date'  => now()->format('Y-m-d'),
+                        'notes' => $request->notes ?? $design->notes,
                     ]);
 
-                    // Ambil design_items yang sudah ada
+                    // Ambil semua design_items lama
                     $existingDesignItems = $design->items->keyBy(function ($item) {
-                        return $item->order_item_id . '_' . $item->product_id;
+                        return $item->order_item_id;
                     });
-
-                    $newDesignKeys = [];
 
                     foreach ($order->orderItems as $orderItem) {
                         $qty = $orderItem->quantity;
 
                         if ($orderItem->satuan === 'satuan') {
-                            $key = $orderItem->id . '_' . $orderItem->product_id;
-                            $newDesignKeys[] = $key;
-
-                            if ($existingDesignItems->has($key)) {
-                                // update item design yang sudah ada
-                                $existingDesignItems[$key]->update([
-                                    'quantity'             => $qty,
+                            // Jika sudah ada design_item untuk order_item ini → update
+                            if ($existingDesignItems->has($orderItem->id)) {
+                                $designItem = $existingDesignItems[$orderItem->id];
+                                $designItem->update([
+                                    'product_id' => $orderItem->product_id,
+                                    'quantity'   => $qty,
                                 ]);
                             } else {
-                                // buat baru
+                                // Kalau belum ada, baru buat
                                 DesignItem::create([
-                                    'design_id'            => $design->id,
-                                    'order_item_id'        => $orderItem->id,
-                                    'product_id'           => $orderItem->product_id,
-                                    'quantity'             => $qty,
-                                    'completed_quantity'   => 0,
-                                    'design_file'          => null,
-                                    'preview_image'        => null,
-                                    'verification_status'  => 'pending',
+                                    'design_id'          => $design->id,
+                                    'order_item_id'      => $orderItem->id,
+                                    'product_id'         => $orderItem->product_id,
+                                    'quantity'           => $qty,
+                                    'completed_quantity' => 0,
+                                    'design_file'        => null,
+                                    'preview_image'      => null,
+                                    // tidak ubah verification_status ke pending
                                 ]);
                             }
                         } elseif ($orderItem->satuan === 'bundle') {
@@ -2174,77 +2179,68 @@ class SaleListController extends Controller
                                 $bundleProduct = $bundleItem->product;
                                 if (!$bundleProduct) continue;
 
-                                $key = $orderItem->id . '_' . $bundleProduct->id;
-                                $newDesignKeys[] = $key;
+                                // Cari design item berdasarkan order_item_id & product_id
+                                $designItem = $design->items()
+                                    ->where('order_item_id', $orderItem->id)
+                                    ->where('product_id', $bundleProduct->id)
+                                    ->first();
 
-                                if ($existingDesignItems->has($key)) {
-                                    $existingDesignItems[$key]->update([
-                                        'quantity'             => $qty,
-                                    ]);
+                                if ($designItem) {
+                                    $designItem->update(['quantity' => $qty]);
                                 } else {
                                     DesignItem::create([
-                                        'design_id'            => $design->id,
-                                        'order_item_id'        => $orderItem->id,
-                                        'product_id'           => $bundleProduct->id,
-                                        'quantity'             => $qty,
-                                        'completed_quantity'   => 0,
-                                        'design_file'          => null,
-                                        'preview_image'        => null,
-                                        'verification_status'  => 'pending',
+                                        'design_id'          => $design->id,
+                                        'order_item_id'      => $orderItem->id,
+                                        'product_id'         => $bundleProduct->id,
+                                        'quantity'           => $qty,
+                                        'completed_quantity' => 0,
+                                        'design_file'        => null,
+                                        'preview_image'      => null,
+                                        // tidak ubah verification_status ke pending
                                     ]);
                                 }
                             }
                         }
                     }
 
-                    // Hapus design_items lama yang tidak ada di order_items baru
-                    foreach ($existingDesignItems as $key => $designItem) {
-                        if (!in_array($key, $newDesignKeys)) {
-                            $designItem->delete();
-                        }
-                    }
+                    // ❌ Jangan hapus design_items lama — biarkan tetap ada meskipun order berubah
                 } else {
-                    // ✅ CEK DULU kalau ada design soft-deleted dengan order_id sama, jangan bikin baru
+                    // ✅ Jika belum ada design sama sekali
                     $existingDesign = \App\Models\Design::withTrashed()
                         ->where('order_id', $order->id)
                         ->first();
 
                     if ($existingDesign) {
-                        // kalau ada, restore & update aja
                         $existingDesign->restore();
                         $existingDesign->update([
-                            'date'                => now()->format('Y-m-d'),
-                            'status'              => 'Pending',
-                            'notes'               => $request->notes ?? $existingDesign->notes,
-                            'verification_status' => 'pending',
+                            'date'  => now()->format('Y-m-d'),
+                            'notes' => $request->notes ?? $existingDesign->notes,
                         ]);
                         $design = $existingDesign;
                     } else {
-                        // Kalau belum ada design sama sekali (benar-benar baru)
                         $design = Design::create([
-                            'order_id'            => $order->id,
-                            'design_number'       => $order->order_number,
-                            'date'                => now()->format('Y-m-d'),
-                            'status'              => 'Pending',
-                            'notes'               => $request->notes ?? null,
+                            'order_id'      => $order->id,
+                            'design_number' => $order->order_number,
+                            'date'          => now()->format('Y-m-d'),
+                            'status'        => 'Pending',
+                            'notes'         => $request->notes ?? null,
                             'verification_status' => 'pending',
                         ]);
                     }
 
-                    // ⬇️ Bagian di bawah ini TIDAK dihapus, tetap sama seperti punyamu
+                    // Buat design_items baru untuk semua produk di order
                     foreach ($order->orderItems as $orderItem) {
                         $qty = $orderItem->quantity;
 
                         if ($orderItem->satuan === 'satuan') {
                             DesignItem::create([
-                                'design_id'            => $design->id,
-                                'order_item_id'        => $orderItem->id,
-                                'product_id'           => $orderItem->product_id,
-                                'quantity'             => $qty,
-                                'completed_quantity'   => 0,
-                                'design_file'          => null,
-                                'preview_image'        => null,
-                                'verification_status'  => 'pending',
+                                'design_id'          => $design->id,
+                                'order_item_id'      => $orderItem->id,
+                                'product_id'         => $orderItem->product_id,
+                                'quantity'           => $qty,
+                                'completed_quantity' => 0,
+                                'design_file'        => null,
+                                'preview_image'      => null,
                             ]);
                         } elseif ($orderItem->satuan === 'bundle') {
                             foreach ($orderItem->productBundle->items as $bundleItem) {
@@ -2252,20 +2248,18 @@ class SaleListController extends Controller
                                 if (!$bundleProduct) continue;
 
                                 DesignItem::create([
-                                    'design_id'            => $design->id,
-                                    'order_item_id'        => $orderItem->id,
-                                    'product_id'           => $bundleProduct->id,
-                                    'quantity'             => $qty,
-                                    'completed_quantity'   => 0,
-                                    'design_file'          => null,
-                                    'preview_image'        => null,
-                                    'verification_status'  => 'pending',
+                                    'design_id'          => $design->id,
+                                    'order_item_id'      => $orderItem->id,
+                                    'product_id'         => $bundleProduct->id,
+                                    'quantity'           => $qty,
+                                    'completed_quantity' => 0,
+                                    'design_file'        => null,
+                                    'preview_image'      => null,
                                 ]);
                             }
                         }
                     }
                 }
-
 
                 // ================== SYNC ORDER PROGRESS ITEMS ==================
                 $orderProgress = $order->orderProgress()->first();
@@ -3309,420 +3303,6 @@ class SaleListController extends Controller
         return redirect()->back()->with('error', $message);
     }
 
-    // public function forceDeleteOwner($id, Request $request)
-    // {
-    //     // ⛔️ batasi hanya Owner
-    //     if (!Auth::check() || Auth::user()->role !== 'Owner') {
-    //         abort(403, 'Only Owner can force delete.');
-    //     }
-
-    //     $request->validate([
-    //         'delete_notes' => 'required|string|max:1000',
-    //         'inventory_warehouse_id' => 'nullable|integer',
-    //         'production_warehouse_id' => 'nullable|integer',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         // ambil order + relasi inti
-    //         $order = Order::with(['orderItems'])->findOrFail($id);
-
-    //         $hasSaleReturn = SaleReturn::where('sale_order_id', $order->id)->exists();
-
-    //         if ($hasSaleReturn) {
-    //             DB::rollBack();
-    //             return back()->with('swal_warning', 'Order ini masih memiliki Sale Return. Hapus Sale Return terlebih dahulu sebelum menghapus order ini.');
-    //         }
-
-    //         $inventoryWarehouseId  = $request->inventory_warehouse_id  ?? 1;
-    //         $productionWarehouseId = $request->production_warehouse_id ?? 2;
-
-    //         /**
-    //          * 1) Rollback INVENTORY STOCK (seperti delete biasa)
-    //          */
-    //         foreach ($order->orderItems as $item) {
-    //             if ($item->satuan === 'satuan' && $item->product_id) {
-    //                 $inventoryStock = InventoryStock::firstOrCreate(
-    //                     ['product_id' => $item->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
-    //                     ['stock_after_sales' => 0]
-    //                 );
-    //                 $inventoryStock->increment('stock_after_sales', $item->quantity);
-    //             } elseif ($item->satuan === 'bundle' && $item->product_bundle_id) {
-    //                 $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
-    //                 if ($bundle) {
-    //                     foreach ($bundle->items as $bundleItem) {
-    //                         if (!$bundleItem->product_id) continue;
-
-    //                         // NOTE: tetap pakai quantity = qty order item (sesuai delete() normal kamu)
-    //                         $inventoryStock = InventoryStock::firstOrCreate(
-    //                             ['product_id' => $bundleItem->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
-    //                             ['stock_after_sales' => 0]
-    //                         );
-    //                         $inventoryStock->increment('stock_after_sales', $item->quantity);
-    //                     }
-    //                 }
-    //             }
-    //         }
-
-    //         /**
-    //          * 2) Rollback PRODUCTION STOCK berdasar PROGRESS HISTORY
-    //          *    - Kalau design verified → jangan ubah available_quantity
-    //          *    - Semua field boleh minus
-    //          *    - finished_product_stock dikurangi berdasarkan (ready_qty - shipped_qty)
-    //          *      dari delivery_order_items (khusus mode printing)
-    //          */
-    //         $progressItems = OrderProgressItem::whereHas('progress', function ($q) use ($order) {
-    //             $q->where('order_id', $order->id);
-    //         })->get(['id', 'product_id', 'order_item_id', 'quantity']);
-
-    //         // 🔍 cek apakah order ini punya design verified
-    //         $hasVerifiedDesign = Design::where('order_id', $order->id)
-    //             ->where('status', 'Verified')
-    //             ->exists();
-
-    //         foreach ($progressItems as $pi) {
-    //             $qty = (float) $pi->quantity;
-    //             if ($qty <= 0 || !$pi->product_id) continue;
-
-    //             // 🎯 default decrement = quantity progress item
-    //             $decrementFinished = $qty;
-
-    //             // 🔹 kalau mode printing → hitung dari delivery_order_items
-    //             if ($order->mode === 'printing') {
-    //                 $deliveryItem = DeliveryOrderItem::where(function ($q) use ($pi) {
-    //                     $q->where('order_progress_id', $pi->id)
-    //                         ->orWhere('order_item_id', $pi->order_item_id);
-    //                 })->first(['ready_qty', 'shipped_qty']);
-
-    //                 if ($deliveryItem) {
-    //                     // 🔥 langsung kurangi mentah (boleh minus)
-    //                     $decrementFinished = ($deliveryItem->ready_qty ?? 0) - ($deliveryItem->shipped_qty ?? 0);
-    //                 }
-    //             }
-
-    //             $ps = ProductionStock::firstOrCreate(
-    //                 ['product_id' => $pi->product_id, 'production_warehouse_id' => $productionWarehouseId],
-    //                 [
-    //                     'available_quantity'     => 0,
-    //                     'finished_product_stock' => 0,
-    //                     'pending_waiting_list'   => 0,
-    //                     'canceled_product_stock' => 0,
-    //                 ]
-    //             );
-
-    //             $beforeAvail   = (float) $ps->available_quantity;
-    //             $beforeFinish  = (float) $ps->finished_product_stock;
-    //             $beforePending = (float) $ps->pending_waiting_list;
-
-    //             if ($hasVerifiedDesign) {
-    //                 // ✅ Design verified → JANGAN ubah available_quantity
-    //                 $ps->finished_product_stock = $beforeFinish - $decrementFinished;
-    //                 $ps->pending_waiting_list   = $beforePending - $qty;
-    //             } else {
-    //                 // ✅ Belum verified → rollback penuh (boleh minus semua)
-    //                 $ps->available_quantity     = $beforeAvail + $qty;
-    //                 $ps->finished_product_stock = $beforeFinish - $decrementFinished;
-    //                 $ps->pending_waiting_list   = $beforePending - $qty;
-    //             }
-
-    //             $ps->save();
-
-    //             Log::info('Force delete rollback stock', [
-    //                 'product_id'       => $pi->product_id,
-    //                 'rollback_qty'     => $qty,
-    //                 'decrement_finish' => $decrementFinished,
-    //                 'design_verified'  => $hasVerifiedDesign,
-    //                 'avail_before'     => $beforeAvail,
-    //                 'avail_after'      => $ps->available_quantity,
-    //                 'finish_before'    => $beforeFinish,
-    //                 'finish_after'     => $ps->finished_product_stock,
-    //                 'pending_before'   => $beforePending,
-    //                 'pending_after'    => $ps->pending_waiting_list,
-    //             ]);
-    //         }
-
-    //         /**
-    //          * 3) Handle transaksi akun (sama seperti delete biasa)
-    //          *    - Sale Account: balikin balance dan hapus trx
-    //          *    - Lainnya: lepas link ke order, tandai notenya
-    //          */
-    //         $transactions = AccountTransaction::where('order_id', $order->id)->get();
-    //         foreach ($transactions as $trx) {
-    //             $account = Account::find($trx->account_id);
-    //             if (!$account) {
-    //                 $trx->delete();
-    //                 continue;
-    //             }
-
-    //             if ($account->type === 'Sale Account') {
-    //                 $account->closing_balance += $trx->debit;
-    //                 $account->closing_balance -= $trx->credit;
-    //                 $trx->delete();
-    //             } else {
-    //                 $trx->order_id = null;
-    //                 $trx->note = trim(($trx->note ?? '') . ' [Order force-deleted by Owner]');
-    //                 $trx->save();
-    //             }
-    //             $account->save();
-    //         }
-
-    //         /**
-    //          * 4) Bersihkan relasi lain (lebih tegas daripada delete biasa)
-    //          */
-    //         // Hapus semua history progress lebih dulu
-    //         OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
-    //             $q->where('order_id', $order->id);
-    //         })->delete();
-
-    //         // Lalu item progress, progress, item order, edit history
-    //         OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->delete();
-    //         OrderProgress::where('order_id', $order->id)->delete();
-    //         OrderItem::where('order_id', $order->id)->delete();
-    //         OrderEditHistory::where('order_id', $order->id)->delete();
-
-    //         /**
-    //          * 4.5) 🧹 Hapus semua DELIVERY ORDER dan DELIVERY LIST terkait order ini
-    //          */
-    //         // Hapus semua Delivery Order dan item/shipments-nya
-    //         $deliveryOrders = DeliveryOrder::with(['items', 'shipments'])
-    //             ->where('order_id', $order->id)
-    //             ->get();
-
-    //         foreach ($deliveryOrders as $do) {
-    //             // Hapus semua item di delivery order
-    //             if (method_exists($do, 'items')) {
-    //                 $do->items()->forceDelete();
-    //             }
-
-    //             // Hapus semua shipments kalau ada
-    //             if (method_exists($do, 'shipments')) {
-    //                 $do->shipments()->forceDelete();
-    //             }
-
-    //             $do->forceDelete();
-
-    //             Log::info('Force deleted DeliveryOrder', [
-    //                 'delivery_order_id' => $do->id,
-    //                 'order_id' => $order->id,
-    //             ]);
-    //         }
-
-    //         // Hapus semua Delivery List dan item-nya
-    //         $deliveryLists = DeliveryList::with(['items'])
-    //             ->whereHas('deliveryOrder', fn($q) => $q->where('order_id', $order->id))
-    //             ->get();
-
-    //         foreach ($deliveryLists as $dl) {
-    //             if (method_exists($dl, 'items')) {
-    //                 $dl->items()->forceDelete();
-    //             }
-
-    //             $dl->forceDelete();
-
-    //             Log::info('Force deleted DeliveryList', [
-    //                 'delivery_list_id' => $dl->id,
-    //                 'order_id' => $order->id,
-    //             ]);
-    //         }
-
-    //         /**
-    //          * 5) Tandai laporan keuangan
-    //          */
-    //         FinancialReport::where('reference_table', 'orders')
-    //             ->where('reference_id', $order->id)
-    //             ->update(['deleted_at' => now()]);
-
-    //         /**
-    //          * 6) Soft delete Order + catat notes
-    //          */
-    //         $order->delete_notes = $request->input('delete_notes');
-    //         $order->deleted_by   = Auth::id();
-    //         $order->save();
-    //         $order->delete();
-
-    //         DB::commit();
-    //         return redirect()->back()->with('success', 'Order berhasil dihapus (force delete oleh Owner).');
-    //     } catch (\Throwable $e) {
-    //         DB::rollBack();
-    //         Log::error('Force delete owner failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-    //         return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
-    //     }
-    // }
-
-    // public function forceDeleteOwner($id, Request $request)
-    // {
-    //     // ⛔️ batasi hanya Owner
-    //     if (!Auth::check() || Auth::user()->role !== 'Owner') {
-    //         abort(403, 'Only Owner can force delete.');
-    //     }
-
-    //     $request->validate([
-    //         'delete_notes' => 'required|string|max:1000',
-    //         'inventory_warehouse_id' => 'nullable|integer',
-    //         'production_warehouse_id' => 'nullable|integer',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $order = Order::with(['orderItems'])->findOrFail($id);
-
-    //         $hasSaleReturn = SaleReturn::where('sale_order_id', $order->id)->exists();
-    //         if ($hasSaleReturn) {
-    //             DB::rollBack();
-    //             return back()->with('swal_warning', 'Order ini masih memiliki Sale Return. Hapus Sale Return terlebih dahulu sebelum menghapus order ini.');
-    //         }
-
-    //         $inventoryWarehouseId  = $request->inventory_warehouse_id  ?? 1;
-    //         $productionWarehouseId = $request->production_warehouse_id ?? 2;
-
-    //         // ===================== 1) Rollback INVENTORY STOCK =====================
-    //         foreach ($order->orderItems as $item) {
-    //             if ($item->satuan === 'satuan' && $item->product_id) {
-    //                 $inventoryStock = InventoryStock::firstOrCreate(
-    //                     ['product_id' => $item->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
-    //                     ['stock_after_sales' => 0]
-    //                 );
-    //                 $inventoryStock->increment('stock_after_sales', $item->quantity);
-    //             } elseif ($item->satuan === 'bundle' && $item->product_bundle_id) {
-    //                 $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
-    //                 if ($bundle) {
-    //                     foreach ($bundle->items as $bundleItem) {
-    //                         if (!$bundleItem->product_id) continue;
-    //                         $inventoryStock = InventoryStock::firstOrCreate(
-    //                             ['product_id' => $bundleItem->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
-    //                             ['stock_after_sales' => 0]
-    //                         );
-    //                         $inventoryStock->increment('stock_after_sales', $item->quantity);
-    //                     }
-    //                 }
-    //             }
-    //         }
-
-    //         // ===================== 2) Rollback PRODUCTION STOCK =====================
-    //         $progressItems = OrderProgressItem::whereHas('progress', function ($q) use ($order) {
-    //             $q->where('order_id', $order->id);
-    //         })->get(['id', 'product_id', 'order_item_id', 'quantity']);
-
-    //         $hasVerifiedDesign = Design::where('order_id', $order->id)
-    //             ->where('status', 'Verified')
-    //             ->exists();
-
-    //         foreach ($progressItems as $pi) {
-    //             $qty = (float) $pi->quantity;
-    //             if ($qty <= 0 || !$pi->product_id) continue;
-
-    //             $decrementFinished = $qty;
-
-    //             if ($order->mode === 'printing') {
-    //                 $deliveryItem = DeliveryOrderItem::where(function ($q) use ($pi) {
-    //                     $q->where('order_progress_id', $pi->id)
-    //                         ->orWhere('order_item_id', $pi->order_item_id);
-    //                 })->first(['ready_qty', 'shipped_qty']);
-
-    //                 if ($deliveryItem) {
-    //                     $decrementFinished = ($deliveryItem->ready_qty ?? 0) - ($deliveryItem->shipped_qty ?? 0);
-    //                 }
-    //             }
-
-    //             $ps = ProductionStock::firstOrCreate(
-    //                 ['product_id' => $pi->product_id, 'production_warehouse_id' => $productionWarehouseId],
-    //                 [
-    //                     'available_quantity'     => 0,
-    //                     'finished_product_stock' => 0,
-    //                     'pending_waiting_list'   => 0,
-    //                     'canceled_product_stock' => 0,
-    //                 ]
-    //             );
-
-    //             $beforeAvail   = (float) $ps->available_quantity;
-    //             $beforeFinish  = (float) $ps->finished_product_stock;
-    //             $beforePending = (float) $ps->pending_waiting_list;
-
-    //             if ($hasVerifiedDesign) {
-    //                 $ps->finished_product_stock = $beforeFinish - $decrementFinished;
-    //                 $ps->pending_waiting_list   = $beforePending - $qty;
-    //             } else {
-    //                 $ps->available_quantity     = $beforeAvail + $qty;
-    //                 $ps->finished_product_stock = $beforeFinish - $decrementFinished;
-    //                 $ps->pending_waiting_list   = $beforePending - $qty;
-    //             }
-
-    //             $ps->save();
-    //         }
-
-    //         // ===================== 3) Transaksi Akun =====================
-    //         $transactions = AccountTransaction::where('order_id', $order->id)->get();
-    //         foreach ($transactions as $trx) {
-    //             $account = Account::find($trx->account_id);
-    //             if (!$account) {
-    //                 $trx->forceDelete();
-    //                 continue;
-    //             }
-
-    //             if ($account->type === 'Sale Account') {
-    //                 $account->closing_balance += $trx->debit;
-    //                 $account->closing_balance -= $trx->credit;
-    //                 $trx->forceDelete();
-    //             } else {
-    //                 $trx->order_id = null;
-    //                 $trx->note = trim(($trx->note ?? '') . ' [Order force-deleted by Owner]');
-    //                 $trx->save();
-    //             }
-    //             $account->save();
-    //         }
-
-    //         // ===================== 4) Hapus Relasi Lain SECARA PERMANEN =====================
-    //         OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
-    //             $q->where('order_id', $order->id);
-    //         })->forceDelete();
-
-    //         OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->forceDelete();
-    //         OrderProgress::where('order_id', $order->id)->forceDelete();
-    //         OrderItem::where('order_id', $order->id)->forceDelete();
-    //         OrderEditHistory::where('order_id', $order->id)->forceDelete();
-    //         Design::withTrashed()->where('order_id', $order->id)->forceDelete();
-
-    //         // ===================== 4.5) Hapus Delivery Order dan Delivery List =====================
-    //         $deliveryOrders = DeliveryOrder::with(['items', 'shipments'])
-    //             ->where('order_id', $order->id)
-    //             ->get();
-
-    //         foreach ($deliveryOrders as $do) {
-    //             if (method_exists($do, 'items')) $do->items()->forceDelete();
-    //             if (method_exists($do, 'shipments')) $do->shipments()->forceDelete();
-    //             $do->forceDelete();
-    //         }
-
-    //         $deliveryLists = DeliveryList::with(['items'])
-    //             ->whereHas('deliveryOrder', fn($q) => $q->where('order_id', $order->id))
-    //             ->get();
-
-    //         foreach ($deliveryLists as $dl) {
-    //             if (method_exists($dl, 'items')) $dl->items()->forceDelete();
-    //             $dl->forceDelete();
-    //         }
-
-    //         // ===================== 5) Hapus Laporan Keuangan =====================
-    //         FinancialReport::withTrashed()
-    //             ->where('reference_table', 'orders')
-    //             ->where('reference_id', $order->id)
-    //             ->forceDelete();
-
-    //         // ===================== 6) FORCE DELETE ORDER =====================
-    //         $order->delete_notes = $request->input('delete_notes');
-    //         $order->deleted_by   = Auth::id();
-    //         $order->saveQuietly();
-    //         $order->forceDelete();
-
-    //         DB::commit();
-    //         return redirect()->back()->with('success', 'Order dan seluruh relasi berhasil dihapus permanen (force delete).');
-    //     } catch (\Throwable $e) {
-    //         DB::rollBack();
-    //         Log::error('Force delete owner failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-    //         return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
-    //     }
-    // }
-
     public function forceDeleteOwner($id, Request $request)
     {
         if (!Auth::check() || Auth::user()->role !== 'Owner') {
@@ -3929,7 +3509,7 @@ class SaleListController extends Controller
             $notes = $request->note_per_image ?? [];
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/payment_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
 
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
@@ -3990,6 +3570,7 @@ class SaleListController extends Controller
             $order->updatePaymentStatus();
 
             $order->payment_method = $saleAccount->type;
+            $order->verified = false;
             $order->save();
 
             DB::commit();
@@ -4145,92 +3726,6 @@ class SaleListController extends Controller
         );
     }
 
-    // public function updatePayment(Request $request, $groupId)
-    // {
-    //     $request->merge([
-    //         'paid_amount' => str_replace('.', '', $request->paid_amount), // hapus titik ribuan
-    //     ]);
-
-    //     $request->validate([
-    //         'transaction_date'      => 'required|date',
-    //         'paid_amount'           => 'required|numeric|min:1',
-    //         'cash_bank_account_id'  => 'required|exists:accounts,id',
-    //         'note'                  => 'nullable|string',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
-    //         if ($transactions->isEmpty()) {
-    //             throw new \Exception("Payment not found");
-    //         }
-
-    //         $orderId = $transactions->first()->order_id;
-    //         $order   = Order::findOrFail($orderId);
-
-    //         // cari transaksi debit lama (Cash/Bank)
-    //         $oldDebit = $transactions->firstWhere('debit', '>', 0);
-    //         if (!$oldDebit) {
-    //             throw new \Exception("Debit transaction not found in this group");
-    //         }
-
-    //         $oldAccount = $oldDebit->account;
-    //         $oldAmount  = $oldDebit->debit;
-
-    //         // rollback saldo akun lama
-    //         $oldAccount->closing_balance -= $oldAmount;
-    //         $oldAccount->save();
-
-    //         // update transaksi debit lama → ganti akun/amount/date/note
-    //         $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
-    //         $oldDebit->update([
-    //             'transaction_date' => $request->transaction_date,
-    //             'account_id'       => $cashBankAccount->id,
-    //             'debit'            => $request->paid_amount,
-    //             'note'             => $request->note ?? '',
-    //         ]);
-
-    //         // update saldo akun baru
-    //         $cashBankAccount->closing_balance += $request->paid_amount;
-    //         $cashBankAccount->save();
-
-    //         // update juga tanggal/note untuk baris credit Sale biar sinkron
-    //         $saleTrx = $transactions->firstWhere('credit', '>', 0);
-    //         if ($saleTrx) {
-    //             $saleTrx->update([
-    //                 'transaction_date' => $request->transaction_date,
-    //                 'note'             => $request->note ?? '',
-    //             ]);
-    //         }
-
-    //         // hitung ulang payment status order (sum debit)
-    //         $totalPaid = AccountTransaction::where('order_id', $order->id)
-    //             ->where('debit', '>', 0)
-    //             ->sum('debit');
-
-    //         $order->paid_amount      = $totalPaid;
-    //         $order->remaining_amount = max(0, $order->grand_total - $totalPaid);
-
-    //         if ($order->paid_amount == 0) {
-    //             $order->payment_status = 'Unpaid';
-    //         } elseif ($order->paid_amount < $order->grand_total) {
-    //             $order->payment_status = 'Partially Paid';
-    //         } elseif ($order->paid_amount == $order->grand_total) {
-    //             $order->payment_status = 'Paid';
-    //         } else {
-    //             $order->payment_status = 'Overpaid';
-    //         }
-
-    //         $order->save();
-
-    //         DB::commit();
-    //         return redirect()->back()->with('success', 'Payment berhasil diperbarui.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         return redirect()->back()->with('error', 'Gagal update payment: ' . $e->getMessage());
-    //     }
-    // }
-
     public function updatePayment(Request $request, $groupId)
     {
         $request->merge([
@@ -4274,7 +3769,7 @@ class SaleListController extends Controller
             }
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/payment_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
@@ -4384,8 +3879,18 @@ class SaleListController extends Controller
             DB::commit();
             if ($request->ajax()) {
                 return response()->json([
-                    'status' => 'success',
-                    'message' => 'Payment berhasil diperbarui.'
+                    'status'  => 'success',
+                    'message' => 'Payment berhasil diperbarui.',
+                    'data'    => [
+                        'transaction_group_id' => $groupId,
+                        'transaction_date'     => \Carbon\Carbon::parse($request->transaction_date)->format('d-m-Y'),
+                        'paid_amount'          => number_format($request->paid_amount, 0, ',', '.'),
+                        'account_id'           => $cashBankAccount->id,
+                        'account_name'         => $cashBankAccount->name,
+                        'account_type'         => $cashBankAccount->type,
+                        'note'                 => $request->note ?? '',
+                        'proofs'               => $uploadedProofs, // array bukti [{file:'uploads/..', note:'..'}, ...]
+                    ],
                 ]);
             }
             return redirect()->back()->with('success', 'Payment berhasil diperbarui.');
@@ -4398,6 +3903,7 @@ class SaleListController extends Controller
     public function verifyPayment($groupId)
     {
         try {
+            Log::info('VERIFY PURCHASE START', ['group_id' => $groupId]);
             $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
 
             if ($transactions->isEmpty()) {
@@ -4408,10 +3914,35 @@ class SaleListController extends Controller
                 $trx->update(['verified' => true]);
             }
 
-            return response()->json(['message' => 'Payment berhasil diverifikasi.']);
-        } catch (\Exception $e) {
+            // 🔎 Ambil purchase_id PERTAMA yang gak null
+            $purchaseId = $transactions->firstWhere('purchase_id', '!=', null)?->purchase_id;
+
+            if ($purchaseId) {
+                Log::info('PURCHASE DETECTED', ['purchase_id' => $purchaseId]);
+                $purchaseTransactions = AccountTransaction::where('purchase_id', $purchaseId)->get();
+                $verifiedCount = $purchaseTransactions->where('verified', true)->count();
+                $totalCount = $purchaseTransactions->count();
+
+                // ✅ Kalau semua verified, update Purchase
+                if ($totalCount > 0 && $verifiedCount === $totalCount) {
+                    \App\Models\Purchase::withTrashed()
+                        ->where('id', $purchaseId)
+                        ->update(['verified' => true]);
+                } else {
+                    \App\Models\Purchase::withTrashed()
+                        ->where('id', $purchaseId)
+                        ->update(['verified' => false]);
+                }
+            }
+
             return response()->json([
-                'message' => 'Gagal verifikasi payment: ' . $e->getMessage()
+                'message' => 'Payment berhasil diverifikasi.',
+                'group_id' => $groupId,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('VERIFY PURCHASE ERROR', ['err' => $e->getMessage()]);
+            return response()->json([
+                'message' => 'Gagal verifikasi payment: ' . $e->getMessage(),
             ], 500);
         }
     }

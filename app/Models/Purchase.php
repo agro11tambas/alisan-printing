@@ -36,6 +36,7 @@ class Purchase extends Model
         'paid_amount_freight',
         'remaining_amount_freight',
         'status',
+        'verified',
         'image',
         'supplier_id',
         'transaction_group_id',

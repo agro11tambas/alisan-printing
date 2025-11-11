@@ -614,8 +614,8 @@
                     url: "{{ url('/erp/sales/sale-returns/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
+                        start: currentPage * 50,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -868,8 +868,8 @@
                     url: "{{ url('/erp/sales/sale-returns/data-deleted') }}",
                     type: 'GET',
                     data: {
-                        start: deletedCurrentPage * 15,
-                        length: 15,
+                        start: deletedCurrentPage * 50,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),

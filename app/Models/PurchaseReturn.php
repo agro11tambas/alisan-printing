@@ -21,6 +21,7 @@ class PurchaseReturn extends Model
         'purchase_number',
         'return_date',
         'status',
+        'verified',
         'account',
         'payment_status',
         'total_amount',

@@ -526,8 +526,8 @@
                     url: "{{ url('/erp/purchases/purchase-orders/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
+                        start: currentPage * 50,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),

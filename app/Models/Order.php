@@ -31,6 +31,7 @@ class Order extends Model
         'shipping_address',
         'google_maps',
         'mode',
+        'verified',
         'notes',
         'delivery_image',
         'transaction_group_id',

@@ -736,8 +736,10 @@ class OrderProgressAssignController extends Controller
             $productKeyword = trim(strtolower($request->search_product));
 
             $batches->whereHas('orderProgress.items.product', function ($q) use ($productKeyword) {
-                // gunakan COLLATE biar bisa handle tanda kurung
-                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                $q->where(function ($sub) use ($productKeyword) {
+                    $sub->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"])
+                        ->orWhereRaw("LOWER(sku) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                });
             });
         }
 

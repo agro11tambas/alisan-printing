@@ -25,6 +25,7 @@ class SaleReturn extends Model
         'total_amount',
         'account',
         'status',
+        'verified',
         'refund_amount',
         'remaining_amount',
         'business_name',

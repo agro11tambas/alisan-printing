@@ -22,6 +22,7 @@ class DeliveryList extends Model
         'driver',
         'vehicle',
         'status',
+        'printed',
         'verified_by',
         'verified_at',
         'note',

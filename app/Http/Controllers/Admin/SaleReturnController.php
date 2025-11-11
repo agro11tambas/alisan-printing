@@ -126,13 +126,21 @@ class SaleReturnController extends Controller
                 </div>
             ';
 
-                // 🔸 Payment status badge
-                $payment_status = strtolower($return->payment_status);
-                $badge = match ($payment_status) {
-                    'refunded', 'paid' => '<div class="badge bg-soft-success text-success">' . e($return->payment_status) . '</div>',
-                    'unpaid' => '<div class="badge bg-soft-danger text-danger">' . e($return->payment_status) . '</div>',
-                    default => '<div class="badge bg-soft-warning text-warning">' . e($return->payment_status) . '</div>',
+                // 🔸 Payment status badge + verified icon
+                $paymentStatus = strtolower($return->payment_status);
+                $badgeClass = match ($paymentStatus) {
+                    'refunded', 'paid' => 'bg-soft-success text-success',
+                    'over refunded'    => 'bg-soft-primary text-primary',
+                    'unpaid'           => 'bg-soft-danger text-danger',
+                    default             => 'bg-soft-warning text-warning',
                 };
+
+                $verifiedIcon = '';
+                if ($return->verified) {
+                    $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
+                }
+
+                $badge = '<div class="badge ' . $badgeClass . '">' . ucfirst($paymentStatus) . '</div>' . $verifiedIcon;
 
                 // 🔸 Status badge
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($return->status) . '</div>';
@@ -504,6 +512,7 @@ class SaleReturnController extends Controller
                 'note'                => $request->note ?? '',
                 'particular'          => '',
                 'transaction_group_id' => $groupId,
+                'verified'            => 1,
             ]);
 
             $saleAccount->closing_balance += $grandTotal;
@@ -1197,7 +1206,7 @@ class SaleReturnController extends Controller
             $notes = $request->note_per_image ?? [];
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/payment_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
 
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
@@ -1266,6 +1275,7 @@ class SaleReturnController extends Controller
 
             // **Simpan transaction_group_id**
             // $saleReturn->transaction_group_id = $groupId;
+            $saleReturn->verified = false;
             $saleReturn->save();
 
             DB::commit();
@@ -1322,92 +1332,6 @@ class SaleReturnController extends Controller
         ]);
     }
 
-    // public function updatePayment(Request $request, $groupId)
-    // {
-    //     $request->merge([
-    //         'paid_amount' => str_replace('.', '', $request->paid_amount),
-    //     ]);
-
-    //     $request->validate([
-    //         'transaction_date'      => 'required|date',
-    //         'paid_amount'           => 'required|numeric|min:1',
-    //         'cash_bank_account_id'  => 'required|exists:accounts,id',
-    //         'note'                  => 'nullable|string',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
-    //         if ($transactions->isEmpty()) {
-    //             throw new \Exception("Refund not found");
-    //         }
-
-    //         $saleReturnId = $transactions->first()->sale_return_id;
-    //         $saleReturn   = SaleReturn::findOrFail($saleReturnId);
-
-    //         // cari transaksi credit lama (Cash/Bank)
-    //         $oldCredit = $transactions->firstWhere('credit', '>', 0);
-    //         if (!$oldCredit) {
-    //             throw new \Exception("Credit transaction not found in this group");
-    //         }
-
-    //         $oldAccount = $oldCredit->account;
-    //         $oldAmount  = $oldCredit->credit;
-
-    //         // rollback saldo akun lama
-    //         $oldAccount->closing_balance += $oldAmount;
-    //         $oldAccount->save();
-
-    //         // update transaksi credit lama → ganti akun/amount/date/note
-    //         $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
-    //         $oldCredit->update([
-    //             'transaction_date' => $request->transaction_date,
-    //             'account_id'       => $cashBankAccount->id,
-    //             'credit'           => $request->paid_amount,
-    //             'note'             => $request->note ?? '',
-    //         ]);
-
-    //         // update saldo akun baru
-    //         $cashBankAccount->closing_balance -= $request->paid_amount;
-    //         $cashBankAccount->save();
-
-    //         // update juga tanggal/note untuk baris debit Sale Return biar sinkron
-    //         $returnTrx = $transactions->firstWhere('debit', '>', 0);
-    //         if ($returnTrx) {
-    //             $returnTrx->update([
-    //                 'transaction_date' => $request->transaction_date,
-    //                 'note'             => $request->note ?? '',
-    //             ]);
-    //         }
-
-    //         // hitung ulang refund status sale return (sum credit)
-    //         $totalRefund = AccountTransaction::where('sale_return_id', $saleReturn->id)
-    //             ->where('credit', '>', 0)
-    //             ->sum('credit');
-
-    //         $saleReturn->refund_amount    = $totalRefund;
-    //         $saleReturn->remaining_amount = max(0, $saleReturn->total_amount - $totalRefund);
-
-    //         if ($saleReturn->refund_amount == 0) {
-    //             $saleReturn->payment_status = 'Unpaid';
-    //         } elseif ($saleReturn->refund_amount < $saleReturn->total_amount) {
-    //             $saleReturn->payment_status = 'Partially Paid';
-    //         } elseif ($saleReturn->refund_amount == $saleReturn->total_amount) {
-    //             $saleReturn->payment_status = 'Refunded';
-    //         } else {
-    //             $saleReturn->payment_status = 'Overpaid';
-    //         }
-
-    //         $saleReturn->save();
-
-    //         DB::commit();
-    //         return redirect()->back()->with('success', 'Refund berhasil diperbarui.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         return redirect()->back()->with('error', 'Gagal update refund: ' . $e->getMessage());
-    //     }
-    // }
-
     public function updatePayment(Request $request, $groupId)
     {
         $request->merge([
@@ -1451,7 +1375,7 @@ class SaleReturnController extends Controller
             }
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/payment_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
@@ -1537,6 +1461,22 @@ class SaleReturnController extends Controller
             $saleReturn->save();
 
             DB::commit();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status'  => 'success',
+                    'message' => 'Refund berhasil diperbarui.',
+                    'data'    => [
+                        'transaction_group_id' => $groupId,
+                        'transaction_date'     => \Carbon\Carbon::parse($request->transaction_date)->format('d-m-Y'),
+                        'paid_amount'          => number_format($request->paid_amount, 0, ',', '.'),
+                        'account_id'           => $cashBankAccount->id,
+                        'account_name'         => $cashBankAccount->name,
+                        'account_type'         => $cashBankAccount->type,
+                        'note'                 => $request->note ?? '',
+                        'proofs'               => $uploadedProofs, // [{file:'uploads/..', note:'..'}, ...]
+                    ],
+                ]);
+            }
             return redirect()->back()->with('success', 'Refund berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1547,20 +1487,45 @@ class SaleReturnController extends Controller
     public function verifyPayment($groupId)
     {
         try {
+            // 🔍 Ambil semua transaksi dalam group ini
             $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
 
             if ($transactions->isEmpty()) {
                 return response()->json(['message' => 'Transaksi tidak ditemukan.'], 404);
             }
 
+            // ✅ Update semua transaksi di group ini jadi verified
             foreach ($transactions as $trx) {
                 $trx->update(['verified' => true]);
             }
 
-            return response()->json(['message' => 'Payment berhasil diverifikasi.']);
+            // ✅ Ambil sale_return_id dari transaksi di group ini
+            $saleReturnId = $transactions->first()->sale_return_id;
+
+            if ($saleReturnId) {
+                // 🔍 Ambil semua transaksi yang punya sale_return_id sama
+                $saleReturnTransactions = AccountTransaction::where('sale_return_id', $saleReturnId)->get();
+
+                // 🔎 Hitung berapa transaksi verified
+                $verifiedCount = $saleReturnTransactions->where('verified', true)->count();
+                $totalCount = $saleReturnTransactions->count();
+
+                // ✅ Kalau semua verified → update sale_return.verified = true
+                if ($totalCount > 0 && $verifiedCount === $totalCount) {
+                    \App\Models\SaleReturn::where('id', $saleReturnId)->update(['verified' => true]);
+                } else {
+                    // ❌ Kalau masih ada yang belum verified → tetap false
+                    \App\Models\SaleReturn::where('id', $saleReturnId)->update(['verified' => false]);
+                }
+            }
+
+            return response()->json([
+                'message' => 'Refund berhasil diverifikasi.',
+                'group_id' => $groupId
+            ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Gagal verifikasi payment: ' . $e->getMessage()
+                'message' => 'Gagal verifikasi refund: ' . $e->getMessage()
             ], 500);
         }
     }

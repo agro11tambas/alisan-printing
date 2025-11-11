@@ -283,6 +283,8 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/sales/sale-returns/data-deleted', [SaleReturnController::class, 'dataDeletedSaleReturns']);
             Route::delete('/erp/sales/sale-returns/force-delete/{id}', [SaleReturnController::class, 'forceDelete'])->name('sale-returns.forceDelete');
             Route::post('/erp/sales/sale-returns/restore/{id}', [SaleReturnController::class, 'restore'])->name('sale-returns.restore');
+
+            Route::post('/erp/sales/sale-returns/verify-payment/{groupId}', [SaleReturnController::class, 'verifyPayment'])->name('sale-returns.verify-payment');
         });
     });
 
@@ -443,6 +445,7 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/purchases/purchase-list/data-deleted', [PurchaseListController::class, 'dataDeletedPurchaseList']);
             Route::delete('/erp/purchases/purchase-list/force-delete/{id}', [PurchaseListController::class, 'forceDelete'])->name('purchases.forceDelete');
             Route::post('/erp/purchases/purchase-list/restore/{id}', [PurchaseListController::class, 'restore'])->name('purchases.restore');
+            Route::post('/erp/purchases/purchase-list/verify-payment/{groupId}', [PurchaseListController::class, 'verifyPayment'])->name('purchase-list.verify-payment');
             Route::post('/erp/purchases/purchase-list/force-delete/{id}', [PurchaseListController::class, 'forceDeleteOwner'])
                 ->name('purchases.purchase-list.forceDeleteOwner')
                 ->middleware('auth');
@@ -466,6 +469,7 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/purchases/purchase-returns/data-deleted', [PurchaseReturnController::class, 'dataDeletedPurchaseReturns']);
             Route::delete('/erp/purchases/purchase-returns/force-delete/{id}', [PurchaseReturnController::class, 'forceDelete'])->name('purchase-returns.forceDelete');
             Route::post('/erp/purchases/purchase-returns/restore/{id}', [PurchaseReturnController::class, 'restore'])->name('purchase-returns.restore');
+            Route::post('/erp/purchases/purchase-returns/verify-payment/{groupId}', [PurchaseReturnController::class, 'verifyPayment'])->name('purchase-returns.verify-payment');
         });
     });
 

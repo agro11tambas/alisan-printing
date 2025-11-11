@@ -412,8 +412,13 @@ class InventoryController extends Controller
             ->orderBy('stock_after_sales', 'desc'); // urutkan berdasarkan kolom stock_after_sales
 
         if ($request->filled('product_name')) {
-            $reportItems->whereHas('product', function ($query) use ($request) {
-                $query->where('name', 'like', '%' . $request->product_name . '%');
+            $keyword = $request->product_name;
+
+            $reportItems->whereHas('product', function ($query) use ($keyword) {
+                $query->where(function ($q) use ($keyword) {
+                    $q->where('name', 'like', '%' . $keyword . '%')
+                        ->orWhere('sku', 'like', '%' . $keyword . '%');
+                });
             });
         }
 

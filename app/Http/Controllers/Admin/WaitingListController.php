@@ -17,55 +17,208 @@ class WaitingListController extends Controller
         return view('erp.pages.production.waiting-list.waiting-list');
     }
 
+    // public function dataWaitingList(Request $request)
+    // {
+    //     $length = (int) $request->input('length', 15);
+    //     $start = (int) $request->input('start', 0);
+
+    //     $progresses = OrderProgress::with([
+    //         'order.customer',
+    //         'items.product.productionStocks',
+    //         'items.product.categories'
+    //     ])->orderBy('created_at', 'desc');
+
+    //     // ✅ Filter tanggal
+    //     if ($request->filter) {
+    //         switch ($request->filter) {
+    //             case 'today':
+    //                 $progresses->whereDate('date', Carbon::today());
+    //                 break;
+    //             case 'last_7_days':
+    //                 $progresses->whereBetween('date', [Carbon::now()->subDays(7), Carbon::now()]);
+    //                 break;
+    //             case 'this_month':
+    //                 $progresses->whereMonth('date', Carbon::now()->month)
+    //                     ->whereYear('date', Carbon::now()->year);
+    //                 break;
+    //             case 'last_30_days':
+    //                 $progresses->whereBetween('date', [Carbon::now()->subDays(30), Carbon::now()]);
+    //                 break;
+    //             case 'year_to_date':
+    //                 $progresses->whereBetween('date', [Carbon::now()->startOfYear(), Carbon::now()]);
+    //                 break;
+    //             case 'yearly':
+    //                 $progresses->whereYear('date', Carbon::now()->year);
+    //                 break;
+    //             case 'custom':
+    //                 if ($request->filled('start_date') && $request->filled('end_date')) {
+    //                     $progresses->whereBetween('date', [$request->start_date, $request->end_date]);
+    //                 }
+    //                 break;
+    //         }
+    //     }
+
+    //     // ✅ Filter pencarian
+    //     if ($request->filled('search_keyword')) {
+    //         if ($request->search_type === 'customer') {
+    //             $progresses->whereHas('order.customer', function ($q) use ($request) {
+    //                 $q->where('name', 'like', '%' . $request->search_keyword . '%');
+    //             });
+    //         } else {
+    //             $progresses->whereHas('order', function ($q) use ($request) {
+    //                 $q->where('order_number', 'like', '%' . $request->search_keyword . '%');
+    //             });
+    //         }
+    //     }
+
+    //     if ($request->filled('search_product')) {
+    //         $productKeyword = trim(strtolower($request->search_product));
+
+    //         $progresses->whereHas('items.product', function ($q) use ($productKeyword) {
+    //             // gunakan COLLATE biar bisa handle tanda kurung
+    //             $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+    //         });
+    //     }
+
+    //     // ✅ Filter status progress
+    //     if ($request->filled('progress_status')) {
+    //         if ($request->progress_status === 'completed') {
+    //             $progresses->whereDoesntHave('items', function ($q) {
+    //                 $q->whereColumn('completed_quantity', '<', 'quantity');
+    //             });
+    //         } elseif ($request->progress_status === 'progress') {
+    //             $progresses->whereHas('items', function ($q) {
+    //                 $q->whereColumn('completed_quantity', '<', 'quantity');
+    //             });
+    //         }
+    //     }
+
+    //     // ✅ Hitung total data untuk lazy-load
+    //     $totalQuery = clone $progresses;
+    //     $totalData = $totalQuery->count();
+
+    //     // ✅ Ambil data sesuai offset dan limit
+    //     $data = $progresses->skip($start)->take($length)->get();
+
+    //     $totalRemaining = 0;
+
+    //     return response()->json([
+    //         'data' => $data->map(function ($progress) use (&$totalRemaining) {
+    //             $orderCreatedAt = optional($progress->order)->created_at;
+    //             $date = Carbon::parse($orderCreatedAt)->format('d M y H:i');
+
+    //             $editedBadge = $progress->status_edited == 1
+    //                 ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
+    //                 : '';
+
+    //             $completeBadge = $progress->items->every(fn($item) => $item->completed_quantity >= $item->quantity)
+    //                 ? '<div><span class="badge bg-soft-success text-success mb-1">Completed</span></div>'
+    //                 : '';
+
+    //             $invoiceNumberHtml = $completeBadge . '
+    //                 <div>
+    //                     <div>' . e($progress->invoice_number) . $editedBadge . '</div>
+    //                     <small class="text-muted">' . $date . '</small>
+    //                 </div>';
+
+    //             $customerHtml = '
+    //                 <div>
+    //                     <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
+    //                     <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
+    //                 </div>
+    //             ';
+
+    //             // ✅ Hitung hanya produk kategori "Sablon"
+    //             $remainingThisProgress = $progress->items->sum(function ($item) {
+    //                 $product = $item->product;
+    //                 if (!$product) return 0;
+
+    //                 $isSablon = $product->categories->contains(function ($category) {
+    //                     return str_contains(strtolower($category->name), 'sablon');
+    //                 });
+
+    //                 if (!$isSablon) return 0;
+
+    //                 $completed = $item->completed_quantity ?? 0;
+    //                 $qty = $item->quantity ?? 0;
+    //                 return max($qty - $completed, 0);
+    //             });
+
+    //             // ✅ tambahkan ke total
+    //             $GLOBALS['totalRemaining'] = ($GLOBALS['totalRemaining'] ?? 0) + $remainingThisProgress;
+
+    //             $progressView = view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
+
+    //             $shipping = e($progress->order->shipping_address ?? '-');
+
+    //             $allCompleted = $progress->items->every(function ($item) {
+    //                 return ($item->completed_quantity ?? 0) >= ($item->quantity ?? 0);
+    //             });
+    //             $actionButtons = view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();
+
+    //             return [
+    //                 'id' => $progress->id,
+    //                 'invoice_number' => $invoiceNumberHtml,
+    //                 'customer' => $customerHtml,
+    //                 'progress' => $progressView,
+    //                 'shipping_address' => $shipping,
+    //                 'action' => $actionButtons,
+    //                 'created_at' => $progress->created_at->toDateTimeString(),
+    //                 'order_created_at' => $orderCreatedAt ? Carbon::parse($orderCreatedAt)->format('d M y H:i') : '-',
+    //             ];
+    //         }),
+    //         'has_more' => ($start + $length) < $totalData,
+    //         'total_remaining' => $GLOBALS['totalRemaining'] ?? 0,
+    //     ]);
+    // }
+
     public function dataWaitingList(Request $request)
     {
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $progresses = OrderProgress::with([
-            'order.customer',
-            'items.product.productionStocks',
+        $baseQuery = OrderProgress::with([
             'items.product.categories'
-        ])->orderBy('created_at', 'desc');
+        ]);
 
-        // ✅ Filter tanggal
+        // Filter harus diterapkan ke baseQuery juga
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
-                    $progresses->whereDate('date', Carbon::today());
+                    $baseQuery->whereDate('date', Carbon::today());
                     break;
                 case 'last_7_days':
-                    $progresses->whereBetween('date', [Carbon::now()->subDays(7), Carbon::now()]);
+                    $baseQuery->whereBetween('date', [Carbon::now()->subDays(7), Carbon::now()]);
                     break;
                 case 'this_month':
-                    $progresses->whereMonth('date', Carbon::now()->month)
+                    $baseQuery->whereMonth('date', Carbon::now()->month)
                         ->whereYear('date', Carbon::now()->year);
                     break;
                 case 'last_30_days':
-                    $progresses->whereBetween('date', [Carbon::now()->subDays(30), Carbon::now()]);
+                    $baseQuery->whereBetween('date', [Carbon::now()->subDays(30), Carbon::now()]);
                     break;
                 case 'year_to_date':
-                    $progresses->whereBetween('date', [Carbon::now()->startOfYear(), Carbon::now()]);
+                    $baseQuery->whereBetween('date', [Carbon::now()->startOfYear(), Carbon::now()]);
                     break;
                 case 'yearly':
-                    $progresses->whereYear('date', Carbon::now()->year);
+                    $baseQuery->whereYear('date', Carbon::now()->year);
                     break;
                 case 'custom':
                     if ($request->filled('start_date') && $request->filled('end_date')) {
-                        $progresses->whereBetween('date', [$request->start_date, $request->end_date]);
+                        $baseQuery->whereBetween('date', [$request->start_date, $request->end_date]);
                     }
                     break;
             }
         }
 
-        // ✅ Filter pencarian
+        // Filter pencarian & progress status tetap sama
         if ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
-                $progresses->whereHas('order.customer', function ($q) use ($request) {
+                $baseQuery->whereHas('order.customer', function ($q) use ($request) {
                     $q->where('name', 'like', '%' . $request->search_keyword . '%');
                 });
             } else {
-                $progresses->whereHas('order', function ($q) use ($request) {
+                $baseQuery->whereHas('order', function ($q) use ($request) {
                     $q->where('order_number', 'like', '%' . $request->search_keyword . '%');
                 });
             }
@@ -74,62 +227,34 @@ class WaitingListController extends Controller
         if ($request->filled('search_product')) {
             $productKeyword = trim(strtolower($request->search_product));
 
-            $progresses->whereHas('items.product', function ($q) use ($productKeyword) {
-                // gunakan COLLATE biar bisa handle tanda kurung
-                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+            $baseQuery->whereHas('items.product', function ($q) use ($productKeyword) {
+                $q->where(function ($sub) use ($productKeyword) {
+                    $sub->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"])
+                        ->orWhereRaw("LOWER(sku) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                });
             });
         }
 
-        // ✅ Filter status progress
         if ($request->filled('progress_status')) {
             if ($request->progress_status === 'completed') {
-                $progresses->whereDoesntHave('items', function ($q) {
+                $baseQuery->whereDoesntHave('items', function ($q) {
                     $q->whereColumn('completed_quantity', '<', 'quantity');
                 });
             } elseif ($request->progress_status === 'progress') {
-                $progresses->whereHas('items', function ($q) {
+                $baseQuery->whereHas('items', function ($q) {
                     $q->whereColumn('completed_quantity', '<', 'quantity');
                 });
             }
         }
 
-        // ✅ Hitung total data untuk lazy-load
-        $totalQuery = clone $progresses;
-        $totalData = $totalQuery->count();
+        // 1️⃣ Hitung total data untuk lazy load
+        $totalData = (clone $baseQuery)->count();
 
-        // ✅ Ambil data sesuai offset dan limit
-        $data = $progresses->skip($start)->take($length)->get();
-
-        $totalRemaining = 0;
-
-        return response()->json([
-            'data' => $data->map(function ($progress) use (&$totalRemaining) {
-                $orderCreatedAt = optional($progress->order)->created_at;
-                $date = Carbon::parse($orderCreatedAt)->format('d M y H:i');
-
-                $editedBadge = $progress->status_edited == 1
-                    ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
-                    : '';
-
-                $completeBadge = $progress->items->every(fn($item) => $item->completed_quantity >= $item->quantity)
-                    ? '<div><span class="badge bg-soft-success text-success mb-1">Completed</span></div>'
-                    : '';
-
-                $invoiceNumberHtml = $completeBadge . '
-        <div>
-            <div>' . e($progress->invoice_number) . $editedBadge . '</div>
-            <small class="text-muted">' . $date . '</small>
-        </div>';
-
-                $customerHtml = '
-        <div>
-            <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
-            <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
-        </div>
-    ';
-
-                // ✅ Hitung hanya produk kategori "Sablon"
-                $remainingThisProgress = $progress->items->sum(function ($item) {
+        // 2️⃣ Hitung total_remaining untuk SEMUA hasil filter (bukan cuma batch)
+        $totalRemaining = (clone $baseQuery)
+            ->get()
+            ->sum(function ($progress) {
+                return $progress->items->sum(function ($item) {
                     $product = $item->product;
                     if (!$product) return 0;
 
@@ -143,34 +268,73 @@ class WaitingListController extends Controller
                     $qty = $item->quantity ?? 0;
                     return max($qty - $completed, 0);
                 });
+            });
 
-                // ✅ tambahkan ke total
-                $GLOBALS['totalRemaining'] = ($GLOBALS['totalRemaining'] ?? 0) + $remainingThisProgress;
+        // 3️⃣ Ambil batch untuk ditampilkan
+        $data = (clone $baseQuery)
+            ->with([
+                'order.customer',
+                'items.product.productionStocks',
+                'items.product.categories'
+            ])
+            ->orderBy('created_at', 'desc')
+            ->skip($start)
+            ->take($length)
+            ->get();
 
-                $progressView = view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
+        $mappedData = $data->map(function ($progress) {
+            $orderCreatedAt = optional($progress->order)->created_at;
+            $date = $orderCreatedAt ? Carbon::parse($orderCreatedAt)->format('d M y H:i') : '-';
 
-                $shipping = e($progress->order->shipping_address ?? '-');
+            $editedBadge = $progress->status_edited == 1
+                ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
+                : '';
 
-                $allCompleted = $progress->items->every(function ($item) {
-                    return ($item->completed_quantity ?? 0) >= ($item->quantity ?? 0);
-                });
-                $actionButtons = view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();
+            $completeBadge = $progress->items->every(fn($item) => $item->completed_quantity >= $item->quantity)
+                ? '<div><span class="badge bg-soft-success text-success mb-1">Completed</span></div>'
+                : '';
 
-                return [
-                    'id' => $progress->id,
-                    'invoice_number' => $invoiceNumberHtml,
-                    'customer' => $customerHtml,
-                    'progress' => $progressView,
-                    'shipping_address' => $shipping,
-                    'action' => $actionButtons,
-                    'created_at' => $progress->created_at->toDateTimeString(),
-                    'order_created_at' => $orderCreatedAt ? Carbon::parse($orderCreatedAt)->format('d M y H:i') : '-',
-                ];
-            }),
+            $invoiceNumberHtml = $completeBadge . '
+            <div>
+                <div>' . e($progress->invoice_number) . $editedBadge . '</div>
+                <small class="text-muted">' . $date . '</small>
+            </div>';
+
+            $customerHtml = '
+            <div>
+                <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
+                <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
+            </div>
+        ';
+
+            $progressView = view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
+            $shipping = e($progress->order->shipping_address ?? '-');
+
+            $allCompleted = $progress->items->every(function ($item) {
+                return ($item->completed_quantity ?? 0) >= ($item->quantity ?? 0);
+            });
+
+            $actionButtons = view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();
+
+            return [
+                'id' => $progress->id,
+                'invoice_number' => $invoiceNumberHtml,
+                'customer' => $customerHtml,
+                'progress' => $progressView,
+                'shipping_address' => $shipping,
+                'action' => $actionButtons,
+                'created_at' => $progress->created_at->toDateTimeString(),
+                'order_created_at' => $date,
+            ];
+        });
+
+        return response()->json([
+            'data' => $mappedData,
             'has_more' => ($start + $length) < $totalData,
-            'total_remaining' => $GLOBALS['totalRemaining'] ?? 0,
+            'total_remaining' => $totalRemaining,
         ]);
     }
+
 
     public function getCompleteList()
     {

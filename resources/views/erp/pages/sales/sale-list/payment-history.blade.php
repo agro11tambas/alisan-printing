@@ -112,7 +112,7 @@
                             @endphp
 
                             @if ($debitGroup->isNotEmpty())
-                                <div class="mb-4 border rounded">
+                                <div class="mb-4 border rounded" data-group="{{ $groupId }}">
                                     <div class="d-flex justify-content-between align-items-center bg-light p-2">
                                         <span><strong>Tanggal:</strong>
                                             {{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('d-m-Y') }}</span>
@@ -572,10 +572,55 @@
                             icon: 'success',
                             title: 'Berhasil!',
                             text: res.message ?? 'Payment updated successfully',
+                            timer: 1500,
                             showConfirmButton: false
                         });
+
                         $('#modalEditPayment').modal('hide');
-                        setTimeout(() => window.location.reload(), 100);
+
+                        const data = res.data;
+                        if (!data) return;
+
+                        // Cari group container berdasarkan data-group
+                        const groupBox = document.querySelector(
+                            `[data-group="${data.transaction_group_id}"]`);
+                        if (!groupBox) return;
+
+                        // Update header tanggal
+                        const dateEl = groupBox.querySelector('.bg-light span');
+                        if (dateEl) {
+                            dateEl.innerHTML =
+                                `<strong>Tanggal:</strong> ${data.transaction_date}`;
+                        }
+
+                        // Update tombol verify (biar jumlahnya baru)
+                        const btnVerify = groupBox.querySelector('.btn-verify-payment');
+                        if (btnVerify) {
+                            btnVerify.setAttribute('data-amount', data.paid_amount);
+                        }
+
+                        // Update tabel baris pertama (akun, debit, note, proof)
+                        const row = groupBox.querySelector('tbody tr');
+                        if (row) {
+                            row.cells[0].textContent =
+                                `${data.account_name} (${data.account_type})`;
+                            row.cells[1].textContent = data.paid_amount;
+                            row.cells[2].textContent = data.note || '-';
+
+                            // Update proof
+                            const proofTd = row.cells[3];
+                            if (data.proofs && data.proofs.length > 0) {
+                                proofTd.innerHTML = `
+                <button type="button"
+                    class="btn btn-sm btn-outline-primary btn-preview-proof"
+                    data-proofs='${JSON.stringify(data.proofs)}'>
+                    <i class="feather-image me-1"></i> Preview (${data.proofs.length})
+                </button>
+            `;
+                            } else {
+                                proofTd.innerHTML = `<span class="text-muted">No Proof</span>`;
+                            }
+                        }
                     },
                     error: function(xhr) {
                         Swal.fire({
@@ -627,7 +672,9 @@
                     .then(async (res) => {
                         const data = await res.json();
                         if (!res.ok) throw data;
+
                         modalVerify.hide();
+
                         Swal.fire({
                             icon: 'success',
                             title: 'Berhasil!',
@@ -635,7 +682,28 @@
                             timer: 1500,
                             showConfirmButton: false
                         });
-                        setTimeout(() => window.location.reload(), 1000);
+
+                        // ✅ Update tampilan tanpa reload
+                        const groupBox = document.querySelector(`[data-group="${data.group_id}"]`);
+                        if (groupBox) {
+                            // Ubah semua badge status dalam tabel jadi Verified
+                            groupBox.querySelectorAll('tbody tr').forEach(tr => {
+                                const statusCell = tr.cells[4]; // kolom ke-5
+                                if (statusCell) {
+                                    statusCell.innerHTML =
+                                        `<span class="badge bg-success">Verified</span>`;
+                                }
+                            });
+
+                            // Nonaktifkan tombol Verify biar gak diklik ulang
+                            const btnVerify = groupBox.querySelector('.btn-verify-payment');
+                            if (btnVerify) {
+                                btnVerify.classList.remove('btn-success');
+                                btnVerify.classList.add('btn-secondary');
+                                btnVerify.disabled = true;
+                                btnVerify.innerHTML = `<i class="feather-check me-1"></i> Verified`;
+                            }
+                        }
                     })
                     .catch(err => {
                         modalVerify.hide();

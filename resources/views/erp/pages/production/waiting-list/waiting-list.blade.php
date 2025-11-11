@@ -138,8 +138,8 @@
                                             <div class="col-md-6">
                                                 <select id="search_type" class="form-control"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                                    <option value="order_number">Order Number</option>
                                                     <option value="customer">Customer</option>
+                                                    <option value="order_number">Order Number</option>
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
@@ -334,8 +334,8 @@
                     url: "{{ url('/erp/productions/waiting-list/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
+                        start: currentPage * 50,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),

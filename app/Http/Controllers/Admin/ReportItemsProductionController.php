@@ -27,11 +27,15 @@ class ReportItemsProductionController extends Controller
             $q->whereNull('products.deleted_at');
         })
             ->with('product');
-            
-        // 🔍 Filter berdasarkan nama produk (kalau ada)
+
         if ($request->filled('product_name')) {
-            $reportItems->whereHas('product', function ($query) use ($request) {
-                $query->where('name', 'like', '%' . $request->product_name . '%');
+            $keyword = $request->product_name;
+
+            $reportItems->whereHas('product', function ($query) use ($keyword) {
+                $query->where(function ($q) use ($keyword) {
+                    $q->where('name', 'like', '%' . $keyword . '%')
+                        ->orWhere('sku', 'like', '%' . $keyword . '%');
+                });
             });
         }
 

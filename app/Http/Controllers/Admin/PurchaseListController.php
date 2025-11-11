@@ -156,14 +156,22 @@ class PurchaseListController extends Controller
                 $paidHtml = '<span class="text-success">Rp ' . number_format($paidTotal, 0, ',', '.') . '</span>';
                 $remainingHtml = '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
 
-                // 🏷️ Payment Status
+                // 🏷️ Payment Status + Verified check
                 $paymentStatus = strtolower($purchase->payment_status);
-                $paymentBadge = match ($paymentStatus) {
-                    'paid' => '<div class="badge bg-soft-success text-success">' . e($purchase->payment_status) . '</div>',
-                    'overpaid' => '<div class="badge bg-soft-primary text-primary">' . e($purchase->payment_status) . '</div>',
-                    'unpaid' => '<div class="badge bg-soft-danger text-danger">' . e($purchase->payment_status) . '</div>',
-                    default => '<div class="badge bg-soft-warning text-warning">' . e($purchase->payment_status) . '</div>',
+                $badgeClass = match ($paymentStatus) {
+                    'paid'       => 'bg-soft-success text-success',
+                    'overpaid'   => 'bg-soft-primary text-primary',
+                    'unpaid'     => 'bg-soft-danger text-danger',
+                    'partially paid' => 'bg-soft-warning text-warning',
+                    default      => 'bg-secondary',
                 };
+
+                $verifiedIcon = '';
+                if ($purchase->verified) {
+                    $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
+                }
+
+                $paymentBadge = '<div class="badge ' . $badgeClass . '">' . ucfirst($paymentStatus) . '</div>' . $verifiedIcon;
 
                 // 💳 Payment method
                 $paymentMethod = e($purchase->payment_method ?? '-');
@@ -510,6 +518,7 @@ class PurchaseListController extends Controller
                 'note'                 => 'Purchase Account Transaction',
                 'particular'           => 'Purchase Invoice',
                 'transaction_group_id' => $groupId,
+                'verified'             => 1,
             ]);
 
             $purchaseAccount->increment('closing_balance', $grandTotal);
@@ -1177,7 +1186,7 @@ class PurchaseListController extends Controller
             $notes = $request->note_per_image ?? [];
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/payment_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
@@ -1250,6 +1259,7 @@ class PurchaseListController extends Controller
             }
 
             $purchase->transaction_group_id = $groupId;
+            $purchase->verified = false;
             $purchase->save();
 
             DB::commit();
@@ -1326,7 +1336,7 @@ class PurchaseListController extends Controller
             $notes = $request->note_per_image ?? [];
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/payment_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
@@ -1399,6 +1409,7 @@ class PurchaseListController extends Controller
             }
 
             $purchase->transaction_group_id = $groupId;
+            $purchase->verified = false;
             $purchase->save();
 
             DB::commit();
@@ -1460,142 +1471,6 @@ class PurchaseListController extends Controller
         ]);
     }
 
-    // public function updatePayment(Request $request, $groupId)
-    // {
-    //     $request->merge([
-    //         'paid_amount' => str_replace('.', '', $request->paid_amount),
-    //     ]);
-
-    //     $request->validate([
-    //         'transaction_date'      => 'required|date',
-    //         'paid_amount'           => 'required|numeric|min:1',
-    //         'cash_bank_account_id'  => 'required|exists:accounts,id',
-    //         'note'                  => 'nullable|string',
-    //         'payment_proof'         => 'nullable|array',
-    //         'payment_proof.*'       => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
-    //         'note_per_image'        => 'nullable|array',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
-    //         if ($transactions->isEmpty()) {
-    //             throw new \Exception("Payment not found");
-    //         }
-
-    //         $purchaseId = $transactions->first()->purchase_id;
-    //         $purchase   = Purchase::findOrFail($purchaseId);
-
-    //         // =====================================================
-    //         // 🔹 Handle Multiple Uploads (bukti + note)
-    //         // =====================================================
-    //         $uploadedProofs = [];
-    //         $notes = $request->note_per_image ?? [];
-
-    //         // Ambil proof lama biar gak hilang
-    //         $oldProofs = [];
-    //         $oldProofJson = $transactions->first()?->proof;
-    //         if ($oldProofJson && is_string($oldProofJson)) {
-    //             $decoded = json_decode($oldProofJson, true);
-    //             if (is_array($decoded)) {
-    //                 $oldProofs = $decoded;
-    //             }
-    //         }
-
-    //         if ($request->hasFile('payment_proof')) {
-    //             $uploadPath = public_path('uploads/payment_proofs');
-    //             if (!file_exists($uploadPath)) {
-    //                 mkdir($uploadPath, 0755, true);
-    //             }
-
-    //             foreach ($request->file('payment_proof') as $index => $file) {
-    //                 $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-    //                 $file->move($uploadPath, $fileName);
-
-    //                 $path = 'uploads/payment_proofs/' . $fileName;
-    //                 $uploadedProofs[] = [
-    //                     'file' => str_replace('\\', '/', $path),
-    //                     'note' => $notes[$index] ?? '',
-    //                 ];
-    //             }
-    //         }
-
-    //         // 🔹 Kalau gak ada file baru → tetap pakai proof lama tapi update note kalau dikirim ulang
-    //         if (empty($uploadedProofs)) {
-    //             foreach ($oldProofs as $index => &$proof) {
-    //                 $proof['note'] = $notes[$index] ?? ($proof['note'] ?? '');
-    //             }
-    //             $uploadedProofs = $oldProofs;
-    //         }
-
-    //         $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
-
-    //         // =====================================================
-    //         // 🔹 Payment Process (kode lama kamu tetap utuh)
-    //         // =====================================================
-    //         $oldCredit = $transactions->firstWhere('credit', '>', 0);
-    //         if (!$oldCredit) {
-    //             throw new \Exception("Credit transaction (Cash/Bank) not found in this group");
-    //         }
-
-    //         $oldAccount = $oldCredit->account;
-    //         $oldAmount  = $oldCredit->credit;
-
-    //         // rollback saldo akun lama
-    //         $oldAccount->closing_balance += $oldAmount;
-    //         $oldAccount->save();
-
-    //         // update transaksi credit lama → ganti akun/amount/date/note + proof
-    //         $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
-    //         $oldCredit->update([
-    //             'transaction_date' => $request->transaction_date,
-    //             'account_id'       => $cashBankAccount->id,
-    //             'credit'           => $request->paid_amount,
-    //             'note'             => $request->note ?? '',
-    //             'proof'            => $proofJson, // 🔹 bukti disimpan di sini
-    //         ]);
-
-    //         // update saldo akun baru
-    //         $cashBankAccount->closing_balance -= $request->paid_amount;
-    //         $cashBankAccount->save();
-
-    //         // update juga tanggal/note untuk baris debit Purchase biar sinkron
-    //         $purchaseTrx = $transactions->firstWhere('debit', '>', 0);
-    //         if ($purchaseTrx) {
-    //             $purchaseTrx->update([
-    //                 'transaction_date' => $request->transaction_date,
-    //                 'note'             => $request->note ?? '',
-    //             ]);
-    //         }
-
-    //         // hitung ulang paid amount
-    //         $totalPaid = AccountTransaction::where('purchase_id', $purchase->id)
-    //             ->where('credit', '>', 0)
-    //             ->sum('credit');
-
-    //         $purchase->paid_amount      = $totalPaid;
-    //         $purchase->remaining_amount = max(0, $purchase->total_amount - $totalPaid);
-
-    //         if ($purchase->paid_amount == 0) {
-    //             $purchase->payment_status = 'Unpaid';
-    //         } elseif ($purchase->paid_amount < $purchase->total_amount) {
-    //             $purchase->payment_status = 'Partially Paid';
-    //         } elseif ($purchase->paid_amount == $purchase->total_amount) {
-    //             $purchase->payment_status = 'Paid';
-    //         } else {
-    //             $purchase->payment_status = 'Overpaid';
-    //         }
-
-    //         $purchase->save();
-
-    //         DB::commit();
-    //         return redirect()->back()->with('success', 'Payment berhasil diperbarui.');
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         return redirect()->back()->with('error', 'Gagal update payment: ' . $e->getMessage());
-    //     }
-    // }
-
     public function updatePayment(Request $request, $groupId)
     {
         $request->merge([
@@ -1638,7 +1513,7 @@ class PurchaseListController extends Controller
             }
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = public_path('uploads/payment_proofs');
+                $uploadPath = base_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) mkdir($uploadPath, 0755, true);
 
                 foreach ($request->file('payment_proof') as $index => $file) {
@@ -1744,6 +1619,22 @@ class PurchaseListController extends Controller
             $purchase->save();
 
             DB::commit();
+            if ($request->ajax()) {
+                return response()->json([
+                    'status'  => 'success',
+                    'message' => 'Payment berhasil diperbarui.',
+                    'data'    => [
+                        'transaction_group_id' => $groupId,
+                        'transaction_date'     => \Carbon\Carbon::parse($request->transaction_date)->format('d-m-Y'),
+                        'paid_amount'          => number_format($request->paid_amount, 0, ',', '.'),
+                        'account_id'           => $cashBankAccount->id,
+                        'account_name'         => $cashBankAccount->name,
+                        'account_type'         => $cashBankAccount->type,
+                        'note'                 => $request->note ?? '',
+                        'proofs'               => $uploadedProofs,
+                    ],
+                ]);
+            }
             return back()->with('success', 'Payment berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1754,20 +1645,45 @@ class PurchaseListController extends Controller
     public function verifyPayment($groupId)
     {
         try {
+            // 🔍 Ambil semua transaksi dalam group ini
             $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
 
             if ($transactions->isEmpty()) {
                 return response()->json(['message' => 'Transaksi tidak ditemukan.'], 404);
             }
 
+            // ✅ Update semua transaksi di group ini jadi verified
             foreach ($transactions as $trx) {
                 $trx->update(['verified' => true]);
             }
 
-            return response()->json(['message' => 'Payment berhasil diverifikasi.']);
+            // ✅ Ambil purchase_id dari transaksi (pastikan gak null)
+            $purchaseId = $transactions->firstWhere('purchase_id', '!=', null)?->purchase_id;
+
+            if ($purchaseId) {
+                // 🔍 Ambil semua transaksi dengan purchase_id yang sama
+                $purchaseTransactions = AccountTransaction::where('purchase_id', $purchaseId)->get();
+
+                // 🔎 Hitung berapa yang verified
+                $verifiedCount = $purchaseTransactions->where('verified', true)->count();
+                $totalCount = $purchaseTransactions->count();
+
+                // ✅ Kalau semua transaksi verified → update purchase
+                if ($totalCount > 0 && $verifiedCount === $totalCount) {
+                    \App\Models\Purchase::where('id', $purchaseId)->update(['verified' => true]);
+                } else {
+                    // ❌ Kalau masih ada yang belum verified, pastikan purchase tetap false
+                    \App\Models\Purchase::where('id', $purchaseId)->update(['verified' => false]);
+                }
+            }
+
+            return response()->json([
+                'message' => 'Payment berhasil diverifikasi.',
+                'group_id' => $groupId,
+            ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Gagal verifikasi payment: ' . $e->getMessage()
+                'message' => 'Gagal verifikasi payment: ' . $e->getMessage(),
             ], 500);
         }
     }

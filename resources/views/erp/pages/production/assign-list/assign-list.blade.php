@@ -105,7 +105,7 @@
                                             placeholder="Product name...">
                                     </div>
                                     <div class="col-lg-5">
-                                        <label for="search_type" class="fw-semibold fs-12">Search Assign Code</label>
+                                        <label for="search_type" class="fw-semibold fs-12">Search By</label>
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <select id="search_type" class="form-control"
@@ -259,8 +259,8 @@
                     url: `/erp/productions/waiting-list/assign-list/data`,
                     type: 'GET',
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
+                        start: currentPage * 50,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),

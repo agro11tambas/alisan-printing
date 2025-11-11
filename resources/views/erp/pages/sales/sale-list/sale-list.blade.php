@@ -709,6 +709,8 @@
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
+            let lastKeyword = ''; // 🔹 simpan keyword terakhir
+            let lastFilterState = ''; // 🔹 simpan kombinasi filter terakhir
 
             const dataTable = $('#saleListTable').DataTable({
                 processing: false,
@@ -764,9 +766,17 @@
             let searchTimer = null;
             let currentRequest = null;
 
-            function loadMoreData() {
-                if (isLoading || !hasMoreData) return;
+            function loadMoreData(reset = false) {
+                if (isLoading) return;
+                if (!hasMoreData && !reset) return;
                 isLoading = true;
+
+                if (reset) {
+                    allData = [];
+                    currentPage = 0;
+                    hasMoreData = true;
+                    dataTable.clear().draw();
+                }
 
                 // 🚫 Batalkan request sebelumnya jika masih berjalan
                 if (currentRequest) {
@@ -777,8 +787,8 @@
                     url: "{{ url('/erp/sales/sale-list/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
+                        start: currentPage * 50,
+                        length: reset ? 50 : 100,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -789,13 +799,20 @@
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
+                            if (reset) allData = []; // hapus data lama kalau reset
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData);
                             dataTable.draw(false);
                             currentPage++;
+                            hasMoreData = true;
                         } else {
-                            hasMoreData = false;
+                            if (reset) {
+                                currentPage = 0;
+                                hasMoreData = true;
+                            } else {
+                                hasMoreData = false;
+                            }
                         }
                     },
                     complete: function() {
@@ -886,11 +903,11 @@
                     $('#due_date_order').addClass('d-none');
                 }
 
-                if (!isDeletedTab) {
-                    resetAndReload();
-                } else {
-                    resetAndReloadDeleted();
-                }
+                // if (!isDeletedTab) {
+                //     resetAndReload();
+                // } else {
+                //     resetAndReloadDeleted();
+                // }
             });
 
             $('#due_date_order').on('change', function() {
@@ -906,27 +923,43 @@
                 }
             });
 
-            $('#search_keyword, #search_payment_status, #due_date_order, #filter, #start_date, #end_date').on(
-                'keyup change',
-                function() {
-                    const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
-                        .hasClass('active');
+            function detectFilterChange() {
+                return (
+                    $('#search_type').val() + '|' +
+                    $('#search_keyword').val() + '|' +
+                    $('#search_payment_status').val() + '|' +
+                    $('#filter').val() + '|' +
+                    $('#start_date').val() + '|' +
+                    $('#end_date').val() + '|' +
+                    $('#due_date_order').val()
+                );
+            }
 
+            $('#search_keyword, #search_payment_status, #due_date_order, #filter, #start_date, #end_date')
+                .on('keyup change', function(e) {
                     clearTimeout(searchTimer);
+
                     searchTimer = setTimeout(() => {
-                        allData = [];
-                        currentPage = 0;
-                        hasMoreData = true;
-                        dataTable.clear().draw();
+                        const keyword = $('#search_keyword').val().trim();
+                        const paymentStatus = $('#search_payment_status').val();
+                        const dueDate = $('#due_date_order').val();
+                        
+                        if (!keyword && !paymentStatus && !dueDate) return;
 
-                        if (!isDeletedTab) {
-                            loadMoreData();
-                        } else {
-                            resetAndReloadDeleted();
+                        const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]')
+                            .parent().hasClass('active');
+
+                        const currentState = detectFilterChange();
+                        if (currentState !== lastFilterState) {
+                            lastFilterState = currentState;
+                            if (!isDeletedTab) {
+                                loadMoreData(true);
+                            } else {
+                                resetAndReloadDeleted();
+                            }
                         }
-                    }, 100);
+                    }, 200);
                 });
-
 
             $('#search_payment_status').on('change', function() {
                 const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
@@ -1101,8 +1134,8 @@
                     url: "{{ url('/erp/sales/sale-list/data-deleted') }}",
                     type: 'GET',
                     data: {
-                        start: deletedCurrentPage * 15,
-                        length: 15,
+                        start: deletedCurrentPage * 50,
+                        length: reset ? 50 : 100,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -1344,7 +1377,7 @@
 
                             // 🔹 Update tampilan tabel
                             $(rowNode).find('td[data-column="paid_amount"]').html(d
-                            .paid_amount);
+                                .paid_amount);
                             $(rowNode).find('td[data-column="remaining_amount"]').html(d
                                 .remaining_amount);
                             $(rowNode).find('td[data-column="payment_status"]').html(

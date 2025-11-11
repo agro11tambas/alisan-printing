@@ -109,8 +109,8 @@
                                         <div class="row g-2">
                                             <div class="col-md-5">
                                                 <select id="search_type" class="form-control">
-                                                    <option value="design_number">Design Number</option>
                                                     <option value="customer">Customer</option>
+                                                    <option value="design_number">Design Number</option>
                                                     <option value="product">Product</option>
                                                 </select>
                                             </div>
@@ -333,8 +333,8 @@
                     url: "{{ url('/erp/design/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 15,
-                        length: 15,
+                        start: currentPage * 50,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -418,7 +418,22 @@
 
             $('#search_keyword, #search_product').on('keyup input paste', function() {
                 clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => resetAndReload(), 400);
+                searchTimeout = setTimeout(() => {
+                    const keyword = $('#search_keyword').val().trim();
+                    const productSearch = $('#search_product').val().trim();
+
+                    if (keyword === '' && productSearch === '') {
+                        // 🧹 Kalau kosong semua -> tampilkan semua data lagi
+                        allData = [];
+                        currentPage = 0;
+                        hasMoreData = true;
+                        table.clear().draw();
+                        loadMoreData();
+                    } else {
+                        // 🔍 Kalau ada isi -> jalankan search
+                        resetAndReload();
+                    }
+                }, 300);
             });
 
             $('#search_type').on('change', function() {
@@ -696,13 +711,13 @@
                     const fileUrl = img.file ? `/${img.file}`.replace(/\/{2,}/g, '/') : '';
                     const note = img.note || '-';
                     const itemHTML = `
-    <div class="image-item border rounded p-3">
-        <img src="${fileUrl}" class="img-fluid rounded mb-2" 
-             style="cursor:pointer;" 
-             onclick="window.open('${fileUrl}', '_blank')">
-        <p class="small text-muted mb-0">${note}</p>
-    </div>
-`;
+                        <div class="image-item border rounded p-3">
+                            <img src="${fileUrl}" class="img-fluid rounded mb-2" 
+                                style="cursor:pointer;" 
+                                onclick="window.open('${fileUrl}', '_blank')">
+                            <p class="small text-muted mb-0">${note}</p>
+                        </div>
+                    `;
                     container.append(itemHTML);
                 });
             } else {
