@@ -1375,6 +1375,11 @@ class PurchaseReturnController extends Controller
             $purchaseReturnId = $transactions->first()->purchase_return_id;
             $purchaseReturn   = PurchaseReturn::findOrFail($purchaseReturnId);
 
+            foreach ($transactions as $trx) {
+                $trx->update(['verified' => false]);
+            }
+            $purchaseReturn->update(['verified' => false]);
+
             // =====================================================
             // 🔹 Handle Multiple Uploads (bukti + note)
             // =====================================================
@@ -1511,6 +1516,7 @@ class PurchaseReturnController extends Controller
                         'account_type'         => $cashBankAccount->type,
                         'note'                 => $request->note ?? '',
                         'proofs'               => $uploadedProofs,
+                        'verified'             => false,
                     ],
                 ]);
             }

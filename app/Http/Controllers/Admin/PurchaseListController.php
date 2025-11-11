@@ -1497,6 +1497,11 @@ class PurchaseListController extends Controller
             $purchaseId = $transactions->first()->purchase_id;
             $purchase   = Purchase::findOrFail($purchaseId);
 
+            foreach ($transactions as $trx) {
+                $trx->update(['verified' => false]);
+            }
+            $purchase->update(['verified' => false]);
+
             // =====================================================
             // 🔹 Handle Multiple Uploads (bukti + note)
             // =====================================================
@@ -1632,6 +1637,7 @@ class PurchaseListController extends Controller
                         'account_type'         => $cashBankAccount->type,
                         'note'                 => $request->note ?? '',
                         'proofs'               => $uploadedProofs,
+                        'verified'             => false,
                     ],
                 ]);
             }

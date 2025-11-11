@@ -3752,6 +3752,11 @@ class SaleListController extends Controller
             $orderId = $transactions->first()->order_id;
             $order   = Order::findOrFail($orderId);
 
+            foreach ($transactions as $trx) {
+                $trx->update(['verified' => false]);
+            }
+            $order->update(['verified' => false]);
+
             // =====================================================
             // 🔹 Handle Multiple Uploads (bukti + note)
             // =====================================================
@@ -3890,6 +3895,7 @@ class SaleListController extends Controller
                         'account_type'         => $cashBankAccount->type,
                         'note'                 => $request->note ?? '',
                         'proofs'               => $uploadedProofs, // array bukti [{file:'uploads/..', note:'..'}, ...]
+                        'verified'             => false,
                     ],
                 ]);
             }
@@ -3903,7 +3909,6 @@ class SaleListController extends Controller
     public function verifyPayment($groupId)
     {
         try {
-            Log::info('VERIFY PURCHASE START', ['group_id' => $groupId]);
             $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
 
             if ($transactions->isEmpty()) {
@@ -3914,24 +3919,22 @@ class SaleListController extends Controller
                 $trx->update(['verified' => true]);
             }
 
-            // 🔎 Ambil purchase_id PERTAMA yang gak null
-            $purchaseId = $transactions->firstWhere('purchase_id', '!=', null)?->purchase_id;
+            $orderId = $transactions->first()->order_id;
 
-            if ($purchaseId) {
-                Log::info('PURCHASE DETECTED', ['purchase_id' => $purchaseId]);
-                $purchaseTransactions = AccountTransaction::where('purchase_id', $purchaseId)->get();
-                $verifiedCount = $purchaseTransactions->where('verified', true)->count();
-                $totalCount = $purchaseTransactions->count();
+            if ($orderId) {
+                // 🔍 Ambil semua transaksi dengan order_id yang sama
+                $orderTransactions = AccountTransaction::where('order_id', $orderId)->get();
 
-                // ✅ Kalau semua verified, update Purchase
+                // 🔎 Hitung berapa yang verified
+                $verifiedCount = $orderTransactions->where('verified', true)->count();
+                $totalCount = $orderTransactions->count();
+
+                // ✅ Kalau semua transaksi verified → update order
                 if ($totalCount > 0 && $verifiedCount === $totalCount) {
-                    \App\Models\Purchase::withTrashed()
-                        ->where('id', $purchaseId)
-                        ->update(['verified' => true]);
+                    \App\Models\Order::where('id', $orderId)->update(['verified' => true]);
                 } else {
-                    \App\Models\Purchase::withTrashed()
-                        ->where('id', $purchaseId)
-                        ->update(['verified' => false]);
+                    // ❌ Kalau masih ada yang belum verified, pastikan order tetap false
+                    \App\Models\Order::where('id', $orderId)->update(['verified' => false]);
                 }
             }
 
@@ -3940,7 +3943,6 @@ class SaleListController extends Controller
                 'group_id' => $groupId,
             ]);
         } catch (\Exception $e) {
-            Log::error('VERIFY PURCHASE ERROR', ['err' => $e->getMessage()]);
             return response()->json([
                 'message' => 'Gagal verifikasi payment: ' . $e->getMessage(),
             ], 500);

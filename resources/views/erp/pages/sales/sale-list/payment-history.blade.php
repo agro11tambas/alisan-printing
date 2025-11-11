@@ -607,6 +607,24 @@
                             row.cells[1].textContent = data.paid_amount;
                             row.cells[2].textContent = data.note || '-';
 
+                            // Update status badge jadi Pending (karena verified direset)
+                            const statusTd = row.cells[4]; // kolom ke-5
+                            if (statusTd) {
+                                statusTd.innerHTML =
+                                    `<span class="badge bg-secondary">Pending</span>`;
+                            }
+
+                            // Aktifkan kembali tombol Verify
+                            const btnVerify = groupBox.querySelector('.btn-verify-payment');
+                            if (btnVerify) {
+                                btnVerify.disabled = false;
+                                btnVerify.classList.remove('btn-secondary');
+                                btnVerify.classList.add('btn-success');
+                                btnVerify.innerHTML =
+                                    `<i class="feather-check-circle me-1"></i> Verify`;
+                            }
+
+
                             // Update proof
                             const proofTd = row.cells[3];
                             if (data.proofs && data.proofs.length > 0) {

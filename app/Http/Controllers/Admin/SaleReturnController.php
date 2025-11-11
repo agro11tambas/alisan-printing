@@ -1358,6 +1358,11 @@ class SaleReturnController extends Controller
             $saleReturnId = $transactions->first()->sale_return_id;
             $saleReturn   = SaleReturn::findOrFail($saleReturnId);
 
+            foreach ($transactions as $trx) {
+                $trx->update(['verified' => false]);
+            }
+            $saleReturn->update(['verified' => false]);
+
             // =====================================================
             // 🔹 Handle Multiple Uploads (bukti + note)
             // =====================================================
@@ -1473,7 +1478,8 @@ class SaleReturnController extends Controller
                         'account_name'         => $cashBankAccount->name,
                         'account_type'         => $cashBankAccount->type,
                         'note'                 => $request->note ?? '',
-                        'proofs'               => $uploadedProofs, // [{file:'uploads/..', note:'..'}, ...]
+                        'proofs'               => $uploadedProofs,
+                        'verified'             => false,
                     ],
                 ]);
             }
