@@ -61,6 +61,12 @@ class RejectProduct extends Model
         return $this->hasMany(Inventory::class, 'reject_product_id');
     }
 
+    public function orderProgressHistory2()
+    {
+        return $this->belongsTo(OrderProgressHistory::class, 'order_progress_history_2_id');
+    }
+
+
     // public function warehouses()
     // {
     //     return $this->hasManyThrough(

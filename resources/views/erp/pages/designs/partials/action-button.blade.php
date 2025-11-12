@@ -13,7 +13,7 @@
         @endif
         {{-- @if ($design->status !== 'Verified' && $allUploaded)
         @endif --}}
-        @if ($design->status === 'Verified')
+        {{-- @if ($design->status === 'Verified')
             <li>
                 <button type="button" class="dropdown-item btn-unverify" data-bs-toggle="modal"
                     data-bs-target="#unverifyDesignModal" data-id="{{ $design->id }}"
@@ -23,6 +23,6 @@
                     <span>Batal Verified</span>
                 </button>
             </li>
-        @endif
+        @endif --}}
     </ul>
 </div>

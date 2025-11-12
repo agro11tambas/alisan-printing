@@ -201,7 +201,7 @@ class HistoryProgressOrderController extends Controller
                 $progressItem->increment('completed_quantity', $completed);
 
                 // ================== HISTORY ==================
-                OrderProgressHistory::create([
+                $history = OrderProgressHistory::create([
                     'order_progress_item_id'    => $progressItem->id,
                     'order_progress_assign_id'  => $assign->id,
                     'product_id'                => $product->id,
@@ -214,6 +214,7 @@ class HistoryProgressOrderController extends Controller
                     'note'                      => $data['note'] ?? null,
                     'created_at'                => $request->progress_date,
                 ]);
+
 
                 // ================== COMPLETED ==================
                 if ($completed > 0) {
@@ -309,6 +310,7 @@ class HistoryProgressOrderController extends Controller
                         'order_progress_id'      => $assignBatch->order_progress_id,
                         'order_progress_batch_id' => $mainBatch->id,
                         'assign_id'              => $assign->id,
+                        'order_progress_history_2_id'  => $history->id,
                     ]);
 
                     // 🔹 Tambahkan kembali ke pending waiting list

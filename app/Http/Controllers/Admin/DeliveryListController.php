@@ -204,56 +204,84 @@ class DeliveryListController extends Controller
                         $product = e($item->product->name ?? '-');
                         $qty = number_format($item->shipped_quantity ?? 0);
                         $rows .= "
-                        <tr>
-                            <td style='padding:6px 8px; font-size:12px; border-bottom:1px solid #f0f0f0;'>$product</td>
-                            <td style='padding:6px 8px; text-align:right; font-size:12px; color:#16a34a; border-bottom:1px solid #f0f0f0;'>x$qty</td>
-                        </tr>
-                    ";
+                            <tr>
+                                <td style='padding:6px 8px; font-size:12px; border-bottom:1px solid #f0f0f0;'>$product</td>
+                                <td style='padding:6px 8px; text-align:right; font-size:12px; color:#16a34a; border-bottom:1px solid #f0f0f0;'>x$qty</td>
+                            </tr>
+                        ";
                     }
 
+                    // ✅ Cek izin upload bukti
+                    $canUploadProof = (
+                        (empty($dl->proof_photos) || $dl->proof_photos === '[]')
+                        && in_array(Auth::user()->role, ['Kurir', 'Admin', 'Owner'])
+                    );
+
+                    // ✅ Tombol Lihat di Maps
+                    $mapButton = $dl->deliveryOrder->google_map_link
+                        ? "<a href='" . e($dl->deliveryOrder->google_map_link) . "' 
+                                target='_blank'
+                                style='display:inline-block;margin-top:8px;padding:6px 10px;
+                                background:#2563eb;color:white;border-radius:6px;
+                                font-size:12px;text-decoration:none;'>
+                                <i class=\"feather-map-pin\"></i> Lihat di Maps
+                            </a>"
+                            : "<span class='text-muted' style='font-size:12px;'>Tidak ada link Maps</span>";
+
+                    // ✅ Tombol Upload Bukti
+                    $uploadButton = $canUploadProof
+                        ? "<a href='javascript:void(0);' 
+                                class='btn-upload-proof'
+                                data-id='{$dl->id}'
+                                data-url='" . route('delivery-list.upload-proof', $dl->id) . "'
+                                data-photos='" . ($dl->proof_photos ?? '[]') . "'
+                                style='display:inline-block;margin-top:8px;margin-left:6px;padding:6px 10px;
+                                background:#16a34a;color:white;border-radius:6px;
+                                font-size:12px;text-decoration:none;'>
+                                    <i class=\"feather-upload\"></i> Upload Bukti
+                            </a>"
+                        : '';
+
+                    // ✅ Template tampilan mobile
                     $itemsMobile = "
                         <div style='background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;
                             padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);
                             font-size:13px;line-height:1.5;'>
             
                             " . ($badges ? "<div class='mb-2'>$badges</div>" : "") . "
-                    
+            
                             <div style='margin-bottom:10px;'>
                                 <div><strong>Shipment:</strong> <span style='color:#2563eb;'>{$dl->shipment_number}</span></div>
                                 <div><strong>Customer:</strong> " . e($dl->deliveryOrder->customer ?? '-') . "</div>
                                 <div><strong>Address:</strong><br>
-                                    <div style='color:#4b5563;max-width:300px;white-space:normal;word-break:break-word;overflow-wrap:break-word;'>
-                                        " . e($dl->deliveryOrder->shipping_address ?? '-') . "
-                                    </div>
-                                </div>
-                                " . (
-                                        $dl->deliveryOrder->google_map_link
-                                        ? "<a href='" . e($dl->deliveryOrder->google_map_link) . "' 
-                                                target='_blank'
-                                                style='display:inline-block;margin-top:8px;padding:6px 10px;
-                                                background:#2563eb;color:white;border-radius:6px;
-                                                font-size:12px;text-decoration:none;'>
-                                                <i class=\"feather-map-pin\"></i> Lihat di Maps
-                                            </a>"
-                                        : "<span class='text-muted' style='font-size:12px;'>Tidak ada link Maps</span>"
-                                    ) . "
-                            </div>
-                            <div>
-                                <strong>Items:</strong>
-                                <div class='table-responsive' style='margin-top:6px;'>
-                                    <table style='width:100%; border-collapse:collapse;'>
-                                        <thead>
-                                            <tr style=\"background:#f3f4f6; text-align:left;\">
-                                                <th style='padding:6px 8px; font-size:12px; font-weight:600; color:#374151;'>Product</th>
-                                                <th style='padding:6px 8px; text-align:right; font-size:12px; font-weight:600; color:#374151;'>Qty</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>$rows</tbody>
-                                    </table>
+                                <div style='color:#4b5563;max-width:300px;white-space:normal;word-break:break-word;overflow-wrap:break-word;'>
+                                    " . e($dl->deliveryOrder->shipping_address ?? '-') . "
                                 </div>
                             </div>
-                        </div>";
+
+                            <div class='d-flex flex-wrap align-items-center'>
+                                $mapButton
+                                $uploadButton
+                            </div>
+                        </div>
+
+                        <div>
+                            <strong>Items:</strong>
+                            <div class='table-responsive' style='margin-top:6px;'>
+                                <table style='width:100%; border-collapse:collapse;'>
+                                    <thead>
+                                        <tr style=\"background:#f3f4f6; text-align:left;\">
+                                            <th style='padding:6px 8px; font-size:12px; font-weight:600; color:#374151;'>Product</th>
+                                            <th style='padding:6px 8px; text-align:right; font-size:12px; font-weight:600; color:#374151;'>Qty</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>$rows</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>";
                 }
+
 
                 // ⚙️ Action button partial
                 $action = view('erp.pages.deliveries.delivery-list.partials.action-button', compact('dl'))->render();

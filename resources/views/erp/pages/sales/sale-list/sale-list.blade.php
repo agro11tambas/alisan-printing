@@ -158,7 +158,7 @@
             });
         </script>
     @endif
-    <div class="main-content">
+    <div class="main-content m-0 m-md-4 p-0 p-md-4 pt-2 pt-md-4">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">

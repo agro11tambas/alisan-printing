@@ -2,14 +2,6 @@
 
 @push('styles')
     <style>
-        /* @media (max-width: 768px) {
-
-                                                                            #deliveryListTable td.desktop-only,
-                                                                            #deliveryListTable th.desktop-only {
-                                                                                display: none !important;
-                                                                            }
-                                                                        } */
-
         #deliveryListTable {
             width: 100% !important;
             min-width: 0;
@@ -65,6 +57,17 @@
             }
         }
 
+        @media (max-width: 768px) {
+
+            .static-action-menu,
+            .btn-action,
+            .dropdown-toggle {
+                pointer-events: none !important;
+                opacity: 0;
+                cursor: not-allowed;
+            }
+        }
+
         @media (min-width: 769px) {
 
             #deliveryListTable td.mobile-only,
@@ -103,6 +106,13 @@
             padding-bottom: 4px;
         }
 
+        @media (max-width: 768px) {
+            .col-lg-4.me-2 {
+                display: none !important;
+                visibility: hidden !important;
+            }
+        }
+        
         .dropdown-item {
             font-size: 13px;
             padding: 6px 8px;
@@ -160,7 +170,7 @@
         </script>
     @endif
 
-    <div class="main-content">
+    <div class="main-content m-0 m-md-4 p-0 p-md-4 pt-2 pt-md-4">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">

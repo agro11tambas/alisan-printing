@@ -1535,6 +1535,32 @@ class SaleListController extends Controller
                 return 'bundle_' . $item->product_bundle_id;
             });
 
+            // ✅ CEK jika design sudah diverifikasi - PERBAIKAN QUERY
+            $designVerified = \App\Models\Design::where('order_id', $order->id)
+                ->where(function ($q) {
+                    $q->whereRaw('LOWER(status) = ?', ['verified'])
+                        ->orWhereRaw('LOWER(verification_status) = ?', ['approved']);
+                })
+                ->exists();
+
+            Log::info("🔎 DEBUG Design Check", [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'designVerified' => $designVerified ? 'TRUE' : 'FALSE',
+                'design_count' => \App\Models\Design::where('order_id', $order->id)->count(),
+                'design_status' => \App\Models\Design::where('order_id', $order->id)->pluck('status', 'verification_status')->toArray(),
+            ]);
+
+            // ===========================================================
+            // 🧩 SNAPSHOT DESIGN ITEMS LAMA (LETakkan DI SINI, SEBELUM UPDATE ITEM)
+            // ===========================================================
+            $snapshotOldDesignProductQty = \App\Models\DesignItem::whereHas('design', function ($q) use ($order) {
+                $q->where('order_id', $order->id);
+            })
+                ->get()
+                ->groupBy('product_id')
+                ->map(fn($g) => $g->sum('quantity'));
+
             $newKeys = [];
 
             foreach ($request->product as $index => $productValue) {
@@ -1634,6 +1660,9 @@ class SaleListController extends Controller
                     $orderItem = $existingItems[$key];
                     $diffQty   = $qty - $orderItem->quantity;
 
+                    $oldProductIdForComponent = $orderItem->product_id;
+                    $oldBundleIdForComponent = $orderItem->product_bundle_id;
+
                     // 🔥 CEK jika produk berubah di mode polosan
                     if ($orderMode === 'polosan' && $type === 'satuan') {
                         $oldProductId = $orderItem->product_id;
@@ -1654,146 +1683,134 @@ class SaleListController extends Controller
                         }
                     }
 
-                    // ✅ CEK jika design sudah diverifikasi - PERBAIKAN QUERY
-                    $designVerified = \App\Models\Design::where('order_id', $order->id)
-                        ->where(function ($q) {
-                            $q->whereRaw('LOWER(status) = ?', ['verified'])
-                                ->orWhereRaw('LOWER(verification_status) = ?', ['verified']); // tambahkan ini juga
-                        })
-                        ->exists();
-
-                    // 🔥🔥 LOGGING UNTUK DEBUG
+                    // 🔥 HANDLE PERUBAHAN PRODUK KETIKA DESIGN VERIFIED
                     if ($designVerified) {
-                        Log::info("Design Verified detected for order {$order->id}");
-                    }
+                        Log::info("🧩 Design verified for order {$order->order_number}");
 
-                    if ($designVerified) {
                         if ($type === 'satuan') {
                             $oldProductId = $orderItem->product_id;
+                            $newProductId = (int) $productId;
+                            $warehouseId  = 2; // Production warehouse ID
 
-                            // 🔥 Jika produk berubah (A → B)
-                            if ($oldProductId != $productId) {
-                                Log::info("Product changed from {$oldProductId} to {$productId}");
+                            // Jika produk berbeda (A → B)
+                            if ($oldProductId != $newProductId) {
+                                Log::info("🔄 Product changed from {$oldProductId} → {$newProductId}");
 
-                                // 🔥 BATALKAN pending_waiting_list produk LAMA (A) - DECREMENT!
-                                $oldProductionStock = \App\Models\ProductionStock::where('product_id', $oldProductId)
-                                    ->where('production_warehouse_id', 2) // 🔥 TAMBAHKAN INI!
-                                    ->lockForUpdate()
-                                    ->first();
+                                // 🔻 DECREMENT pending_waiting_list produk LAMA
+                                $oldStock = \App\Models\ProductionStock::where('product_id', $oldProductId)->lockForUpdate()->first();
 
-                                if ($oldProductionStock) {
-                                    $decrementQty = min($oldProductionStock->pending_waiting_list, $orderItem->quantity);
-                                    if ($decrementQty > 0) {
-                                        $oldProductionStock->decrement('pending_waiting_list', $decrementQty);
-                                        Log::info("DECREMENTED (cancel booking) pending_waiting_list for product {$oldProductId} by {$decrementQty}");
+                                if ($oldStock) {
+                                    $dec = min($oldStock->pending_waiting_list, $qty);
+                                    if ($dec > 0) {
+                                        $oldStock->decrement('pending_waiting_list', $dec);
+                                        Log::info("✅ DECREMENT {$dec} from old product {$oldProductId}");
                                     }
+                                } else {
+                                    Log::warning("⚠️ Old stock not found for product {$oldProductId}");
                                 }
 
-                                $newProductionStock = \App\Models\ProductionStock::firstOrCreate(
-                                    [
-                                        'product_id' => $productId,
-                                        'production_warehouse_id' => 2 // 🔥 TAMBAHKAN INI!
-                                    ],
-                                    [
-                                        'pending_waiting_list' => 0,
-                                        'available_quantity' => 0,
-                                        'opening_stock' => 0,
-                                        'finished_product_stock' => 0,
-                                        'canceled_product_stock' => 0
-                                    ]
+                                $newStock = \App\Models\ProductionStock::firstOrCreate(
+                                    ['product_id' => $newProductId],
+                                    ['pending_waiting_list' => 0, 'available_quantity' => 0, 'finished_product_stock' => 0, 'canceled_product_stock' => 0]
                                 );
-                                $newProductionStock->increment('pending_waiting_list', $qty);
-                                Log::info("INCREMENTED (new booking) pending_waiting_list for product {$productId} by {$qty}");
+                                $newStock->increment('pending_waiting_list', $qty);
+                                Log::info("✅ INCREMENT {$qty} to new product {$newProductId}");
                             }
-                            // 🔥 Jika produk SAMA tapi quantity berubah
+                            // Kalau produk sama tapi qty berubah
                             elseif ($diffQty !== 0) {
-                                $productionStock = \App\Models\ProductionStock::firstOrCreate(
+                                $stock = \App\Models\ProductionStock::firstOrCreate(
                                     [
-                                        'product_id' => $productId,
-                                        'production_warehouse_id' => 2 // 🔥 TAMBAHKAN INI!
+                                        'product_id' => $oldProductId,
+                                        'production_warehouse_id' => $warehouseId
                                     ],
-                                    [
-                                        'pending_waiting_list' => 0,
-                                        'available_quantity' => 0,
-                                        'opening_stock' => 0,
-                                        'finished_product_stock' => 0,
-                                        'canceled_product_stock' => 0
-                                    ]
+                                    ['pending_waiting_list' => 0]
                                 );
 
                                 if ($diffQty > 0) {
-                                    // Qty naik → INCREMENT (booking lebih banyak)
-                                    $productionStock->increment('pending_waiting_list', $diffQty);
+                                    $stock->increment('pending_waiting_list', $diffQty);
+                                    Log::info("⬆️ INCREMENT {$diffQty} pending_waiting_list for {$oldProductId}");
                                 } else {
-                                    // Qty turun → DECREMENT (kurangi booking)
-                                    $productionStock->decrement('pending_waiting_list', abs($diffQty));
+                                    $dec = min($stock->pending_waiting_list, abs($diffQty));
+                                    $stock->decrement('pending_waiting_list', $dec);
+                                    Log::info("⬇️ DECREMENT {$dec} pending_waiting_list for {$oldProductId}");
                                 }
-                            } elseif ($type === 'bundle') {
-                                $oldBundleId = $orderItem->product_bundle_id;
+                            }
+                        } elseif ($type === 'bundle') {
+                            $oldBundleId = $orderItem->product_bundle_id;
+                            $newBundleId = (int) $productId;
+                            $warehouseId = 2; // Production warehouse ID
 
-                                if ($oldBundleId != $productId) {
-                                    // BATALKAN pending_waiting_list untuk produk di bundle LAMA
-                                    $oldBundle = \App\Models\ProductBundle::with('items')->find($oldBundleId);
-                                    if ($oldBundle) {
-                                        foreach ($oldBundle->items as $oldBundleItem) {
-                                            $oldProductionStock = \App\Models\ProductionStock::where('product_id', $oldBundleItem->product_id)
-                                                ->where('production_warehouse_id', 2) // 🔥 TAMBAHKAN INI!
-                                                ->lockForUpdate()
-                                                ->first();
+                            if ($oldBundleId != $newBundleId) {
+                                Log::info("🔄 Bundle changed from {$oldBundleId} → {$newBundleId}");
 
-                                            if ($oldProductionStock) {
-                                                $decrementQty = min($oldProductionStock->pending_waiting_list, $orderItem->quantity);
-                                                if ($decrementQty > 0) {
-                                                    $oldProductionStock->decrement('pending_waiting_list', $decrementQty);
-                                                }
+                                // 🔻 Kurangi semua produk di bundle lama
+                                $oldBundle = \App\Models\ProductBundle::with('items')->find($oldBundleId);
+                                if ($oldBundle) {
+                                    foreach ($oldBundle->items as $bi) {
+                                        if (!$bi->product_id) continue;
+
+                                        $oldStock = \App\Models\ProductionStock::where([
+                                            'product_id' => $bi->product_id,
+                                            'production_warehouse_id' => $warehouseId
+                                        ])
+                                            ->lockForUpdate()
+                                            ->first();
+
+                                        if ($oldStock) {
+                                            Log::info("🧮 DECREMENT CHECK", [
+                                                'oldStock' => $oldStock?->pending_waiting_list,
+                                                'orderItemQty' => $orderItem->quantity,
+                                                'dec' => min($oldStock?->pending_waiting_list ?? 0, $orderItem->quantity),
+                                            ]);
+                                            $dec = min($oldStock->pending_waiting_list, $qty);
+                                            if ($dec > 0) {
+                                                $oldStock->decrement('pending_waiting_list', $dec);
+                                                Log::info("✅ Bundle old: DECREMENT {$dec} from product {$bi->product_id}");
                                             }
                                         }
                                     }
+                                }
 
-                                    // BOOKING BARU pending_waiting_list untuk produk di bundle BARU
-                                    $newBundle = \App\Models\ProductBundle::with('items')->find($productId);
-                                    if ($newBundle) {
-                                        foreach ($newBundle->items as $newBundleItem) {
-                                            $newProductionStock = \App\Models\ProductionStock::firstOrCreate(
-                                                [
-                                                    'product_id' => $newBundleItem->product_id,
-                                                    'production_warehouse_id' => 2 // 🔥 TAMBAHKAN INI!
-                                                ],
-                                                [
-                                                    'pending_waiting_list' => 0,
-                                                    'available_quantity' => 0,
-                                                    'opening_stock' => 0,
-                                                    'finished_product_stock' => 0,
-                                                    'canceled_product_stock' => 0
-                                                ]
-                                            );
-                                            $newProductionStock->increment('pending_waiting_list', $qty);
-                                        }
+                                // 🔺 Tambah semua produk di bundle baru
+                                $newBundle = \App\Models\ProductBundle::with('items')->find($newBundleId);
+                                if ($newBundle) {
+                                    foreach ($newBundle->items as $bi) {
+                                        if (!$bi->product_id) continue;
+
+                                        $newStock = \App\Models\ProductionStock::firstOrCreate(
+                                            [
+                                                'product_id' => $bi->product_id,
+                                                'production_warehouse_id' => $warehouseId
+                                            ],
+                                            ['pending_waiting_list' => 0]
+                                        );
+                                        $newStock->increment('pending_waiting_list', $qty);
+                                        Log::info("✅ Bundle new: INCREMENT {$qty} to product {$bi->product_id}");
                                     }
                                 }
-                                // Bundle sama tapi quantity berubah
-                            } elseif ($diffQty !== 0) {
-                                $bundle = \App\Models\ProductBundle::with('items')->find($productId);
+                            }
+                            // Kalau bundle sama tapi qty berubah
+                            elseif ($diffQty !== 0) {
+                                $bundle = \App\Models\ProductBundle::with('items')->find($newBundleId);
                                 if ($bundle) {
-                                    foreach ($bundle->items as $bundleItem) {
-                                        $productionStock = \App\Models\ProductionStock::firstOrCreate(
+                                    foreach ($bundle->items as $bi) {
+                                        if (!$bi->product_id) continue;
+
+                                        $stock = \App\Models\ProductionStock::firstOrCreate(
                                             [
-                                                'product_id' => $bundleItem->product_id,
-                                                'production_warehouse_id' => 2 // 🔥 TAMBAHKAN INI!
+                                                'product_id' => $bi->product_id,
+                                                'production_warehouse_id' => $warehouseId
                                             ],
-                                            [
-                                                'pending_waiting_list' => 0,
-                                                'available_quantity' => 0,
-                                                'opening_stock' => 0,
-                                                'finished_product_stock' => 0,
-                                                'canceled_product_stock' => 0
-                                            ]
+                                            ['pending_waiting_list' => 0]
                                         );
 
                                         if ($diffQty > 0) {
-                                            $productionStock->increment('pending_waiting_list', $diffQty);
+                                            $stock->increment('pending_waiting_list', $diffQty);
+                                            Log::info("⬆️ Bundle: INCREMENT {$diffQty} for product {$bi->product_id}");
                                         } else {
-                                            $productionStock->decrement('pending_waiting_list', abs($diffQty));
+                                            $dec = min($stock->pending_waiting_list, abs($diffQty));
+                                            $stock->decrement('pending_waiting_list', $dec);
+                                            Log::info("⬇️ Bundle: DECREMENT {$dec} for product {$bi->product_id}");
                                         }
                                     }
                                 }
@@ -1801,7 +1818,10 @@ class SaleListController extends Controller
                         }
                     }
 
+                    // UPDATE ITEM DASAR (termasuk product_id / bundle_id)
                     $orderItem->update([
+                        'product_id'           => $type === 'satuan' ? $productId : null,
+                        'product_bundle_id'    => $type === 'bundle' ? $productId : null,
                         'quantity'             => $qty,
                         'price'                => $request->price_before_discount[$index],
                         'subtotal'             => $request->total_before_discount[$index],
@@ -1810,63 +1830,126 @@ class SaleListController extends Controller
                     ]);
 
                     // === HANDLE COMPONENTS ===
-                    if ($type === 'satuan') {
-                        $product = Products::findOrFail($productId);
-                        $stock   = InventoryStock::where('product_id', $product->id)->first();
-                        $avgCost = $product?->avg_cost ?? 0;
+                    $isProductChanged = false;
 
-                        // update atau buat component
-                        $component = $orderItem->components()->first();
-                        if ($component) {
+                    if ($type === 'satuan') {
+                        $isProductChanged = ($oldProductIdForComponent != $productId);
+                    } elseif ($type === 'bundle') {
+                        $isProductChanged = ($oldBundleIdForComponent != $productId);
+                    }
+
+                    if ($isProductChanged) {
+                        Log::info("🔄 UPDATE COMPONENT PRODUCT ID", [
+                            'order_item_id' => $orderItem->id,
+                            'old_product_id' => $oldProductIdForComponent,
+                            'new_product_id' => $productId,
+                        ]);
+
+                        if ($type === 'satuan') {
+                            $newProduct = \App\Models\Products::find($productId);
+
+                            $orderItem->components()->update([
+                                'product_id'         => $newProduct->id,
+                                'avg_cost_at_sale'   => $newProduct->avg_cost ?? 0,
+                                'fixed_cost_at_sale' => $newProduct->fixed_cost ?? 0,
+                                'total_cost'         => ($newProduct->avg_cost ?? 0) * $qty,
+                                'total_fixed_cost'   => ($newProduct->fixed_cost ?? 0) * $qty,
+                            ]);
+
+                            Log::info("✅ COMPONENT UPDATED to product {$newProduct->name}");
+                        } elseif ($type === 'bundle') {
+                            $bundle = \App\Models\ProductBundle::with('items.product')->find($productId);
+
+                            $orderItem->components()->delete(); // kalau bundle berubah, baru aman dihapus dan recreate
+
+                            foreach ($bundle->items as $bundleItem) {
+                                $product = $bundleItem->product;
+                                if (!$product) continue;
+
+                                $orderItem->components()->create([
+                                    'product_id'         => $product->id,
+                                    'qty'                => $qty,
+                                    'avg_cost_at_sale'   => $product->avg_cost ?? 0,
+                                    'fixed_cost_at_sale' => $product->fixed_cost ?? 0,
+                                    'total_cost'         => ($product->avg_cost ?? 0) * $qty,
+                                    'total_fixed_cost'   => ($product->fixed_cost ?? 0) * $qty,
+                                ]);
+                            }
+
+                            Log::info("✅ BUNDLE COMPONENTS recreated for bundle {$bundle->name}");
+                        }
+                    } else {
+                        // Produk sama, update qty saja
+                        foreach ($orderItem->components as $component) {
+                            $avgCost = $component->avg_cost_at_sale;
+                            $fixedCost = $component->fixed_cost_at_sale;
+
                             $component->update([
                                 'qty'              => $qty,
-                                'avg_cost_at_sale' => $avgCost,
                                 'total_cost'       => $avgCost * $qty,
-                            ]);
-                        } else {
-                            $orderItem->components()->create([
-                                'product_id'       => $product->id,
-                                'qty'              => $qty,
-                                'avg_cost_at_sale' => $avgCost,
-                                'total_cost'       => $avgCost * $qty,
+                                'total_fixed_cost' => $fixedCost * $qty,
                             ]);
                         }
+                    }
+
+                    // 🧠 force refresh setelah update
+                    $orderItem->refresh();
+
+                    // ✅ CREATE COMPONENTS BARU
+                    if ($type === 'satuan') {
+                        $product = Products::findOrFail($productId);
+                        $avgCost = $product->avg_cost ?? 0;
+                        $fixedCostAtSale = $product->fixed_cost ?? 0;
+
+                        Log::info("➕ CREATING SATUAN COMPONENT", [
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $product->id,
+                            'qty' => $qty,
+                        ]);
+
+                        $orderItem->components()->create([
+                            'product_id'         => $product->id,
+                            'qty'                => $qty,
+                            'avg_cost_at_sale'   => $avgCost,
+                            'fixed_cost_at_sale' => $fixedCostAtSale,
+                            'total_cost'         => $avgCost * $qty,
+                            'total_fixed_cost'   => $fixedCostAtSale * $qty,
+                        ]);
+
+                        Log::info("✅ SATUAN COMPONENT CREATED");
                     } elseif ($type === 'bundle') {
                         $bundle = ProductBundle::with('items.product')->findOrFail($productId);
 
+                        Log::info("➕ CREATING BUNDLE COMPONENTS", [
+                            'order_item_id' => $orderItem->id,
+                            'bundle_id' => $bundle->id,
+                            'items_count' => $bundle->items->count(),
+                        ]);
+
                         foreach ($bundle->items as $bundleItem) {
-                            $component = $bundleItem->product;
-                            if (!$component) continue;
+                            $componentProduct = $bundleItem->product;
+                            if (!$componentProduct) continue;
 
-                            $product = Products::findOrFail($component->id);
-                            $avgCost = $product?->avg_cost ?? 0;
-                            $fixedCostAtSale = $product?->fixed_cost ?? 0;
-                            $totalQty = $qty;
+                            $avgCost = $componentProduct->avg_cost ?? 0;
+                            $fixedCostAtSale = $componentProduct->fixed_cost ?? 0;
 
-                            $existing = $orderItem->components()
-                                ->where('product_id', $component->id)
-                                ->first();
+                            $orderItem->components()->create([
+                                'product_id'         => $componentProduct->id,
+                                'qty'                => $qty,
+                                'avg_cost_at_sale'   => $avgCost,
+                                'fixed_cost_at_sale' => $fixedCostAtSale,
+                                'total_cost'         => $avgCost * $qty,
+                                'total_fixed_cost'   => $fixedCostAtSale * $qty,
+                            ]);
 
-                            if ($existing) {
-                                $existing->update([
-                                    'qty'              => $totalQty,
-                                    'avg_cost_at_sale' => $avgCost,
-                                    'fixed_cost_at_sale' => $fixedCostAtSale,
-                                    'total_cost'       => $avgCost * $totalQty,
-                                    'total_fixed_cost' => $fixedCostAtSale * $totalQty,
-                                ]);
-                            } else {
-                                $orderItem->components()->create([
-                                    'product_id'       => $component->id,
-                                    'qty'              => $totalQty,
-                                    'avg_cost_at_sale' => $avgCost,
-                                    'fixed_cost_at_sale' => $fixedCostAtSale,
-                                    'total_cost'       => $avgCost * $totalQty,
-                                    'total_fixed_cost' => $fixedCostAtSale * $totalQty,
-                                ]);
-                            }
+                            Log::info("✅ BUNDLE COMPONENT CREATED for product_id: " . $componentProduct->id);
                         }
                     }
+
+                    Log::info("🎯 FINAL COMPONENT COUNT", [
+                        'order_item_id' => $orderItem->id,
+                        'count' => $orderItem->components()->count(),
+                    ]);
 
                     // 🔥 BARU: Update inventory stock - handle perubahan produk DAN quantity
                     if ($type === 'satuan') {
@@ -1955,7 +2038,7 @@ class SaleListController extends Controller
                         $product = Products::findOrFail($productId);
 
                         // Buat order item
-                        OrderItem::create([
+                        $orderItem = OrderItem::create([
                             'order_id'             => $order->id,
                             'product_id'           => $product->id,
                             'product_bundle_id'    => null,
@@ -1966,6 +2049,16 @@ class SaleListController extends Controller
                             'subtotal'             => $request->total_before_discount[$index],
                             'discount_price'       => $request->price_after_discount[$index],
                             'total_after_discount' => $request->total_after_discount[$index],
+                        ]);
+
+                        // ✅ Buat komponen untuk produk satuan
+                        $orderItem->components()->create([
+                            'product_id'         => $product->id,
+                            'qty'                => $qty,
+                            'avg_cost_at_sale'   => $product->avg_cost ?? 0,
+                            'fixed_cost_at_sale' => $product->fixed_cost ?? 0,
+                            'total_cost'         => ($product->avg_cost ?? 0) * $qty,
+                            'total_fixed_cost'   => ($product->fixed_cost ?? 0) * $qty,
                         ]);
 
                         // Update stock_after_sales hanya di inventory_stocks
@@ -1981,7 +2074,7 @@ class SaleListController extends Controller
                         $bundle = ProductBundle::with('items.product')->findOrFail($productId);
 
                         // Buat order item untuk bundle
-                        OrderItem::create([
+                        $orderItem = OrderItem::create([
                             'order_id'             => $order->id,
                             'product_id'           => null,
                             'product_bundle_id'    => $bundle->id,
@@ -1993,6 +2086,21 @@ class SaleListController extends Controller
                             'discount_price'       => $request->price_after_discount[$index],
                             'total_after_discount' => $request->total_after_discount[$index],
                         ]);
+
+                        // ✅ Buat komponen untuk setiap item di dalam bundle
+                        foreach ($bundle->items as $bundleItem) {
+                            $componentProduct = $bundleItem->product;
+                            if (!$componentProduct) continue;
+
+                            $orderItem->components()->create([
+                                'product_id'         => $componentProduct->id,
+                                'qty'                => $qty,
+                                'avg_cost_at_sale'   => $componentProduct->avg_cost ?? 0,
+                                'fixed_cost_at_sale' => $componentProduct->fixed_cost ?? 0,
+                                'total_cost'         => ($componentProduct->avg_cost ?? 0) * $qty,
+                                'total_fixed_cost'   => ($componentProduct->fixed_cost ?? 0) * $qty,
+                            ]);
+                        }
 
                         // Kurangi stock untuk setiap item di dalam bundle
                         foreach ($bundle->items as $bundleItem) {
@@ -2132,6 +2240,70 @@ class SaleListController extends Controller
                 'items' => $itemsDiff,
             ];
 
+            // ===========================================================
+            // ✅ FIX: HANDLE PENDING_WAITING_LIST UNTUK PRODUK BERUBAH
+            // ===========================================================
+            $designVerifiedFinal = \App\Models\Design::where('order_id', $order->id)
+                ->where(function ($q) {
+                    $q->whereRaw('LOWER(status) = ?', ['verified'])
+                        ->orWhereRaw('LOWER(verification_status) = ?', ['approved']);
+                })
+                ->exists();
+
+            if ($designVerifiedFinal) {
+                Log::info("🧩 FINAL VERIFIED HANDLER FIX for Order {$order->order_number}");
+
+                $warehouseId = 2;
+
+                // ⚠️ GANTI BAGIAN INI:
+                // Jangan ambil snapshot di sini, PAKAI yang udah kamu ambil SEBELUM update item
+                // Contoh:
+                // $oldDesignProductQty = $snapshotOldDesignProductQty; // hasil dari atas function
+
+                // Ambil semua order_items SESUDAH update
+                $order->load('orderItems.productBundle.items');
+                $newProductQty = collect();
+
+                foreach ($order->orderItems as $oi) {
+                    if ($oi->satuan === 'satuan') {
+                        $newProductQty[$oi->product_id] = ($newProductQty[$oi->product_id] ?? 0) + $oi->quantity;
+                    } elseif ($oi->satuan === 'bundle' && $oi->productBundle) {
+                        foreach ($oi->productBundle->items as $bi) {
+                            if ($bi->product_id) {
+                                $newProductQty[$bi->product_id] = ($newProductQty[$bi->product_id] ?? 0) + $oi->quantity;
+                            }
+                        }
+                    }
+                }
+
+                // 🚀 Gabungkan semua product_id dari lama dan baru
+                $allProductIds = $snapshotOldDesignProductQty->keys()
+                    ->merge($newProductQty->keys())
+                    ->unique();
+
+                foreach ($allProductIds as $productId) {
+                    $oldQty = $snapshotOldDesignProductQty[$productId] ?? 0;
+                    $newQty = $newProductQty[$productId] ?? 0;
+                    $diff = $newQty - $oldQty;
+
+                    $ps = \App\Models\ProductionStock::firstOrCreate(
+                        ['product_id' => $productId, 'production_warehouse_id' => $warehouseId],
+                        ['pending_waiting_list' => 0, 'available_quantity' => 0, 'finished_product_stock' => 0, 'canceled_product_stock' => 0]
+                    );
+
+                    if ($diff > 0) {
+                        $ps->increment('pending_waiting_list', $diff);
+                        Log::info("⬆️ Added {$diff} pending_waiting_list to product {$productId}");
+                    } elseif ($diff < 0) {
+                        $dec = min(abs($diff), $ps->pending_waiting_list);
+                        $ps->decrement('pending_waiting_list', $dec);
+                        Log::info("⬇️ Reduced {$dec} pending_waiting_list from product {$productId}");
+                    }
+                }
+
+                Log::info("✅ Pending waiting list fully synced for verified design order {$order->order_number}");
+            }
+
             // ================== SYNC MODE PRINTING ATAU POLOSAN ==================
             if ($orderMode === 'printing') {
 
@@ -2147,16 +2319,17 @@ class SaleListController extends Controller
 
                     // Ambil semua design_items lama
                     $existingDesignItems = $design->items->keyBy(function ($item) {
-                        return $item->order_item_id;
+                        return $item->order_item_id . '_' . $item->product_id;
                     });
 
                     foreach ($order->orderItems as $orderItem) {
                         $qty = $orderItem->quantity;
 
                         if ($orderItem->satuan === 'satuan') {
+                            $key = $orderItem->id . '_' . $orderItem->product_id;
                             // Jika sudah ada design_item untuk order_item ini → update
-                            if ($existingDesignItems->has($orderItem->id)) {
-                                $designItem = $existingDesignItems[$orderItem->id];
+                            if ($existingDesignItems->has($key)) {
+                                $designItem = $existingDesignItems[$key];
                                 $designItem->update([
                                     'product_id' => $orderItem->product_id,
                                     'quantity'   => $qty,
@@ -3317,7 +3490,9 @@ class SaleListController extends Controller
 
         DB::beginTransaction();
         try {
-            $order = Order::with(['orderItems'])->findOrFail($id);
+            $order = Order::with([
+                'orderItems.components.product'
+            ])->findOrFail($id);
 
             $hasSaleReturn = SaleReturn::where('sale_order_id', $order->id)->exists();
             if ($hasSaleReturn) {
@@ -3331,99 +3506,275 @@ class SaleListController extends Controller
             /**
              * 1️⃣ Hitung quantity balik ke 0 dan implementasikan ke semua stok
              */
+            // 🧱 Tambah sebelum foreach
+            $processedProducts = []; // penanda produk yang sudah rollback (hindari double)
             foreach ($order->orderItems as $item) {
-                if (!$item->product_id) continue;
 
-                $qty = (float) $item->quantity;
+                /**
+                 * 🧩 HANDLE PRODUK SATUAN
+                 * ------------------------------------------------------
+                 * Produk satuan dilewati di kode kamu sebelumnya,
+                 * jadi stok inventory gak pernah balik.
+                 */
+                if ($item->satuan === 'satuan' && $item->product_id) {
 
-                // 🔹 INVENTORY STOCK (waktu order stok keluar → sekarang balikin masuk)
-                $inventoryStock = InventoryStock::firstOrCreate(
-                    ['product_id' => $item->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
-                    ['stock_after_sales' => 0]
-                );
-                $inventoryStock->stock_after_sales += $qty;
-                $inventoryStock->save();
-
-                // 🔹 PRODUCTION STOCK
-                $ps = ProductionStock::firstOrCreate(
-                    ['product_id' => $item->product_id, 'production_warehouse_id' => $productionWarehouseId],
-                    [
-                        'available_quantity'     => 0,
-                        'finished_product_stock' => 0,
-                        'pending_waiting_list'   => 0,
-                        'canceled_product_stock' => 0,
-                    ]
-                );
-
-                if ($order->mode === 'printing') {
-                    // 🧩 Mode PRINTING — rollback sesuai urutan proses
-
-                    // --- hitung per-produk yang relevan (filter ke product/baris ini) ---
-                    $assignedQty = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
-                        $q->where('order_id', $order->id);
-                    })
-                        ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
-                        ->sum('assigned_quantity');
-
-                    // NOTE: sesuaikan kolom jumlah progress history-mu: 'quantity' / 'completed_quantity'
-                    $producedQty = \App\Models\OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
-                        $q->where('order_id', $order->id);
-                    })
-                        ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
-                        ->selectRaw('COALESCE(SUM(completed_quantity + defect_quantity + reject_quantity), 0) as total')
-                        ->value('total');
-
-                    $shippedQty = \App\Models\DeliveryOrderItem::whereHas('deliveryOrder', function ($q) use ($order) {
-                        $q->where('order_id', $order->id);
-                    })
-                        ->where('product_id', $item->product_id)
-                        ->sum('shipped_qty');
-
-                    $hasVerifiedDesign = \App\Models\Design::where('order_id', $order->id)
-                        ->where('status', 'Verified')
-                        ->exists();
-
-                    // 1) Verified → pending_waiting_list sempat NAIK qty → rollback: TURUNKAN qty
-                    if ($hasVerifiedDesign) {
-                        $ps->pending_waiting_list -= $qty;
+                    // ✅ Cegah double rollback kalau produk sudah di-handle
+                    if (in_array($item->product_id, $processedProducts)) {
+                        Log::info('Skip rollback SATUAN (already processed)', ['product_id' => $item->product_id]);
+                        continue;
                     }
 
-                    // 2) Assign → pending & available sempat TURUN assignedQty → rollback: NAIKKAN lagi
-                    if ($assignedQty > 0) {
-                        $ps->pending_waiting_list += $assignedQty;
-                        $ps->available_quantity   += $assignedQty;
+                    $qty = (float) $item->quantity;
+
+                    // 🔹 INVENTORY STOCK (balikin stok keluar)
+                    $inventoryStock = InventoryStock::firstOrCreate(
+                        ['product_id' => $item->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
+                        ['stock_after_sales' => 0]
+                    );
+                    $inventoryStock->stock_after_sales += $qty;
+                    $inventoryStock->save();
+
+                    // 🔹 PRODUCTION STOCK
+                    $ps = ProductionStock::firstOrCreate(
+                        ['product_id' => $item->product_id, 'production_warehouse_id' => $productionWarehouseId],
+                        [
+                            'available_quantity'     => 0,
+                            'finished_product_stock' => 0,
+                            'pending_waiting_list'   => 0,
+                            'canceled_product_stock' => 0,
+                        ]
+                    );
+
+                    if ($order->mode === 'printing') {
+                        $hasVerifiedDesign = \App\Models\Design::where('order_id', $order->id)
+                            ->where('status', 'Verified')
+                            ->exists();
+
+                        // Hitung jejak produksi untuk produk SATUAN ini
+                        $assignedQty = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
+                            $q->where('order_id', $order->id);
+                        })
+                            ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
+                            ->sum('assigned_quantity');
+
+                        $producedQty = \App\Models\OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
+                            $q->where('order_id', $order->id);
+                        })
+                            ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
+                            ->selectRaw('COALESCE(SUM(completed_quantity + defect_quantity + reject_quantity), 0) as total')
+                            ->value('total');
+
+                        $shippedQty = \App\Models\DeliveryOrderItem::whereHas('deliveryOrder', function ($q) use ($order) {
+                            $q->where('order_id', $order->id);
+                        })
+                            ->where('product_id', $item->product_id)
+                            ->sum('shipped_qty');
+
+                        if ($hasVerifiedDesign) {
+                            // 1) Verified → turunkan pending by base qty
+                            $ps->pending_waiting_list -= $qty;
+
+                            // 2) Ada assign → balikin ke available
+                            if ($assignedQty > 0) {
+                                $ps->available_quantity += $assignedQty;
+                            }
+
+                            // 3) Ada history → available naik produced, finished turun produced
+                            if ($producedQty > 0) {
+                                // $ps->available_quantity     += $producedQty;
+                                $ps->finished_product_stock -= $producedQty;
+                            }
+
+                            // 4) Ada shipped → finished naik shipped
+                            if ($shippedQty > 0) {
+                                $ps->finished_product_stock += $shippedQty;
+                            }
+                        } else {
+                            // Belum verified → cukup balikin ke available by base qty
+                            $ps->available_quantity += $qty;
+                        }
+                    } else {
+                        // mode polosan → balikin available by base qty
+                        $ps->available_quantity += $qty;
                     }
 
-                    // 3) Progress → finished sempat NAIK producedQty → rollback: TURUNKAN producedQty
-                    if ($producedQty > 0) {
-                        $ps->finished_product_stock -= $producedQty;
+                    // pastikan gak negatif
+                    foreach (['available_quantity', 'finished_product_stock', 'pending_waiting_list'] as $f) {
+                        $ps->{$f} = max(0, (float) $ps->{$f});
                     }
+                    $ps->save();
 
-                    // 4) Delivery → finished sempat TURUN shippedQty → rollback: NAIKKAN shippedQty
-                    if ($shippedQty > 0) {
-                        $ps->finished_product_stock += $shippedQty;
-                    }
-                } else {
-                    // 🧩 Mode POLOSAN → cukup kembalikan stok available
-                    $ps->available_quantity += $qty;
+                    Log::info('Force delete rollback SATUAN', [
+                        'product_id' => $item->product_id,
+                        'qty' => $qty,
+                        'avail' => $ps->available_quantity,
+                        'pending' => $ps->pending_waiting_list,
+                        'finish' => $ps->finished_product_stock,
+                        'stock_after_sales' => $inventoryStock->stock_after_sales,
+                    ]);
+
+                    // ✅ Tandai sudah diproses biar gak double dari bundle
+                    $processedProducts[] = $item->product_id;
+
+                    continue; // lanjut ke item berikutnya
                 }
 
-                $ps->save();
+                /**
+                 * 🧩 HANDLE PRODUK BUNDLE
+                 * ------------------------------------------------------
+                 */
+                if ($item->satuan !== 'bundle' || !$item->product_bundle_id) {
+                    continue;
+                }
 
-                Log::info('Force delete rollback efek order', [
-                    'mode' => $order->mode,
-                    'product_id' => $item->product_id,
-                    'order_qty' => $qty,
-                    'avail' => $ps->available_quantity,
-                    'pending' => $ps->pending_waiting_list,
-                    'finish' => $ps->finished_product_stock,
-                    'stock_after_sales' => $inventoryStock->stock_after_sales,
-                ]);
+                $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
+                if (!$bundle) continue;
+
+                foreach ($bundle->items as $bundleItem) {
+                    if (!$bundleItem->product_id) continue;
+
+                    // Hitung total qty aktual komponen bundle
+                    $componentQty = (float) $item->quantity * ($bundleItem->quantity ?? 1);
+
+                    // 🔹 SELALU kembalikan INVENTORY (jangan di-skip)
+                    $inventoryStock = InventoryStock::firstOrCreate(
+                        ['product_id' => $bundleItem->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
+                        ['stock_after_sales' => 0]
+                    );
+                    $inventoryStock->stock_after_sales += $componentQty;
+                    $inventoryStock->save();
+
+                    // ✅ Skip hanya untuk PRODUCTION kalau produk sudah di-handle di SATUAN
+                    if (in_array($bundleItem->product_id, $processedProducts)) {
+                        // 🚨 Tetap kurangi pending kalau design verified
+                        $hasVerifiedDesign = \App\Models\Design::where('order_id', $order->id)
+                            ->whereRaw('LOWER(status) = ?', ['verified'])
+                            ->exists();
+
+                        if ($order->mode === 'printing' && $hasVerifiedDesign) {
+                            $ps = ProductionStock::firstOrCreate(
+                                ['product_id' => $bundleItem->product_id, 'production_warehouse_id' => $productionWarehouseId],
+                                [
+                                    'available_quantity'     => 0,
+                                    'finished_product_stock' => 0,
+                                    'pending_waiting_list'   => 0,
+                                    'canceled_product_stock' => 0,
+                                ]
+                            );
+
+                            $ps->pending_waiting_list = max(0, $ps->pending_waiting_list - $componentQty);
+                            $ps->save();
+
+                            Log::info('Decrement pending for skipped bundle component (already handled single)', [
+                                'component_id' => $bundleItem->product_id,
+                                'bundle_id'    => $item->product_bundle_id,
+                                'componentQty' => $componentQty,
+                                'pending_after' => $ps->pending_waiting_list,
+                            ]);
+                        }
+
+                        // skip produksi lainnya
+                        continue;
+                    }
+
+                    // 🔹 PRODUCTION STOCK (mulai dari sini lanjut seperti biasa)
+                    $ps = ProductionStock::firstOrCreate(
+                        ['product_id' => $bundleItem->product_id, 'production_warehouse_id' => $productionWarehouseId],
+                        [
+                            'available_quantity'     => 0,
+                            'finished_product_stock' => 0,
+                            'pending_waiting_list'   => 0,
+                            'canceled_product_stock' => 0,
+                        ]
+                    );
+
+                    if ($order->mode === 'printing') {
+                        // --- hitung per-komponen yang relevan ---
+                        $assignedQty = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
+                            $q->where('order_id', $order->id);
+                        })
+                            ->whereHas('progressItem', fn($q) => $q->where('product_id', $bundleItem->product_id))
+                            ->sum('assigned_quantity');
+
+                        $producedQty = \App\Models\OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
+                            $q->where('order_id', $order->id);
+                        })
+                            ->whereHas('progressItem', fn($q) => $q->where('product_id', $bundleItem->product_id))
+                            ->selectRaw('COALESCE(SUM(completed_quantity + defect_quantity + reject_quantity), 0) as total')
+                            ->value('total');
+
+                        $shippedQty = \App\Models\DeliveryOrderItem::whereHas('deliveryOrder', function ($q) use ($order) {
+                            $q->where('order_id', $order->id);
+                        })
+                            ->where('product_id', $bundleItem->product_id)
+                            ->sum('shipped_qty');
+
+                        $hasVerifiedDesign = \App\Models\Design::where('order_id', $order->id)
+                            ->where('status', 'Verified')
+                            ->exists();
+
+                        if ($hasVerifiedDesign) {
+                            // 1) Verified → turunkan pending by base component qty
+                            $ps->pending_waiting_list -= $componentQty;
+
+                            // 2) Ada assign → balikin ke available
+                            if ($assignedQty > 0) {
+                                $ps->available_quantity += $assignedQty;
+                            }
+
+                            // 3) Ada history → available naik produced, finished turun produced
+                            if ($producedQty > 0) {
+                                // $ps->available_quantity     += $producedQty;
+                                $ps->finished_product_stock -= $producedQty;
+                            }
+
+                            // 4) Ada shipped → finished naik shipped
+                            if ($shippedQty > 0) {
+                                $ps->finished_product_stock += $shippedQty;
+                            }
+                        } else {
+                            // Belum verified → cukup balikin ke available by base component qty
+                            $ps->available_quantity += $componentQty;
+                        }
+                    } else {
+                        // mode polosan → balikin available by base component qty
+                        $ps->available_quantity += $componentQty;
+                    }
+
+                    // pastikan tidak negatif
+                    foreach (['available_quantity', 'finished_product_stock', 'pending_waiting_list'] as $field) {
+                        $ps->{$field} = max(0, (float) $ps->{$field});
+                    }
+
+                    $ps->save();
+
+                    Log::info('Force delete rollback BUNDLE component', [
+                        'bundle_id' => $item->product_bundle_id,
+                        'component_id' => $bundleItem->product_id,
+                        'component_qty' => $componentQty,
+                        'assigned_qty' => $assignedQty ?? 0,
+                        'avail' => $ps->available_quantity,
+                        'pending' => $ps->pending_waiting_list,
+                        'finish' => $ps->finished_product_stock,
+                        'stock_after_sales' => $inventoryStock->stock_after_sales,
+                    ]);
+                }
             }
 
             /**
              * 2️⃣ Hapus relasi + transaksi (tetap force delete semua)
              */
+
+            // 🔹 DEFECT PRODUCT - Hapus berdasarkan order_progress_history
+            \App\Models\DefectProduct::whereHas('orderProgressHistory2.progressItem.progress', function ($q) use ($order) {
+                $q->where('order_id', $order->id);
+            })->forceDelete();
+
+            // 🔹 REJECT PRODUCT  
+            \App\Models\RejectProduct::whereHas('orderProgress', fn($q) => $q->where('order_id', $order->id))
+                ->orWhereHas('orderProgressBatch.orderProgress', fn($q) => $q->where('order_id', $order->id))
+                ->forceDelete();
+
             AccountTransaction::where('order_id', $order->id)->forceDelete();
             OrderProgressHistory::whereHas('progressItem.progress', fn($q) => $q->where('order_id', $order->id))->forceDelete();
             OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->forceDelete();
@@ -3465,6 +3816,171 @@ class SaleListController extends Controller
             return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
         }
     }
+
+    // public function forceDeleteOwner($id, Request $request)
+    // {
+    //     if (!Auth::check() || Auth::user()->role !== 'Owner') {
+    //         abort(403, 'Only Owner can force delete.');
+    //     }
+
+    //     $request->validate([
+    //         'delete_notes' => 'required|string|max:1000',
+    //         'inventory_warehouse_id' => 'nullable|integer',
+    //         'production_warehouse_id' => 'nullable|integer',
+    //     ]);
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $order = Order::with([
+    //             'orderItems.components.product'
+    //         ])->findOrFail($id);
+
+    //         $hasSaleReturn = SaleReturn::where('sale_order_id', $order->id)->exists();
+    //         if ($hasSaleReturn) {
+    //             DB::rollBack();
+    //             return back()->with('swal_warning', 'Order ini masih memiliki Sale Return. Hapus Sale Return terlebih dahulu sebelum menghapus order ini.');
+    //         }
+
+    //         $inventoryWarehouseId  = $request->inventory_warehouse_id  ?? 1;
+    //         $productionWarehouseId = $request->production_warehouse_id ?? 2;
+
+    //         /**
+    //          * 1️⃣ Hitung quantity balik ke 0 dan implementasikan ke semua stok
+    //          */
+    //         foreach ($order->orderItems as $item) {
+    //             if (!$item->product_id) continue;
+
+    //             $qty = (float) $item->quantity;
+
+    //             // 🔹 INVENTORY STOCK (waktu order stok keluar → sekarang balikin masuk)
+    //             $inventoryStock = InventoryStock::firstOrCreate(
+    //                 ['product_id' => $item->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
+    //                 ['stock_after_sales' => 0]
+    //             );
+    //             $inventoryStock->stock_after_sales += $qty;
+    //             $inventoryStock->save();
+
+    //             // 🔹 PRODUCTION STOCK
+    //             $ps = ProductionStock::firstOrCreate(
+    //                 ['product_id' => $item->product_id, 'production_warehouse_id' => $productionWarehouseId],
+    //                 [
+    //                     'available_quantity'     => 0,
+    //                     'finished_product_stock' => 0,
+    //                     'pending_waiting_list'   => 0,
+    //                     'canceled_product_stock' => 0,
+    //                 ]
+    //             );
+
+    //             if ($order->mode === 'printing') {
+    //                 // 🧩 Mode PRINTING — rollback sesuai urutan proses
+
+    //                 // --- hitung per-produk yang relevan (filter ke product/baris ini) ---
+    //                 $assignedQty = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
+    //                     $q->where('order_id', $order->id);
+    //                 })
+    //                     ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
+    //                     ->sum('assigned_quantity');
+
+    //                 // NOTE: sesuaikan kolom jumlah progress history-mu: 'quantity' / 'completed_quantity'
+    //                 $producedQty = \App\Models\OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
+    //                     $q->where('order_id', $order->id);
+    //                 })
+    //                     ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
+    //                     ->selectRaw('COALESCE(SUM(completed_quantity + defect_quantity + reject_quantity), 0) as total')
+    //                     ->value('total');
+
+    //                 $shippedQty = \App\Models\DeliveryOrderItem::whereHas('deliveryOrder', function ($q) use ($order) {
+    //                     $q->where('order_id', $order->id);
+    //                 })
+    //                     ->where('product_id', $item->product_id)
+    //                     ->sum('shipped_qty');
+
+    //                 $hasVerifiedDesign = \App\Models\Design::where('order_id', $order->id)
+    //                     ->where('status', 'Verified')
+    //                     ->exists();
+
+    //                 // 1) Verified → pending_waiting_list sempat NAIK qty → rollback: TURUNKAN qty
+    //                 if ($hasVerifiedDesign) {
+    //                     $ps->pending_waiting_list -= $qty;
+    //                 }
+
+    //                 // 2) Assign → pending & available sempat TURUN assignedQty → rollback: NAIKKAN lagi
+    //                 if ($assignedQty > 0) {
+    //                     $ps->pending_waiting_list += $assignedQty;
+    //                     $ps->available_quantity   += $assignedQty;
+    //                 }
+
+    //                 // 3) Progress → finished sempat NAIK producedQty → rollback: TURUNKAN producedQty
+    //                 if ($producedQty > 0) {
+    //                     $ps->finished_product_stock -= $producedQty;
+    //                 }
+
+    //                 // 4) Delivery → finished sempat TURUN shippedQty → rollback: NAIKKAN shippedQty
+    //                 if ($shippedQty > 0) {
+    //                     $ps->finished_product_stock += $shippedQty;
+    //                 }
+    //             } else {
+    //                 // 🧩 Mode POLOSAN → cukup kembalikan stok available
+    //                 $ps->available_quantity += $qty;
+    //             }
+
+    //             $ps->save();
+
+    //             Log::info('Force delete rollback efek order', [
+    //                 'mode' => $order->mode,
+    //                 'product_id' => $item->product_id,
+    //                 'order_qty' => $qty,
+    //                 'avail' => $ps->available_quantity,
+    //                 'pending' => $ps->pending_waiting_list,
+    //                 'finish' => $ps->finished_product_stock,
+    //                 'stock_after_sales' => $inventoryStock->stock_after_sales,
+    //             ]);
+    //         }
+
+    //         /**
+    //          * 2️⃣ Hapus relasi + transaksi (tetap force delete semua)
+    //          */
+    //         AccountTransaction::where('order_id', $order->id)->forceDelete();
+    //         OrderProgressHistory::whereHas('progressItem.progress', fn($q) => $q->where('order_id', $order->id))->forceDelete();
+    //         OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->forceDelete();
+    //         OrderProgress::where('order_id', $order->id)->forceDelete();
+    //         OrderItem::where('order_id', $order->id)->forceDelete();
+    //         OrderEditHistory::where('order_id', $order->id)->forceDelete();
+    //         Design::withTrashed()->where('order_id', $order->id)->forceDelete();
+    //         FinancialReport::withTrashed()->where('reference_table', 'orders')->where('reference_id', $order->id)->forceDelete();
+
+    //         // 🔹 Delivery Order dan List
+    //         $deliveryOrders = DeliveryOrder::with(['items', 'shipments'])->where('order_id', $order->id)->get();
+    //         foreach ($deliveryOrders as $do) {
+    //             if (method_exists($do, 'items')) $do->items()->forceDelete();
+    //             if (method_exists($do, 'shipments')) $do->shipments()->forceDelete();
+    //             $do->forceDelete();
+    //         }
+
+    //         $deliveryLists = DeliveryList::with(['items'])
+    //             ->whereHas('deliveryOrder', fn($q) => $q->where('order_id', $order->id))
+    //             ->get();
+    //         foreach ($deliveryLists as $dl) {
+    //             if (method_exists($dl, 'items')) $dl->items()->forceDelete();
+    //             $dl->forceDelete();
+    //         }
+
+    //         /**
+    //          * 3️⃣ FORCE DELETE ORDER
+    //          */
+    //         $order->delete_notes = $request->input('delete_notes');
+    //         $order->deleted_by   = Auth::id();
+    //         $order->saveQuietly();
+    //         $order->forceDelete();
+
+    //         DB::commit();
+    //         return redirect()->back()->with('success', 'Order berhasil dihapus total. Semua stok direset ke 0 (efek order hilang sepenuhnya).');
+    //     } catch (\Throwable $e) {
+    //         DB::rollBack();
+    //         Log::error('Force delete owner failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+    //         return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
+    //     }
+    // }
 
     public function getSaleListDetail($id)
     {
