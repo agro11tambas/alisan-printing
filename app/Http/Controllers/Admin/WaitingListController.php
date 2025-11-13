@@ -249,9 +249,9 @@ class WaitingListController extends Controller
 
         // 1️⃣ Hitung total data untuk lazy load
         $totalData = (clone $baseQuery)->count();
-
-        // 2️⃣ Hitung total_remaining untuk SEMUA hasil filter (bukan cuma batch)
-        $totalRemaining = (clone $baseQuery)
+        
+        // 2️⃣ Hitung total_remaining GLOBAL — TIDAK TERPENGARUH FILTER
+        $totalRemaining = OrderProgress::with('items.product.categories')
             ->get()
             ->sum(function ($progress) {
                 return $progress->items->sum(function ($item) {
@@ -269,6 +269,7 @@ class WaitingListController extends Controller
                     return max($qty - $completed, 0);
                 });
             });
+
 
         // 3️⃣ Ambil batch untuk ditampilkan
         $data = (clone $baseQuery)
