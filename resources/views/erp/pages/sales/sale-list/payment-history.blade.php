@@ -439,7 +439,7 @@
 
                 proofs.forEach(item => {
                     const col = $(`
-                <div class="col-md-6 col-sm-12">
+                <div class="col-md-12 col-sm-12">
                     <div class="border rounded shadow-sm p-2 bg-white h-100 text-center">
                         <img src="/${item.file}" class="img-fluid rounded mb-2" style="max-height:400px;object-fit:contain;">
                         <p class="small text-muted mt-2 mb-0">Note: ${item.note || '-'}</p>
@@ -510,9 +510,14 @@
 
                 // Handle paste langsung screenshot
                 pasteArea.addEventListener('paste', (e) => {
-                    e.preventDefault();
-                    const items = e.clipboardData.items;
+                    // Jika user sedang paste di input catatan → JANGAN intercept
+                    if (e.target.classList.contains('note-input')) {
+                        return; // biarkan paste normal
+                    }
 
+                    e.preventDefault(); // hanya blok kalau bukan paste ke note input
+
+                    const items = e.clipboardData.items;
                     for (const item of items) {
                         if (item.type.indexOf("image") === 0) {
                             const blob = item.getAsFile();
@@ -577,6 +582,13 @@
                         });
 
                         $('#modalEditPayment').modal('hide');
+
+                        if (res.status === 'deleted') {
+                            const groupBox = document.querySelector(
+                                `[data-group="${res.group_id}"]`);
+                            if (groupBox) groupBox.remove(); // hapus card payment dari ui
+                            return; // selesai, tidak perlu lanjut update UI
+                        }
 
                         const data = res.data;
                         if (!data) return;

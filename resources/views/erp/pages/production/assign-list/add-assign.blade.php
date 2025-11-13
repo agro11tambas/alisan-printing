@@ -1,5 +1,24 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        .bypass-check {
+            transform: scale(1.6);
+            /* BESARKAN */
+            margin-top: 6px;
+            /* BIAR SEJARIS */
+            cursor: pointer;
+        }
+
+        /* Optional: Besarkan label juga */
+        .bypass-check+label {
+            font-size: 14px;
+            margin-left: 4px;
+            cursor: pointer;
+        }
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -147,7 +166,7 @@
                                             <th>Assign Now</th>
                                             <th>Operator</th>
                                             <th>Note</th>
-                                            <th>Bypass</th>
+                                            <th>Delete</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -200,7 +219,7 @@
                                                             name="items[{{ $index }}][bypass]" value="1"
                                                             id="bypass_{{ $index }}">
                                                         <label for="bypass_{{ $index }}"
-                                                            class="form-check-label small">Bypass</label>
+                                                            class="form-check-label small">Delete</label>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -288,6 +307,25 @@
                 let valid = true;
                 $('.error-operator').addClass('d-none');
 
+                // 🔹 Hitung semua row dan yang bypass
+                let totalRows = $('.bypass-check').length;
+                let bypassCount = 0;
+
+                $('.bypass-check').each(function() {
+                    if ($(this).is(':checked')) bypassCount++;
+                });
+
+                // ❌ Jika semua bypass → error
+                if (bypassCount === totalRows) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Tidak Valid!',
+                        text: 'Minimal satu produk harus diproduksi (tidak boleh semua bypass).',
+                    });
+                    return; // stop submit
+                }
+
+                // 🔹 Validasi operator (jika tidak bypass)
                 $('.operator-field').each(function() {
                     const row = $(this).closest('tr');
                     const isBypass = row.find('.bypass-check').is(':checked');

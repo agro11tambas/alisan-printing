@@ -105,6 +105,7 @@
                                         <th>Current Stock</th>
                                         <th>Pending Waiting List</th>
                                         <th>Finished Products</th>
+                                        <th>On Delivery</th>
                                         <th>Incoming Stock</th>
                                         <th>Action</th>
                                     </tr>
@@ -204,6 +205,9 @@
                     },
                     {
                         data: 'finished_product_stock'
+                    },
+                    {
+                        data: 'on_delivery'
                     },
                     {
                         data: 'incoming_stock'

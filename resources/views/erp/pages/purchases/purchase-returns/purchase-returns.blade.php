@@ -1023,6 +1023,13 @@
                 });
 
                 pasteAreaProduct.addEventListener('paste', (e) => {
+
+                    // 🔥 Kalau paste di input note → jangan intercept
+                    if (e.target.classList.contains('note-input')) {
+                        return;
+                    }
+
+                    // 📌 Kalau bukan input note → intercept screenshot
                     e.preventDefault();
                     const items = e.clipboardData.items;
 
@@ -1085,16 +1092,25 @@
                 });
 
                 pasteAreaFreight.addEventListener('paste', (e) => {
+
+                    // 🔥 Kalau paste DI INPUT NOTE → jangan intercept
+                    if (e.target.classList.contains('note-input')) {
+                        return;
+                    }
+
+                    // 📌 Intercept hanya kalau paste bukan text-note
                     e.preventDefault();
                     const items = e.clipboardData.items;
 
                     for (const item of items) {
                         if (item.type.indexOf("image") === 0) {
+
                             const blob = item.getAsFile();
                             pastedProofFreightBlobs.push(blob);
 
                             const reader = new FileReader();
                             reader.onload = function(event) {
+
                                 const wrapper = document.createElement('div');
                                 wrapper.classList.add('preview-item', 'mb-2');
 
@@ -1107,7 +1123,7 @@
                                 const noteInput = document.createElement('input');
                                 noteInput.type = 'text';
                                 noteInput.classList.add('form-control', 'form-control-sm',
-                                    'note-input');
+                                'note-input');
                                 noteInput.placeholder = 'Tambahkan catatan...';
 
                                 const removeBtn = document.createElement('button');
@@ -1126,6 +1142,7 @@
                                 wrapper.appendChild(removeBtn);
                                 previewContainerFreight.appendChild(wrapper);
                             };
+
                             reader.readAsDataURL(blob);
                         }
                     }

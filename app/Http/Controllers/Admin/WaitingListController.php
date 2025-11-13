@@ -274,6 +274,7 @@ class WaitingListController extends Controller
         $data = (clone $baseQuery)
             ->with([
                 'order.customer',
+                'items.assigns',
                 'items.product.productionStocks',
                 'items.product.categories'
             ])
@@ -310,8 +311,13 @@ class WaitingListController extends Controller
             $progressView = view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
             $shipping = e($progress->order->shipping_address ?? '-');
 
+            // $allCompleted = $progress->items->every(function ($item) {
+            //     return ($item->completed_quantity ?? 0) >= ($item->quantity ?? 0);
+            // });
+
             $allCompleted = $progress->items->every(function ($item) {
-                return ($item->completed_quantity ?? 0) >= ($item->quantity ?? 0);
+                $assignedTotal = $item->assigns->sum('assigned_quantity');
+                return $assignedTotal >= ($item->quantity ?? 0);
             });
 
             $actionButtons = view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();

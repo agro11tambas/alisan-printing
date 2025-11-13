@@ -9,6 +9,7 @@ use App\Models\OrderProgressAssign;
 use App\Models\OrderProgressAssignBatch;
 use App\Models\OrderProgressItem;
 use App\Models\ProductionStock;
+use App\Models\Products;
 use App\Services\AssignCode;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -235,9 +236,23 @@ class OrderProgressAssignController extends Controller
                     continue;
                 }
 
+                // $item = OrderProgressItem::query()
+                //     ->withSum('assigns as total_completed', 'completed_quantity') // alias total_completed
+                //     ->findOrFail($data['order_progress_item_id']);
+
                 $item = OrderProgressItem::query()
-                    ->withSum('assigns as total_completed', 'completed_quantity') // alias total_completed
+                    ->with('assigns') // <= WAJIB
+                    ->withSum('assigns as total_completed', 'completed_quantity')
                     ->findOrFail($data['order_progress_item_id']);
+
+
+                // ⛔ BLOKIR jika assign sudah full assign
+                $alreadyAssigned = $item->assigns->sum('assigned_quantity');
+
+                if ($alreadyAssigned >= $item->quantity) {
+                    DB::rollBack();
+                    return back()->with('error', "Produk {$item->product->name} sudah full assign, tidak bisa ditambahkan lagi.");
+                }
 
                 $quantity          = (int) $item->quantity;
                 $completed         = (int) ($item->total_completed ?? 0); // total completed dari semua assign
@@ -334,39 +349,68 @@ class OrderProgressAssignController extends Controller
         // Ambil progress terkait agar loop item sama seperti di create()
         $progress = $batch->orderProgress;
 
-        foreach ($progress->items as $item) {
+        // foreach ($progress->items as $item) {
+        //     $totals = DB::table('order_progress_assigns')
+        //         ->where('order_progress_item_id', $item->id)
+        //         ->selectRaw('
+        //             COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
+        //             COALESCE(SUM(completed_quantity),0) AS total_completed,
+        //             COALESCE(SUM(defect_quantity),0)    AS total_defect,
+        //             COALESCE(SUM(reject_quantity),0)    AS total_reject
+        //         ')
+        //         ->first();
+
+        //     $activeAssign = max(
+        //         ($totals->total_assigned) - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
+        //         0
+        //     );
+
+        //     // assign milik batch ini
+        //     $currentBatchAssign = DB::table('order_progress_assigns')
+        //         ->where('order_progress_item_id', $item->id)
+        //         ->where('assign_batch_id', $batch->id)
+        //         ->sum('assigned_quantity');
+
+        //     $remaining = max(
+        //         ($item->quantity) - (($item->completed_quantity ?? 0) + $activeAssign),
+        //         0
+        //     );
+
+        //     // ✅ Tambahkan kuota assign batch ini agar bisa edit ke bawah/atas wajar
+        //     $item->active_assign      = $activeAssign;
+        //     $item->available_quantity = $remaining;
+        //     $item->remaining_quantity = $remaining + $currentBatchAssign;
+        // }
+        foreach ($batch->assigns as $assign) {
+            $item = $assign->progressItem;
+
+            // Hitung total assign, completion dsb berdasarkan item
             $totals = DB::table('order_progress_assigns')
                 ->where('order_progress_item_id', $item->id)
                 ->selectRaw('
-                    COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
-                    COALESCE(SUM(completed_quantity),0) AS total_completed,
-                    COALESCE(SUM(defect_quantity),0)    AS total_defect,
-                    COALESCE(SUM(reject_quantity),0)    AS total_reject
-                ')
+            COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
+            COALESCE(SUM(completed_quantity),0) AS total_completed,
+            COALESCE(SUM(defect_quantity),0)    AS total_defect,
+            COALESCE(SUM(reject_quantity),0)    AS total_reject
+        ')
                 ->first();
 
             $activeAssign = max(
-                ($totals->total_assigned) - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
+                $totals->total_assigned - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
                 0
             );
 
-            // assign milik batch ini
-            $currentBatchAssign = DB::table('order_progress_assigns')
-                ->where('order_progress_item_id', $item->id)
-                ->where('assign_batch_id', $batch->id)
-                ->sum('assigned_quantity');
+            $currentBatchAssign = $assign->assigned_quantity;
 
             $remaining = max(
-                ($item->quantity) - (($item->completed_quantity ?? 0) + $activeAssign),
+                $item->quantity - (($item->completed_quantity ?? 0) + $activeAssign),
                 0
             );
 
-            // ✅ Tambahkan kuota assign batch ini agar bisa edit ke bawah/atas wajar
-            $item->active_assign      = $activeAssign;
-            $item->available_quantity = $remaining;
-            $item->remaining_quantity = $remaining + $currentBatchAssign;
+            $assign->active_assign      = $activeAssign;
+            $assign->available_quantity = $remaining;
+            $assign->remaining_quantity = $remaining + $currentBatchAssign;
         }
-
 
         return view('erp.pages.production.assign-list.edit-assign', compact(
             'batch',
@@ -849,6 +893,135 @@ class OrderProgressAssignController extends Controller
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
+        ]);
+    }
+
+    public function AssignSummary(Request $request)
+    {
+        $query = OrderProgressAssign::with([
+            'progressItem.product',
+            'assignBatch',
+            'product' // WAJIB
+        ]);
+
+        // ====== FILTER TANGGAL ======
+        if ($request->filter) {
+            switch ($request->filter) {
+                case 'today':
+                    $query->whereHas(
+                        'assignBatch',
+                        fn($q) =>
+                        $q->whereDate('assign_date', Carbon::today())
+                    );
+                    break;
+
+                case 'last_7_days':
+                    $query->whereHas(
+                        'assignBatch',
+                        fn($q) =>
+                        $q->whereBetween('assign_date', [Carbon::now()->subDays(7), Carbon::now()])
+                    );
+                    break;
+
+                case 'this_month':
+                    $query->whereHas(
+                        'assignBatch',
+                        fn($q) =>
+                        $q->whereMonth('assign_date', Carbon::now()->month)
+                            ->whereYear('assign_date', Carbon::now()->year)
+                    );
+                    break;
+
+                case 'last_30_days':
+                    $query->whereHas(
+                        'assignBatch',
+                        fn($q) =>
+                        $q->whereBetween('assign_date', [Carbon::now()->subDays(30), Carbon::now()])
+                    );
+                    break;
+
+                case 'year_to_date':
+                    $query->whereHas(
+                        'assignBatch',
+                        fn($q) =>
+                        $q->whereBetween('assign_date', [Carbon::now()->startOfYear(), Carbon::now()])
+                    );
+                    break;
+
+                case 'yearly':
+                    $query->whereHas(
+                        'assignBatch',
+                        fn($q) =>
+                        $q->whereYear('assign_date', Carbon::now()->year)
+                    );
+                    break;
+
+                case 'custom':
+                    if ($request->start_date && $request->end_date) {
+                        $query->whereHas(
+                            'assignBatch',
+                            fn($q) =>
+                            $q->whereBetween('assign_date', [$request->start_date, $request->end_date])
+                        );
+                    }
+                    break;
+            }
+        }
+
+        // ====== FILTER PRODUCT ======
+        if ($request->filled('product')) {
+            $key = strtolower(trim($request->product));
+
+            $query->where(function ($q) use ($key) {
+                $q->whereHas('progressItem.product', function ($sub) use ($key) {
+                    $sub->whereRaw("LOWER(name) LIKE ?", ["%{$key}%"])
+                        ->orWhereRaw("LOWER(sku) LIKE ?", ["%{$key}%"]);
+                });
+
+                $q->orWhereHas('product', function ($sub) use ($key) {
+                    $sub->whereRaw("LOWER(name) LIKE ?", ["%{$key}%"])
+                        ->orWhereRaw("LOWER(sku) LIKE ?", ["%{$key}%"]);
+                });
+            });
+        }
+
+        $summary = OrderProgressAssign::query()
+            ->leftJoin('order_progress_items', 'order_progress_items.id', '=', 'order_progress_assigns.order_progress_item_id')
+            ->leftJoin('products', 'products.id', '=', DB::raw('
+        CASE 
+            WHEN order_progress_assigns.product_id IS NOT NULL 
+            THEN order_progress_assigns.product_id 
+            ELSE order_progress_items.product_id 
+        END
+    '))
+            ->when($request->filter, function ($q) use ($request) {
+                // (filter bawaanmu tetap dipakai)
+            })
+            ->selectRaw("
+        CASE 
+            WHEN order_progress_assigns.product_id IS NOT NULL 
+            THEN order_progress_assigns.product_id 
+            ELSE order_progress_items.product_id 
+        END AS final_product_id,
+        SUM(order_progress_assigns.assigned_quantity) AS total_assigned_qty
+    ")
+            ->groupBy('final_product_id')
+            ->get();
+
+
+        $data = $summary->map(function ($row) {
+            $product = Products::withTrashed()->find($row->final_product_id);
+
+            return [
+                'product_name'        => $product->name ?? '-',
+                'sku'                 => $product->sku ?? '-',
+                // 'unit'                => $product->unit ?? '-',
+                'total_assigned_qty'  => $row->total_assigned_qty
+            ];
+        });
+
+        return response()->json([
+            'data' => $data,
         ]);
     }
 }

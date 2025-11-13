@@ -125,20 +125,51 @@
                                 </div>
                             </div>
                         </div>
+                        <ul class="nav nav-tabs mb-3" id="assignTabs" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active" id="assign-list-tab" data-bs-toggle="tab" href="#assign-list"
+                                    role="tab">
+                                    Assign List
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="assign-summary-tab" data-bs-toggle="tab" href="#assign-summary"
+                                    role="tab">
+                                    Assign Summary
+                                </a>
+                            </li>
+                        </ul>
 
                         <div class="table-responsive">
-                            <table class="table table-hover bg-transparent" id="assignBatchTable">
-                                <thead>
-                                    <tr>
-                                        {{-- <th class="wd-30">No</th> --}}
-                                        <th class="wd-250">Invoice Number</th>
-                                        <th class="wd-250">Customer</th>
-                                        <th>Assign List</th>
-                                        {{-- <th>Note</th> --}}
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+                            <div class="tab-content">
+                                {{-- Tab 1: Assign List --}}
+                                <div class="tab-pane fade show active" id="assign-list" role="tabpanel">
+                                    <table class="table table-hover bg-transparent" id="assignBatchTable">
+                                        <thead>
+                                            <tr>
+                                                <th class="wd-250">Invoice Number</th>
+                                                <th class="wd-250">Customer</th>
+                                                <th>Assign List</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+
+                                {{-- Tab 2: Assign Summary --}}
+                                <div class="tab-pane fade" id="assign-summary" role="tabpanel">
+                                    <table class="table table-hover bg-transparent" id="assignSummaryTable">
+                                        <thead>
+                                            <tr>
+                                                <th class="wd-300">Product</th>
+                                                <th class="wd-150">SKU</th>
+                                                <th class="wd-150">Total Assigned Qty</th>
+                                                {{-- <th class="wd-100">Unit</th> --}}
+                                            </tr>
+                                        </thead>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -376,6 +407,65 @@
                     searchTimer = setTimeout(() => resetAndReload(), 200);
                 });
 
+
+            let summaryTableInitialized = false;
+            let summaryTable = null;
+
+            function initAssignSummaryTable() {
+                if (summaryTableInitialized) return;
+
+                summaryTable = $('#assignSummaryTable').DataTable({
+                    processing: true,
+                    serverSide: false,
+                    ajax: {
+                        url: "/erp/productions/assign-list/summary",
+                        data: function(d) {
+                            d.filter = $('#filter').val();
+                            d.start_date = $('#start_date').val();
+                            d.end_date = $('#end_date').val();
+                            d.search_type = $('#search_type').val();
+                            d.search_keyword = $('#search_keyword').val();
+                            d.search_product = $('#search_product').val();
+                            d.progress_status = $('#progress_status').val();
+                        }
+                    },
+                    columns: [{
+                            data: 'product_name'
+                        },
+                        {
+                            data: 'sku'
+                        },
+                        {
+                            data: 'total_assigned_qty'
+                        },
+                        // {
+                        //     data: 'unit'
+                        // }
+                    ],
+                    order: [
+                        [2, 'desc']
+                    ],
+                    paging: false,
+                    searching: false,
+                    info: false,
+                    scrollY: '60vh',
+                    scrollCollapse: true,
+                });
+
+                summaryTableInitialized = true;
+            }
+
+            // Jika tab summary dibuka
+            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
+                if ($(e.target).attr('href') === '#assign-summary') {
+                    if (!summaryTableInitialized) {
+                        initAssignSummaryTable();
+                    } else {
+                        summaryTable.ajax.reload();
+                    }
+                }
+            });
+
         });
 
         $(document).on('click', '.btn-open-delete-modal', function() {
@@ -394,6 +484,21 @@
         $('#formDeleteAssign').on('submit', function() {
             $('#btnConfirmDelete').prop('disabled', true).html(
                 '<span class="spinner-border spinner-border-sm me-2"></span> Menghapus...');
+        });
+
+        document.addEventListener('click', function(e) {
+            const el = e.target.closest('.assign-disabled');
+
+            if (el) {
+                const title = el.getAttribute('data-title') || 'Action';
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Tidak dapat ' + title,
+                    text: 'Assign ini sudah full progress, tidak bisa diubah lagi!',
+                    confirmButtonText: 'OK'
+                });
+            }
         });
     </script>
 @endpush

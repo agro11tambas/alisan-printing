@@ -1214,7 +1214,7 @@ class PurchaseListController extends Controller
                 'account_id'           => $cashBankAccount->id,
                 'debit'                => 0,
                 'credit'               => $request->paid_amount,
-                'note'                 => $request->note ?? '',
+                'note'                 => 'Product Payment',
                 'particular'           => 'Product Payment - ' . $purchaseAccount->name,
                 'transaction_group_id' => $groupId,
                 'proof'           => $proofJson,
@@ -1364,7 +1364,7 @@ class PurchaseListController extends Controller
                 'account_id'           => $cashBankAccount->id,
                 'debit'                => 0,
                 'credit'               => $request->paid_amount,
-                'note'                 => $request->note ?? '',
+                'note'                 => 'Freight Payment',
                 'particular'           => 'Freight Payment - ' . $purchaseAccount->name,
                 'transaction_group_id' => $groupId,
                 'proof'                => $proofJson
@@ -1479,7 +1479,7 @@ class PurchaseListController extends Controller
 
         $request->validate([
             'transaction_date'      => 'required|date',
-            'paid_amount'           => 'required|numeric|min:1',
+            'paid_amount'           => 'required|numeric|min:0',
             'cash_bank_account_id'  => 'required|exists:accounts,id',
             'note'                  => 'nullable|string',
             'payment_proof'         => 'nullable|array',
@@ -1539,6 +1539,75 @@ class PurchaseListController extends Controller
             }
 
             $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+
+            // =====================================================
+            // 🔥 Jika paid_amount = 0 → hapus semua transaksi dalam group
+            // =====================================================
+            if ($request->paid_amount == 0) {
+
+                // rollback saldo account utk semua trx
+                foreach ($transactions as $trx) {
+                    $account = $trx->account;
+
+                    if ($trx->credit > 0) {
+                        // refund uang masuk sebelumnya
+                        $account->increment('closing_balance', $trx->credit);
+                    } elseif ($trx->debit > 0) {
+                        // rollback debit pembelian (harus kurangi balance)
+                        $account->decrement('closing_balance', $trx->debit);
+                    }
+
+                    $trx->delete();
+                }
+
+                // =====================================================
+                // 🔹 Hitung ulang paid_amount & remaining_amount Purchase
+                // =====================================================
+                $totalProductPaid = AccountTransaction::where('purchase_id', $purchase->id)
+                    ->where('credit', '>', 0)
+                    ->where('particular', 'like', '%product%')
+                    ->sum('credit');
+
+                $totalFreightPaid = AccountTransaction::where('purchase_id', $purchase->id)
+                    ->where('credit', '>', 0)
+                    ->where('particular', 'like', '%freight%')
+                    ->sum('credit');
+
+                $purchase->paid_amount_product    = $totalProductPaid;
+                $purchase->remaining_amount_product = max(0, $purchase->total_amount_product - $totalProductPaid);
+
+                $purchase->paid_amount_freight    = $totalFreightPaid;
+                $purchase->remaining_amount_freight = max(0, $purchase->total_amount_freight - $totalFreightPaid);
+
+                $totalPaid = $totalProductPaid + $totalFreightPaid;
+                $totalAll  = ($purchase->total_amount_product ?? 0) + ($purchase->total_amount_freight ?? 0);
+
+                if ($totalPaid == 0) {
+                    $purchase->payment_status = 'Unpaid';
+                } elseif ($totalPaid < $totalAll) {
+                    $purchase->payment_status = 'Partially Paid';
+                } else {
+                    $purchase->payment_status = 'Paid';
+                }
+
+                $purchase->verified = false;
+                $purchase->save();
+
+                DB::commit();
+
+                // =====================================================
+                // 🔹 AJAX Return → Frontend hapus card payment
+                // =====================================================
+                if ($request->ajax()) {
+                    return response()->json([
+                        'status'   => 'deleted',
+                        'message'  => 'Payment berhasil dihapus.',
+                        'group_id' => $groupId,
+                    ]);
+                }
+
+                return back()->with('success', 'Payment berhasil dihapus.');
+            }
 
             // =====================================================
             // 🔹 Identify Payment Type: Product vs Freight

@@ -1143,6 +1143,13 @@
                 });
 
                 pasteAreaProduct.addEventListener('paste', (e) => {
+
+                    // 🔥 Jika paste di input note → IZINKAN paste text normal
+                    if (e.target.classList.contains('note-input')) {
+                        return;
+                    }
+
+                    // 📌 Jika paste bukan di input note → intercept screenshot
                     e.preventDefault();
                     const items = e.clipboardData.items;
 
@@ -1188,6 +1195,7 @@
                         }
                     }
                 });
+
             }
 
             // ===== FREIGHT PAYMENT =====
@@ -1205,6 +1213,13 @@
                 });
 
                 pasteAreaFreight.addEventListener('paste', (e) => {
+
+                    // 🔥 Jika paste terjadi di input note → IZINKAN normal
+                    if (e.target.classList.contains('note-input')) {
+                        return;
+                    }
+
+                    // 📌 Kalau bukan input note → intercept image
                     e.preventDefault();
                     const items = e.clipboardData.items;
 
@@ -1227,7 +1242,7 @@
                                 const noteInput = document.createElement('input');
                                 noteInput.type = 'text';
                                 noteInput.classList.add('form-control', 'form-control-sm',
-                                    'note-input');
+                                'note-input');
                                 noteInput.placeholder = 'Tambahkan catatan...';
 
                                 const removeBtn = document.createElement('button');
@@ -1373,7 +1388,7 @@
                             const d = row.data();
                             d.paid_amount = res.purchase.paid_amount_html;
                             d.remaining_amount = res.purchase
-                            .remaining_amount_html; // ✅ field yg bener
+                                .remaining_amount_html; // ✅ field yg bener
                             d.payment_status = res.purchase.payment_status_html;
                             d.action = res.purchase.action_html;
                             row.data(d).invalidate();

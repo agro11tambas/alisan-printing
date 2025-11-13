@@ -22,6 +22,7 @@ use App\Models\InventoryItem;
 use App\Models\ProductCombination;
 use App\Models\Bank;
 use App\Models\CanceledProduct;
+use App\Models\DefectProduct;
 use App\Models\DeliveryList;
 use App\Models\DeliveryListItem;
 use App\Models\DeliveryOrder;
@@ -30,6 +31,8 @@ use App\Models\Design;
 use App\Models\DesignItem;
 use App\Models\FinancialReport;
 use App\Models\InventoryStock;
+use App\Models\InventoryStockIn;
+use App\Models\InventoryStockInHistory;
 use App\Models\Invoice;
 use App\Models\OrderEditHistory;
 use App\Models\OrderItemComponent;
@@ -41,6 +44,7 @@ use App\Models\OrderProgressItem;
 use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
 use App\Models\ProductionStock;
+use App\Models\PurchaseItem;
 use App\Models\SaleReturn;
 use App\Services\InvoiceNumberService;
 use App\Services\ProductCostService;
@@ -64,7 +68,7 @@ class SaleListController extends Controller
 
     public function dataSaleList(Request $request)
     {
-        $length = (int) $request->input('length', 15);
+        $length = (int) $request->input('length', 50);
         $start = (int) $request->input('start', 0);
 
         $orders = Order::with(['customer'])
@@ -286,9 +290,12 @@ class SaleListController extends Controller
                     'id' => $order->id,
                     'order_number' => $orderNumber,
                     'order_date' => $date,
-                    'customer' => '<div style="white-space: normal; word-break: break-word; max-width: 180px;">'
-                        . e($order->customer->name ?? '-') .
-                        '</div>',
+                    'customer' => '
+                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
+                            <div class="fw-semibold">' . e($order->customerAddress->business_name ?? '-') . '</div>
+                            <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
+                        </div>
+                    ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
                     'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
                     'grand_total' => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
@@ -3497,8 +3504,125 @@ class SaleListController extends Controller
             $hasSaleReturn = SaleReturn::where('sale_order_id', $order->id)->exists();
             if ($hasSaleReturn) {
                 DB::rollBack();
-                return back()->with('swal_warning', 'Order ini masih memiliki Sale Return. Hapus Sale Return terlebih dahulu sebelum menghapus order ini.');
+                $msg = 'Tidak dapat menghapus order ini karena sudah memiliki sale return.';
+                return $this->deleteResponse($request, false, $msg);
             }
+
+            // $saleReturns = SaleReturn::with(['items', 'canceledProducts', 'accountTransactions'])
+            //     ->where('sale_order_id', $order->id)
+            //     ->get();
+
+            // foreach ($saleReturns as $sr) {
+
+            //     // 1️⃣ Reverse stok defect dari Sale Return
+            //     DefectProduct::where('sale_return_id', $sr->id)->forceDelete();
+
+            //     foreach ($sr->canceledProducts as $cp) {
+
+            //         // 2️⃣ Rollback produksi (cuma canceled_product_stock SAJA)
+            //         $ps = ProductionStock::where('product_id', $cp->product_id)
+            //             ->where('production_warehouse_id', $cp->warehouse_id)
+            //             ->first();
+
+            //         if ($ps) {
+            //             // sisa canceled di ps = cp->quantity
+            //             $ps->canceled_product_stock = max(0, $ps->canceled_product_stock - $cp->quantity);
+            //             $ps->save();
+            //         }
+
+            //         // ============================================================
+            //         // 🔥 ROLLBACK STOCK-IN dari CANCELED PRODUCT → INVENTORY
+            //         // ============================================================
+            //         // cari semua Inventory yang dibuat dari canceled product ini
+            //         $inventories = Inventory::where('canceled_product_id', $cp->id)->get();
+
+            //         foreach ($inventories as $inv) {
+
+            //             // 2.a Ambil semua stock-in yang pernah dilakukan dari Inventory ini
+            //             $stockIns = InventoryStockIn::where('inventory_id', $inv->id)->get();
+
+            //             foreach ($stockIns as $si) {
+
+            //                 $histories = InventoryStockInHistory::where('inventory_stock_in_id', $si->id)->get();
+
+            //                 foreach ($histories as $hist) {
+            //                     $inventoryItem = InventoryItem::find($hist->inventory_item_id);
+
+            //                     if ($inventoryItem) {
+            //                         $invStock = InventoryStock::where('product_id', $inventoryItem->product_id)
+            //                             ->where('inventory_warehouse_id', $inventoryItem->inventory_warehouse_id ?? ($request->inventory_warehouse_id ?? 1))
+            //                             ->first();
+
+            //                         if ($invStock) {
+            //                             // rollback sesuai stock_in per history
+            //                             if (isset($invStock->inventory_stock)) {
+            //                                 $invStock->inventory_stock = max(
+            //                                     0,
+            //                                     (float)$invStock->inventory_stock - (float)$hist->stock_in
+            //                                 );
+            //                             }
+
+            //                             if (isset($invStock->stock_after_sales)) {
+            //                                 $invStock->stock_after_sales = max(
+            //                                     0,
+            //                                     (float)$invStock->stock_after_sales - (float)$hist->stock_in
+            //                                 );
+            //                             }
+
+            //                             $invStock->save();
+            //                         }
+            //                     }
+            //                 }
+
+            //                 // hapus semua history untuk stockIn ini
+            //                 InventoryStockInHistory::where('inventory_stock_in_id', $si->id)->forceDelete();
+            //                 $si->forceDelete();
+            //             }
+
+            //             // hapus inventory items & inventory utamanya
+            //             InventoryItem::where('inventory_id', $inv->id)->forceDelete();
+            //             $inv->forceDelete();
+            //         }
+
+            //         // 🧹 optional: reset completed_quantity biar rapi (gak wajib kalau mau dihapus via forceDelete)
+            //         // $cp->completed_quantity = 0;
+            //         // $cp->save();
+
+
+            //         // 3️⃣ HITUNG ULANG AVG COST PRODUK SETELAH HAPUS STOCK-IN DARI CANCELED PRODUCT INI
+            //         $inventoryStock = InventoryStock::where('product_id', $cp->product_id)
+            //             ->where('inventory_warehouse_id', $request->inventory_warehouse_id ?? 1)
+            //             ->first();
+
+            //         if ($inventoryStock) {
+            //             $qty = $inventoryStock->inventory_stock;
+
+            //             $totalCost = PurchaseItem::where('product_id', $cp->product_id)
+            //                 ->sum(DB::raw('final_price * stock_in'));
+
+            //             $inventoryStock->avg_cost = $qty > 0
+            //                 ? round($totalCost / max(1, $qty), 3)
+            //                 : 0;
+
+            //             $inventoryStock->save();
+
+            //             Products::where('id', $cp->product_id)->update([
+            //                 'avg_cost' => $inventoryStock->avg_cost,
+            //             ]);
+            //         }
+            //     }
+
+            //     // 4️⃣ Hapus transaksi akuntansi Sale Return
+            //     AccountTransaction::where('sale_return_id', $sr->id)->forceDelete();
+
+            //     // 5️⃣ Hapus financial report Sale Return
+            //     FinancialReport::where('reference_table', 'sale_returns')
+            //         ->where('reference_id', $sr->id)
+            //         ->forceDelete();
+
+            //     // 6️⃣ Force delete Sale Return (boot akan hapus items + canceledProducts)
+            //     $sr->forceDelete();
+            // }
 
             $inventoryWarehouseId  = $request->inventory_warehouse_id  ?? 1;
             $productionWarehouseId = $request->production_warehouse_id ?? 2;
@@ -4318,29 +4442,47 @@ class SaleListController extends Controller
 
             $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
-            // 🔹 Jika paid_amount = 0, hapus semua transaksi dalam group dan ubah order jadi Unpaid
+            // 🔹 Jika paid_amount = 0, hapus semua transaksi dalam group
             if ($request->paid_amount == 0) {
+
+                // rollback account balances
                 foreach ($transactions as $trx) {
                     $account = $trx->account;
+
                     if ($trx->debit > 0) {
-                        // rollback saldo debit account
                         $account->decrement('closing_balance', $trx->debit);
                     } elseif ($trx->credit > 0) {
-                        // rollback saldo credit account
                         $account->increment('closing_balance', $trx->credit);
                     }
+
                     $trx->delete();
                 }
 
-                // update order status jadi unpaid
+                // 🔹 hitung payment lama yg dihapus
+                $oldPaid = $transactions->where('debit', '>', 0)->sum('debit');
+
+                // 🔹 update paid_amount order dengan cara decrement
+                $newPaidAmount = max(0, $order->paid_amount - $oldPaid);
+                $newRemaining  = max(0, $order->grand_total - $newPaidAmount);
+
                 $order->update([
-                    'paid_amount' => 0,
-                    'remaining_amount' => $order->grand_total,
-                    'payment_status' => 'Unpaid',
+                    'paid_amount'      => $newPaidAmount,
+                    'remaining_amount' => $newRemaining,
+                    'payment_status'   => $newPaidAmount == 0
+                        ? 'Unpaid'
+                        : ($newPaidAmount < $order->grand_total ? 'Partially Paid' : 'Paid'),
                 ]);
 
                 DB::commit();
-                return redirect()->back()->with('success', 'Payment dihapus dan status order jadi Unpaid.');
+
+                if ($request->ajax()) {
+                    return response()->json([
+                        'status'  => 'deleted',
+                        'message' => 'Payment berhasil dihapus.',
+                        'group_id' => $groupId
+                    ]);
+                }
+                return redirect()->back()->with('success', 'Payment dihapus dan status order diperbarui.');
             }
 
             // 🔹 Jika paid_amount > 0 → jalankan update seperti biasa

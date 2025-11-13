@@ -56,18 +56,80 @@ class ReportItemsProductionController extends Controller
                 'available_quantity',
                 fn($item) => number_format($item->available_quantity ?? 0, 0, ',', '.')
             )
-            ->addColumn(
-                'finished_product_stock',
-                fn($item) => number_format($item->finished_product_stock ?? 0, 0, ',', '.')
-            )
+            // ->addColumn(
+            //     'finished_product_stock',
+            //     fn($item) => number_format($item->finished_product_stock ?? 0, 0, ',', '.')
+            // )
+            ->addColumn('finished_product_stock', function ($item) {
+
+                $productId = $item->product_id;
+
+                // 1️⃣ Total qty sudah selesai produksi
+                $totalCompleted = \App\Models\OrderProgressItem::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->sum('completed_quantity');
+
+                // 2️⃣ Total qty sudah dikirim
+                $totalShipped = \App\Models\DeliveryOrderItem::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->sum('shipped_qty');
+
+                $finished = $totalCompleted - $totalShipped;
+                if ($finished < 0) $finished = 0;
+
+                return number_format($finished, 0, ',', '.');
+            })
             ->addColumn(
                 'incoming_stock',
                 fn($item) => number_format($item->incoming_stock ?? 0, 0, ',', '.')
             )
-            ->addColumn(
-                'pending_waiting_list',
-                fn($item) => number_format($item->pending_waiting_list ?? 0, 0, ',', '.')
-            )
+            // ->addColumn(
+            //     'pending_waiting_list',
+            //     fn($item) => number_format($item->pending_waiting_list ?? 0, 0, ',', '.')
+            // )
+            ->addColumn('pending_waiting_list', function ($item) {
+
+                $productId = $item->product_id;
+
+                // 1️⃣ Total QTY dari Design Items
+                $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->sum('quantity');
+
+                // 2️⃣ Total Assigned QTY
+                $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->sum('assigned_quantity');
+
+                $pending = $totalDesignQty - $totalAssignedQty;
+
+                if ($pending < 0) $pending = 0;
+
+                return number_format($pending, 0, ',', '.');
+            })
+            ->addColumn('on_delivery', function ($item) {
+
+                $productId = $item->product_id;
+
+                // 1️⃣ Total shipped_qty dari delivery_order_items
+                $totalOrderShipped = \App\Models\DeliveryOrderItem::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->sum('shipped_qty');
+
+                // 2️⃣ Total shipped_quantity dari delivery_list_items, 
+                //    hanya jika parent-nya (delivery_lists) status = finished
+                $totalListShipped = \App\Models\DeliveryListItem::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->whereHas('shipment', function ($q) {
+                        $q->where('status', 'finished');  // 🔥 yang benar disini
+                    })
+                    ->sum('shipped_quantity');
+
+                $onDelivery = $totalOrderShipped - $totalListShipped;
+                if ($onDelivery < 0) $onDelivery = 0;
+
+                return number_format($onDelivery, 0, ',', '.');
+            })
             ->addColumn('action', fn($item) => '
             <button type="button" class="btn btn-sm btn-outline-danger btnDefect" 
                 data-product-id="' . $item->product_id . '" 

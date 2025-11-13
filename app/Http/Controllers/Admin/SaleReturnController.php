@@ -51,7 +51,7 @@ class SaleReturnController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $returns = SaleReturn::with('customer')
+        $returns = SaleReturn::with(['customer', 'customerAddress'])
             ->where('status', 'sale returns')
             ->orderBy('created_at', 'desc');
 
@@ -165,7 +165,12 @@ class SaleReturnController extends Controller
                     'id' => $return->id,
                     'order_number' => $html,
                     'return_date' => $date,
-                    'customer' => e($return->customer->name ?? '-'),
+                    'customer' => '
+                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
+                            <div class="fw-semibold">' . e($return->customerAddress->business_name ?? '-') . '</div>
+                            <small class="text-muted">' . e($return->customer->name ?? '-') . '</small>
+                        </div>
+                    ',
                     'total_amount' => 'Rp ' . number_format($return->total_amount, 0, ',', '.'),
                     'refund_amount' => '<span class="text-success">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</span>',
                     'remaining_amount' => '<span class="text-danger">Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</span>',
@@ -1035,29 +1040,29 @@ class SaleReturnController extends Controller
             $saleReturn->delete();
 
             // ✅ Kurangi canceled_product_stock pada production_stocks
-            foreach ($items as $item) {
-                $productId = $item->product_id;
-                $qty       = $item->quantity;
+            // foreach ($items as $item) {
+            //     $productId = $item->product_id;
+            //     $qty       = $item->quantity;
 
-                $productionStock = ProductionStock::where('product_id', $productId)->first();
-                if ($productionStock) {
-                    $productionStock->decrement('canceled_product_stock', $qty);
-                }
+            //     $productionStock = ProductionStock::where('product_id', $productId)->first();
+            //     if ($productionStock) {
+            //         $productionStock->decrement('canceled_product_stock', $qty);
+            //     }
 
-                // 🚮 Hapus juga ledger canceled_products untuk sale_return ini
-                CanceledProduct::where('sale_return_id', $saleReturn->id)
-                    ->where('product_id', $productId)
-                    ->where('order_item_id', $item->order_item_id)
-                    ->delete();
+            //     // 🚮 Hapus juga ledger canceled_products untuk sale_return ini
+            //     CanceledProduct::where('sale_return_id', $saleReturn->id)
+            //         ->where('product_id', $productId)
+            //         ->where('order_item_id', $item->order_item_id)
+            //         ->delete();
 
-                // Update ulang stok & avg_cost produk
-                $product = Products::find($productId);
-                if ($product) {
-                    ProductCostService::updateCostAndStock($product);
-                    $product->stock_after_sales = $product->inventory_stock;
-                    $product->save();
-                }
-            }
+            //     // Update ulang stok & avg_cost produk
+            //     $product = Products::find($productId);
+            //     // if ($product) {
+            //     //     ProductCostService::updateCostAndStock($product);
+            //     //     $product->stock_after_sales = $product->inventory_stock;
+            //     //     $product->save();
+            //     // }
+            // }
 
             $saleReturn->delete_notes = $request->input('delete_notes'); // catatan hapus dari form
             $saleReturn->deleted_by = Auth::id(); // user yang login
@@ -1340,7 +1345,7 @@ class SaleReturnController extends Controller
 
         $request->validate([
             'transaction_date'      => 'required|date',
-            'paid_amount'           => 'required|numeric|min:1',
+            'paid_amount'           => 'required|numeric|min:0',
             'cash_bank_account_id'  => 'required|exists:accounts,id',
             'note'                  => 'nullable|string',
             'payment_proof'         => 'nullable|array',
@@ -1406,6 +1411,50 @@ class SaleReturnController extends Controller
             }
 
             $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+
+            if ($request->paid_amount == 0) {
+
+                // rollback saldo account utk semua transaksi
+                foreach ($transactions as $trx) {
+                    $account = $trx->account;
+
+                    if ($trx->credit > 0) {
+                        // rollback refund keluar → tambahkan kembali ke saldo
+                        $account->closing_balance += $trx->credit;
+                    } elseif ($trx->debit > 0) {
+                        // rollback debit (pengembalian item)
+                        $account->closing_balance -= $trx->debit;
+                    }
+
+                    $account->save();
+                    $trx->delete();
+                }
+
+                // hitung ulang refund sale return
+                $totalRefund = AccountTransaction::where('sale_return_id', $saleReturn->id)
+                    ->where('credit', '>', 0)
+                    ->sum('credit');
+
+                $saleReturn->refund_amount    = $totalRefund;
+                $saleReturn->remaining_amount = max(0, $saleReturn->total_amount - $totalRefund);
+                $saleReturn->payment_status   = $totalRefund == 0 ? 'Unpaid'
+                    : ($totalRefund < $saleReturn->total_amount ? 'Partially Paid' : 'Refunded');
+                $saleReturn->verified         = false;
+                $saleReturn->save();
+
+                DB::commit();
+
+                // AJAX → kirim sinyal delete card
+                if ($request->ajax()) {
+                    return response()->json([
+                        'status'    => 'deleted',
+                        'message'   => 'Refund dihapus.',
+                        'group_id'  => $groupId,
+                    ]);
+                }
+
+                return redirect()->back()->with('success', 'Refund dihapus.');
+            }
 
             // =====================================================
             // 🔹 Refund Process (asli dari kode lama)
@@ -1626,23 +1675,23 @@ class SaleReturnController extends Controller
             }
 
             // ✅ Tambahkan kembali canceled_product_stock + update cost produk
-            foreach ($saleReturn->items as $item) {
-                $productId = $item->product_id;
-                $qty       = $item->quantity;
+            // foreach ($saleReturn->items as $item) {
+            //     $productId = $item->product_id;
+            //     $qty       = $item->quantity;
 
-                $productionStock = ProductionStock::where('product_id', $productId)->first();
-                if ($productionStock) {
-                    $productionStock->increment('canceled_product_stock', $qty);
-                }
+            //     $productionStock = ProductionStock::where('product_id', $productId)->first();
+            //     if ($productionStock) {
+            //         $productionStock->increment('canceled_product_stock', $qty);
+            //     }
 
-                // Update ulang stok & avg_cost produk
-                $product = Products::find($productId);
-                if ($product) {
-                    ProductCostService::updateCostAndStock($product);
-                    $product->stock_after_sales = $product->inventory_stock;
-                    $product->save();
-                }
-            }
+            //     // Update ulang stok & avg_cost produk
+            //     // $product = Products::find($productId);
+            //     // if ($product) {
+            //     //     ProductCostService::updateCostAndStock($product);
+            //     //     $product->stock_after_sales = $product->inventory_stock;
+            //     //     $product->save();
+            //     // }
+            // }
 
             FinancialReport::withTrashed()
                 ->where('reference_table', 'sale_returns')

@@ -53,11 +53,11 @@
 
         /* 🔹 Perbesar juga font di header tabel produk (Qty, Price, Total) */
         /* #tab_logic th {
-            font-size: 15px !important;
-            font-weight: 700 !important;
-            vertical-align: middle !important;
-            text-transform: uppercase;
-        } */
+                font-size: 15px !important;
+                font-weight: 700 !important;
+                vertical-align: middle !important;
+                text-transform: uppercase;
+            } */
 
         /* 🔹 Perbesar font Grand Total biar seragam */
         #tab_logic_total input.form-control {
@@ -830,30 +830,55 @@
                 newRow.id = 'addr' + rowCount;
 
                 newRow.innerHTML = `
-                <td>${rowCount + 1}</td>
-                <td>
-                    <select class="form-control select-product" name="product[]" id="product_${rowCount}">
-                        <option value="" disabled selected hidden>Pilih produk</option>
-                    </select>
-                </td>
-                
-                <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
-                <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value=""></td>
-                <td>
-                    <input type="text" inputmode="numeric" class="form-control price_before_discount_display">
-                    <input type="hidden" name="price_before_discount[]" class="price_before_discount">
-                </td>
-                <td><input type="text" inputmode="numeric" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
-                <td class="text-center">
-                    <div class="d-flex justify-content-center">
-                        <button type="button" class="btn btn-danger delete-row">
-                            <i class="feather-trash"></i>
-                        </button>
-                    </div>
-                </td>
-                <input type="hidden" name="price_after_discount[]" class="form-control price_after_discount" readonly>
-                <input type="hidden" name="total_after_discount[]" class="form-control total_after_discount" readonly>
-            `;
+                    <td>${rowCount + 1}</td>
+
+                    <td>
+                        <select class="form-control select-product"
+                            data-select2-selector="status"
+                            name="product[]"
+                            id="product_${rowCount}">
+                            <option value="" disabled selected hidden>Pilih produk</option>
+                        </select>
+                    </td>
+
+                    <input type="hidden" name="product_type[]" 
+                        class="form-control product-type" 
+                        id="product_type_${rowCount}" readonly>
+
+                    <td>
+                        <input type="text" inputmode="numeric" 
+                            name="qty[]" class="form-control qty" value="">
+                    </td>
+
+                    <td>
+                        <input type="text" inputmode="numeric" 
+                            class="form-control price_before_discount_display">
+                        <input type="hidden" name="price_before_discount[]" 
+                            class="price_before_discount">
+                    </td>
+
+                    <td>
+                        <input type="text" inputmode="numeric"
+                            class="form-control total_before_discount_display" readonly>
+                        <input type="hidden" name="total_before_discount[]" 
+                            class="total_before_discount">
+                    </td>
+
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center">
+                            <button type="button" class="btn btn-danger delete-row">
+                                <i class="feather-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+
+                    <input type="hidden" name="price_after_discount[]" 
+                        class="form-control price_after_discount" readonly>
+
+                    <input type="hidden" name="total_after_discount[]" 
+                        class="form-control total_after_discount" readonly>
+                `;
+
                 tableBody.appendChild(newRow);
 
                 initSelect2(newRow.querySelector('.select-product'));

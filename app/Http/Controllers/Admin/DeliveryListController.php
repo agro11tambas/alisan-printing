@@ -405,7 +405,7 @@ class DeliveryListController extends Controller
             $deliveryOrder->update(['status' => 'Finished']);
         }
 
-        return redirect('/erp/deliveries/delivery-list')
+        return redirect('/erp/deliveries/delivery-orders')
             ->with('success', "Delivery List {$deliveryList->shipment_number} berhasil dibuat!");
     }
 

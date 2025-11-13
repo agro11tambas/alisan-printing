@@ -53,7 +53,7 @@ class SaleOrderController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $orders = Order::with('customer')
+        $orders = Order::with(['customer', 'customerAddress'])
             ->where('status', 'sale order')
             ->orderByDesc('id');
 
@@ -171,7 +171,12 @@ class SaleOrderController extends Controller
                     'id' => $order->id,
                     'order_number' => $orderNumber,
                     'order_date' => $date,
-                    'customer' => e($order->customer->name ?? '-'),
+                    'customer' => '
+                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
+                            <div class="fw-semibold">' . e($order->customerAddress->business_name ?? '-') . '</div>
+                            <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
+                        </div>
+                    ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
                     'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
                     'grand_total' => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',

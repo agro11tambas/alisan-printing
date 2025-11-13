@@ -172,6 +172,15 @@ class HistoryProgressOrderController extends Controller
             foreach ($request->items as $data) {
                 $assign = OrderProgressAssign::findOrFail($data['assign_id']);
 
+                // ⛔ BLOKIR jika assign sudah full progress
+                if (
+                    ($assign->completed_quantity + $assign->reject_quantity + $assign->defect_quantity)
+                    >= $assign->assigned_quantity
+                ) {
+                    DB::rollBack();
+                    return back()->with('error', "Produk {$assign->progressItem->product->name} sudah full progress, tidak bisa ditambahkan lagi.");
+                }
+
                 $completed = (int) ($data['completed_quantity'] ?? 0);
                 $reject    = (int) ($data['reject_quantity'] ?? 0);
                 $defect    = (int) ($data['defect_quantity'] ?? 0);

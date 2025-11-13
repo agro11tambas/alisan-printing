@@ -27,6 +27,12 @@
             overflow-y: auto !important;
         }
 
+        #requestSummaryTable_wrapper .dataTables_scrollBody {
+            background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
         .dataTables_scrollBody {
             scroll-behavior: smooth;
         }
@@ -153,6 +159,10 @@
                                 <a class="nav-link" id="deleted-request-stock-tab" data-bs-toggle="tab"
                                     href="#deleted-request-stock" role="tab">Deleted Request Stock</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="request-summary-tab" data-bs-toggle="tab" href="#request-summary"
+                                    role="tab">Request Summary</a>
+                            </li>
                         </ul>
                         <div class="table-responsive">
                             <div class="tab-content">
@@ -181,6 +191,18 @@
                                                 <th class="wd-550">Items</th>
                                                 <th class="wd-150">Deleted At</th>
                                                 <th class="wd-100">Action</th>
+                                            </tr>
+                                        </thead>
+                                    </table>
+                                </div>
+                                <div class="tab-pane fade" id="request-summary" role="tabpanel">
+                                    <table class="table table-hover bg-transparent" id="requestSummaryTable">
+                                        <thead>
+                                            <tr>
+                                                <th class="wd-300">Product</th>
+                                                <th class="wd-150">SKU</th>
+                                                <th class="wd-150">Total Requested Qty</th>
+                                                {{-- <th class="wd-100">Unit</th> --}}
                                             </tr>
                                         </thead>
                                     </table>
@@ -700,6 +722,65 @@
                         });
                 }
             });
+
+            let summaryTableInitialized = false;
+            let summaryTable = null;
+
+            function initSummaryTable() {
+                if (summaryTableInitialized) return;
+
+                summaryTable = $('#requestSummaryTable').DataTable({
+                    processing: true,
+                    serverSide: false,
+                    ajax: {
+                        url: "{{ url('/erp/material-request/summary') }}",
+                        data: function(d) {
+                            d.filter = $('#filter').val();
+                            d.start_date = $('#start_date').val();
+                            d.end_date = $('#end_date').val();
+                        },
+                    },
+                    columns: [{
+                            data: 'product_name',
+                            name: 'product_name'
+                        },
+                        {
+                            data: 'sku',
+                            name: 'sku'
+                        },
+                        {
+                            data: 'total_requested_qty',
+                            name: 'total_requested_qty'
+                        },
+                        // {
+                        //     data: 'unit',
+                        //     name: 'unit'
+                        // },
+                    ],
+                    order: [
+                        [2, 'desc']
+                    ],
+                    paging: false,
+                    searching: false,
+                    info: false,
+                    scrollY: '60vh',
+                    scrollCollapse: true,
+                });
+
+                summaryTableInitialized = true;
+            }
+
+            // Saat tab “Request Summary” dibuka
+            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
+                if ($(e.target).attr('href') === '#request-summary') {
+                    if (!summaryTableInitialized) {
+                        initSummaryTable();
+                    } else {
+                        summaryTable.ajax.reload();
+                    }
+                }
+            });
+
         });
 
         document.addEventListener('DOMContentLoaded', function() {

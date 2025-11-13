@@ -436,23 +436,6 @@
                                 <span class="fw-semibold fs-12" id="paid_amount_display">Paid: Rp. 0</span>
                             </div>
                         </div>
-                        {{-- <div class="row g-3 mb-3">
-                            <div class="col-md-12">
-                                <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
-                                <div class="input-group">
-                                    <input type="file" class="form-control" id="payment_proof" name="payment_proof"
-                                        accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
-                                </div>
-                                <small class="text-muted">Upload foto bukti transfer (Gambar)</small>
-                                <small class="text-danger d-none" id="error_payment_proof"></small>
-                                <div class="mt-2 d-none" id="proof_preview_wrapper">
-                                    <p class="fw-semibold mb-1">Preview:</p>
-                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
-                                        style="max-height: 200px;">
-                                </div>
-                            </div>
-                        </div> --}}
-
                         <div class="col-md-12">
                             <label class="fw-semibold">Upload / Paste Proof (optional):</label>
 
@@ -788,7 +771,7 @@
                     type: 'GET',
                     data: {
                         start: currentPage * 50,
-                        length: reset ? 50 : 100,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -943,7 +926,7 @@
                         const keyword = $('#search_keyword').val().trim();
                         const paymentStatus = $('#search_payment_status').val();
                         const dueDate = $('#due_date_order').val();
-                        
+
                         if (!keyword && !paymentStatus && !dueDate) return;
 
                         const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]')
@@ -1202,7 +1185,15 @@
                 });
 
                 pasteArea.addEventListener('paste', (e) => {
+
+                    // 🔥 Jika user paste di input note → biarkan normal
+                    if (e.target.classList.contains('note-input')) {
+                        return;
+                    }
+
+                    // 📌 Selain input note → intercept screenshot
                     e.preventDefault();
+
                     const items = e.clipboardData.items;
 
                     for (const item of items) {
@@ -1212,6 +1203,7 @@
 
                             const reader = new FileReader();
                             reader.onload = function(event) {
+
                                 const wrapper = document.createElement('div');
                                 wrapper.classList.add('preview-item');
 
@@ -1224,11 +1216,10 @@
                                 const noteInput = document.createElement('input');
                                 noteInput.type = 'text';
                                 noteInput.classList.add('form-control', 'form-control-sm',
-                                    'note-input');
+                                'note-input');
                                 noteInput.placeholder = 'Tambahkan catatan...';
                                 noteInput.style.width = '100%';
 
-                                // Add remove button
                                 const removeBtn = document.createElement('button');
                                 removeBtn.type = 'button';
                                 removeBtn.className = 'btn btn-sm btn-danger mt-1';
@@ -1245,10 +1236,12 @@
                                 wrapper.appendChild(removeBtn);
                                 previewContainer.appendChild(wrapper);
                             };
+
                             reader.readAsDataURL(blob);
                         }
                     }
                 });
+
             }
 
             document.getElementById('markAsSaleForm').addEventListener('submit', function(e) {

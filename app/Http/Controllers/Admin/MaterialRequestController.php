@@ -248,6 +248,70 @@ class MaterialRequestController extends Controller
             ->make(true);
     }
 
+    public function RequestSummary(Request $request)
+    {
+        $query = MaterialRequestItem::with(['product', 'materialRequest']);
+
+        // ✅ Filter tanggal berdasarkan material request
+        if ($request->filter) {
+            switch ($request->filter) {
+                case 'today':
+                    $query->whereHas('materialRequest', function ($q) {
+                        $q->whereDate('requested_at', Carbon::today());
+                    });
+                    break;
+                case 'last_7_days':
+                    $query->whereHas('materialRequest', function ($q) {
+                        $q->whereBetween('requested_at', [Carbon::now()->subDays(7), Carbon::now()]);
+                    });
+                    break;
+                case 'this_month':
+                    $query->whereHas('materialRequest', function ($q) {
+                        $q->whereMonth('requested_at', Carbon::now()->month)
+                            ->whereYear('requested_at', Carbon::now()->year);
+                    });
+                    break;
+                case 'year_to_date':
+                    $query->whereHas('materialRequest', function ($q) {
+                        $q->whereBetween('requested_at', [Carbon::now()->startOfYear(), Carbon::now()]);
+                    });
+                    break;
+                case 'custom':
+                    if ($request->filled('start_date') && $request->filled('end_date')) {
+                        $query->whereHas('materialRequest', function ($q) use ($request) {
+                            $q->whereBetween('requested_at', [$request->start_date, $request->end_date]);
+                        });
+                    }
+                    break;
+            }
+        }
+
+        // ✅ Group by product
+        $summary = $query
+            ->selectRaw('product_id, SUM(requested_qty) as total_requested_qty')
+            ->groupBy('product_id')
+            ->get();
+
+        // ✅ Format data untuk output
+        $data = $summary->map(function ($item) {
+            $product = $item->product;
+
+            return [
+                'product_id' => $product->id ?? null,
+                'product_name' => $product->name ?? '-',
+                'sku' => $product->sku ?? '-',
+                'total_requested_qty' => (float) $item->total_requested_qty,
+                // 'unit' => $product->unit ?? ($item->unit ?? '-'),
+            ];
+        });
+
+        return response()->json([
+            'data' => $data,
+            'total_products' => $data->count(),
+            'total_requested_sum' => $data->sum('total_requested_qty'),
+        ]);
+    }
+
     // public function create()
     // {
     //     $products = Products::with('inventoryStock')->orderBy('name', 'asc')->get();

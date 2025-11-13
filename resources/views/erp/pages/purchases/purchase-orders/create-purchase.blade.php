@@ -214,6 +214,33 @@
 @endsection
 
 @push('scripts')
+    <script type="text/template" id="row-template-po">
+<tr>
+    <td>__INDEX__</td>
+    <td>
+        <select class="form-control select-product"
+            name="product[]">
+            <option value="" disabled selected hidden>Pilih produk</option>
+            @foreach ($products as $product)
+                <option value="{{ $product->id }}">
+                    [{{ $product->sku }}] {{ $product->name }}
+                </option>
+            @endforeach
+        </select>
+    </td>
+    <td>
+        <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0">
+    </td>
+    <td class="text-center">
+        <div class="d-flex justify-content-center">
+            <button type="button" class="btn btn-danger delete-row">
+                <i class="feather-trash-2"></i>
+            </button>
+        </div>
+    </td>
+</tr>
+</script>
+
     <script>
         function initSelect2(el) {
             $(el).select2({
@@ -299,16 +326,19 @@
 
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
-                const $newRow = $tbody.find('tr:first').clone();
-                const newIndex = $tbody.find('tr').length;
+                const newIndex = $tbody.find('tr').length + 1;
 
-                $newRow.attr('id', 'addr' + newIndex);
-                $newRow.find('td:first').text(newIndex + 1);
-                $newRow.find('input').val('');
-                $newRow.find('.select2').remove();
-                $newRow.find('select').removeClass('select2-hidden-accessible').val('');
+                // ambil template
+                let template = $('#row-template-po').html();
+                template = template.replace('__INDEX__', newIndex);
 
+                // convert jadi element
+                const $newRow = $(template);
+
+                // append row baru
                 $tbody.append($newRow);
+
+                // init select2 di row baru
                 initSelect2($newRow.find('.select-product'));
             });
 
@@ -359,6 +389,12 @@
                     e.preventDefault();
                 }
             });
+        });
+
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
         });
     </script>
 @endpush

@@ -126,81 +126,78 @@
                                             <th>Assign Now</th>
                                             <th>Operator</th>
                                             <th>Note</th>
-                                            <th>Bypass</th>
+                                            <th>Delete</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                    <tbody>
-                                        @foreach ($batch->orderProgress->items as $index => $item)
+                                        @foreach ($batch->assigns as $index => $assign)
                                             @php
-                                                $assign = $batch->assigns->firstWhere(
-                                                    'order_progress_item_id',
-                                                    $item->id,
-                                                );
-                                                $assignedQty = $assign->assigned_quantity ?? 0;
-                                                $operatorId = $assign->operator_id ?? '';
-                                                $note = $assign->note ?? '';
+                                                $item = $assign->progressItem; // progress item
+                                                $product = $assign->product; // product langsung dari assign
                                             @endphp
                                             <tr>
                                                 <input type="hidden" name="items[{{ $index }}][id]"
-                                                    value="{{ $assign->id ?? '' }}">
-                                                <td>{{ $item->product->name }}</td>
+                                                    value="{{ $assign->id }}">
+
+                                                <td>{{ $product->name }}</td>
+
                                                 <td class="text-start">
                                                     {{ number_format($item->completed_quantity, 0, ',', '.') }} /
                                                     {{ number_format($item->quantity, 0, ',', '.') }}
                                                 </td>
+
                                                 <td class="text-danger fw-semibold">
-                                                    {{ number_format($item->active_assign, 0, ',', '.') }}
+                                                    {{ number_format($assign->active_assign ?? 0, 0, ',', '.') }}
                                                 </td>
+
                                                 <td class="text-primary fw-semibold">
-                                                    {{ number_format($item->available_quantity, 0, ',', '.') }}
+                                                    {{ number_format($assign->available_quantity ?? 0, 0, ',', '.') }}
                                                 </td>
-                                                <td class="text-start">
+
+                                                <td>
                                                     <input type="hidden"
                                                         name="items[{{ $index }}][order_progress_item_id]"
                                                         value="{{ $item->id }}">
+
                                                     <input type="text"
                                                         name="items[{{ $index }}][assigned_quantity]"
                                                         class="form-control text-start"
-                                                        value="{{ number_format($assignedQty, 0, ',', '.') }}"
-                                                        min="0" max="{{ $item->remaining_quantity }}"
-                                                        placeholder="Qty">
-
-                                                    <small class="text-muted d-block mt-1">
-                                                        Remaining:
-                                                        {{ number_format($item->remaining_quantity, 0, ',', '.') }}
-                                                    </small>
+                                                        value="{{ number_format($assign->assigned_quantity ?? 0, 0, ',', '.') }}"
+                                                        min="0" max="{{ $assign->remaining_quantity }}">
                                                 </td>
+
                                                 <td>
                                                     <select name="items[{{ $index }}][operator_id]"
-                                                        class="form-select operator-field" data-select2-selector="tag">
+                                                        class="form-select operator-field" data-select2-selector="tag"
+                                                        {{ $assign->operator_id == null ? 'disabled' : '' }}>
                                                         <option value="">-- Choose Operator --</option>
+
                                                         @foreach ($operators as $op)
                                                             <option value="{{ $op->id }}"
-                                                                {{ $operatorId == $op->id ? 'selected' : '' }}>
+                                                                {{ $assign->operator_id == $op->id ? 'selected' : '' }}>
                                                                 {{ $op->name }}
                                                             </option>
                                                         @endforeach
                                                     </select>
+
                                                     <small class="text-danger error-operator d-none">
                                                         Operator wajib dipilih
                                                     </small>
                                                 </td>
+
                                                 <td>
                                                     <input type="text" name="items[{{ $index }}][note]"
-                                                        class="form-control" value="{{ $note }}"
-                                                        placeholder="Catatan singkat">
+                                                        class="form-control" value="{{ $assign->note }}">
                                                 </td>
+
                                                 <td class="text-center">
                                                     <div class="form-check">
                                                         <input type="hidden" name="items[{{ $index }}][bypass]"
                                                             value="0">
                                                         <input type="checkbox" class="form-check-input bypass-check"
                                                             name="items[{{ $index }}][bypass]" value="1"
-                                                            id="bypass_{{ $index }}"
-                                                            {{ $assign && $assign->operator_id == null ? 'checked' : '' }}>
-                                                        <label for="bypass_{{ $index }}"
-                                                            class="form-check-label small">Bypass</label>
+                                                            {{ $assign->operator_id == null ? 'checked' : '' }}>
+                                                        <label class="form-check-label small">Delete</label>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -261,6 +258,24 @@
                 });
             });
 
+            // ❌ Cegah klik checkbox jika hanya ada 1 row
+            $(document).on('click', '.bypass-check', function(e) {
+                let rows = $('table tbody tr');
+
+                if (rows.length === 1) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Tidak Bisa!',
+                        text: 'Minimal satu produk harus dikerjakan. Tidak boleh dihapus semua.',
+                    });
+
+                    return false;
+                }
+            });
+
             $(document).on('change', '.bypass-check', function() {
                 const row = $(this).closest('tr');
                 const isBypass = $(this).is(':checked');
@@ -268,22 +283,13 @@
                 const operatorSelect = row.find('.operator-field');
 
                 if (isBypass) {
-                    qtyInput.val('0').prop('readonly', true);
-                    const name = operatorSelect.attr('name');
-                    row.find(`input[name="${name}"]`).remove();
-                    $('<input>').attr({
-                        type: 'hidden',
-                        name: name,
-                        value: ''
-                    }).appendTo(row);
-                    operatorSelect.prop('disabled', true).val('').trigger('change');
+                    qtyInput.val('0').prop('disabled', true);
+                    operatorSelect.val('').trigger('change').prop('disabled', true);
                     row.find('.error-operator').addClass('d-none');
                     row.addClass('table-secondary');
                 } else {
-                    qtyInput.prop('readonly', false);
+                    qtyInput.prop('disabled', false);
                     operatorSelect.prop('disabled', false);
-                    const name = operatorSelect.attr('name');
-                    row.find(`input[name="${name}"]`).remove();
                     row.removeClass('table-secondary');
                 }
             });
@@ -293,7 +299,6 @@
                 let valid = true;
                 $('.error-operator').addClass('d-none');
 
-                // 🔹 Hitung semua row & row yang bypass
                 let totalRows = $('.bypass-check').length;
                 let bypassCount = 0;
 
@@ -301,7 +306,6 @@
                     if ($(this).is(':checked')) bypassCount++;
                 });
 
-                // ❌ Kalau semua bypass → stop
                 if (bypassCount === totalRows) {
                     Swal.fire({
                         icon: 'error',
@@ -311,7 +315,6 @@
                     return;
                 }
 
-                // 🔹 Validasi operator untuk row yang tidak bypass
                 $('.operator-field').each(function() {
                     const row = $(this).closest('tr');
                     const isBypass = row.find('.bypass-check').is(':checked');
@@ -324,6 +327,7 @@
 
                 if (valid) $('#assignForm').submit();
             });
+
         });
 
         $(document).on('select2:open', () => {

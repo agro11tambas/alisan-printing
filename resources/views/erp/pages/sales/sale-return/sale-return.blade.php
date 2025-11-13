@@ -949,7 +949,15 @@
                 });
 
                 pasteArea.addEventListener('paste', (e) => {
+
+                    // 🔥 Jika user paste di input note → IZINKAN paste normal
+                    if (e.target.classList.contains('note-input')) {
+                        return;
+                    }
+
+                    // 📌 Kalau bukan input note → intercept image untuk preview
                     e.preventDefault();
+
                     const items = e.clipboardData.items;
 
                     for (const item of items) {

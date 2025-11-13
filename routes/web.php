@@ -330,6 +330,7 @@ Route::middleware(isLogin::class)->group(function () {
             Route::delete('/erp/productions/assign-list/delete/{id}', [OrderProgressAssignController::class, 'delete']);
 
             Route::get('/erp/productions/waiting-list/assign-batch/{batch}/assigns', [OrderProgressAssignController::class, 'getAssignsByBatch']);
+            Route::get('/erp/productions/assign-list/summary', [OrderProgressAssignController::class, 'AssignSummary']);
         });
 
         Route::middleware(['auth', 'subpermission:request-stocks'])->group(function () {
@@ -348,6 +349,8 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/productions/stock-request/history/{id}/data', [HistoryRequestStockController::class, 'dataRequestStockHistory']);
 
             Route::get('/erp/productions/stock-request/data-deleted', [MaterialRequestController::class, 'dataDeletedRequestStock']);
+            Route::get('/erp/material-request/summary', [MaterialRequestController::class, 'RequestSummary'])
+                ->name('material-request.summary');
             Route::delete('/erp/productions/stock-request/force-delete/{id}', [MaterialRequestController::class, 'forceDelete'])->name('request-stocks.forceDelete');
             Route::post('/erp/productions/stock-request/restore/{id}', [MaterialRequestController::class, 'restore'])->name('request-stocks.restore');
         });

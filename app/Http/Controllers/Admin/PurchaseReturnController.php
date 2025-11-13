@@ -1095,7 +1095,7 @@ class PurchaseReturnController extends Controller
                 'account_id'            => $cashBankAccount->id,
                 'debit'                 => $request->refund_amount,
                 'credit'                => 0,
-                'note'                  => $request->note ?? '',
+                'note'                  => 'Refund Product',
                 'particular'            => 'Refund Product - ' . $purchaseReturnAccount->name,
                 'transaction_group_id'  => $groupId,
                 'proof'                 => $proofJson,
@@ -1219,7 +1219,7 @@ class PurchaseReturnController extends Controller
                 'account_id'            => $cashBankAccount->id,
                 'debit'                 => $request->refund_amount,
                 'credit'                => 0,
-                'note'                  => $request->note ?? '',
+                'note'                  => 'Refund Freight',
                 'particular'            => 'Refund Freight - ' . $purchaseReturnAccount->name,
                 'transaction_group_id'  => $groupId,
                 'proof'                 => $proofJson,
@@ -1357,7 +1357,7 @@ class PurchaseReturnController extends Controller
 
         $request->validate([
             'transaction_date'      => 'required|date',
-            'paid_amount'           => 'required|numeric|min:1',
+            'paid_amount'           => 'required|numeric|min:0',
             'cash_bank_account_id'  => 'required|exists:accounts,id',
             'note'                  => 'nullable|string',
             'payment_proof'         => 'nullable|array',
@@ -1422,6 +1422,90 @@ class PurchaseReturnController extends Controller
             $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // =====================================================
+            // 🔥 Jika paid_amount = 0 → hapus semua transaksi dalam group
+            // =====================================================
+            if ($request->paid_amount == 0) {
+
+                // tentukan jenis group sebelum delete
+                $firstTrx = $transactions->first();
+                $type = str_contains(strtolower($firstTrx->particular), 'freight')
+                    ? 'freight'
+                    : 'product';
+
+                // rollback saldo semua trx
+                foreach ($transactions as $trx) {
+                    $account = $trx->account;
+
+                    if ($trx->debit > 0) {
+                        $account->increment('closing_balance', $trx->debit);
+                    } elseif ($trx->credit > 0) {
+                        $account->decrement('closing_balance', $trx->credit);
+                    }
+
+                    $trx->delete();
+                }
+
+                // ============ FIX DI SINI =============
+
+                if ($type === 'product') {
+                    // HANYA reset product
+                    $totalRefundProduct = AccountTransaction::where('purchase_return_id', $purchaseReturn->id)
+                        ->where('particular', 'like', '%product%')
+                        ->sum('debit');
+
+                    $purchaseReturn->refund_amount_product = $totalRefundProduct;
+                    $purchaseReturn->remaining_amount_product = max(0, $purchaseReturn->total_amount_product - $totalRefundProduct);
+
+                    // freight tidak disentuh
+                }
+
+                if ($type === 'freight') {
+                    // HANYA reset freight
+                    $totalRefundFreight = AccountTransaction::where('purchase_return_id', $purchaseReturn->id)
+                        ->where('particular', 'like', '%freight%')
+                        ->sum('debit');
+
+                    $purchaseReturn->refund_amount_freight = $totalRefundFreight;
+                    $purchaseReturn->remaining_amount_freight = max(0, $purchaseReturn->total_amount_freight - $totalRefundFreight);
+
+                    // product tidak disentuh
+                }
+
+                // hitung status gabungan
+                $totalRefunded = ($purchaseReturn->refund_amount_product ?? 0)
+                    + ($purchaseReturn->refund_amount_freight ?? 0);
+
+                $totalAll = $purchaseReturn->total_amount_product + $purchaseReturn->total_amount_freight;
+
+                if ($totalRefunded == 0) {
+                    $purchaseReturn->payment_status = 'Unrefunded';
+                } elseif ($totalRefunded < $totalAll) {
+                    $purchaseReturn->payment_status = 'Partially Refunded';
+                } elseif ($totalRefunded == $totalAll) {
+                    $purchaseReturn->payment_status = 'Refunded';
+                } else {
+                    $purchaseReturn->payment_status = 'Over Refunded';
+                }
+
+                $purchaseReturn->save();
+
+                DB::commit();
+
+                // =====================================================
+                // 🔹 AJAX Return → Frontend hapus card payment
+                // =====================================================
+                if ($request->ajax()) {
+                    return response()->json([
+                        'status'   => 'deleted',
+                        'message'  => 'Refund berhasil dihapus.',
+                        'group_id' => $groupId,
+                    ]);
+                }
+
+                return back()->with('success', 'Refund berhasil dihapus.');
+            }
+
+            // =====================================================
             // 🔹 Identify Refund Type: Product vs Freight
             // =====================================================
             $isFreight = false;
@@ -1469,7 +1553,7 @@ class PurchaseReturnController extends Controller
             }
 
             // =====================================================
-            // 🔹 Recalculate Refund Amount
+            // 🔹 Hitung ulang refund_product & refund_freight
             // =====================================================
             $totalRefundProduct = AccountTransaction::where('purchase_return_id', $purchaseReturn->id)
                 ->where('debit', '>', 0)
@@ -1487,8 +1571,9 @@ class PurchaseReturnController extends Controller
             $purchaseReturn->refund_amount_freight = $totalRefundFreight;
             $purchaseReturn->remaining_amount_freight = max(0, $purchaseReturn->total_amount_freight - $totalRefundFreight);
 
+            // Status gabungan
             $totalRefunded = $totalRefundProduct + $totalRefundFreight;
-            $totalAll = ($purchaseReturn->total_amount_product ?? 0) + ($purchaseReturn->total_amount_freight ?? 0);
+            $totalAll = $purchaseReturn->total_amount_product + $purchaseReturn->total_amount_freight;
 
             if ($totalRefunded == 0) {
                 $purchaseReturn->payment_status = 'Unrefunded';

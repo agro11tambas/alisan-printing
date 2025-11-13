@@ -413,6 +413,42 @@
 @endsection
 
 @push('scripts')
+    <script type="text/template" id="row-template">
+<tr>
+    <td>__INDEX__</td>
+    <td>
+        <select class="form-control select-product"
+            data-select2-selector="status"
+            name="product[]">
+            <option value="" disabled selected hidden>Pilih produk</option>
+            @foreach ($products as $product)
+                <option value="{{ $product->id }}" data-price="{{ $product->last_price ?? 0 }}">
+                    [{{ $product->sku }}] {{ $product->name }}
+                </option>
+            @endforeach
+        </select>
+    </td>
+
+    <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0"></td>
+
+    <td><input type="text" inputmode="numeric" name="price[]" class="form-control price" value="0"></td>
+
+    <td><input type="text" inputmode="numeric" name="freight[]" class="form-control freight" value="0"></td>
+
+    <td>
+        <input type="hidden" name="total[]" class="form-control total">
+        <input type="text" class="form-control total_display" readonly>
+    </td>
+
+    <td class="text-center">
+        <div class="d-flex justify-content-center">
+            <button type="button" class="btn btn-danger delete-row">
+                <i class="feather-trash-2"></i>
+            </button>
+        </div>
+    </td>
+</tr>
+</script>
     <script>
         function formatRibuan(value) {
             if (value === null || value === undefined || value === '') return '';
@@ -549,19 +585,21 @@
 
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
-                const $newRow = $tbody.find('tr:first').clone();
-                const newIndex = $tbody.find('tr').length;
+                const newIndex = $tbody.find('tr').length + 1;
 
-                $newRow.attr('id', 'addr' + newIndex);
-                $newRow.find('td:first').text(newIndex + 1);
-                $newRow.find('input').val('');
-                $newRow.find('.freight').val('');
-                $newRow.find('.price').val('');
-                $newRow.find('.total').val('');
-                $newRow.find('.select2').remove();
-                $newRow.find('select').removeClass('select2-hidden-accessible').val('');
+                // Ambil template asli
+                let template = $('#row-template').html();
 
+                // Ganti placeholder index
+                template = template.replace('__INDEX__', newIndex);
+
+                // Convert ke jQuery object
+                const $newRow = $(template);
+
+                // Append row
                 $tbody.append($newRow);
+
+                // Init select2 di baris baru
                 initSelect2($newRow.find('.select-product'));
             });
 
@@ -943,6 +981,8 @@
                 return; // stop di sini
             }
 
+            let ok = true;
+
             $('.qty, .price, .freight, .total').each(function() {
                 const val = $(this).val();
                 const num = parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
@@ -950,7 +990,7 @@
                     ok = false;
                     $(this).addClass('is-invalid');
                 } else {
-                    $(this).val(num.toFixed(5)); // ubah langsung sebelum submit
+                    $(this).val(num.toFixed(5));
                 }
             });
 
@@ -1067,6 +1107,12 @@
                     });
                 }
             });
+        });
+
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
         });
     </script>
 @endpush

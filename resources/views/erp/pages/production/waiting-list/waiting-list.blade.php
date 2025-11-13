@@ -573,5 +573,16 @@
             const src = $(this).data('full');
             window.open(src, '_blank');
         });
+
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.show-assign-error')) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Tidak bisa assign',
+                    text: 'Progress ini sudah full assign!',
+                    confirmButtonText: 'OK'
+                });
+            }
+        });
     </script>
 @endpush
