@@ -311,6 +311,26 @@
                     return;
                 }
 
+                // 🔥 VALIDASI ASSIGNED QTY WAJIB JIKA TIDAK BYPASS
+                $('tbody tr').has('input[name$="[assigned_quantity]"]').each(function() {
+                    const row = $(this);
+                    const isBypass = row.find('.bypass-check').is(':checked');
+                    const qtyInput = row.find('input[name$="[assigned_quantity]"]');
+
+                    let qty = qtyInput.val().replace(/\./g, '');
+                    qty = qty === '' ? 0 : parseInt(qty);
+
+                    if (!isBypass && qty === 0) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Tidak Valid!',
+                            text: 'Assigned quantity wajib diisi jika tidak bypass.',
+                        });
+                        valid = false;
+                        return false; // stop loop
+                    }
+                });
+
                 // 🔹 Validasi operator untuk row yang tidak bypass
                 $('.operator-field').each(function() {
                     const row = $(this).closest('tr');

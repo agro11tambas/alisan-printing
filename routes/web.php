@@ -256,6 +256,7 @@ Route::middleware(isLogin::class)->group(function () {
             Route::get('/erp/sales/sale-list/edit-history/{id}', [SaleListController::class, 'getEditHistory']);
             Route::post('/erp/sales/sale-list/return-money/{id}', [SaleListController::class, 'returnMoney']);
             Route::get('/erp/sales/sale-list/data-deleted', [SaleListController::class, 'dataDeletedSaleList']);
+            Route::get('/erp/sales/sale-list/data-edited', [SaleListController::class, 'dataSaleListEdited']);
             Route::delete('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDelete'])->name('sales.forceDelete');
             Route::post('/erp/sales/sale-list/restore/{id}', [SaleListController::class, 'restore'])->name('sales.restore');
             Route::put('/erp/sales/mark-as-waiting-list/{id}', [SaleListController::class, 'markAsWaitingList']);
@@ -557,6 +558,11 @@ Route::middleware(isLogin::class)->group(function () {
         Route::middleware(['auth', 'subpermission:account-expense'])->group(function () {
             Route::get('/erp/accounts/expense/data', [AccountListController::class, 'dataExpense']);
             Route::get('/erp/accounts/expense', [AccountListController::class, 'getExpense']);
+        });
+
+        Route::middleware(['auth', 'subpermission:account-customer-deposit'])->group(function () {
+            Route::get('/erp/accounts/customer-deposit/data', [AccountListController::class, 'dataCustomerDeposit']);
+            Route::get('/erp/accounts/customer-deposit', [AccountListController::class, 'getCustomerDeposit']);
         });
 
         Route::middleware(['auth', 'subpermission:account-bank'])->group(function () {

@@ -73,6 +73,7 @@ class PermissionSubItemSeeder extends Seeder
                 ['name' => 'Account List - Purchase', 'slug' => 'account-purchase'],
                 ['name' => 'Account List - Expense', 'slug' => 'account-expense'],
                 ['name' => 'Account List - Capital', 'slug' => 'account-capital'],
+                ['name' => 'Account List - Customer Deposit', 'slug' => 'account-customer-deposit'],
                 ['name' => 'Manage Opening Balance', 'slug' => 'manage-opening-balance'],
             ],
 

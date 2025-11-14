@@ -105,7 +105,7 @@ class PurchaseReturnController extends Controller
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
             'data' => $data->map(function ($purchase) {
-                $date = Carbon::parse($purchase->return_date)->format('j M y');
+                $date = Carbon::parse($purchase->return_date)->format('j M y H:i');
 
                 // 🧾 Nomor + tanggal + badge Edited
                 $html = '';
@@ -334,7 +334,7 @@ class PurchaseReturnController extends Controller
         $request->validate([
             'purchase_id'             => 'required|exists:purchases,id',
             'purchase_number'         => 'required|string',
-            'return_date'             => 'required|date',
+            'return_date'             => 'required|date_format:Y-m-d\TH:i',
             'status'                  => 'required|string',
             'suppliers'               => 'required|exists:suppliers,id',
             'inventory_warehouse_id'  => 'required|exists:inventory_warehouses,id',
@@ -553,7 +553,7 @@ class PurchaseReturnController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'return_date'             => 'required|date',
+            'return_date'             => 'required|date_format:Y-m-d\TH:i',
             'suppliers'               => 'required|exists:suppliers,id',
             'purchase_number'         => 'required|string',
             'status'                  => 'required|string',

@@ -109,6 +109,11 @@
                         @forelse($transactions as $groupId => $trxGroup)
                             @php
                                 $debitGroup = $trxGroup->where('debit', '>', 0);
+                                $isCustomerDeposit = $trxGroup->contains(function ($trx) {
+                                    return $trx->debit > 0 &&
+                                        $trx->account &&
+                                        $trx->account->name === 'Customer Deposit';
+                                });
                             @endphp
 
                             @if ($debitGroup->isNotEmpty())
@@ -117,16 +122,18 @@
                                         <span><strong>Tanggal:</strong>
                                             {{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('d-m-Y') }}</span>
                                         <div class="d-flex gap-3">
-                                            <button type="button" class="btn btn-sm btn-primary btn-edit-payment"
-                                                data-bs-toggle="modal" data-bs-target="#modalEditPayment"
-                                                data-group="{{ $groupId }}"
-                                                data-date="{{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('Y-m-d') }}"
-                                                data-amount="{{ $debitGroup->sum('debit') }}"
-                                                data-account="{{ optional($debitGroup->first())->account_id }}"
-                                                data-note="{{ $debitGroup->first()->note }}"
-                                                data-proof='@json($debitGroup->first()->proof)'>
-                                                <i class="feather feather-edit-3 me-2"></i>Edit
-                                            </button>
+                                            @if (!$isCustomerDeposit)
+                                                <button type="button" class="btn btn-sm btn-primary btn-edit-payment"
+                                                    data-bs-toggle="modal" data-bs-target="#modalEditPayment"
+                                                    data-group="{{ $groupId }}"
+                                                    data-date="{{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('Y-m-d') }}"
+                                                    data-amount="{{ $debitGroup->sum('debit') }}"
+                                                    data-account="{{ optional($debitGroup->first())->account_id }}"
+                                                    data-note="{{ $debitGroup->first()->note }}"
+                                                    data-proof='@json($debitGroup->first()->proof)'>
+                                                    <i class="feather feather-edit-3 me-2"></i>Edit
+                                                </button>
+                                            @endif
                                             <button type="button" class="btn btn-sm btn-success btn-verify-payment"
                                                 data-group="{{ $groupId }}"
                                                 data-date="{{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('d-m-Y') }}"
@@ -235,6 +242,9 @@
                                 @endforeach
                                 @foreach ($bankAccounts as $bank)
                                     <option value="{{ $bank->id }}">Bank - {{ $bank->type }}</option>
+                                @endforeach
+                                @foreach ($customerDepositAccounts as $deposit)
+                                    <option value="{{ $deposit->id }}">Customer Deposit - {{ $deposit->type }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -441,7 +451,7 @@
                     const col = $(`
                 <div class="col-md-12 col-sm-12">
                     <div class="border rounded shadow-sm p-2 bg-white h-100 text-center">
-                        <img src="/${item.file}" class="img-fluid rounded mb-2" style="max-height:400px;object-fit:contain;">
+                        <img src="/${item.file}" class="img-fluid rounded mb-2" style="width: 375px; object-fit: contain;">
                         <p class="small text-muted mt-2 mb-0">Note: ${item.note || '-'}</p>
                     </div>
                 </div>

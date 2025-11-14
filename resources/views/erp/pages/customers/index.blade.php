@@ -108,6 +108,7 @@
                                         <th class="wd-30">No</th>
                                         <th>Nama</th>
                                         <th>Phone</th>
+                                        <th>Customer Deposit</th>
                                         <!-- <th class="text-end">Actions</th> -->
                                     </tr>
                                 </thead>
@@ -187,6 +188,10 @@
                     {
                         data: 'phone',
                         name: 'phone',
+                    },
+                    {
+                        data: 'customer_deposit',
+                        name: 'customer_deposit',
                     },
                     // {
                     //     data: 'action',

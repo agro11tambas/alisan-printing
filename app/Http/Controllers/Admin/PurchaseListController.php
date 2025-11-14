@@ -127,7 +127,7 @@ class PurchaseListController extends Controller
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
             'data' => $data->map(function ($purchase) {
-                $date = Carbon::parse($purchase->crated_at)->format('j M y');
+                $date = Carbon::parse($purchase->purchase_date)->format('j M y H:i');
                 $dueDate = $purchase->due_date ? Carbon::parse($purchase->due_date)->format('j M y') : '-';
 
                 // 🏷️ Edited dan Return badge
@@ -366,7 +366,7 @@ class PurchaseListController extends Controller
     {
         $request->validate([
             'purchase_number'   => 'required|string|unique:purchases,purchase_number',
-            'purchase_date'     => 'required|date',
+            'purchase_date'     => 'required|date_format:Y-m-d\TH:i',
             'due_date_option'   => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
             'custom_due_date'   => 'nullable|date',
             'suppliers'         => 'required|exists:suppliers,id',

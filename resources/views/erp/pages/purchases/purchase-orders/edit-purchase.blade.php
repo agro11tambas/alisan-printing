@@ -100,8 +100,8 @@
                                     <label for="purchase_date" class="fw-semibold">Purchase Date:</label>
                                 </div>
                                 <div class="col-lg-10">
-                                    <input type="date" class="form-control" id="purchase_date" name="purchase_date"
-                                        value="{{ old('purchase_date', \Carbon\Carbon::parse($purchase->purchase_date)->format('Y-m-d')) }}">
+                                    <input type="datetime-local" class="form-control" id="purchase_date" name="purchase_date"
+                                        value="{{ old('purchase_date', \Carbon\Carbon::parse($purchase->purchase_date)->format('Y-m-d\TH:i')) }}">
                                 </div>
                             </div>
 

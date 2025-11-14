@@ -108,7 +108,7 @@ class SaleOrderController extends Controller
         // 🔹 Return format JSON ringan (lazy load style)
         return response()->json([
             'data' => $data->map(function ($order) {
-                $date = Carbon::parse($order->created_at)->format('d M y H:i');
+                $date = Carbon::parse($order->order_date)->format('d M y H:i');
                 $orderNumber = '
                 <div>
                     <div>' . e($order->order_number) . '</div>
@@ -293,7 +293,7 @@ class SaleOrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'order_date'            => 'required|date',
+            'order_date'            => 'required|date_format:Y-m-d\TH:i',
             // 'customers'             => 'required|array',
             // 'customers.*'           => 'exists:customers,id',
             // 'addresses'             => 'required|array',
@@ -582,7 +582,7 @@ class SaleOrderController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'order_date'              => 'required|date',
+            'order_date'              => 'required|date_format:Y-m-d\TH:i',
             'customer_id' => 'required|exists:customers,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
             'notes'                   => 'nullable|string',
@@ -877,7 +877,7 @@ class SaleOrderController extends Controller
 
         $rules = [
             'order_number' => 'required',
-            'order_date' => 'required|date',
+            'order_date' => 'required|date_format:Y-m-d\TH:i',
             'due_date_option' => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
             'custom_due_date' => 'nullable|date',
             // 'payment_status' => 'required|in:Paid,Unpaid,Partially Paid',
@@ -958,6 +958,7 @@ class SaleOrderController extends Controller
                 'note' => $request->note ?? '',
                 'particular' => '',
                 'transaction_group_id' => $groupId,
+                'verified' => 1,
             ]);
 
             $saleAccount->closing_balance += $totalAmount;
@@ -976,6 +977,7 @@ class SaleOrderController extends Controller
                     'note' => $request->note ?? '',
                     'particular' => $saleAccount->name . ' - ' . $saleAccount->type,
                     'transaction_group_id' => $groupId,
+                    'verified' => 1,
                 ]);
 
                 $cashBankAccount->closing_balance += $request->paid_amount;

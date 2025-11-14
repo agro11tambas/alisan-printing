@@ -102,8 +102,8 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <input type="date" class="form-control" id="order_date" name="order_date"
-                                                    value="{{ old('order_date', isset($order->order_date) ? \Carbon\Carbon::parse($order->order_date)->format('Y-m-d') : date('Y-m-d')) }}">
+                                                <input type="datetime-local" class="form-control" id="order_date" name="order_date"
+                                                    value="{{ old('order_date', isset($order->order_date) ? \Carbon\Carbon::parse($order->order_date)->format('Y-m-d\TH:i') : date('Y-m-d\TH:i')) }}">
                                             </div>
                                         </div>
                                     </div>

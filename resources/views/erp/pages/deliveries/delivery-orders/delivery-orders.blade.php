@@ -137,6 +137,7 @@
                                         <th class="wd-250">Delivery Number</th>
                                         <th class="wd-250">Customer</th>
                                         <th>Products</th>
+                                        <th>Order Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -293,6 +294,10 @@
                     {
                         data: 'products',
                         name: 'products'
+                    },
+                    {
+                        data: 'order_notes',
+                        name: 'order_notes'
                     },
                     {
                         data: 'id',

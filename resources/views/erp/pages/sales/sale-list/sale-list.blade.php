@@ -235,6 +235,10 @@
                                 <a class="nav-link" id="deleted-sale-list-tab" data-bs-toggle="tab"
                                     href="#deleted-sale-list" role="tab">Deleted Sale List</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="edited-sale-list-tab" data-bs-toggle="tab"
+                                    href="#edited-sale-list" role="tab">Edited Sale List</a>
+                            </li>
                         </ul>
                         <div class="table-responsive">
                             <div class="tab-content">
@@ -247,7 +251,7 @@
                                                 <th>Customer</th>
                                                 <th>Grand Total</th>
                                                 <th>Paid Amount</th>
-                                                <th>Remaining Amount</th>
+                                                {{-- <th>Remaining Amount</th> --}}
                                                 <th>Payment Status</th>
                                                 <th>Type</th>
                                                 <th>Note</th>
@@ -255,6 +259,30 @@
                                         </thead>
                                     </table>
                                     <div id="loadingIndicator" style="display:none;">
+                                        <div class="shimmer-wrapper">
+                                            <div class="shimmer"></div>
+                                            <div class="shimmer"></div>
+                                            <div class="shimmer"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="edited-sale-list" role="tabpanel">
+                                    <table class="table table-hover bg-transparent" id="editedSaleListTable">
+                                        <thead>
+                                            <tr>
+                                                <th></th>
+                                                <th>Invoice Number</th>
+                                                <th>Customer</th>
+                                                <th>Grand Total</th>
+                                                <th>Paid Amount</th>
+                                                <th>Payment Status</th>
+                                                <th>Type</th>
+                                                <th>Note</th>
+                                            </tr>
+                                        </thead>
+                                    </table>
+
+                                    <div id="loadingIndicatorEdited" style="display:none;">
                                         <div class="shimmer-wrapper">
                                             <div class="shimmer"></div>
                                             <div class="shimmer"></div>
@@ -434,6 +462,34 @@
                                 </div>
                                 <small class="text-danger d-none" id="error_paid_amount"></small>
                                 <span class="fw-semibold fs-12" id="paid_amount_display">Paid: Rp. 0</span>
+                            </div>
+                        </div>
+                        <!-- 🔥 CHECKBOX WRITE OFF -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="use_write_off"
+                                        name="use_write_off">
+                                    <label class="form-check-label fw-semibold" for="use_write_off">
+                                        Use Customer Deposit (Write Off)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 🔥 FIELD CUSTOMER DEPOSIT (hidden by default) -->
+                        <div class="row g-3 mb-3 d-none" id="write_off_container">
+                            <div class="col-md-12">
+                                <label for="customer_deposit_amount" class="fw-semibold">Customer Deposit Amount:</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="customer_deposit_amount"
+                                        name="customer_deposit_amount" value="0">
+                                </div>
+                                <small class="text-muted">Max: <span id="max_deposit_display">Rp. 0</span> (Balance
+                                    limit)</small><br>
+                                <small class="text-info">Customer Total Deposit: <span id="customer_deposit_display">Rp.
+                                        0</span></small>
+                                <small class="text-danger d-none" id="error_customer_deposit_amount"></small>
                             </div>
                         </div>
                         <div class="col-md-12">
@@ -649,41 +705,41 @@
                 }
 
                 let html = `
-            <div class="table-responsive p-2">
-                <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>SKU</th>
-                            <th>Qty</th>
-                            <th class="text-end">Price</th>
-                            <th class="text-end">Progress</th>
-                            <th class="text-end">Shipped</th>
-                            <th class="text-end">On Delivery</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
+                    <div class="table-responsive p-2">
+                        <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>SKU</th>
+                                    <th>Qty</th>
+                                    <th class="text-end">Price</th>
+                                    <th class="text-end">Progress</th>
+                                    <th class="text-end">Delivered</th>
+                                    <th class="text-end">On Delivery</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
 
                 products.forEach(p => {
                     html += `
-                <tr>
-                    <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
-                    <td>${p.sku}</td>
-                    <td>${p.qty}</td>
-                    <td class="text-end">${p.price}</td>
-                    <td class="text-end">${p.ready_qty} / ${p.progress_qty}</td>
-                    <td class="text-end">${p.delivered}</td>
-                    <td class="text-end">${p.on_delivery}</td>
-                </tr>
-            `;
+                        <tr>
+                            <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
+                            <td>${p.sku}</td>
+                            <td>${p.qty}</td>
+                            <td class="text-end">${p.price}</td>
+                            <td class="text-end">${p.ready_qty} / ${p.progress_qty}</td>
+                            <td class="text-end">${p.delivered}</td>
+                            <td class="text-end">${p.on_delivery}</td>
+                        </tr>
+                    `;
                 });
 
                 html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
+                            </tbody>
+                        </table>
+                    </div>
+                `;
                 return html;
             }
 
@@ -705,7 +761,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [9, 'desc']
+                    [8, 'desc']
                 ],
                 columns: [{
                         className: 'dt-control text-center',
@@ -726,9 +782,9 @@
                     {
                         data: 'paid_amount'
                     },
-                    {
-                        data: 'remaining_amount'
-                    },
+                    // {
+                    //     data: 'remaining_amount'
+                    // },
                     {
                         data: 'payment_status'
                     },
@@ -1010,6 +1066,133 @@
                 $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
+            // ========== EDITED SALE LIST TABLE ==========
+            let editedData = [];
+            let editedPage = 0;
+            let editedIsLoading = false;
+            let editedHasMoreData = true;
+            let editedTable = null;
+            let editedInitialized = false;
+
+            function initEditedTable() {
+                if (editedInitialized) return;
+
+                editedTable = $('#editedSaleListTable').DataTable({
+                    processing: false,
+                    serverSide: false,
+                    scrollY: '60vh',
+                    scrollCollapse: true,
+                    paging: false,
+                    searching: false,
+                    info: false,
+                    lengthChange: false,
+                    order: [
+                        [8, 'desc']
+                    ],
+                    data: [],
+                    columns: [{
+                            className: 'dt-control text-center',
+                            orderable: false,
+                            data: null,
+                            defaultContent: '',
+                            width: "20px"
+                        },
+                        {
+                            data: 'order_number'
+                        },
+                        {
+                            data: 'customer'
+                        },
+                        {
+                            data: 'grand_total'
+                        },
+                        {
+                            data: 'paid_amount'
+                        },
+                        {
+                            data: 'payment_status'
+                        },
+                        {
+                            data: 'mode'
+                        },
+                        {
+                            data: 'notes'
+                        },
+                        {
+                            data: 'created_at',
+                            visible: false,
+                            searchable: false
+                        }
+                    ]
+                });
+
+                editedInitialized = true;
+
+                $('#editedSaleListTable').closest('.dataTables_scrollBody').on('scroll', function() {
+                    const scrollTop = $(this).scrollTop();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
+
+                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                        loadMoreEdited();
+                    }
+                });
+
+                $('#editedSaleListTable tbody').on('click', 'td.dt-control', function() {
+                    let tr = $(this).closest('tr');
+                    let row = editedTable.row(tr);
+                    if (row.child.isShown()) {
+                        row.child.hide();
+                        tr.removeClass('shown');
+                    } else {
+                        row.child(formatProducts(row.data().products)).show();
+                        tr.addClass('shown');
+                    }
+                });
+            }
+
+            function loadMoreEdited(reset = false) {
+                if (editedIsLoading) return;
+                if (!editedHasMoreData && !reset) return;
+
+                editedIsLoading = true;
+
+                if (reset) {
+                    editedData = [];
+                    editedPage = 0;
+                    editedHasMoreData = true;
+                    editedTable.clear().draw();
+                }
+
+                $.ajax({
+                    url: "{{ url('/erp/sales/sale-list/data-edited') }}",
+                    type: 'GET',
+                    data: {
+                        start: editedPage * 50,
+                        length: 50,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val(),
+                        search_type: $('#search_type').val(),
+                        search_keyword: $('#search_keyword').val(),
+                        payment_status: $('#search_payment_status').val(),
+                        due_date_order: $('#due_date_order').val()
+                    },
+                    success: function(res) {
+                        if (res.data.length > 0) {
+                            editedData = editedData.concat(res.data);
+                            editedTable.clear().rows.add(editedData).draw(false);
+                            editedPage++;
+                        } else {
+                            editedHasMoreData = false;
+                        }
+                    },
+                    complete: function() {
+                        editedIsLoading = false;
+                    }
+                });
+            }
+
             // ========== DELETED SALE LIST TABLE (dengan Lazy Load CSR) ==========
             let deletedAllData = [];
             let deletedCurrentPage = 0;
@@ -1118,7 +1301,7 @@
                     type: 'GET',
                     data: {
                         start: deletedCurrentPage * 50,
-                        length: reset ? 50 : 100,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -1167,6 +1350,16 @@
                         resetAndReloadDeleted();
                     }
                 }
+
+                if ($(e.target).attr('href') === '#edited-sale-list') {
+                    if (!editedInitialized) {
+                        initEditedTable();
+                        loadMoreEdited();
+                    } else {
+                        loadMoreEdited(true);
+                    }
+                }
+
             });
 
             // Paste proof functionality
@@ -1216,7 +1409,7 @@
                                 const noteInput = document.createElement('input');
                                 noteInput.type = 'text';
                                 noteInput.classList.add('form-control', 'form-control-sm',
-                                'note-input');
+                                    'note-input');
                                 noteInput.placeholder = 'Tambahkan catatan...';
                                 noteInput.style.width = '100%';
 
@@ -1277,10 +1470,10 @@
                     showError('error_cash_bank_account_id', 'Pilih cash atau bank account');
                     valid = false;
                 }
-                if (!paidAmount || isNaN(paidAmount) || parseInt(paidAmount) <= 0) {
-                    showError('error_paid_amount', 'Paid amount harus diisi dan lebih dari 0');
-                    valid = false;
-                }
+                // if (!paidAmount || isNaN(paidAmount) || parseInt(paidAmount) <= 0) {
+                //     showError('error_paid_amount', 'Paid amount harus diisi dan lebih dari 0');
+                //     valid = false;
+                // }
 
                 if (!valid) return;
 
@@ -1292,6 +1485,33 @@
                 //     didOpen: () => Swal.showLoading(),
                 //     allowOutsideClick: false
                 // });
+
+                // Ambil nilai customer deposit jika digunakan
+                const useWriteOff = $('#use_write_off').is(':checked');
+                let depositUsed = 0;
+
+                if (useWriteOff) {
+                    const depositRaw = $('#customer_deposit_amount').val().trim();
+                    depositUsed = parseInt(depositRaw.replace(/\./g, "")) || 0;
+
+                    const maxDeposit = Math.min(currentBalance, customerTotalDeposit);
+
+                    if (depositUsed > maxDeposit) {
+                        showError('error_customer_deposit_amount',
+                            `Deposit tidak boleh lebih dari Rp. ${new Intl.NumberFormat('id-ID').format(maxDeposit)}`
+                        );
+                        valid = false;
+                    }
+                }
+
+                // 🔥 Cek validasi dulu sebelum lanjut
+                if (!valid) return;
+
+                // 🔥 Baru append kalau valid
+                if (useWriteOff && depositUsed > 0) {
+                    // formData.append('customer_deposit_used', depositUsed);
+                    formData.append('deposit_used', depositUsed);
+                }
 
                 const notes = [];
                 $('#proofPreviewContainer .note-input').each(function() {
@@ -1341,7 +1561,7 @@
 
                             // 🔹 Ambil dari backend biar sesuai logika real
                             d.paid_amount =
-                                `<span class="text-success">Rp ${res.order.paid_amount}</span>`;
+                                `<span class="text-success">${res.order.paid_amount}</span>`;
                             d.remaining_amount =
                                 `<span class="text-danger">Rp ${res.order.remaining_amount}</span>`;
 
@@ -1638,6 +1858,153 @@
                 });
             });
 
+            // 🔥 GLOBAL VARIABLES untuk Write Off
+            let originalPaidAmount = 0;
+            let customerTotalDeposit = 0;
+            let currentBalance = 0;
+
+            // 🔥 Handler checkbox Write Off
+            $('#use_write_off').on('change', function() {
+                if ($(this).is(':checked')) {
+                    $('#write_off_container').removeClass('d-none');
+
+                    // Set max deposit yang bisa dipakai = min(balance, customer_deposit)
+                    const maxDeposit = Math.min(currentBalance, customerTotalDeposit);
+
+                    // Auto-isi dengan max
+                    const formatted = new Intl.NumberFormat('id-ID').format(maxDeposit);
+                    $('#customer_deposit_amount').val(formatted);
+
+                    // Update display
+                    updatePaidAmountWithDeposit();
+                } else {
+                    $('#write_off_container').addClass('d-none');
+                    $('#customer_deposit_amount').val('0');
+
+                    // Kembalikan ke original
+                    const formatted = new Intl.NumberFormat('id-ID').format(originalPaidAmount);
+                    $('#paid_amount').val(formatted);
+                    $('#paid_amount_display').text('Paid: Rp. ' + formatted);
+                }
+            });
+
+            // 🔥 Format input customer deposit
+            $('#customer_deposit_amount').on('input', function() {
+                let angka = this.value.replace(/\D/g, "") || "0";
+
+                // Cek jangan melebihi balance atau customer deposit
+                const maxDeposit = Math.min(currentBalance, customerTotalDeposit);
+                if (parseInt(angka) > maxDeposit) {
+                    angka = maxDeposit.toString();
+                }
+
+                this.value = new Intl.NumberFormat('id-ID').format(angka);
+                updatePaidAmountWithDeposit();
+            });
+
+            // 🔥 Fungsi update Paid Amount berdasarkan deposit
+            function updatePaidAmountWithDeposit() {
+                const depositUsed = parseInt($('#customer_deposit_amount').val().replace(/\D/g, "")) || 0;
+                const newPaidAmount = originalPaidAmount - depositUsed;
+
+                const formatted = new Intl.NumberFormat('id-ID').format(Math.max(0, newPaidAmount));
+                $('#paid_amount').val(formatted);
+                $('#paid_amount_display').text('Paid: Rp. ' + formatted);
+            }
+
+            // 🔥 Handler button Mark as Paid (FIXED VERSION)
+            // document.addEventListener('click', function(e) {
+            //     if (e.target.closest('.btn-mark-paid')) {
+            //         const button = e.target.closest('.btn-mark-paid');
+            //         const orderId = button.getAttribute('data-id');
+            //         const url = button.getAttribute('data-url');
+            //         const totalAmount = parseFloat(button.getAttribute('data-total-amount')) || 0;
+            //         const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
+            //         const customerDeposit = parseFloat(button.getAttribute('data-deposit')) || 0;
+
+            //         const remainingAmount = totalAmount - paidAmount;
+
+            //         // 🔥 Simpan ke global variables
+            //         originalPaidAmount = remainingAmount;
+            //         customerTotalDeposit = customerDeposit;
+            //         currentBalance = remainingAmount;
+
+            //         // 🔥 Set form data
+            //         document.getElementById('order_id').value = orderId;
+            //         document.getElementById('customer_total_deposit').value = customerDeposit;
+            //         document.getElementById('markAsSaleForm').setAttribute('action', url);
+
+            //         // 🔥 Format Balance Display
+            //         document.getElementById('total_amount_display').innerText = 'Rp. ' + new Intl
+            //             .NumberFormat('id-ID').format(remainingAmount);
+
+            //         // 🔥 Set Paid Amount dengan FLAG biar gak ke-trigger event input
+            //         const $paidInput = $('#paid_amount');
+            //         $paidInput.data('programmatic-update', true); // 🚩 SET FLAG
+            //         $paidInput.val(new Intl.NumberFormat('id-ID').format(remainingAmount));
+            //         setTimeout(() => $paidInput.data('programmatic-update', false), 50); // 🚩 RESET FLAG
+
+            //         // 🔥 Update display paid amount
+            //         document.getElementById('paid_amount_display').innerText = 'Paid: Rp. ' + new Intl
+            //             .NumberFormat('id-ID').format(remainingAmount);
+
+            //         // 🔥 Update deposit info
+            //         $('#customer_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(
+            //             customerDeposit));
+
+            //         const maxDeposit = Math.min(remainingAmount, customerDeposit);
+            //         $('#max_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(
+            //             maxDeposit));
+
+            //         // 🔥 Reset write off state
+            //         $('#use_write_off').prop('checked', false);
+            //         $('#write_off_container').addClass('d-none');
+            //         $('#customer_deposit_amount').val('0');
+            //     }
+            // });
+
+            // 🔥 Handler button Mark as Paid (FINAL FIX - GUARANTEED WORK!)
+            $(document).on('click', '.btn-mark-paid', function(e) {
+                e.preventDefault();
+
+                const orderId = $(this).data('id');
+                const url = $(this).data('url');
+                const totalAmount = parseFloat($(this).data('total-amount')) || 0;
+                const paidAmount = parseFloat($(this).data('paid-amount')) || 0;
+                const customerDeposit = parseFloat($(this).data('deposit')) || 0;
+
+                const remainingAmount = totalAmount - paidAmount;
+
+                // 🔥 Simpan ke global variables
+                originalPaidAmount = remainingAmount;
+                customerTotalDeposit = customerDeposit;
+                currentBalance = remainingAmount;
+
+                // 🔥 Set form data
+                $('#order_id').val(orderId);
+                $('#customer_total_deposit').val(customerDeposit);
+                $('#markAsSaleForm').attr('action', url);
+
+                $('#total_amount_display').html('Rp.&nbsp;' + new Intl.NumberFormat('id-ID').format(
+                    remainingAmount));
+
+                // 🔥 Set Paid Amount LANGSUNG (INI YANG PENTING BANGET!)
+                const formattedAmount = new Intl.NumberFormat('id-ID').format(remainingAmount);
+                $('#paid_amount').val(formattedAmount);
+                $('#paid_amount_display').text('Paid: Rp. ' + formattedAmount);
+
+                // 🔥 Update deposit info
+                $('#customer_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(
+                    customerDeposit));
+
+                const maxDeposit = Math.min(remainingAmount, customerDeposit);
+                $('#max_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(maxDeposit));
+
+                // 🔥 Reset write off state
+                $('#use_write_off').prop('checked', false);
+                $('#write_off_container').addClass('d-none');
+                $('#customer_deposit_amount').val('0');
+            });
         });
 
         // Modal handlers
@@ -1694,108 +2061,44 @@
         });
 
 
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.btn-mark-paid')) {
-                const button = e.target.closest('.btn-mark-paid');
-                const orderId = button.getAttribute('data-id');
-                const url = button.getAttribute('data-url');
-                const totalAmount = parseFloat(button.getAttribute('data-total-amount')) || 0;
-                const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
-                const remainingAmount = totalAmount - paidAmount;
+        // document.addEventListener('click', function(e) {
+        //     if (e.target.closest('.btn-mark-paid')) {
+        //         const button = e.target.closest('.btn-mark-paid');
+        //         const orderId = button.getAttribute('data-id');
+        //         const url = button.getAttribute('data-url');
+        //         const totalAmount = parseFloat(button.getAttribute('data-total-amount')) || 0;
+        //         const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
+        //         const remainingAmount = totalAmount - paidAmount;
 
-                document.getElementById('order_id').value = orderId;
-                document.getElementById('markAsSaleForm').setAttribute('action', url);
+        //         document.getElementById('order_id').value = orderId;
+        //         document.getElementById('markAsSaleForm').setAttribute('action', url);
 
-                document.getElementById('total_amount_display').innerText = new Intl.NumberFormat('id-ID').format(
-                    remainingAmount);
+        //         document.getElementById('total_amount_display').innerText = new Intl.NumberFormat('id-ID').format(
+        //             remainingAmount);
 
-                const formatted = new Intl.NumberFormat('id-ID').format(remainingAmount);
-                document.getElementById('paid_amount').value = formatted;
+        //         const formatted = new Intl.NumberFormat('id-ID').format(remainingAmount);
+        //         document.getElementById('paid_amount').value = formatted;
 
-                document.getElementById('paid_amount_display').innerText = 'Paid: Rp. ' + formatted;
+        //         document.getElementById('paid_amount_display').innerText = 'Paid: Rp. ' + formatted;
+        //     }
+        // });
+
+        // const paidInput = document.getElementById("paid_amount");
+
+        // paidInput.addEventListener("input", function() {
+        //     let angka = this.value.replace(/\D/g, "") || "0";
+        //     this.value = new Intl.NumberFormat('id-ID').format(angka);
+        // });
+
+        $(document).on('input', '#paid_amount', function() {
+            // Jangan format kalau lagi di-set programmatically
+            if ($(this).data('programmatic-update')) {
+                return;
             }
-        });
 
-        const paidInput = document.getElementById("paid_amount");
-
-        paidInput.addEventListener("input", function() {
             let angka = this.value.replace(/\D/g, "") || "0";
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
-
-        // document.getElementById('markAsSaleForm').addEventListener('submit', function(e) {
-        //     e.preventDefault();
-
-        //     document.querySelectorAll('#markAsSaleForm small.text-danger').forEach(el => {
-        //         el.classList.add('d-none');
-        //         el.innerText = '';
-        //     });
-
-        //     let valid = true;
-
-        //     let transactionType = document.getElementById('transaction_type').value.trim();
-        //     let transactionDate = document.getElementById('transaction_date').value.trim();
-        //     let cashBankAccount = document.getElementById('cash_bank_account_id').value.trim();
-
-        //     let paidAmountRaw = document.getElementById('paid_amount').value.trim();
-        //     let paidAmount = paidAmountRaw.replace(/\./g, "");
-
-        //     if (!transactionType) {
-        //         document.getElementById('error_transaction_type').innerText = 'Account wajib dipilih';
-        //         document.getElementById('error_transaction_type').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!transactionDate) {
-        //         document.getElementById('error_transaction_date').innerText = 'Tanggal transaksi wajib diisi';
-        //         document.getElementById('error_transaction_date').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!cashBankAccount) {
-        //         document.getElementById('error_cash_bank_account_id').innerText = 'Pilih cash atau bank account';
-        //         document.getElementById('error_cash_bank_account_id').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     if (!paidAmount || isNaN(paidAmount) || parseInt(paidAmount) <= 0) {
-        //         document.getElementById('error_paid_amount').innerText = 'Paid amount harus diisi dan lebih dari 0';
-        //         document.getElementById('error_paid_amount').classList.remove('d-none');
-        //         valid = false;
-        //     }
-
-        //     // 💾 Validasi file
-        //     const fileInput = document.getElementById('payment_proof');
-        //     const file = fileInput.files[0];
-        //     if (file) {
-        //         const allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
-        //         const ext = file.name.split('.').pop().toLowerCase();
-
-        //         if (!allowedExt.includes(ext)) {
-        //             Swal.fire({
-        //                 icon: 'error',
-        //                 title: 'Format Tidak Valid!',
-        //                 text: 'File harus berupa JPG, JPEG, PNG, atau WEBP.',
-        //             });
-        //             return; // 🚫 stop total
-        //         }
-
-        //         if (file.size > 2 * 1024 * 1024) {
-        //             Swal.fire({
-        //                 icon: 'error',
-        //                 title: 'File Terlalu Besar!',
-        //                 text: 'Ukuran file maksimal 2MB.',
-        //             });
-        //             return; // 🚫 stop total
-        //         }
-        //     }
-
-        //     if (!valid) return;
-
-        //     document.getElementById('paid_amount').value = paidAmount;
-
-        //     this.submit();
-        // });
 
         document.getElementById('formReturnMoney').addEventListener('submit', function(e) {
             e.preventDefault();

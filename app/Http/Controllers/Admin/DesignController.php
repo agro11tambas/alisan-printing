@@ -176,6 +176,10 @@ class DesignController extends Controller
                     </div>
                 ';
 
+                $orderNote = $design->order?->notes
+                    ? '<div class="text-muted small mt-1" style="white-space:normal;">' . e($design->order->notes) . '</div>'
+                    : '<div class="text-muted small mt-1">-</div>';
+
                 return [
                     'id' => $design->id,
                     'design_number' => $designNumberHtml,
@@ -184,6 +188,7 @@ class DesignController extends Controller
                     'products' => $productList,
                     'proof_photos' => $proofPhotos,
                     'action' => $actionButtons,
+                    'order_note' => $orderNote,
                     'created_at' => $orderCreatedAt->format('j M y H:i'),
                 ];
             }),

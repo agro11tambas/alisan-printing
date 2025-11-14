@@ -117,6 +117,12 @@ class DeliveryOrderController extends Controller
                 // ⚙️ Action partial
                 $actionHtml = view('erp.pages.deliveries.delivery-orders.partials.action-button', compact('do'))->render();
 
+                $orderNotesValue = $do->order?->notes;
+
+                $orderNotes = $orderNotesValue
+                    ? '<div class="text-muted small" style="white-space:normal;">' . e($orderNotesValue) . '</div>'
+                    : '<div class="text-muted small">-</div>';
+
                 return [
                     'id' => $do->id,
                     'delivery_number' => $deliveryNumberHtml,
@@ -124,6 +130,7 @@ class DeliveryOrderController extends Controller
                     'customer' => $customerHtml,
                     'status' => $statusHtml,
                     'products' => $productsHtml,
+                    'order_notes' => $orderNotes,
                     'action' => $actionHtml,
                 ];
             }),

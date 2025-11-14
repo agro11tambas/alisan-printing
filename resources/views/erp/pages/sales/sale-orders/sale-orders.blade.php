@@ -227,8 +227,8 @@
                             <div class="col-md-6">
                                 <label for="order_date" class="fw-semibold fs-12" id="modal_order_date">Order
                                     Date</label>
-                                <input type="date" id="order_date" name="order_date" class="form-control"
-                                    value="{{ date('Y-m-d') }}">
+                                <input type="datetime-local" id="order_date" name="order_date" class="form-control"
+                                    value="{{ date('Y-m-d\TH:i') }}">
                             </div>
                             <div class="col-md-6">
                                 <label for="due_date_option" class="fw-semibold fs-12">Due Date</label>

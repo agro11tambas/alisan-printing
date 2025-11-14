@@ -19,6 +19,7 @@ class AccountTransaction extends Model
         'sale_return_id',
         'purchase_id',
         'purchase_return_id',
+        'customer_id',
         'order_number',
         'purchase_number',
         'account_id',

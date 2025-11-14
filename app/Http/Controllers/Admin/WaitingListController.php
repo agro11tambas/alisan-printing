@@ -249,7 +249,7 @@ class WaitingListController extends Controller
 
         // 1️⃣ Hitung total data untuk lazy load
         $totalData = (clone $baseQuery)->count();
-        
+
         // 2️⃣ Hitung total_remaining GLOBAL — TIDAK TERPENGARUH FILTER
         $totalRemaining = OrderProgress::with('items.product.categories')
             ->get()
@@ -317,11 +317,17 @@ class WaitingListController extends Controller
             // });
 
             $allCompleted = $progress->items->every(function ($item) {
-                $assignedTotal = $item->assigns->sum('assigned_quantity');
+                $assignedTotal = $item->assigns->sum('completed_quantity');
                 return $assignedTotal >= ($item->quantity ?? 0);
             });
 
             $actionButtons = view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();
+
+            $orderNotesValue = $progress->order?->notes;
+
+            $orderNotes = $orderNotesValue
+                ? '<div class="text-muted small" style="white-space:normal;">' . e($orderNotesValue) . '</div>'
+                : '<div class="text-muted small">-</div>';
 
             return [
                 'id' => $progress->id,
@@ -330,6 +336,7 @@ class WaitingListController extends Controller
                 'progress' => $progressView,
                 'shipping_address' => $shipping,
                 'action' => $actionButtons,
+                'order_notes' => $orderNotes,
                 'created_at' => $progress->created_at->toDateTimeString(),
                 'order_created_at' => $date,
             ];
@@ -341,7 +348,6 @@ class WaitingListController extends Controller
             'total_remaining' => $totalRemaining,
         ]);
     }
-
 
     public function getCompleteList()
     {

@@ -77,9 +77,9 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <input type="date" class="form-control" id="purchase_date"
+                                                <input type="datetime-local" class="form-control" id="purchase_date"
                                                     name="purchase_date"
-                                                    value="{{ $purchase->purchase_date->format('Y-m-d') }}">
+                                                    value="{{ $purchase->purchase_date->format('Y-m-d\TH:i') }}">
                                             </div>
                                         </div>
                                     </div>

@@ -40,7 +40,8 @@
                             data-bs-target="#modalChangeStatus" data-id="{{ $order->id }}"
                             data-paid="{{ $order->paid_amount }}" data-name="{{ $order->order_number }}"
                             data-total-amount="{{ $order->grand_total }}" data-paid-amount="{{ $order->paid_amount }}"
-                            data-url="{{ url('/erp/sales/sale-list/mark-as-paid/' . $order->id) }}">
+                            data-url="{{ url('/erp/sales/sale-list/mark-as-paid/' . $order->id) }}"
+                            data-deposit="{{ $order->customer->customer_deposit }}">
                             <i class="feather feather-check"></i>
                             <span>Mark as Paid</span>
                         </button>

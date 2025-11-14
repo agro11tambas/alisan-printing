@@ -17,6 +17,7 @@ class Customers extends Model
     protected $fillable = [
         'name',
         'phone',
+        'customer_deposit',
     ];
 
     protected $casts = [

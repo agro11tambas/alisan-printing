@@ -53,11 +53,11 @@
 
         /* 🔹 Perbesar juga font di header tabel produk (Qty, Price, Total) */
         /* #tab_logic th {
-                    font-size: 15px !important;
-                    font-weight: 700 !important;
-                    vertical-align: middle !important;
-                    text-transform: uppercase;
-                } */
+                        font-size: 15px !important;
+                        font-weight: 700 !important;
+                        vertical-align: middle !important;
+                        text-transform: uppercase;
+                    } */
 
         /* 🔹 Perbesar font Grand Total biar seragam */
         #tab_logic_total input.form-control {
@@ -133,8 +133,8 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <input type="date" class="form-control" id="order_date" name="order_date"
-                                                    value="{{ date('Y-m-d') }}">
+                                                <input type="datetime-local" class="form-control" id="order_date"
+                                                    name="order_date" value="{{ date('Y-m-d\TH:i') }}">
                                             </div>
                                         </div>
                                     </div>
@@ -309,7 +309,7 @@
                                                             class="form-control qty" id="qty_0" min="1"></td>
 
                                                     <!-- <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" id="price_before_discount_0" readonly></td>
-                                                                                                                                                                                                    <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
+                                                                                                                                                                                                        <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
                                                     <td>
                                                         @php
                                                             $isOwner = Auth::user()->role === 'Owner';
@@ -645,8 +645,15 @@
 
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
-            const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
-            const basePrice = manualPrice > 0 ? manualPrice : (parseFloat(selectedOption.data('price')) || 0);
+            let manualPrice = row.find('input.price_before_discount').val();
+            manualPrice = manualPrice === "" ? null : parseFloat(manualPrice);
+
+            // Jika user sudah input angka (termasuk 0), pakai input itu
+            // Kalau belum pernah input harga → pakai harga product
+            let basePrice = (manualPrice !== null && !isNaN(manualPrice)) ?
+                manualPrice :
+                (parseFloat(selectedOption.data('price')) || 0);
+
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
             const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;

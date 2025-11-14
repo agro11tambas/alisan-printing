@@ -116,9 +116,9 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <input type="date" class="form-control" id="return_date"
+                                                <input type="datetime-local" class="form-control" id="return_date"
                                                     name="return_date"
-                                                    value="{{ old('return_date', \Carbon\Carbon::parse($saleReturn->return_date)->format('Y-m-d')) }}">
+                                                    value="{{ old('return_date', \Carbon\Carbon::parse($saleReturn->return_date)->format('Y-m-d\TH:i')) }}">
                                             </div>
                                         </div>
                                     </div>

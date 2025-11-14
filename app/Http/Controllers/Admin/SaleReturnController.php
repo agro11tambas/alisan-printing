@@ -112,7 +112,7 @@ class SaleReturnController extends Controller
         // 🔹 Return format JSON untuk lazy-load
         return response()->json([
             'data' => $data->map(function ($return) {
-                $date = Carbon::parse($return->return_date)->format('j M y');
+                $date = Carbon::parse($return->return_date)->format('j M y H:i');
 
                 // 🔸 Order number & edited badge
                 $html = '';
@@ -350,7 +350,7 @@ class SaleReturnController extends Controller
             'sale_order_id'     => 'required|exists:orders,id',
             'customer_id'           => 'required|exists:customers,id',
             'customer_address_id'   => 'required|exists:customer_addresses,id',
-            'return_date'       => 'required|date',
+            'return_date'       => 'required|date_format:Y-m-d\TH:i',
             'order_item_ids'    => 'required|array',
             'product_id'        => 'required|array',
             'canceled_quantity' => 'required|array',
@@ -658,7 +658,7 @@ class SaleReturnController extends Controller
             'sale_order_id'     => 'required|exists:orders,id',
             'customer_id'         => 'required|exists:customers,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
-            'return_date'       => 'required|date',
+            'return_date'       => 'required|date_format:Y-m-d\TH:i',
             'order_item_ids'    => 'required|array',
             'product_id'        => 'required|array',
             'canceled_quantity' => 'required|array',
@@ -1009,60 +1009,63 @@ class SaleReturnController extends Controller
             // Simpan product_id untuk update stok nanti
             $items = $saleReturn->items;
 
-            // Handle transaksi terkait
+            // ======================================================
+            // 🔥 HANDLE TRANSAKSI TERKAIT (ROLLBACK CUSTOMER DEPOSIT)
+            // ======================================================
             $transactions = AccountTransaction::where('sale_return_id', $saleReturn->id)->get();
 
+            $customer = $saleReturn->customer;
+            $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
+
             foreach ($transactions as $trx) {
+
                 $account = Account::find($trx->account_id);
                 if (!$account) continue;
 
-                if ($account->type === 'Sale Return') {
-                    // rollback saldo Sale Return Account
-                    if ($trx->debit > 0) {
-                        $account->closing_balance -= $trx->debit;
-                    }
-                    if ($trx->credit > 0) {
-                        $account->closing_balance += $trx->credit;
+                $debit  = (float) $trx->debit;
+                $credit = (float) $trx->credit;
+
+                // 1) CUSTOMER DEPOSIT → rollback
+                if ($account->type === 'Customer Deposit') {
+
+                    if ($credit > 0) {
+                        // refund ke deposit → dicatat CREDIT
+                        // rollback: kurangi deposit customer
+                        if ($customer) {
+                            $customer->customer_deposit -= $credit;
+                            $customer->save();
+                        }
+
+                        // closing balance akun deposit
+                        if ($customerDepositAccount) {
+                            $customerDepositAccount->closing_balance -= $credit;
+                            $customerDepositAccount->save();
+                        }
                     }
 
-                    $trx->delete(); // soft delete transaksi
-                } else {
-                    // Cash / Bank account: jangan dihapus
-                    $trx->sale_return_id = null;
-                    $trx->note = trim(($trx->note ?? '') . ' [SaleReturn deleted]');
-                    $trx->save();
+                    // hapus transaksi deposit
+                    $trx->delete();
+                    continue;
                 }
 
-                $account->save();
+                // 2) SALE RETURN ACCOUNT → rollback
+                if ($account->type === 'Sale Return') {
+                    if ($debit > 0) $account->closing_balance -= $debit;
+                    if ($credit > 0) $account->closing_balance += $credit;
+                    $account->save();
+
+                    $trx->delete();
+                    continue;
+                }
+
+                // 3) BANK/CASH → JANGAN DIHAPUS
+                $trx->sale_return_id = null;
+                $trx->note = trim(($trx->note ?? '') . ' [SaleReturn deleted]');
+                $trx->save();
             }
 
             // Soft delete SaleReturn → otomatis cascade ke items & editHistories
             $saleReturn->delete();
-
-            // ✅ Kurangi canceled_product_stock pada production_stocks
-            // foreach ($items as $item) {
-            //     $productId = $item->product_id;
-            //     $qty       = $item->quantity;
-
-            //     $productionStock = ProductionStock::where('product_id', $productId)->first();
-            //     if ($productionStock) {
-            //         $productionStock->decrement('canceled_product_stock', $qty);
-            //     }
-
-            //     // 🚮 Hapus juga ledger canceled_products untuk sale_return ini
-            //     CanceledProduct::where('sale_return_id', $saleReturn->id)
-            //         ->where('product_id', $productId)
-            //         ->where('order_item_id', $item->order_item_id)
-            //         ->delete();
-
-            //     // Update ulang stok & avg_cost produk
-            //     $product = Products::find($productId);
-            //     // if ($product) {
-            //     //     ProductCostService::updateCostAndStock($product);
-            //     //     $product->stock_after_sales = $product->inventory_stock;
-            //     //     $product->save();
-            //     // }
-            // }
 
             $saleReturn->delete_notes = $request->input('delete_notes'); // catatan hapus dari form
             $saleReturn->deleted_by = Auth::id(); // user yang login
@@ -1183,7 +1186,7 @@ class SaleReturnController extends Controller
         $request->validate([
             'sale_return_id'        => 'required|exists:sale_returns,id',
             'refund_amount'           => 'required|numeric|min:0',
-            'cash_bank_account_id'  => 'required|exists:accounts,id',
+            'cash_bank_account_id'  => 'nullable|exists:accounts,id',
             'transaction_date'      => 'required|date',
             'transaction_type'      => 'required|exists:accounts,id',
             'note'                  => 'nullable|string',
@@ -1231,37 +1234,38 @@ class SaleReturnController extends Controller
             // Simpan ke kolom proof (JSON)
             $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
-            // **Transaksi CREDIT (sale return refund ke customer)**
-            // AccountTransaction::create([
-            //     'sale_return_id'      => $saleReturn->id,
-            //     'transaction_date'    => $request->transaction_date,
-            //     'account_id'          => $saleAccount->id,
-            //     'credit'              => 0,
-            //     'debit'               => $request->refund_amount,
-            //     'note'                => $request->note ?? '',
-            //     'particular'          => $cashBankAccount->name . ' - ' . $cashBankAccount->type,
-            //     'transaction_group_id' => $groupId,
-            // ]);
+            // =====================================================
+            // 🔹 Tambahkan ke Customer Deposit (DEBIT)
+            // =====================================================
 
-            // $saleAccount->closing_balance += $request->refund_amount;
-            // $saleAccount->save();
+            // Ambil akun Customer Deposit
+            $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
 
-            // **Transaksi DEBIT (kas/bank keluar)**
-            AccountTransaction::create([
-                'sale_return_id'      => $saleReturn->id,
-                'order_number'        => $saleReturn->order_number,
-                'transaction_date'    => $request->transaction_date,
-                'account_id'          => $cashBankAccount->id,
-                'debit'               => 0,
-                'credit'              => $request->refund_amount,
-                'note'                => $request->note ?? '',
-                'particular'          => $saleAccount->name . ' - ' . $saleAccount->type,
-                'transaction_group_id' => $groupId,
-                'proof'               => $proofJson,
-            ]);
+            if ($customerDepositAccount) {
+                AccountTransaction::create([
+                    'sale_return_id'      => $saleReturn->id,
+                    'customer_id'         => $saleReturn->customer_id, // penting!
+                    'order_number'        => $saleReturn->order_number,
+                    'transaction_date'    => $request->transaction_date,
+                    'account_id'          => $customerDepositAccount->id,
+                    'debit'               => 0, // deposit bertambah
+                    'credit'              => $request->refund_amount,
+                    'note'                => $request->note ?? '',
+                    'particular'          => $saleAccount->name . ' - ' . $saleAccount->type,
+                    'transaction_group_id' => $groupId,
+                    'proof'               => $proofJson,
+                ]);
 
-            $cashBankAccount->closing_balance -= $request->refund_amount;
-            $cashBankAccount->save();
+                // Update closing balance customer deposit
+                $customerDepositAccount->closing_balance += $request->refund_amount;
+                $customerDepositAccount->save();
+
+                $saleReturn->customer->customer_deposit += $request->refund_amount;
+                $saleReturn->customer->save();
+            }
+
+            // $cashBankAccount->closing_balance -= $request->refund_amount;
+            // $cashBankAccount->save();
 
             // **Update refund_amount & remaining_amount di SaleReturn**
             $saleReturn->refund_amount = ($saleReturn->refund_amount ?? 0) + $request->refund_amount;
@@ -1673,25 +1677,6 @@ class SaleReturnController extends Controller
 
                 $account->save();
             }
-
-            // ✅ Tambahkan kembali canceled_product_stock + update cost produk
-            // foreach ($saleReturn->items as $item) {
-            //     $productId = $item->product_id;
-            //     $qty       = $item->quantity;
-
-            //     $productionStock = ProductionStock::where('product_id', $productId)->first();
-            //     if ($productionStock) {
-            //         $productionStock->increment('canceled_product_stock', $qty);
-            //     }
-
-            //     // Update ulang stok & avg_cost produk
-            //     // $product = Products::find($productId);
-            //     // if ($product) {
-            //     //     ProductCostService::updateCostAndStock($product);
-            //     //     $product->stock_after_sales = $product->inventory_stock;
-            //     //     $product->save();
-            //     // }
-            // }
 
             FinancialReport::withTrashed()
                 ->where('reference_table', 'sale_returns')

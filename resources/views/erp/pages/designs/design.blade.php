@@ -130,6 +130,7 @@
                                         <th class="wd-250">Design Number</th>
                                         <th class="wd-350">Customer</th>
                                         <th>Products</th>
+                                        <th>Order Note</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -291,7 +292,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [3, 'asc']
+                    [4, 'asc']
                 ],
                 data: [],
                 columns: [{
@@ -305,6 +306,12 @@
                     {
                         data: 'products',
                         name: 'products',
+                        orderable: false,
+                        searchable: false
+                    },
+                    {
+                        data: 'order_note',
+                        name: 'order_note',
                         orderable: false,
                         searchable: false
                     },

@@ -150,6 +150,7 @@
                                                 <th class="wd-250">Invoice Number</th>
                                                 <th class="wd-250">Customer</th>
                                                 <th>Assign List</th>
+                                                <th>Order Notes</th>                                                
                                             </tr>
                                         </thead>
                                         <tbody></tbody>
@@ -236,7 +237,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [3, 'asc']
+                    [4, 'asc']
                 ],
                 data: [],
                 columns: [
@@ -253,6 +254,9 @@
                     },
                     {
                         data: 'assign_products'
+                    },
+                    {
+                        data: 'order_notes'
                     },
                     // {
                     //     data: 'note'

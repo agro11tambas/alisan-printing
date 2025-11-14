@@ -172,6 +172,7 @@
                                         <th class="wd-250">Order Number</th>
                                         <th class="wd-250">Customer</th>
                                         <th>Progress</th>
+                                        <th>Order Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -288,7 +289,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [3, 'asc']
+                    [4, 'asc']
                 ],
                 data: [],
                 columns: [
@@ -308,6 +309,12 @@
                     {
                         data: 'progress',
                         name: 'progress'
+                    },
+                    {
+                        data: 'order_notes',
+                        name: 'order_notes',
+                        orderable: false,
+                        searchable: false
                     },
                     {
                         data: 'order_created_at',

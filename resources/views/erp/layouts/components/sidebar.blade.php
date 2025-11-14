@@ -242,6 +242,9 @@
                                 @if (Auth::user()->hasSubPermission('account-capital'))
                                 <li class="nxl-item "><a class="nxl-link" href="/erp/accounts/capital"><span class="">Capital</span></a></li>
                                 @endif
+                                @if (Auth::user()->hasSubPermission('account-customer-deposit'))
+                                <li class="nxl-item "><a class="nxl-link" href="/erp/accounts/customer-deposit"><span class="">Customer Deposit</span></a></li>
+                                @endif
                             </ul>
                         </li>
                         @if (Auth::user()->hasSubPermission('manage-opening-balance'))

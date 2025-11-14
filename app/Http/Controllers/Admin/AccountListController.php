@@ -111,7 +111,6 @@ class AccountListController extends Controller
         ]);
     }
 
-
     public function getExpense()
     {
         $accountTypes = Account::where('name', 'Expense')
@@ -120,6 +119,67 @@ class AccountListController extends Controller
             ->pluck('type');
 
         return view('erp.pages.account-list.expense', compact('accountTypes'));
+    }
+
+    public function dataCustomerDeposit(Request $request)
+    {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
+        $deposit = AccountTransaction::with('account')
+            ->whereHas('account', function ($q) {
+                $q->where('name', 'Customer Deposit');
+            })
+            ->orderByDesc('id');
+
+        // 🔹 Filter tanggal
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $deposit->whereBetween('transaction_date', [$request->start_date, $request->end_date]);
+        }
+
+        // 🔹 Filter particular
+        if ($request->filled('search_particular')) {
+            $deposit->where('particular', 'like', '%' . $request->search_particular . '%');
+        }
+
+        // 🔹 Filter tipe akun
+        if ($request->filled('search_account_type')) {
+            $deposit->whereHas('account', function ($q) use ($request) {
+                $q->where('type', 'like', '%' . $request->search_account_type . '%');
+            });
+        }
+
+        // 🔢 Hitung total data
+        $totalQuery = clone $deposit;
+        $totalData = $totalQuery->count();
+
+        // 📌 Pagination manual
+        $data = $deposit->skip($start)->take($length)->get();
+
+        return response()->json([
+            'data' => $data->map(function ($d) {
+                return [
+                    'id' => $d->id,
+                    'account_type' => $d->account->type ?? '-',
+                    'particular' => $d->particular ?? '-',
+                    'transaction_date' => \Carbon\Carbon::parse($d->transaction_date)->format('d F Y'),
+                    'debit' => 'Rp ' . number_format($d->debit ?? 0, 0, ',', '.'),
+                    'credit' => 'Rp ' . number_format($d->credit ?? 0, 0, ',', '.'),
+                    'note' => $d->note ?? '-',
+                ];
+            }),
+            'has_more' => $totalData > ($start + $length),
+        ]);
+    }
+
+    public function getCustomerDeposit()
+    {
+        $accountTypes = Account::where('name', 'Customer Deposit')
+            ->select('type')
+            ->distinct()
+            ->pluck('type');
+
+        return view('erp.pages.account-list.customer-deposit', compact('accountTypes'));
     }
 
     public function dataBank(Request $request)

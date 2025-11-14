@@ -878,6 +878,12 @@ class OrderProgressAssignController extends Controller
                     </div>
                 ';
 
+                $orderNotesValue = $batch->orderProgress?->order?->notes;
+
+                $orderNotes = $orderNotesValue
+                    ? '<div class="text-muted small" style="white-space: normal;">' . e($orderNotesValue) . '</div>'
+                    : '<div class="text-muted small">-</div>';
+
                 return [
                     'id' => $batch->id,
                     'assign_code' => $assignCodeHtml,
@@ -889,6 +895,7 @@ class OrderProgressAssignController extends Controller
                     'note' => $note,
                     'assign_products' => $assignProducts,
                     'action' => $action,
+                    'order_notes' => $orderNotes,
                     'created_at' => $date,
                 ];
             }),

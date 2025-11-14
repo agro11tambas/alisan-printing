@@ -36,10 +36,13 @@ class CustomerController extends Controller
             ->addColumn('phone', function ($customer) {
                 return '<strong>' . ($customer->phone ?? '-') . '</strong>';
             })
+            ->addColumn('customer_deposit', function ($customer) {
+                return '<strong>' . number_format($customer->customer_deposit, 2, ',', '.') . '</strong>';
+            })
             ->addColumn('action', function ($customer) {
                 return view('erp.pages.customers.partials.action-button', compact('customer'))->render();
             })
-            ->rawColumns(['action', 'addresses', 'phone'])
+            ->rawColumns(['action', 'addresses', 'phone', 'customer_deposit'])
             ->make(true);
     }
 

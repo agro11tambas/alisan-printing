@@ -53,11 +53,11 @@
 
         /* 🔹 Perbesar juga font di header tabel produk (Qty, Price, Total) */
         /* #tab_logic th {
-                font-size: 15px !important;
-                font-weight: 700 !important;
-                vertical-align: middle !important;
-                text-transform: uppercase;
-            } */
+                    font-size: 15px !important;
+                    font-weight: 700 !important;
+                    vertical-align: middle !important;
+                    text-transform: uppercase;
+                } */
 
         /* 🔹 Perbesar font Grand Total biar seragam */
         #tab_logic_total input.form-control {
@@ -133,8 +133,8 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <input type="date" class="form-control" id="order_date" name="order_date"
-                                                    value="{{ date('Y-m-d') }}" required>
+                                                <input type="datetime-local" class="form-control" id="order_date" name="order_date"
+                                                    value="{{ date('Y-m-d\TH:i') }}" required>
                                             </div>
                                         </div>
                                     </div>
@@ -681,10 +681,112 @@
             pendingToggleOff = false;
         })
 
+        // function calculateRow(row) {
+        //     const selectedOption = row.find('select[name="product[]"] option:selected');
+        //     const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
+        //     const basePrice = manualPrice > 0 ? manualPrice : (parseFloat(selectedOption.data('price')) || 0);
+        //     const discounts = selectedOption.data('discounts') || [];
+        //     const categories = selectedOption.data('categories') || [];
+        //     const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
+
+        //     const priceBeforeDiscount = basePrice;
+        //     const totalBeforeDiscount = basePrice * qty;
+
+        //     // let finalPrice = priceBeforeDiscount;
+        //     // let allDiscounts = [...discounts];
+
+        //     let finalPrice = priceBeforeDiscount;
+        //     let allDiscounts = discountEnabled ? [...discounts] : [];
+
+        //     // 🔥 Tambahan logika baru: hanya jalankan perhitungan diskon kalau discountEnabled = true
+        //     if (discountEnabled) {
+        //         categories.forEach(cat => {
+        //             if (cat.discounts) {
+        //                 allDiscounts = allDiscounts.concat(cat.discounts);
+        //             }
+        //         });
+
+        //         allDiscounts.forEach(discount => {
+        //             let eligible = false;
+
+        //             if (discount.apply_on === 'Product') {
+        //                 if (discount.minimum_based_on === 'Quantity of Items' && qty >= discount
+        //                     .minimum_qty_or_amount) {
+        //                     eligible = true;
+        //                 } else if (discount.minimum_based_on === 'Purchase Amount' && totalBeforeDiscount >=
+        //                     discount.minimum_qty_or_amount) {
+        //                     eligible = true;
+        //                 }
+        //             } else if (discount.apply_on === 'Category') {
+        //                 let totalQtyCategory = 0,
+        //                     totalAmountCategory = 0;
+
+        //                 $('select[name="product[]"]').each(function(i, el) {
+        //                     const opt = $(el).find('option:selected');
+        //                     const cats = opt.data('categories') || [];
+        //                     const price = parseFloat(opt.data('price')) || 0;
+        //                     const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
+        //                         '')) || 0;
+
+        //                     if (cats.some(c => c.id === discount.category_id)) {
+        //                         totalQtyCategory += qtyVal;
+        //                         totalAmountCategory += price * qtyVal;
+        //                     }
+        //                 });
+
+        //                 if (discount.minimum_based_on === 'Quantity of Items' && totalQtyCategory >= discount
+        //                     .minimum_qty_or_amount) {
+        //                     eligible = true;
+        //                 } else if (discount.minimum_based_on === 'Purchase Amount' && totalAmountCategory >=
+        //                     discount.minimum_qty_or_amount) {
+        //                     eligible = true;
+        //                 }
+        //             }
+
+        //             if (eligible) {
+        //                 if (discount.type === 'Percentage') {
+        //                     finalPrice = priceBeforeDiscount - (priceBeforeDiscount * (discount.amount / 100));
+        //                 } else {
+        //                     finalPrice = Math.max(0, priceBeforeDiscount - discount.amount);
+        //                 }
+        //             }
+        //         });
+        //     }
+
+        //     const totalAfterDiscount = finalPrice * qty;
+
+        //     row.find('input.price_before_discount').val(priceBeforeDiscount.toFixed(2));
+        //     row.find('input.total_before_discount').val(totalBeforeDiscount.toFixed(2));
+        //     row.find('input.price_after_discount').val(finalPrice.toFixed(2));
+        //     row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
+
+        //     // row.find('input.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
+        //     // row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
+
+        //     if (!row.find('.price_before_discount_display').is(':focus')) {
+        //         row.find('input.price_before_discount_display').val(formatNumber(basePrice));
+        //     }
+        //     row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
+        // }
+
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
-            const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
-            const basePrice = manualPrice > 0 ? manualPrice : (parseFloat(selectedOption.data('price')) || 0);
+
+            // 🔹 Ambil harga dari hidden input (hasil edit user)
+            let basePrice = row.find('input.price_before_discount').val();
+            basePrice = basePrice === '' ? NaN : parseFloat(basePrice);
+
+            // 🔹 Kalau belum ada harga (NaN), baru pakai harga product
+            if (isNaN(basePrice)) {
+                basePrice = parseFloat(selectedOption.data('price')) || 0;
+
+                // sync ke hidden + display
+                row.find('input.price_before_discount').val(basePrice.toFixed(2));
+                if (!row.find('.price_before_discount_display').is(':focus')) {
+                    row.find('input.price_before_discount_display').val(formatNumber(basePrice));
+                }
+            }
+
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
             const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
@@ -692,14 +794,11 @@
             const priceBeforeDiscount = basePrice;
             const totalBeforeDiscount = basePrice * qty;
 
-            // let finalPrice = priceBeforeDiscount;
-            // let allDiscounts = [...discounts];
-
             let finalPrice = priceBeforeDiscount;
             let allDiscounts = discountEnabled ? [...discounts] : [];
 
-            // 🔥 Tambahan logika baru: hanya jalankan perhitungan diskon kalau discountEnabled = true
-            if (discountEnabled) {
+            // 🔥 Diskon cuma jalan kalau discountEnabled = true
+            if (discountEnabled && priceBeforeDiscount > 0) {
                 categories.forEach(cat => {
                     if (cat.discounts) {
                         allDiscounts = allDiscounts.concat(cat.discounts);
@@ -755,14 +854,13 @@
 
             const totalAfterDiscount = finalPrice * qty;
 
+            // 🔹 simpan ke hidden
             row.find('input.price_before_discount').val(priceBeforeDiscount.toFixed(2));
             row.find('input.total_before_discount').val(totalBeforeDiscount.toFixed(2));
             row.find('input.price_after_discount').val(finalPrice.toFixed(2));
             row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
 
-            // row.find('input.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
-            // row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
-
+            // 🔹 update display (jangan ganggu kalau lagi fokus input price)
             if (!row.find('.price_before_discount_display').is(':focus')) {
                 row.find('input.price_before_discount_display').val(formatNumber(basePrice));
             }

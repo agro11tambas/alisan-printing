@@ -97,7 +97,7 @@ class PurchaseOrderController extends Controller
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
             'data' => $data->map(function ($purchase) {
-                $date = Carbon::parse($purchase->created_at)->format('j M y');
+                $date = Carbon::parse($purchase->purchase_date)->format('j M y H:i');
 
                 // 🧾 Nomor + Tanggal
                 $purchaseNumberHtml = '
@@ -186,7 +186,7 @@ class PurchaseOrderController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'purchase_date' => 'required|date',
+            'purchase_date' => 'required|date_format:Y-m-d\TH:i',
             'suppliers'     => 'required|exists:suppliers,id',
             'product'       => 'required|array',
             'product.*'     => 'exists:products,id',
@@ -265,7 +265,7 @@ class PurchaseOrderController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'purchase_date'          => 'required|date',
+            'purchase_date'          => 'required|date_format:Y-m-d\TH:i',
             'suppliers'              => 'required|exists:suppliers,id',
             'notes'                  => 'nullable|string',
             'product'                => 'required|array',
@@ -499,7 +499,7 @@ class PurchaseOrderController extends Controller
     {
         $request->validate([
             'purchase_number'   => 'required|string|unique:purchases,purchase_number,' . $id,
-            'purchase_date'     => 'required|date',
+            'purchase_date'     => 'required|date_format:Y-m-d\TH:i',
             'due_date_option'   => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
             'custom_due_date'   => 'nullable|date',
             'suppliers'         => 'required|exists:suppliers,id',
