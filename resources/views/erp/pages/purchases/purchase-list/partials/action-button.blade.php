@@ -85,7 +85,7 @@
 
                 @php $isOwner = auth()->check() && auth()->user()->role === 'Owner'; @endphp
 
-                @if ($isOwner)
+                {{-- @if ($isOwner)
                     <li>
                         <button type="button" class="dropdown-item text-danger btn-force-delete-owner"
                             data-bs-toggle="modal" data-bs-target="#modalForceDeleteOwnerPurchase"
@@ -96,7 +96,7 @@
                             <span>Force Delete (Owner)</span>
                         </button>
                     </li>
-                @endif
+                @endif --}}
             </div>
         </div>
     </ul>

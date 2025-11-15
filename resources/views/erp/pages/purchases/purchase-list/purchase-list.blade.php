@@ -729,9 +729,10 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                order: [
-                    [7, 'desc']
-                ],
+                // order: [
+                //     [7, 'desc']
+                // ],
+                ordering: false,
                 data: [],
                 columns: [{
                         className: 'dt-control text-center',

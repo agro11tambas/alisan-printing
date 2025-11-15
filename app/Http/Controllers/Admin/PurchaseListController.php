@@ -923,6 +923,22 @@ class PurchaseListController extends Controller
         }
     }
 
+    private function deleteResponse(Request $request, bool $success, string $message)
+    {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status'  => $success ? 'success' : 'error',
+                'message' => $message,
+            ], $success ? 200 : 400);
+        }
+
+        if ($success) {
+            return redirect()->back()->with('success', $message);
+        }
+
+        return redirect()->back()->with('error', $message);
+    }
+
     public function delete($id, Request $request)
     {
         $request->validate([
@@ -937,13 +953,15 @@ class PurchaseListController extends Controller
             // 🚫 Cek dulu apakah ada Purchase Return
             if ($purchase->purchaseReturn()->exists()) {
                 DB::rollBack();
-                return back()->with('error', 'Purchase ini memiliki Purchase Return dan tidak bisa dihapus.');
+                $msg = 'Tidak dapat menghapus order ini karena sudah memiliki Purchase Return.';
+                return $this->deleteResponse($request, false, $msg);
             }
 
             // 🚫 Cek apakah sudah ada stock in
             if ($purchase->hasStockIn()) {
                 DB::rollBack();
-                return back()->with('error', 'Purchase ini sudah memiliki Stock In dan tidak bisa dihapus.');
+                $msg = 'Tidak dapat menghapus order ini karena sudah memiliki Stock In.';
+                return $this->deleteResponse($request, false, $msg);
             }
 
             // 🔁 Rollback stok incoming & stock-in
@@ -1016,16 +1034,6 @@ class PurchaseListController extends Controller
             // Soft delete purchase
             $purchase->delete();
 
-            // 🔁 Update avg cost per produk
-            foreach ($productIds as $productId) {
-                $product = Products::find($productId);
-                if ($product) {
-                    ProductCostService::updateCostAndStock($product);
-                    $product->stock_after_sales = $product->inventory_stock;
-                    $product->save();
-                }
-            }
-
             DB::commit();
             return back()->with('success', 'Purchase berhasil dihapus.');
         } catch (\Exception $e) {
@@ -1049,6 +1057,15 @@ class PurchaseListController extends Controller
 
         try {
             $purchase = Purchase::with(['purchaseItems'])->findOrFail($id);
+
+            $hasStockIn = InventoryItem::whereIn('purchase_item_id', $purchase->purchaseItems->pluck('id'))
+                ->where('stock_in', '>', 0)
+                ->exists();
+
+            if ($hasStockIn) {
+                return back()->with('error', 'Purchase tidak bisa dihapus total karena sudah pernah stock-in. Gunakan Purchase Return atau Stock Adjustment.');
+            }
+
             $productIds = $purchase->purchaseItems->pluck('product_id')->filter()->unique()->toArray();
 
             // 1️⃣ ROLLBACK STOK (Termasuk Stock In)
@@ -1130,15 +1147,45 @@ class PurchaseListController extends Controller
             $purchase->saveQuietly();
             $purchase->forceDelete();
 
-            // 7️⃣ UPDATE ULANG COST & STOCK PRODUK
-            foreach ($productIds as $productId) {
-                $product = Products::find($productId);
-                if ($product) {
-                    ProductCostService::updateCostAndStock($product);
-                    $product->stock_after_sales = $product->inventory_stock;
-                    $product->save();
-                }
-            }
+            // // 7️⃣ HITUNG ULANG AVG COST & STOCK PRODUK YANG TERDAMPAK
+            // foreach ($productIds as $productId) {
+
+            //     $product = Products::find($productId);
+            //     if (!$product) continue;
+
+            //     // MULAI DARI STOK REAL SETELAH ROLLBACK
+            //     $inventory = InventoryStock::where('product_id', $productId)->first();
+
+            //     $currentQty   = $inventory->inventory_stock ?? 0;   // stok setelah rollback
+            //     $currentAvg   = $product->avg_cost ?? 0;            // avg cost sebelum purchase ini dihapus
+
+            //     $totalQty     = $currentQty;
+            //     $totalValue   = $currentQty * $currentAvg;
+
+            //     // Ambil semua purchase item lain yg sudah stock in
+            //     $otherPurchases = PurchaseItem::where('product_id', $productId)
+            //         ->where('purchase_id', '!=', $purchase->id)
+            //         ->get();
+
+            //     foreach ($otherPurchases as $item) {
+            //         $stockInQty = InventoryItem::where('purchase_item_id', $item->id)
+            //             ->sum('stock_in');
+
+            //         if ($stockInQty > 0) {
+            //             $totalQty   += $stockInQty;
+            //             $totalValue += ($stockInQty * $item->price);
+            //         }
+            //     }
+
+            //     // Hitung avg cost baru
+            //     $newAvg = $totalQty > 0 ? ($totalValue / $totalQty) : $currentAvg;
+
+            //     // Update product
+            //     $product->avg_cost = $newAvg;
+            //     $product->inventory_stock = $totalQty;
+            //     $product->stock_after_sales = $totalQty;
+            //     $product->save();
+            // }
 
             DB::commit();
             return back()->with('success', 'Purchase berhasil dihapus total (force delete oleh Owner). Semua efek stok & transaksi telah direset.');

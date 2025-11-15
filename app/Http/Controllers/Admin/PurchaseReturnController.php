@@ -866,6 +866,22 @@ class PurchaseReturnController extends Controller
         }
     }
 
+    private function deleteResponse(Request $request, bool $success, string $message)
+    {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'status'  => $success ? 'success' : 'error',
+                'message' => $message,
+            ], $success ? 200 : 400);
+        }
+
+        if ($success) {
+            return redirect()->back()->with('success', $message);
+        }
+
+        return redirect()->back()->with('error', $message);
+    }
+
     public function delete($id, Request $request)
     {
         $request->validate([
@@ -880,7 +896,8 @@ class PurchaseReturnController extends Controller
             // 🚫 Cek apakah sudah ada Stock Out
             if ($purchaseReturn->hasStockOut()) {
                 DB::rollBack();
-                return back()->with('error', 'Purchase Return ini sudah memiliki Stock Out dan tidak bisa dihapus.');
+                $msg = 'Gagal menghapus Purchase Return karena sudah memiliki Stock Out.';
+                return $this->deleteResponse($request, false, $msg);
             }
 
             // 🚫 Cek dulu apakah ada constraint lain kalau perlu
@@ -944,16 +961,6 @@ class PurchaseReturnController extends Controller
 
             // Soft delete purchase return
             $purchaseReturn->delete();
-
-            // 🔁 Update avg cost per produk
-            foreach ($productIds as $productId) {
-                $product = Products::find($productId);
-                if ($product) {
-                    ProductCostService::updateCostAndStock($product);
-                    $product->stock_after_sales = $product->inventory_stock;
-                    $product->save();
-                }
-            }
 
             DB::commit();
             return back()->with('success', 'Purchase Return berhasil dihapus.');
