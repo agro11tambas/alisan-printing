@@ -247,7 +247,7 @@ class OrderProgressAssignController extends Controller
 
 
                 // ⛔ BLOKIR jika assign sudah full assign
-                $alreadyAssigned = $item->assigns->sum('assigned_quantity');
+                $alreadyAssigned = $item->assigns->sum('completed_quantity');
 
                 if ($alreadyAssigned >= $item->quantity) {
                     DB::rollBack();

@@ -226,7 +226,7 @@ class DeliveryListController extends Controller
                                 font-size:12px;text-decoration:none;'>
                                 <i class=\"feather-map-pin\"></i> Lihat di Maps
                             </a>"
-                            : "<span class='text-muted' style='font-size:12px;'>Tidak ada link Maps</span>";
+                        : "<span class='text-muted' style='font-size:12px;'>Tidak ada link Maps</span>";
 
                     // ✅ Tombol Upload Bukti
                     $uploadButton = $canUploadProof
@@ -400,10 +400,10 @@ class DeliveryListController extends Controller
         }
 
         // ✅ Update status DeliveryOrder jika semua item sudah shipped
-        $allShipped = $deliveryOrder->items()->where('status', '!=', 'Shipped')->count() === 0;
-        if ($allShipped) {
-            $deliveryOrder->update(['status' => 'Finished']);
-        }
+        // $allShipped = $deliveryOrder->items()->where('status', '!=', 'Shipped')->count() === 0;
+        // if ($allShipped) {
+        //     $deliveryOrder->update(['status' => 'Finished']);
+        // }
 
         return redirect('/erp/deliveries/delivery-orders')
             ->with('success', "Delivery List {$deliveryList->shipment_number} berhasil dibuat!");
@@ -483,11 +483,11 @@ class DeliveryListController extends Controller
         }
 
         // ✅ Kalau semua item DO sudah shipped, update status DO
-        $deliveryOrder = $deliveryList->deliveryOrder;
-        $allShipped = $deliveryOrder->items()->where('status', '!=', 'Shipped')->count() === 0;
-        if ($allShipped) {
-            $deliveryOrder->update(['status' => 'Finished']);
-        }
+        // $deliveryOrder = $deliveryList->deliveryOrder;
+        // $allShipped = $deliveryOrder->items()->where('status', '!=', 'Shipped')->count() === 0;
+        // if ($allShipped) {
+        //     $deliveryOrder->update(['status' => 'Finished']);
+        // }
 
         return redirect('/erp/deliveries/delivery-list')
             ->with('success', "Delivery List {$deliveryList->shipment_number} berhasil diperbarui!");

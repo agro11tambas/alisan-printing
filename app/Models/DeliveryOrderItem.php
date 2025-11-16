@@ -75,5 +75,17 @@ class DeliveryOrderItem extends Model
         static::restoring(function ($item) {
             $item->deliveryListItems()->withTrashed()->restore();
         });
+
+        // 🔥 Setiap kali DeliveryOrderItem di-save (shipped_qty / ready_qty berubah dll)
+        static::saved(function ($item) {
+            $deliveryOrder = $item->deliveryOrder;
+
+            if (!$deliveryOrder) {
+                return;
+            }
+
+            // Pakai helper di DeliveryOrder
+            $deliveryOrder->refreshStatus();
+        });
     }
 }

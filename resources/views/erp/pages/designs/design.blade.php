@@ -45,6 +45,13 @@
         #multiViewerContainer .image-item p {
             margin-top: 8px;
         }
+
+        #multiViewerContainer .image-item p {
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            /* Bold */
+            color: #333 !important;
+        }
     </style>
 @endpush
 

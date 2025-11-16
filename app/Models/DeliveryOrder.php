@@ -88,4 +88,34 @@ class DeliveryOrder extends Model
             }
         });
     }
+
+    public function refreshStatus(): void
+    {
+        // pastikan relasi ke-load
+        $this->loadMissing(['items', 'shipments']);
+
+        // Kalau tidak ada item, anggap belum selesai
+        if ($this->items->isEmpty()) {
+            $this->status = 'Ongoing';
+            $this->saveQuietly();
+            return;
+        }
+
+        // ✅ 1) Semua DeliveryList untuk DO ini harus status = 'Finished'
+        $allShipmentsFinished = $this->shipments->isNotEmpty()
+            && $this->shipments->every(function ($shipment) {
+                return $shipment->status === 'Finished';
+            });
+
+        // ✅ 2) Untuk setiap item: ready_qty >= shipped_qty
+        $qtyOk = $this->items->every(function ($row) {
+            $readyQty   = (int) $row->ready_qty;
+            $shippedQty = (int) $row->shipped_qty;
+
+            return $readyQty >= $shippedQty;
+        });
+
+        $this->status = ($allShipmentsFinished && $qtyOk) ? 'Finished' : 'Ongoing';
+        $this->saveQuietly();
+    }
 }
