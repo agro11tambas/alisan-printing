@@ -299,7 +299,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [4, 'asc']
+                    [4, 'desc']
                 ],
                 data: [],
                 columns: [{

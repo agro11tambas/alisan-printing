@@ -129,7 +129,7 @@ class DesignController extends Controller
         return response()->json([
             'data' => $data->map(function ($design) {
                 // 📅 Format tanggal
-                $orderCreatedAt = optional($design->order)->created_at;
+                $orderCreatedAt = Carbon::parse($design->created_at)->format('Y-m-d H:i');
                 $date = $design->date ? Carbon::parse($design->date)->format('j M y') : '-';
 
                 // 🏷️ Badge status
@@ -152,7 +152,7 @@ class DesignController extends Controller
                 $designNumberHtml = '
                 <div>
                     <div><span class="me-2">' . e($design->design_number) . '</span>' . $verifiedBadge . '</div>
-                    <small class="text-muted">' . $orderCreatedAt->format('j M y H:i') . '</small>
+                    <small class="text-muted">' . $orderCreatedAt . '</small>
                 </div>';
 
                 // 📦 Product list partial
@@ -200,7 +200,7 @@ class DesignController extends Controller
                     'proof_photos' => $proofPhotos,
                     'action' => $actionButtons,
                     'order_note' => $orderNote,
-                    'created_at' => $orderCreatedAt->format('j M y H:i'),
+                    'created_at' => $orderCreatedAt,
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
