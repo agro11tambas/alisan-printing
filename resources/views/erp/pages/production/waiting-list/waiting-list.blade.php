@@ -45,6 +45,12 @@
         #previewImageContainer .image-item p {
             margin-top: 8px;
         }
+
+        #previewImageContainer .image-item p {
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            color: #444 !important;
+        }
     </style>
 @endpush
 
@@ -154,7 +160,7 @@
                             </div>
                         </div>
                         <div class="px-4 pb-2">
-                            <div class="d-flex justify-content-between align-items-center border rounded p-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center border rounded p-3">
                                 <div>
                                     <h6 class="mb-0 fw-semibold">Total Remaining Progress</h6>
                                     <small class="text-muted">Jumlah total produk yang belum selesai</small>

@@ -233,9 +233,10 @@
                                                 <th></th>
                                                 <th data-column="purchase_number">Purchase Number</th>
                                                 <th data-column="supplier">Supplier</th>
-                                                <th data-column="total_amount">Total</th>
-                                                <th data-column="paid_amount">Paid</th>
-                                                <th data-column="remaining_amount">Remaining</th>
+                                                <th data-column="total_amount_product">Total</th>
+                                                <th data-column="paid_amount_product">Paid </th>
+                                                <th data-column="total_amount_freight">Freight Total</th>
+                                                <th data-column="paid_amount_freight">Freight Paid</th>
                                                 <th data-column="payment_status">Status</th>
                                             </tr>
                                         </thead>
@@ -400,22 +401,6 @@
                                 <span class="fw-semibold fs-12" id="paid_amount_display_product">Paid: Rp. 0</span>
                             </div>
                         </div>
-                        {{-- <div class="row g-3 mb-3">
-                            <div class="col-md-12">
-                                <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
-                                <div class="input-group">
-                                    <input type="file" class="form-control" id="payment_proof" name="payment_proof"
-                                        accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
-                                </div>
-                                <small class="text-muted">Upload foto bukti transfer (Gambar)</small>
-                                <small class="text-danger d-none" id="error_payment_proof"></small>
-                                <div class="mt-2 d-none" id="proof_preview_wrapper">
-                                    <p class="fw-semibold mb-1">Preview:</p>
-                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
-                                        style="max-height: 200px;">
-                                </div>
-                            </div>
-                        </div> --}}
                         <div class="col-md-12">
                             <label class="fw-semibold">Upload / Paste Proof (optional):</label>
 
@@ -543,22 +528,6 @@
                                 <span class="fw-semibold fs-12" id="paid_amount_display_freight">Paid: Rp. 0</span>
                             </div>
                         </div>
-                        {{-- <div class="row g-3 mb-3">
-                            <div class="col-md-12">
-                                <label for="payment_proof" class="fw-semibold">Upload Proof (optional):</label>
-                                <div class="input-group">
-                                    <input type="file" class="form-control" id="payment_proof" name="payment_proof"
-                                        accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf">
-                                </div>
-                                <small class="text-muted">Upload foto bukti transfer (Gambar)</small>
-                                <small class="text-danger d-none" id="error_payment_proof"></small>
-                                <div class="mt-2 d-none" id="proof_preview_wrapper">
-                                    <p class="fw-semibold mb-1">Preview:</p>
-                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
-                                        style="max-height: 200px;">
-                                </div>
-                            </div>
-                        </div> --}}
                         <div class="col-md-12">
                             <label class="fw-semibold">Upload / Paste Proof (optional):</label>
 
@@ -689,6 +658,7 @@
                             <th class="text-end">Price + Tax</th>
                             <th class="text-end">Freight</th>
                             <th class="text-end">Total</th>
+                            <th class="text-end">Stock In</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -703,6 +673,7 @@
                     <td class="text-end">${p.price}</td>
                     <td class="text-end">${p.freight}</td>
                     <td class="text-end">${p.total_price}</td>
+                    <td class="text-end">${p.stock_in} / ${p.qty}</td>
                 </tr>
             `;
                 });
@@ -748,13 +719,16 @@
                         data: 'supplier'
                     },
                     {
-                        data: 'total_amount'
+                        data: 'total_amount_product'
                     },
                     {
-                        data: 'paid_amount'
+                        data: 'paid_amount_product'
                     },
                     {
-                        data: 'remaining_amount'
+                        data: 'total_amount_freight'
+                    },
+                    {
+                        data: 'paid_amount_freight'
                     },
                     {
                         data: 'payment_status'
@@ -1243,7 +1217,7 @@
                                 const noteInput = document.createElement('input');
                                 noteInput.type = 'text';
                                 noteInput.classList.add('form-control', 'form-control-sm',
-                                'note-input');
+                                    'note-input');
                                 noteInput.placeholder = 'Tambahkan catatan...';
 
                                 const removeBtn = document.createElement('button');
@@ -1305,18 +1279,17 @@
                             const rowNode = $(row.node());
                             const fmt = new Intl.NumberFormat('id-ID');
 
-                            rowNode.find('td[data-column="paid_amount"]').html(res.purchase
-                                .paid_amount_html);
-                            rowNode.find('td[data-column="remaining_amount"]').html(res.purchase
-                                .remaining_amount_html);
-                            rowNode.find('td[data-column="payment_status"]').html(res.purchase
-                                .payment_status_html);
+                            rowNode.find('td:eq(4)').html(res.purchase
+                                .paid_amount_product_html);
+                            rowNode.find('td:eq(6)').html(res.purchase
+                                .paid_amount_freight_html);
+                            rowNode.find('td:eq(7)').html(res.purchase.payment_status_html);
                             if (res.purchase.action_html) rowNode.find('td:last-child').html(res
                                 .purchase.action_html);
 
-                            const d = row.data();
-                            d.paid_amount = res.purchase.paid_amount_html;
-                            d.remaining_amount = res.purchase.remaining_amount_html;
+                            let d = row.data();
+                            d.paid_amount_product = res.purchase.paid_amount_product_html;
+                            d.paid_amount_freight = res.purchase.paid_amount_freight_html;
                             d.payment_status = res.purchase.payment_status_html;
                             d.action = res.purchase.action_html;
                             row.data(d).invalidate();
@@ -1373,23 +1346,19 @@
                         if (row.length) {
                             const rowNode = $(row.node());
 
-                            // 🔹 Update tampilan HTML di tabel
-                            rowNode.find('td[data-column="paid_amount"]').html(res.purchase
-                                .paid_amount_html);
-                            rowNode.find('td[data-column="remaining_amount"]').html(res.purchase
-                                .remaining_amount_html);
-                            rowNode.find('td[data-column="payment_status"]').html(res.purchase
-                                .payment_status_html);
+                            rowNode.find('td:eq(4)').html(res.purchase
+                                .paid_amount_product_html);
+                            rowNode.find('td:eq(6)').html(res.purchase
+                                .paid_amount_freight_html);
+                            rowNode.find('td:eq(7)').html(res.purchase.payment_status_html);
 
                             if (res.purchase.action_html) {
                                 rowNode.find('td:last-child').html(res.purchase.action_html);
                             }
 
-                            // 🔹 Update internal data DataTables biar ga revert pas scroll
-                            const d = row.data();
-                            d.paid_amount = res.purchase.paid_amount_html;
-                            d.remaining_amount = res.purchase
-                                .remaining_amount_html; // ✅ field yg bener
+                            let d = row.data();
+                            d.paid_amount_product = res.purchase.paid_amount_product_html;
+                            d.paid_amount_freight = res.purchase.paid_amount_freight_html;
                             d.payment_status = res.purchase.payment_status_html;
                             d.action = res.purchase.action_html;
                             row.data(d).invalidate();

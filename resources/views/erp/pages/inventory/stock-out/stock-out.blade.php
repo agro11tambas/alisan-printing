@@ -44,25 +44,25 @@
             </ul>
         </div>
         <!-- <div class="page-header-right ms-auto">
-                                                        <div class="page-header-right-items">
-                                                            <div class="d-flex d-md-none">
-                                                                <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                                                                    <i class="feather-arrow-left me-2"></i><span>Back</span>
-                                                                </a>
-                                                            </div>
-                                                            <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                                                                <a href="/erp/inventory/stock-out/add-stock-out/" class="btn btn-primary">
-                                                                    <i class="feather-plus me-2"></i>
-                                                                    <span>Add Stock Out</span>
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                        <div class="d-md-none d-flex align-items-center">
-                                                            <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                                                                <i class="feather-align-right fs-20"></i>
-                                                            </a>
-                                                        </div>
-                                                    </div> -->
+                                                                        <div class="page-header-right-items">
+                                                                            <div class="d-flex d-md-none">
+                                                                                <a href="javascript:void(0)" class="page-header-right-close-toggle">
+                                                                                    <i class="feather-arrow-left me-2"></i><span>Back</span>
+                                                                                </a>
+                                                                            </div>
+                                                                            <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
+                                                                                <a href="/erp/inventory/stock-out/add-stock-out/" class="btn btn-primary">
+                                                                                    <i class="feather-plus me-2"></i>
+                                                                                    <span>Add Stock Out</span>
+                                                                                </a>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="d-md-none d-flex align-items-center">
+                                                                            <a href="javascript:void(0)" class="page-header-right-open-toggle">
+                                                                                <i class="feather-align-right fs-20"></i>
+                                                                            </a>
+                                                                        </div>
+                                                                    </div> -->
     </div>
 @endsection
 
@@ -169,7 +169,7 @@
                                 <thead>
                                     <tr>
                                         <th class="wd-200">Number</th>
-                                        <th class="wd-200">Date</th>
+                                        {{-- <th class="wd-200">Date</th> --}}
                                         <th>Stock Out</th>
                                     </tr>
                                 </thead>
@@ -281,7 +281,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [1, 'desc']
+                    [2, 'desc']
                 ],
                 data: [],
                 columns: [
@@ -293,12 +293,17 @@
                     {
                         data: 'transaction_number'
                     },
-                    {
-                        data: 'date'
-                    },
+                    // {
+                    //     data: 'date'
+                    // },
                     {
                         data: 'stock_out'
                     },
+                    {
+                        data: 'date',
+                        visible: false,
+                        searchable: false
+                    }
                 ]
             });
 
@@ -390,7 +395,7 @@
                         if (e.target.id === 'progress_status') {
                             const currentVal = $('#progress_status').val();
                             if (currentVal === lastProgressStatus)
-                        return; // ⛔ jangan reload kalau gak berubah
+                                return; // ⛔ jangan reload kalau gak berubah
                             lastProgressStatus = currentVal;
                         }
 

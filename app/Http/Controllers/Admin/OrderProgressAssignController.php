@@ -850,9 +850,17 @@ class OrderProgressAssignController extends Controller
                 $note = e($batch->note ?? '-');
 
                 // 📦 Assign products partial
-                $assigns = OrderProgressAssign::with(['operator', 'progressItem.product'])
+                // $assigns = OrderProgressAssign::with(['operator', 'progressItem.product'])
+                //     ->where('assign_batch_id', $batch->id)
+                //     ->get();
+                $assigns = OrderProgressAssign::with([
+                    'operator',
+                    'progressItem.product',
+                    'progressItem.designItem' // ⬅️ tambah ini
+                ])
                     ->where('assign_batch_id', $batch->id)
                     ->get();
+
                 $assignProducts = view('erp.pages.production.assign-list.partials.assign-product', compact('assigns'))->render();
 
                 // ⚙️ Action button partial

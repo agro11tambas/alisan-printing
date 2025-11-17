@@ -150,7 +150,7 @@
                                                 <th class="wd-250">Invoice Number</th>
                                                 <th class="wd-250">Customer</th>
                                                 <th>Assign List</th>
-                                                <th>Order Notes</th>                                                
+                                                <th>Order Notes</th>
                                             </tr>
                                         </thead>
                                         <tbody></tbody>
@@ -214,6 +214,20 @@
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+    <div class="modal fade" id="modalPreviewDesign" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title text-white">Design Preview</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="fw-bold mb-3" id="previewProductName"></h6>
+                    <div id="previewImageContainer" class="d-flex flex-column gap-3"></div>
+                </div>
+            </div>
         </div>
     </div>
 @endpush
@@ -503,6 +517,46 @@
                     confirmButtonText: 'OK'
                 });
             }
+        });
+
+        // === SHOW PREVIEW MODAL ===
+        $(document).on('click', '.preview-btn', function() {
+            const images = $(this).data('images');
+            const product = $(this).data('product');
+            const container = $('#previewImageContainer');
+
+            $('#previewProductName').text(product);
+            container.empty();
+
+            if (Array.isArray(images) && images.length > 0) {
+                images.forEach((img) => {
+                    const fileUrl = img.file ?
+                        `/${img.file}`.replace(/\/{2,}/g, '/') :
+                        '';
+                    const note = img.note || '-';
+
+                    const html = `
+                <div class="image-item border rounded p-3">
+                    <img src="${fileUrl}" 
+                         class="img-fluid rounded mb-2 preview-full"
+                         style="cursor:pointer;"
+                         data-full="${fileUrl}">
+                    <p class="small text-muted mb-0">${note}</p>
+                </div>
+            `;
+                    container.append(html);
+                });
+            } else {
+                container.html('<p class="text-muted">No preview images available.</p>');
+            }
+
+            $('#modalPreviewDesign').modal('show');
+        });
+
+        // === OPEN FULLSCREEN (open new tab) ===
+        $(document).on('click', '.preview-full', function() {
+            const src = $(this).data('full');
+            if (src) window.open(src, '_blank');
         });
     </script>
 @endpush

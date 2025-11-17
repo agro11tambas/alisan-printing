@@ -139,6 +139,19 @@ class PurchaseListController extends Controller
                     ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Purchase Return</span></div>'
                     : '';
 
+                // 🔥 Cek apakah semua Stock In sudah complete
+                $stockInCompleted = InventoryItem::whereHas('inventory', function ($q) use ($purchase) {
+                    $q->where('purchase_id', $purchase->id)
+                        ->where('note', 'Purchase Account');
+                })
+                    ->whereColumn('stock_in', '<', 'quantity')
+                    ->doesntExist();
+
+                // Icon centang
+                $completeIcon = $stockInCompleted
+                    ? ' <i class="fa fa-check-circle text-success ms-1"></i>'
+                    : '';
+
                 $purchaseNumberHtml = $returnBadge . '
                 <div>
                     <div>' . e($purchase->purchase_number) . $editedBadge . '</div>
@@ -150,11 +163,40 @@ class PurchaseListController extends Controller
                 $supplier = e($purchase->supplier->name ?? '-');
 
                 // 💰 Total, Paid, Remaining
-                $totalAmount = 'Rp ' . number_format($purchase->total_amount, 0, ',', '.');
-                $paidTotal = ($purchase->paid_amount_product ?? 0) + ($purchase->paid_amount_freight ?? 0);
-                $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
-                $paidHtml = '<span class="text-success">Rp ' . number_format($paidTotal, 0, ',', '.') . '</span>';
-                $remainingHtml = '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
+                // $totalAmount = 'Rp ' . number_format($purchase->total_amount, 0, ',', '.');
+                // $paidTotal = ($purchase->paid_amount_product ?? 0) + ($purchase->paid_amount_freight ?? 0);
+                // $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
+                // $paidHtml = '<span class="text-success">Rp ' . number_format($paidTotal, 0, ',', '.') . '</span>';
+                // $remainingHtml = '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
+
+                // 💰 Produk
+                $totalProduct   = $purchase->total_amount_product ?? 0;
+                $paidProduct    = $purchase->paid_amount_product ?? 0;
+                $remainProduct  = $purchase->remaining_amount_product ?? 0;
+
+                // 🚛 Freight
+                $totalFreight   = $purchase->total_amount_freight ?? 0;
+                $paidFreight    = $purchase->paid_amount_freight ?? 0;
+                $remainFreight  = $purchase->remaining_amount_freight ?? 0;
+
+                // Format HTML
+                $totalProductHtml  = 'Rp ' . number_format($totalProduct, 0, ',', '.');
+                $paidProductHtml   = '<span class="text-success">Rp ' . number_format($paidProduct, 0, ',', '.') . '</span>';
+                $remainProductHtml = '<span class="text-danger">Rp ' . number_format($remainProduct, 0, ',', '.') . '</span>';
+
+                $totalFreightHtml  = 'Rp ' . number_format($totalFreight, 0, ',', '.');
+                $paidFreightHtml   = '<span class="text-success">Rp ' . number_format($paidFreight, 0, ',', '.') . '</span>';
+                $remainFreightHtml = '<span class="text-danger">Rp ' . number_format($remainFreight, 0, ',', '.') . '</span>';
+
+                $paidProductColumn = '
+                    <div class="text-success">Rp ' . number_format($paidProduct, 0, ',', '.') . '</div>
+                    <small class="text-danger">Remaining: Rp ' . number_format($remainProduct, 0, ',', '.') . '</small>
+                ';
+
+                $paidFreightColumn = '
+                    <div class="text-success">Rp ' . number_format($paidFreight, 0, ',', '.') . '</div>
+                    <small class="text-danger">Remaining: Rp ' . number_format($remainFreight, 0, ',', '.') . '</small>
+                ';
 
                 // 🏷️ Payment Status + Verified check
                 $paymentStatus = strtolower($purchase->payment_status);
@@ -179,16 +221,24 @@ class PurchaseListController extends Controller
                 // 📦 Products list (sudah + tax)
                 $items = $purchase->purchaseItems()->with(['purchaseProduct' => fn($q) => $q->withTrashed()])->get();
                 $taxPercent = $purchase->tax_percent ?? 0;
-                $products = $items->map(function ($item) use ($taxPercent) {
+                $products = $items->map(function ($item) use ($taxPercent, $purchase) {
                     $price = $item->price ?? 0;
                     $freight = $item->freight ?? 0;
                     $priceWithTax = $price + ($price * ($taxPercent / 100));
                     $total = ($priceWithTax + $freight) * $item->quantity;
 
+                    $stockIn = InventoryItem::where('product_id', $item->product_id)
+                        ->whereHas('inventory', function ($q) use ($purchase) {
+                            $q->where('purchase_id', $purchase->id)
+                                ->where('note', 'Purchase Account');
+                        })
+                        ->sum('stock_in');
+
                     return [
                         'name' => $item->purchaseProduct->name ?? '-',
                         'sku' => $item->purchaseProduct->sku ?? '-',
                         'qty' => number_format($item->quantity, 0, ',', '.'),
+                        'stock_in' => number_format($stockIn, 0, ',', '.'), // jika perlu ditampilkan
                         'price' => number_format($priceWithTax, 2, ',', '.'),
                         'freight' => number_format($freight, 2, ',', '.'),
                         'total_price' => number_format($priceWithTax + $freight, 2, ',', '.'),
@@ -219,10 +269,25 @@ class PurchaseListController extends Controller
                     'id' => $purchase->id,
                     'purchase_number' => $purchaseNumberHtml,
                     'purchase_date' => $date,
-                    'supplier' => $supplier,
-                    'total_amount' => $totalAmount,
-                    'paid_amount' => $paidHtml,
-                    'remaining_amount' => $remainingHtml,
+                    'supplier' => '
+                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
+                            <div class="d-flex align-items-center fw-semibold">
+                                ' . ($stockInCompleted ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+                                ' . e($purchase->supplier->name ?? '-') . '
+                            </div>
+                            <small class="text-muted">Supplier</small>
+                        </div>
+                    ',
+                    // 'total_amount' => $totalAmount,
+                    // 'paid_amount' => $paidHtml,
+                    // 'remaining_amount' => $remainingHtml,
+                    'total_amount_product' => $totalProductHtml,
+                    'paid_amount_product' => $paidProductColumn,
+                    'remaining_amount_product' => $remainProductHtml,
+
+                    'total_amount_freight' => $totalFreightHtml,
+                    'paid_amount_freight' => $paidFreightColumn,
+                    'remaining_amount_freight' => $remainFreightHtml,
                     'payment_status' => $paymentBadge,
                     'payment_method' => $paymentMethod,
                     'products' => $products,
@@ -1322,12 +1387,23 @@ class PurchaseListController extends Controller
             $paidTotal = ($purchase->paid_amount_product ?? 0) + ($purchase->paid_amount_freight ?? 0);
             $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
 
+            $paidProductColumn = '
+                <div class="text-success">Rp ' . number_format($purchase->paid_amount_product, 0, ',', '.') . '</div>
+                <small class="text-danger">Remaining: Rp ' . number_format($purchase->remaining_amount_product, 0, ',', '.') . '</small>
+            ';
+
+            $paidFreightColumn = '
+                <div class="text-success">Rp ' . number_format($purchase->paid_amount_freight, 0, ',', '.') . '</div>
+                <small class="text-danger">Remaining: Rp ' . number_format($purchase->remaining_amount_freight, 0, ',', '.') . '</small>
+            ';
+
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Pembayaran produk berhasil disimpan!',
                 'purchase' => [
                     'id'               => $purchase->id,
-                    'paid_amount_html' => '<span class="text-success">Rp ' . number_format($paidTotal, 0, ',', '.') . '</span>',
+                    'paid_amount_product_html' => $paidProductColumn,
+                    'paid_amount_freight_html' => $paidFreightColumn,
                     'remaining_amount_html' => '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>',
                     'payment_status_html' => $paymentBadge,
                     'action_html' => view('erp.pages.purchases.purchase-list.partials.action-button', [
@@ -1471,12 +1547,23 @@ class PurchaseListController extends Controller
             $paidTotal = ($purchase->paid_amount_product ?? 0) + ($purchase->paid_amount_freight ?? 0);
             $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
 
+            $paidProductColumn = '
+                <div class="text-success">Rp ' . number_format($purchase->paid_amount_product, 0, ',', '.') . '</div>
+                <small class="text-danger">Remaining: Rp ' . number_format($purchase->remaining_amount_product, 0, ',', '.') . '</small>
+            ';
+
+            $paidFreightColumn = '
+                <div class="text-success">Rp ' . number_format($purchase->paid_amount_freight, 0, ',', '.') . '</div>
+                <small class="text-danger">Remaining: Rp ' . number_format($purchase->remaining_amount_freight, 0, ',', '.') . '</small>
+            ';
+
             return response()->json([
                 'status'  => 'success',
                 'message' => 'Pembayaran freight berhasil disimpan!',
                 'purchase' => [
                     'id'               => $purchase->id,
-                    'paid_amount_html' => '<span class="text-success">Rp ' . number_format($paidTotal, 0, ',', '.') . '</span>',
+                    'paid_amount_product_html' => $paidProductColumn,
+                    'paid_amount_freight_html' => $paidFreightColumn,
                     'remaining_amount_html' => '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>',
                     'payment_status_html' => $paymentBadge,
                     'action_html' => view('erp.pages.purchases.purchase-list.partials.action-button', [

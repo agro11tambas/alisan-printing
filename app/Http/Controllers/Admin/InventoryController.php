@@ -127,23 +127,33 @@ class InventoryController extends Controller
             'data' => $data->map(function ($inventory) {
                 // 🧾 Transaction number + badge
                 if ($inventory->purchase_id) {
-                    $badge = '<span class="badge bg-soft-success text-success mb-1">Purchase</span><br>';
-                    $transactionNumber = $badge . e($inventory->purchase->purchase_number ?? '-');
+                    $badge = '<span class="badge bg-soft-success text-success mb-1">Purchase</span>';
+                    $number = e($inventory->purchase->purchase_number ?? '-');
                 } elseif ($inventory->canceled_product_id) {
-                    $badge = '<span class="badge bg-soft-warning text-warning mb-1">Canceled Product</span><br>';
-                    $transactionNumber = $badge . e($inventory->order_number ?? '-');
+                    $badge = '<span class="badge bg-soft-warning text-warning mb-1">Canceled Product</span>';
+                    $number = e($inventory->order_number ?? '-');
                 } elseif ($inventory->sale_return_id) {
-                    $badge = '<span class="badge bg-soft-danger text-danger mb-1">Sale Returns</span><br>';
-                    $transactionNumber = $badge . e($inventory->order_number ?? '-');
+                    $badge = '<span class="badge bg-soft-danger text-danger mb-1">Sale Returns</span>';
+                    $number = e($inventory->order_number ?? '-');
                 } elseif ($inventory->material_request_id) {
-                    $badge = '<span class="badge bg-soft-primary text-primary mb-1">Material Request</span><br>';
-                    $transactionNumber = $badge . e($inventory->material_request_number ?? '-');
+                    $badge = '<span class="badge bg-soft-primary text-primary mb-1">Material Request</span>';
+                    $number = e($inventory->material_request_number ?? '-');
                 } else {
-                    $transactionNumber = '-';
+                    $badge = '';
+                    $number = '-';
                 }
 
                 // 📅 Date
-                $date = Carbon::parse($inventory->created_at)->format('j M y H:i');
+                $date = Carbon::parse($inventory->created_at)->format('d M y H:i');
+
+                // 🔥 Gabungkan seperti sale list
+                $transactionDisplay = '
+                    <div>
+                        <div>' . $badge . '</div>
+                        <div class="fw-semibold">' . $number . '</div>
+                        <small class="text-muted">' . $date . '</small>
+                    </div>
+                ';
 
                 // 👤 Partner
                 if ($inventory->purchase_id) {
@@ -164,7 +174,7 @@ class InventoryController extends Controller
 
                 return [
                     'id' => $inventory->id,
-                    'transaction_number' => $transactionNumber,
+                    'transaction_number' => $transactionDisplay,
                     'date' => $date,
                     'partner_name' => $partner,
                     'stock_in' => $stockInHtml,
@@ -288,21 +298,30 @@ class InventoryController extends Controller
             'data' => $data->map(function ($inventory) {
                 // 🧾 Transaction number + badge
                 if ($inventory->purchase_return_id) {
-                    $badge = '<span class="badge bg-soft-danger text-danger mb-1">Purchase Return</span><br>';
-                    $transactionNumber = $badge . e($inventory->purchase_number ?? '-');
+                    $badge = '<span class="badge bg-soft-danger text-danger mb-1">Purchase Return</span>';
+                    $number = e($inventory->purchase_number ?? '-');
                 } elseif ($inventory->material_request_id) {
-                    $badge = '<span class="badge bg-soft-warning text-warning mb-1">Request Stock</span><br>';
-                    $transactionNumber = $badge . e($inventory->material_request_number ?? '-');
+                    $badge = '<span class="badge bg-soft-warning text-warning mb-1">Request Stock</span>';
+                    $number = e($inventory->material_request_number ?? '-');
                 } elseif ($inventory->order_id) {
-                    $badge = '<span class="badge bg-soft-success text-success mb-1">Sale List</span><br>';
-                    $transactionNumber = $badge . e($inventory->order->order_number ?? '-');
+                    $badge = '<span class="badge bg-soft-success text-success mb-1">Sale List</span>';
+                    $number = e($inventory->order->order_number ?? '-');
                 } else {
-                    $transactionNumber = '-';
+                    $badge = '';
+                    $number = '-';
                 }
 
                 // 📅 Date
-                $date = Carbon::parse($inventory->created_at)->format('j M y H:i');
-                // $date = e($inventory->date ?? '-');
+                $date = Carbon::parse($inventory->created_at)->format('d M y H:i');
+
+                // 🔥 Gabungkan semuanya
+                $transactionDisplay = '
+                    <div>
+                        <div>' . $badge . '</div>
+                        <div class="fw-semibold">' . $number . '</div>
+                        <small class="text-muted">' . $date . '</small>
+                    </div>
+                ';
 
                 // 👤 Partner Name
                 if ($inventory->purchase_return_id) {
@@ -323,7 +342,7 @@ class InventoryController extends Controller
 
                 return [
                     'id' => $inventory->id,
-                    'transaction_number' => $transactionNumber,
+                    'transaction_number' => $transactionDisplay,
                     'date' => $date,
                     'partner_name' => $partner,
                     'stock_out' => $stockOutHtml,

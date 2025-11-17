@@ -308,7 +308,10 @@ class SaleListController extends Controller
 
                     'customer' => '
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
-                            <div class="fw-semibold">' . $businessName . $completeIcon . '</div>
+                            <div class="d-flex align-items-center fw-semibold">
+                                ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+                                ' . $businessName . '
+                            </div>
                             <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
                         </div>
                     ',

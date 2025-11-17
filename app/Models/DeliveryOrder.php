@@ -112,7 +112,7 @@ class DeliveryOrder extends Model
             $readyQty   = (int) $row->ready_qty;
             $shippedQty = (int) $row->shipped_qty;
 
-            return $readyQty >= $shippedQty;
+            return $shippedQty >= $readyQty;
         });
 
         $this->status = ($allShipmentsFinished && $qtyOk) ? 'Finished' : 'Ongoing';

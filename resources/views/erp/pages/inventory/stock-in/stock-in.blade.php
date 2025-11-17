@@ -149,7 +149,7 @@
                                 <thead>
                                     <tr>
                                         <th class="wd-200">Number</th>
-                                        <th class="wd-200">Date</th>
+                                        <th class="wd-200">Supplier</th>
                                         <th>Stock In</th>
                                     </tr>
                                 </thead>
@@ -184,7 +184,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [1, 'desc']
+                    [3, 'desc']
                 ],
                 data: [],
                 columns: [
@@ -197,11 +197,16 @@
                         data: 'transaction_number'
                     },
                     {
-                        data: 'date'
+                        data: 'partner_name'
                     },
                     {
                         data: 'stock_in'
                     },
+                    {
+                        data: 'date',
+                        visible: false,
+                        searchable: false
+                    }
                 ]
             });
 

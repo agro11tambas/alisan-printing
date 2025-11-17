@@ -103,7 +103,7 @@
                                         <label for="status" class="fw-semibold fs-12">DO Status</label>
                                         <select id="status" class="form-control">
                                             <option value="Ongoing">Ongoing</option>
-                                            <option value="Shipped">Shipped</option>
+                                            {{-- <option value="Shipped">Shipped</option> --}}
                                             <option value="Finished">Finished</option>
                                         </select>
                                     </div>

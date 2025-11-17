@@ -109,14 +109,14 @@
         }
 
         .table-small thead th {
-            background-color: #f8f9fa;
+            background-color: transparent;
             /* sedikit abu-abu biar beda */
             font-weight: 600;
             white-space: nowrap;
         }
 
         .table-small tbody tr:hover {
-            background-color: #f1f3f5;
+            background-color: transparent;
             /* efek hover ringan */
         }
 

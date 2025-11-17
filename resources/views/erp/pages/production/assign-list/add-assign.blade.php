@@ -157,7 +157,7 @@
                         <div class="card-body">
                             <div class="table-responsive">
                                 <table class="table align-middle">
-                                    <thead class="table-light">
+                                    <thead>
                                         <tr>
                                             <th>Product</th>
                                             <th>Progress</th>
@@ -171,6 +171,9 @@
                                     </thead>
                                     <tbody>
                                         @foreach ($progress->items as $index => $item)
+                                            @if ($item->available_quantity <= 0)
+                                                @continue
+                                            @endif
                                             <tr>
                                                 <td>{{ $item->product->name }}</td>
                                                 <td class="text-start">
@@ -193,8 +196,8 @@
                                                         min="0" max="{{ $item->remaining_quantity }}"
                                                         placeholder="Qty">
                                                     <small class="text-muted d-block mt-1">
-                                                        Remaining:
-                                                        {{ number_format($item->remaining_quantity, 0, ',', '.') }}
+                                                        Current Stock Production:
+                                                        {{ number_format($item->available_quantity, 0, ',', '.') }}
                                                     </small>
                                                 </td>
                                                 <td>
