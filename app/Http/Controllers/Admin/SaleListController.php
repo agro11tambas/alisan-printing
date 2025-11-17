@@ -121,9 +121,27 @@ class SaleListController extends Controller
         }
         // 🔹 Pencarian keyword
         elseif ($request->filled('search_keyword')) {
+            // if ($request->search_type === 'customer') {
+            //     $orders->whereHas('customer', function ($query) use ($request) {
+            //         $query->where('name', 'like', '%' . $request->search_keyword . '%');
+            //     });
+            // } else {
+            //     $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
+            // }
+
             if ($request->search_type === 'customer') {
-                $orders->whereHas('customer', function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                $keyword = '%' . $request->search_keyword . '%';
+
+                $orders->where(function ($q) use ($keyword) {
+                    // Cari berdasarkan nama customer
+                    $q->whereHas('customer', function ($query) use ($keyword) {
+                        $query->where('name', 'like', $keyword);
+                    });
+
+                    // Cari berdasarkan business_name
+                    $q->orWhereHas('customerAddress', function ($query) use ($keyword) {
+                        $query->where('business_name', 'like', $keyword);
+                    });
                 });
             } else {
                 $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
@@ -164,7 +182,7 @@ class SaleListController extends Controller
                 $badge = match ($status) {
                     'paid' => 'bg-soft-success text-success',
                     'unpaid' => 'bg-soft-dark text-dark',
-                    'overdue' => 'bg-soft-danger text-danger',
+                    // 'overdue' => 'bg-soft-danger text-danger',
                     'overpaid' => 'bg-soft-primary text-primary',
                     'partially paid' => 'bg-soft-warning text-warning',
                     default => 'bg-secondary',
@@ -176,7 +194,36 @@ class SaleListController extends Controller
                     $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
                 }
 
-                $paymentStatus = '<div class="badge ' . $badge . '">' . ucfirst($status) . '</div>' . $verifiedIcon;
+                // $paymentStatus = '<div class="badge ' . $badge . '">' . ucfirst($status) . '</div>' . $verifiedIcon;
+
+                // =======================
+                //  CEK OVERDUE
+                // =======================
+                $isOverdue = false;
+
+                if ($order->due_date) {
+                    $due = Carbon::parse($order->due_date)->endOfDay();
+                    $today = Carbon::now();
+
+                    // overdue = due_date lewat dan belum Paid/Overpaid
+                    if ($today->gt($due) && !in_array($order->payment_status, ['Paid', 'Overpaid'])) {
+                        $isOverdue = true;
+                    }
+                }
+
+                // =======================
+                //  PAYMENT STATUS BADGE
+                // =======================
+                $paymentStatus = '
+                    <div class="d-flex align-items-center gap-1">
+                        <div class="badge ' . $badge . '">' . ucfirst($status) . '</div>'
+                    . $verifiedIcon;
+
+                if ($isOverdue) {
+                    $paymentStatus .= '<div class="badge bg-soft-danger text-danger">Overdue</div>';
+                }
+
+                $paymentStatus .= '</div>';
 
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
 
@@ -4226,6 +4273,35 @@ class SaleListController extends Controller
             $order->verified = false;
             $order->save();
 
+            // =======================================
+            // CEK OVERDUE (HANYA VISUAL)
+            // =======================================
+            $isOverdue = false;
+
+            if ($order->due_date) {
+                $due = Carbon::parse($order->due_date)->endOfDay();
+                if (now()->gt($due) && !in_array($order->payment_status, ['Paid', 'Overpaid'])) {
+                    $isOverdue = true;
+                }
+            }
+
+
+            // =======================================
+            // PAYMENT STATUS BADGE (beda kolom!)
+            // =======================================
+            $statusClass = match (strtolower($order->payment_status)) {
+                'paid' => 'bg-soft-success text-success',
+                'overpaid' => 'bg-soft-primary text-primary',
+                'partially paid' => 'bg-soft-warning text-warning',
+                default => 'bg-soft-dark text-dark',
+            };
+
+            $paymentStatusHtml = '<span class="badge ' . $statusClass . '">' . ucfirst($order->payment_status) . '</span>';
+
+            if ($isOverdue) {
+                $paymentStatusHtml .= '<span class="badge bg-soft-danger text-danger ms-1">Overdue</span>';
+            }
+
             DB::commit();
             return response()->json([
                 'status'  => 'success',
@@ -4240,7 +4316,7 @@ class SaleListController extends Controller
                     '<div class="text-success">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</div>
                         <small class="text-danger">Remaining: Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</small>',
                     // 'remaining_amount' => number_format($order->remaining_amount, 0, ',', '.'),
-                    'payment_status'   => $order->payment_status,
+                    'payment_status'   => $paymentStatusHtml,
                     'mode'             => $order->mode,
                     'notes'            => $order->notes,
                     'created_at'       => $order->created_at->format('Y-m-d H:i:s'),

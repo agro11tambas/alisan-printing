@@ -765,13 +765,25 @@ class OrderProgressAssignController extends Controller
         // }
 
         if ($request->filled('search_keyword')) {
+            $keyword = '%' . $request->search_keyword . '%';
+
             if ($request->search_type === 'customer') {
-                $batches->whereHas('orderProgress.order.customer', function ($q) use ($request) {
-                    $q->where('name', 'like', '%' . $request->search_keyword . '%');
+                $batches->where(function ($q) use ($keyword) {
+
+                    // 🔍 Cari berdasarkan nama customer
+                    $q->whereHas('orderProgress.order.customer', function ($sub) use ($keyword) {
+                        $sub->where('name', 'like', $keyword);
+                    });
+
+                    // 🔍 Cari berdasarkan business_name
+                    $q->orWhereHas('orderProgress.order.customerAddress', function ($sub) use ($keyword) {
+                        $sub->where('business_name', 'like', $keyword);
+                    });
                 });
             } else {
-                $batches->whereHas('orderProgress.order', function ($q) use ($request) {
-                    $q->where('order_number', 'like', '%' . $request->search_keyword . '%');
+                // 🔍 Cari order_number
+                $batches->whereHas('orderProgress.order', function ($q) use ($keyword) {
+                    $q->where('order_number', 'like', $keyword);
                 });
             }
         }

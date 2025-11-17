@@ -171,9 +171,9 @@
                                     </thead>
                                     <tbody>
                                         @foreach ($progress->items as $index => $item)
-                                            @if ($item->available_quantity <= 0)
+                                            {{-- @if ($item->available_quantity <= 0)
                                                 @continue
-                                            @endif
+                                            @endif --}}
                                             <tr>
                                                 <td>{{ $item->product->name }}</td>
                                                 <td class="text-start">
@@ -220,7 +220,8 @@
                                                     <div class="form-check">
                                                         <input type="checkbox" class="form-check-input bypass-check"
                                                             name="items[{{ $index }}][bypass]" value="1"
-                                                            id="bypass_{{ $index }}">
+                                                            id="bypass_{{ $index }}"
+                                                            {{ $item->available_quantity <= 0 ? 'checked' : '' }}>
                                                         <label for="bypass_{{ $index }}"
                                                             class="form-check-label small">Delete</label>
                                                     </div>
@@ -362,6 +363,17 @@
                 if (valid) $('#assignForm').submit();
             });
 
+            // AUTO DISABLE row yang bypass dari awal
+            $('.bypass-check:checked').each(function() {
+                const row = $(this).closest('tr');
+                const qtyInput = row.find('.assigned-input');
+                const operatorSelect = row.find('.operator-field');
+
+                qtyInput.val('0').prop('disabled', true);
+                operatorSelect.val('').trigger('change').prop('disabled', true);
+                row.find('.error-operator').addClass('d-none');
+            });
+
             $(document).on('change', '.bypass-check', function() {
                 const row = $(this).closest('tr');
                 const isBypass = $(this).is(':checked');
@@ -369,12 +381,10 @@
                 const operatorSelect = row.find('.operator-field');
 
                 if (isBypass) {
-                    // Disable qty & operator
                     qtyInput.val('0').prop('disabled', true);
                     operatorSelect.val('').trigger('change').prop('disabled', true);
                     row.find('.error-operator').addClass('d-none');
                 } else {
-                    // Re-enable qty & operator
                     qtyInput.prop('disabled', false);
                     operatorSelect.prop('disabled', false);
                 }

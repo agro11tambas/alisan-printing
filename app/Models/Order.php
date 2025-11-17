@@ -111,20 +111,37 @@ class Order extends Model
         return $this->hasMany(Design::class, 'order_id');
     }
 
+    // public function updatePaymentStatus()
+    // {
+    //     if ($this->paid_amount >= $this->grand_total) {
+    //         // Lunas atau lebih
+    //         $this->payment_status = $this->paid_amount > $this->grand_total ? 'Overpaid' : 'Paid';
+    //     } else {
+    //         // Belum lunas
+    //         if ($this->due_date && \Carbon\Carbon::parse($this->due_date)->isPast()) {
+    //             // Kalau due date sudah lewat → Overdue
+    //             $this->payment_status = 'Overdue';
+    //         } else {
+    //             // Belum lewat due date → bisa unpaid/partially paid
+    //             $this->payment_status = $this->paid_amount > 0 ? 'Partially Paid' : 'Unpaid';
+    //         }
+    //     }
+
+    //     $this->save();
+    // }
+
     public function updatePaymentStatus()
     {
         if ($this->paid_amount >= $this->grand_total) {
             // Lunas atau lebih
-            $this->payment_status = $this->paid_amount > $this->grand_total ? 'Overpaid' : 'Paid';
+            $this->payment_status = $this->paid_amount > $this->grand_total
+                ? 'Overpaid'
+                : 'Paid';
         } else {
             // Belum lunas
-            if ($this->due_date && \Carbon\Carbon::parse($this->due_date)->isPast()) {
-                // Kalau due date sudah lewat → Overdue
-                $this->payment_status = 'Overdue';
-            } else {
-                // Belum lewat due date → bisa unpaid/partially paid
-                $this->payment_status = $this->paid_amount > 0 ? 'Partially Paid' : 'Unpaid';
-            }
+            $this->payment_status = $this->paid_amount > 0
+                ? 'Partially Paid'
+                : 'Unpaid';
         }
 
         $this->save();

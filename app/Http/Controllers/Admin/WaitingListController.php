@@ -211,15 +211,26 @@ class WaitingListController extends Controller
             }
         }
 
-        // Filter pencarian & progress status tetap sama
         if ($request->filled('search_keyword')) {
+            $keyword = '%' . $request->search_keyword . '%';
+
             if ($request->search_type === 'customer') {
-                $baseQuery->whereHas('order.customer', function ($q) use ($request) {
-                    $q->where('name', 'like', '%' . $request->search_keyword . '%');
+                $baseQuery->where(function ($q) use ($keyword) {
+
+                    // 🔍 Cari berdasarkan nama customer
+                    $q->whereHas('order.customer', function ($sub) use ($keyword) {
+                        $sub->where('name', 'like', $keyword);
+                    });
+
+                    // 🔍 Cari berdasarkan business_name
+                    $q->orWhereHas('order.customerAddress', function ($sub) use ($keyword) {
+                        $sub->where('business_name', 'like', $keyword);
+                    });
                 });
             } else {
-                $baseQuery->whereHas('order', function ($q) use ($request) {
-                    $q->where('order_number', 'like', '%' . $request->search_keyword . '%');
+                // 🔍 Search order_number seperti biasa
+                $baseQuery->whereHas('order', function ($q) use ($keyword) {
+                    $q->where('order_number', 'like', $keyword);
                 });
             }
         }

@@ -159,15 +159,18 @@
         }
 
         /* Warna highlight baris aktif */
-        tr.action-active {
-            background-color: #f2f4f7 !important;
-            /* abu-abu lembut */
+        /* LIGHT MODE */
+        html:not(.app-skin-dark) tr.action-active {
+            background-color: #e5e9ef !important;
+            /* abu soft tapi bold */
             transition: background-color 0.2s ease-in-out;
         }
 
-        /* opsional: ubah warna teks biar tetap kontras */
-        tr.action-active td {
-            color: #212529;
+        /* DARK MODE */
+        html.app-skin-dark tr.action-active {
+            background-color: #1f2937 !important;
+            /* dark bold */
+            transition: background-color 0.2s ease-in-out;
         }
 
 
@@ -241,8 +244,8 @@
             /* z-index: 1100 !important; */
             left: 50%;
             transform: translateX(-50%);
-            background: #fff;
-            border: 1px solid #e5e7eb;
+            /* background: transparent; */
+            border: 1px solid transparent;
             border-radius: 10px;
             box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
             min-width: 200px;
@@ -253,6 +256,239 @@
         /* .card-body {
             overflow: visible !important;
         } */
+
+        /* Pastikan container utama sidebar tidak scroll */
+        .nxl-navigation {
+            overflow: hidden !important;
+        }
+
+        /* Wrapper juga jangan scroll */
+        .nxl-navigation .navbar-wrapper {
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        /* HANYA navbar-content yang boleh scroll */
+        .nxl-navigation .navbar-content {
+            height: calc(100vh - 60px) !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            padding-bottom: 50px !important;
+        }
+
+        /* HILANGKAN SCROLLBAR DI SIDEBAR */
+        .nxl-navigation .navbar-content::-webkit-scrollbar {
+            display: none !important;
+        }
+
+        /* FIX AGAR SUBMENU LEVEL 2 MUNCUL SAAT MINIMIZE */
+        html.minimenu .nxl-navigation .nxl-submenu .nxl-submenu {
+            display: block !important;
+            position: fixed !important;
+            left: calc(60px + 10px) !important;
+            /* samping icon */
+            top: auto !important;
+            z-index: 6500 !important;
+            background: #ffffff !important;
+            border-radius: 10px;
+            min-width: 200px;
+            padding: 10px 0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.534);
+        }
+
+        .nxl-navigation .nxl-hasmenu.open>.nxl-submenu {
+            display: block !important;
+        }
+
+        html:not(.app-skin-dark).minimenu .nxl-submenu {
+            position: fixed !important;
+            /* margin-left: 20px !important; */
+            left: unset !important;
+            top: unset !important;
+            z-index: 6000 !important;
+
+            background: #ffffff !important;
+            /* light mode */
+            pointer-events: auto !important;
+
+            border-radius: 12px;
+            padding: 10px 0;
+            min-width: 200px;
+
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.534);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+
+            animation: fadeIn .15s ease;
+        }
+
+        html.app-skin-dark.minimenu .nxl-submenu {
+            position: fixed !important;
+            /* margin-left: 20px !important; */
+            left: unset !important;
+            top: unset !important;
+            z-index: 6000 !important;
+
+            /* light mode */
+            pointer-events: auto !important;
+
+            border-radius: 12px;
+            padding: 10px 0;
+            min-width: 200px;
+
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.534);
+
+            animation: fadeIn .15s ease;
+            background: #111827 !important;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        /* Light Mode */
+        html:not(.app-skin-dark).minimenu .nxl-submenu li a {
+            color: #333 !important;
+        }
+
+        html:not(.app-skin-dark).minimenu .nxl-submenu li a:hover {
+            color: #000 !important;
+        }
+
+        /* separator */
+        html.minimenu .nxl-submenu li+li {
+            border-top: 1px solid transparent;
+        }
+
+        /* animasi */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* DARK MODE: active/open */
+        html.app-skin-dark .nxl-hasmenu.open>.nxl-link {
+            color: #ffffff !important;
+        }
+
+        html.app-skin-dark .nxl-navigation .nxl-submenu .nxl-link {
+            color: #e5e7eb !important;
+        }
+
+        html.app-skin-dark .nxl-navigation .nxl-submenu .nxl-link:hover {
+            color: #ffffff !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+        }
+
+        html.app-skin-dark .nxl-navigation .nxl-submenu .nxl-item.active>.nxl-link {
+            color: #ffffff !important;
+        }
+
+        html.app-skin-dark .nxl-navigation .nxl-submenu .nxl-link,
+        html.app-skin-dark .nxl-navigation .nxl-submenu .nxl-link span {
+            /* color: #e5e7eb !important; */
+        }
+
+        html.minimenu .nxl-navigation .nxl-submenu {
+            position: fixed !important;
+            top: 0 !important;
+            left: 75px !important;
+            /* tepat di samping sidebar minimize */
+            transform: translateY(calc(var(--item-top) * 1px)) !important;
+            z-index: 6000 !important;
+
+            /* background: var(--submenu-bg, #ffffff) !important; */
+            border-radius: 10px;
+            padding: 10px 0;
+            min-width: 200px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+        }
+
+        /* =========================================== */
+        /*  FINAL OVERRIDE SUBMENU FLOATING – TANPA    */
+        /*  MENGGANGGU / MENGHAPUS CSS LAIN            */
+        /* =========================================== */
+
+        /* Default: semua submenu kembali normal */
+        /* FIX TEXT SUBMENU ACCOUNT LIST DI MINIMIZE */
+        html.minimenu .nxl-submenu {
+            display: block !important;
+            position: fixed !important;
+            left: 75px !important;
+            z-index: 6000 !important;
+        }
+
+        /* Minimize: hanya LEVEL 1 yang floating */
+        html.minimenu .nxl-hasmenu>.nxl-submenu {
+            position: fixed !important;
+            left: 75px !important;
+            /* samping sidebar */
+            top: var(--submenu-top) !important;
+            display: block !important;
+
+            min-width: 220px !important;
+            padding: 10px 0 !important;
+            /* background: var(--submenu-bg, #fff) !important; */
+            border-radius: 10px !important;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15) !important;
+            z-index: 7000 !important;
+        }
+
+        /* Level 2 & 3 → kembali normal */
+        html.minimenu .nxl-hasmenu>.nxl-submenu .nxl-submenu {
+            position: absolute !important;
+            left: 100% !important;
+            top: 0 !important;
+            display: none !important;
+        }
+
+        /* Hover buka submenu level 2 */
+        html.minimenu .nxl-hasmenu>.nxl-submenu .nxl-hasmenu:hover>.nxl-submenu {
+            display: block !important;
+        }
+
+        /* HILANGKAN ICON SPACE PADA SUBMENU */
+        html.minimenu .nxl-submenu .nxl-micon {
+            width: 0 !important;
+            min-width: 0 !important;
+            margin-right: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        /* Biar teks langsung mulai dari paling kiri */
+        html.minimenu .nxl-submenu .nxl-link {
+            padding-left: 6px !important;
+        }
+
+        html.minimenu .nxl-navigation .navbar-content .nxl-submenu .nxl-link {
+            margin-left: 15px !important;
+            margin-right: 15px !important;
+        }
+
+        /* Hanya item yang BENAR-BENAR punya submenu */
+        html.minimenu .nxl-navigation .nxl-hasmenu:has(> ul.nxl-submenu)>.nxl-link {
+            position: relative;
+        }
+
+        html.minimenu .nxl-navigation .nxl-hasmenu:has(> ul.nxl-submenu)>.nxl-link::after {
+            content: "›";
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        /* Hover lebih terang */
+        html.minimenu .nxl-navigation .nxl-hasmenu:has(> ul.nxl-submenu)>.nxl-link:hover::after {
+            opacity: 1;
+        }
     </style>
 
     @stack('styles')
@@ -303,58 +539,7 @@
     <script src="https://cdn.datatables.net/scroller/2.4.1/js/dataTables.scroller.min.js"></script>
 
 
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            document.documentElement.classList.add("minimenu");
 
-            const nav = document.querySelector(".nxl-navigation .navbar-content");
-            if (!nav) return;
-
-            nav.addEventListener("click", function(e) {
-                const toggler = e.target.closest(".nxl-link");
-                if (!toggler) return;
-
-                const item = toggler.closest(".nxl-hasmenu");
-                if (!item) return;
-
-                const submenu = item.querySelector(":scope > .nxl-submenu");
-                if (!submenu) return;
-
-                const href = toggler.getAttribute("href");
-
-                if (!item.classList.contains("open")) {
-                    e.preventDefault();
-                    item.classList.add("open");
-
-                    item.parentElement.querySelectorAll(":scope > .nxl-hasmenu.open").forEach(function(
-                        other) {
-                        if (other !== item) other.classList.remove("open");
-                    });
-                } else {
-                    if (href === "#" || href === "javascript:void(0);") {
-                        e.preventDefault();
-                        item.classList.remove("open");
-                    }
-                }
-            });
-
-            const sidebar = document.querySelector(".nxl-navigation");
-            if (sidebar) {
-                sidebar.addEventListener("mouseenter", function() {
-                    document.documentElement.classList.remove("minimenu");
-                });
-                sidebar.addEventListener("mouseleave", function() {
-                    document.documentElement.classList.add("minimenu");
-                });
-            }
-        });
-
-        $.ajaxSetup({
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            }
-        });
-    </script>
 
     <script>
         window.initRowActionHandler = function(tableSelector) {
@@ -620,6 +805,167 @@
             };
 
         })();
+    </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Default langsung minimize
+            document.documentElement.classList.add("minimenu");
+
+            const nav = document.querySelector(".nxl-navigation .navbar-content");
+            if (!nav) return;
+
+            nav.addEventListener("click", function(e) {
+
+                const toggler = e.target.closest(".nxl-link");
+                if (!toggler) return;
+
+                const item = toggler.closest(".nxl-hasmenu");
+                if (!item) return;
+
+                const submenu = item.querySelector(":scope > .nxl-submenu");
+                if (!submenu) return;
+
+                const href = toggler.getAttribute("href");
+
+                // MODE SIDEBAR MINIMIZE (minimenu)
+                const isMini = document.documentElement.classList.contains("minimenu");
+
+                if (isMini) {
+                    // e.preventDefault();
+
+                    // Tutup dropdown lain
+                    document.querySelectorAll(".nxl-hasmenu .nxl-submenu").forEach(el => {
+                        if (el !== submenu) el.style.display = "none";
+                    });
+
+                    // Toggle
+                    const show = submenu.style.display !== "block";
+                    submenu.style.display = show ? "block" : "none";
+
+                    if (show) {
+                        const itemRect = item.getBoundingClientRect();
+                        const sidebarRect = document.querySelector(".nxl-navigation")
+                            .getBoundingClientRect();
+
+                        submenu.style.position = "fixed";
+
+                        // ⬅️ Posisi tepat di samping icon
+                        submenu.style.top = (itemRect.top) + "px";
+
+                        // ⬅️ Sampingin langsung setelah sidebar minimize
+                        submenu.style.left = (sidebarRect.right + 28) + "px";
+
+                        // ⬅️ Biar rata tengah icon (opsional)
+                        submenu.style.transform = "translateY(0)";
+
+                        submenu.style.zIndex = "6000";
+                        submenu.style.minWidth = "190px";
+                        submenu.style.borderRadius = "10px";
+                        submenu.style.boxShadow = "0 3px 6px rgba(0,0,0,0.20)";
+                        submenu.style.padding = "8px 0";
+
+                        // Hapus margin default yang bikin turun
+                        submenu.style.marginTop = "0";
+                    }
+
+                    return;
+                }
+
+                // MODE NORMAL (sidebar besar)
+                if (!item.classList.contains("open")) {
+                    e.preventDefault();
+                    item.classList.add("open");
+
+                    item.parentElement.querySelectorAll(":scope > .nxl-hasmenu.open").forEach(function(
+                        other) {
+                        if (other !== item) other.classList.remove("open");
+                    });
+                } else {
+                    if (href === "#" || href === "javascript:void(0);") {
+                        e.preventDefault();
+                        item.classList.remove("open");
+                    }
+                }
+            });
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+
+            const btnMini = document.getElementById("menu-mini-button");
+            const btnExpend = document.getElementById("menu-expend-button");
+
+            function closeAllMinimizeDropdowns() {
+                document.querySelectorAll(".nxl-submenu").forEach(el => {
+                    el.style.display = "none";
+                    el.removeAttribute("style"); // bersihkan floating minimize
+                });
+
+                // tutup semua open
+                document.querySelectorAll(".nxl-hasmenu.open").forEach(li => {
+                    li.classList.remove("open");
+                });
+            }
+
+            // Saat MAXIMIZE ditekan
+            if (btnExpend) {
+                btnExpend.addEventListener("click", function() {
+                    setTimeout(() => {
+                        // sidebar sudah maximize
+                        closeAllMinimizeDropdowns();
+                    }, 50);
+                });
+            }
+
+            // Saat MINIMIZE ditekan → opsional bisa bersihkan juga
+            if (btnMini) {
+                btnMini.addEventListener("click", function() {
+                    setTimeout(() => {
+                        closeAllMinimizeDropdowns();
+                    }, 50);
+                });
+            }
+
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+
+            const observer = new MutationObserver(() => {
+                document.querySelectorAll(".nxl-submenu").forEach(menu => {
+                    menu.style.background = "";
+                    menu.style.border = "";
+                });
+            });
+
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        });
+
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+
+            document.querySelectorAll(".nxl-hasmenu > .nxl-link").forEach(link => {
+
+                link.addEventListener("mouseenter", function() {
+                    if (!document.documentElement.classList.contains("minimenu")) return;
+
+                    const li = this.closest(".nxl-hasmenu");
+                    const submenu = li.querySelector(":scope > .nxl-submenu");
+                    const rect = li.getBoundingClientRect();
+
+                    submenu.style.setProperty("--submenu-top", rect.top + "px");
+                });
+
+            });
+
+        });
     </script>
 
     @stack('scripts')

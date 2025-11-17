@@ -66,14 +66,27 @@ class DeliveryOrderController extends Controller
 
         // 🔎 Search
         if ($request->filled('search_keyword')) {
+            $keyword = '%' . $request->search_keyword . '%';
+
             if ($request->search_type === 'customer') {
-                $deliveryOrders->whereHas('order.customer', function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                $deliveryOrders->where(function ($q) use ($keyword) {
+
+                    // 🔍 Cari berdasarkan nama customer
+                    $q->whereHas('order.customer', function ($sub) use ($keyword) {
+                        $sub->where('name', 'like', $keyword);
+                    });
+
+                    // 🔍 Cari berdasarkan business_name
+                    $q->orWhereHas('order.customerAddress', function ($sub) use ($keyword) {
+                        $sub->where('business_name', 'like', $keyword);
+                    });
                 });
             } else {
-                $deliveryOrders->where('delivery_number', 'like', '%' . $request->search_keyword . '%');
+                // 🔍 Search delivery number
+                $deliveryOrders->where('delivery_number', 'like', $keyword);
             }
         }
+
 
         // ✅ Hindari query count dua kali
         $totalQuery = clone $deliveryOrders;

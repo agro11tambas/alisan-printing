@@ -83,8 +83,19 @@ class DeliveryListController extends Controller
                     $deliveryLists->where('vehicle', 'like', '%' . $request->search_keyword . '%');
                     break;
                 case 'customer':
-                    $deliveryLists->whereHas('deliveryOrder', function ($q) use ($request) {
-                        $q->where('customer', 'like', '%' . $request->search_keyword . '%');
+                    $keyword = '%' . $request->search_keyword . '%';
+
+                    $deliveryLists->where(function ($q) use ($keyword) {
+
+                        // 🔍 Cari berdasarkan nama customer
+                        $q->whereHas('deliveryOrder.order.customer', function ($sub) use ($keyword) {
+                            $sub->where('name', 'like', $keyword);
+                        });
+
+                        // 🔍 Cari berdasarkan business name
+                        $q->orWhereHas('deliveryOrder.order.customerAddress', function ($sub) use ($keyword) {
+                            $sub->where('business_name', 'like', $keyword);
+                        });
                     });
                     break;
                 default:

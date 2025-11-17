@@ -1555,53 +1555,68 @@
                             return rowData && String(rowData.id) === String(orderId);
                         });
 
+                        // if (rowNode.length) {
+                        //     const row = dataTable.row(rowNode);
+                        //     const d = row.data();
+
+                        //     // 🔹 Ambil dari backend biar sesuai logika real
+                        //     d.paid_amount =
+                        //         `<span class="text-success">${res.order.paid_amount}</span>`;
+                        //     d.remaining_amount =
+                        //         `<span class="text-danger">Rp ${res.order.remaining_amount}</span>`;
+
+                        //     // 🔹 Render badge dinamis dari status backend
+                        //     // const status = res.order.payment_status?.toLowerCase() ?? '';
+                        //     // let statusBadge = '';
+
+                        //     // if (status === 'paid') {
+                        //     //     statusBadge =
+                        //     //         '<div class="badge bg-soft-success text-success">Paid</div>';
+                        //     // } else if (status === 'partially paid') {
+                        //     //     statusBadge =
+                        //     //         '<div class="badge bg-soft-warning text-warning">Partially Paid</div>';
+                        //     // } else {
+                        //     //     statusBadge =
+                        //     //         '<div class="badge bg-soft-danger text-danger">Unpaid</div>';
+                        //     // }
+
+                        //     d.payment_status = res.order.payment_status;
+
+                        //     // 🔹 Update kolom action dari backend
+                        //     // if (res.order.action) {
+                        //     //     $(rowNode).find('td:last-child').html(res.order.action);
+                        //     //     d.action = res.order.action;
+                        //     // }
+
+                        //     // 🔹 Update tampilan tabel
+                        //     $(rowNode).find('td[data-column="paid_amount"]').html(d
+                        //         .paid_amount);
+                        //     $(rowNode).find('td[data-column="remaining_amount"]').html(d
+                        //         .remaining_amount);
+                        //     $(rowNode).find('td[data-column="payment_status"]').html(
+                        //         statusBadge);
+
+                        //     row.data(d).invalidate();
+
+                        //     // 🔥 efek visual
+                        //     rowNode.addClass('bg-success-subtle');
+                        //     setTimeout(() => rowNode.removeClass('bg-success-subtle'), 1500);
+                        // }
+
                         if (rowNode.length) {
                             const row = dataTable.row(rowNode);
                             const d = row.data();
 
-                            // 🔹 Ambil dari backend biar sesuai logika real
-                            d.paid_amount =
-                                `<span class="text-success">${res.order.paid_amount}</span>`;
-                            d.remaining_amount =
-                                `<span class="text-danger">Rp ${res.order.remaining_amount}</span>`;
+                            d.paid_amount = res.order.paid_amount;
+                            d.payment_status = res.order.payment_status;
+                            d.action = res.order.action;
 
-                            // 🔹 Render badge dinamis dari status backend
-                            const status = res.order.payment_status?.toLowerCase() ?? '';
-                            let statusBadge = '';
+                            row.data(d).invalidate(); // cukup ini saja
 
-                            if (status === 'paid') {
-                                statusBadge =
-                                    '<div class="badge bg-soft-success text-success">Paid</div>';
-                            } else if (status === 'partially paid') {
-                                statusBadge =
-                                    '<div class="badge bg-soft-warning text-warning">Partially Paid</div>';
-                            } else {
-                                statusBadge =
-                                    '<div class="badge bg-soft-danger text-danger">Unpaid</div>';
-                            }
-
-                            d.payment_status = statusBadge;
-
-                            // 🔹 Update kolom action dari backend
-                            if (res.order.action) {
-                                $(rowNode).find('td:last-child').html(res.order.action);
-                                d.action = res.order.action;
-                            }
-
-                            // 🔹 Update tampilan tabel
-                            $(rowNode).find('td[data-column="paid_amount"]').html(d
-                                .paid_amount);
-                            $(rowNode).find('td[data-column="remaining_amount"]').html(d
-                                .remaining_amount);
-                            $(rowNode).find('td[data-column="payment_status"]').html(
-                                statusBadge);
-
-                            row.data(d).invalidate();
-
-                            // 🔥 efek visual
                             rowNode.addClass('bg-success-subtle');
                             setTimeout(() => rowNode.removeClass('bg-success-subtle'), 1500);
                         }
+
 
                     },
                     error: function(xhr) {

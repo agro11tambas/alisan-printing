@@ -68,8 +68,19 @@ class DesignController extends Controller
 
             switch ($request->search_type) {
                 case 'customer':
-                    $designs->whereHas('order.customer', function ($q) use ($keyword) {
-                        $q->where('name', 'like', "%{$keyword}%");
+                    $keyword = "%{$keyword}%";
+
+                    $designs->where(function ($q) use ($keyword) {
+
+                        // Cari berdasarkan nama customer
+                        $q->whereHas('order.customer', function ($sub) use ($keyword) {
+                            $sub->where('name', 'like', $keyword);
+                        });
+
+                        // Cari berdasarkan business_name
+                        $q->orWhereHas('order.customerAddress', function ($sub) use ($keyword) {
+                            $sub->where('business_name', 'like', $keyword);
+                        });
                     });
                     break;
 

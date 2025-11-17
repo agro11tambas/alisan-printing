@@ -45,7 +45,7 @@
             ->all();
 
         $customerJs = [
-            'name' => $deliveryList->deliveryOrder->order->customer->name ?? '-',
+            'name' => $deliveryList->deliveryOrder->order->business_name ?? '-',
             'address' => $deliveryList->deliveryOrder->shipping_address ?? '-',
             'phone' => $deliveryList->deliveryOrder->order->customer->phone ?? '-',
         ];
