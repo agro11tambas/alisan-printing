@@ -131,7 +131,10 @@
                                     </thead>
                                     <tbody>
                                     <tbody>
-                                        @foreach ($batch->orderProgress->items as $index => $item)
+                                        @foreach ($batch->assigns as $index => $assign)
+                                            @php
+                                                $item = $assign->progressItem;
+                                            @endphp
                                             @php
                                                 $assign = $batch->assigns->firstWhere(
                                                     'order_progress_item_id',
@@ -167,8 +170,8 @@
                                                         placeholder="Qty">
 
                                                     <small class="text-muted d-block mt-1">
-                                                        Remaining:
-                                                        {{ number_format($item->remaining_quantity, 0, ',', '.') }}
+                                                        Current Stock Production:
+                                                        {{ number_format($item->production_stock, 0, ',', '.') }}
                                                     </small>
                                                 </td>
                                                 <td>

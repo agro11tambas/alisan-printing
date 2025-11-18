@@ -91,10 +91,10 @@ class SaleOrderController extends Controller
         if ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
                 $orders->whereHas('customer', function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    $query->where('name', 'like', $request->search_keyword . '%');
                 });
             } else {
-                $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
+                $orders->where('order_number', 'like', $request->search_keyword . '%');
             }
         }
 
@@ -996,7 +996,7 @@ class SaleOrderController extends Controller
                 'remaining_amount' => $remainingAmount,
                 'payment_status' => $paymentStatus,
                 'transaction_type' => $request->transaction_type ?? null,
-                'notes' => $request->notes,
+                // 'notes' => $request->notes,
                 'payment_method' => 'Sale Account',
             ]);
 

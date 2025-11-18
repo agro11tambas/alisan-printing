@@ -95,10 +95,10 @@ class SaleReturnController extends Controller
         } elseif ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
                 $returns->whereHas('customer', function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    $query->where('name', 'like', $request->search_keyword . '%');
                 });
             } else {
-                $returns->where('order_number', 'like', '%' . $request->search_keyword . '%');
+                $returns->where('order_number', 'like', $request->search_keyword . '%');
             }
         }
 
@@ -522,6 +522,35 @@ class SaleReturnController extends Controller
 
             $saleAccount->closing_balance += $grandTotal;
             $saleAccount->save();
+
+            // =====================================================
+            // 🔹 Tambahkan ke Customer Deposit (DEBIT)
+            // =====================================================
+            $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
+
+            if ($customerDepositAccount) {
+                AccountTransaction::create([
+                    'sale_return_id'       => $saleReturn->id,
+                    'order_number'         => $saleReturn->order_number,
+                    'transaction_date'     => $request->return_date,
+                    'account_id'           => $customerDepositAccount->id,
+                    'debit'                => 0, // deposit bertambah
+                    'credit'               => $grandTotal,
+                    'note'                 => $request->note ?? '',
+                    'particular'           => 'Customer Deposit from Sale Return',
+                    'transaction_group_id' => $groupId,
+                    'verified'             => 1,
+                    'customer_id'          => $saleReturn->customer_id,
+                ]);
+
+                // 🔹 Update closing balance akun Customer Deposit
+                $customerDepositAccount->closing_balance += $grandTotal;
+                $customerDepositAccount->save();
+
+                // 🔹 Increment deposit customer
+                $saleReturn->customer->customer_deposit += $grandTotal;
+                $saleReturn->customer->save();
+            }
 
             // ================== CATAT FINANCIAL REPORT ==================
             try {
@@ -959,6 +988,88 @@ class SaleReturnController extends Controller
                 Log::error('Gagal update laporan keuangan Sale Return ID ' . $saleReturn->id . ': ' . $e->getMessage());
             }
 
+            // =====================================================
+            // 🔹 ACCOUNT TRANSACTION: SALE RETURN (DEBIT)
+            // =====================================================
+
+            $groupId = $saleReturn->transaction_group_id ?? Str::uuid();
+
+            $saleReturnAccount = Account::where('type', 'Sale Return')->first();
+
+            if ($saleReturnAccount) {
+                AccountTransaction::updateOrCreate(
+                    [
+                        'sale_return_id' => $saleReturn->id,
+                        'account_id'     => $saleReturnAccount->id,
+                    ],
+                    [
+                        'order_number'         => $saleReturn->order_number,
+                        'transaction_date'     => $request->return_date,
+                        'debit'                => $grandTotal,
+                        'credit'               => 0,
+                        'note'                 => $request->edit_note,
+                        'particular'           => 'Sale Return Updated',
+                        'transaction_group_id' => $groupId,
+                        'verified'             => 1,
+                        'customer_id'          => $saleReturn->customer_id,
+                    ]
+                );
+
+                // Update closing balance
+                $saleReturnAccount->closing_balance =
+                    AccountTransaction::where('account_id', $saleReturnAccount->id)->sum('debit')
+                    - AccountTransaction::where('account_id', $saleReturnAccount->id)->sum('credit');
+
+                $saleReturnAccount->save();
+            }
+
+
+            // =====================================================
+            // 🔹 ACCOUNT TRANSACTION: CUSTOMER DEPOSIT (DEBIT)
+            // =====================================================
+
+            $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
+
+            if ($customerDepositAccount) {
+
+                AccountTransaction::updateOrCreate(
+                    [
+                        'sale_return_id' => $saleReturn->id,
+                        'account_id'     => $customerDepositAccount->id,
+                    ],
+                    [
+                        'order_number'         => $saleReturn->order_number,
+                        'transaction_date'     => $request->return_date,
+                        'debit'                => 0,
+                        'credit'               => $grandTotal,
+                        'note'                 => $request->edit_note,
+                        'particular'           => 'Customer Deposit from Sale Return (edited)',
+                        'transaction_group_id' => $groupId,
+                        'verified'             => 1,
+                        'customer_id'          => $saleReturn->customer_id,
+                    ]
+                );
+
+                // Update closing balance Customer Deposit Account
+                $customerDepositAccount->closing_balance =
+                    AccountTransaction::where('account_id', $customerDepositAccount->id)->sum('debit')
+                    - AccountTransaction::where('account_id', $customerDepositAccount->id)->sum('credit');
+
+                $customerDepositAccount->save();
+
+                // Update customer table deposit
+                $saleReturn->customer->customer_deposit =
+                    AccountTransaction::where('customer_id', $saleReturn->customer_id)
+                    ->where('account_id', $customerDepositAccount->id)
+                    ->sum('debit')
+                    -
+                    AccountTransaction::where('customer_id', $saleReturn->customer_id)
+                    ->where('account_id', $customerDepositAccount->id)
+                    ->sum('credit');
+
+                $saleReturn->customer->save();
+            }
+
             DB::commit();
             return redirect('/erp/sales/sale-returns')->with('success', 'Sale return berhasil diperbarui.');
         } catch (\Exception $e) {
@@ -1009,9 +1120,6 @@ class SaleReturnController extends Controller
             // Simpan product_id untuk update stok nanti
             $items = $saleReturn->items;
 
-            // ======================================================
-            // 🔥 HANDLE TRANSAKSI TERKAIT (ROLLBACK CUSTOMER DEPOSIT)
-            // ======================================================
             $transactions = AccountTransaction::where('sale_return_id', $saleReturn->id)->get();
 
             $customer = $saleReturn->customer;
@@ -1025,22 +1133,21 @@ class SaleReturnController extends Controller
                 $debit  = (float) $trx->debit;
                 $credit = (float) $trx->credit;
 
-                // 1) CUSTOMER DEPOSIT → rollback
+                // 1️⃣ Rollback Customer Deposit (CREDIT)
                 if ($account->type === 'Customer Deposit') {
 
+                    // deposit dibuat saat STORE → deposit meningkat via CREDIT
+                    // rollback harus mengurangi deposit customer
                     if ($credit > 0) {
-                        // refund ke deposit → dicatat CREDIT
-                        // rollback: kurangi deposit customer
                         if ($customer) {
                             $customer->customer_deposit -= $credit;
+                            if ($customer->customer_deposit < 0) $customer->customer_deposit = 0;
                             $customer->save();
                         }
 
-                        // closing balance akun deposit
-                        if ($customerDepositAccount) {
-                            $customerDepositAccount->closing_balance -= $credit;
-                            $customerDepositAccount->save();
-                        }
+                        // closing balance akun deposit turun
+                        $account->closing_balance -= $credit;
+                        $account->save();
                     }
 
                     // hapus transaksi deposit
@@ -1048,17 +1155,22 @@ class SaleReturnController extends Controller
                     continue;
                 }
 
-                // 2) SALE RETURN ACCOUNT → rollback
+                // 2️⃣ Rollback Sale Return Account (DEBIT)
                 if ($account->type === 'Sale Return') {
-                    if ($debit > 0) $account->closing_balance -= $debit;
-                    if ($credit > 0) $account->closing_balance += $credit;
-                    $account->save();
+
+                    // di STORE → debit = grandTotal
+                    if ($debit > 0) {
+                        $account->closing_balance -= $debit;
+                        $account->save();
+                    }
 
                     $trx->delete();
                     continue;
                 }
 
-                // 3) BANK/CASH → JANGAN DIHAPUS
+                // 3️⃣ BANK/CASH
+                // Transaksi refund TIDAK BOLEH dihapus hanya karena sale return dihapus
+                // → cukup lepaskan sale_return_id agar tidak mengganggu history refund
                 $trx->sale_return_id = null;
                 $trx->note = trim(($trx->note ?? '') . ' [SaleReturn deleted]');
                 $trx->save();
@@ -1239,28 +1351,55 @@ class SaleReturnController extends Controller
             // =====================================================
 
             // Ambil akun Customer Deposit
-            $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
+            // $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
 
-            if ($customerDepositAccount) {
-                AccountTransaction::create([
-                    'sale_return_id'      => $saleReturn->id,
-                    'customer_id'         => $saleReturn->customer_id, // penting!
-                    'order_number'        => $saleReturn->order_number,
-                    'transaction_date'    => $request->transaction_date,
-                    'account_id'          => $customerDepositAccount->id,
-                    'debit'               => 0, // deposit bertambah
-                    'credit'              => $request->refund_amount,
-                    'note'                => $request->note ?? '',
-                    'particular'          => $saleAccount->name . ' - ' . $saleAccount->type,
-                    'transaction_group_id' => $groupId,
-                    'proof'               => $proofJson,
-                ]);
+            // if ($customerDepositAccount) {
+            //     AccountTransaction::create([
+            //         'sale_return_id'      => $saleReturn->id,
+            //         'customer_id'         => $saleReturn->customer_id, // penting!
+            //         'order_number'        => $saleReturn->order_number,
+            //         'transaction_date'    => $request->transaction_date,
+            //         'account_id'          => $customerDepositAccount->id,
+            //         'debit'               => 0, // deposit bertambah
+            //         'credit'              => $request->refund_amount,
+            //         'note'                => $request->note ?? '',
+            //         'particular'          => $saleAccount->name . ' - ' . $saleAccount->type,
+            //         'transaction_group_id' => $groupId,
+            //         'proof'               => $proofJson,
+            //     ]);
 
-                // Update closing balance customer deposit
-                $customerDepositAccount->closing_balance += $request->refund_amount;
-                $customerDepositAccount->save();
+            //     // Update closing balance customer deposit
+            //     $customerDepositAccount->closing_balance += $request->refund_amount;
+            //     $customerDepositAccount->save();
 
-                $saleReturn->customer->customer_deposit += $request->refund_amount;
+            //     $saleReturn->customer->customer_deposit += $request->refund_amount;
+            //     $saleReturn->customer->save();
+            // }
+
+            AccountTransaction::create([
+                'sale_return_id'      => $saleReturn->id,
+                'customer_id'         => $saleReturn->customer_id,
+                'order_number'        => $saleReturn->order_number,
+                'transaction_date'    => $request->transaction_date,
+                'account_id'          => $cashBankAccount->id,
+                'debit'               => 0,
+                'credit'              => $request->refund_amount, // CREDIT → kas berkurang
+                'note'                => $request->note ?? '',
+                'particular'          => 'Refund Sale Return',
+                'transaction_group_id' => $groupId,
+            ]);
+
+            $cashBankAccount->closing_balance -= $request->refund_amount;
+            $cashBankAccount->save();
+
+            // 🔹 DECREMENT customer deposit
+            if ($saleReturn->customer) {
+                $saleReturn->customer->customer_deposit -= $request->refund_amount;
+
+                if ($saleReturn->customer->customer_deposit < 0) {
+                    $saleReturn->customer->customer_deposit = 0;
+                }
+
                 $saleReturn->customer->save();
             }
 
@@ -1634,16 +1773,18 @@ class SaleReturnController extends Controller
 
         try {
             $saleReturn = SaleReturn::onlyTrashed()
-                ->with('items') // ambil items sekalian
+                ->with('items')
                 ->findOrFail($id);
 
-            // ✅ Restore saleReturn + relasi items
+            // Restore SaleReturn & Items
             $saleReturn->restore();
             if (method_exists($saleReturn, 'items')) {
                 $saleReturn->items()->withTrashed()->restore();
             }
 
-            // ✅ Restore transaksi terkait
+            $customer = $saleReturn->customer;
+            $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
+
             $transactions = AccountTransaction::withTrashed()
                 ->where(function ($q) use ($saleReturn) {
                     $q->where('sale_return_id', $saleReturn->id)
@@ -1655,29 +1796,58 @@ class SaleReturnController extends Controller
                 $account = Account::find($trx->account_id);
                 if (!$account) continue;
 
-                if ($account->type === 'Sale Return') {
-                    // aktifkan kembali transaksi Sale Return Account
+                $debit  = (float) $trx->debit;
+                $credit = (float) $trx->credit;
+
+                // 1️⃣ CUSTOMER DEPOSIT
+                if ($account->type === 'Customer Deposit') {
+
+                    // transaksi deposit sebelumnya CREDIT (bertambah)
                     if ($trx->trashed()) {
                         $trx->restore();
                     }
 
-                    // rollback saldo Sale Return Account
-                    if ($trx->debit > 0) {
-                        $account->closing_balance += $trx->debit;
+                    // restore saldo akun deposit
+                    if ($credit > 0) {
+                        $account->closing_balance += $credit;
                     }
-                    if ($trx->credit > 0) {
-                        $account->closing_balance -= $trx->credit;
+
+                    // restore customer deposit
+                    if ($customer) {
+                        $customer->customer_deposit += $credit;
+                        $customer->save();
                     }
-                } else {
-                    // Cash / Bank account → balikin sale_return_id
-                    $trx->sale_return_id = $saleReturn->id;
-                    $trx->note = str_replace('[SaleReturn deleted]', '', $trx->note ?? '');
-                    $trx->save();
+
+                    $account->save();
+                    continue;
                 }
 
-                $account->save();
+                // 2️⃣ SALE RETURN ACCOUNT
+                if ($account->type === 'Sale Return') {
+
+                    if ($trx->trashed()) {
+                        $trx->restore();
+                    }
+
+                    // restore saldo sale return
+                    if ($debit > 0) {
+                        $account->closing_balance += $debit;
+                    }
+                    if ($credit > 0) {
+                        $account->closing_balance -= $credit;
+                    }
+
+                    $account->save();
+                    continue;
+                }
+
+                // 3️⃣ CASH / BANK → hanya balikkan relasi
+                $trx->sale_return_id = $saleReturn->id;
+                $trx->note = str_replace('[SaleReturn deleted]', '', $trx->note ?? '');
+                $trx->save();
             }
 
+            // Restore Financial Report
             FinancialReport::withTrashed()
                 ->where('reference_table', 'sale_returns')
                 ->where('reference_id', $saleReturn->id)

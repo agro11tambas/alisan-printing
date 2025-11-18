@@ -621,6 +621,7 @@
 
         $(document).ready(function() {
             initRowActionHandler('#saleListTable');
+            initRowActionHandler('#editedSaleListTable');
             initRowActionHandler('#purchaseListTable');
             initRowActionHandler('#deliveryListTable');
             initRowActionHandler('#deliveryOrderTable');

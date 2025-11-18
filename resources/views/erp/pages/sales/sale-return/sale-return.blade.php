@@ -169,8 +169,8 @@
                                     <div class="col-md-6">
                                         <select id="search_type" class="form-control"
                                             style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                            <option value="order_number">Order Number</option>
                                             <option value="customer">Customer</option>
+                                            <option value="order_number">Order Number</option>
                                             <option value="payment_status">Payment Status</option>
                                         </select>
                                     </div>
@@ -181,7 +181,7 @@
                                         <select id="search_payment_status" class="form-control search-input d-none"
                                             style="padding: 0.5rem 1rem; font-size: 0.875rem;">
                                             <option value="">All</option>
-                                            <option value="Paid">Paid</option>
+                                            <option value="Refunded">Refunded</option>
                                             <option value="Unpaid">Unpaid</option>
                                             <option value="Partially Paid">Partially Paid</option>
                                         </select>
@@ -216,7 +216,7 @@
                                         </thead>
                                     </table>
                                 </div>
-                                <div class="tab-pane fade" id="deleted-sale-return" role="tabpanel">
+                                <div class="tab-pane fade show" id="deleted-sale-return" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="deletedSaleReturnTable">
                                         <thead>
                                             <tr>
@@ -519,31 +519,41 @@
                 }
 
                 let html = `
-        <div class="table-responsive p-2">
-            <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th>SKU</th>
-                        <th>Qty</th>
-                        <th class="text-end">Price</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
+                    <div class="table-responsive p-2">
+                        <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>SKU</th>
+                                    <th>Qty</th>
+                                    <th class="text-end">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
 
                 products.forEach(p => {
                     html += `
-            <tr>
-                <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
-                <td>${p.sku}</td>
-                <td>${p.qty}</td>
-                <td class="text-end">${p.price}</td>
-            </tr>`;
+                                <tr>
+                                    <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
+                                    <td>${p.sku}</td>
+                                    <td>${p.qty}</td>
+                                    <td class="text-end">${p.price}</td>
+                                </tr>`;
                 });
 
                 html += `</tbody></table></div>`;
                 return html;
+            }
+
+            function reloadActiveTab() {
+                const activeTab = $('#saleReturnTabs .nav-link.active').attr('href');
+
+                if (activeTab === '#deleted-sale-return') {
+                    resetAndReloadDeleted();
+                } else {
+                    resetAndReload();
+                }
             }
 
             // ========== SALE RETURN TABLE (CSR dengan Lazy Load) ==========
@@ -672,16 +682,11 @@
             }
 
             $('#filter, #apply-filter, #search_type, #search_keyword, #search_payment_status, #start_date, #end_date')
-                .on('change keyup click', function() {
+                .on('change keyup', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
-                        if ($('#filter').val() === 'custom') {
-                            $('.custom-range').removeClass('d-none');
-                        } else {
-                            $('.custom-range').addClass('d-none');
-                        }
-                        resetAndReload();
-                    }, 100);
+                        reloadActiveTab();
+                    }, 150);
                 });
 
             $('#apply-filter').on('click', function() {
@@ -908,29 +913,23 @@
             }
 
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
-                if ($(e.target).attr('href') === '#deleted-sale-return') {
-                    if (!deletedTableInitialized) {
-                        initDeletedTable();
-                        loadMoreDeletedData();
-                    } else {
-                        resetAndReloadDeleted();
-                    }
-                }
-            });
+                const target = $(e.target).attr('href');
 
-            $('#filter, #apply-filter, #search_type, #search_payment_status').on('change click', function() {
-                if ($('a[data-bs-toggle="tab"][href="#deleted-sale-return"]').parent().hasClass('active')) {
+                if (target === '#sale-return') {
+                    resetAndReload();
+                }
+
+                if (target === '#deleted-sale-return') {
+                    if (!deletedTableInitialized) initDeletedTable();
                     resetAndReloadDeleted();
                 }
             });
 
             $('#search_keyword').on('keyup', function() {
-                if ($('a[data-bs-toggle="tab"][href="#deleted-sale-return"]').parent().hasClass('active')) {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => {
-                        resetAndReloadDeleted();
-                    }, 500);
-                }
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    reloadActiveTab();
+                }, 300);
             });
 
             // Paste proof functionality

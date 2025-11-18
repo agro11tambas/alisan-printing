@@ -88,10 +88,10 @@ class PurchaseReturnController extends Controller
         } elseif ($request->filled('search_keyword')) {
             if ($request->search_type === 'supplier') {
                 $purchases->whereHas('supplier', function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    $query->where('name', 'like', $request->search_keyword . '%');
                 });
             } else {
-                $purchases->where('purchase_number', 'like', '%' . $request->search_keyword . '%');
+                $purchases->where('purchase_number', 'like', $request->search_keyword . '%');
             }
         }
 
@@ -204,6 +204,53 @@ class PurchaseReturnController extends Controller
             ->with(['supplier', 'items.product', 'deletedByUser'])
             ->where('status', 'Purchase Returns')
             ->orderByDesc('id');
+
+        // === FILTER DATE ===
+        if ($request->filter) {
+            switch ($request->filter) {
+                case 'today':
+                    $returns->whereDate('return_date', Carbon::today());
+                    break;
+                case 'last_7_days':
+                    $returns->whereBetween('return_date', [Carbon::now()->subDays(7), Carbon::now()]);
+                    break;
+                case 'this_month':
+                    $returns->whereMonth('return_date', Carbon::now()->month)
+                        ->whereYear('return_date', Carbon::now()->year);
+                    break;
+                case 'last_30_days':
+                    $returns->whereBetween('return_date', [Carbon::now()->subDays(30), Carbon::now()]);
+                    break;
+                case 'year_to_date':
+                    $returns->whereBetween('return_date', [Carbon::now()->startOfYear(), Carbon::now()]);
+                    break;
+                case 'yearly':
+                    $returns->whereYear('return_date', Carbon::now()->year);
+                    break;
+                case 'custom':
+                    if ($request->filled('start_date') && $request->filled('end_date')) {
+                        $returns->whereBetween('return_date', [$request->start_date, $request->end_date]);
+                    }
+                    break;
+            }
+        }
+
+        // === FILTER SEARCH ===
+        if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
+            if ($request->payment_status === 'Paid') {
+                $returns->whereIn('payment_status', ['Paid', 'Over Refunded']);
+            } else {
+                $returns->where('payment_status', $request->payment_status);
+            }
+        } elseif ($request->filled('search_keyword')) {
+            if ($request->search_type === 'supplier') {
+                $returns->whereHas('supplier', function ($query) use ($request) {
+                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                });
+            } else {
+                $returns->where('purchase_number', 'like', '%' . $request->search_keyword . '%');
+            }
+        }
 
         // ✅ Hitung total data sebelum pagination
         $totalQuery = clone $returns;

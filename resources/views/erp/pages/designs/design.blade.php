@@ -521,23 +521,80 @@
                 }
             });
 
+            // $('#uploadForm').on('submit', function(e) {
+            //     e.preventDefault();
+
+            //     if (pastedImageBlobs.length === 0 && !$('#preview_image')[0].files.length) {
+            //         Swal.fire({
+            //             icon: 'warning',
+            //             title: 'No image selected',
+            //             text: 'Silakan upload atau paste minimal 1 gambar.',
+            //         });
+            //         return;
+            //     }
+
+            //     const formData = new FormData(this);
+
+            //     formData.delete('preview_image[]');
+            //     formData.delete('note_per_image[]');
+
+            //     const notes = [];
+            //     $('#previewContainer .note-input').each(function() {
+            //         notes.push($(this).val());
+            //     });
+
+            //     pastedImageBlobs.forEach((blob, index) => {
+            //         formData.append('preview_image[]', blob, `screenshot_${index + 1}.png`);
+            //         formData.append('note_per_image[]', notes[index] || '');
+            //     });
+
+            //     $.ajax({
+            //         url: '/erp/design-items/' + $('#design_item_id').val() + '/upload',
+            //         method: 'POST',
+            //         data: formData,
+            //         processData: false,
+            //         contentType: false,
+            //         success: function(res) {
+            //             $('#uploadModal').modal('hide');
+            //             Swal.fire({
+            //                 icon: 'success',
+            //                 title: 'Success',
+            //                 text: res.message,
+            //             });
+            //             resetAndReload();
+            //         },
+            //         error: function(err) {
+            //             Swal.fire({
+            //                 icon: 'error',
+            //                 title: 'Failed',
+            //                 text: err.responseJSON?.message || 'Upload failed.',
+            //             });
+            //         }
+            //     });
+            // });
+
             $('#uploadForm').on('submit', function(e) {
                 e.preventDefault();
 
-                if (pastedImageBlobs.length === 0 && !$('#preview_image')[0].files.length) {
+                if (pastedImageBlobs.length === 0) {
                     Swal.fire({
                         icon: 'warning',
                         title: 'No image selected',
-                        text: 'Silakan upload atau paste minimal 1 gambar.',
+                        text: 'Silakan upload atau paste minimal 1 gambar.'
                     });
                     return;
                 }
 
                 const formData = new FormData(this);
 
+                // Tambahkan token manual untuk memastikan tidak hilang
+                formData.append('_token', $('meta[name="csrf-token"]').attr('content'));
+
+                // Buang input preview lama (yang sudah dihapus dari HTML)
                 formData.delete('preview_image[]');
                 formData.delete('note_per_image[]');
 
+                // Tambahkan file hasil paste
                 const notes = [];
                 $('#previewContainer .note-input').each(function() {
                     notes.push($(this).val());

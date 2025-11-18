@@ -307,12 +307,12 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        {{-- <div class="row g-3 mb-3">
                             <div class="col-md-12">
                                 <label for="notes" class="fw-semibold">Note:</label>
                                 <textarea class="form-control" name="notes" id="notes" rows="3"></textarea>
                             </div>
-                        </div>
+                        </div> --}}
                     </div>
                     <div class="modal-footer d-flex justify-content-between">
                         <div>

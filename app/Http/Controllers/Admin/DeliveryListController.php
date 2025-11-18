@@ -65,7 +65,7 @@ class DeliveryListController extends Controller
 
             $deliveryLists->whereHas('items.product', function ($q) use ($productKeyword) {
                 // gunakan COLLATE biar bisa handle tanda kurung
-                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["{$productKeyword}%"]);
             });
         }
 
@@ -312,6 +312,7 @@ class DeliveryListController extends Controller
                     'items_mobile' => $itemsMobile,
                     'proof_photos' => $proofPhotos,
                     'action' => $action,
+                    'created_at' => $dl->created_at,
                 ];
             }),
             'has_more' => $totalData > ($start + $length),

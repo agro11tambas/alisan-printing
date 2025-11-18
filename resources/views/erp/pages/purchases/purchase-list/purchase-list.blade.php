@@ -242,7 +242,7 @@
                                         </thead>
                                     </table>
                                 </div>
-                                <div class="tab-pane fade" id="deleted-purchase-list" role="tabpanel">
+                                <div class="tab-pane fade show" id="deleted-purchase-list" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="deletedPurchaseListTable">
                                         <thead>
                                             <tr>
@@ -648,42 +648,52 @@
                 }
 
                 let html = `
-            <div class="table-responsive p-2">
-                <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>SKU</th>
-                            <th>Qty</th>
-                            <th class="text-end">Price + Tax</th>
-                            <th class="text-end">Freight</th>
-                            <th class="text-end">Total</th>
-                            <th class="text-end">Stock In</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
+                    <div class="table-responsive p-2">
+                        <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>SKU</th>
+                                    <th>Qty</th>
+                                    <th class="text-end">Price + Tax</th>
+                                    <th class="text-end">Freight</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-end">Stock In</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
 
                 products.forEach(p => {
                     html += `
-                <tr>
-                    <td>${p.name}</td>
-                    <td>${p.sku}</td>
-                    <td>${p.qty}</td>
-                    <td class="text-end">${p.price}</td>
-                    <td class="text-end">${p.freight}</td>
-                    <td class="text-end">${p.total_price}</td>
-                    <td class="text-end">${p.stock_in} / ${p.qty}</td>
-                </tr>
-            `;
+                                <tr>
+                                    <td>${p.name}</td>
+                                    <td>${p.sku}</td>
+                                    <td>${p.qty}</td>
+                                    <td class="text-end">${p.price}</td>
+                                    <td class="text-end">${p.freight}</td>
+                                    <td class="text-end">${p.total_price}</td>
+                                    <td class="text-end">${p.stock_in} / ${p.qty}</td>
+                                </tr>
+                    `;
                 });
 
                 html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
+                            </tbody>
+                        </table>
+                    </div>
+                `;
                 return html;
+            }
+
+            function reloadActiveTab() {
+                const activeTab = $('#purchaseListTabs .nav-link.active').attr('href');
+
+                if (activeTab === '#deleted-purchase-list') {
+                    resetAndReloadDeleted();
+                } else {
+                    resetAndReload();
+                }
             }
 
             let allData = [];
@@ -817,23 +827,47 @@
                 loadMoreData();
             }
 
-            // Event handlers untuk filter
-            $('#filter, #apply-filter, #search_type, #search_keyword, #search_payment_status, #due_date_order, #start_date, #end_date')
-                .on('change keyup click', function() {
-                    clearTimeout(searchTimer);
-                    searchTimer = setTimeout(() => {
-                        if ($('#filter').val() === 'custom') {
-                            $('.custom-range').removeClass('d-none');
-                        } else {
-                            $('.custom-range').addClass('d-none');
-                        }
-                        resetAndReload();
-                    }, 100);
-                });
-
+            // Apply filter (RESET)
             $('#apply-filter').on('click', function() {
-                resetAndReload();
+                reloadActiveTab(); // reset table
             });
+
+            // Search keyword (RESET)
+            $('#search_keyword').on('keyup', function() {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    reloadActiveTab();
+                }, 250);
+            });
+
+            // Search type (RESET)
+            $('#search_type').on('change', function() {
+                reloadActiveTab();
+            });
+
+            // Payment status (RESET)
+            $('#search_payment_status').on('change', function() {
+                reloadActiveTab();
+            });
+
+            // SHOW / HIDE custom date range
+            $('#filter').on('change', function() {
+                if ($(this).val() === 'custom') {
+                    $('.custom-range').removeClass('d-none');
+                } else {
+                    $('.custom-range').addClass('d-none');
+                    $('#start_date').val('');
+                    $('#end_date').val('');
+                }
+
+                reloadActiveTab(); // FIX TODAY & CUSTOM
+            });
+
+            // Apply filter button
+            $('#apply-filter').on('click', function() {
+                reloadActiveTab();
+            });
+
 
             $('#search_type').on('change', function() {
                 const selected = $(this).val();
@@ -852,7 +886,7 @@
                     $('#due_date_order').addClass('d-none');
                 }
 
-                resetAndReload();
+                reloadActiveTab();
             });
 
             $('#due_date_order').on('change', function() {
@@ -861,19 +895,15 @@
                 }
             });
 
-            // Debounce untuk search keyword
-            let searchTimeout = null;
             $('#search_keyword').on('keyup', function() {
-                if ($('#search_type').val() !== 'payment_status') {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => resetAndReload(), 400);
-                }
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    reloadActiveTab();
+                }, 300);
             });
 
             $('#search_payment_status').on('change', function() {
-                if ($('#search_type').val() === 'payment_status') {
-                    resetAndReload();
-                }
+                reloadActiveTab();
             });
 
             // Expand/collapse products detail
@@ -992,19 +1022,23 @@
                 deletedTableInitialized = true;
 
                 // Lazy load saat scroll untuk deleted table
-                $('#deletedPurchaseListTable').closest('.dataTables_scrollBody').on('scroll', function() {
-                    clearTimeout(scrollTimeout);
+                $('#deletedPurchaseListTable')
+                    .closest('.dataTables_wrapper')
+                    .find('.dataTables_scrollBody')
+                    .on('scroll', function() {
 
-                    const scrollTop = $(this).scrollTop();
-                    const scrollHeight = $(this)[0].scrollHeight;
-                    const clientHeight = $(this).height();
+                        clearTimeout(scrollTimeout);
 
-                    scrollTimeout = setTimeout(() => {
-                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
-                            loadMoreDeletedData();
-                        }
-                    }, 200);
-                });
+                        const scrollTop = $(this).scrollTop();
+                        const scrollHeight = this.scrollHeight;
+                        const clientHeight = $(this).height();
+
+                        scrollTimeout = setTimeout(() => {
+                            if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                                loadMoreDeletedData();
+                            }
+                        }, 200);
+                    });
 
                 // Expand products di deleted table
                 $('#deletedPurchaseListTable tbody').on('click', 'td.dt-control', function() {
@@ -1073,33 +1107,33 @@
                 loadMoreDeletedData();
             }
 
-            // Tab switch handler
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
-                if ($(e.target).attr('href') === '#deleted-purchase-list') {
-                    if (!deletedTableInitialized) {
-                        initDeletedTable();
-                        loadMoreDeletedData();
-                    } else {
-                        resetAndReloadDeleted();
-                    }
+                const target = $(e.target).attr('href');
+
+                if (target === '#purchase-list') {
+                    reloadActiveTab();
+                }
+
+                if (target === '#deleted-purchase-list') {
+                    if (!deletedTableInitialized) initDeletedTable();
+                    reloadActiveTab();
                 }
             });
+
 
             // Filter change untuk deleted table
             $('#filter, #apply-filter, #search_type, #due_date_order, #search_payment_status').on('change click',
                 function() {
-                    if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent().hasClass(
-                            'active')) {
-                        resetAndReloadDeleted();
+                    if ($('#purchaseListTabs .nav-link.active').attr('href') === '#deleted-purchase-list') {
+                        reloadActiveTab();
                     }
                 });
 
             $('#search_keyword').on('keyup', function() {
-                if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent().hasClass(
-                        'active')) {
+                if ($('#purchaseListTabs .nav-link.active').attr('href') === '#deleted-purchase-list') {
                     clearTimeout(searchTimeout);
                     searchTimeout = setTimeout(() => {
-                        resetAndReloadDeleted();
+                        reloadActiveTab();
                     }, 400);
                 }
             });
@@ -1409,9 +1443,9 @@
                         loadMoreData();
 
                         // 🔁 Reload deleted table kalau tab sedang aktif
-                        if ($('a[data-bs-toggle="tab"][href="#deleted-purchase-list"]').parent()
-                            .hasClass('active')) {
-                            resetAndReloadDeleted();
+                        if ($('#purchaseListTabs .nav-link.active').attr('href') ===
+                            '#deleted-purchase-list') {
+                            reloadActiveTab();
                         }
                     },
                     error: function(xhr) {

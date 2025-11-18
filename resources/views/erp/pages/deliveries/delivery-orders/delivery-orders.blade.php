@@ -278,7 +278,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [3, 'desc']
+                    [4, 'asc']
                 ],
                 data: [],
                 columns: [
@@ -300,8 +300,8 @@
                         name: 'order_notes'
                     },
                     {
-                        data: 'id',
-                        name: 'id',
+                        data: 'created_at',
+                        name: 'created_at',
                         visible: false,
                         searchable: false
                     },

@@ -80,10 +80,10 @@ class PurchaseOrderController extends Controller
         if ($request->filled('search_keyword')) {
             if ($request->search_type === 'supplier') {
                 $purchases->whereHas('supplier', function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    $query->where('name', 'like', $request->search_keyword . '%');
                 });
             } else {
-                $purchases->where('purchase_number', 'like', '%' . $request->search_keyword . '%');
+                $purchases->where('purchase_number', 'like', $request->search_keyword . '%');
             }
         }
 

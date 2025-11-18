@@ -16,12 +16,19 @@
                     <i class="feather-arrow-right"></i>
                 </a>
             </div>
+            <div>
+                <h4 class="mb-0 nxl-page-title text-danger">Harap refresh halaman terlebih dahulu sebelum melakukan
+                    tindakan apa pun.
+                    (tekan F5)
+                </h4>
+            </div>
         </div>
         <div class="header-right ms-auto">
             <div class="d-flex align-items-center">
                 <div class="nxl-h-item d-none d-sm-flex">
                     <div class="full-screen-switcher">
-                        <a href="javascript:void(0);" class="nxl-head-link me-0" onclick="$('body').fullScreenHelper('toggle');">
+                        <a href="javascript:void(0);" class="nxl-head-link me-0"
+                            onclick="$('body').fullScreenHelper('toggle');">
                             <i class="feather-maximize maximize"></i>
                             <i class="feather-minimize minimize"></i>
                         </a>
@@ -99,15 +106,19 @@
                     </div>
                 </div> -->
                 <div class="dropdown nxl-h-item">
-                    <a href="javascript:void(0);" data-bs-toggle="dropdown" role="button" data-bs-auto-close="outside">
-                        <img src="./../assets/images/avatar/1.png" alt="user-image" class="img-fluid user-avtar me-0">
+                    <a href="javascript:void(0);" data-bs-toggle="dropdown" role="button"
+                        data-bs-auto-close="outside">
+                        <img src="./../assets/images/avatar/1.png" alt="user-image"
+                            class="img-fluid user-avtar me-0">
                     </a>
                     <div class="dropdown-menu dropdown-menu-end nxl-h-dropdown nxl-user-dropdown">
                         <div class="dropdown-header">
                             <div class="d-flex align-items-center">
                                 {{-- <img src="{{ asset('storage/uploads/products/default.png') }}" alt="user-image" class="img-fluid user-avtar"> --}}
                                 <div>
-                                    <h6 class="text-dark mb-0">{{ Auth::user()->name}}<span class="badge bg-soft-success text-success ms-1">{{ Auth::user()->role}}</span></h6>
+                                    <h6 class="text-dark mb-0">{{ Auth::user()->name }}<span
+                                            class="badge bg-soft-success text-success ms-1">{{ Auth::user()->role }}</span>
+                                    </h6>
                                 </div>
                             </div>
                         </div>

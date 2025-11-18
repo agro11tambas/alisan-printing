@@ -5,21 +5,26 @@
         @media (max-width: 768px) {
 
             #saleListTable td.desktop-only,
-            #saleListTable th.desktop-only {
+            #saleListTable th.desktop-only,
+            #editedSaleListTable td.desktop-only,
+            #editedSaleListTable th.desktop-only {
                 display: none !important;
             }
         }
 
-        #saleListTable {
+        #saleListTable,
+        #editedSaleListTable {
             width: 100% !important;
             min-width: 0;
         }
 
-        #saleListTable td.action-cell {
+        #saleListTable td.action-cell,
+        #editedSaleListTable td.action-cell {
             display: none;
         }
 
-        #saleListTable_wrapper .dataTables_scrollBody {
+        #saleListTable_wrapper .dataTables_scrollBody,
+        #editedSaleListTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
             height: 60vh !important;
             overflow-y: auto !important;
@@ -35,7 +40,8 @@
             scroll-behavior: smooth;
         }
 
-        #saleListTable tbody tr {
+        #saleListTable tbody tr,
+        #editedSaleListTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
 
@@ -43,7 +49,6 @@
             white-space: normal !important;
             word-wrap: break-word !important;
             max-width: 200px;
-            /* bebas ubah */
         }
 
         .static-action-menu {
@@ -266,7 +271,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="tab-pane fade" id="edited-sale-list" role="tabpanel">
+                                <div class="tab-pane fade show" id="edited-sale-list" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="editedSaleListTable">
                                         <thead>
                                             <tr>
@@ -290,7 +295,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="tab-pane fade" id="deleted-sale-list" role="tabpanel">
+                                <div class="tab-pane fade show" id="deleted-sale-list" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="deletedSaleListTable">
                                         <thead>
                                             <tr>
@@ -743,6 +748,18 @@
                 return html;
             }
 
+            function reloadActiveTab() {
+                const activeTab = $('#saleListTabs .nav-link.active').attr('href');
+
+                if (activeTab === '#deleted-sale-list') {
+                    resetAndReloadDeleted();
+                } else if (activeTab === '#edited-sale-list') {
+                    resetAndReloadEdited();
+                } else {
+                    resetAndReload();
+                }
+            }
+
             // ========== SALE LIST TABLE (dengan Lazy Load) ==========
             let allData = [];
             let currentPage = 0;
@@ -897,36 +914,20 @@
 
             // Event handlers untuk filter SALE LIST
             $('#filter').on('change', function() {
-                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
-                    .hasClass('active');
-
                 if ($(this).val() === 'custom') {
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
-                    if (!isDeletedTab) {
-                        resetAndReload();
-                    } else {
-                        resetAndReloadDeleted();
-                    }
+                    reloadActiveTab();
                 }
             });
 
             $('#apply-filter').on('click', function() {
-                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
-                    .hasClass('active');
-
-                if (!isDeletedTab) {
-                    resetAndReload();
-                } else {
-                    resetAndReloadDeleted();
-                }
+                reloadActiveTab();
             });
 
             $('#search_type').on('change', function() {
                 const selected = $(this).val();
-                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
-                    .hasClass('active');
 
                 if (selected === 'payment_status') {
                     $('#search_keyword').addClass('d-none').val('');
@@ -941,24 +942,11 @@
                     $('#search_payment_status').addClass('d-none').val('');
                     $('#due_date_order').addClass('d-none');
                 }
-
-                // if (!isDeletedTab) {
-                //     resetAndReload();
-                // } else {
-                //     resetAndReloadDeleted();
-                // }
             });
 
             $('#due_date_order').on('change', function() {
-                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
-                    .hasClass('active');
-
                 if ($('#search_type').val() === 'due_date') {
-                    if (!isDeletedTab) {
-                        resetAndReload();
-                    } else {
-                        resetAndReloadDeleted();
-                    }
+                    reloadActiveTab();
                 }
             });
 
@@ -979,37 +967,17 @@
                     clearTimeout(searchTimer);
 
                     searchTimer = setTimeout(() => {
-                        const keyword = $('#search_keyword').val().trim();
-                        const paymentStatus = $('#search_payment_status').val();
-                        const dueDate = $('#due_date_order').val();
-
-                        if (!keyword && !paymentStatus && !dueDate) return;
-
-                        const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]')
-                            .parent().hasClass('active');
-
                         const currentState = detectFilterChange();
                         if (currentState !== lastFilterState) {
                             lastFilterState = currentState;
-                            if (!isDeletedTab) {
-                                loadMoreData(true);
-                            } else {
-                                resetAndReloadDeleted();
-                            }
+                            reloadActiveTab();
                         }
                     }, 200);
                 });
 
             $('#search_payment_status').on('change', function() {
-                const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-sale-list"]').parent()
-                    .hasClass('active');
-
                 if ($('#search_type').val() === 'payment_status') {
-                    if (!isDeletedTab) {
-                        resetAndReload();
-                    } else {
-                        resetAndReloadDeleted();
-                    }
+                    reloadActiveTab();
                 }
             });
 
@@ -1061,18 +1029,31 @@
             });
 
             // Close action dropdown saat klik di luar
+            // $(document).on('click', function(e) {
+            //     if ($(e.target).closest('#saleListTable').length) return;
+            //     $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+            // });
+
+            // Close action dropdown saat klik di luar - SALE LIST (setelah action button dropdown sale list)
             $(document).on('click', function(e) {
-                if ($(e.target).closest('#saleListTable').length) return;
+                // Cek apakah klik di dalam salah satu tabel
+                if ($(e.target).closest('#saleListTable, #editedSaleListTable, #deletedSaleListTable')
+                    .length) return;
+
+                // Tutup semua action row di semua tabel
                 $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+                $('#editedSaleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // ========== EDITED SALE LIST TABLE ==========
+            // ========== EDITED SALE LIST TABLE (100% SAMA dengan SALE LIST) ==========
             let editedData = [];
             let editedPage = 0;
             let editedIsLoading = false;
             let editedHasMoreData = true;
             let editedTable = null;
             let editedInitialized = false;
+            let editedCurrentRequest = null;
+            let editedScrollTimeout = null;
 
             function initEditedTable() {
                 if (editedInitialized) return;
@@ -1128,25 +1109,66 @@
 
                 editedInitialized = true;
 
-                $('#editedSaleListTable').closest('.dataTables_scrollBody').on('scroll', function() {
+                // 🔥 Lazy load scroll untuk EDITED TABLE
+                $('#editedSaleListTable').parents('.dataTables_scrollBody').on('scroll', function() {
+                    clearTimeout(editedScrollTimeout);
+
                     const scrollTop = $(this).scrollTop();
                     const scrollHeight = $(this)[0].scrollHeight;
                     const clientHeight = $(this).height();
 
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
-                        loadMoreEdited();
-                    }
+                    editedScrollTimeout = setTimeout(() => {
+                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                            loadMoreEdited();
+                        }
+                    }, 200);
                 });
 
+                // 🔥 Expand/collapse products - EDITED
                 $('#editedSaleListTable tbody').on('click', 'td.dt-control', function() {
                     let tr = $(this).closest('tr');
                     let row = editedTable.row(tr);
+                    let icon = $(this).find('i');
+
                     if (row.child.isShown()) {
                         row.child.hide();
                         tr.removeClass('shown');
+                        icon.removeClass('feather-minus').addClass('feather-plus');
                     } else {
                         row.child(formatProducts(row.data().products)).show();
                         tr.addClass('shown');
+                        icon.removeClass('feather-plus').addClass('feather-minus');
+                    }
+                });
+
+                // 🔥 Action button dropdown - EDITED (SAMA PERSIS dengan sale list)
+                $('#editedSaleListTable tbody').on('click', 'tr', function(e) {
+                    if ($(e.target).closest('td.dt-control').length) return;
+
+                    let $tr = $(this);
+                    let row = editedTable.row($tr);
+
+                    $('#editedSaleListTable tbody tr').removeClass('action-shown').next('.action-row')
+                        .remove();
+
+                    if ($tr.hasClass('action-shown')) {
+                        $tr.removeClass('action-shown');
+                    } else {
+                        let actionHtml = row.data().action;
+                        let colCount = $tr.find('td').length;
+
+                        let $actionRow = $(`
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center">
+                            ${actionHtml}
+                        </div>
+                    </td>
+                </tr>
+            `);
+
+                        $tr.after($actionRow);
+                        $tr.addClass('action-shown');
                     }
                 });
             }
@@ -1164,12 +1186,17 @@
                     editedTable.clear().draw();
                 }
 
-                $.ajax({
-                    url: "{{ url('/erp/sales/sale-list/data-edited') }}",
+                if (editedCurrentRequest) {
+                    editedCurrentRequest.abort();
+                }
+
+                editedCurrentRequest = $.ajax({
+                    url: "{{ url('/erp/sales/sale-list/data') }}", // 🔥 ENDPOINT SAMA!
                     type: 'GET',
                     data: {
                         start: editedPage * 50,
                         length: 50,
+                        show_edited: 1, // 🔥 INI PARAMETER PEMBEDA
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -1178,19 +1205,45 @@
                         payment_status: $('#search_payment_status').val(),
                         due_date_order: $('#due_date_order').val()
                     },
-                    success: function(res) {
-                        if (res.data.length > 0) {
-                            editedData = editedData.concat(res.data);
-                            editedTable.clear().rows.add(editedData).draw(false);
+                    success: function(response) {
+                        if (response && response.data && response.data.length > 0) {
+                            if (reset) editedData = [];
+                            editedData = editedData.concat(response.data);
+                            editedTable.clear();
+                            editedTable.rows.add(editedData);
+                            editedTable.draw(false);
                             editedPage++;
+                            editedHasMoreData = true;
                         } else {
-                            editedHasMoreData = false;
+                            if (reset) {
+                                editedPage = 0;
+                                editedHasMoreData = true;
+                            } else {
+                                editedHasMoreData = false;
+                            }
                         }
                     },
                     complete: function() {
                         editedIsLoading = false;
+                        editedCurrentRequest = null;
+                    },
+                    error: function(xhr) {
+                        if (xhr.statusText !== "abort") {
+                            console.error("AJAX error:", xhr);
+                        }
+                        editedIsLoading = false;
                     }
                 });
+            }
+
+            function resetAndReloadEdited() {
+                editedData = [];
+                editedPage = 0;
+                editedHasMoreData = true;
+                if (editedTable) {
+                    editedTable.clear().draw();
+                }
+                loadMoreEdited();
             }
 
             // ========== DELETED SALE LIST TABLE (dengan Lazy Load CSR) ==========
@@ -1258,15 +1311,15 @@
 
                 deletedTableInitialized = true;
 
-                // Lazy load saat scroll untuk deleted table
-                $('#deletedSaleListTable').closest('.dataTables_scrollBody').on('scroll', function() {
-                    clearTimeout(scrollTimeout);
+                let deletedScrollTimeout = null; // 🔥 BIKIN VARIABLE BARU!
+                $('#deletedSaleListTable').parents('.dataTables_scrollBody').on('scroll', function() {
+                    clearTimeout(deletedScrollTimeout); // 🔥 PAKAI INI!
 
                     const scrollTop = $(this).scrollTop();
                     const scrollHeight = $(this)[0].scrollHeight;
                     const clientHeight = $(this).height();
 
-                    scrollTimeout = setTimeout(() => {
+                    deletedScrollTimeout = setTimeout(() => { // 🔥 PAKAI INI!
                         if (scrollTop + clientHeight >= scrollHeight * 0.85) {
                             loadMoreDeletedData();
                         }
@@ -1340,102 +1393,163 @@
                 loadMoreDeletedData();
             }
 
-            // Tab switch handler
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
-                if ($(e.target).attr('href') === '#deleted-sale-list') {
-                    if (!deletedTableInitialized) {
-                        initDeletedTable();
-                        loadMoreDeletedData();
-                    } else {
-                        resetAndReloadDeleted();
-                    }
+                const target = $(e.target).attr('href');
+
+                if (target === '#sale-list') {
+                    resetAndReload(); // 🔥 INI YANG PERLU DITAMBAHKAN
                 }
 
-                if ($(e.target).attr('href') === '#edited-sale-list') {
-                    if (!editedInitialized) {
-                        initEditedTable();
-                        loadMoreEdited();
-                    } else {
-                        loadMoreEdited(true);
-                    }
+                if (target === '#edited-sale-list') {
+                    if (!editedInitialized) initEditedTable();
+                    resetAndReloadEdited();
                 }
 
+                if (target === '#deleted-sale-list') {
+                    if (!deletedTableInitialized) initDeletedTable();
+                    resetAndReloadDeleted();
+                }
             });
 
+
             // Paste proof functionality
+            // let pastedProofBlobs = [];
+
+            // const pasteArea = document.getElementById('pasteProofArea');
+            // const previewContainer = document.getElementById('proofPreviewContainer');
+
+            // if (pasteArea) {
+            //     pasteArea.setAttribute('tabindex', '0'); // Make focusable
+
+            //     pasteArea.addEventListener('click', () => {
+            //         if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+            //             pasteArea.focus();
+            //         }
+            //     });
+
+            //     pasteArea.addEventListener('paste', (e) => {
+
+            //         // 🔥 Jika user paste di input note → biarkan normal
+            //         if (e.target.classList.contains('note-input')) {
+            //             return;
+            //         }
+
+            //         // 📌 Selain input note → intercept screenshot
+            //         e.preventDefault();
+
+            //         const items = e.clipboardData.items;
+
+            //         for (const item of items) {
+            //             if (item.type.indexOf("image") === 0) {
+            //                 const blob = item.getAsFile();
+            //                 pastedProofBlobs.push(blob);
+
+            //                 const reader = new FileReader();
+            //                 reader.onload = function(event) {
+
+            //                     const wrapper = document.createElement('div');
+            //                     wrapper.classList.add('preview-item');
+
+            //                     const img = document.createElement('img');
+            //                     img.src = event.target.result;
+            //                     img.classList.add('img-thumbnail');
+            //                     img.style.maxHeight = '150px';
+            //                     img.style.marginBottom = '5px';
+
+            //                     const noteInput = document.createElement('input');
+            //                     noteInput.type = 'text';
+            //                     noteInput.classList.add('form-control', 'form-control-sm',
+            //                         'note-input');
+            //                     noteInput.placeholder = 'Tambahkan catatan...';
+            //                     noteInput.style.width = '100%';
+
+            //                     const removeBtn = document.createElement('button');
+            //                     removeBtn.type = 'button';
+            //                     removeBtn.className = 'btn btn-sm btn-danger mt-1';
+            //                     removeBtn.innerHTML = '<i class="feather-x"></i> Hapus';
+            //                     removeBtn.onclick = function() {
+            //                         const index = Array.from(previewContainer.children).indexOf(
+            //                             wrapper);
+            //                         pastedProofBlobs.splice(index, 1);
+            //                         wrapper.remove();
+            //                     };
+
+            //                     wrapper.appendChild(img);
+            //                     wrapper.appendChild(noteInput);
+            //                     wrapper.appendChild(removeBtn);
+            //                     previewContainer.appendChild(wrapper);
+            //                 };
+
+            //                 reader.readAsDataURL(blob);
+            //             }
+            //         }
+            //     });
+
+            // }
+
             let pastedProofBlobs = [];
 
-            const pasteArea = document.getElementById('pasteProofArea');
             const previewContainer = document.getElementById('proofPreviewContainer');
 
-            if (pasteArea) {
-                pasteArea.setAttribute('tabindex', '0'); // Make focusable
+            document.addEventListener('paste', function(e) {
+                const items = e.clipboardData.items;
+                let hasImage = false;
 
-                pasteArea.addEventListener('click', () => {
-                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
-                        pasteArea.focus();
-                    }
-                });
+                // 🔥 Cek apakah ada gambar di clipboard
+                for (const item of items) {
+                    if (item.type.indexOf("image") === 0) {
+                        hasImage = true;
+                        const blob = item.getAsFile();
+                        pastedProofBlobs.push(blob);
 
-                pasteArea.addEventListener('paste', (e) => {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const wrapper = document.createElement('div');
+                            wrapper.classList.add('preview-item');
 
-                    // 🔥 Jika user paste di input note → biarkan normal
-                    if (e.target.classList.contains('note-input')) {
-                        return;
-                    }
+                            const img = document.createElement('img');
+                            img.src = event.target.result;
+                            img.classList.add('img-thumbnail');
+                            img.style.maxHeight = '150px';
+                            img.style.marginBottom = '5px';
 
-                    // 📌 Selain input note → intercept screenshot
-                    e.preventDefault();
+                            const noteInput = document.createElement('input');
+                            noteInput.type = 'text';
+                            noteInput.classList.add('form-control', 'form-control-sm', 'note-input');
+                            noteInput.placeholder = 'Tambahkan catatan...';
+                            noteInput.style.width = '100%';
 
-                    const items = e.clipboardData.items;
-
-                    for (const item of items) {
-                        if (item.type.indexOf("image") === 0) {
-                            const blob = item.getAsFile();
-                            pastedProofBlobs.push(blob);
-
-                            const reader = new FileReader();
-                            reader.onload = function(event) {
-
-                                const wrapper = document.createElement('div');
-                                wrapper.classList.add('preview-item');
-
-                                const img = document.createElement('img');
-                                img.src = event.target.result;
-                                img.classList.add('img-thumbnail');
-                                img.style.maxHeight = '150px';
-                                img.style.marginBottom = '5px';
-
-                                const noteInput = document.createElement('input');
-                                noteInput.type = 'text';
-                                noteInput.classList.add('form-control', 'form-control-sm',
-                                    'note-input');
-                                noteInput.placeholder = 'Tambahkan catatan...';
-                                noteInput.style.width = '100%';
-
-                                const removeBtn = document.createElement('button');
-                                removeBtn.type = 'button';
-                                removeBtn.className = 'btn btn-sm btn-danger mt-1';
-                                removeBtn.innerHTML = '<i class="feather-x"></i> Hapus';
-                                removeBtn.onclick = function() {
-                                    const index = Array.from(previewContainer.children).indexOf(
-                                        wrapper);
-                                    pastedProofBlobs.splice(index, 1);
-                                    wrapper.remove();
-                                };
-
-                                wrapper.appendChild(img);
-                                wrapper.appendChild(noteInput);
-                                wrapper.appendChild(removeBtn);
-                                previewContainer.appendChild(wrapper);
+                            const removeBtn = document.createElement('button');
+                            removeBtn.type = 'button';
+                            removeBtn.className = 'btn btn-sm btn-danger mt-1';
+                            removeBtn.innerHTML = '<i class="feather-x"></i> Hapus';
+                            removeBtn.onclick = function() {
+                                const index = Array.from(previewContainer.children).indexOf(
+                                    wrapper);
+                                pastedProofBlobs.splice(index, 1);
+                                wrapper.remove();
                             };
 
-                            reader.readAsDataURL(blob);
-                        }
-                    }
-                });
+                            wrapper.appendChild(img);
+                            wrapper.appendChild(noteInput);
+                            wrapper.appendChild(removeBtn);
+                            previewContainer.appendChild(wrapper);
+                        };
 
-            }
+                        reader.readAsDataURL(blob);
+                    }
+                }
+
+                // 🧠 kalau di input note => jangan block paste textnya
+                if (e.target.classList.contains('note-input')) {
+                    return;
+                }
+
+                // Kalau ada gambar dan bukan paste di input note => block default agar text sampah tidak ikut
+                if (hasImage) {
+                    e.preventDefault();
+                }
+            });
 
             document.getElementById('markAsSaleForm').addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -1479,14 +1593,6 @@
 
                 formData.set('paid_amount', paidAmount);
 
-                // Swal.fire({
-                //     title: 'Menyimpan...',
-                //     text: 'Mohon tunggu sebentar',
-                //     didOpen: () => Swal.showLoading(),
-                //     allowOutsideClick: false
-                // });
-
-                // Ambil nilai customer deposit jika digunakan
                 const useWriteOff = $('#use_write_off').is(':checked');
                 let depositUsed = 0;
 
@@ -1554,54 +1660,6 @@
                             const rowData = dataTable.row(this).data();
                             return rowData && String(rowData.id) === String(orderId);
                         });
-
-                        // if (rowNode.length) {
-                        //     const row = dataTable.row(rowNode);
-                        //     const d = row.data();
-
-                        //     // 🔹 Ambil dari backend biar sesuai logika real
-                        //     d.paid_amount =
-                        //         `<span class="text-success">${res.order.paid_amount}</span>`;
-                        //     d.remaining_amount =
-                        //         `<span class="text-danger">Rp ${res.order.remaining_amount}</span>`;
-
-                        //     // 🔹 Render badge dinamis dari status backend
-                        //     // const status = res.order.payment_status?.toLowerCase() ?? '';
-                        //     // let statusBadge = '';
-
-                        //     // if (status === 'paid') {
-                        //     //     statusBadge =
-                        //     //         '<div class="badge bg-soft-success text-success">Paid</div>';
-                        //     // } else if (status === 'partially paid') {
-                        //     //     statusBadge =
-                        //     //         '<div class="badge bg-soft-warning text-warning">Partially Paid</div>';
-                        //     // } else {
-                        //     //     statusBadge =
-                        //     //         '<div class="badge bg-soft-danger text-danger">Unpaid</div>';
-                        //     // }
-
-                        //     d.payment_status = res.order.payment_status;
-
-                        //     // 🔹 Update kolom action dari backend
-                        //     // if (res.order.action) {
-                        //     //     $(rowNode).find('td:last-child').html(res.order.action);
-                        //     //     d.action = res.order.action;
-                        //     // }
-
-                        //     // 🔹 Update tampilan tabel
-                        //     $(rowNode).find('td[data-column="paid_amount"]').html(d
-                        //         .paid_amount);
-                        //     $(rowNode).find('td[data-column="remaining_amount"]').html(d
-                        //         .remaining_amount);
-                        //     $(rowNode).find('td[data-column="payment_status"]').html(
-                        //         statusBadge);
-
-                        //     row.data(d).invalidate();
-
-                        //     // 🔥 efek visual
-                        //     rowNode.addClass('bg-success-subtle');
-                        //     setTimeout(() => rowNode.removeClass('bg-success-subtle'), 1500);
-                        // }
 
                         if (rowNode.length) {
                             const row = dataTable.row(rowNode);
@@ -1927,57 +1985,6 @@
                 $('#paid_amount_display').text('Paid: Rp. ' + formatted);
             }
 
-            // 🔥 Handler button Mark as Paid (FIXED VERSION)
-            // document.addEventListener('click', function(e) {
-            //     if (e.target.closest('.btn-mark-paid')) {
-            //         const button = e.target.closest('.btn-mark-paid');
-            //         const orderId = button.getAttribute('data-id');
-            //         const url = button.getAttribute('data-url');
-            //         const totalAmount = parseFloat(button.getAttribute('data-total-amount')) || 0;
-            //         const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
-            //         const customerDeposit = parseFloat(button.getAttribute('data-deposit')) || 0;
-
-            //         const remainingAmount = totalAmount - paidAmount;
-
-            //         // 🔥 Simpan ke global variables
-            //         originalPaidAmount = remainingAmount;
-            //         customerTotalDeposit = customerDeposit;
-            //         currentBalance = remainingAmount;
-
-            //         // 🔥 Set form data
-            //         document.getElementById('order_id').value = orderId;
-            //         document.getElementById('customer_total_deposit').value = customerDeposit;
-            //         document.getElementById('markAsSaleForm').setAttribute('action', url);
-
-            //         // 🔥 Format Balance Display
-            //         document.getElementById('total_amount_display').innerText = 'Rp. ' + new Intl
-            //             .NumberFormat('id-ID').format(remainingAmount);
-
-            //         // 🔥 Set Paid Amount dengan FLAG biar gak ke-trigger event input
-            //         const $paidInput = $('#paid_amount');
-            //         $paidInput.data('programmatic-update', true); // 🚩 SET FLAG
-            //         $paidInput.val(new Intl.NumberFormat('id-ID').format(remainingAmount));
-            //         setTimeout(() => $paidInput.data('programmatic-update', false), 50); // 🚩 RESET FLAG
-
-            //         // 🔥 Update display paid amount
-            //         document.getElementById('paid_amount_display').innerText = 'Paid: Rp. ' + new Intl
-            //             .NumberFormat('id-ID').format(remainingAmount);
-
-            //         // 🔥 Update deposit info
-            //         $('#customer_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(
-            //             customerDeposit));
-
-            //         const maxDeposit = Math.min(remainingAmount, customerDeposit);
-            //         $('#max_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(
-            //             maxDeposit));
-
-            //         // 🔥 Reset write off state
-            //         $('#use_write_off').prop('checked', false);
-            //         $('#write_off_container').addClass('d-none');
-            //         $('#customer_deposit_amount').val('0');
-            //     }
-            // });
-
             // 🔥 Handler button Mark as Paid (FINAL FIX - GUARANTEED WORK!)
             $(document).on('click', '.btn-mark-paid', function(e) {
                 e.preventDefault();
@@ -2074,36 +2081,6 @@
                 if (nameHolder) nameHolder.textContent = name; // isi nama ordernya
             });
         });
-
-
-        // document.addEventListener('click', function(e) {
-        //     if (e.target.closest('.btn-mark-paid')) {
-        //         const button = e.target.closest('.btn-mark-paid');
-        //         const orderId = button.getAttribute('data-id');
-        //         const url = button.getAttribute('data-url');
-        //         const totalAmount = parseFloat(button.getAttribute('data-total-amount')) || 0;
-        //         const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
-        //         const remainingAmount = totalAmount - paidAmount;
-
-        //         document.getElementById('order_id').value = orderId;
-        //         document.getElementById('markAsSaleForm').setAttribute('action', url);
-
-        //         document.getElementById('total_amount_display').innerText = new Intl.NumberFormat('id-ID').format(
-        //             remainingAmount);
-
-        //         const formatted = new Intl.NumberFormat('id-ID').format(remainingAmount);
-        //         document.getElementById('paid_amount').value = formatted;
-
-        //         document.getElementById('paid_amount_display').innerText = 'Paid: Rp. ' + formatted;
-        //     }
-        // });
-
-        // const paidInput = document.getElementById("paid_amount");
-
-        // paidInput.addEventListener("input", function() {
-        //     let angka = this.value.replace(/\D/g, "") || "0";
-        //     this.value = new Intl.NumberFormat('id-ID').format(angka);
-        // });
 
         $(document).on('input', '#paid_amount', function() {
             // Jangan format kalau lagi di-set programmatically

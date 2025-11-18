@@ -112,7 +112,7 @@
                 visibility: hidden !important;
             }
         }
-        
+
         .dropdown-item {
             font-size: 13px;
             padding: 6px 8px;
@@ -378,7 +378,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [7, 'desc']
+                    [7, 'asc']
                 ],
                 data: [],
                 columns: [
@@ -424,7 +424,7 @@
                         className: 'desktop-only'
                     },
                     {
-                        data: 'id',
+                        data: 'created_at',
                         visible: false,
                         searchable: false
                     }

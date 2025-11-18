@@ -197,7 +197,7 @@
                                                         placeholder="Qty">
                                                     <small class="text-muted d-block mt-1">
                                                         Current Stock Production:
-                                                        {{ number_format($item->available_quantity, 0, ',', '.') }}
+                                                        {{ number_format($item->production_stock, 0, ',', '.') }}
                                                     </small>
                                                 </td>
                                                 <td>

@@ -66,7 +66,7 @@ class DeliveryOrderController extends Controller
 
         // 🔎 Search
         if ($request->filled('search_keyword')) {
-            $keyword = '%' . $request->search_keyword . '%';
+            $keyword = $request->search_keyword . '%';
 
             if ($request->search_type === 'customer') {
                 $deliveryOrders->where(function ($q) use ($keyword) {
@@ -145,6 +145,7 @@ class DeliveryOrderController extends Controller
                     'products' => $productsHtml,
                     'order_notes' => $orderNotes,
                     'action' => $actionHtml,
+                    'created_at' => $do->created_at,
                 ];
             }),
             'has_more' => $totalData > ($start + $length),

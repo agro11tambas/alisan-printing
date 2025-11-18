@@ -37,7 +37,7 @@ class CustomerController extends Controller
                 return '<strong>' . ($customer->phone ?? '-') . '</strong>';
             })
             ->addColumn('customer_deposit', function ($customer) {
-                return '<strong>' . number_format($customer->customer_deposit, 2, ',', '.') . '</strong>';
+                return '<strong> Rp. ' . number_format($customer->customer_deposit, 0, ',', '.') . '</strong>';
             })
             ->addColumn('action', function ($customer) {
                 return view('erp.pages.customers.partials.action-button', compact('customer'))->render();
@@ -68,7 +68,7 @@ class CustomerController extends Controller
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
         ]);
-        
+
         try {
             $hasDuplicate = Customers::where('phone', $request->phone)->exists();
 

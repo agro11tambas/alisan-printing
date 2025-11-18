@@ -46,6 +46,12 @@ class OrderProgressAssignController extends Controller
         // 🔹 Generate assign code otomatis lewat service
         $assignCode = AssignCode::generateAssignCode();
 
+        $productIds = $progress->items->pluck('product_id')->toArray();
+
+        $productionStocks = DB::table('production_stocks')
+            ->whereIn('product_id', $productIds)
+            ->pluck('available_quantity', 'product_id');
+
         foreach ($progress->items as $item) {
             $totals = DB::table('order_progress_assigns')
                 ->where('order_progress_item_id', $item->id)
@@ -70,6 +76,7 @@ class OrderProgressAssignController extends Controller
             $item->active_assign      = $activeAssign;   // kolom "Assigning"
             $item->available_quantity = $remaining;      // kolom "Available"
             $item->remaining_quantity = $remaining;      // max input "Assign Now"
+            $item->production_stock = $productionStocks[$item->product_id] ?? 0;
         }
 
         return view('erp.pages.production.assign-list.add-assign', compact(
@@ -78,123 +85,6 @@ class OrderProgressAssignController extends Controller
             'assignCode'
         ));
     }
-
-    // public function store(Request $request, $id)
-    // {
-    //     // dd($request->all());
-    //     $request->validate([
-    //         // 'assign_code' => 'required|string',
-    //         'assign_date' => 'required|date',
-    //         'note'        => 'nullable|string',
-    //         'items'       => 'required|array',
-    //         'items.*.order_progress_item_id' => 'required|exists:order_progress_items,id',
-    //         'items.*.operator_id'            => 'required|exists:operators,id',
-    //         'items.*.assigned_quantity'      => 'required|integer|min:1',
-    //         'items.*.note'                   => 'nullable|string',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $progress = OrderProgress::findOrFail($id);
-
-    //         // 🟩 1. Buat satu batch assign baru
-    //         $batch = OrderProgressAssignBatch::create([
-    //             'order_progress_id' => $progress->id,
-    //             'assign_code'       => $progress->order->order_number,
-    //             'assign_date'       => $request->assign_date,
-    //             'note'              => $request->note,
-    //             'created_by'        => Auth::id(),
-    //         ]);
-
-    //         // 🟩 2. Loop produk yang diassign
-    //         foreach ($request->items as $idx => $data) {
-    //             if (empty($data['assigned_quantity']) || (int)$data['assigned_quantity'] <= 0) {
-    //                 continue;
-    //             }
-
-    //             $item = OrderProgressItem::query()
-    //                 ->withSum('assigns as total_completed', 'completed_quantity') // alias total_completed
-    //                 ->findOrFail($data['order_progress_item_id']);
-
-    //             $quantity          = (int) $item->quantity;
-    //             $completed         = (int) ($item->total_completed ?? 0); // total completed dari semua assign
-    //             $remainingAllowed  = max($quantity - $completed, 0);      // <= inilah batas yang boleh di-assign lagi
-    //             $requested         = (int) $data['assigned_quantity'];
-
-    //             if ($requested > $remainingAllowed) {
-    //                 throw \Illuminate\Validation\ValidationException::withMessages([
-    //                     "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi remaining ($remainingAllowed) untuk produk {$item->product->name}.",
-    //                 ]);
-    //             }
-
-    //             // kalau remaining 0, skip
-    //             if ($remainingAllowed <= 0) {
-    //                 continue;
-    //             }
-
-    //             $productionStock = ProductionStock::firstOrCreate(
-    //                 [
-    //                     'product_id' => $item->product_id,
-    //                     'production_warehouse_id' => 2,
-    //                 ],
-    //                 [
-    //                     'opening_stock' => 0,
-    //                     'available_quantity' => 0,
-    //                     'finished_product_stock' => 0,
-    //                     'canceled_product_stock' => 0,
-    //                 ]
-    //             );
-
-    //             // 🟥 Cek jika stok available 0 atau kurang dari requested
-    //             // if ($productionStock->available_quantity <= 0) {
-    //             //     throw \Illuminate\Validation\ValidationException::withMessages([
-    //             //         "items.$idx.assigned_quantity" => "Stok available 0 untuk produk {$item->product->name}.",
-    //             //     ]);
-    //             // }
-
-    //             // if ($requested > $productionStock->available_quantity) {
-    //             //     throw \Illuminate\Validation\ValidationException::withMessages([
-    //             //         "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
-    //             //     ]);
-    //             // }
-
-    //             OrderProgressAssign::create([
-    //                 'assign_batch_id'        => $batch->id,
-    //                 'order_progress_item_id' => $item->id,
-    //                 'product_id'             => $item->product_id,
-    //                 'operator_id'            => (int) $data['operator_id'],
-    //                 'assigned_quantity'      => $requested, // aman karena <= remaining
-    //                 'completed_quantity'     => 0,
-    //                 'note'                   => $data['note'] ?? null,
-    //             ]);
-
-    //             $productionStock = ProductionStock::firstOrCreate(
-    //                 [
-    //                     'product_id' => $item->product_id,
-    //                     'production_warehouse_id' => 2, // sesuaikan jika perlu
-    //                 ],
-    //                 [
-    //                     'opening_stock' => 0,
-    //                     'available_quantity' => 0,
-    //                     'finished_product_stock' => 0,
-    //                     'canceled_product_stock' => 0,
-    //                 ]
-    //             );
-
-    //             $productionStock->decrement('available_quantity', $requested);
-    //             $productionStock->decrement('pending_waiting_list', $requested);
-    //         }
-
-    //         DB::commit();
-
-    //         return redirect('/erp/productions/waiting-list/assign-list')
-    //             ->with('success', "Assign batch {$batch->assign_code} berhasil ditambahkan.");
-    //     } catch (\Throwable $e) {
-    //         DB::rollBack();
-    //         return redirect()->back()
-    //             ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-    //     }
-    // }
 
     public function store(Request $request, $id)
     {
@@ -349,38 +239,12 @@ class OrderProgressAssignController extends Controller
         // Ambil progress terkait agar loop item sama seperti di create()
         $progress = $batch->orderProgress;
 
-        // foreach ($progress->items as $item) {
-        //     $totals = DB::table('order_progress_assigns')
-        //         ->where('order_progress_item_id', $item->id)
-        //         ->selectRaw('
-        //             COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
-        //             COALESCE(SUM(completed_quantity),0) AS total_completed,
-        //             COALESCE(SUM(defect_quantity),0)    AS total_defect,
-        //             COALESCE(SUM(reject_quantity),0)    AS total_reject
-        //         ')
-        //         ->first();
+        $productIds = $progress->items->pluck('product_id')->toArray();
 
-        //     $activeAssign = max(
-        //         ($totals->total_assigned) - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
-        //         0
-        //     );
+        $productionStocks = DB::table('production_stocks')
+            ->whereIn('product_id', $productIds)
+            ->pluck('available_quantity', 'product_id'); // hasil: [product_id => qty]
 
-        //     // assign milik batch ini
-        //     $currentBatchAssign = DB::table('order_progress_assigns')
-        //         ->where('order_progress_item_id', $item->id)
-        //         ->where('assign_batch_id', $batch->id)
-        //         ->sum('assigned_quantity');
-
-        //     $remaining = max(
-        //         ($item->quantity) - (($item->completed_quantity ?? 0) + $activeAssign),
-        //         0
-        //     );
-
-        //     // ✅ Tambahkan kuota assign batch ini agar bisa edit ke bawah/atas wajar
-        //     $item->active_assign      = $activeAssign;
-        //     $item->available_quantity = $remaining;
-        //     $item->remaining_quantity = $remaining + $currentBatchAssign;
-        // }
         foreach ($batch->assigns as $assign) {
             $item = $assign->progressItem;
 
@@ -410,6 +274,7 @@ class OrderProgressAssignController extends Controller
             $assign->active_assign      = $activeAssign;
             $assign->available_quantity = $remaining;
             $assign->remaining_quantity = $remaining + $currentBatchAssign;
+            $item->production_stock = $productionStocks[$item->product_id] ?? 0;
         }
 
         return view('erp.pages.production.assign-list.edit-assign', compact(
@@ -418,135 +283,6 @@ class OrderProgressAssignController extends Controller
             'operators'
         ));
     }
-
-    // public function update(Request $request, $batch_id)
-    // {
-    //     // dd($request->all());
-    //     $request->validate([
-    //         'assign_date' => 'required|date',
-    //         'note'        => 'nullable|string',
-    //         'items'       => 'required|array',
-    //         'items.*.id'  => 'nullable|exists:order_progress_assigns,id',
-    //         'items.*.order_progress_item_id' => 'required|exists:order_progress_items,id',
-    //         'items.*.operator_id'            => 'required|exists:operators,id',
-    //         'items.*.assigned_quantity'      => 'required|integer|min:1',
-    //         'items.*.note'                   => 'nullable|string',
-    //     ]);
-
-    //     DB::beginTransaction();
-    //     try {
-    //         $batch = OrderProgressAssignBatch::findOrFail($batch_id);
-
-    //         // 🔹 Update batch utama
-    //         $batch->update([
-    //             'assign_date' => $request->assign_date,
-    //             'note'        => $request->note,
-    //         ]);
-
-    //         foreach ($request->items as $data) {
-    //             // Lewati jika tidak valid
-    //             if (empty($data['assigned_quantity']) || $data['assigned_quantity'] <= 0) continue;
-
-    //             $item = OrderProgressItem::with('product')->findOrFail($data['order_progress_item_id']);
-
-    //             // Hitung total assign batch ini
-    //             $currentAssigned = $item->assigns()
-    //                 ->where('assign_batch_id', $batch->id)
-    //                 ->sum('assigned_quantity');
-
-    //             // Hitung total assign batch lain
-    //             $alreadyAssigned = $item->assigns()
-    //                 ->where('assign_batch_id', '!=', $batch->id)
-    //                 ->sum('assigned_quantity');
-
-    //             // Total sisa kuota = stok - batch lain + batch ini
-    //             $remaining = max($item->quantity - $alreadyAssigned + $currentAssigned, 0);
-    //             $assignedQty = min($data['assigned_quantity'], $remaining);
-
-    //             if ($assignedQty <= 0) continue;
-
-    //             // 🔹 Ambil stok produksi
-    //             $productionStock = ProductionStock::firstOrCreate(
-    //                 [
-    //                     'product_id' => $item->product_id,
-    //                     'production_warehouse_id' => 2,
-    //                 ],
-    //                 [
-    //                     'opening_stock' => 0,
-    //                     'available_quantity' => 0,
-    //                     'finished_product_stock' => 0,
-    //                     'canceled_product_stock' => 0,
-    //                 ]
-    //             );
-
-    //             // 🔹 Update jika ID ada, else buat baru
-    //             if (!empty($data['id'])) {
-    //                 $assign = OrderProgressAssign::find($data['id']);
-
-    //                 if ($assign) {
-    //                     // 🔸 Hitung selisih
-    //                     $oldQty = (int) $assign->assigned_quantity;
-    //                     $newQty = (int) $assignedQty;
-    //                     $diff   = $newQty - $oldQty;
-
-    //                     if ($diff > 0) {
-    //                         // 🟥 Tambah assign → kurangi stok
-    //                         // if ($productionStock->available_quantity < $diff) {
-    //                         //     throw \Illuminate\Validation\ValidationException::withMessages([
-    //                         //         "items.{$item->id}.assigned_quantity" =>
-    //                         //         "Assigned quantity ($newQty) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
-    //                         //     ]);
-    //                         // }
-
-    //                         $productionStock->decrement('available_quantity', $diff);
-    //                         $productionStock->decrement('pending_waiting_list', $diff);
-    //                     } elseif ($diff < 0) {
-    //                         // 🟩 Kurangi assign → kembalikan stok
-    //                         $restoreQty = abs($diff);
-    //                         $productionStock->increment('available_quantity', $restoreQty);
-    //                         $productionStock->increment('pending_waiting_list', $restoreQty);
-    //                     }
-
-    //                     $assign->update([
-    //                         'operator_id'       => $data['operator_id'],
-    //                         'assigned_quantity' => $newQty,
-    //                         'note'              => $data['note'] ?? null,
-    //                     ]);
-    //                 }
-    //             } else {
-    //                 // 🆕 Buat baru
-    //                 // if ($assignedQty > $productionStock->available_quantity) {
-    //                 //     throw \Illuminate\Validation\ValidationException::withMessages([
-    //                 //         "items.{$item->id}.assigned_quantity" =>
-    //                 //         "Assigned quantity ($assignedQty) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
-    //                 //     ]);
-    //                 // }
-
-    //                 OrderProgressAssign::create([
-    //                     'assign_batch_id'        => $batch->id,
-    //                     'order_progress_item_id' => $item->id,
-    //                     'product_id'             => $item->product_id,
-    //                     'operator_id'            => $data['operator_id'],
-    //                     'assigned_quantity'      => $assignedQty,
-    //                     'note'                   => $data['note'] ?? null,
-    //                 ]);
-
-    //                 // 🟥 Kurangi stok untuk assign baru
-    //                 $productionStock->decrement('available_quantity', $assignedQty);
-    //                 $productionStock->decrement('pending_waiting_list', $assignedQty);
-    //             }
-    //         }
-
-    //         DB::commit();
-
-    //         return redirect('/erp/productions/waiting-list/assign-list')
-    //             ->with('success', "Assign batch {$batch->assign_code} berhasil diperbarui.");
-    //     } catch (\Throwable $e) {
-    //         DB::rollBack();
-    //         return redirect()->back()
-    //             ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-    //     }
-    // }
 
     public function update(Request $request, $batch_id)
     {
@@ -765,7 +501,7 @@ class OrderProgressAssignController extends Controller
         // }
 
         if ($request->filled('search_keyword')) {
-            $keyword = '%' . $request->search_keyword . '%';
+            $keyword = $request->search_keyword . '%';
 
             if ($request->search_type === 'customer') {
                 $batches->where(function ($q) use ($keyword) {
@@ -901,8 +637,8 @@ class OrderProgressAssignController extends Controller
                 $orderNotesValue = $batch->orderProgress?->order?->notes;
 
                 $orderNotes = $orderNotesValue
-                    ? '<div class="text-muted small" style="white-space: normal;">' . e($orderNotesValue) . '</div>'
-                    : '<div class="text-muted small">-</div>';
+                    ? '<div class="" style="white-space: normal;">' . e($orderNotesValue) . '</div>'
+                    : '<div class="">-</div>';
 
                 return [
                     'id' => $batch->id,

@@ -110,10 +110,10 @@ class PurchaseListController extends Controller
         } elseif ($request->filled('search_keyword')) {
             if ($request->search_type === 'supplier') {
                 $purchases->whereHas('supplier', function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    $query->where('name', 'like', $request->search_keyword . '%');
                 });
             } else {
-                $purchases->where('purchase_number', 'like', '%' . $request->search_keyword . '%');
+                $purchases->where('purchase_number', 'like', $request->search_keyword . '%');
             }
         }
 
@@ -308,6 +308,56 @@ class PurchaseListController extends Controller
             ->with(['supplier', 'purchaseItems.purchaseProduct', 'deletedByUser'])
             ->where('status', 'Purchase List')
             ->orderByDesc('deleted_at');
+
+        // Filter tanggal (based on purchase_date)
+        if ($request->filter) {
+            switch ($request->filter) {
+                case 'today':
+                    $purchases->whereDate('purchase_date', Carbon::today());
+                    break;
+                case 'last_7_days':
+                    $purchases->whereBetween('purchase_date', [Carbon::now()->subDays(7), Carbon::now()]);
+                    break;
+                case 'this_month':
+                    $purchases->whereMonth('purchase_date', Carbon::now()->month)
+                        ->whereYear('purchase_date', Carbon::now()->year);
+                    break;
+                case 'last_30_days':
+                    $purchases->whereBetween('purchase_date', [Carbon::now()->subDays(30), Carbon::now()]);
+                    break;
+                case 'year_to_date':
+                    $purchases->whereBetween('purchase_date', [Carbon::now()->startOfYear(), Carbon::now()]);
+                    break;
+                case 'yearly':
+                    $purchases->whereYear('purchase_date', Carbon::now()->year);
+                    break;
+                case 'custom':
+                    if ($request->filled('start_date') && $request->filled('end_date')) {
+                        $purchases->whereBetween('purchase_date', [$request->start_date, $request->end_date]);
+                    }
+                    break;
+            }
+        }
+
+        // 🔎 Search keyword (purchase number, supplier, deleted_by, notes)
+        if ($request->filled('search_keyword')) {
+            $keyword = $request->search_keyword;
+
+            $purchases->where(function ($q) use ($keyword) {
+                $q->where('purchase_number', 'like', "%$keyword%")
+                    ->orWhere('delete_notes', 'like', "%$keyword%")
+                    ->orWhereHas(
+                        'supplier',
+                        fn($qs) =>
+                        $qs->where('name', 'like', "%$keyword%")
+                    )
+                    ->orWhereHas(
+                        'deletedByUser',
+                        fn($qs) =>
+                        $qs->where('name', 'like', "%$keyword%")
+                    );
+            });
+        }
 
         // ✅ Hitung total sebelum pagination
         $totalQuery = clone $purchases;

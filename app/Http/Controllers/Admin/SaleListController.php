@@ -75,6 +75,10 @@ class SaleListController extends Controller
             ->where('status', 'sale list')
             ->orderByDesc('id');
 
+        if ($request->filled('show_edited') && $request->show_edited == 1) {
+            $orders->where('status_edited', 1);
+        }
+
         // 🔹 Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
@@ -130,7 +134,8 @@ class SaleListController extends Controller
             // }
 
             if ($request->search_type === 'customer') {
-                $keyword = '%' . $request->search_keyword . '%';
+                // $keyword = '%' . $request->search_keyword . '%';
+                $keyword = $request->search_keyword . '%';
 
                 $orders->where(function ($q) use ($keyword) {
                     // Cari berdasarkan nama customer
@@ -682,7 +687,7 @@ class SaleListController extends Controller
         // 🔹 Filter berdasarkan customer
         if ($request->search_type === 'customer' && $request->filled('search_keyword')) {
             $orders->whereHas('customer', function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->search_keyword . '%');
+                $q->where('name', 'like', $request->search_keyword . '%');
             });
         }
 
@@ -1463,6 +1468,76 @@ class SaleListController extends Controller
         DB::beginTransaction();
         try {
             $order = Order::with('orderItems')->findOrFail($id);
+            // ======================================================
+            // 🔥 BYPASS TOTAL: Hanya update order_date atau customer
+            // ======================================================
+            $onlyHeaderChanged = (
+                $request->order_date !== $order->order_date
+                || $request->customer_id != $order->customer_id
+                || $request->customer_address_id != $order->customer_address_id
+            )
+                && (
+                    // Tidak ada perubahan product
+                    json_encode($request->product) == json_encode(
+                        $order->orderItems->map(function ($item) {
+                            return $item->satuan . '_' . ($item->satuan === 'satuan' ? $item->product_id : $item->product_bundle_id);
+                        })->values()->toArray()
+                    )
+                    // Tidak ada perubahan qty
+                    && json_encode($request->qty) == json_encode($order->orderItems->pluck('quantity')->values()->toArray())
+                    // Tidak ada perubahan harga
+                    && json_encode($request->price_before_discount) == json_encode($order->orderItems->pluck('price')->values()->toArray())
+                    // Mode tidak berubah
+                    && $request->mode === $order->mode
+                );
+
+            if ($onlyHeaderChanged) {
+
+                // ===== Hitung due_date (pakai logic existing) =====
+                $orderDate = Carbon::parse($request->order_date);
+                $dueDate = null;
+
+                switch ($request->due_date_option) {
+                    case 'today':
+                        $dueDate = $orderDate;
+                        break;
+                    case '1_week':
+                        $dueDate = $orderDate->copy()->addWeek();
+                        break;
+                    case '1_month':
+                        $dueDate = $orderDate->copy()->addMonth();
+                        break;
+                    case '3_months':
+                        $dueDate = $orderDate->copy()->addMonths(3);
+                        break;
+                    case 'custom':
+                        $dueDate = $request->custom_due_date ? Carbon::parse($request->custom_due_date) : null;
+                        break;
+                    default:
+                        $dueDate = null;
+                }
+
+                // ===== Update customer address =====
+                $addressModel = \App\Models\CustomerAddresses::find($request->customer_address_id);
+
+                // ===== Update header order Saja =====
+                $order->update([
+                    'order_date'        => $request->order_date,
+                    'due_date'          => $dueDate,
+                    'customer_id'       => $request->customer_id,
+                    'customer_address_id' => $request->customer_address_id,
+                    'business_name'     => $addressModel?->business_name,
+                    'shipping_address'  => $addressModel?->address,
+                    'google_maps'       => $addressModel?->google_maps,
+                    'notes'             => $request->notes,
+                ]);
+
+                DB::commit();
+
+                return redirect("/erp/sales/sale-list/")
+                    ->with('success', 'Order berhasil diupdate (header saja).');
+            }
+
             // ===============================
             // 🔥 DETECT PRICE ONLY CHANGES
             // ===============================
@@ -1502,7 +1577,34 @@ class SaleListController extends Controller
             // 3) Jika benar PRICE ONLY → bypass semua blocking rules
             if ($isPriceOnlyUpdate) {
 
-                // Update harga item
+                // ===== Hitung due_date sama seperti blok bawah =====
+                $orderDate = Carbon::parse($request->order_date);
+                $dueDate   = null;
+
+                switch ($request->due_date_option) {
+                    case 'today':
+                        $dueDate = $orderDate;
+                        break;
+                    case '1_week':
+                        $dueDate = $orderDate->copy()->addWeek();
+                        break;
+                    case '1_month':
+                        $dueDate = $orderDate->copy()->addMonth();
+                        break;
+                    case '3_months':
+                        $dueDate = $orderDate->copy()->addMonths(3);
+                        break;
+                    case 'custom':
+                        $dueDate = $request->custom_due_date ? Carbon::parse($request->custom_due_date) : null;
+                        break;
+                    default:
+                        $dueDate = null;
+                }
+
+                // Ambil alamat customer terbaru
+                $addressModel = \App\Models\CustomerAddresses::find($request->customer_address_id);
+
+                // ===== Update harga item =====
                 foreach ($order->orderItems as $index => $item) {
                     $item->update([
                         'price'                => $request->price_before_discount[$index],
@@ -1513,9 +1615,9 @@ class SaleListController extends Controller
                 }
 
                 // ===== HITUNG ULANG PAYMENT =====
-                $newTotal      = $request->total_amount;
-                $paidAmount    = $order->paid_amount;
-                $remaining     = $newTotal - $paidAmount;
+                $newTotal   = $request->total_amount;
+                $paidAmount = $order->paid_amount;
+                $remaining  = $newTotal - $paidAmount;
 
                 if ($paidAmount <= 0) {
                     $paymentStatus = 'Unpaid';
@@ -1525,18 +1627,27 @@ class SaleListController extends Controller
                     $paymentStatus = 'Paid';
                 }
 
-                // Update header order
+                // ===== Update HEADER juga (order_date, customer, address) =====
                 $order->update([
-                    'notes'            => $request->notes,
-                    'total_amount'     => $request->sub_total,
-                    'discount'         => $request->total_discount,
-                    'grand_total'      => $newTotal,
-                    'remaining_amount' => $remaining,
-                    'payment_status'   => $paymentStatus,
+                    'order_date'         => $request->order_date,
+                    'due_date'           => $dueDate,
+                    'customer_id'        => $request->customer_id,
+                    'customer_address_id' => $request->customer_address_id,
+                    'business_name'      => $addressModel?->business_name,
+                    'shipping_address'   => $addressModel?->address,
+                    'google_maps'        => $addressModel?->google_maps,
+                    'notes'              => $request->notes,
+
+                    'total_amount'       => $request->sub_total,
+                    'discount'           => $request->total_discount,
+                    'grand_total'        => $newTotal,
+                    'remaining_amount'   => $remaining,
+                    'payment_status'     => $paymentStatus,
+                    'discount_active'    => (int) $request->input('discount_active_hidden', 1),
                 ]);
 
                 DB::commit();
-                return redirect("/erp/sales/sale-list/")->with('success', 'Order berhasil diupdate (price only).');
+                return redirect("/erp/sales/sale-list/")->with('success', 'Order berhasil diupdate (price only + header).');
             }
 
             $hasProgressHistory = \App\Models\OrderProgressHistory::whereHas('progressItem', function ($q) use ($order) {

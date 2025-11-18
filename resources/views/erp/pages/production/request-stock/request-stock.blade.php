@@ -371,6 +371,22 @@
     <script>
         $(document).ready(function() {
 
+            function reloadActiveTab() {
+                const activeTab = $('#requestStockTabs .nav-link.active').attr('href');
+
+                if (activeTab === '#deleted-request-stock') {
+                    resetAndReloadDeleted();
+                } else if (activeTab === '#request-summary') {
+                    if (!summaryTableInitialized) {
+                        initSummaryTable();
+                    } else {
+                        summaryTable.ajax.reload();
+                    }
+                } else {
+                    resetAndReload();
+                }
+            }
+
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
@@ -509,22 +525,14 @@
 
                 // Selain custom → sembunyikan input dan reload
                 $('.custom-range').addClass('d-none');
-                if (isDeletedTab) {
-                    resetAndReloadDeleted();
-                } else {
-                    resetAndReload();
-                }
+                reloadActiveTab();
             });
 
             // 🔸 Tombol Apply Filter → baru reload kalau pakai custom range
             $('#apply-filter').on('click', function() {
                 const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]').parent()
                     .hasClass('active');
-                if (isDeletedTab) {
-                    resetAndReloadDeleted();
-                } else {
-                    resetAndReload();
-                }
+                reloadActiveTab();
             });
 
             // 🔸 Filter lain (progress, search, product, date input) tetap auto reload
@@ -534,11 +542,7 @@
                     searchTimer = setTimeout(() => {
                         const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]')
                             .parent().hasClass('active');
-                        if (isDeletedTab) {
-                            resetAndReloadDeleted();
-                        } else {
-                            resetAndReload();
-                        }
+                        reloadActiveTab();
                     }, 100);
                 });
 
