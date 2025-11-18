@@ -233,8 +233,8 @@
                                                 <th></th>
                                                 <th data-column="purchase_number">Purchase Number</th>
                                                 <th data-column="supplier">Supplier</th>
-                                                <th data-column="total_amount_product">Total</th>
-                                                <th data-column="paid_amount_product">Paid </th>
+                                                <th data-column="total_amount_product">Product Total</th>
+                                                <th data-column="paid_amount_product">Product Paid</th>
                                                 <th data-column="total_amount_freight">Freight Total</th>
                                                 <th data-column="paid_amount_freight">Freight Paid</th>
                                                 <th data-column="payment_status">Status</th>

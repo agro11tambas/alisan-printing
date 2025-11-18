@@ -182,8 +182,10 @@ class WaitingListController extends Controller
             $orderNotesValue = $progress->order?->notes;
 
             $orderNotes = $orderNotesValue
-                ? '<div class="text-muted small" style="white-space:normal;">' . e($orderNotesValue) . '</div>'
-                : '<div class="text-muted small">-</div>';
+                ? '<div class="" style="white-space:normal; word-break:break-word; max-width:220px;">'
+                . e($orderNotesValue) .
+                '</div>'
+                : '<div class="">-</div>';
 
             return [
                 'id' => $progress->id,

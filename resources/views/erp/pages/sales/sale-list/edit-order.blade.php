@@ -145,7 +145,8 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <input type="datetime-local" class="form-control" id="order_date" name="order_date"
+                                                <input type="datetime-local" class="form-control" id="order_date"
+                                                    name="order_date"
                                                     value="{{ old('order_date', isset($order->order_date) ? \Carbon\Carbon::parse($order->order_date)->format('Y-m-d\TH:i') : date('Y-m-d\TH:i')) }}">
                                             </div>
                                         </div>
@@ -234,7 +235,8 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <input type="hidden" value="6" name="transaction_type" id="transaction_type">
+                                    {{-- <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="transaction_type" class="fw-semibold">Sale:</label>
                                         </div>
@@ -247,7 +249,7 @@
                                                 </select>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div> --}}
                                     {{-- <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label class="fw-semibold">Mode:</label>

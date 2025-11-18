@@ -207,9 +207,10 @@
                                                 <th></th>
                                                 <th>Purchase Number</th>
                                                 <th>Supplier</th>
-                                                <th>Total Amount</th>
-                                                <th>Paid Amount</th>
-                                                <th>Remaining Amount</th>
+                                                <th data-column="total_amount_product">Product Total</th>
+                                                <th data-column="paid_amount_product">Product Paid</th>
+                                                <th data-column="total_amount_freight">Freight Total</th>
+                                                <th data-column="paid_amount_freight">Freight Paid</th>
                                                 <th>Payment Status</th>
                                             </tr>
                                         </thead>
@@ -243,7 +244,8 @@
 @endsection
 
 @push('modals')
-    <div class="modal fade" id="modalDeletePurchase" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal fade" id="modalDeletePurchase" tabindex="-1" aria-labelledby="deleteModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog">
             <form method="POST" id="formDeletePurchase">
                 @csrf
@@ -652,7 +654,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [7, 'desc']
+                    [8, 'desc']
                 ],
                 data: [],
                 columns: [{
@@ -669,13 +671,16 @@
                         data: 'supplier'
                     },
                     {
-                        data: 'total_amount'
+                        data: 'total_amount_product'
                     },
                     {
-                        data: 'refund_amount'
+                        data: 'refund_amount_product'
                     },
                     {
-                        data: 'remaining_amount'
+                        data: 'total_amount_freight'
+                    },
+                    {
+                        data: 'refund_amount_freight'
                     },
                     {
                         data: 'payment_status'

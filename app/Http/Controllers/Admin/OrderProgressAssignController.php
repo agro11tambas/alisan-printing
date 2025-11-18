@@ -637,8 +637,10 @@ class OrderProgressAssignController extends Controller
                 $orderNotesValue = $batch->orderProgress?->order?->notes;
 
                 $orderNotes = $orderNotesValue
-                    ? '<div class="" style="white-space: normal;">' . e($orderNotesValue) . '</div>'
-                    : '<div class="">-</div>';
+                    ? '<div style="white-space:normal; word-break:break-word; max-width:220px;">'
+                    . e($orderNotesValue) .
+                    '</div>'
+                    : '<div>-</div>';
 
                 return [
                     'id' => $batch->id,

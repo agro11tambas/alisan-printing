@@ -202,6 +202,18 @@
                                     </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
+                                            <label for="note" class="fw-semibold">Note:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <textarea name="note" id="note" class="form-control" rows="2"
+                                                    placeholder="Tambahkan catatan (opsional)"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" value="13" name="transaction_type" id="transaction_type">
+                                    {{-- <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
                                             <label for="transaction_type" class="fw-semibold">Sale:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -213,7 +225,7 @@
                                                 </select>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div> --}}
                                 </div>
                             </div>
                         </div>

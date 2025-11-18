@@ -127,11 +127,39 @@ class PurchaseReturnController extends Controller
                 $totalAmount = 'Rp ' . number_format($purchase->total_amount, 0, ',', '.');
 
                 // 💸 Refund dan Remaining
-                $refundTotal = ($purchase->refund_amount_product ?? 0) + ($purchase->refund_amount_freight ?? 0);
-                $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
+                // $refundTotal = ($purchase->refund_amount_product ?? 0) + ($purchase->refund_amount_freight ?? 0);
+                // $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
 
-                $refundHtml = '<span class="text-success">Rp ' . number_format($refundTotal, 0, ',', '.') . '</span>';
-                $remainingHtml = '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
+                // $refundHtml = '<span class="text-success">Rp ' . number_format($refundTotal, 0, ',', '.') . '</span>';
+                // $remainingHtml = '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
+
+                // =========================
+                // 🔹 Pisah Product & Freight
+                // =========================
+
+                // PRODUCT
+                $totalProduct   = $purchase->total_amount_product ?? 0;
+                $refundProduct  = $purchase->refund_amount_product ?? 0;
+                $remainProduct  = $purchase->remaining_amount_product ?? 0;
+
+                // FREIGHT
+                $totalFreight   = $purchase->total_amount_freight ?? 0;
+                $refundFreight  = $purchase->refund_amount_freight ?? 0;
+                $remainFreight  = $purchase->remaining_amount_freight ?? 0;
+
+                // Format tampilan
+                $totalProductHtml  = 'Rp ' . number_format($totalProduct, 0, ',', '.');
+                $totalFreightHtml  = 'Rp ' . number_format($totalFreight, 0, ',', '.');
+
+                $refundProductColumn = '
+                    <div class="text-success">Rp ' . number_format($refundProduct, 0, ',', '.') . '</div>
+                    <small class="text-danger">Remaining: Rp ' . number_format($remainProduct, 0, ',', '.') . '</small>
+                ';
+
+                $refundFreightColumn = '
+                    <div class="text-success">Rp ' . number_format($refundFreight, 0, ',', '.') . '</div>
+                    <small class="text-danger">Remaining: Rp ' . number_format($remainFreight, 0, ',', '.') . '</small>
+                ';
 
                 // 🏷️ Payment Status + Verified check
                 $paymentStatus = strtolower($purchase->payment_status);
@@ -181,9 +209,18 @@ class PurchaseReturnController extends Controller
                     'purchase_number' => $html,
                     'return_date' => $date,
                     'supplier' => $supplier,
-                    'total_amount' => $totalAmount,
-                    'refund_amount' => $refundHtml,
-                    'remaining_amount' => $remainingHtml,
+                    // 'total_amount' => $totalAmount,
+                    // 'refund_amount' => $refundHtml,
+                    // 'remaining_amount' => $remainingHtml,
+
+                    // PRODUCT
+                    'total_amount_product'   => $totalProductHtml,
+                    'refund_amount_product'  => $refundProductColumn,
+
+                    // FREIGHT
+                    'total_amount_freight'   => $totalFreightHtml,
+                    'refund_amount_freight'  => $refundFreightColumn,
+
                     'payment_status' => $paymentBadge,
                     'account' => $account,
                     'products' => $products,
@@ -397,6 +434,7 @@ class PurchaseReturnController extends Controller
             'total.*'                 => 'numeric|min:0',
             'sub_total'               => 'required|numeric|min:0',
             'total_amount'            => 'required|numeric|min:0',
+            'note'                    => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -621,6 +659,7 @@ class PurchaseReturnController extends Controller
             'total_amount'            => 'required|numeric|min:0',
             'image'                   => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'edit_note'               => 'required|string|max:500',
+            'note'                    => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -682,7 +721,7 @@ class PurchaseReturnController extends Controller
                 'return_date'            => $request->return_date,
                 'supplier_id'            => $request->suppliers,
                 'status'                 => $request->status,
-                'note'                   => $request->notes,
+                'note'                   => $request->note,
                 'payment_status'         => $paymentStatus,
                 'total_amount_product'   => $totalProduct,
                 'total_amount_freight'   => $totalFreight,

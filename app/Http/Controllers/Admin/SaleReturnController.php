@@ -172,12 +172,21 @@ class SaleReturnController extends Controller
                         </div>
                     ',
                     'total_amount' => 'Rp ' . number_format($return->total_amount, 0, ',', '.'),
-                    'refund_amount' => '<span class="text-success">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</span>',
-                    'remaining_amount' => '<span class="text-danger">Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</span>',
+                    // 'refund_amount' => '<span class="text-success">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</span>',
+                    // 'remaining_amount' => '<span class="text-danger">Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</span>',
+                    'refund_amount' => '
+                        <div class="text-success">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</div>
+                        <small class="text-danger">Remaining: Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</small>
+                    ',
                     'payment_status' => $badge,
                     'status' => $statusBadge,
                     'products' => $items,
                     'account' => e($return->account ?? '-'),
+                    'note' => '
+                        <div style="white-space:normal; word-break:break-word; max-width:220px;" class="">
+                            ' . e($return->note ?? '-') . '
+                        </div>
+                    ',
                     'action' => view('erp.pages.sales.sale-return.partials.action-button', compact('return'))->render(),
                 ];
             }),
@@ -360,6 +369,7 @@ class SaleReturnController extends Controller
             'sub_total'         => 'required|numeric|min:0',
             'total_amount'      => 'required|numeric|min:0',
             'return_type' => 'nullable|string|in:canceled,defect',
+            'note'              => 'nullable|string|max:500',
         ]);
 
         DB::beginTransaction();
@@ -697,6 +707,7 @@ class SaleReturnController extends Controller
             'sub_total'         => 'required|numeric|min:0',
             'total_amount'      => 'required|numeric|min:0',
             'edit_note'         => 'required|string|max:500',
+            'note'              => 'nullable|string|max:500',
         ]);
 
         DB::beginTransaction();
@@ -789,7 +800,7 @@ class SaleReturnController extends Controller
                 'business_name'     => $address?->business_name,
                 'return_address'    => $address?->address,
                 'google_map'        => $address?->google_maps,
-                'note'              => $request->edit_note,
+                'note'              => $request->note,
             ]);
 
             // === UPDATE ITEMS ===

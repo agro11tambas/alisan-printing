@@ -209,9 +209,10 @@
                                                 <th>Invoice Number</th>
                                                 <th>Customer</th>
                                                 <th>Total Amount</th>
-                                                <th>Paid Amount</th>
-                                                <th>Remaining Amount</th>
+                                                <th>Refund Amount</th>
+                                                {{-- <th>Remaining Amount</th> --}}
                                                 <th>Payment Status</th>
+                                                <th>Note</th>
                                             </tr>
                                         </thead>
                                     </table>
@@ -594,11 +595,14 @@
                     {
                         data: 'refund_amount'
                     },
-                    {
-                        data: 'remaining_amount'
-                    },
+                    // {
+                    //     data: 'remaining_amount'
+                    // },
                     {
                         data: 'payment_status'
+                    },
+                    {
+                        data: 'note'
                     },
                     {
                         data: 'return_date', // tambahkan kolom ini

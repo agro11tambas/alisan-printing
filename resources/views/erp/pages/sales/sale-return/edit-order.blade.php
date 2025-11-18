@@ -166,13 +166,26 @@
                                             </div>
                                         </div>
                                     </div>
+                                    <input type="hidden" value="13" name="transaction_type" id="transaction_type">
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="note" class="fw-semibold">Note:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <textarea name="note" id="note" class="form-control" rows="2"
+                                                    placeholder="Tambahkan catatan (opsional)">{{ $order->note }}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="edit_note" class="fw-semibold">Edit Note:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <textarea class="form-control" id="edit_note" name="edit_note" rows="2" placeholder="Tambahkan catatan edit..."></textarea>
+                                                <textarea class="form-control" id="edit_note" name="edit_note" rows="2"
+                                                    placeholder="Tambahkan catatan edit..."></textarea>
                                             </div>
                                         </div>
                                     </div>

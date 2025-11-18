@@ -170,7 +170,8 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <input type="hidden" value="12" name="transaction_type" id="transaction_type">
+                                    {{-- <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="transaction_type" class="fw-semibold">Purchase:</label>
                                         </div>
@@ -183,7 +184,7 @@
                                                 </select>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div> --}}
                                 </div>
                             </div>
                         </div>

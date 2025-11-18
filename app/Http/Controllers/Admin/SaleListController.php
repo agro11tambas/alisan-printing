@@ -379,7 +379,11 @@ class SaleListController extends Controller
                     'status' => $statusBadge,
                     'payment_method' => e($order->payment_method ?? '-'),
                     'products' => $items,
-                    'notes' => e($order->notes ?? '-'),
+                    'notes' => '
+                        <div style="white-space: normal; word-break: break-word; max-width: 220px;">
+                            ' . e($order->notes ?? '-') . '
+                        </div>
+                    ',
                     'created_at' => $orderCreatedAt,
                     'mode' => $modeBadge,
                     'action' => view('erp.pages.sales.sale-list.partials.action-button', compact('order'))->render(),
