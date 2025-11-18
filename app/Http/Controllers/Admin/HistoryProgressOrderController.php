@@ -95,7 +95,7 @@ class HistoryProgressOrderController extends Controller
                     return $batch->orderProgress?->invoice_number ?? '-';
                 })
                 ->addColumn('date', function ($batch) {
-                    return Carbon::parse($batch->date)->format('j M y');
+                    return Carbon::parse($batch->created_at)->format('j M y H:i');
                 })
                 ->addColumn('user_name', function ($batch) {
                     return $batch->user?->name ?? '-';

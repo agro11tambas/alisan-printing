@@ -159,11 +159,11 @@ class WaitingListController extends Controller
             </div>';
 
             $customerHtml = '
-            <div>
-                <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
-                <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
-            </div>
-        ';
+                <div style="white-space:normal; word-break:break-word; max-width:180px;">
+                    <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
+                    <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
+                </div>
+            ';
 
             $progressView = view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
             $shipping = e($progress->order->shipping_address ?? '-');
