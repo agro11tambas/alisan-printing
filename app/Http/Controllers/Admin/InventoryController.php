@@ -472,11 +472,19 @@ class InventoryController extends Controller
 
                 return $formatted;
             })
-            ->addColumn(
-                'incoming_stock',
-                fn($item) =>
-                number_format($item->incoming_stock ?? 0, 0, ',', '.')
-            )
+            // ->addColumn(
+            //     'incoming_stock',
+            //     fn($item) =>
+            //     number_format($item->incoming_stock ?? 0, 0, ',', '.')
+            // )
+            ->addColumn('incoming_stock', function ($item) {
+                $incoming = DB::table('inventory_items_2')
+                    ->where('product_id', $item->product_id)
+                    ->selectRaw('SUM(remaining_stock_in - stock_in) AS incoming')
+                    ->value('incoming');
+
+                return number_format($incoming ?? 0, 0, ',', '.');
+            })
             ->addColumn(
                 'avg_cost',
                 fn($item) =>

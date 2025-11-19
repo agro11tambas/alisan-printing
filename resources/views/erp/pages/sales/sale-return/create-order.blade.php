@@ -503,6 +503,30 @@
             $('.invalid-feedback').remove(); // hapus semua pesan error lama
             $('.is-invalid').removeClass('is-invalid');
 
+            // =====================================================
+            // 🔥 VALIDASI GLOBAL: minimal satu product harus diisi
+            // =====================================================
+            let hasAtLeastOneFilled = false;
+
+            $('#tab_logic_body tr').each(function() {
+                const canceled = parseInt($(this).find('.canceled_quantity').val().replace(/\D/g, '') || 0);
+                const defect = parseInt($(this).find('.defect_quantity').val().replace(/\D/g, '') || 0);
+
+                if (canceled > 0 || defect > 0) {
+                    hasAtLeastOneFilled = true;
+                }
+            });
+
+            if (!hasAtLeastOneFilled) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Minimal 1 produk harus diisi!',
+                    text: 'Isi minimal salah satu quantity (Canceled / Defect) pada salah satu produk.',
+                });
+                return;
+            }
+
             // 🔹 Validasi baris produk
             $('#tab_logic_body tr').each(function() {
                 const row = $(this);
@@ -517,18 +541,18 @@
                 const totalReturn = canceled + defect;
 
                 // 🔹 Cek: wajib isi salah satu qty
-                if (canceled === 0 && defect === 0) {
-                    isValid = false;
-                    canceledInput.addClass('is-invalid');
-                    defectInput.addClass('is-invalid');
+                // if (canceled === 0 && defect === 0) {
+                //     isValid = false;
+                //     canceledInput.addClass('is-invalid');
+                //     defectInput.addClass('is-invalid');
 
-                    canceledInput.after(
-                        '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
-                    );
-                    defectInput.after(
-                        '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
-                    );
-                }
+                //     canceledInput.after(
+                //         '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
+                //     );
+                //     defectInput.after(
+                //         '<div class="invalid-feedback d-block text-danger small mt-1">Isi salah satu quantity (Canceled / Defect).</div>'
+                //     );
+                // }
 
                 // 🔹 Cek: tidak boleh melebihi sisa max
                 if (totalReturn > maxQty) {

@@ -1177,13 +1177,13 @@ class PurchaseListController extends Controller
         try {
             $purchase = Purchase::with(['purchaseItems'])->findOrFail($id);
 
-            $hasStockIn = InventoryItem::whereIn('purchase_item_id', $purchase->purchaseItems->pluck('id'))
-                ->where('stock_in', '>', 0)
-                ->exists();
+            // $hasStockIn = InventoryItem::whereIn('purchase_item_id', $purchase->purchaseItems->pluck('id'))
+            //     ->where('stock_in', '>', 0)
+            //     ->exists();
 
-            if ($hasStockIn) {
-                return back()->with('error', 'Purchase tidak bisa dihapus total karena sudah pernah stock-in. Gunakan Purchase Return atau Stock Adjustment.');
-            }
+            // if ($hasStockIn) {
+            //     return back()->with('error', 'Purchase tidak bisa dihapus total karena sudah pernah stock-in. Gunakan Purchase Return atau Stock Adjustment.');
+            // }
 
             $productIds = $purchase->purchaseItems->pluck('product_id')->filter()->unique()->toArray();
 

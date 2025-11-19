@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Products;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class ReportItemsProductionAndWarehouseController extends Controller
@@ -57,16 +58,42 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 'name' => $product->name,
                 'production_available' =>
                 '<span class="text-dark">' . number_format($prod->available_quantity ?? 0, 0, ',', '.') . '</span>',
-                'finished_product_stock' =>
-                '<span class="text-dark">' . number_format($prod->finished_product_stock ?? 0, 0, ',', '.') . '</span>',
+                // 'finished_product_stock' =>
+                // '<span class="text-dark">' . number_format($prod->finished_product_stock ?? 0, 0, ',', '.') . '</span>',
+                'finished_product_stock' => (function () use ($product) {
+
+                    $productId = $product->id;
+
+                    // 1️⃣ Total qty selesai produksi
+                    $totalCompleted = \App\Models\OrderProgressItem::where('product_id', $productId)
+                        ->whereNull('deleted_at')
+                        ->sum('completed_quantity');
+
+                    // 2️⃣ Total qty sudah dikirim
+                    $totalShipped = \App\Models\DeliveryOrderItem::where('product_id', $productId)
+                        ->whereNull('deleted_at')
+                        ->sum('shipped_qty');
+
+                    $finished = $totalCompleted - $totalShipped;
+                    if ($finished < 0) $finished = 0;
+
+                    return '<span class="text-dark">' . number_format($finished, 0, ',', '.') . '</span>';
+                })(),
                 'order_progress_remaining' =>
                 '<span class="text-dark">' . number_format($prod->remaining_quantity ?? 0, 0, ',', '.') . '</span>',
                 'inventory_stock' =>
                 number_format($inv->inventory_stock ?? 0, 0, ',', '.'),
                 'stock_after_sales' =>
                 number_format($inv->stock_after_sales ?? 0, 0, ',', '.'),
-                'incoming_stock' =>
-                number_format($inv->incoming_stock ?? 0, 0, ',', '.'),
+                // hitung incoming stock aktual dari inventory_items_2
+                'incoming_stock' => (function () use ($product) {
+                    $incoming = DB::table('inventory_items_2')
+                        ->where('product_id', $product->id)
+                        ->selectRaw('SUM(remaining_stock_in - stock_in) AS incoming')
+                        ->value('incoming');
+
+                    return number_format($incoming ?? 0, 0, ',', '.');
+                })(),
                 'incoming_stock_production' =>
                 number_format($prod->incoming_stock ?? 0, 0, ',', '.'),
                 'avg_cost' =>

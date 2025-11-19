@@ -87,7 +87,7 @@
         .select2-container,
         .select2-dropdown,
         .select2-container--open {
-            /* z-index: 2050 !important; */
+            z-index: 2050 !important;
         }
     </style>
 
@@ -488,6 +488,21 @@
         /* Hover lebih terang */
         html.minimenu .nxl-navigation .nxl-hasmenu:has(> ul.nxl-submenu)>.nxl-link:hover::after {
             opacity: 1;
+        }
+
+        .swal2-container {
+            z-index: 99999 !important;
+        }
+
+        /* TOPBAR + BREADCRUMB naik jadi 5000 */
+        .page-header.sticky-top,
+        .page-header,
+        .nxl-header,
+        .topbar,
+        .navbar,
+        .page-header-title {
+            z-index: 5000 !important;
+            /* position: relative !important; */
         }
     </style>
 
