@@ -614,21 +614,21 @@
                     $menu.css({
                         top: '100%',
                         bottom: 'auto',
-                        'margin-top': '10px'
+                        'margin-top': '0px'
                     });
                 } else if (spaceBelow < 250 && spaceAbove > spaceBelow) {
                     // Bawah sempit → naik
                     $menu.css({
                         bottom: '100%',
                         top: 'auto',
-                        'margin-bottom': '10px'
+                        'margin-bottom': '0px'
                     });
                 } else {
                     // Default turun
                     $menu.css({
                         top: '100%',
                         bottom: 'auto',
-                        'margin-top': '10px'
+                        'margin-top': '0px'
                     });
                 }
 
