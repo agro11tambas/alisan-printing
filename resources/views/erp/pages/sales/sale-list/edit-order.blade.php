@@ -65,6 +65,14 @@
             font-weight: 600 !important;
             height: 44px !important;
         }
+
+        #notes {
+            font-size: 16px;
+        }
+
+        #notes::placeholder {
+            font-size: 16px;
+        }
     </style>
 @endpush
 

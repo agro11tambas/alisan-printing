@@ -28,7 +28,8 @@
                         @if (!empty($images))
                             <button class="btn btn-sm btn-outline-info preview-btn"
                                 data-images='@json($images)'
-                                data-product="{{ $item->product->name ?? '-' }}">
+                                data-product="{{ $item->product->name ?? '-' }}"
+                                data-order_note="{{ $progress->order->notes ?? '-' }}">
                                 <i class="feather-eye me-1"></i> Preview
                             </button>
                         @else

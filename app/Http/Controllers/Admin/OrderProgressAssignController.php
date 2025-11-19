@@ -627,10 +627,13 @@ class OrderProgressAssignController extends Controller
                     'hasOnlyProgressStatus'
                 ))->render();
 
+                $businessName = e($batch->orderProgress?->order?->customerAddress?->business_name ?? '-');
+                $customerName = e($batch->orderProgress?->order?->customer?->name ?? '-');
+
                 $customerHtml = '
-                    <div>
-                        <div class="fw-semibold">' . e($batch->orderProgress?->order?->customerAddress?->business_name ?? '-') . '</div>
-                        <small class="text-muted">' . e($batch->orderProgress?->order?->customer?->name ?? '-') . '</small>
+                    <div style="white-space: normal; word-break: break-word; max-width:180px;">
+                        <div class="fw-semibold">' . $businessName . '</div>
+                        <small class="text-muted">' . $customerName . '</small>
                     </div>
                 ';
 

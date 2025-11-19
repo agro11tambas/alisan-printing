@@ -63,27 +63,39 @@
                 <form action="/erp/productions/waiting-list/assign/{{ $progress->id }}" method="POST" id="assignForm">
                     @csrf
                     @method('POST')
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h4 class="card-title">Sale Info</h4>
-                        </div>
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-lg-2 fw-semibold">Invoice Number:</div>
-                                <div class="col-lg-10">{{ $progress->order->order_number ?? '-' }}</div>
+                    <div class="row">
+                        <div class="col-lg-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Sale Info</h4>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-lg-5 fw-semibold">Invoice Number:</div>
+                                        <div class="col-lg-7">{{ $progress->order->order_number ?? '-' }}</div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-lg-5 fw-semibold">Customer:</div>
+                                        <div class="col-lg-7">{{ $progress->order->customer->name ?? '-' }}</div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-lg-5 fw-semibold">
+                                            <span class="text-primary">Order Note:</span>
+                                        </div>
+                                        <div class="col-lg-7 fw-semibold">
+                                            <span class="text-primary">{{ $progress->order->notes ?? '-' }}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="row mb-3">
-                                <div class="col-lg-2 fw-semibold">Customer:</div>
-                                <div class="col-lg-10">{{ $progress->order->customer->name ?? '-' }}</div>
-                            </div>
                         </div>
-                    </div>
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h4 class="card-title">Preview Image</h4>
-                        </div>
-                        <div class="card-body">
-                            {{-- <div class="row mb-3">
+                        <div class="col-lg-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Preview Image</h4>
+                                </div>
+                                <div class="card-body">
+                                    {{-- <div class="row mb-3">
                                 <div class="col-lg-2">
                                     <label for="assign_code" class="fw-semibold">Assign Code:</label>
                                 </div>
@@ -93,44 +105,45 @@
                                 </div>
                             </div> --}}
 
-                            {{-- Design Preview Section --}}
-                            @if ($progress->items->pluck('designItem')->filter()->isNotEmpty())
-                                <div class="row mb-4">
-                                    <div class="col-lg-2">
-                                        <label class="fw-semibold">Design Preview:</label>
-                                    </div>
-                                    <div class="col-lg-10">
-                                        <div class="d-flex flex-wrap gap-3">
-                                            @foreach ($progress->items as $item)
-                                                @php
-                                                    $images = json_decode(
-                                                        optional($item->designItem)->preview_image ?? '[]',
-                                                        true,
-                                                    );
-                                                @endphp
+                                    {{-- Design Preview Section --}}
+                                    @if ($progress->items->pluck('designItem')->filter()->isNotEmpty())
+                                        <div class="row mb-4">
+                                            <div class="col-lg-2">
+                                                <label class="fw-semibold">Design Preview:</label>
+                                            </div>
+                                            <div class="col-lg-10">
+                                                <div class="d-flex flex-wrap gap-3">
+                                                    @foreach ($progress->items as $item)
+                                                        @php
+                                                            $images = json_decode(
+                                                                optional($item->designItem)->preview_image ?? '[]',
+                                                                true,
+                                                            );
+                                                        @endphp
 
-                                                @foreach ($images as $img)
-                                                    <div class="text-center">
-                                                        <a href="#" class="img-viewer"
-                                                            data-src="{{ asset($img['file']) }}"
-                                                            data-note="{{ $img['note'] ?? '' }}">
-                                                            <img src="{{ asset($img['file']) }}" width="120"
-                                                                height="90" loading="lazy"
-                                                                style="border-radius:8px;object-fit:cover;object-position:center;border:1px solid #ddd;">
-                                                        </a>
-                                                        <p class="small text-muted mt-1">{{ $img['note'] ?? '-' }}</p>
-                                                    </div>
-                                                @endforeach
-                                            @endforeach
+                                                        @foreach ($images as $img)
+                                                            <div class="text-center">
+                                                                <a href="#" class="img-viewer"
+                                                                    data-src="{{ asset($img['file']) }}"
+                                                                    data-note="{{ $img['note'] ?? '' }}">
+                                                                    <img src="{{ asset($img['file']) }}" width="120"
+                                                                        height="90" loading="lazy"
+                                                                        style="border-radius:8px;object-fit:cover;object-position:center;border:1px solid #ddd;">
+                                                                </a>
+                                                                <p class="small text-muted mt-1">{{ $img['note'] ?? '-' }}
+                                                                </p>
+                                                            </div>
+                                                        @endforeach
+                                                    @endforeach
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            @endif
+                                    @endif
 
-                            <input type="hidden" class="form-control" id="assign_date" name="assign_date"
-                                value="{{ now()->format('Y-m-d') }}">
+                                    <input type="hidden" class="form-control" id="assign_date" name="assign_date"
+                                        value="{{ now()->format('Y-m-d') }}">
 
-                            {{-- <div class="row mb-3">
+                                    {{-- <div class="row mb-3">
                                 <div class="col-lg-2">
                                     <label for="assign_date" class="fw-semibold">Assign Date:</label>
                                 </div>
@@ -140,7 +153,7 @@
                                 </div>
                             </div> --}}
 
-                            {{-- <div class="row mb-3">
+                                    {{-- <div class="row mb-3">
                                 <div class="col-lg-2">
                                     <label for="note" class="fw-semibold">Note:</label>
                                 </div>
@@ -148,6 +161,8 @@
                                     <textarea class="form-control" id="note" name="note" placeholder="Catatan tambahan untuk batch ini"></textarea>
                                 </div>
                             </div> --}}
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="card">

@@ -17,10 +17,11 @@
                 </a>
             </div>
             <div>
-                <h4 class="mb-0 nxl-page-title text-danger">Harap refresh halaman terlebih dahulu sebelum melakukan
+                <h5 class="mb-0 nxl-page-title text-danger">Harap refresh halaman terlebih dahulu sebelum
+                    melakukan
                     tindakan apa pun.
                     (tekan F5)
-                </h4>
+                </h5>
             </div>
         </div>
         <div class="header-right ms-auto">

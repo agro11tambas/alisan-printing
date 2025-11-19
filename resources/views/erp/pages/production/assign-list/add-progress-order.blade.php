@@ -4,7 +4,7 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Add Progress (Assign Batch)</h5>
+                <h5 class="m-b-10 text-success">Add Progress</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
@@ -55,45 +55,61 @@
                     @csrf
                     @method('POST')
 
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h4 class="card-title">Sale Info</h4>
-                        </div>
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-lg-2 fw-semibold">Invoice Number:</div>
-                                <div class="col-lg-10">{{ $batch->orderProgress->order->order_number ?? '-' }}</div>
-                            </div>
-                            <div class="row mb-3">
-                                <div class="col-lg-2 fw-semibold">Customer:</div>
-                                <div class="col-lg-10">{{ $batch->orderProgress->order->customer->name ?? '-' }}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h4 class="card-title">Assign Info - {{ $batch->assign_code }}</h4>
-                        </div>
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-lg-2">
-                                    <label for="progress_date" class="fw-semibold">Progress Date:</label>
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h4 class="card-title">Sale Info</h4>
                                 </div>
-                                <div class="col-lg-10">
-                                    <input type="date" class="form-control" id="progress_date" name="progress_date"
-                                        value="{{ now()->format('Y-m-d') }}" required>
-                                </div>
-                            </div>
-                            <div class="row mb-3">
-                                <div class="col-lg-2">
-                                    <label for="note" class="fw-semibold">Note:</label>
-                                </div>
-                                <div class="col-lg-10">
-                                    <textarea class="form-control" id="note" name="note" placeholder="Catatan tambahan"></textarea>
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-lg-2 fw-semibold">Invoice Number:</div>
+                                        <div class="col-lg-10">{{ $batch->orderProgress->order->order_number ?? '-' }}</div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-lg-2 fw-semibold">Customer:</div>
+                                        <div class="col-lg-10">{{ $batch->orderProgress->order->customer->name ?? '-' }}
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-lg-2 fw-semibold">
+                                            <span class="text-primary">Order Note:</span>
+                                        </div>
+                                        <div class="col-lg-10 fw-semibold">
+                                            <span
+                                                class="text-primary">{{ $batch->orderProgress->order->notes ?? '-' }}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        <input type="hidden" name="progress_date" id="progress_date" value="{{ now()->format('Y-m-d') }}">
+                        {{-- <div class="col-lg-8">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h4 class="card-title">Assign Info - {{ $batch->assign_code }}</h4>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-lg-2">
+                                            <label for="progress_date" class="fw-semibold">Progress Date:</label>
+                                        </div>
+                                        <div class="col-lg-10">
+                                            <input type="date" class="form-control" id="progress_date"
+                                                name="progress_date" value="{{ now()->format('Y-m-d') }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-lg-2">
+                                            <label for="note" class="fw-semibold">Note:</label>
+                                        </div>
+                                        <div class="col-lg-10">
+                                            <textarea class="form-control" id="note" name="note" placeholder="Catatan tambahan"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div> --}}
                     </div>
 
                     <div class="card">

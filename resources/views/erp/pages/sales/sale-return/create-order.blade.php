@@ -34,6 +34,14 @@
             height: 42px !important;
             right: 10px !important;
         }
+
+        #notes {
+            font-size: 16px;
+        }
+
+        #notes::placeholder {
+            font-size: 16px;
+        }
     </style>
 @endpush
 

@@ -64,46 +64,85 @@
                     id="assignForm">
                     @csrf
                     @method('PUT')
-                    {{-- === INFORMASI UMUM === --}}
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h4 class="card-title">Sale Info</h4>
-                        </div>
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-lg-2 fw-semibold">Invoice Number:</div>
-                                <div class="col-lg-10">{{ $progress->order->order_number ?? '-' }}</div>
-                            </div>
-                            <div class="row mb-3">
-                                <div class="col-lg-2 fw-semibold">Customer:</div>
-                                <div class="col-lg-10">{{ $progress->order->customer->name ?? '-' }}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- === DETAIL BATCH === --}}
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h4 class="card-title">Assign Batch Details</h4>
-                        </div>
-                        <div class="card-body">
-
-                            <div class="row mb-3">
-                                <div class="col-lg-2">
-                                    <label for="assign_date" class="fw-semibold">Assign Date:</label>
+                    <div class="row">
+                        <div class="col-lg-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Sale Info</h4>
                                 </div>
-                                <div class="col-lg-10">
-                                    <input type="date" class="form-control" id="assign_date" name="assign_date"
-                                        value="{{ \Carbon\Carbon::parse($batch->assign_date)->format('Y-m-d') }}" required>
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-lg-5 fw-semibold">Invoice Number:</div>
+                                        <div class="col-lg-7">{{ $progress->order->order_number ?? '-' }}</div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-lg-5 fw-semibold">Customer:</div>
+                                        <div class="col-lg-7">{{ $progress->order->customer->name ?? '-' }}</div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-lg-5 fw-semibold text-primary">Order Note:</div>
+                                        <div class="col-lg-7 fw-semibold text-primary">
+                                            {{ $progress->order->notes ?? '-' }}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="row mb-3">
-                                <div class="col-lg-2">
-                                    <label for="note" class="fw-semibold">Note:</label>
+                        {{-- ===================== --}}
+                        {{--   PREVIEW IMAGE CARD   --}}
+                        {{-- ===================== --}}
+                        <div class="col-lg-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">Preview Image</h4>
                                 </div>
-                                <div class="col-lg-10">
-                                    <textarea class="form-control" id="note" name="note">{{ $batch->note }}</textarea>
+                                <div class="card-body">
+
+                                    {{-- Design Preview Section --}}
+                                    @if ($progress->items->pluck('designItem')->filter()->isNotEmpty())
+                                        <div class="row mb-4">
+                                            <div class="col-lg-2">
+                                                <label class="fw-semibold">Design Preview:</label>
+                                            </div>
+                                            <div class="col-lg-10">
+                                                <div class="d-flex flex-wrap gap-3">
+
+                                                    @foreach ($progress->items as $item)
+                                                        @php
+                                                            $images = json_decode(
+                                                                optional($item->designItem)->preview_image ?? '[]',
+                                                                true,
+                                                            );
+                                                        @endphp
+
+                                                        @foreach ($images as $img)
+                                                            <div class="text-center">
+                                                                <a href="#" class="img-viewer"
+                                                                    data-src="{{ asset($img['file']) }}"
+                                                                    data-note="{{ $img['note'] ?? '' }}">
+
+                                                                    <img src="{{ asset($img['file']) }}" width="120"
+                                                                        height="90" loading="lazy"
+                                                                        style="border-radius:8px;object-fit:cover;object-position:center;border:1px solid #ddd;">
+                                                                </a>
+
+                                                                <p class="small text-muted mt-1">{{ $img['note'] ?? '-' }}
+                                                                </p>
+                                                            </div>
+                                                        @endforeach
+                                                    @endforeach
+
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    {{-- Auto Assign Date --}}
+                                    <input type="hidden" id="assign_date" name="assign_date"
+                                        value="{{ now()->format('Y-m-d') }}">
                                 </div>
                             </div>
                         </div>

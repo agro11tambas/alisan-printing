@@ -139,10 +139,13 @@ class DeliveryListController extends Controller
                 $vehicle = e($dl->vehicle ?? '-');
                 // $customer = e($dl->deliveryOrder->customer ?? '-');
 
+                $businessName = e($dl->deliveryOrder->order?->customerAddress?->business_name ?? '-');
+                $customerName = e($dl->deliveryOrder->order?->customer?->name ?? '-');
+
                 $customerHtml = '
-                    <div>
-                        <div class="fw-semibold">' . e($dl->deliveryOrder->order?->customerAddress?->business_name ?? '-') . '</div>
-                        <small class="text-muted">' . e($dl->deliveryOrder->order?->customer?->name ?? '-') . '</small>
+                    <div style="white-space: normal; word-break: break-word; max-width:180px;">
+                        <div class="fw-semibold">' . $businessName . '</div>
+                        <small class="text-muted">' . $customerName . '</small>
                     </div>
                 ';
 

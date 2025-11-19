@@ -538,9 +538,6 @@
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script> --}}
     <script src="https://cdn.datatables.net/scroller/2.4.1/js/dataTables.scroller.min.js"></script>
 
-
-
-
     <script>
         window.initRowActionHandler = function(tableSelector) {
             const $table = $(tableSelector);
@@ -567,7 +564,7 @@
                 const actionHtml = row.data().action;
                 const colCount = $tr.find('td').length;
 
-                let menuPosition = 'left:50%; transform:translateX(-50%);';
+                let menuPosition = 'left: 20px; transform:none;';
                 if (tableSelector === '#deliveryListTable') {
                     menuPosition = 'left: 20px; transform:none;';
                 }
@@ -575,7 +572,7 @@
                 const $actionRow = $(`
                     <tr class="action-row">
                         <td colspan="${colCount}" class="p-0">
-                            <div class="d-flex justify-content-${tableSelector === '#deliveryListTable' ? 'start' : 'center'}">
+                            <div class="d-flex justify-content-${tableSelector === '#deliveryListTable' ? 'start' : 'start'}">
                                 <div class="dropdown w-auto position-relative">
                                     <ul class="dropdown-menu show static-action-menu shadow border rounded-3 p-2"
                                         style="display:block; position:absolute; ${menuPosition}">
@@ -587,25 +584,39 @@
                     </tr>
                 `);
 
+                const scrollBody = $table.closest('.dataTables_scrollBody')[0];
+                const scrollRect = scrollBody.getBoundingClientRect();
                 const rowRect = $tr[0].getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-                const spaceBelow = viewportHeight - rowRect.bottom;
-                const spaceAbove = rowRect.top;
+
+                const spaceAbove = rowRect.top - scrollRect.top;
+                const spaceBelow = scrollRect.bottom - rowRect.bottom;
 
                 const $menu = $actionRow.find('.static-action-menu');
-                if (spaceBelow < 250 && spaceAbove > spaceBelow) {
-                    $menu.css({
-                        bottom: '100%',
-                        top: 'auto',
-                        'margin-bottom': '8px'
-                    });
-                } else {
+                const safeTop = 200; // minimal area aman agar dropdown selalu turun
+
+                if (spaceAbove < safeTop) {
+                    // Row terlalu dekat atas → PAKSA TURUN
                     $menu.css({
                         top: '100%',
                         bottom: 'auto',
-                        'margin-top': '8px'
+                        'margin-top': '10px'
+                    });
+                } else if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+                    // Bawah sempit → naik
+                    $menu.css({
+                        bottom: '100%',
+                        top: 'auto',
+                        'margin-bottom': '10px'
+                    });
+                } else {
+                    // Default turun
+                    $menu.css({
+                        top: '100%',
+                        bottom: 'auto',
+                        'margin-top': '10px'
                     });
                 }
+
 
                 $tr.after($actionRow).addClass('action-shown action-active');
             });

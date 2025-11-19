@@ -268,6 +268,12 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Order Note</label>
+                        <div id="previewOrderNote" class="border rounded p-3 bg-light text-dark"
+                            style="white-space: pre-wrap; font-size: 14px;"></div>
+                    </div>
+
                     <h6 class="fw-bold mb-3" id="previewProductName"></h6>
                     <div id="previewImageContainer" class="d-flex flex-column gap-3"></div>
                 </div>
@@ -557,8 +563,11 @@
             const images = $(this).data('images');
             const product = $(this).data('product');
             const container = $('#previewImageContainer');
+            const orderNote = $(this).data('order_note') || '-';
 
             $('#previewProductName').text(product);
+            $('#previewOrderNote').text(orderNote);
+
             container.empty();
 
             if (Array.isArray(images) && images.length > 0) {

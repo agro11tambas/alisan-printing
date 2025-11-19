@@ -369,11 +369,13 @@ class SaleListController extends Controller
                     ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
                     'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
-                    'grand_total' => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
+                    'grand_total' => '<span class="text-primary fw-semibold">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
                     'paid_amount' => '
-                        <div class="text-success">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</div>
-                        <small class="text-danger">Remaining: Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</small>
-                    ',
+                        <div class="text-success fw-semibold">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</div>'
+                        . ($order->remaining_amount > 0
+                            ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</small>'
+                            : ''
+                        ),
                     // 'remaining_amount' => '<span class="text-danger">Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</span>',
                     'payment_status' => $paymentStatus,
                     'status' => $statusBadge,

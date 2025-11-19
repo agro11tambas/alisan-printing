@@ -171,13 +171,16 @@ class SaleReturnController extends Controller
                             <small class="text-muted">' . e($return->customer->name ?? '-') . '</small>
                         </div>
                     ',
-                    'total_amount' => 'Rp ' . number_format($return->total_amount, 0, ',', '.'),
+                    // 'total_amount' => 'Rp ' . number_format($return->total_amount, 0, ',', '.'),
+                    'total_amount' => '<span class="text-primary fw-semibold">Rp ' . number_format($return->total_amount, 0, ',', '.') . '</span>',
                     // 'refund_amount' => '<span class="text-success">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</span>',
                     // 'remaining_amount' => '<span class="text-danger">Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</span>',
                     'refund_amount' => '
-                        <div class="text-success">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</div>
-                        <small class="text-danger">Remaining: Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</small>
-                    ',
+                        <div class="text-success fw-semibold">Rp ' . number_format($return->refund_amount, 0, ',', '.') . '</div>'
+                        . ($return->remaining_amount > 0
+                            ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</small>'
+                            : ''
+                        ),
                     'payment_status' => $badge,
                     'status' => $statusBadge,
                     'products' => $items,

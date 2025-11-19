@@ -180,23 +180,27 @@ class PurchaseListController extends Controller
                 $remainFreight  = $purchase->remaining_amount_freight ?? 0;
 
                 // Format HTML
-                $totalProductHtml  = 'Rp ' . number_format($totalProduct, 0, ',', '.');
-                $paidProductHtml   = '<span class="text-success">Rp ' . number_format($paidProduct, 0, ',', '.') . '</span>';
-                $remainProductHtml = '<span class="text-danger">Rp ' . number_format($remainProduct, 0, ',', '.') . '</span>';
+                $totalProductHtml  = '<span class="text-primary fw-semibold">Rp ' . number_format($totalProduct, 0, ',', '.') . '</span>';
+                $paidProductHtml   = '<span class="text-success fw-semibold">Rp ' . number_format($paidProduct, 0, ',', '.') . '</span>';
+                $remainProductHtml = '<span class="text-danger fw-semibold">Rp ' . number_format($remainProduct, 0, ',', '.') . '</span>';
 
-                $totalFreightHtml  = 'Rp ' . number_format($totalFreight, 0, ',', '.');
-                $paidFreightHtml   = '<span class="text-success">Rp ' . number_format($paidFreight, 0, ',', '.') . '</span>';
-                $remainFreightHtml = '<span class="text-danger">Rp ' . number_format($remainFreight, 0, ',', '.') . '</span>';
+                $totalFreightHtml  = '<span class="text-primary fw-semibold">Rp ' . number_format($totalFreight, 0, ',', '.') . '</span>';
+                $paidFreightHtml   = '<span class="text-success fw-semibold">Rp ' . number_format($paidFreight, 0, ',', '.') . '</span>';
+                $remainFreightHtml = '<span class="text-danger fw-semibold">Rp ' . number_format($remainFreight, 0, ',', '.') . '</span>';
 
                 $paidProductColumn = '
-                    <div class="text-success">Rp ' . number_format($paidProduct, 0, ',', '.') . '</div>
-                    <small class="text-danger">Remaining: Rp ' . number_format($remainProduct, 0, ',', '.') . '</small>
-                ';
+                    <div class="text-success fw-semibold">Rp ' . number_format($paidProduct, 0, ',', '.') . '</div>'
+                    . ($remainProduct > 0
+                        ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($remainProduct, 0, ',', '.') . '</small>'
+                        : ''
+                    );
 
                 $paidFreightColumn = '
-                    <div class="text-success">Rp ' . number_format($paidFreight, 0, ',', '.') . '</div>
-                    <small class="text-danger">Remaining: Rp ' . number_format($remainFreight, 0, ',', '.') . '</small>
-                ';
+                    <div class="text-success fw-semibold">Rp ' . number_format($paidFreight, 0, ',', '.') . '</div>'
+                    . ($remainFreight > 0
+                        ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($remainFreight, 0, ',', '.') . '</small>'
+                        : ''
+                    );
 
                 // 🏷️ Payment Status + Verified check
                 $paymentStatus = strtolower($purchase->payment_status);

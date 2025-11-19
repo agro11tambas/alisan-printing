@@ -53,17 +53,25 @@
 
         /* 🔹 Perbesar juga font di header tabel produk (Qty, Price, Total) */
         /* #tab_logic th {
-                        font-size: 15px !important;
-                        font-weight: 700 !important;
-                        vertical-align: middle !important;
-                        text-transform: uppercase;
-                    } */
+                            font-size: 15px !important;
+                            font-weight: 700 !important;
+                            vertical-align: middle !important;
+                            text-transform: uppercase;
+                        } */
 
         /* 🔹 Perbesar font Grand Total biar seragam */
         #tab_logic_total input.form-control {
             font-size: 16px !important;
             font-weight: 600 !important;
             height: 44px !important;
+        }
+
+        #notes {
+            font-size: 16px;
+        }
+
+        #notes::placeholder {
+            font-size: 16px;
         }
     </style>
 @endpush
@@ -309,7 +317,7 @@
                                                             class="form-control qty" id="qty_0" min="1"></td>
 
                                                     <!-- <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" id="price_before_discount_0" readonly></td>
-                                                                                                                                                                                                        <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
+                                                                                                                                                                                                            <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
                                                     <td>
                                                         @php
                                                             $isOwner = Auth::user()->role === 'Owner';

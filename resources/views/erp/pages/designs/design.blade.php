@@ -164,7 +164,11 @@
                     </div>
                     <div class="modal-body">
                         <input type="hidden" id="design_item_id" name="design_item_id">
-
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Order Note</label>
+                            <div id="orderNoteBox" class="border rounded p-3 bg-light text-dark"
+                                style="white-space: pre-wrap; font-size: 14px;"></div>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">Upload / Paste Screenshot (Multiple)</label>
 
@@ -271,6 +275,11 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Order Note</label>
+                        <div id="multiViewerOrderNote" class="border rounded p-3 bg-light text-dark"
+                            style="white-space: pre-wrap; font-size: 14px;"></div>
+                    </div>
                     <h6 class="fw-bold mb-3" id="multiViewerProduct"></h6>
                     <div id="multiViewerContainer" class="d-flex flex-column gap-3"></div>
                 </div>
@@ -299,7 +308,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [4, 'desc']
+                    [4, 'asc']
                 ],
                 data: [],
                 columns: [{
@@ -492,6 +501,8 @@
                 const id = $(this).data('id');
                 const previewUrl = $(this).data('preview');
                 const note = $(this).data('note');
+                const orderNote = $(this).data('order_note') || '-';
+                $('#orderNoteBox').text(orderNote);
 
                 $('#design_item_id').val(id);
 
@@ -772,10 +783,13 @@
         $(document).on('click', '.preview-btn', function() {
             const images = $(this).data('images');
             const product = $(this).data('product');
+            const orderNote = $(this).data('order_note') || '-';
             const container = $('#multiViewerContainer');
+
             container.empty();
 
             $('#multiViewerProduct').text(product);
+            $('#multiViewerOrderNote').text(orderNote || '-');
 
             if (Array.isArray(images) && images.length > 0) {
                 images.forEach(img => {

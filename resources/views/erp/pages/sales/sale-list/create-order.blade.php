@@ -53,17 +53,25 @@
 
         /* 🔹 Perbesar juga font di header tabel produk (Qty, Price, Total) */
         /* #tab_logic th {
-                    font-size: 15px !important;
-                    font-weight: 700 !important;
-                    vertical-align: middle !important;
-                    text-transform: uppercase;
-                } */
+                                font-size: 15px !important;
+                                font-weight: 700 !important;
+                                vertical-align: middle !important;
+                                text-transform: uppercase;
+                            } */
 
         /* 🔹 Perbesar font Grand Total biar seragam */
         #tab_logic_total input.form-control {
             font-size: 16px !important;
             font-weight: 600 !important;
             height: 44px !important;
+        }
+
+        #notes {
+            font-size: 16px;
+        }
+
+        #notes::placeholder {
+            font-size: 16px;
         }
     </style>
 @endpush
@@ -133,8 +141,8 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <input type="datetime-local" class="form-control" id="order_date" name="order_date"
-                                                    value="{{ date('Y-m-d\TH:i') }}" required>
+                                                <input type="datetime-local" class="form-control" id="order_date"
+                                                    name="order_date" value="{{ date('Y-m-d\TH:i') }}" required>
                                             </div>
                                         </div>
                                     </div>

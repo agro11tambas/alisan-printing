@@ -14,7 +14,12 @@
         <tbody>
             @foreach ($assigns as $assign)
                 @php
-                    $images = json_decode(optional($assign->progressItem->designItem)->preview_image ?? '[]', true);
+                    // $images = json_decode(optional($assign->progressItem->designItem)->preview_image ?? '[]', true);
+                    $images = [];
+
+                    if ($assign->progressItem?->designItem?->preview_image) {
+                        $images = json_decode($assign->progressItem->designItem->preview_image, true) ?? [];
+                    }
                 @endphp
                 <tr>
                     <td>
@@ -31,7 +36,8 @@
                         @if (!empty($images))
                             <button class="btn btn-sm btn-outline-info preview-btn"
                                 data-images='@json($images)'
-                                data-product="{{ $assign->progressItem?->product?->name ?? '-' }}">
+                                data-product="{{ $assign->progressItem?->product?->name ?? '-' }}"
+                                data-order_note="{{ $assign->progressItem?->progress?->order?->notes ?? '-' }}">
                                 <i class="feather-eye me-1"></i> Preview
                             </button>
                         @else

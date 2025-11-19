@@ -148,18 +148,22 @@ class PurchaseReturnController extends Controller
                 $remainFreight  = $purchase->remaining_amount_freight ?? 0;
 
                 // Format tampilan
-                $totalProductHtml  = 'Rp ' . number_format($totalProduct, 0, ',', '.');
-                $totalFreightHtml  = 'Rp ' . number_format($totalFreight, 0, ',', '.');
+                $totalProductHtml  = '<span class="text-primary fw-semibold">Rp ' . number_format($totalProduct, 0, ',', '.') . '</span>';
+                $totalFreightHtml  = '<span class="text-primary fw-semibold">Rp ' . number_format($totalFreight, 0, ',', '.') . '</span>';
 
                 $refundProductColumn = '
-                    <div class="text-success">Rp ' . number_format($refundProduct, 0, ',', '.') . '</div>
-                    <small class="text-danger">Remaining: Rp ' . number_format($remainProduct, 0, ',', '.') . '</small>
-                ';
+                    <div class="text-success fw-semibold">Rp ' . number_format($refundProduct, 0, ',', '.') . '</div>'
+                    . ($remainProduct > 0
+                        ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($remainProduct, 0, ',', '.') . '</small>'
+                        : ''
+                    );
 
                 $refundFreightColumn = '
-                    <div class="text-success">Rp ' . number_format($refundFreight, 0, ',', '.') . '</div>
-                    <small class="text-danger">Remaining: Rp ' . number_format($remainFreight, 0, ',', '.') . '</small>
-                ';
+                    <div class="text-success fw-semibold">Rp ' . number_format($refundFreight, 0, ',', '.') . '</div>'
+                    . ($remainFreight > 0
+                        ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($remainFreight, 0, ',', '.') . '</small>'
+                        : ''
+                    );
 
                 // 🏷️ Payment Status + Verified check
                 $paymentStatus = strtolower($purchase->payment_status);

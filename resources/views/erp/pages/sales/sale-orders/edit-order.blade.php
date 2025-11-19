@@ -34,6 +34,14 @@
             height: 42px !important;
             right: 10px !important;
         }
+
+        #notes {
+            font-size: 16px;
+        }
+
+        #notes::placeholder {
+            font-size: 16px;
+        }
     </style>
 @endpush
 
@@ -102,7 +110,8 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <input type="datetime-local" class="form-control" id="order_date" name="order_date"
+                                                <input type="datetime-local" class="form-control" id="order_date"
+                                                    name="order_date"
                                                     value="{{ old('order_date', isset($order->order_date) ? \Carbon\Carbon::parse($order->order_date)->format('Y-m-d\TH:i') : date('Y-m-d\TH:i')) }}">
                                             </div>
                                         </div>

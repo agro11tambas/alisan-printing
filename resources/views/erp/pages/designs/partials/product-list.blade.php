@@ -24,13 +24,15 @@
                             @if (!empty($images))
                                 <button class="btn btn-sm btn-outline-info preview-btn"
                                     data-images='@json($images)'
-                                    data-product="{{ $item->product->name ?? '-' }}">
+                                    data-product="{{ $item->product->name ?? '-' }}"
+                                    data-order_note="{{ $design->order->notes ?? '-' }}">
                                     <i class="feather-eye"></i> Preview
                                 </button>
                             @endif
 
                             <button class="btn btn-sm btn-outline-primary upload-btn" data-id="{{ $item->id }}"
-                                data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                data-order_note="{{ $design->order->notes ?? '-' }}" data-bs-toggle="modal"
+                                data-bs-target="#uploadModal">
                                 <i class="feather-upload"></i> Upload
                             </button>
                         </div>
