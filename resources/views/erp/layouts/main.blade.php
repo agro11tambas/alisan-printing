@@ -525,6 +525,21 @@
             bottom: 10px !important;
             top: auto !important;
         }
+
+        .modal {
+            z-index: 9999 !important;
+        }
+
+        .modal-backdrop {
+            z-index: 9998 !important;
+        }
+
+        .nxl-navigation,
+        .nxl-navigation .navbar-wrapper,
+        .nxl-navigation .navbar-content {
+            z-index: 4000 !important;
+            /* Firefox */
+        }
     </style>
 
     @stack('styles')

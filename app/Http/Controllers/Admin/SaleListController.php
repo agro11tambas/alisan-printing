@@ -2244,8 +2244,9 @@ class SaleListController extends Controller
 
                         // Tetapkan warehouse produksi FIX
                         \App\Models\Design::where('order_id', $order->id)->update([
-                            'status' => 'Pending',
-                            'verification_status' => 'pending',
+                            // 'status' => 'Pending',
+                            // 'verification_status' => 'pending',
+                            'status_edited' => true,
                         ]);
 
                         $productionWarehouseId = 2;

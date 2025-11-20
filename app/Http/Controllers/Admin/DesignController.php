@@ -149,11 +149,20 @@ class DesignController extends Controller
                     $verifiedBadge = '<span class="badge bg-soft-warning text-warning ms-1">Pending</span>';
                 }
 
+                $editedBadge = '';
+                if ($design->status_edited == 1) {
+                    $editedBadge = '<span class="badge bg-soft-primary text-primary ms-1">Edited</span>';
+                }
+
                 $designNumberHtml = '
-                <div>
-                    <div><span class="me-2">' . e($design->design_number) . '</span>' . $verifiedBadge . '</div>
-                    <small class="text-muted">' . $orderCreatedAt . '</small>
-                </div>';
+                    <div>
+                        <div>
+                            <span class="me-2">' . e($design->design_number) . '</span>'
+                    . $verifiedBadge
+                    . $editedBadge . '
+                        </div>
+                        <small class="text-muted">' . $orderCreatedAt . '</small>
+                    </div>';
 
                 // 📦 Product list partial
                 $productList = view('erp.pages.designs.partials.product-list', compact('design'))->render();
