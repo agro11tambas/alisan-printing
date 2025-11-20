@@ -95,10 +95,10 @@ class SaleReturnController extends Controller
         } elseif ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
                 $returns->whereHas('customer', function ($query) use ($request) {
-                    $query->where('name', 'like', $request->search_keyword . '%');
+                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
                 });
             } else {
-                $returns->where('order_number', 'like', $request->search_keyword . '%');
+                $returns->where('order_number', 'like', '%' . $request->search_keyword . '%');
             }
         }
 

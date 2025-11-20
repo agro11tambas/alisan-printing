@@ -358,7 +358,7 @@
                         </ul>
                     </li>
                 @endif
-                @if (Auth::check() && Auth::user()->hasPermission('shop-manager'))
+                {{-- @if (Auth::check() && Auth::user()->hasPermission('shop-manager'))
                     <li class="nxl-item nxl-hasmenu">
                         <a href="/erp/shop-manager/users" class="nxl-link">
                             <span class="nxl-micon"><i class="feather-user-check"></i></span>
@@ -388,6 +388,57 @@
                             <span class="nxl-micon"><i class="feather-users"></i></span>
                             <span class="nxl-mtext ">Suppliers</span><span class="nxl-arrow"></span>
                         </a>
+                    </li>
+                @endif --}}
+                @if (Auth::check() &&
+                        (Auth::user()->hasPermission('shop-manager') ||
+                            Auth::user()->hasPermission('operator') ||
+                            Auth::user()->hasPermission('customer') ||
+                            Auth::user()->hasPermission('supplier')))
+                    <li class="nxl-item nxl-hasmenu">
+                        <a href="javascript:void(0)" class="nxl-link">
+                            <span class="nxl-micon"><i class="feather-users"></i></span>
+                            <span class="nxl-mtext">Users</span>
+                            <span class="nxl-arrow"><i class="feather-chevron-right"></i></span>
+                        </a>
+
+                        <ul class="nxl-submenu">
+                            @if (Auth::user()->hasPermission('shop-manager'))
+                                <li class="nxl-item">
+                                    <a href="/erp/shop-manager/users"
+                                        class="nxl-link {{ request()->is('erp/shop-manager/users*') ? 'active' : '' }}">
+                                        <span>Shop Manager</span>
+                                    </a>
+                                </li>
+                            @endif
+
+                            @if (Auth::user()->hasPermission('operator'))
+                                <li class="nxl-item">
+                                    <a href="/erp/shop-manager/operators"
+                                        class="nxl-link {{ request()->is('erp/shop-manager/operators*') ? 'active' : '' }}">
+                                        <span>Operator</span>
+                                    </a>
+                                </li>
+                            @endif
+
+                            @if (Auth::user()->hasPermission('customer'))
+                                <li class="nxl-item">
+                                    <a href="/erp/customers"
+                                        class="nxl-link {{ request()->is('erp/customers*') ? 'active' : '' }}">
+                                        <span>Customers</span>
+                                    </a>
+                                </li>
+                            @endif
+
+                            @if (Auth::user()->hasPermission('supplier'))
+                                <li class="nxl-item">
+                                    <a href="/erp/suppliers"
+                                        class="nxl-link {{ request()->is('erp/suppliers*') ? 'active' : '' }}">
+                                        <span>Suppliers</span>
+                                    </a>
+                                </li>
+                            @endif
+                        </ul>
                     </li>
                 @endif
                 @if (Auth::check() && Auth::user()->hasPermission('invoice'))

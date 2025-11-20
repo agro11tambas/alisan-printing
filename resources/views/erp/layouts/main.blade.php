@@ -504,6 +504,27 @@
             z-index: 5000 !important;
             /* position: relative !important; */
         }
+
+        html.minimenu .nxl-hasmenu>.nxl-submenu {
+            top: auto !important;
+            bottom: auto !important;
+        }
+
+        /* FIX: hilangkan paksaan top=0 yang bikin turun terus */
+        html.minimenu .nxl-submenu {
+            top: auto !important;
+        }
+
+        /* Submenu default posisi turun */
+        html.minimenu .nxl-submenu.dropdown-down {
+            top: var(--submenu-top, 0px) !important;
+        }
+
+        /* Submenu drop-up jika mentok bawah */
+        html.minimenu .nxl-submenu.dropdown-up {
+            bottom: 10px !important;
+            top: auto !important;
+        }
     </style>
 
     @stack('styles')
@@ -988,6 +1009,44 @@
                     const rect = li.getBoundingClientRect();
 
                     submenu.style.setProperty("--submenu-top", rect.top + "px");
+                });
+
+            });
+
+        });
+
+        document.addEventListener("DOMContentLoaded", function() {
+
+            document.querySelectorAll(".nxl-hasmenu > .nxl-link").forEach(link => {
+
+                link.addEventListener("mouseenter", function() {
+                    if (!document.documentElement.classList.contains("minimenu")) return;
+
+                    const li = this.closest(".nxl-hasmenu");
+                    const submenu = li.querySelector(":scope > .nxl-submenu");
+                    if (!submenu) return;
+
+                    submenu.classList.remove("dropdown-up", "dropdown-down");
+
+                    const itemRect = li.getBoundingClientRect();
+                    const sidebarRect = document.querySelector(".nxl-navigation")
+                        .getBoundingClientRect();
+
+                    submenu.style.display = "block";
+                    submenu.style.position = "fixed";
+                    submenu.style.left = (sidebarRect.right + 28) + "px";
+                    submenu.style.top = itemRect.top + "px";
+
+                    // DETEKSI KETINGGIAN SUBMENU
+                    const menuRect = submenu.getBoundingClientRect();
+                    const vh = window.innerHeight;
+
+                    if (menuRect.bottom > vh - 20) {
+                        submenu.classList.add("dropdown-up");
+                        submenu.style.top = "auto";
+                    } else {
+                        submenu.classList.add("dropdown-down");
+                    }
                 });
 
             });

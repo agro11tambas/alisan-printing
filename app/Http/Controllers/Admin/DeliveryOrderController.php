@@ -66,7 +66,7 @@ class DeliveryOrderController extends Controller
 
         // 🔎 Search
         if ($request->filled('search_keyword')) {
-            $keyword = $request->search_keyword . '%';
+            $keyword =  '%' . $request->search_keyword . '%';
 
             if ($request->search_type === 'customer') {
                 $deliveryOrders->where(function ($q) use ($keyword) {

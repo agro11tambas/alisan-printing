@@ -16,6 +16,20 @@
             margin-left: 4px;
             cursor: pointer;
         }
+
+        #assignTable_wrapper .dataTables_scrollBody {
+            height: 55vh !important;
+            overflow-y: auto !important;
+            background-image: none !important;
+        }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+        }
+
+        #assignTable tbody tr {
+            animation: fadeIn 0.3s ease-in;
+        }
     </style>
 @endpush
 
@@ -169,19 +183,19 @@
                         <div class="card-header">
                             <h4 class="card-title">Assign Operator per Product</h4>
                         </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table align-middle">
+                        <div class="card-body p-0">
+                            <div class="table-responsive p-0">
+                                <table class="table table-hover bg-transparent" id="assignTable">
                                     <thead>
                                         <tr>
-                                            <th>Product</th>
-                                            <th>Progress</th>
-                                            <th>Assigning</th>
-                                            <th>Available</th>
-                                            <th>Assign Now</th>
-                                            <th>Operator</th>
-                                            <th>Note</th>
-                                            <th>Delete</th>
+                                            <th style="width: 10%;">Product</th>
+                                            <th style="width: 5%;">Progress</th>
+                                            <th style="width: 5%;">Assigning</th>
+                                            {{-- <th>Available</th> --}}
+                                            <th style="width: 5%;">Assign Now</th>
+                                            <th style="width: 25%;">Operator</th>
+                                            <th style="width: 20%;">Note</th>
+                                            <th style="width: 8%;">Delete</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -195,13 +209,16 @@
                                                     {{ number_format($item->completed_quantity, 0, ',', '.') }} /
                                                     {{ number_format($item->quantity, 0, ',', '.') }}
                                                 </td>
-                                                <td class="text-danger fw-semibold">
-                                                    {{ number_format($item->active_assign, 0, ',', '.') }}
-                                                </td>
-                                                <td class="text-primary fw-semibold">
-                                                    {{ number_format($item->available_quantity, 0, ',', '.') }}
-                                                </td>
                                                 <td class="text-start">
+                                                    <div class="fw-semibold text-danger">
+                                                        Assigning: {{ number_format($item->active_assign, 0, ',', '.') }}
+                                                    </div>
+                                                    <div class="fw-semibold text-primary mt-1">
+                                                        Available:
+                                                        {{ number_format($item->available_quantity, 0, ',', '.') }}
+                                                    </div>
+                                                </td>
+                                                <td class="text-start" style="width: 100px; min-width: 100px;">
                                                     <input type="hidden"
                                                         name="items[{{ $index }}][order_progress_item_id]"
                                                         value="{{ $item->id }}">
@@ -211,7 +228,7 @@
                                                         min="0" max="{{ $item->remaining_quantity }}"
                                                         placeholder="Qty">
                                                     <small class="text-muted d-block mt-1">
-                                                        Current Stock Production:
+                                                        Current Stock:
                                                         {{ number_format($item->production_stock, 0, ',', '.') }}
                                                     </small>
                                                 </td>
@@ -419,6 +436,21 @@
             $('#previewImageFull').attr('src', imgSrc);
             $('#previewImageNote').text(note);
             $('#modalPreviewDesign').modal('show');
+        });
+
+        $(document).ready(function() {
+
+            const dt = $('#assignTable').DataTable({
+                processing: false,
+                serverSide: false,
+                scrollCollapse: true,
+                paging: false,
+                searching: false,
+                info: false,
+                lengthChange: false,
+                ordering: false,
+            });
+
         });
     </script>
 @endpush

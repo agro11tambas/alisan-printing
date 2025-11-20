@@ -135,7 +135,7 @@ class SaleListController extends Controller
 
             if ($request->search_type === 'customer') {
                 // $keyword = '%' . $request->search_keyword . '%';
-                $keyword = $request->search_keyword . '%';
+                $keyword = '%' . $request->search_keyword . '%';
 
                 $orders->where(function ($q) use ($keyword) {
                     // Cari berdasarkan nama customer
@@ -693,7 +693,7 @@ class SaleListController extends Controller
         // 🔹 Filter berdasarkan customer
         if ($request->search_type === 'customer' && $request->filled('search_keyword')) {
             $orders->whereHas('customer', function ($q) use ($request) {
-                $q->where('name', 'like', $request->search_keyword . '%');
+                $q->where('name', 'like', '%' . $request->search_keyword . '%');
             });
         }
 
@@ -1474,6 +1474,54 @@ class SaleListController extends Controller
         DB::beginTransaction();
         try {
             $order = Order::with('orderItems')->findOrFail($id);
+
+            // PENTING !!! TAMBAHKAN REFRESH DI SINI
+            $order->refresh();
+
+            // ===== helper kecil buat bikin map item (key: satuan_{product_id} / bundle_{bundle_id})
+            $mapItems = function ($items) {
+                return $items->mapWithKeys(function ($item) {
+                    $key = $item->satuan === 'satuan'
+                        ? 'satuan_' . $item->product_id
+                        : 'bundle_' . $item->product_bundle_id;
+
+                    return [$key => [
+                        'product'         => $item->product_name,
+                        'satuan'          => $item->satuan,
+                        'product_id'      => $item->product_id,
+                        'bundle_id'       => $item->product_bundle_id,
+                        'quantity'        => (int) $item->quantity,
+                        'price'           => (float) $item->price,
+                        'subtotal'        => (float) $item->subtotal,
+                        'discount_price'  => (float) $item->discount_price,
+                        'total'           => (float) $item->total_after_discount,
+                    ]];
+                });
+            };
+
+            // ===== 1) SNAPSHOT LAMA (ORDER & ITEMS)
+            $oldOrderDataAll = Arr::except($order->toArray(), ['created_at', 'updated_at']);
+            // pilih field header yang mau kamu track (boleh tambah/kurang)
+            $orderFieldsToTrack = [
+                'customer_id',
+                'customer_address_id',
+                'order_number',
+                'order_date',
+                'due_date',
+                'status',
+                'payment_method',
+                'payment_status',
+                'discount',
+                'total_amount',
+                'grand_total',
+                'paid_amount',
+                'remaining_amount',
+                'shipping_address',
+                'google_maps',
+                'notes'
+            ];
+            $oldOrderData = Arr::only($oldOrderDataAll, $orderFieldsToTrack);
+            $oldItemsData = $mapItems($order->orderItems); // keyed map
             // ======================================================
             // 🔥 BYPASS TOTAL: Hanya update order_date atau customer
             // ======================================================
@@ -1528,15 +1576,33 @@ class SaleListController extends Controller
 
                 // ===== Update header order Saja =====
                 $order->update([
-                    'order_date'        => $request->order_date,
-                    'due_date'          => $dueDate,
-                    'customer_id'       => $request->customer_id,
+                    'order_date'          => $request->order_date,
+                    'due_date'            => $dueDate,
+                    'customer_id'         => $request->customer_id,
                     'customer_address_id' => $request->customer_address_id,
-                    'business_name'     => $addressModel?->business_name,
-                    'shipping_address'  => $addressModel?->address,
-                    'google_maps'       => $addressModel?->google_maps,
-                    'notes'             => $request->notes,
+                    'business_name'       => $addressModel?->business_name,
+                    'shipping_address'    => $addressModel?->address,
+                    'google_maps'         => $addressModel?->google_maps,
+                    'notes'               => $request->notes,
                 ]);
+
+                // 🔥 CATAT HISTORY + FLAG EDITED
+                OrderEditHistory::create([
+                    'order_id'  => $order->id,
+                    'edited_by' => Auth::id(),
+                    'changes'   => [
+                        'type'   => 'header_only',
+                        'fields' => [
+                            'order_date'          => ['old' => $oldOrderData['order_date'] ?? null,          'new' => $request->order_date],
+                            'customer_id'         => ['old' => $oldOrderData['customer_id'] ?? null,         'new' => $request->customer_id],
+                            'customer_address_id' => ['old' => $oldOrderData['customer_address_id'] ?? null, 'new' => $request->customer_address_id],
+                        ],
+                    ],
+                    'text'      => $request->edit_note,
+                    'edited_at' => now(),
+                ]);
+
+                $order->update(['status_edited' => true]);
 
                 DB::commit();
 
@@ -1607,7 +1673,6 @@ class SaleListController extends Controller
                         $dueDate = null;
                 }
 
-                // Ambil alamat customer terbaru
                 $addressModel = \App\Models\CustomerAddresses::find($request->customer_address_id);
 
                 // ===== Update harga item =====
@@ -1635,14 +1700,14 @@ class SaleListController extends Controller
 
                 // ===== Update HEADER juga (order_date, customer, address) =====
                 $order->update([
-                    'order_date'         => $request->order_date,
-                    'due_date'           => $dueDate,
-                    'customer_id'        => $request->customer_id,
+                    'order_date'          => $request->order_date,
+                    'due_date'            => $dueDate,
+                    'customer_id'         => $request->customer_id,
                     'customer_address_id' => $request->customer_address_id,
-                    'business_name'      => $addressModel?->business_name,
-                    'shipping_address'   => $addressModel?->address,
-                    'google_maps'        => $addressModel?->google_maps,
-                    'notes'              => $request->notes,
+                    'business_name'       => $addressModel?->business_name,
+                    'shipping_address'    => $addressModel?->address,
+                    'google_maps'         => $addressModel?->google_maps,
+                    'notes'               => $request->notes,
 
                     'total_amount'       => $request->sub_total,
                     'discount'           => $request->total_discount,
@@ -1651,6 +1716,19 @@ class SaleListController extends Controller
                     'payment_status'     => $paymentStatus,
                     'discount_active'    => (int) $request->input('discount_active_hidden', 1),
                 ]);
+
+                // 🔥 CATAT HISTORY + FLAG EDITED JUGA DI SINI
+                OrderEditHistory::create([
+                    'order_id'  => $order->id,
+                    'edited_by' => Auth::id(),
+                    'changes'   => [
+                        'type' => 'price_only',
+                    ],
+                    'text'      => $request->edit_note,
+                    'edited_at' => now(),
+                ]);
+
+                $order->update(['status_edited' => true]);
 
                 DB::commit();
                 return redirect("/erp/sales/sale-list/")->with('success', 'Order berhasil diupdate (price only + header).');
@@ -1948,51 +2026,6 @@ class SaleListController extends Controller
                 $order->update(['mode' => $orderMode]);
             }
 
-            // ===== helper kecil buat bikin map item (key: satuan_{product_id} / bundle_{bundle_id})
-            $mapItems = function ($items) {
-                return $items->mapWithKeys(function ($item) {
-                    $key = $item->satuan === 'satuan'
-                        ? 'satuan_' . $item->product_id
-                        : 'bundle_' . $item->product_bundle_id;
-
-                    return [$key => [
-                        'product'         => $item->product_name,
-                        'satuan'          => $item->satuan,
-                        'product_id'      => $item->product_id,
-                        'bundle_id'       => $item->product_bundle_id,
-                        'quantity'        => (int) $item->quantity,
-                        'price'           => (float) $item->price,
-                        'subtotal'        => (float) $item->subtotal,
-                        'discount_price'  => (float) $item->discount_price,
-                        'total'           => (float) $item->total_after_discount,
-                    ]];
-                });
-            };
-
-            // ===== 1) SNAPSHOT LAMA (ORDER & ITEMS)
-            $oldOrderDataAll = Arr::except($order->toArray(), ['created_at', 'updated_at']);
-            // pilih field header yang mau kamu track (boleh tambah/kurang)
-            $orderFieldsToTrack = [
-                'customer_id',
-                'customer_address_id',
-                'order_number',
-                'order_date',
-                'due_date',
-                'status',
-                'payment_method',
-                'payment_status',
-                'discount',
-                'total_amount',
-                'grand_total',
-                'paid_amount',
-                'remaining_amount',
-                'shipping_address',
-                'google_maps',
-                'notes'
-            ];
-            $oldOrderData = Arr::only($oldOrderDataAll, $orderFieldsToTrack);
-            $oldItemsData = $mapItems($order->orderItems); // keyed map
-
             // ===== 2) UPDATE HEADER ORDER
             $orderDate = Carbon::parse($request->order_date);
 
@@ -2206,21 +2239,31 @@ class SaleListController extends Controller
                         }
                     }
 
-                    // 🔥 HANDLE PERUBAHAN PRODUK KETIKA DESIGN VERIFIED
                     if ($designVerified) {
                         Log::info("🧩 Design verified for order {$order->order_number}");
 
+                        // Tetapkan warehouse produksi FIX
+                        \App\Models\Design::where('order_id', $order->id)->update([
+                            'status' => 'Pending',
+                            'verification_status' => 'pending',
+                        ]);
+
+                        $productionWarehouseId = 2;
+
                         if ($type === 'satuan') {
+
                             $oldProductId = $orderItem->product_id;
                             $newProductId = (int) $productId;
-                            $warehouseId  = 2; // Production warehouse ID
 
-                            // Jika produk berbeda (A → B)
+                            // Jika produk BERUBAH (A → B)
                             if ($oldProductId != $newProductId) {
                                 Log::info("🔄 Product changed from {$oldProductId} → {$newProductId}");
 
-                                // 🔻 DECREMENT pending_waiting_list produk LAMA
-                                $oldStock = \App\Models\ProductionStock::where('product_id', $oldProductId)->lockForUpdate()->first();
+                                // 🔻 Kurangi pending_waiting_list produk lama
+                                $oldStock = \App\Models\ProductionStock::where([
+                                    'product_id' => $oldProductId,
+                                    'production_warehouse_id' => $productionWarehouseId
+                                ])->lockForUpdate()->first();
 
                                 if ($oldStock) {
                                     $dec = min($oldStock->pending_waiting_list, $qty);
@@ -2228,23 +2271,33 @@ class SaleListController extends Controller
                                         $oldStock->decrement('pending_waiting_list', $dec);
                                         Log::info("✅ DECREMENT {$dec} from old product {$oldProductId}");
                                     }
-                                } else {
-                                    Log::warning("⚠️ Old stock not found for product {$oldProductId}");
                                 }
 
+                                // 🔺 Tambahkan pending_waiting_list ke produk baru
                                 $newStock = \App\Models\ProductionStock::firstOrCreate(
-                                    ['product_id' => $newProductId],
-                                    ['pending_waiting_list' => 0, 'available_quantity' => 0, 'finished_product_stock' => 0, 'canceled_product_stock' => 0]
+                                    [
+                                        'product_id' => $newProductId,
+                                        'production_warehouse_id' => $productionWarehouseId
+                                    ],
+                                    [
+                                        'pending_waiting_list' => 0,
+                                        'available_quantity' => 0,
+                                        'finished_product_stock' => 0,
+                                        'canceled_product_stock' => 0
+                                    ]
                                 );
+
                                 $newStock->increment('pending_waiting_list', $qty);
                                 Log::info("✅ INCREMENT {$qty} to new product {$newProductId}");
                             }
-                            // Kalau produk sama tapi qty berubah
+
+                            // Jika produk sama tapi QTY BERUBAH
                             elseif ($diffQty !== 0) {
+
                                 $stock = \App\Models\ProductionStock::firstOrCreate(
                                     [
                                         'product_id' => $oldProductId,
-                                        'production_warehouse_id' => $warehouseId
+                                        'production_warehouse_id' => $productionWarehouseId
                                     ],
                                     ['pending_waiting_list' => 0]
                                 );
@@ -2258,15 +2311,19 @@ class SaleListController extends Controller
                                     Log::info("⬇️ DECREMENT {$dec} pending_waiting_list for {$oldProductId}");
                                 }
                             }
-                        } elseif ($type === 'bundle') {
+                        }
+
+                        // ===================== BUNDLE =======================
+                        elseif ($type === 'bundle') {
+
                             $oldBundleId = $orderItem->product_bundle_id;
                             $newBundleId = (int) $productId;
-                            $warehouseId = 2; // Production warehouse ID
 
+                            // Jika BUNDLE berubah
                             if ($oldBundleId != $newBundleId) {
                                 Log::info("🔄 Bundle changed from {$oldBundleId} → {$newBundleId}");
 
-                                // 🔻 Kurangi semua produk di bundle lama
+                                // 🔻 Kurangi semua product bundle lama
                                 $oldBundle = \App\Models\ProductBundle::with('items')->find($oldBundleId);
                                 if ($oldBundle) {
                                     foreach ($oldBundle->items as $bi) {
@@ -2274,17 +2331,10 @@ class SaleListController extends Controller
 
                                         $oldStock = \App\Models\ProductionStock::where([
                                             'product_id' => $bi->product_id,
-                                            'production_warehouse_id' => $warehouseId
-                                        ])
-                                            ->lockForUpdate()
-                                            ->first();
+                                            'production_warehouse_id' => $productionWarehouseId
+                                        ])->lockForUpdate()->first();
 
                                         if ($oldStock) {
-                                            Log::info("🧮 DECREMENT CHECK", [
-                                                'oldStock' => $oldStock?->pending_waiting_list,
-                                                'orderItemQty' => $orderItem->quantity,
-                                                'dec' => min($oldStock?->pending_waiting_list ?? 0, $orderItem->quantity),
-                                            ]);
                                             $dec = min($oldStock->pending_waiting_list, $qty);
                                             if ($dec > 0) {
                                                 $oldStock->decrement('pending_waiting_list', $dec);
@@ -2294,7 +2344,7 @@ class SaleListController extends Controller
                                     }
                                 }
 
-                                // 🔺 Tambah semua produk di bundle baru
+                                // 🔺 Tambahkan semua product bundle baru
                                 $newBundle = \App\Models\ProductBundle::with('items')->find($newBundleId);
                                 if ($newBundle) {
                                     foreach ($newBundle->items as $bi) {
@@ -2303,17 +2353,20 @@ class SaleListController extends Controller
                                         $newStock = \App\Models\ProductionStock::firstOrCreate(
                                             [
                                                 'product_id' => $bi->product_id,
-                                                'production_warehouse_id' => $warehouseId
+                                                'production_warehouse_id' => $productionWarehouseId
                                             ],
                                             ['pending_waiting_list' => 0]
                                         );
+
                                         $newStock->increment('pending_waiting_list', $qty);
                                         Log::info("✅ Bundle new: INCREMENT {$qty} to product {$bi->product_id}");
                                     }
                                 }
                             }
-                            // Kalau bundle sama tapi qty berubah
+
+                            // Jika bundle sama tapi qty berubah
                             elseif ($diffQty !== 0) {
+
                                 $bundle = \App\Models\ProductBundle::with('items')->find($newBundleId);
                                 if ($bundle) {
                                     foreach ($bundle->items as $bi) {
@@ -2322,7 +2375,7 @@ class SaleListController extends Controller
                                         $stock = \App\Models\ProductionStock::firstOrCreate(
                                             [
                                                 'product_id' => $bi->product_id,
-                                                'production_warehouse_id' => $warehouseId
+                                                'production_warehouse_id' => $productionWarehouseId
                                             ],
                                             ['pending_waiting_list' => 0]
                                         );
@@ -2703,7 +2756,7 @@ class SaleListController extends Controller
             $orderDiff = ['old' => [], 'new' => []];
             foreach ($newOrderData as $field => $newVal) {
                 $oldVal = $oldOrderData[$field] ?? null;
-                if ($oldVal != $newVal) {
+                if ((string)$oldVal !== (string)$newVal) {
                     $orderDiff['old'][$field] = $oldVal;
                     $orderDiff['new'][$field] = $newVal;
                 }
@@ -2825,6 +2878,14 @@ class SaleListController extends Controller
                 }
 
                 Log::info("✅ Pending waiting list fully synced for verified design order {$order->order_number}");
+            }
+
+            // ==============================
+            // 🔥 Tandai DESIGN sebagai edited
+            // ==============================
+            if ($designVerifiedFinal) {
+                \App\Models\Design::where('order_id', $order->id)
+                    ->update(['status_edited' => true]);
             }
 
             // ================== SYNC MODE PRINTING ATAU POLOSAN ==================

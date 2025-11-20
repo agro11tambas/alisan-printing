@@ -72,8 +72,8 @@ class MaterialRequestController extends Controller
 
             $materialRequest->whereHas('items.product', function ($q) use ($productKeyword) {
                 $q->where(function ($sub) use ($productKeyword) {
-                    $sub->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["{$productKeyword}%"])
-                        ->orWhereRaw("LOWER(sku) COLLATE utf8mb4_general_ci LIKE ?", ["{$productKeyword}%"]);
+                    $sub->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"])
+                        ->orWhereRaw("LOWER(sku) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
                 });
             });
         }
@@ -250,67 +250,95 @@ class MaterialRequestController extends Controller
 
     public function RequestSummary(Request $request)
     {
-        $query = MaterialRequestItem::with(['product', 'materialRequest']);
+        $filterStart = null;
+        $filterEnd = null;
 
-        // ✅ Filter tanggal berdasarkan material request
-        if ($request->filter) {
-            switch ($request->filter) {
-                case 'today':
-                    $query->whereHas('materialRequest', function ($q) {
-                        $q->whereDate('requested_at', Carbon::today());
-                    });
-                    break;
-                case 'last_7_days':
-                    $query->whereHas('materialRequest', function ($q) {
-                        $q->whereBetween('requested_at', [Carbon::now()->subDays(7), Carbon::now()]);
-                    });
-                    break;
-                case 'this_month':
-                    $query->whereHas('materialRequest', function ($q) {
-                        $q->whereMonth('requested_at', Carbon::now()->month)
-                            ->whereYear('requested_at', Carbon::now()->year);
-                    });
-                    break;
-                case 'year_to_date':
-                    $query->whereHas('materialRequest', function ($q) {
-                        $q->whereBetween('requested_at', [Carbon::now()->startOfYear(), Carbon::now()]);
-                    });
-                    break;
-                case 'custom':
-                    if ($request->filled('start_date') && $request->filled('end_date')) {
-                        $query->whereHas('materialRequest', function ($q) use ($request) {
-                            $q->whereBetween('requested_at', [$request->start_date, $request->end_date]);
-                        });
-                    }
-                    break;
-            }
+        // Tentukan rentang filter
+        switch ($request->filter) {
+
+            case 'today':
+                $filterStart = Carbon::today();
+                $filterEnd   = Carbon::today()->endOfDay();
+                break;
+
+            case 'last_7_days':
+                $filterStart = Carbon::now()->subDays(7);
+                $filterEnd   = Carbon::now();
+                break;
+
+            case 'this_month':
+                $filterStart = Carbon::now()->startOfMonth();
+                $filterEnd   = Carbon::now()->endOfMonth();
+                break;
+
+            case 'last_30_days':
+                $filterStart = Carbon::now()->subDays(30);
+                $filterEnd   = Carbon::now();
+                break;
+
+            case 'yearly':
+                $filterStart = Carbon::now()->startOfYear();
+                $filterEnd   = Carbon::now()->endOfYear();
+                break;
+
+            case 'year_to_date':
+                $filterStart = Carbon::now()->startOfYear();
+                $filterEnd   = Carbon::now();
+                break;
+
+            case 'custom':
+                if ($request->filled('start_date') && $request->filled('end_date')) {
+                    $filterStart = Carbon::parse($request->start_date)->startOfDay();
+                    $filterEnd   = Carbon::parse($request->end_date)->endOfDay();
+                }
+                break;
+
+            case 'all':
+            default:
+                // Tidak filter tanggal
+                break;
         }
 
-        // ✅ Group by product
+        $query = Products::query()
+            ->leftJoin('material_request_items', 'material_request_items.product_id', '=', 'products.id')
+            ->leftJoin('material_requests', 'material_requests.id', '=', 'material_request_items.material_request_id');
+
+        // Search product
+        if ($request->filled('search_product')) {
+            $keyword = $request->search_product;
+            $query->where(function ($q) use ($keyword) {
+                $q->where('products.name', 'LIKE', "%{$keyword}%")
+                    ->orWhere('products.sku', 'LIKE', "%{$keyword}%");
+            });
+        }
+
+        // === SUM requested qty with DATE FILTER applied INSIDE SUM() ===
         $summary = $query
-            ->selectRaw('product_id, SUM(requested_qty) as total_requested_qty')
-            ->groupBy('product_id')
+            ->select(
+                'products.id as product_id',
+                'products.name as product_name',
+                'products.sku as sku',
+                DB::raw("
+                COALESCE(SUM(
+                    CASE 
+                        WHEN " . ($filterStart ? "material_requests.requested_at >= '{$filterStart}' AND material_requests.requested_at <= '{$filterEnd}'" : "1=1") . "
+                        THEN material_request_items.requested_qty
+                        ELSE 0
+                    END
+                ), 0) AS total_requested_qty
+            ")
+            )
+            ->groupBy('products.id', 'products.name', 'products.sku')
+            ->orderBy('total_requested_qty', 'DESC')
             ->get();
 
-        // ✅ Format data untuk output
-        $data = $summary->map(function ($item) {
-            $product = $item->product;
-
-            return [
-                'product_id' => $product->id ?? null,
-                'product_name' => $product->name ?? '-',
-                'sku' => $product->sku ?? '-',
-                'total_requested_qty' => (float) $item->total_requested_qty,
-                // 'unit' => $product->unit ?? ($item->unit ?? '-'),
-            ];
-        });
-
         return response()->json([
-            'data' => $data,
-            'total_products' => $data->count(),
-            'total_requested_sum' => $data->sum('total_requested_qty'),
+            'data' => $summary,
+            'total_products' => $summary->count(),
+            'total_requested_sum' => $summary->sum('total_requested_qty'),
         ]);
     }
+
 
     // public function create()
     // {

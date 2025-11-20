@@ -17,6 +17,7 @@ class Design extends Model
         'design_number',
         'date',
         'status',
+        'status_edited',
         'notes',
         'verification_status',
         'verified_by',

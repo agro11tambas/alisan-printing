@@ -150,7 +150,7 @@
                                 </div>
                             </div>
                         </div>
-                        <ul class="nav nav-tabs mb-3" id="saleListTabs" role="tablist">
+                        <ul class="nav nav-tabs mb-3" id="requestStockTabs" role="tablist">
                             <li class="nav-item">
                                 <a class="nav-link active" id="request-stock-tab" data-bs-toggle="tab" href="#request-stock"
                                     role="tab">Request Stock</a>
@@ -485,6 +485,10 @@
 
             loadMoreData();
 
+            $('#search_product').on('change keyup input paste', function() {
+                reloadActiveTab();
+            });
+
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
@@ -742,6 +746,7 @@
                             d.filter = $('#filter').val();
                             d.start_date = $('#start_date').val();
                             d.end_date = $('#end_date').val();
+                            d.search_product = $('#search_product').val();
                         },
                     },
                     columns: [{

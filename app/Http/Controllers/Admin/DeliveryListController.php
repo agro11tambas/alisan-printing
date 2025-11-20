@@ -65,7 +65,7 @@ class DeliveryListController extends Controller
 
             $deliveryLists->whereHas('items.product', function ($q) use ($productKeyword) {
                 // gunakan COLLATE biar bisa handle tanda kurung
-                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["{$productKeyword}%"]);
+                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
             });
         }
 

@@ -99,7 +99,7 @@
                                                             placeholder="Business Name">
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-4 mb-0">
+                                                <div class="col-lg-5 mb-0">
                                                     <div class="input-group">
                                                         <div class="input-group-text"><i class="feather-book"></i></div>
                                                         <input type="text" class="form-control"
@@ -108,7 +108,7 @@
                                                             placeholder="Address">
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-4 mb-0">
+                                                <div class="col-lg-3 mb-0">
                                                     <div class="input-group">
                                                         <div class="input-group-text"><i class="feather-map-pin"></i></div>
                                                         <input type="text" class="form-control"
@@ -165,13 +165,13 @@
                     <input type="text" class="form-control" name="addresses[${addressIndex}][business_name]" placeholder="Business Name">
                 </div>
             </div>
-            <div class="col-lg-4 mb-0">
+            <div class="col-lg-5 mb-0">
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-book"></i></div>
                     <input type="text" class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address">
                 </div>
             </div>
-            <div class="col-lg-4 mb-0">
+            <div class="col-lg-3 mb-0">
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-map-pin"></i></div>
                     <input type="text" class="form-control" name="addresses[${addressIndex}][google_maps]" placeholder="Google Map">
