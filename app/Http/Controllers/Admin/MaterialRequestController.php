@@ -106,7 +106,7 @@ class MaterialRequestController extends Controller
 
                 // 📅 Tanggal
                 $requestedAt = $item->requested_at
-                    ? Carbon::parse($item->requested_at)->format('d M Y')
+                    ? Carbon::parse($item->created_at)->format('d M Y H:i')
                     : '-';
 
                 // 📦 Items partial

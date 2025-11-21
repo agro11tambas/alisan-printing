@@ -443,7 +443,7 @@
                                                             @php
                                                                 $isOwner = Auth::user()->role === 'Owner';
                                                             @endphp
-                                                            <input type="text"
+                                                            <input type="text" inputmode="numeric"
                                                                 class="form-control price_before_discount_display"
                                                                 value="{{ number_format($item->price, 2, ',', '.') }}">
                                                             <input type="hidden" name="price_before_discount[]"
@@ -761,82 +761,6 @@
             pendingToggleOff = false;
         });
 
-        // function calculateRow(row) {
-        //     const selectedOption = row.find('select[name="product[]"] option:selected');
-        //     const manualPrice = parseFloat(row.find('input.price_before_discount').val()) || 0;
-        //     const basePrice = manualPrice > 0 ? manualPrice : (parseFloat(selectedOption.data('price')) || 0);
-        //     const discounts = selectedOption.data('discounts') || [];
-        //     const categories = selectedOption.data('categories') || [];
-        //     const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
-
-        //     const priceBeforeDiscount = basePrice;
-        //     const totalBeforeDiscount = basePrice * qty;
-        //     let finalPrice = priceBeforeDiscount;
-
-        //     // let allDiscounts = [...discounts];
-        //     // categories.forEach(cat => {
-        //     //     if (cat.discounts) allDiscounts = allDiscounts.concat(cat.discounts);
-        //     // });
-
-        //     let allDiscounts = discountEnabled ? [...discounts] : [];
-
-        //     if (discountEnabled) {
-        //         categories.forEach(cat => {
-        //             if (cat.discounts) allDiscounts = allDiscounts.concat(cat.discounts);
-        //         });
-        //     }
-
-        //     allDiscounts.forEach(discount => {
-        //         let eligible = false;
-
-        //         if (discount.apply_on === 'Product') {
-        //             if (discount.minimum_based_on === 'Quantity of Items' && qty >= discount.minimum_qty_or_amount)
-        //                 eligible = true;
-        //             else if (discount.minimum_based_on === 'Purchase Amount' && totalBeforeDiscount >= discount
-        //                 .minimum_qty_or_amount) eligible = true;
-        //         } else if (discount.apply_on === 'Category') {
-        //             let totalQtyCategory = 0;
-        //             let totalAmountCategory = 0;
-
-        //             $('select[name="product[]"]').each(function(i, el) {
-        //                 const opt = $(el).find('option:selected');
-        //                 const cats = opt.data('categories') || [];
-        //                 const price = parseFloat(opt.data('price')) || 0;
-        //                 const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
-        //                     '')) || 0;
-
-        //                 if (cats.some(c => c.id === discount.category_id)) {
-        //                     totalQtyCategory += qtyVal;
-        //                     totalAmountCategory += price * qtyVal;
-        //                 }
-        //             });
-
-        //             if (discount.minimum_based_on === 'Quantity of Items' && totalQtyCategory >= discount
-        //                 .minimum_qty_or_amount) eligible = true;
-        //             else if (discount.minimum_based_on === 'Purchase Amount' && totalAmountCategory >= discount
-        //                 .minimum_qty_or_amount) eligible = true;
-        //         }
-
-        //         if (eligible) {
-        //             if (discount.type === 'Percentage') finalPrice = priceBeforeDiscount - (priceBeforeDiscount * (
-        //                 discount.amount / 100));
-        //             else finalPrice = Math.max(0, priceBeforeDiscount - discount.amount);
-        //         }
-        //     });
-
-        //     const totalAfterDiscount = finalPrice * qty;
-
-        //     row.find('input.price_before_discount').val(priceBeforeDiscount.toFixed(2));
-        //     row.find('input.total_before_discount').val(totalBeforeDiscount.toFixed(2));
-        //     row.find('input.price_after_discount').val(finalPrice.toFixed(2));
-        //     row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
-
-        //     row.find('input.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
-        //     row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
-        //     row.find('input.price_after_discount_display').val(formatNumber(finalPrice));
-        //     row.find('input.total_after_discount_display').val(formatNumber(totalAfterDiscount));
-        // }
-
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
 
@@ -994,31 +918,79 @@
             $('#add_row').on('click', function() {
                 const tableBody = $('#tab_logic tbody');
                 const newRow = $(`
-            <tr id="addr${rowCount}">
-                <td>${rowCount + 1}</td>
-                <td>
-                    <select class="form-control select-product" name="product[]" id="product_${rowCount}" data-select2-selector="status">
-                        <option value="" disabled selected hidden>Pilih produk</option>
-                    </select>
-                </td>
-                <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
-                <td><input type="number" name="qty[]" class="form-control qty" min="1" value="1"></td>
-                <td>
-                    <input type="text" inputmode="numeric" class="form-control price_before_discount_display">
-                    <input type="hidden" name="price_before_discount[]" class="price_before_discount">
-                </td>
-                <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" readonly></td>
-                <td class="text-center">
-                    <div class="d-flex justify-content-center">
-                        <button type="button" class="btn btn-danger delete-row">
-                            <i class="feather-trash"></i>
-                        </button>
-                    </div>
-                </td>
-                <input type="hidden" name="price_after_discount[]" class="form-control price_after_discount" readonly>
-                <input type="hidden" name="total_after_discount[]" class="form-control total_after_discount" readonly>
-            </tr>
-        `);
+                    <tr id="addr${rowCount}">
+                        <td>${rowCount + 1}</td>
+
+                        <td>
+                            <select class="form-control select-product" 
+                                name="product[]" 
+                                id="product_${rowCount}"
+                                data-select2-selector="status">
+                                <option value="" disabled selected hidden>Pilih produk</option>
+                            </select>
+                        </td>
+
+                        <input type="hidden" 
+                            name="product_type[]" 
+                            id="product_type_${rowCount}"
+                            class="form-control product-type" 
+                            readonly>
+
+                        <td>
+                            <input type="text" 
+                                name="qty[]" 
+                                class="form-control qty"
+                                id="qty_${rowCount}"
+                                value="1"
+                                inputmode="numeric">
+                        </td>
+
+                        <td>
+                            <input type="text"
+                                class="form-control price_before_discount_display"
+                                value="0">
+
+                            <input type="hidden"
+                                name="price_before_discount[]"
+                                class="price_before_discount"
+                                id="price_before_discount_${rowCount}"
+                                value="0">
+                        </td>
+
+                        <td>
+                            <input type="text"
+                                class="form-control total_before_discount_display"
+                                readonly
+                                value="0">
+
+                            <input type="hidden"
+                                name="total_before_discount[]"
+                                class="total_before_discount"
+                                id="total_before_discount_${rowCount}"
+                                value="0">
+                        </td>
+
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center">
+                                <button type="button" class="btn btn-danger delete-row">
+                                    <i class="feather-trash"></i>
+                                </button>
+                            </div>          
+                        </td>
+
+                        <input type="hidden" 
+                            name="price_after_discount[]" 
+                            class="price_after_discount"
+                            id="price_after_discount_${rowCount}"
+                            value="0">
+
+                        <input type="hidden" 
+                            name="total_after_discount[]" 
+                            class="total_after_discount"
+                            id="total_after_discount_${rowCount}"
+                            value="0">
+                    </tr>
+                `);
 
                 tableBody.append(newRow);
                 initSelect2(newRow.find('.select-product'));

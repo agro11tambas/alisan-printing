@@ -201,7 +201,7 @@
                                                     <input type="hidden"
                                                         name="items[{{ $index }}][order_progress_item_id]"
                                                         value="{{ $item->id }}">
-                                                    <input type="text"
+                                                    <input type="text" inputmode="numeric"
                                                         name="items[{{ $index }}][assigned_quantity]"
                                                         class="form-control text-start"
                                                         value="{{ number_format($assignedQty, 0, ',', '.') }}"

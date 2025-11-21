@@ -615,7 +615,7 @@
                 const actionHtml = row.data().action;
                 const colCount = $tr.find('td').length;
 
-                let menuPosition = 'left: 20px; transform:none;';
+                let menuPosition = 'left: 200px; transform:none;';
                 if (tableSelector === '#deliveryListTable') {
                     menuPosition = 'left: 20px; transform:none;';
                 }

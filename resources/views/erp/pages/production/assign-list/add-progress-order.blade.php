@@ -141,15 +141,18 @@
                                             <td>
                                                 <input type="hidden" name="items[{{ $index }}][assign_id]"
                                                     value="{{ $assign->id }}">
-                                                <input type="text" name="items[{{ $index }}][completed_quantity]"
+                                                <input type="text" inputmode="numeric"
+                                                    name="items[{{ $index }}][completed_quantity]"
                                                     class="form-control text-start" value="0">
                                             </td>
                                             <td>
-                                                <input type="text" name="items[{{ $index }}][reject_quantity]"
+                                                <input type="text" inputmode="numeric"
+                                                    name="items[{{ $index }}][reject_quantity]"
                                                     class="form-control text-start" value="0">
                                             </td>
                                             <td>
-                                                <input type="text" name="items[{{ $index }}][defect_quantity]"
+                                                <input type="text" inputmode="numeric"
+                                                    name="items[{{ $index }}][defect_quantity]"
                                                     class="form-control text-start" value="0">
                                             </td>
                                             <td><span
