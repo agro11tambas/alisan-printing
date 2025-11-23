@@ -210,12 +210,12 @@
                                                     {{ number_format($item->quantity, 0, ',', '.') }}
                                                 </td>
                                                 <td class="text-start">
-                                                    <div class="fw-semibold text-danger">
-                                                        Assigning: {{ number_format($item->active_assign, 0, ',', '.') }}
-                                                    </div>
                                                     <div class="fw-semibold text-primary mt-1">
                                                         Available:
                                                         {{ number_format($item->available_quantity, 0, ',', '.') }}
+                                                    </div>
+                                                    <div class="fw-semibold text-danger">
+                                                        Assigning: {{ number_format($item->active_assign, 0, ',', '.') }}
                                                     </div>
                                                 </td>
                                                 <td class="text-start" style="width: 100px; min-width: 100px;">

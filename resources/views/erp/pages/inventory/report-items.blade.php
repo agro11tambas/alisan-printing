@@ -33,6 +33,7 @@
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Warehouse</li>
+                <li class="breadcrumb-item active">Report Items</li>
             </ul>
         </div>
         <div class="page-header-right ms-auto">
@@ -99,6 +100,7 @@
                                         <th>Current Stock</th>
                                         <th>Stock After Sales</th>
                                         <th>Incoming Stock</th>
+                                        <th>Outgoing Stock</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -196,6 +198,9 @@
                     },
                     {
                         data: 'incoming_stock'
+                    },
+                    {
+                        data: 'outgoing_stock'
                     },
                     {
                         data: 'action',

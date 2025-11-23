@@ -161,7 +161,7 @@
                                             <th>Product</th>
                                             <th>Progress</th>
                                             <th>Assigning</th>
-                                            <th>Available</th>
+                                            {{-- <th>Available</th> --}}
                                             <th>Assign Now</th>
                                             <th>Operator</th>
                                             <th>Note</th>
@@ -191,12 +191,21 @@
                                                     {{ number_format($item->completed_quantity, 0, ',', '.') }} /
                                                     {{ number_format($item->quantity, 0, ',', '.') }}
                                                 </td>
-                                                <td class="text-danger fw-semibold">
+                                                <td class="text-start">
+                                                    <div class="fw-semibold text-primary mt-1">
+                                                        Available:
+                                                        {{ number_format($item->available_quantity, 0, ',', '.') }}
+                                                    </div>
+                                                    <div class="fw-semibold text-danger">
+                                                        Assigning: {{ number_format($item->active_assign, 0, ',', '.') }}
+                                                    </div>
+                                                </td>
+                                                {{-- <td class="text-danger fw-semibold">
                                                     {{ number_format($item->active_assign, 0, ',', '.') }}
                                                 </td>
                                                 <td class="text-primary fw-semibold">
                                                     {{ number_format($item->available_quantity, 0, ',', '.') }}
-                                                </td>
+                                                </td> --}}
                                                 <td class="text-start">
                                                     <input type="hidden"
                                                         name="items[{{ $index }}][order_progress_item_id]"

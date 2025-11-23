@@ -103,7 +103,7 @@
                                         <th>Item Name</th>
                                         <!-- <th>Purchase Stock</th> -->
                                         <th>Current Stock</th>
-                                        <th>Pending Waiting List</th>
+                                        <th>Assign</th>
                                         <th>Finished Products</th>
                                         <th>On Delivery</th>
                                         <th>Incoming Stock</th>
