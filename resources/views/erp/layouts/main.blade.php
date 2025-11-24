@@ -495,15 +495,25 @@
         }
 
         /* TOPBAR + BREADCRUMB naik jadi 5000 */
+        /* Breadcrumb & kawan2 5000 */
         .page-header.sticky-top,
         .page-header,
-        .nxl-header,
         .topbar,
         .navbar,
         .page-header-title {
             z-index: 5000 !important;
-            /* position: relative !important; */
         }
+
+        /* Header di atas breadcrumb */
+        .nxl-header {
+            z-index: 9000 !important;
+        }
+
+
+        .nxl-user-dropdown {
+            z-index: 99999 !important;
+        }
+
 
         html.minimenu .nxl-hasmenu>.nxl-submenu {
             top: auto !important;

@@ -108,11 +108,29 @@ class DeliveryOrder extends Model
             });
 
         // ✅ 2) Untuk setiap item: ready_qty >= shipped_qty
+        // $qtyOk = $this->items->every(function ($row) {
+        //     $readyQty   = (int) $row->ready_qty;
+        //     $shippedQty = (int) $row->shipped_qty;
+
+        //     return $shippedQty >= $readyQty;
+        // });
+
         $qtyOk = $this->items->every(function ($row) {
-            $readyQty   = (int) $row->ready_qty;
+
+            // Ambil progress item
+            $progressItem = $row->progressItem ?? $row->orderProgressItem ?? null;
+
+            if (!$progressItem) {
+                return false; // kalau tidak ada relasi, anggap belum selesai
+            }
+
+            // Jumlah TOTAL yang harus dikirim (DARI PRODUKSI)
+            $totalTargetQty = (int) $progressItem->quantity;
+
+            // Jumlah total yang SUDAH dikirim
             $shippedQty = (int) $row->shipped_qty;
 
-            return $shippedQty >= $readyQty;
+            return $shippedQty >= $totalTargetQty;
         });
 
         $this->status = ($allShipmentsFinished && $qtyOk) ? 'Finished' : 'Ongoing';

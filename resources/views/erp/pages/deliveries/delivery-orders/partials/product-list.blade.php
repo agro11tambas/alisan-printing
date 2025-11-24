@@ -14,9 +14,7 @@
                     $readyQty = $item->ready_qty ?? 0;
 
                     // 🔹 completed_quantity hanya kalau ada design_item_id
-                    $completedQty = $item->design_item_id
-                        ? optional($item->orderProgressItem)->completed_quantity ?? 0
-                        : 0;
+                    $completedQty = $item->order_progress_id ? optional($item->orderProgressItem)->quantity ?? 0 : 0;
 
                     $finishedQty = $item->deliveryListItems
                         ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')

@@ -1226,9 +1226,13 @@
             const confirmChangeBtn = document.getElementById('confirmChangeModeBtn');
             const confirmResponsibilityBtn = document.getElementById('confirmModeResponsibilityBtn');
 
-            // default
-            label.textContent = 'Printing';
-            hidden.value = 'printing';
+            // 🔥 FIX: Ambil nilai dari hidden input yang udah di-set Blade
+            const initialMode = hidden.value; // Ambil dari Blade, bukan hardcode!
+
+            // Set label sesuai nilai awal
+            label.textContent = initialMode === 'printing' ? 'Printing' : 'Polosan';
+            toggle.checked = initialMode === 'printing';
+
             let pendingMode = null;
 
             toggle.addEventListener('change', function() {
@@ -1261,9 +1265,17 @@
                     hidden.value = pendingMode;
                     label.textContent = pendingMode === 'printing' ? 'Printing' : 'Polosan';
                     toggle.checked = pendingMode === 'printing';
+
+                    // 🔥 Tambahkan log untuk debug
+                    console.log('Mode changed to:', pendingMode);
+
                     pendingMode = null;
                 }
             });
+
+            // 🔥 Debug log saat page load
+            console.log('Initial mode from Blade:', initialMode);
+            console.log('Hidden input value:', hidden.value);
         });
     </script>
 @endpush

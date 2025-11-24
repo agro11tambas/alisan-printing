@@ -2907,59 +2907,96 @@ class SaleListController extends Controller
                         return $item->order_item_id . '_' . $item->product_id;
                     });
 
-                    foreach ($order->orderItems as $orderItem) {
-                        $qty = $orderItem->quantity;
+                    // 🔥 FIX 1: GUNAKAN OrderItemComponent untuk Design Items
+                    $components = \App\Models\OrderItemComponent::whereIn('order_item_id', $order->orderItems->pluck('id'))
+                        ->with('orderItem')
+                        ->get();
 
-                        if ($orderItem->satuan === 'satuan') {
-                            $key = $orderItem->id . '_' . $orderItem->product_id;
-                            // Jika sudah ada design_item untuk order_item ini → update
-                            if ($existingDesignItems->has($key)) {
-                                $designItem = $existingDesignItems[$key];
-                                $designItem->update([
-                                    'product_id' => $orderItem->product_id,
-                                    'quantity'   => $qty,
-                                ]);
-                            } else {
-                                // Kalau belum ada, baru buat
-                                DesignItem::create([
-                                    'design_id'          => $design->id,
-                                    'order_item_id'      => $orderItem->id,
-                                    'product_id'         => $orderItem->product_id,
-                                    'quantity'           => $qty,
-                                    'completed_quantity' => 0,
-                                    'design_file'        => null,
-                                    'preview_image'      => null,
-                                    // tidak ubah verification_status ke pending
-                                ]);
-                            }
-                        } elseif ($orderItem->satuan === 'bundle') {
-                            foreach ($orderItem->productBundle->items as $bundleItem) {
-                                $bundleProduct = $bundleItem->product;
-                                if (!$bundleProduct) continue;
+                    $newDesignKeys = [];
 
-                                // Cari design item berdasarkan order_item_id & product_id
-                                $designItem = $design->items()
-                                    ->where('order_item_id', $orderItem->id)
-                                    ->where('product_id', $bundleProduct->id)
-                                    ->first();
+                    foreach ($components as $component) {
+                        $orderItem = $component->orderItem;
+                        $productId = $component->product_id;
+                        $qty = $component->qty;
 
-                                if ($designItem) {
-                                    $designItem->update(['quantity' => $qty]);
-                                } else {
-                                    DesignItem::create([
-                                        'design_id'          => $design->id,
-                                        'order_item_id'      => $orderItem->id,
-                                        'product_id'         => $bundleProduct->id,
-                                        'quantity'           => $qty,
-                                        'completed_quantity' => 0,
-                                        'design_file'        => null,
-                                        'preview_image'      => null,
-                                        // tidak ubah verification_status ke pending
-                                    ]);
-                                }
-                            }
+                        $key = "{$component->order_item_id}_{$productId}";
+                        $newDesignKeys[] = $key;
+
+                        if ($existingDesignItems->has($key)) {
+                            // Update design item existing
+                            $designItem = $existingDesignItems[$key];
+                            $designItem->update([
+                                'product_id' => $productId,
+                                'quantity'   => $qty,
+                            ]);
+                        } else {
+                            // Buat design item baru
+                            DesignItem::create([
+                                'design_id'          => $design->id,
+                                'order_item_id'      => $orderItem->id,
+                                'product_id'         => $productId,
+                                'quantity'           => $qty,
+                                'completed_quantity' => 0,
+                                'design_file'        => null,
+                                'preview_image'      => null,
+                            ]);
                         }
                     }
+
+                    // ❌ COMMENTED OUT - KODE LAMA (Loop manual satuan/bundle)
+                    // foreach ($order->orderItems as $orderItem) {
+                    //     $qty = $orderItem->quantity;
+                    //
+                    //     if ($orderItem->satuan === 'satuan') {
+                    //         $key = $orderItem->id . '_' . $orderItem->product_id;
+                    //         // Jika sudah ada design_item untuk order_item ini → update
+                    //         if ($existingDesignItems->has($key)) {
+                    //             $designItem = $existingDesignItems[$key];
+                    //             $designItem->update([
+                    //                 'product_id' => $orderItem->product_id,
+                    //                 'quantity'   => $qty,
+                    //             ]);
+                    //         } else {
+                    //             // Kalau belum ada, baru buat
+                    //             DesignItem::create([
+                    //                 'design_id'          => $design->id,
+                    //                 'order_item_id'      => $orderItem->id,
+                    //                 'product_id'         => $orderItem->product_id,
+                    //                 'quantity'           => $qty,
+                    //                 'completed_quantity' => 0,
+                    //                 'design_file'        => null,
+                    //                 'preview_image'      => null,
+                    //                 // tidak ubah verification_status ke pending
+                    //             ]);
+                    //         }
+                    //     } elseif ($orderItem->satuan === 'bundle') {
+                    //         foreach ($orderItem->productBundle->items as $bundleItem) {
+                    //             $bundleProduct = $bundleItem->product;
+                    //             if (!$bundleProduct) continue;
+                    //
+                    //             // Cari design item berdasarkan order_item_id & product_id
+                    //             $designItem = $design->items()
+                    //                 ->where('order_item_id', $orderItem->id)
+                    //                 ->where('product_id', $bundleProduct->id)
+                    //                 ->first();
+                    //
+                    //             if ($designItem) {
+                    //                 $designItem->update(['quantity' => $qty]);
+                    //             } else {
+                    //                 DesignItem::create([
+                    //                     'design_id'          => $design->id,
+                    //                     'order_item_id'      => $orderItem->id,
+                    //                     'product_id'         => $bundleProduct->id,
+                    //                     'quantity'           => $qty,
+                    //                     'completed_quantity' => 0,
+                    //                     'design_file'        => null,
+                    //                     'preview_image'      => null,
+                    //                     // tidak ubah verification_status ke pending
+                    //                 ]);
+                    //             }
+                    //         }
+                    //     }
+                    // }
 
                     // ❌ Jangan hapus design_items lama — biarkan tetap ada meskipun order berubah
                 } else {
@@ -2986,37 +3023,58 @@ class SaleListController extends Controller
                         ]);
                     }
 
-                    // Buat design_items baru untuk semua produk di order
-                    foreach ($order->orderItems as $orderItem) {
-                        $qty = $orderItem->quantity;
+                    // 🔥 FIX 1b: GUNAKAN OrderItemComponent untuk create design baru
+                    $components = \App\Models\OrderItemComponent::whereIn('order_item_id', $order->orderItems->pluck('id'))
+                        ->with('orderItem')
+                        ->get();
 
-                        if ($orderItem->satuan === 'satuan') {
-                            DesignItem::create([
-                                'design_id'          => $design->id,
-                                'order_item_id'      => $orderItem->id,
-                                'product_id'         => $orderItem->product_id,
-                                'quantity'           => $qty,
-                                'completed_quantity' => 0,
-                                'design_file'        => null,
-                                'preview_image'      => null,
-                            ]);
-                        } elseif ($orderItem->satuan === 'bundle') {
-                            foreach ($orderItem->productBundle->items as $bundleItem) {
-                                $bundleProduct = $bundleItem->product;
-                                if (!$bundleProduct) continue;
+                    foreach ($components as $component) {
+                        $orderItem = $component->orderItem;
+                        $productId = $component->product_id;
+                        $qty = $component->qty;
 
-                                DesignItem::create([
-                                    'design_id'          => $design->id,
-                                    'order_item_id'      => $orderItem->id,
-                                    'product_id'         => $bundleProduct->id,
-                                    'quantity'           => $qty,
-                                    'completed_quantity' => 0,
-                                    'design_file'        => null,
-                                    'preview_image'      => null,
-                                ]);
-                            }
-                        }
+                        DesignItem::create([
+                            'design_id'          => $design->id,
+                            'order_item_id'      => $orderItem->id,
+                            'product_id'         => $productId,
+                            'quantity'           => $qty,
+                            'completed_quantity' => 0,
+                            'design_file'        => null,
+                            'preview_image'      => null,
+                        ]);
                     }
+
+                    // ❌ COMMENTED OUT - KODE LAMA (Loop manual untuk create design baru)
+                    // foreach ($order->orderItems as $orderItem) {
+                    //     $qty = $orderItem->quantity;
+                    //
+                    //     if ($orderItem->satuan === 'satuan') {
+                    //         DesignItem::create([
+                    //             'design_id'          => $design->id,
+                    //             'order_item_id'      => $orderItem->id,
+                    //             'product_id'         => $orderItem->product_id,
+                    //             'quantity'           => $qty,
+                    //             'completed_quantity' => 0,
+                    //             'design_file'        => null,
+                    //             'preview_image'      => null,
+                    //         ]);
+                    //     } elseif ($orderItem->satuan === 'bundle') {
+                    //         foreach ($orderItem->productBundle->items as $bundleItem) {
+                    //             $bundleProduct = $bundleItem->product;
+                    //             if (!$bundleProduct) continue;
+                    //
+                    //             DesignItem::create([
+                    //                 'design_id'          => $design->id,
+                    //                 'order_item_id'      => $orderItem->id,
+                    //                 'product_id'         => $bundleProduct->id,
+                    //                 'quantity'           => $qty,
+                    //                 'completed_quantity' => 0,
+                    //                 'design_file'        => null,
+                    //                 'preview_image'      => null,
+                    //             ]);
+                    //         }
+                    //     }
+                    // }
                 }
 
                 // ================== SYNC ORDER PROGRESS ITEMS ==================
@@ -3029,51 +3087,81 @@ class SaleListController extends Controller
 
                     $newProgressKeys = [];
 
-                    foreach ($order->orderItems as $orderItem) {
-                        $qty = $orderItem->quantity;
+                    // 🔥 FIX 2: GUNAKAN OrderItemComponent untuk Progress Items
+                    $components = \App\Models\OrderItemComponent::whereIn('order_item_id', $order->orderItems->pluck('id'))
+                        ->with('orderItem')
+                        ->get();
 
-                        if ($orderItem->satuan === 'satuan') {
-                            $key = $orderItem->id . '_' . $orderItem->product_id;
-                            $newProgressKeys[] = $key;
+                    foreach ($components as $component) {
+                        $orderItem = $component->orderItem;
+                        $productId = $component->product_id;
+                        $qty = $component->qty;
 
-                            if ($existingProgressItems->has($key)) {
-                                // update qty
-                                $existingProgressItems[$key]->update([
-                                    'quantity' => $qty,
-                                ]);
-                            } else {
-                                OrderProgressItem::create([
-                                    'order_progress_id'  => $orderProgress->id,
-                                    'order_item_id'      => $orderItem->id,
-                                    'product_id'         => $orderItem->product_id,
-                                    'quantity'           => $qty,
-                                    'completed_quantity' => 0,
-                                ]);
-                            }
-                        } elseif ($orderItem->satuan === 'bundle') {
-                            foreach ($orderItem->productBundle->items as $bundleItem) {
-                                $bundleProduct = $bundleItem->product;
-                                if (!$bundleProduct) continue;
+                        $key = "{$component->order_item_id}_{$productId}";
+                        $newProgressKeys[] = $key;
 
-                                $key = $orderItem->id . '_' . $bundleProduct->id;
-                                $newProgressKeys[] = $key;
-
-                                if ($existingProgressItems->has($key)) {
-                                    $existingProgressItems[$key]->update([
-                                        'quantity' => $qty,
-                                    ]);
-                                } else {
-                                    OrderProgressItem::create([
-                                        'order_progress_id'  => $orderProgress->id,
-                                        'order_item_id'      => $orderItem->id,
-                                        'product_id'         => $bundleProduct->id,
-                                        'quantity'           => $qty,
-                                        'completed_quantity' => 0,
-                                    ]);
-                                }
-                            }
+                        if ($existingProgressItems->has($key)) {
+                            // Update qty
+                            $existingProgressItems[$key]->update([
+                                'quantity' => $qty,
+                            ]);
+                        } else {
+                            OrderProgressItem::create([
+                                'order_progress_id'  => $orderProgress->id,
+                                'order_item_id'      => $orderItem->id,
+                                'product_id'         => $productId,
+                                'quantity'           => $qty,
+                                'completed_quantity' => 0,
+                            ]);
                         }
                     }
+
+                    // ❌ COMMENTED OUT - KODE LAMA (Loop manual progress items)
+                    // foreach ($order->orderItems as $orderItem) {
+                    //     $qty = $orderItem->quantity;
+                    //
+                    //     if ($orderItem->satuan === 'satuan') {
+                    //         $key = $orderItem->id . '_' . $orderItem->product_id;
+                    //         $newProgressKeys[] = $key;
+                    //
+                    //         if ($existingProgressItems->has($key)) {
+                    //             // update qty
+                    //             $existingProgressItems[$key]->update([
+                    //                 'quantity' => $qty,
+                    //             ]);
+                    //         } else {
+                    //             OrderProgressItem::create([
+                    //                 'order_progress_id'  => $orderProgress->id,
+                    //                 'order_item_id'      => $orderItem->id,
+                    //                 'product_id'         => $orderItem->product_id,
+                    //                 'quantity'           => $qty,
+                    //                 'completed_quantity' => 0,
+                    //             ]);
+                    //         }
+                    //     } elseif ($orderItem->satuan === 'bundle') {
+                    //         foreach ($orderItem->productBundle->items as $bundleItem) {
+                    //             $bundleProduct = $bundleItem->product;
+                    //             if (!$bundleProduct) continue;
+                    //
+                    //             $key = $orderItem->id . '_' . $bundleProduct->id;
+                    //             $newProgressKeys[] = $key;
+                    //
+                    //             if ($existingProgressItems->has($key)) {
+                    //                 $existingProgressItems[$key]->update([
+                    //                     'quantity' => $qty,
+                    //                 ]);
+                    //             } else {
+                    //                 OrderProgressItem::create([
+                    //                     'order_progress_id'  => $orderProgress->id,
+                    //                     'order_item_id'      => $orderItem->id,
+                    //                     'product_id'         => $bundleProduct->id,
+                    //                     'quantity'           => $qty,
+                    //                     'completed_quantity' => 0,
+                    //                 ]);
+                    //             }
+                    //         }
+                    //     }
+                    // }
 
                     // Hapus progress item lama yang tidak ada di order_items baru
                     foreach ($existingProgressItems as $key => $progressItem) {
@@ -3083,8 +3171,8 @@ class SaleListController extends Controller
                     }
                 }
 
-                // ================== SYNC DELIVERY ORDER & ITEMS ==================
-                $orderProgress = $order->orderProgress()->first(); // ambil progress di awal
+                // ================== SYNC DELIVERY ORDER & ITEMS (MODE PRINTING) ==================
+                $orderProgress = $order->orderProgress()->first();
                 if ($orderProgress) {
                     $deliveryOrder = $order->deliveryOrders()->with('items')->first();
 
@@ -3098,94 +3186,90 @@ class SaleListController extends Controller
                         $deliveryOrder->update([
                             'delivery_date'     => now()->format('Y-m-d'),
                             'note'              => $request->notes ?? $deliveryOrder->note,
-                            // 'status'            => 'Pending',
                             'customer'          => $customerName,
                             'shipping_address'  => $shippingAddress,
                             'google_map_link'   => $googleMapLink,
                         ]);
 
-                        // data lama
+                        // 🔥 FIX: Gunakan order_item_id + product_id sebagai key
                         $existingDoItems = $deliveryOrder->items->keyBy(function ($item) {
-                            return $item->order_progress_id . '_' . $item->product_id;
+                            return $item->order_item_id . '_' . $item->product_id;
                         });
 
                         $newDoKeys = [];
 
-                        foreach ($order->orderItems as $orderItem) {
-                            $qty = $orderItem->quantity;
+                        // 🔥 GUNAKAN OrderItemComponent sebagai sumber data
+                        $components = \App\Models\OrderItemComponent::whereIn('order_item_id', $order->orderItems->pluck('id'))
+                            ->with('orderItem')
+                            ->get();
 
-                            if ($orderItem->satuan === 'satuan') {
-                                $productId = $orderItem->product_id;
-                                $progressId = $orderProgress->id;
+                        foreach ($components as $component) {
+                            $orderItem = $component->orderItem;
+                            $productId = $component->product_id;
+                            $qty = $component->qty;
 
-                                $key = "{$progressId}_{$productId}";
-                                $newDoKeys[] = $key;
+                            // 🔥 KEY BERDASARKAN order_item_id + product_id dari component
+                            $key = "{$component->order_item_id}_{$productId}";
+                            $newDoKeys[] = $key;
 
-                                if ($existingDoItems->has($key)) {
-                                    $existingDoItems[$key]->update([
-                                        'progress_qty' => $qty,
-                                        'note'         => $request->notes ?? $existingDoItems[$key]->note,
-                                    ]);
-                                } else {
-                                    \App\Models\DeliveryOrderItem::create([
-                                        'delivery_order_id'   => $deliveryOrder->id,
-                                        'order_progress_id'   => $progressId,
-                                        'order_item_id'       => $orderItem->id,
-                                        'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $progressId)
-                                            ->where('order_item_id', $orderItem->id)
-                                            ->where('product_id', $productId)
-                                            ->value('id'),
-                                        'product_id'          => $productId,
-                                        'status'              => 'pending',
-                                        'progress_qty'        => $qty,
-                                        'ready_qty'           => 0,
-                                        'shipped_qty'         => 0,
-                                        'note'                => $request->notes ?? null,
-                                    ]);
-                                }
-                            } elseif ($orderItem->satuan === 'bundle') {
-                                foreach ($orderItem->productBundle->items as $bundleItem) {
-                                    $productId = $bundleItem->product_id;
-                                    if (!$productId) continue;
+                            $progressId = $orderProgress->id;
 
-                                    $progressId = $orderProgress->id;
-                                    $key = "{$progressId}_{$productId}";
-                                    $newDoKeys[] = $key;
+                            // Cari order_progress_item_id
+                            $progressItemId = \App\Models\OrderProgressItem::where('order_progress_id', $progressId)
+                                ->where('order_item_id', $orderItem->id)
+                                ->where('product_id', $productId)
+                                ->value('id');
 
-                                    if ($existingDoItems->has($key)) {
-                                        $existingDoItems[$key]->update([
-                                            'progress_qty' => $qty,
-                                            'note'         => $request->notes ?? $existingDoItems[$key]->note,
-                                        ]);
-                                    } else {
-                                        \App\Models\DeliveryOrderItem::create([
-                                            'delivery_order_id'   => $deliveryOrder->id,
-                                            'order_progress_id'   => $progressId,
-                                            'order_item_id'       => $orderItem->id,
-                                            'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $progressId)
-                                                ->where('order_item_id', $orderItem->id)
-                                                ->where('product_id', $productId)
-                                                ->value('id'),
-                                            'product_id'          => $productId,
-                                            'status'              => 'pending',
-                                            'progress_qty'        => $qty,
-                                            'ready_qty'           => 0,
-                                            'shipped_qty'         => 0,
-                                            'note'                => $request->notes ?? null,
-                                        ]);
-                                    }
-                                }
+                            if ($existingDoItems->has($key)) {
+                                // Update item existing
+                                $existingDoItems[$key]->update([
+                                    'progress_qty' => $qty,
+                                    'note'         => $request->notes ?? $existingDoItems[$key]->note,
+                                ]);
+
+                                Log::info("✅ DO Item Updated", [
+                                    'key' => $key,
+                                    'order_item_id' => $orderItem->id,
+                                    'product_id' => $productId,
+                                    'qty' => $qty,
+                                ]);
+                            } else {
+                                // Buat item baru
+                                \App\Models\DeliveryOrderItem::create([
+                                    'delivery_order_id'      => $deliveryOrder->id,
+                                    'order_progress_id'      => $progressId,
+                                    'order_item_id'          => $orderItem->id,
+                                    'order_progress_item_id' => $progressItemId,
+                                    'product_id'             => $productId,
+                                    'status'                 => 'pending',
+                                    'progress_qty'           => $qty,
+                                    'ready_qty'              => 0,
+                                    'shipped_qty'            => 0,
+                                    'note'                   => $request->notes ?? null,
+                                ]);
+
+                                Log::info("➕ DO Item Created", [
+                                    'key' => $key,
+                                    'order_item_id' => $orderItem->id,
+                                    'product_id' => $productId,
+                                    'qty' => $qty,
+                                ]);
                             }
                         }
 
-                        // hapus item DO lama yang sudah tidak ada di order
+                        // 🔥 Hapus item DO lama yang sudah tidak ada di components
                         foreach ($existingDoItems as $key => $doItem) {
                             if (!in_array($key, $newDoKeys)) {
+                                Log::info("🗑️ Menghapus DO Item yang tidak ada lagi", [
+                                    'key' => $key,
+                                    'order_item_id' => $doItem->order_item_id,
+                                    'product_id' => $doItem->product_id,
+                                ]);
                                 $doItem->delete();
                             }
                         }
                     } else {
-                        // ❗Jika belum ada Delivery Order, tapi progress ada, boleh buat baru
+                        // ❗Jika belum ada Delivery Order, buat baru
                         $deliveryOrder = \App\Models\DeliveryOrder::create([
                             'order_id'          => $order->id,
                             'delivery_number'   => 'DO-' . now()->format('YmdHis'),
@@ -3198,47 +3282,39 @@ class SaleListController extends Controller
                             'created_by'        => Auth::id(),
                         ]);
 
-                        foreach ($order->orderItems as $orderItem) {
-                            $qty = $orderItem->quantity;
+                        // 🔥 GUNAKAN OrderItemComponent untuk create
+                        $components = \App\Models\OrderItemComponent::whereIn('order_item_id', $order->orderItems->pluck('id'))
+                            ->with('orderItem')
+                            ->get();
 
-                            if ($orderItem->satuan === 'satuan') {
-                                \App\Models\DeliveryOrderItem::create([
-                                    'delivery_order_id'   => $deliveryOrder->id,
-                                    'order_progress_id'   => $orderProgress->id,
-                                    'order_item_id'       => $orderItem->id,
-                                    'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $orderProgress->id)
-                                        ->where('order_item_id', $orderItem->id)
-                                        ->where('product_id', $orderItem->product_id)
-                                        ->value('id'),
-                                    'product_id'          => $orderItem->product_id,
-                                    'status'              => 'pending',
-                                    'progress_qty'        => $qty,
-                                    'ready_qty'           => 0,
-                                    'shipped_qty'         => 0,
-                                    'note'                => $request->notes ?? null,
-                                ]);
-                            } elseif ($orderItem->satuan === 'bundle') {
-                                foreach ($orderItem->productBundle->items as $bundleItem) {
-                                    $productId = $bundleItem->product_id;
-                                    if (!$productId) continue;
+                        foreach ($components as $component) {
+                            $orderItem = $component->orderItem;
+                            $productId = $component->product_id;
+                            $qty = $component->qty;
 
-                                    \App\Models\DeliveryOrderItem::create([
-                                        'delivery_order_id'   => $deliveryOrder->id,
-                                        'order_progress_id'   => $orderProgress->id,
-                                        'order_item_id'       => $orderItem->id,
-                                        'order_progress_item_id' => \App\Models\OrderProgressItem::where('order_progress_id', $orderProgress->id)
-                                            ->where('order_item_id', $orderItem->id)
-                                            ->where('product_id', $productId)
-                                            ->value('id'),
-                                        'product_id'          => $productId,
-                                        'status'              => 'pending',
-                                        'progress_qty'        => $qty,
-                                        'ready_qty'           => 0,
-                                        'shipped_qty'         => 0,
-                                        'note'                => $request->notes ?? null,
-                                    ]);
-                                }
-                            }
+                            $progressItemId = \App\Models\OrderProgressItem::where('order_progress_id', $orderProgress->id)
+                                ->where('order_item_id', $orderItem->id)
+                                ->where('product_id', $productId)
+                                ->value('id');
+
+                            \App\Models\DeliveryOrderItem::create([
+                                'delivery_order_id'      => $deliveryOrder->id,
+                                'order_progress_id'      => $orderProgress->id,
+                                'order_item_id'          => $orderItem->id,
+                                'order_progress_item_id' => $progressItemId,
+                                'product_id'             => $productId,
+                                'status'                 => 'pending',
+                                'progress_qty'           => $qty,
+                                'ready_qty'              => 0,
+                                'shipped_qty'            => 0,
+                                'note'                   => $request->notes ?? null,
+                            ]);
+
+                            Log::info("➕ DO Item Created (New DO)", [
+                                'order_item_id' => $orderItem->id,
+                                'product_id' => $productId,
+                                'qty' => $qty,
+                            ]);
                         }
                     }
                 } else {
@@ -3249,18 +3325,16 @@ class SaleListController extends Controller
                 // ================== MODE POLOSAN (Tanpa Design & Progress) ==================
                 $warehouseId = $request->inventory_warehouse_id ?? 1;
 
-                // ✅ Cek termasuk yang soft deleted
+                // Ambil DO (termasuk soft deleted)
                 $deliveryOrder = \App\Models\DeliveryOrder::withTrashed()
                     ->where('order_id', $order->id)
                     ->first();
 
                 if ($deliveryOrder) {
-                    // kalau DO-nya soft deleted, restore aja
                     if ($deliveryOrder->trashed()) {
                         $deliveryOrder->restore();
                     }
 
-                    // update aja DO-nya
                     $deliveryOrder->update([
                         'delivery_date'    => $order->order_date,
                         'note'             => $request->notes,
@@ -3270,7 +3344,6 @@ class SaleListController extends Controller
                         'google_map_link'  => $order->google_maps,
                     ]);
                 } else {
-                    // kalau memang belum ada sama sekali, baru buat
                     $deliveryOrder = \App\Models\DeliveryOrder::create([
                         'order_id'         => $order->id,
                         'design_id'        => null,
@@ -3285,101 +3358,134 @@ class SaleListController extends Controller
                     ]);
                 }
 
-                // Sinkronisasi Delivery Order Items
-                // Sinkronisasi Delivery Order Items
-                $existingDoItems = $deliveryOrder->items->keyBy('product_id');
+                // 🔥 FIX: Ambil existing items DI AWAL untuk snapshot stok lama
+                $existingDoItemsForStock = $deliveryOrder->items->mapWithKeys(fn($i) => [
+                    $i->order_item_id . '_' . $i->product_id => [
+                        'product_id' => $i->product_id,
+                        'ready_qty'  => $i->ready_qty
+                    ]
+                ]);
+
+                // Ambil existing items untuk update/create logic
+                $existingDoItems = $deliveryOrder->items->keyBy(
+                    fn($item) => $item->order_item_id . '_' . $item->product_id
+                );
+
                 $newDoKeys = [];
 
-                foreach ($order->orderItems as $orderItem) {
-                    $pidList = [];
+                // 🔥 GUNAKAN OrderItemComponent untuk Mode Polosan
+                $components = \App\Models\OrderItemComponent::whereIn('order_item_id', $order->orderItems->pluck('id'))
+                    ->with('orderItem')
+                    ->get();
 
-                    if ($orderItem->satuan === 'satuan') {
-                        $pidList[] = $orderItem->product_id;
-                    } elseif ($orderItem->satuan === 'bundle') {
-                        foreach ($orderItem->productBundle->items as $bundleItem) {
-                            if ($bundleItem->product_id) {
-                                $pidList[] = $bundleItem->product_id;
-                            }
-                        }
-                    }
+                foreach ($components as $component) {
+                    $orderItem = $component->orderItem;
+                    $productId = $component->product_id;
+                    $qty = $component->qty;
 
-                    foreach ($pidList as $pid) {
-                        $newDoKeys[] = $pid;
+                    // 🔥 KEY BERDASARKAN order_item_id + product_id dari component
+                    $key = "{$component->order_item_id}_{$productId}";
+                    $newDoKeys[] = $key;
 
-                        // update atau buat DO item
-                        $existingItem = $existingDoItems->get($pid);
-                        if ($existingItem) {
-                            // 🔥 HITUNG DIFF QUANTITY untuk update ProductionStock
-                            $oldQty = $existingItem->ready_qty;
-                            $newQty = $orderItem->quantity;
-                            $diffQty = $newQty - $oldQty;
+                    $existingItem = $existingDoItems->get($key);
 
-                            $existingItem->update([
-                                'ready_qty'    => $orderItem->quantity,
-                                'progress_qty' => 0,
-                                'shipped_qty'  => 0,
-                                'note'         => $request->notes,
-                            ]);
+                    if ($existingItem) {
+                        // ================== UPDATE ITEM ==================
+                        $oldQty = $existingItem->ready_qty;
+                        $newQty = $qty;
+                        $diffQty = $newQty - $oldQty;
 
-                            // 🔥 UPDATE AVAILABLE_QUANTITY di ProductionStock untuk mode POLOSAN
-                            if ($diffQty !== 0) {
-                                $productionStock = \App\Models\ProductionStock::firstOrCreate(
-                                    ['product_id' => $pid],
-                                    ['available_quantity' => 0]
-                                );
+                        $existingItem->update([
+                            'ready_qty'    => $newQty,
+                            'progress_qty' => 0,
+                            'shipped_qty'  => 0,
+                            'note'         => $request->notes,
+                        ]);
 
-                                if ($diffQty > 0) {
-                                    // Qty bertambah → kurangi available_quantity (stok keluar lebih banyak)
-                                    $productionStock->decrement('available_quantity', $diffQty);
-                                } else {
-                                    // Qty berkurang → tambah available_quantity (stok kembali)
-                                    $productionStock->increment('available_quantity', abs($diffQty));
-                                }
-                            }
-                        } else {
-                            \App\Models\DeliveryOrderItem::create([
-                                'delivery_order_id' => $deliveryOrder->id,
-                                'order_item_id'     => $orderItem->id,
-                                'product_id'        => $pid,
-                                'status'            => 'Pending',
-                                'progress_qty'      => 0,
-                                'ready_qty'         => $orderItem->quantity,
-                                'shipped_qty'       => 0,
-                                'note'              => $request->notes,
-                            ]);
+                        Log::info("✅ DO Item Polosan Updated", [
+                            'key' => $key,
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $productId,
+                            'old_qty' => $oldQty,
+                            'new_qty' => $newQty,
+                        ]);
 
-                            // 🔥 UNTUK ITEM BARU, decrement available_quantity
-                            $productionStock = \App\Models\ProductionStock::firstOrCreate(
-                                ['product_id' => $pid],
+                        // UPDATE STOK PRODUKSI
+                        if ($diffQty !== 0) {
+                            $ps = \App\Models\ProductionStock::firstOrCreate(
+                                ['product_id' => $productId],
                                 ['available_quantity' => 0]
                             );
-                            $productionStock->decrement('available_quantity', $orderItem->quantity);
+
+                            if ($diffQty > 0) {
+                                // Qty naik → stok berkurang
+                                $ps->decrement('available_quantity', $diffQty);
+                                Log::info("⬇️ Decrement available_quantity: {$diffQty} for product {$productId}");
+                            } else {
+                                // Qty turun → stok kembali
+                                $ps->increment('available_quantity', abs($diffQty));
+                                Log::info("⬆️ Increment available_quantity: " . abs($diffQty) . " for product {$productId}");
+                            }
                         }
+                    } else {
+                        // ================== CREATE ITEM BARU ==================
+                        \App\Models\DeliveryOrderItem::create([
+                            'delivery_order_id' => $deliveryOrder->id,
+                            'order_item_id'     => $orderItem->id,
+                            'product_id'        => $productId,
+                            'status'            => 'Pending',
+                            'progress_qty'      => 0,
+                            'ready_qty'         => $qty,
+                            'shipped_qty'       => 0,
+                            'note'              => $request->notes,
+                        ]);
+
+                        Log::info("➕ DO Item Polosan Created", [
+                            'key' => $key,
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $productId,
+                            'qty' => $qty,
+                        ]);
+
+                        // Kurangi stok produksi
+                        $ps = \App\Models\ProductionStock::firstOrCreate(
+                            ['product_id' => $productId],
+                            ['available_quantity' => 0]
+                        );
+                        $ps->decrement('available_quantity', $qty);
+                        Log::info("⬇️ Decrement available_quantity (new item): {$qty} for product {$productId}");
                     }
                 }
 
-                // Simpan snapshot delivery order items SEBELUM loop update
-                $existingDoItemsSnapshot = $deliveryOrder->items()
-                    ->get(['id', 'product_id', 'ready_qty'])
-                    ->keyBy('product_id');
+                // ================== DELETE ITEM LAMA ==================
+                // 🔥 FIX: Gunakan snapshot stok lama (existingDoItemsForStock) untuk detect item yang dihapus
+                foreach ($existingDoItemsForStock as $key => $oldItem) {
+                    if (!in_array($key, $newDoKeys)) {
 
-                // ... (loop update/create tetap sama seperti code Anda)
+                        $restoreProductId = $oldItem['product_id'];
+                        $restoreQty       = $oldItem['ready_qty'];
 
-                // Hapus DO item lama yang tidak ada di order baru
-                foreach ($existingDoItemsSnapshot as $pid => $oldItem) {
-                    if (!in_array($pid, $newDoKeys)) {
-                        // 🔥 KEMBALIKAN available_quantity sebelum delete
-                        $restoreQty = $oldItem->ready_qty ?? 0;
+                        Log::info("🗑️ Menghapus DO Item Polosan yang tidak ada lagi", [
+                            'key' => $key,
+                            'product_id' => $restoreProductId,
+                            'qty' => $restoreQty,
+                        ]);
+
+                        // Kembalikan stok
                         if ($restoreQty > 0) {
-                            $productionStock = \App\Models\ProductionStock::firstOrCreate(
-                                ['product_id' => $pid],
+                            $ps = \App\Models\ProductionStock::firstOrCreate(
+                                ['product_id' => $restoreProductId],
                                 ['available_quantity' => 0]
                             );
-                            $productionStock->increment('available_quantity', $restoreQty);
+                            $ps->increment('available_quantity', $restoreQty);
+                            Log::info("⬆️ Restore available_quantity: {$restoreQty} for product {$restoreProductId}");
                         }
 
-                        // Hapus item dari database
-                        $deliveryOrder->items()->where('product_id', $pid)->delete();
+                        // Hapus DO item
+                        $deliveryOrder->items()
+                            ->where('order_item_id', explode('_', $key)[0])
+                            ->where('product_id', $restoreProductId)
+                            ->delete();
                     }
                 }
             }
