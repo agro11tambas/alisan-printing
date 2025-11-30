@@ -260,6 +260,7 @@
                                                 <th>Payment Status</th>
                                                 <th>Type</th>
                                                 <th>Note</th>
+                                                <th>Chat</th>
                                             </tr>
                                         </thead>
                                     </table>
@@ -469,14 +470,14 @@
                                 <span class="fw-semibold fs-12" id="paid_amount_display">Paid: Rp. 0</span>
                             </div>
                         </div>
-                        <!-- 🔥 CHECKBOX WRITE OFF -->
+
                         <div class="row g-3 mb-3">
                             <div class="col-md-12">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="use_write_off"
                                         name="use_write_off">
                                     <label class="form-check-label fw-semibold" for="use_write_off">
-                                        Use Customer Deposit (Write Off)
+                                        Use Customer Deposit
                                     </label>
                                 </div>
                             </div>
@@ -497,6 +498,22 @@
                                 <small class="text-danger d-none" id="error_customer_deposit_amount"></small>
                             </div>
                         </div>
+
+                        <!-- 🔥 CHECKBOX WRITE OFF -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="use_write_off_only"
+                                        name="use_write_off_only">
+                                    <label class="form-check-label fw-semibold" for="use_write_off_only">
+                                        Write Off (hapus sisa piutang)
+                                    </label>
+                                </div>
+                                <small class="text-muted">Jika dicentang, sisa balance setelah pembayaran akan dianggap
+                                    sebagai write-off.</small>
+                            </div>
+                        </div>
+
                         <div class="col-md-12">
                             <label class="fw-semibold">Upload / Paste Proof (optional):</label>
 
@@ -733,7 +750,7 @@
                             <td>${p.sku}</td>
                             <td>${p.qty}</td>
                             <td class="text-end">${p.price}</td>
-                            <td class="text-end">${p.ready_qty} / ${p.progress_qty}</td>
+                            <td class="text-end">${p.ready_qty} / ${p.qty}</td>
                             <td class="text-end">${p.delivered}</td>
                             <td class="text-end">${p.on_delivery}</td>
                         </tr>
@@ -810,6 +827,9 @@
                     },
                     {
                         data: 'notes'
+                    },
+                    {
+                        data: 'whatsapp'
                     },
                     {
                         data: 'created_at', // tambahkan kolom ini
@@ -1411,82 +1431,6 @@
                 }
             });
 
-
-            // Paste proof functionality
-            // let pastedProofBlobs = [];
-
-            // const pasteArea = document.getElementById('pasteProofArea');
-            // const previewContainer = document.getElementById('proofPreviewContainer');
-
-            // if (pasteArea) {
-            //     pasteArea.setAttribute('tabindex', '0'); // Make focusable
-
-            //     pasteArea.addEventListener('click', () => {
-            //         if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
-            //             pasteArea.focus();
-            //         }
-            //     });
-
-            //     pasteArea.addEventListener('paste', (e) => {
-
-            //         // 🔥 Jika user paste di input note → biarkan normal
-            //         if (e.target.classList.contains('note-input')) {
-            //             return;
-            //         }
-
-            //         // 📌 Selain input note → intercept screenshot
-            //         e.preventDefault();
-
-            //         const items = e.clipboardData.items;
-
-            //         for (const item of items) {
-            //             if (item.type.indexOf("image") === 0) {
-            //                 const blob = item.getAsFile();
-            //                 pastedProofBlobs.push(blob);
-
-            //                 const reader = new FileReader();
-            //                 reader.onload = function(event) {
-
-            //                     const wrapper = document.createElement('div');
-            //                     wrapper.classList.add('preview-item');
-
-            //                     const img = document.createElement('img');
-            //                     img.src = event.target.result;
-            //                     img.classList.add('img-thumbnail');
-            //                     img.style.maxHeight = '150px';
-            //                     img.style.marginBottom = '5px';
-
-            //                     const noteInput = document.createElement('input');
-            //                     noteInput.type = 'text';
-            //                     noteInput.classList.add('form-control', 'form-control-sm',
-            //                         'note-input');
-            //                     noteInput.placeholder = 'Tambahkan catatan...';
-            //                     noteInput.style.width = '100%';
-
-            //                     const removeBtn = document.createElement('button');
-            //                     removeBtn.type = 'button';
-            //                     removeBtn.className = 'btn btn-sm btn-danger mt-1';
-            //                     removeBtn.innerHTML = '<i class="feather-x"></i> Hapus';
-            //                     removeBtn.onclick = function() {
-            //                         const index = Array.from(previewContainer.children).indexOf(
-            //                             wrapper);
-            //                         pastedProofBlobs.splice(index, 1);
-            //                         wrapper.remove();
-            //                     };
-
-            //                     wrapper.appendChild(img);
-            //                     wrapper.appendChild(noteInput);
-            //                     wrapper.appendChild(removeBtn);
-            //                     previewContainer.appendChild(wrapper);
-            //                 };
-
-            //                 reader.readAsDataURL(blob);
-            //             }
-            //         }
-            //     });
-
-            // }
-
             let pastedProofBlobs = [];
 
             const previewContainer = document.getElementById('proofPreviewContainer');
@@ -1557,6 +1501,13 @@
                 const form = this;
                 const url = form.getAttribute('action');
                 const formData = new FormData(form);
+
+                // 🔥 FIX: Convert checkbox ke boolean yang benar
+                if ($('#use_write_off_only').is(':checked')) {
+                    formData.set('use_write_off_only', '1'); // atau 'true'
+                } else {
+                    formData.delete('use_write_off_only'); // hapus dari FormData kalau tidak dicentang
+                }
 
                 // Hapus error sebelumnya
                 document.querySelectorAll('#markAsSaleForm small.text-danger').forEach(el => {
@@ -1984,6 +1935,26 @@
                 $('#paid_amount').val(formatted);
                 $('#paid_amount_display').text('Paid: Rp. ' + formatted);
             }
+
+            // 🔥 Handler checkbox Write Off Only
+            $('#use_write_off_only').on('change', function() {
+                if ($(this).is(':checked')) {
+                    // Matikan deposit kalau write off only aktif
+                    $('#use_write_off').prop('checked', false);
+                    $('#write_off_container').addClass('d-none');
+                    $('#customer_deposit_amount').val('0');
+
+                    // SET PAID AMOUNT KE 0
+                    $('#paid_amount').val('0');
+                    $('#paid_amount_display').text('Paid: Rp. 0');
+
+                } else {
+                    // KEMBALIKAN KE NILAI AWAL (originalPaidAmount atau remainingAmount)
+                    const formatted = new Intl.NumberFormat('id-ID').format(originalPaidAmount);
+                    $('#paid_amount').val(formatted);
+                    $('#paid_amount_display').text('Paid: Rp. ' + formatted);
+                }
+            });
 
             // 🔥 Handler button Mark as Paid (FINAL FIX - GUARANTEED WORK!)
             $(document).on('click', '.btn-mark-paid', function(e) {

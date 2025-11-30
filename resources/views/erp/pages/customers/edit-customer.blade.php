@@ -76,8 +76,7 @@
                                     <div class="input-group">
                                         <div class="input-group-text"><i class="feather-phone"></i></div>
                                         <input type="text" class="form-control" id="phone" name="phone"
-                                            value="{{ old('phone', $customer->phone) }}" placeholder="Phone" maxlength="15"
-                                            minlength="8" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                                            value="{{ old('phone', $customer->phone) }}" placeholder="Phone">
                                     </div>
                                 </div>
                             </div>
@@ -254,5 +253,16 @@
             feedback.textContent = message;
             parent.appendChild(feedback);
         }
+
+        document.getElementById('phone').addEventListener('paste', function(e) {
+            e.preventDefault();
+            let text = e.clipboardData.getData('text');
+            text = text.replace(/\D/g, ''); // hapus semua non-digit
+            this.value = text;
+        });
+
+        document.getElementById('phone').addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, ''); // ketik manual tetap filter angka saja
+        });
     </script>
 @endpush

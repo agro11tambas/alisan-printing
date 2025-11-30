@@ -159,7 +159,7 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th>Product</th>
-                                            <th>Progress</th>
+                                            {{-- <th>Progress</th> --}}
                                             <th>Assigning</th>
                                             {{-- <th>Available</th> --}}
                                             <th>Assign Now</th>
@@ -186,11 +186,22 @@
                                             <tr>
                                                 <input type="hidden" name="items[{{ $index }}][id]"
                                                     value="{{ $assign->id ?? '' }}">
-                                                <td>{{ $item->product->name }}</td>
-                                                <td class="text-start">
+                                                {{-- <td>{{ $item->product->name }}</td> --}}
+                                                <td>
+                                                    <div class="fw-semibold" style="font-size: 14px;">
+                                                        {{ $item->product->name }}
+                                                    </div>
+                                                    <div class="text-muted small mt-1">
+                                                        Progress:
+                                                        {{ number_format($item->completed_quantity, 0, ',', '.') }}
+                                                        /
+                                                        {{ number_format($item->quantity, 0, ',', '.') }}
+                                                    </div>
+                                                </td>
+                                                {{-- <td class="text-start">
                                                     {{ number_format($item->completed_quantity, 0, ',', '.') }} /
                                                     {{ number_format($item->quantity, 0, ',', '.') }}
-                                                </td>
+                                                </td> --}}
                                                 <td class="text-start">
                                                     <div class="fw-semibold text-primary mt-1">
                                                         Available:

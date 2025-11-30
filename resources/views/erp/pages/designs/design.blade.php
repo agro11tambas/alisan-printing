@@ -138,6 +138,7 @@
                                         <th class="wd-350">Customer</th>
                                         <th>Products</th>
                                         <th>Order Note</th>
+                                        <th>Chat</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -328,6 +329,12 @@
                     {
                         data: 'order_note',
                         name: 'order_note',
+                        orderable: false,
+                        searchable: false
+                    },
+                    {
+                        data: 'whatsapp',
+                        name: 'whatsapp',
                         orderable: false,
                         searchable: false
                     },

@@ -189,7 +189,7 @@
                                     <thead>
                                         <tr>
                                             <th style="width: 10%;">Product</th>
-                                            <th style="width: 5%;">Progress</th>
+                                            {{-- <th style="width: 5%;">Progress</th> --}}
                                             <th style="width: 5%;">Assigning</th>
                                             {{-- <th>Available</th> --}}
                                             <th style="width: 5%;">Assign Now</th>
@@ -204,11 +204,23 @@
                                                 @continue
                                             @endif --}}
                                             <tr>
-                                                <td>{{ $item->product->name }}</td>
-                                                <td class="text-start">
+                                                {{-- <td>{{ $item->product->name }}</td> --}}
+                                                <td>
+                                                    <div class="fw-semibold">
+                                                        {{ $item->product->name }}
+                                                    </div>
+                                                    <div class="text-muted small">
+                                                        Progress:
+                                                        {{ number_format($item->completed_quantity, 0, ',', '.') }}
+                                                        /
+                                                        {{ number_format($item->quantity, 0, ',', '.') }}
+                                                    </div>
+                                                </td>
+
+                                                {{-- <td class="text-start">
                                                     {{ number_format($item->completed_quantity, 0, ',', '.') }} /
                                                     {{ number_format($item->quantity, 0, ',', '.') }}
-                                                </td>
+                                                </td> --}}
                                                 <td class="text-start">
                                                     <div class="fw-semibold text-primary mt-1">
                                                         Available:

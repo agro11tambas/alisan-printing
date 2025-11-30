@@ -87,7 +87,7 @@
         .select2-container,
         .select2-dropdown,
         .select2-container--open {
-            z-index: 2050 !important;
+            /* z-index: 9997 !important; */
         }
     </style>
 
@@ -491,7 +491,7 @@
         }
 
         .swal2-container {
-            z-index: 99999 !important;
+            /* z-index: 99996 !important; */
         }
 
         /* TOPBAR + BREADCRUMB naik jadi 5000 */
@@ -501,17 +501,17 @@
         .topbar,
         .navbar,
         .page-header-title {
-            z-index: 5000 !important;
+            /* z-index: 9995 !important; */
         }
 
         /* Header di atas breadcrumb */
         .nxl-header {
-            z-index: 9000 !important;
+            /* z-index: 9995 !important; */
         }
 
 
         .nxl-user-dropdown {
-            z-index: 99999 !important;
+            /* z-index: 99999 !important; */
         }
 
 
@@ -537,17 +537,17 @@
         }
 
         .modal {
-            z-index: 9999 !important;
+            /* z-index: 9996 !important; */
         }
 
         .modal-backdrop {
-            z-index: 9998 !important;
+            /* z-index: 9995 !important; */
         }
 
         .nxl-navigation,
         .nxl-navigation .navbar-wrapper,
         .nxl-navigation .navbar-content {
-            z-index: 4000 !important;
+            /* z-index: 4000 !important; */
             /* Firefox */
         }
     </style>
@@ -1078,6 +1078,16 @@
 
         });
     </script>
+
+    @if (session('logout_notice'))
+        <script>
+            Swal.fire({
+                icon: "warning",
+                title: "Session Expired",
+                text: "{{ session('logout_notice') }}",
+            });
+        </script>
+    @endif
 
     @stack('scripts')
 </body>

@@ -114,14 +114,21 @@
                                         $trx->account &&
                                         $trx->account->name === 'Customer Deposit';
                                 });
+                                $isGroupVerified = $debitGroup->every(function ($trx) {
+                                    return $trx->verified == true;
+                                });
                             @endphp
 
                             @if ($debitGroup->isNotEmpty())
                                 <div class="mb-4 border rounded" data-group="{{ $groupId }}">
                                     <div class="d-flex justify-content-between align-items-center bg-light p-2">
                                         <span><strong>Tanggal:</strong>
-                                            {{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('d-m-Y') }}</span>
+                                            {{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('d-m-Y') }}
+                                        </span>
+
                                         <div class="d-flex gap-3">
+
+                                            {{-- 🔵 TOMBOL EDIT — hanya jika BUKAN Customer Deposit --}}
                                             @if (!$isCustomerDeposit)
                                                 <button type="button" class="btn btn-sm btn-primary btn-edit-payment"
                                                     data-bs-toggle="modal" data-bs-target="#modalEditPayment"
@@ -134,12 +141,30 @@
                                                     <i class="feather feather-edit-3 me-2"></i>Edit
                                                 </button>
                                             @endif
-                                            <button type="button" class="btn btn-sm btn-success btn-verify-payment"
-                                                data-group="{{ $groupId }}"
-                                                data-date="{{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('d-m-Y') }}"
-                                                data-amount="{{ number_format($debitGroup->sum('debit'), 0, ',', '.') }}">
-                                                <i class="feather-check-circle me-1"></i> Verify
-                                            </button>
+
+
+                                            {{-- 🟢 TOMBOL VERIFIKASI — TIDAK BOLEH TERPENGARUH CUSTOMER DEPOSIT --}}
+                                            @if (auth()->user()->role === 'Owner')
+                                                {{-- Jika BELUM verified → tampilkan Verify --}}
+                                                @if (!$isGroupVerified)
+                                                    <button type="button" class="btn btn-sm btn-success btn-verify-payment"
+                                                        data-group="{{ $groupId }}"
+                                                        data-date="{{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('d-m-Y') }}"
+                                                        data-amount="{{ number_format($debitGroup->sum('debit'), 0, ',', '.') }}">
+                                                        <i class="feather-check-circle me-1"></i> Verify
+                                                    </button>
+                                                @endif
+
+                                                {{-- Jika SUDAH verified → tampilkan Unverify --}}
+                                                @if ($isGroupVerified)
+                                                    <button type="button"
+                                                        class="btn btn-sm btn-danger btn-unverify-payment"
+                                                        data-group="{{ $groupId }}">
+                                                        <i class="feather-x-circle me-1"></i> Unverify
+                                                    </button>
+                                                @endif
+                                            @endif
+
                                         </div>
                                     </div>
                                     <div class="table-responsive">
@@ -315,6 +340,36 @@
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
                     <button type="button" id="btnConfirmVerify" class="btn btn-success">
                         <i class="feather-check-circle me-1"></i>Ya, Verify
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔴 Modal Konfirmasi Unverify -->
+    <div class="modal fade-scale" id="modalUnverifyPayment" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white">
+                        <i class="feather-x-circle me-2"></i>Batal Konfirmasi Pembayaran
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">
+                        Apakah kamu yakin ingin <strong>membatalkan verifikasi</strong> pembayaran ini?
+                    </p>
+                    <ul class="list-unstyled mb-3">
+                        <li><strong>Tanggal:</strong> <span id="unverifyDate" class="text-dark"></span></li>
+                        <li><strong>Jumlah:</strong> <span id="unverifyAmount" class="text-dark"></span></li>
+                    </ul>
+                    <input type="hidden" id="unverifyGroupId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" id="btnConfirmUnverify" class="btn btn-danger">
+                        <i class="feather-x-circle me-1"></i>Ya, Unverify
                     </button>
                 </div>
             </div>
@@ -757,6 +812,103 @@
                         btnConfirmVerify.disabled = false;
                         btnConfirmVerify.innerHTML =
                             '<i class="feather-check-circle me-1"></i>Ya, Verify';
+                    });
+            });
+        });
+
+        // ===============================
+        // 🔴 UNVERIFY PAYMENT (MODAL)
+        // ===============================
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalUnverify = new bootstrap.Modal(document.getElementById('modalUnverifyPayment'));
+            const unverifyDate = document.getElementById('unverifyDate');
+            const unverifyAmount = document.getElementById('unverifyAmount');
+            const unverifyGroupId = document.getElementById('unverifyGroupId');
+            const btnConfirmUnverify = document.getElementById('btnConfirmUnverify');
+
+            // Klik tombol Unverify → buka modal
+            $(document).on('click', '.btn-unverify-payment', function() {
+                const group = $(this).data('group');
+                const groupBox = document.querySelector(`[data-group="${group}"]`);
+
+                unverifyGroupId.value = group;
+
+                // Ambil tanggal dari header card
+                const dateText = groupBox.querySelector('.bg-light span').innerText.replace("Tanggal:", "")
+                    .trim();
+                unverifyDate.textContent = dateText;
+
+                // Ambil total amount dari baris pertama tabel
+                const firstRow = groupBox.querySelector('tbody tr');
+                const amountText = firstRow.cells[1].innerText.trim(); // kolom ke-2 adalah debit
+                unverifyAmount.textContent = "Rp " + amountText;
+
+                modalUnverify.show();
+            });
+
+            // Konfirmasi Unverify
+            btnConfirmUnverify.addEventListener('click', function() {
+                const groupId = unverifyGroupId.value;
+
+                btnConfirmUnverify.disabled = true;
+                btnConfirmUnverify.innerHTML =
+                    '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+
+                fetch(`/erp/sales/sale-list/unverify-payment/${groupId}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(async (res) => {
+                        const data = await res.json();
+                        if (!res.ok) throw data;
+
+                        modalUnverify.hide();
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: data.message,
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+
+                        // UI UPDATE
+                        const groupBox = document.querySelector(`[data-group="${data.group_id}"]`);
+                        if (groupBox) {
+                            // status jadi Pending
+                            groupBox.querySelectorAll('tbody tr').forEach(tr => {
+                                const statusCell = tr.cells[4];
+                                statusCell.innerHTML =
+                                    `<span class="badge bg-secondary">Pending</span>`;
+                            });
+
+                            // aktifkan tombol Verify lagi
+                            const btnVerify = groupBox.querySelector('.btn-verify-payment');
+                            if (btnVerify) {
+                                btnVerify.disabled = false;
+                                btnVerify.classList.remove('btn-secondary');
+                                btnVerify.classList.add('btn-success');
+                                btnVerify.innerHTML =
+                                    `<i class="feather-check-circle me-1"></i> Verify`;
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        modalUnverify.hide();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: err.message ?? 'Tidak dapat melakukan unverify.'
+                        });
+                    })
+                    .finally(() => {
+                        btnConfirmUnverify.disabled = false;
+                        btnConfirmUnverify.innerHTML =
+                            '<i class="feather-x-circle me-1"></i>Ya, Unverify';
                     });
             });
         });

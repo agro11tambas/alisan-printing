@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'subpermission' => SubPermissionMiddleware::class,
             'role' => \App\Http\Middleware\CheckRole::class,
             'auth' => \App\Http\Middleware\isLogin::class,
+            'check.session' => \App\Http\Middleware\CheckSession::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -26,14 +26,16 @@
 
     @php
         $itemsJs = $deliveryList->items
-            ->groupBy(fn($item) => $item->product->name ?? '-') // 🔹 group berdasarkan nama produk
+            ->groupBy(fn($item) => $item->product->name ?? '-')
             ->map(function ($group, $name) {
                 $totalQty = $group->sum('shipped_quantity');
-                $first = $group->first();
+
+                // Gabungkan semua note berdasarkan product_id
+                $notes = $group->pluck('note')->filter()->unique()->implode(', ');
 
                 return [
                     'name' => $name,
-                    'sku' => $first->product->sku ?? '-',
+                    'note' => $notes ?: '-',
                     'qty' => (string) $totalQty,
                 ];
             })
@@ -48,6 +50,8 @@
             'name' => $deliveryList->deliveryOrder->order->business_name ?? '-',
             'address' => $deliveryList->deliveryOrder->shipping_address ?? '-',
             'phone' => $deliveryList->deliveryOrder->order->customer->phone ?? '-',
+            'note' => $deliveryList->note ?? '-',
+            'order_note' => $deliveryList->deliveryOrder->order->notes ?? '-',
         ];
     @endphp
 
@@ -65,7 +69,7 @@
         function buildText96() {
             const width = 96,
                 CRLF = "\r\n";
-            const ITEMS_PER_PAGE = 8;
+            const ITEMS_PER_PAGE = 5;
             const FIX_LINES = 40;
 
             const center = t => {
@@ -102,20 +106,26 @@
                 pageOut += center('SURAT JALAN') + CRLF;
                 pageOut += center(orderNumber) + CRLF + CRLF;
 
+                // KIRI = Customer
                 const kiri = [
+                    ...(wrapText(customer.name || '-', 50)),
+                    ...(wrapText(customer.address || '-', 50)),
+                    customer.phone || '-',
+                    ...(customer.order_note ? wrapText('Catatan Order: ' + customer.order_note, 50) : []),
+                    customer.note ? 'Catatan: ' + customer.note : ''
+                ];
+
+                // KANAN = Alisan Printing
+                const kanan = [
                     'ALISAN PRINTING',
                     ...wrapText('Jl. Karya Indah No 32', 30),
-                    'Telp: 0822-7272-2188'
+                    '082272722188'
                 ];
-                const kanan = [
-                    ...(wrapText(customer.name || '-', 35)),
-                    ...(wrapText(customer.address || '-', 35)),
-                    customer.phone || '-'
-                ];
+
                 const max = Math.max(kiri.length, kanan.length);
                 for (let i = 0; i < max; i++) {
-                    const left = padR(kiri[i] || '', 45);
-                    const rightZoneStart = 60;
+                    const left = padR(kiri[i] || '', 55);
+                    const rightZoneStart = 70;
                     const rightText = kanan[i] || '';
                     const spacing = ' '.repeat(Math.max(0, rightZoneStart - left.length));
                     pageOut += left + spacing + rightText + CRLF;
@@ -123,19 +133,33 @@
 
                 pageOut += '-'.repeat(width) + CRLF;
 
-                pageOut += padR('No', 4) + ' ' + padR('Nama Barang', 55) + ' ' + padR('SKU', 15) + ' ' + padL('Qty', 8) +
+                pageOut += padR('No', 4) + ' ' + padR('Nama Barang', 55) + ' ' + padR('Qty', 8) + ' ' + padL('Catatan',
+                        22) +
                     CRLF;
                 pageOut += '-'.repeat(width) + CRLF;
 
                 pageItems.forEach((row) => {
-                    const name = String(row.name).substring(0, 37);
-                    const sku = String(row.sku).substring(0, 10);
+                    const name = String(row.name).substring(0, 53);
+                    const note = String(row.note || '-').substring(0, 22);
                     const qtyFormatted = Number(row.qty).toLocaleString('id-ID'); // ✅ format angka Indonesia
-                    pageOut += padR(row.no, 4) + ' ' + padR(name, 55) + ' ' + padR(sku, 15) + ' ' + padL(
-                        qtyFormatted, 8) + CRLF;
+                    pageOut += padR(row.no, 4) + ' ' + padR(name, 55) + ' ' + padR(qtyFormatted, 8) + ' ' + padL(
+                        note, 22) + CRLF;
                 });
 
                 pageOut += '-'.repeat(width) + CRLF.repeat(2);
+
+                // if (customer.order_note) {
+                //     const wrapped = wrapText(customer.order_note, 70); // 70 biar muat sebelahnya
+
+                //     pageOut += 'Catatan Order : ' + wrapped[0] + CRLF;
+
+                //     for (let i = 1; i < wrapped.length; i++) {
+                //         pageOut += ' '.repeat(17) + wrapped[i] + CRLF;
+                //     }
+
+                //     pageOut += CRLF;
+                // }
+
                 const linesNow = pageOut.split(/\r\n/).length;
                 const signBlockLines = 20;
                 const remaining = Math.max(0, FIX_LINES - (linesNow + signBlockLines));
@@ -148,8 +172,10 @@
                 pageOut += centerLine('    Admin                         Kurir                       Customer   ');
                 pageOut += CRLF.repeat(2);
                 pageOut += centerLine('______________                ______________               ______________');
-                pageOut += CRLF.repeat(2);
-                pageOut += center('Halaman ' + (page + 1) + ' dari ' + totalPages);
+                pageOut += CRLF.repeat(1);
+                // pageOut += center('Halaman ' + (page + 1) + ' dari ' + totalPages);
+                const pageText = 'Hal ' + (page + 1) + '/' + totalPages;
+                pageOut += center(pageText) + CRLF;
 
                 out += pageOut;
                 if (page + 1 < totalPages) out += CRLF.repeat(5);

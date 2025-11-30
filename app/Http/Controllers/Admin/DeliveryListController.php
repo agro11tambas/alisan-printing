@@ -125,7 +125,7 @@ class DeliveryListController extends Controller
                 }
 
                 if ($dl->printed) {
-                    $badges .= '<div class="badge bg-soft-primary text-primary me-1">Sudah Print</div>';
+                    $badges .= '<div class="badge bg-soft-warning text-warning me-1">Sudah Print</div>';
                 }
 
                 $shipmentNumber = '
@@ -266,7 +266,8 @@ class DeliveryListController extends Controller
             
                             <div style='margin-bottom:10px;'>
                                 <div><strong>Shipment:</strong> <span style='color:#2563eb;'>{$dl->shipment_number}</span></div>
-                                <div><strong>Customer:</strong> " . e($dl->deliveryOrder->customer ?? '-') . "</div>
+                                <div><strong>Business Name:</strong> " . e($dl->deliveryOrder->order?->customerAddress?->business_name ?? '-') . "</div>
+                                <div><strong>Customer:</strong> " . e($dl->deliveryOrder->customer ?? '-') . "</div>                                
                                 <div><strong>Address:</strong><br>
                                 <div style='color:#4b5563;max-width:300px;white-space:normal;word-break:break-word;overflow-wrap:break-word;'>
                                     " . e($dl->deliveryOrder->shipping_address ?? '-') . "

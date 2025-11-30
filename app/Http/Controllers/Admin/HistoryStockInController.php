@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CanceledProduct;
 use Illuminate\Http\Request;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
@@ -15,6 +16,7 @@ use App\Models\PurchaseItem;
 use App\Models\PurchaseReturnItem;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\InventoryStockOutHistory;
+use App\Models\ProductionStock;
 use App\Services\ProductCostService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +28,17 @@ class HistoryStockInController extends Controller
         $stockIn = Inventory::with('items.product')->findOrFail($id);
 
         return view('erp.pages.inventory.stock-in.add-stock-in', compact('stockIn'));
+    }
+
+    private function getTotalStockForAvg($productId)
+    {
+        // dari inventory_stocks
+        $inventoryStock = InventoryStock::where('product_id', $productId)->sum('inventory_stock');
+
+        // dari production_stocks → available_quantity
+        $productionStock = ProductionStock::where('product_id', $productId)->sum('available_quantity');
+
+        return $inventoryStock + $productionStock;
     }
 
     public function store(Request $request, $id)
@@ -112,37 +125,68 @@ class HistoryStockInController extends Controller
 
                     // 🔹 Hitung ulang avg_cost (weighted average pakai stock_after_sales)
                     $purchaseItem = $inventoryItem->purchaseItem ?? null;
-                    if ($purchaseItem) {
-                        $purchaseCost = $purchaseItem->final_price;
+                    // if ($purchaseItem) {
+                    //     $purchaseCost = $purchaseItem->final_price;
 
-                        // Hitung stok total sebelum pembelian dari stock_after_sales
-                        $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
+                    //     // Hitung stok total sebelum pembelian dari stock_after_sales
+                    //     $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
+                    //     $previousCost = $inventoryStock->avg_cost;
+
+                    //     // Weighted average formula
+                    //     $inventoryStock->avg_cost = round(
+                    //         (($previousCost * $previousQty) + ($purchaseCost * $item['stock_in']))
+                    //             / max(1, $previousQty + $item['stock_in']),
+                    //         3
+                    //     );
+                    //     $inventoryStock->save();
+                    // }
+                    if ($purchaseItem) {
+                        $cost = $purchaseItem->final_price;
+
+                        $previousQty  = max(0, $this->getTotalStockForAvg($productId) - $item['stock_in']);
                         $previousCost = $inventoryStock->avg_cost;
 
-                        // Weighted average formula
                         $inventoryStock->avg_cost = round(
-                            (($previousCost * $previousQty) + ($purchaseCost * $item['stock_in']))
+                            (($previousCost * $previousQty) + ($cost * $item['stock_in']))
                                 / max(1, $previousQty + $item['stock_in']),
                             3
                         );
+
                         $inventoryStock->save();
                     }
+                    // } elseif ($inventory->canceled_product_id) {
+                    //     // 🔹 Barang dari Sale Return (Canceled Product)
+                    //     $inventoryStock->increment('inventory_stock', $item['stock_in']);
+                    //     $inventoryStock->increment('stock_after_sales', $item['stock_in']);
+
+                    //     // Ambil data canceled product
+                    //     $canceledProduct = \App\Models\CanceledProduct::find($inventory->canceled_product_id);
+                    //     $avgCostAtCancel = $canceledProduct?->avg_cost_at_cancel ?? 0;
+
+                    //     // Ambil total stok sebelumnya dari stock_after_sales (bukan inventory_stock)
+                    //     $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
+                    //     $previousCost = $inventoryStock->avg_cost;
+
+                    //     // Weighted average baru berdasarkan stock_after_sales
+                    //     $inventoryStock->avg_cost = round(
+                    //         (($previousCost * $previousQty) + ($avgCostAtCancel * $item['stock_in']))
+                    //             / max(1, $previousQty + $item['stock_in']),
+                    //         3
+                    //     );
+
+                    //     $inventoryStock->save();
                 } elseif ($inventory->canceled_product_id) {
-                    // 🔹 Barang dari Sale Return (Canceled Product)
+
                     $inventoryStock->increment('inventory_stock', $item['stock_in']);
-                    $inventoryStock->increment('stock_after_sales', $item['stock_in']);
 
-                    // Ambil data canceled product
-                    $canceledProduct = \App\Models\CanceledProduct::find($inventory->canceled_product_id);
-                    $avgCostAtCancel = $canceledProduct?->avg_cost_at_cancel ?? 0;
+                    $canceledProduct = CanceledProduct::find($inventory->canceled_product_id);
+                    $cost = $canceledProduct?->avg_cost_at_cancel ?? 0;
 
-                    // Ambil total stok sebelumnya dari stock_after_sales (bukan inventory_stock)
-                    $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
+                    $previousQty  = max(0, $this->getTotalStockForAvg($productId) - $item['stock_in']);
                     $previousCost = $inventoryStock->avg_cost;
 
-                    // Weighted average baru berdasarkan stock_after_sales
                     $inventoryStock->avg_cost = round(
-                        (($previousCost * $previousQty) + ($avgCostAtCancel * $item['stock_in']))
+                        (($previousCost * $previousQty) + ($cost * $item['stock_in']))
                             / max(1, $previousQty + $item['stock_in']),
                         3
                     );

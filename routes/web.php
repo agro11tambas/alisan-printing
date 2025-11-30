@@ -72,7 +72,7 @@ Route::get('/login', [AuthController::class, 'loginView'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
 
-Route::middleware(isLogin::class)->group(function () {
+Route::middleware(['auth', 'check.session'])->group(function () {
     Route::get('/erp/welcome', [WelcomeController::class, 'index']);
     Route::middleware(['auth', 'permission:dashboard'])->group(function () {
         Route::get('/erp/dashboard', [DashboardController::class, 'getDashboard'])->name('dashboard');
@@ -261,6 +261,7 @@ Route::middleware(isLogin::class)->group(function () {
             Route::post('/erp/sales/sale-list/restore/{id}', [SaleListController::class, 'restore'])->name('sales.restore');
             Route::put('/erp/sales/mark-as-waiting-list/{id}', [SaleListController::class, 'markAsWaitingList']);
             Route::post('/erp/sales/sale-list/verify-payment/{groupId}', [SaleListController::class, 'verifyPayment'])->name('sale-list.verify-payment');
+            Route::post('/erp/sales/sale-list/unverify-payment/{groupId}', [SaleListController::class, 'unverifyPayment'])->name('sale-list.unverify-payment');
 
             Route::post('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDeleteOwner'])
                 ->name('sales.sale-list.forceDeleteOwner')

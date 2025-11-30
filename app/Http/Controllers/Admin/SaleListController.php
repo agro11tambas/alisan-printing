@@ -367,6 +367,45 @@ class SaleListController extends Controller
                             <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
                         </div>
                     ',
+                    // 'customer' => '
+                    //     <div style="white-space: normal; word-break: break-word; max-width:180px;">
+
+                    //         <div class="mb-1">
+                    //             <a href="https://wa.me/' . (
+                    //     function ($phone) {
+                    //         $num = preg_replace('/\D/', '', $phone ?? '');
+
+                    //         // Jika mulai dari 0 → ubah ke 62
+                    //         if (strpos($num, '0') === 0) {
+                    //             $num = '62' . substr($num, 1);
+                    //         }
+
+                    //         // Jika mulai dari 62 → biarkan
+                    //         // Jika mulai dari 8 → berarti format 89xxxxx → tambahkan 62
+                    //         if (strpos($num, '62') !== 0) {
+                    //             if (strpos($num, '8') === 0) {
+                    //                 $num = '62' . $num;
+                    //             }
+                    //         }
+
+                    //         return $num;
+                    //     }
+                    // )($order->customer->phone) . '" 
+                    //                 target="_blank"
+                    //                 class="badge bg-success text-white"
+                    //                 style="font-size:12px;">
+                    //                 Chat WhatsApp
+                    //             </a>
+                    //         </div>
+
+                    //         <div class="d-flex align-items-center fw-semibold">
+                    //             ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+                    //             ' . $businessName . '
+                    //         </div>
+
+                    //         <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
+                    //     </div>
+                    // ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
                     'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
                     'grand_total' => '<span class="text-primary fw-semibold">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
@@ -386,6 +425,24 @@ class SaleListController extends Controller
                             ' . e($order->notes ?? '-') . '
                         </div>
                     ',
+                    'whatsapp' => '
+                        <a href="https://wa.me/' . (
+                        function ($phone) {
+                            $num = preg_replace('/\D/', '', $phone ?? '');
+                            if (strpos($num, '0') === 0) $num = '62' . substr($num, 1);
+                            if (strpos($num, '62') !== 0) {
+                                if (strpos($num, '8') === 0) $num = '62' . $num;
+                            }
+                            return $num;
+                        }
+                    )($order->customer->phone) . '"
+                            target="_blank"
+                            class="btn btn-success btn-sm"
+                            style="padding:6px 10px;">
+                            WhatsApp
+                        </a>
+                    ',
+
                     'created_at' => $orderCreatedAt,
                     'mode' => $modeBadge,
                     'action' => view('erp.pages.sales.sale-list.partials.action-button', compact('order'))->render(),
@@ -1734,50 +1791,94 @@ class SaleListController extends Controller
                 return redirect("/erp/sales/sale-list/")->with('success', 'Order berhasil diupdate (price only + header).');
             }
 
-            $hasProgressHistory = \App\Models\OrderProgressHistory::whereHas('progressItem', function ($q) use ($order) {
-                $q->whereHas('progress', function ($p) use ($order) {
-                    $p->where('order_id', $order->id);
-                });
-            })->exists();
+            // ================== 🔥 CEK PERUBAHAN PRODUK (Bukan Penambahan) ==================
+            $existingProductKeys = $order->orderItems->map(function ($item) {
+                return $item->satuan . '_' . ($item->satuan === 'satuan' ? $item->product_id : $item->product_bundle_id);
+            })->values()->toArray(); // tambahkan values() untuk reindex
 
-            if ($hasProgressHistory) {
-                DB::rollBack();
-                return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah memiliki progress history produksi.');
+            $newProductKeys = $request->product;
+
+            // 🔹 Deteksi PERUBAHAN produk (bukan penambahan)
+            $isProductChanged = false;
+
+            // Ambil jumlah item yang sama
+            $minCount = min(count($existingProductKeys), count($newProductKeys));
+
+            // Cek apakah ada produk lama yang DIGANTI dengan produk lain (di posisi yang sama)
+            for ($i = 0; $i < $minCount; $i++) {
+                if ($existingProductKeys[$i] !== $newProductKeys[$i]) {
+                    $isProductChanged = true;
+                    Log::info("🔄 Product changed at index {$i}: {$existingProductKeys[$i]} → {$newProductKeys[$i]}");
+                    break;
+                }
             }
 
-            // Cek apakah sudah ada assign
-            $hasAssign = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
-                $q->where('order_id', $order->id);
-            })->exists();
+            // $hasProgressHistory = \App\Models\OrderProgressHistory::whereHas('progressItem', function ($q) use ($order) {
+            //     $q->whereHas('progress', function ($p) use ($order) {
+            //         $p->where('order_id', $order->id);
+            //     });
+            // })->exists();
 
-            if ($hasAssign) {
-                DB::rollBack();
-                return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah memiliki progress assign produksi.');
-            }
-
-            // 🔹 CEK Finished Delivery
-            $hasFinishedDelivery = $order->deliveryOrders()
-                ->with('shipments')
-                ->get()
-                ->flatMap->shipments
-                ->contains(fn($shipment) => $shipment->status === 'Finished');
-
-            if ($hasFinishedDelivery) {
-                DB::rollBack();
-                return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah ada Delivery List yang selesai.');
-            }
-
-            // $designVerified = \App\Models\Design::where('order_id', $id)
-            //     ->where(function ($q) {
-            //         $q->whereRaw('LOWER(status) = ?', ['verified'])
-            //             ->orWhereRaw('LOWER(verification_status) = ?', ['approved']);
-            //     })
-            //     ->exists();
-
-            // if ($designVerified) {
+            // if ($hasProgressHistory) {
             //     DB::rollBack();
-            //     return back()->with('error', 'Order tidak dapat diupdate karena design sudah diverifikasi. Silahkan Batalkan Verifikasinya');
+            //     return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah memiliki progress history produksi.');
             // }
+
+            // // Cek apakah sudah ada assign
+            // $hasAssign = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
+            //     $q->where('order_id', $order->id);
+            // })->exists();
+
+            // if ($hasAssign) {
+            //     DB::rollBack();
+            //     return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah memiliki progress assign produksi.');
+            // }
+
+            // // 🔹 CEK Finished Delivery
+            // $hasFinishedDelivery = $order->deliveryOrders()
+            //     ->with('shipments')
+            //     ->get()
+            //     ->flatMap->shipments
+            //     ->contains(fn($shipment) => $shipment->status === 'Finished');
+
+            // if ($hasFinishedDelivery) {
+            //     DB::rollBack();
+            //     return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah ada Delivery List yang selesai.');
+            // }
+
+            if ($isProductChanged) {
+
+                $hasProgressHistory = \App\Models\OrderProgressHistory::whereHas('progressItem', function ($q) use ($order) {
+                    $q->whereHas('progress', function ($p) use ($order) {
+                        $p->where('order_id', $order->id);
+                    });
+                })->exists();
+
+                if ($hasProgressHistory) {
+                    DB::rollBack();
+                    return back()->with('error', 'Tidak dapat mengubah produk yang sudah ada karena sudah memiliki progress history produksi. Anda hanya bisa menambah produk baru.');
+                }
+
+                $hasAssign = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
+                    $q->where('order_id', $order->id);
+                })->exists();
+
+                if ($hasAssign) {
+                    DB::rollBack();
+                    return back()->with('error', 'Tidak dapat mengubah produk yang sudah ada karena sudah memiliki progress assign produksi. Anda hanya bisa menambah produk baru.');
+                }
+
+                $hasFinishedDelivery = $order->deliveryOrders()
+                    ->with('shipments')
+                    ->get()
+                    ->flatMap->shipments
+                    ->contains(fn($shipment) => $shipment->status === 'Finished');
+
+                if ($hasFinishedDelivery) {
+                    DB::rollBack();
+                    return back()->with('error', 'Tidak dapat mengubah produk yang sudah ada karena sudah ada Delivery List yang selesai. Anda hanya bisa menambah produk baru.');
+                }
+            }
 
             if (SaleReturn::where('sale_order_id', $order->id)->exists()) {
                 DB::rollBack(); // rollback supaya transaksi clear
@@ -1785,18 +1886,6 @@ class SaleListController extends Controller
             }
 
             $orderMode = $request->mode ?? $order->mode;
-
-            // // 🚫 Cegah perubahan mode jika design sudah diverifikasi
-            // if ($order->mode !== $orderMode) {
-            //     $designVerified = \App\Models\Design::where('order_id', $order->id)
-            //         ->whereRaw('LOWER(status) = ?', ['verified'])
-            //         ->exists();
-
-            //     if ($designVerified) {
-            //         DB::rollBack();
-            //         return back()->with('error', 'Tidak dapat mengubah mode order (Printing ⇄ Polosan) karena design sudah diverifikasi.');
-            //     }
-            // }
 
             // ================== HANDLE PERUBAHAN MODE PRINTING ↔ POLOSAN ==================
             if ($order->mode !== $orderMode) {
@@ -4455,6 +4544,7 @@ class SaleListController extends Controller
             'payment_proof.*'      => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
             'note_per_image'       => 'nullable|array',
             'deposit_used' => 'nullable|numeric|min:0',
+            'use_write_off_only' => 'nullable|boolean',
         ]);
 
         DB::beginTransaction();
@@ -4467,6 +4557,7 @@ class SaleListController extends Controller
 
             $bankGroupId = Str::uuid();
             $depositGroupId = Str::uuid();
+            $writeOffGroupId = Str::uuid();
 
             $saleAccount = Account::findOrFail($request->transaction_type); // Akun pembelian (debit)
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id); // Akun kas/bank (kredit)
@@ -4551,8 +4642,67 @@ class SaleListController extends Controller
             $order->paid_amount += $request->paid_amount + $request->deposit_used;
             $order->remaining_amount = $order->grand_total - $order->paid_amount;
 
-            // Kalau sebelumnya Unpaid, bisa ubah jadi Partially Paid atau Paid
-            $order->updatePaymentStatus();
+            // Kalau sebelumnya Unpaid, bisa ubah jadi Partially Paid atau Paid        
+
+            // ===============================
+            // 🔥 WRITE OFF (jika checkbox dicentang)
+            // ===============================
+            if ($request->has('use_write_off_only') && in_array($request->use_write_off_only, ['on', '1', 'true', true])) {
+                $writeOffAmount = $order->remaining_amount;
+
+                if ($writeOffAmount > 0) {
+                    // Cari/buat akun Expense untuk Write Off
+                    $expenseAccount = Account::firstOrCreate(
+                        ['type' => 'Write Off'],
+                        [
+                            'name' => 'Expense',
+                            'opening_balance' => 0,
+                            'closing_balance' => 0,
+                        ]
+                    );
+
+                    // Transaksi DEBIT di Expense Account (biaya bertambah)
+                    AccountTransaction::create([
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'transaction_date' => $request->transaction_date,
+                        'account_id' => $expenseAccount->id,
+                        'debit' => $writeOffAmount,
+                        'credit' => 0,
+                        'note' => 'Write off remaining balance',
+                        'particular' => 'Write Off - ' . $order->order_number,
+                        'transaction_group_id' => $writeOffGroupId,
+                        'proof' => $proofJson,
+                    ]);
+
+                    $expenseAccount->closing_balance += $writeOffAmount;
+                    $expenseAccount->save();
+
+                    // // 🔥 Transaksi CREDIT di Cash/Bank Account (kas berkurang)
+                    // AccountTransaction::create([
+                    //     'order_id' => $order->id,
+                    //     'order_number' => $order->order_number,
+                    //     'transaction_date' => $request->transaction_date,
+                    //     'account_id' => $cashBankAccount->id, // 🔥 INI YANG DIGANTI!
+                    //     'debit' => 0,
+                    //     'credit' => $writeOffAmount,
+                    //     'note' => 'Write off remaining balance',
+                    //     'particular' => 'Write Off - ' . $order->order_number,
+                    //     'transaction_group_id' => $writeOffGroupId,
+                    //     'proof' => $proofJson,
+                    // ]);
+
+                    // $cashBankAccount->closing_balance -= $writeOffAmount; // 🔥 closing balance berkurang
+                    // $cashBankAccount->save();
+
+                    // 🔥 Update paid_amount dan remaining_amount
+                    $order->paid_amount = 0;
+                    $order->remaining_amount = 0;
+                    $order->payment_status = 'Paid';
+                }
+            } else {
+                $order->updatePaymentStatus();
+            }
 
             $order->payment_method = $saleAccount->type;
             $order->verified = false;
@@ -4981,6 +5131,47 @@ class SaleListController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Gagal verifikasi payment: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function unverifyPayment($groupId)
+    {
+        try {
+            $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
+
+            if ($transactions->isEmpty()) {
+                return response()->json(['message' => 'Transaksi tidak ditemukan.'], 404);
+            }
+
+            // 🔴 Set semua jadi FALSE
+            foreach ($transactions as $trx) {
+                $trx->update(['verified' => false]);
+            }
+
+            // Ambil order_id
+            $orderId = $transactions->first()->order_id;
+
+            if ($orderId) {
+                // Cek apakah ada transaksi lain yang masih verified
+                $orderTransactions = AccountTransaction::where('order_id', $orderId)->get();
+
+                $anyVerified = $orderTransactions->contains('verified', true);
+
+                // 🔄 Kalau masih ada yang verified → order tetap true
+                // ❌ Kalau tidak ada yang verified → set false
+                Order::where('id', $orderId)->update([
+                    'verified' => $anyVerified
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Payment berhasil di-unverify.',
+                'group_id' => $groupId,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal unverify payment: ' . $e->getMessage(),
             ], 500);
         }
     }

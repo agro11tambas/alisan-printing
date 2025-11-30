@@ -107,6 +107,26 @@ class ReportItemsProductionController extends Controller
 
                 return number_format($pending, 0, ',', '.');
             })
+            ->addColumn('assigned_minus_completed', function ($item) {
+
+                $productId = $item->product_id;
+
+                // 1️⃣ Total Assigned
+                $totalAssigned = \App\Models\OrderProgressAssign::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->sum('assigned_quantity');
+
+                // 2️⃣ Total Completed
+                $totalCompleted = \App\Models\OrderProgressItem::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->sum('completed_quantity');
+
+                $result = $totalAssigned - $totalCompleted;
+
+                if ($result < 0) $result = 0;
+
+                return number_format($result, 0, ',', '.');
+            })
             ->addColumn('on_delivery', function ($item) {
 
                 $productId = $item->product_id;

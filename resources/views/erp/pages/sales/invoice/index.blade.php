@@ -99,6 +99,7 @@
                                 <div class="col-lg-12">
                                     <h2 class="fs-16 fw-bold text-dark mb-3">Invoiced To:</h2>
                                     <address class="text-muted lh-lg">
+                                        {{ $order->business_name }}<br>
                                         {{ $order->customer->name }}<br>
                                         {{ $order->customer->phone }}<br>
                                         {{ $order->shipping_address }}

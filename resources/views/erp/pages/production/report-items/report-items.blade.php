@@ -103,6 +103,7 @@
                                         <th>Item Name</th>
                                         <!-- <th>Purchase Stock</th> -->
                                         <th>Current Stock</th>
+                                        <th>Waiting List</th>
                                         <th>Assign</th>
                                         <th>Finished Products</th>
                                         <th>On Delivery</th>
@@ -202,6 +203,9 @@
                     },
                     {
                         data: 'pending_waiting_list'
+                    },
+                    {
+                        data: 'assigned_minus_completed'
                     },
                     {
                         data: 'finished_product_stock'

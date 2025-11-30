@@ -20,6 +20,64 @@
             height: 60vh !important;
             overflow-y: auto !important;
         }
+
+        #combinedReportTable_wrapper .dataTables_scrollBody {
+            overflow-x: scroll !important;
+        }
+
+        #combinedReportTable_wrapper .dataTables_scrollHead th {
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 50 !important;
+            /* Menaikkan supaya selalu di atas */
+        }
+
+        #combinedReportTable_wrapper .dataTables_scrollBody td:first-child,
+        #combinedReportTable_wrapper .dataTables_scrollHead th:first-child {
+            position: sticky;
+            left: 0;
+            background: #fff;
+            z-index: 60 !important;
+            /* lebih tinggi dari header biasa */
+        }
+
+        #combinedReportTable_wrapper .dataTables_scrollBody td:nth-child(2),
+        #combinedReportTable_wrapper .dataTables_scrollHead th:nth-child(2) {
+            position: sticky;
+            left: 70px;
+            /* Sesuaikan lebar kolom No */
+            background: #fff;
+            z-index: 60 !important;
+        }
+
+        #combinedReportTable th,
+        #combinedReportTable td {
+            border-right: 1px solid #e5e5e5;
+        }
+
+        #combinedReportTable th.warehouse-col,
+        #combinedReportTable_wrapper .dataTables_scrollHead th.warehouse-col {
+            background: #e8f4ff !important;
+            /* biru muda */
+            color: #000;
+        }
+
+        /* Border biar rapi */
+        #combinedReportTable th.warehouse-col {
+            border-right: 1px solid #d0e8ff;
+        }
+
+        #combinedReportTable th.production-col,
+        #combinedReportTable_wrapper .dataTables_scrollHead th.production-col {
+            background: #eaffea !important;
+            /* hijau muda */
+            color: #000;
+        }
+
+        #combinedReportTable th.production-col {
+            border-right: 1px solid #d3f5d3;
+        }
     </style>
 @endpush
 
@@ -44,30 +102,62 @@
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-start">
-                            <div class="col-lg-4 me-2">
-                                <div class="row g-3 justify-content-start">
-                                    <div class="col-lg-6">
-                                        <label for="product_name" class="fw-semibold fs-12">Product & SKU</label>
-                                        <input type="text" id="product_name" name="product_name" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Item...">
-                                    </div>
+                        <div class="row g-3 p-4 justify-content-between">
+                            <div class="col-lg-4">
+                                <label for="filter" class="fw-semibold fs-12">Date</label>
+                                <div class="d-flex align-items-center gap-2">
+                                    <select id="filter" class="form-control" style="width: 200px;">
+                                        <option value="all">All Time</option>
+                                        <option value="yearly">Yearly</option>
+                                        <option value="year_to_date">Year to Date</option>
+                                        <option value="last_30_days">Last 30 Days</option>
+                                        <option value="this_month">This Month</option>
+                                        <option value="last_7_days">Last 7 Days</option>
+                                        <option value="today">Today</option>
+                                        <option value="custom">Custom Range</option>
+                                    </select>
+
+                                    <input type="date" id="start_date" class="form-control custom-range d-none">
+                                    <input type="date" id="end_date" class="form-control custom-range d-none">
+                                    <button id="apply-filter" class="btn btn-primary custom-range d-none">Apply</button>
                                 </div>
                             </div>
+                            <div class="col-lg-2">
+                                <label for="product_name" class="fw-semibold fs-12">Product & SKU</label>
+                                <input type="text" id="product_name" name="product_name" class="form-control"
+                                    style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Item...">
+                            </div>
+                            {{-- <div class="col-lg-4 me-2">
+                                <div class="row g-3 justify-content-start">
+                                </div>
+                            </div> --}}
                         </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover bg-transparent" id="combinedReportTable">
+                        <div class="table-responsive" style="overflow-x: auto; white-space: nowrap;">
+                            <button id="toggleCompleted" class="btn btn-primary btn-sm ms-3">
+                                Show Completed Columns
+                            </button>
+                            <table class="table table-hover bg-transparent" id="combinedReportTable"
+                                style="min-width: 1400px;">
                                 <thead>
                                     <tr>
                                         <th class="wd-30">No</th>
                                         <th>Item Name</th>
                                         <th>Stock After Sales</th>
-                                        <th>Warehouse Stock</th>
-                                        <th>Production Stock</th>
-                                        <th>Finished Products</th>
-                                        {{-- <th>Pending Waiting List</th> --}}
-                                        <th>Incoming Stock (Warehouse)</th>
-                                        <th>Incoming Stock (Production)</th>
+                                        <th class="warehouse-col">Opening Stock (Warehouse)</th>
+                                        <th class="warehouse-col">Current Stock (Warehouse)</th>
+                                        <th class="warehouse-col">Incoming Stock (Warehouse)</th>
+                                        <th class="warehouse-col ">Incoming Stock Completed (Warehouse)</th>
+                                        <th class="warehouse-col">Outgoing Stock (Warehouse)</th>
+                                        <th class="warehouse-col ">Outgoing Stock Completed (Warehouse)</th>
+
+                                        <th class="production-col">Opening Stock (Production)</th>
+                                        <th class="production-col">Current Stock (Production)</th>
+                                        <th class="production-col">Incoming Stock (Production)</th>
+                                        <th class="production-col ">Incoming Stock Completed (Production)</th>
+                                        <th class="production-col">Waiting List</th>
+                                        <th class="production-col">Assigned</th>
+                                        <th class="production-col">Finished Products</th>
+                                        <th class="production-col">On Delivery</th>
                                         <th>Avg. Cost</th>
                                         <th>Fixed Cost</th>
                                     </tr>
@@ -96,6 +186,7 @@
                 serverSide: false,
                 deferRender: true,
                 scrollY: '60vh',
+                scrollX: true,
                 scrollCollapse: true,
                 paging: false,
                 searching: false,
@@ -104,6 +195,10 @@
                 order: [
                     [1, 'asc']
                 ],
+                columnDefs: [{
+                    targets: [6, 8, 12],
+                    visible: false
+                }],
                 data: [],
                 columns: [{
                         data: 'DT_RowIndex',
@@ -117,19 +212,46 @@
                         data: 'stock_after_sales'
                     },
                     {
+                        data: 'opening_stock_warehouse'
+                    },
+                    {
                         data: 'inventory_stock'
-                    },
-                    {
-                        data: 'production_available'
-                    },
-                    {
-                        data: 'finished_product_stock'
                     },
                     {
                         data: 'incoming_stock'
                     },
                     {
+                        data: 'incoming_stock_completed'
+                    },
+                    {
+                        data: 'outgoing_stock'
+                    },
+                    {
+                        data: 'outgoing_stock_completed'
+                    },
+                    {
+                        data: 'production_opening_stock'
+                    },
+                    {
+                        data: 'production_available'
+                    },
+                    {
                         data: 'incoming_stock_production'
+                    },
+                    {
+                        data: 'incoming_stock_production_completed'
+                    },
+                    {
+                        data: 'pending_waiting_list'
+                    },
+                    {
+                        data: 'assigned_minus_completed'
+                    },
+                    {
+                        data: 'finished_product_stock'
+                    },
+                    {
+                        data: 'on_delivery'
                     },
                     {
                         data: 'avg_cost'
@@ -159,6 +281,9 @@
                         start: page * 200,
                         length: 200,
                         product_name: keyword || null,
+                        filter: $('#filter').val(),
+                        start_date: $('#start_date').val(),
+                        end_date: $('#end_date').val()
                     },
                     success: function(res) {
                         if (reset) {
@@ -225,6 +350,33 @@
                     }
                 }, 200); // debounce biar gak spam
             });
+
+            let completedIndexes = [6, 8, 12];
+            let expanded = false;
+
+            $("#toggleCompleted").on("click", function() {
+                expanded = !expanded;
+
+                completedIndexes.forEach(i => {
+                    table.column(i).visible(expanded);
+                });
+
+                $(this).text(expanded ? "Hide Completed Columns" : "Show Completed Columns");
+            });
+
+            $('#filter').on('change', function() {
+                if ($(this).val() === 'custom') {
+                    $('.custom-range').removeClass('d-none');
+                } else {
+                    $('.custom-range').addClass('d-none');
+                    loadMoreData(true); // reload pakai preset date range
+                }
+            });
+
+            $('#apply-filter').on('click', function() {
+                loadMoreData(true);
+            });
+
         });
     </script>
 @endpush

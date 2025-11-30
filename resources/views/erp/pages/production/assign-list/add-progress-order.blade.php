@@ -125,7 +125,7 @@
                                         <th>Completed</th>
                                         <th>Reject</th>
                                         <th>Defect</th>
-                                        <th>Remaining</th>
+                                        {{-- <th>Remaining</th> --}}
                                         <th>Operator</th>
                                         <th>Note</th>
                                     </tr>
@@ -155,9 +155,9 @@
                                                     name="items[{{ $index }}][defect_quantity]"
                                                     class="form-control text-start" value="0">
                                             </td>
-                                            <td><span
+                                            {{-- <td><span
                                                     class="text-muted">{{ number_format($remaining, 0, ',', '.') }}</span>
-                                            </td>
+                                            </td> --}}
                                             <td>{{ $assign->operator->name ?? '-' }}</td>
                                             <td>
                                                 <input type="text" name="items[{{ $index }}][note]"

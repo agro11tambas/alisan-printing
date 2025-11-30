@@ -462,11 +462,37 @@ class InventoryController extends Controller
                 fn($item) =>
                 number_format($item->inventory_stock ?? 0, 0, ',', '.')
             )
-            ->addColumn('stock_after_sales', function ($item) {
-                $stock = (int) $item->stock_after_sales;
-                $formatted = number_format($stock, 0, ',', '.');
+            // ->addColumn('stock_after_sales', function ($item) {
+            //     $stock = (int) $item->stock_after_sales;
+            //     $formatted = number_format($stock, 0, ',', '.');
 
-                if ($stock <= $item->minimum_stock) {
+            //     if ($stock <= $item->minimum_stock) {
+            //         return $formatted . ' <span class="text-danger">(Low Stock)</span>';
+            //     }
+
+            //     return $formatted;
+            // })
+            ->addColumn('stock_after_sales', function ($item) {
+
+                // 1. Inventory stock
+                $inventoryStock = (int) $item->inventory_stock;
+
+                // 2. Production stock (available_quantity)
+                $productionStock = \App\Models\ProductionStock::where('product_id', $item->product_id)
+                    ->sum('available_quantity');
+
+                // 3. Total usage from order_item_components (qty)
+                $usedQty = \App\Models\OrderItemComponent::where('product_id', $item->product_id)
+                    ->whereNull('deleted_at')
+                    ->sum('qty');
+
+                // 4. Final stock after sales
+                $stockAfterSales = $inventoryStock + $productionStock - $usedQty;
+
+                // Format tampilannya
+                $formatted = number_format($stockAfterSales, 0, ',', '.');
+
+                if ($stockAfterSales <= $item->minimum_stock) {
                     return $formatted . ' <span class="text-danger">(Low Stock)</span>';
                 }
 
@@ -511,7 +537,6 @@ class InventoryController extends Controller
             ->rawColumns(['stock_after_sales', 'avg_cost', 'action'])
             ->make(true);
     }
-
 
     public function store(Request $request)
     {
