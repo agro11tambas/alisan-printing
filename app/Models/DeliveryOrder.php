@@ -117,20 +117,26 @@ class DeliveryOrder extends Model
 
         $qtyOk = $this->items->every(function ($row) {
 
-            // Ambil progress item
-            $progressItem = $row->progressItem ?? $row->orderProgressItem ?? null;
+            $orderItem = $row->orderItem;
 
-            if (!$progressItem) {
-                return false; // kalau tidak ada relasi, anggap belum selesai
+            if (!$orderItem) {
+                return false;
             }
 
-            // Jumlah TOTAL yang harus dikirim (DARI PRODUKSI)
-            $totalTargetQty = (int) $progressItem->quantity;
+            // 1) Kalau produk punya komponen → qty target = total qty komponen
+            $componentQty = (int) $orderItem->components->sum('qty');
 
-            // Jumlah total yang SUDAH dikirim
+            if ($componentQty > 0) {
+                $targetQty = $componentQty;
+            } else {
+                // 2) Produk tanpa komponen → fallback ke qty order item
+                $targetQty = (int) $orderItem->quantity;
+            }
+
+            // Qty yang sudah dikirim
             $shippedQty = (int) $row->shipped_qty;
 
-            return $shippedQty >= $totalTargetQty;
+            return $shippedQty >= $targetQty;
         });
 
         $this->status = ($allShipmentsFinished && $qtyOk) ? 'Finished' : 'Ongoing';

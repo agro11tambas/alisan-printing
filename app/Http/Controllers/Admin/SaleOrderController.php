@@ -55,7 +55,7 @@ class SaleOrderController extends Controller
 
         $orders = Order::with(['customer', 'customerAddress'])
             ->where('status', 'sale order')
-            ->orderByDesc('id');
+            ->orderBy('order_date', 'desc');
 
         // 🔹 Filter tanggal
         if ($request->filter) {

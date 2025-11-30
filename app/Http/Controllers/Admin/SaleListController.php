@@ -73,7 +73,7 @@ class SaleListController extends Controller
 
         $orders = Order::with(['customer'])
             ->where('status', 'sale list')
-            ->orderByDesc('id');
+            ->orderBy('order_date', 'desc');
 
         if ($request->filled('show_edited') && $request->show_edited == 1) {
             $orders->where('status_edited', 1);
@@ -353,59 +353,49 @@ class SaleListController extends Controller
                     ? ' <i class="fa fa-check-circle text-success ms-1"></i>'
                     : '';
 
+                $businessName = $order->customerAddress->business_name ?? null;
+
+                $orderCount = Order::where('status', 'sale list')
+                    ->where('customer_id', $order->customer_id)
+                    ->when($businessName, function ($q) use ($businessName) {
+                        $q->whereHas('customerAddress', function ($sub) use ($businessName) {
+                            $sub->where('business_name', $businessName);
+                        });
+                    })
+                    ->count();
+
                 return [
                     'id' => $order->id,
                     'order_number' => $orderNumber,
+                    'order_date_raw' => Carbon::parse($order->order_date)->format('Y-m-d H:i:s'),
                     'order_date' => $date,
 
-                    'customer' => '
-                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
-                            <div class="d-flex align-items-center fw-semibold">
-                                ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
-                                ' . $businessName . '
-                            </div>
-                            <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
-                        </div>
-                    ',
                     // 'customer' => '
                     //     <div style="white-space: normal; word-break: break-word; max-width:180px;">
-
-                    //         <div class="mb-1">
-                    //             <a href="https://wa.me/' . (
-                    //     function ($phone) {
-                    //         $num = preg_replace('/\D/', '', $phone ?? '');
-
-                    //         // Jika mulai dari 0 → ubah ke 62
-                    //         if (strpos($num, '0') === 0) {
-                    //             $num = '62' . substr($num, 1);
-                    //         }
-
-                    //         // Jika mulai dari 62 → biarkan
-                    //         // Jika mulai dari 8 → berarti format 89xxxxx → tambahkan 62
-                    //         if (strpos($num, '62') !== 0) {
-                    //             if (strpos($num, '8') === 0) {
-                    //                 $num = '62' . $num;
-                    //             }
-                    //         }
-
-                    //         return $num;
-                    //     }
-                    // )($order->customer->phone) . '" 
-                    //                 target="_blank"
-                    //                 class="badge bg-success text-white"
-                    //                 style="font-size:12px;">
-                    //                 Chat WhatsApp
-                    //             </a>
-                    //         </div>
-
                     //         <div class="d-flex align-items-center fw-semibold">
                     //             ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
                     //             ' . $businessName . '
                     //         </div>
-
                     //         <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
                     //     </div>
                     // ',
+                    'customer' => '
+                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
+
+                            <div class="d-flex align-items-center fw-semibold">
+                                ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+
+                                ' . $businessName . '
+
+                                <span class="ms-1 text-primary fw-bold">
+                                    (' . $orderCount . ')
+                                </span>
+                            </div>
+
+                        <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
+
+                        </div>
+                    ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
                     'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
                     'grand_total' => '<span class="text-primary fw-semibold">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
@@ -439,7 +429,7 @@ class SaleListController extends Controller
                             target="_blank"
                             class="btn btn-success btn-sm"
                             style="padding:6px 10px;">
-                            WhatsApp
+                            Chat
                         </a>
                     ',
 
@@ -4138,22 +4128,43 @@ class SaleListController extends Controller
                     // 3) Kalau order ini BELUM menyentuh PRODUKSI → SKIP PRODUKSI
                     //    (tapi INVENTORY SUDAH dibalikin di atas)
                     // ===============================================
-                    if (
+                    // if (
+                    //     !$hasVerifiedDesign &&
+                    //     (float) $assignedQty <= 0 &&
+                    //     (float) $producedQty <= 0 &&
+                    //     (float) $shippedQty  <= 0
+                    // ) {
+                    //     Log::warning('SKIP rollback PRODUCTION SATUAN — order ini belum menyentuh produksi', [
+                    //         'order_id'   => $order->id,
+                    //         'product_id' => $item->product_id,
+                    //         'qty'        => $qty,
+                    //     ]);
+
+                    //     // tandai sudah diproses supaya bundle gak ganggu
+                    //     $processedProducts[] = $item->product_id;
+                    //     continue;
+                    // }
+
+                    $skipProduction = (
                         !$hasVerifiedDesign &&
-                        (float) $assignedQty <= 0 &&
-                        (float) $producedQty <= 0 &&
-                        (float) $shippedQty  <= 0
-                    ) {
+                        $assignedQty <= 0 &&
+                        $producedQty <= 0 &&
+                        $shippedQty <= 0
+                    );
+
+                    // ❗ MODE POLOSAN jangan pernah skip
+                    if ($order->mode !== 'polosan' && $skipProduction) {
+
                         Log::warning('SKIP rollback PRODUCTION SATUAN — order ini belum menyentuh produksi', [
                             'order_id'   => $order->id,
                             'product_id' => $item->product_id,
                             'qty'        => $qty,
                         ]);
 
-                        // tandai sudah diproses supaya bundle gak ganggu
                         $processedProducts[] = $item->product_id;
                         continue;
                     }
+
 
                     // ===============================================
                     // 4) Mulai ROLLBACK PRODUKSI, karena ada jejak
@@ -4313,22 +4324,43 @@ class SaleListController extends Controller
                         ->sum('shipped_qty');
 
                     // 🔥 SKIP PRODUKSI kalau order bundle BELUM menyentuh produksi
-                    if (
+                    // if (
+                    //     !$hasVerifiedDesign &&
+                    //     (float) $assignedQty <= 0 &&
+                    //     (float) $producedQty <= 0 &&
+                    //     (float) $shippedQty <= 0
+                    // ) {
+                    //     Log::warning("SKIP rollback PRODUCTION BUNDLE — order belum menyentuh produksi", [
+                    //         'order_id' => $order->id,
+                    //         'component_id' => $bundleItem->product_id,
+                    //         'componentQty' => $componentQty,
+                    //     ]);
+
+                    //     // tandai sudah diproses, biar bundle lain atau satuan tidak ulang rollback
+                    //     $processedProducts[] = $bundleItem->product_id;
+                    //     continue;
+                    // }
+
+                    $skipProduction = (
                         !$hasVerifiedDesign &&
-                        (float) $assignedQty <= 0 &&
-                        (float) $producedQty <= 0 &&
-                        (float) $shippedQty <= 0
-                    ) {
+                        $assignedQty <= 0 &&
+                        $producedQty <= 0 &&
+                        $shippedQty <= 0
+                    );
+
+                    // ❗ MODE POLOSAN tidak boleh skip
+                    if ($order->mode !== 'polosan' && $skipProduction) {
+
                         Log::warning("SKIP rollback PRODUCTION BUNDLE — order belum menyentuh produksi", [
                             'order_id' => $order->id,
                             'component_id' => $bundleItem->product_id,
                             'componentQty' => $componentQty,
                         ]);
 
-                        // tandai sudah diproses, biar bundle lain atau satuan tidak ulang rollback
                         $processedProducts[] = $bundleItem->product_id;
                         continue;
                     }
+
 
                     /**
                      * ======================================================

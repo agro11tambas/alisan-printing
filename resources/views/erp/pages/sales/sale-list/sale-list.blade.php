@@ -795,7 +795,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [8, 'desc']
+                    [9, 'desc']
                 ],
                 columns: [{
                         className: 'dt-control text-center',
@@ -832,7 +832,7 @@
                         data: 'whatsapp'
                     },
                     {
-                        data: 'created_at', // tambahkan kolom ini
+                        data: 'order_date_raw', // tambahkan kolom ini
                         visible: false, // disembunyikan dari tampilan
                         searchable: false // tidak perlu di-search
                     }
@@ -982,7 +982,7 @@
                 );
             }
 
-            $('#search_keyword, #search_payment_status, #due_date_order, #filter, #start_date, #end_date')
+            $('#search_payment_status, #due_date_order, #filter, #start_date, #end_date')
                 .on('keyup change', function(e) {
                     clearTimeout(searchTimer);
 
@@ -994,6 +994,12 @@
                         }
                     }, 200);
                 });
+
+            $(document).on('keyup', '#search_keyword', function(e) {
+                if (e.key === 'Enter') {
+                    reloadActiveTab();
+                }
+            });
 
             $('#search_payment_status').on('change', function() {
                 if ($('#search_type').val() === 'payment_status') {

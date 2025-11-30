@@ -474,30 +474,78 @@ class InventoryController extends Controller
             // })
             ->addColumn('stock_after_sales', function ($item) {
 
+                $productId = $item->product_id;
+
                 // 1. Inventory stock
                 $inventoryStock = (int) $item->inventory_stock;
 
                 // 2. Production stock (available_quantity)
-                $productionStock = \App\Models\ProductionStock::where('product_id', $item->product_id)
+                $productionStock = \App\Models\ProductionStock::where('product_id', $productId)
                     ->sum('available_quantity');
 
-                // 3. Total usage from order_item_components (qty)
-                $usedQty = \App\Models\OrderItemComponent::where('product_id', $item->product_id)
+                /**
+                 * --------------------------------------------------
+                 * 3. PRINTING → hitung component yang belum selesai
+                 * --------------------------------------------------
+                 */
+                $usedPrinting = \App\Models\OrderItemComponent::where('product_id', $productId)
                     ->whereNull('deleted_at')
+                    ->whereHas(
+                        'orderItem.order',
+                        fn($q) =>
+                        $q->where('status', 'sale list')
+                            ->where('mode', 'printing')
+                    )
+                    // belum ada delivery (belum shipped)
+                    ->whereDoesntHave(
+                        'orderItem.order.deliveryOrders.shipments.items',
+                        fn($q) =>
+                        $q->where('shipped_quantity', '>', 0)
+                    )
+                    // belum ada assign produksi
+                    ->whereDoesntHave(
+                        'orderItem.order.orderProgress.assignBatches.assigns',
+                        fn($q) =>
+                        $q->where('assigned_quantity', '>', 0)
+                    )
                     ->sum('qty');
 
-                // 4. Final stock after sales
-                $stockAfterSales = $inventoryStock + $productionStock - $usedQty;
+                /**
+                 * --------------------------------------------------
+                 * 4. POLOSAN → TIDAK MENGURANGI STOCK SAMA SEKALI
+                 * --------------------------------------------------
+                 */
+                $isPolosan = \App\Models\OrderItem::query()
+                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                    ->where('order_items.product_id', $productId)
+                    ->where('orders.status', 'sale list')
+                    ->where('orders.mode', 'polosan')
+                    ->exists();
 
-                // Format tampilannya
-                $formatted = number_format($stockAfterSales, 0, ',', '.');
+                /**
+                 * --------------------------------------------------
+                 * 5. FINAL STOCK
+                 * --------------------------------------------------
+                 */
+                if ($isPolosan) {
+                    // Polosan → stok tidak berkurang apa pun
+                    $stockAfter = $inventoryStock + $productionStock;
+                } else {
+                    // Printing → bahan berkurang dari komponen
+                    $stockAfter = $inventoryStock + $productionStock - $usedPrinting;
+                }
 
-                if ($stockAfterSales <= $item->minimum_stock) {
+                // Format
+                $formatted = number_format($stockAfter, 0, ',', '.');
+
+                // Warning minimum stock
+                if ($stockAfter <= $item->minimum_stock) {
                     return $formatted . ' <span class="text-danger">(Low Stock)</span>';
                 }
 
                 return $formatted;
             })
+
             // ->addColumn(
             //     'incoming_stock',
             //     fn($item) =>

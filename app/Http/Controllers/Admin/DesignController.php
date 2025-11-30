@@ -263,7 +263,7 @@ class DesignController extends Controller
                             target="_blank"
                             class="btn btn-success btn-sm"
                             style="padding:6px 10px;">
-                            WhatsApp
+                            Chat
                         </a>
                     ',
                     'created_at' => $orderCreatedAt,

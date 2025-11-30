@@ -120,24 +120,55 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     $productId = $product->id;
 
-                    // 1️⃣ Inventory stock
+                    // Inventory stock
                     $inventoryStock = (int) ($inv->inventory_stock ?? 0);
 
-                    // 2️⃣ Production stock (available_quantity)
+                    // Production stock
                     $productionAvailable = \App\Models\ProductionStock::where('product_id', $productId)
                         ->sum('available_quantity');
 
-                    // 3️⃣ Total penggunaan dari order_item_components
-                    $usedQty = \App\Models\OrderItemComponent::where('product_id', $productId)
+                    // used printing (bahan yang belum selesai)
+                    $usedPrinting = \App\Models\OrderItemComponent::where('product_id', $productId)
                         ->whereNull('deleted_at')
+                        ->whereHas(
+                            'orderItem.order',
+                            fn($q) =>
+                            $q->where('status', 'sale list')
+                                ->where('mode', 'printing')
+                        )
+                        ->whereDoesntHave(
+                            'orderItem.order.deliveryOrders.shipments.items',
+                            fn($q) =>
+                            $q->where('shipped_quantity', '>', 0)
+                        )
+                        ->whereDoesntHave(
+                            'orderItem.order.orderProgress.assignBatches.assigns',
+                            fn($q) =>
+                            $q->where('assigned_quantity', '>', 0)
+                        )
                         ->sum('qty');
 
-                    // 4️⃣ Hitung final stock
-                    $final = $inventoryStock + $productionAvailable - $usedQty;
-                    if ($final < 0) $final = 0;
+                    // POLLOSAN → TIDAK MENGURANGI STOCK
+                    $isPolosan = \App\Models\OrderItem::where('product_id', $productId)
+                        ->whereHas(
+                            'order',
+                            fn($q) =>
+                            $q->where('status', 'sale list')
+                                ->where('mode', 'polosan')
+                        )
+                        ->exists();
+
+                    if ($isPolosan) {
+                        // POLOSAN = TIDAK ADA PENGURANGAN
+                        $final = $inventoryStock + $productionAvailable;
+                    } else {
+                        // PRINTING = dikurangi bahan
+                        $final = $inventoryStock + $productionAvailable - $usedPrinting;
+                    }
 
                     return number_format($final, 0, ',', '.');
                 })(),
+
 
                 // hitung incoming stock aktual dari inventory_items_2
                 'incoming_stock' => (function () use ($product, $request) {
