@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DesignItem;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use App\Models\Order;
@@ -106,14 +107,15 @@ class WaitingListController extends Controller
         // 1️⃣ Hitung total data untuk lazy load
         $totalData = (clone $baseQuery)->count();
 
-        // 2️⃣ Hitung total_remaining GLOBAL — TIDAK TERPENGARUH FILTER
-        $totalRemaining = OrderProgress::with('items.product.categories')
+        // 1️⃣ Hitung pending dari ORDER PROGRESS (yang sudah ada)
+        $orderProgressPending = OrderProgress::with('items.product.categories')
             ->get()
             ->sum(function ($progress) {
                 return $progress->items->sum(function ($item) {
                     $product = $item->product;
                     if (!$product) return 0;
 
+                    // filter hanya sablon
                     $isSablon = $product->categories->contains(function ($category) {
                         return str_contains(strtolower($category->name), 'sablon');
                     });
@@ -122,9 +124,23 @@ class WaitingListController extends Controller
 
                     $completed = $item->completed_quantity ?? 0;
                     $qty = $item->quantity ?? 0;
+
                     return max($qty - $completed, 0);
                 });
             });
+
+        // 2️⃣ Tambahkan TOTAL DESIGN ITEM qty dimana status = Pending
+        $designPending = DesignItem::whereNull('deleted_at')
+            ->whereHas('design', function ($q) {
+                $q->whereRaw('LOWER(status) = ?', ['pending']);
+            })
+            ->whereHas('product.categories', function ($q) {
+                $q->whereRaw('LOWER(name) LIKE ?', ['%sablon%']);
+            })
+            ->sum('quantity');
+
+        // 3️⃣ TOTAL REMAINING = progress pending + design pending
+        $totalRemaining = $orderProgressPending + $designPending;
 
 
         // 3️⃣ Ambil batch untuk ditampilkan

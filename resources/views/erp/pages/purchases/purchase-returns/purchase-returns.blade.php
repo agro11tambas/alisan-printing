@@ -765,17 +765,22 @@
                 loadMoreData();
             }
 
-            // SHOW / HIDE CUSTOM RANGE
+            // SHOW / HIDE CUSTOM RANGE (non-custom langsung reload, custom nunggu Apply)
             $('#filter').on('change', function() {
-                if ($(this).val() === 'custom') {
+                const val = $(this).val();
+
+                if (val === 'custom') {
+                    // cuma tampilkan range, BELUM reload
                     $('.custom-range').removeClass('d-none');
                 } else {
                     $('.custom-range').addClass('d-none');
                     $('#start_date').val('');
                     $('#end_date').val('');
+                    // preset (today, last_7_days, this_month, dll) langsung reload
+                    reloadActiveTab();
                 }
-                reloadActiveTab();
             });
+
 
             // APPLY
             $('#apply-filter').on('click', function() {
@@ -783,12 +788,27 @@
             });
 
             // SEARCH KEYWORD
-            $('#search_keyword').on('keyup', function() {
-                if ($('#purchaseListTabs .nav-link.active').attr('href') === '#deleted-purchase-list') {
-                    clearTimeout(searchTimer);
-                    searchTimer = setTimeout(() => {
-                        resetAndReloadDeleted();
-                    }, 250);
+            // $('#search_keyword').on('keyup', function() {
+            //     if ($('#purchaseListTabs .nav-link.active').attr('href') === '#deleted-purchase-list') {
+            //         clearTimeout(searchTimer);
+            //         searchTimer = setTimeout(() => {
+            //             resetAndReloadDeleted();
+            //         }, 250);
+            //     }
+            // });
+
+            // 🔍 SEARCH KEYWORD → reload cuma saat ENTER
+            $('#search_keyword').on('keypress', function(e) {
+                if (e.which === 13) { // Enter
+                    e.preventDefault();
+                    reloadActiveTab(); // otomatis pilih tabel aktif (normal / deleted)
+                }
+            });
+
+            // kalau dikosongkan → reload lagi semua data
+            $('#search_keyword').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    reloadActiveTab();
                 }
             });
 
@@ -813,9 +833,9 @@
             });
 
             // CUSTOM DATE RANGE AUTO UPDATE
-            $('#start_date, #end_date').on('change', function() {
-                if ($('#filter').val() === 'custom') reloadActiveTab();
-            });
+            // $('#start_date, #end_date').on('change', function() {
+            //     if ($('#filter').val() === 'custom') reloadActiveTab();
+            // });
 
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
                 const target = $(e.target).attr('href');

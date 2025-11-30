@@ -117,9 +117,10 @@ class ReportItemsProductionController extends Controller
                     ->sum('assigned_quantity');
 
                 // 2️⃣ Total Completed
-                $totalCompleted = \App\Models\OrderProgressItem::where('product_id', $productId)
+                $totalCompleted = \App\Models\OrderProgressAssign::where('product_id', $productId)
                     ->whereNull('deleted_at')
-                    ->sum('completed_quantity');
+                    ->selectRaw('SUM(completed_quantity + defect_quantity + reject_quantity) as total')
+                    ->value('total');
 
                 $result = $totalAssigned - $totalCompleted;
 

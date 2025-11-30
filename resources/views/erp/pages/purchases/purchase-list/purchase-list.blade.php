@@ -188,8 +188,8 @@
                                     <div class="col-md-6">
                                         <select id="search_type" class="form-control"
                                             style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                            <option value="purchase_number">Invoice</option>
                                             <option value="supplier">Supplier</option>
+                                            <option value="purchase_number">Invoice</option>
                                             <option value="payment_status">Payment Status</option>
                                             <option value="due_date">Due Date</option>
                                         </select>
@@ -833,12 +833,12 @@
             });
 
             // Search keyword (RESET)
-            $('#search_keyword').on('keyup', function() {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(() => {
-                    reloadActiveTab();
-                }, 250);
-            });
+            // $('#search_keyword').on('keyup', function() {
+            //     clearTimeout(searchTimer);
+            //     searchTimer = setTimeout(() => {
+            //         reloadActiveTab();
+            //     }, 250);
+            // });
 
             // Search type (RESET)
             $('#search_type').on('change', function() {
@@ -895,12 +895,20 @@
                 }
             });
 
-            $('#search_keyword').on('keyup', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
+            $('#search_keyword').on('keypress', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
                     reloadActiveTab();
-                }, 300);
+                }
             });
+
+            // kosong → auto load
+            $('#search_keyword').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    reloadActiveTab();
+                }
+            });
+
 
             $('#search_payment_status').on('change', function() {
                 reloadActiveTab();

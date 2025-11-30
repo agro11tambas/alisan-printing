@@ -161,6 +161,10 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            $("#product_name").closest("form").on("submit", function(e) {
+                e.preventDefault();
+            });
+
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
@@ -253,24 +257,25 @@
                         product_name: $("#product_name").val(),
                     },
                     success: function(res) {
-                        if (res && res.data && res.data.length > 0) {
-                            if (reset) allData = []; // hapus data lama kalau reset
-                            allData = allData.concat(res.data);
+                        // 🔥 FIX UTAMA: ambil rows dari DataTables server response
+                        const rows = res.data ?? [];
+
+                        if (rows.length > 0) {
+                            if (reset) allData = [];
+
+                            allData = allData.concat(rows);
+
                             table.clear();
                             table.rows.add(allData).draw(false);
+
                             currentPage++;
                             hasMoreData = true;
                             restoreCheckboxState();
                         } else {
-                            if (reset) {
-                                // kalau pencarian kosong dan gak ada hasil, load semua ulang
-                                hasMoreData = true;
-                                currentPage = 0;
-                            } else {
-                                hasMoreData = false;
-                            }
+                            hasMoreData = false;
                         }
                     },
+
                     complete: function() {
                         isLoading = false;
                         currentRequest = null;
@@ -300,17 +305,23 @@
                 }, 200);
             });
 
-            $("#product_name").on("keyup change", function() {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(() => {
-                    const keyword = $(this).val().trim();
-                    if (keyword !== lastKeyword) {
-                        lastKeyword = keyword;
-                        loadMoreData(true); // reset total
-                    }
-                }, 200); // debounce biar gak spam
+            // $("#product_name").on("keyup change", function() {
+            //     clearTimeout(searchTimer);
+            //     searchTimer = setTimeout(() => {
+            //         const keyword = $(this).val().trim();
+            //         if (keyword !== lastKeyword) {
+            //             lastKeyword = keyword;
+            //             loadMoreData(true); // reset total
+            //         }
+            //     }, 200); // debounce biar gak spam
+            // });
+            $("#product_name").on("keydown", function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    lastKeyword = $("#product_name").val().trim();
+                    loadMoreData(true);
+                }
             });
-
 
             // 🟩 checkbox listener pakai delegated event biar tetap aktif
             $(document).on("change", ".row-checkbox", function() {

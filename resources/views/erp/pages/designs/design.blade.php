@@ -309,7 +309,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [4, 'asc']
+                    [5, 'asc']
                 ],
                 data: [],
                 columns: [{
@@ -420,7 +420,7 @@
             });
 
             // 🔹 Hanya filter lain yang trigger reload otomatis (bukan #filter)
-            $('#status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+            $('#status, #search_type, #start_date, #end_date')
                 .on('change keyup input paste', function() {
                     clearTimeout(searchTimeout);
                     searchTimeout = setTimeout(() => {
@@ -435,6 +435,8 @@
                 } else {
                     $('.custom-range').addClass('d-none');
                 }
+
+                resetAndReload(); // ⬅️ WAJIB DITAMBAHKAN
             });
 
             // 🔹 Tombol apply baru reload data
@@ -446,28 +448,43 @@
                 resetAndReload();
             });
 
-            $('#search_keyword, #search_product').on('keyup input paste', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    const keyword = $('#search_keyword').val().trim();
-                    const productSearch = $('#search_product').val().trim();
+            // $('#search_keyword, #search_product').on('keyup input paste', function() {
+            //     clearTimeout(searchTimeout);
+            //     searchTimeout = setTimeout(() => {
+            //         const keyword = $('#search_keyword').val().trim();
+            //         const productSearch = $('#search_product').val().trim();
 
-                    if (keyword === '' && productSearch === '') {
-                        // 🧹 Kalau kosong semua -> tampilkan semua data lagi
-                        allData = [];
-                        currentPage = 0;
-                        hasMoreData = true;
-                        table.clear().draw();
-                        loadMoreData();
-                    } else {
-                        // 🔍 Kalau ada isi -> jalankan search
-                        resetAndReload();
-                    }
-                }, 300);
-            });
+            //         if (keyword === '' && productSearch === '') {
+            //             // 🧹 Kalau kosong semua -> tampilkan semua data lagi
+            //             allData = [];
+            //             currentPage = 0;
+            //             hasMoreData = true;
+            //             table.clear().draw();
+            //             loadMoreData();
+            //         } else {
+            //             // 🔍 Kalau ada isi -> jalankan search
+            //             resetAndReload();
+            //         }
+            //     }, 300);
+            // });
+
 
             $('#search_type').on('change', function() {
                 resetAndReload();
+            });
+
+            $('#search_keyword, #search_product').on('keypress', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    resetAndReload();
+                }
+            });
+
+            // Kosong → auto reload
+            $('#search_keyword, #search_product').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    resetAndReload();
+                }
             });
 
             loadMoreData();

@@ -123,32 +123,30 @@ class ReportItemsProductionAndWarehouseController extends Controller
                     // Inventory stock
                     $inventoryStock = (int) ($inv->inventory_stock ?? 0);
 
-                    // Production stock
+                    // Production stock (available stock)
                     $productionAvailable = \App\Models\ProductionStock::where('product_id', $productId)
                         ->sum('available_quantity');
 
-                    // used printing (bahan yang belum selesai)
-                    $usedPrinting = \App\Models\OrderItemComponent::where('product_id', $productId)
+                    /**
+                     * HITUNG PENDING WAITING LIST
+                     * total design - total assigned
+                     */
+                    $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
                         ->whereNull('deleted_at')
-                        ->whereHas(
-                            'orderItem.order',
-                            fn($q) =>
-                            $q->where('status', 'sale list')
-                                ->where('mode', 'printing')
-                        )
-                        ->whereDoesntHave(
-                            'orderItem.order.deliveryOrders.shipments.items',
-                            fn($q) =>
-                            $q->where('shipped_quantity', '>', 0)
-                        )
-                        ->whereDoesntHave(
-                            'orderItem.order.orderProgress.assignBatches.assigns',
-                            fn($q) =>
-                            $q->where('assigned_quantity', '>', 0)
-                        )
-                        ->sum('qty');
+                        ->sum('quantity');
 
-                    // POLLOSAN → TIDAK MENGURANGI STOCK
+                    $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
+                        ->whereNull('deleted_at')
+                        ->sum('assigned_quantity');
+
+                    $pendingWaitingList = $totalDesignQty - $totalAssignedQty;
+                    if ($pendingWaitingList < 0) $pendingWaitingList = 0;
+
+                    /**
+                     * MODE CEK
+                     * Kalau ada order dengan mode = polosan → tidak mengurangi stock
+                     * Kalau printing → pakai formula baru
+                     */
                     $isPolosan = \App\Models\OrderItem::where('product_id', $productId)
                         ->whereHas(
                             'order',
@@ -159,17 +157,15 @@ class ReportItemsProductionAndWarehouseController extends Controller
                         ->exists();
 
                     if ($isPolosan) {
-                        // POLOSAN = TIDAK ADA PENGURANGAN
+                        // POLOSAN = tidak dikurangi apa pun
                         $final = $inventoryStock + $productionAvailable;
                     } else {
-                        // PRINTING = dikurangi bahan
-                        $final = $inventoryStock + $productionAvailable - $usedPrinting;
+                        // PRINTING = inventory + production - pending waiting list
+                        $final = $inventoryStock + $productionAvailable - $pendingWaitingList;
                     }
 
                     return number_format($final, 0, ',', '.');
                 })(),
-
-
                 // hitung incoming stock aktual dari inventory_items_2
                 'incoming_stock' => (function () use ($product, $request) {
                     // $incoming = DB::table('inventory_items_2')
@@ -220,12 +216,13 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     $outgoingQuery = DB::table('inventory_items_2')
                         ->where('product_id', $product->id)
-                        ->whereNotNull('material_request_item_id');
+                        ->whereNotNull('material_request_item_id')
+                        ->whereNull('deleted_at');
 
                     $outgoingQuery = $this->applyDateFilter($outgoingQuery, $request);
 
                     $outgoing = $outgoingQuery
-                        ->selectRaw('SUM(remaining_stock_in - stock_out) AS outgoing')
+                        ->selectRaw('SUM(remaining_stock_in - stock_out - stock_in) AS outgoing')
                         ->value('outgoing');
 
                     return number_format($outgoing ?? 0, 0, ',', '.');
@@ -239,12 +236,13 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     $outgoingQuery = DB::table('inventory_items_2')
                         ->where('product_id', $product->id)
-                        ->whereNotNull('material_request_item_id');
+                        ->whereNotNull('material_request_item_id')
+                        ->whereNull('deleted_at');
 
                     $outgoingQuery = $this->applyDateFilter($outgoingQuery, $request);
 
                     $outgoing = $outgoingQuery
-                        ->selectRaw('SUM(stock_out) AS outgoing')
+                        ->selectRaw('SUM(stock_out - stock_in) AS outgoing')
                         ->value('outgoing');
 
                     return number_format($outgoing ?? 0, 0, ',', '.');
@@ -258,7 +256,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                     //     ->value('incoming');
 
                     $incomingProdQuery = DB::table('material_request_items')
-                        ->where('product_id', $product->id);
+                        ->where('product_id', $product->id)
+                        ->whereNull('deleted_at');
 
                     $incomingProdQuery = $this->applyDateFilter($incomingProdQuery, $request);
 
@@ -275,7 +274,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                     //     ->value('incoming');
 
                     $incomingProdQuery = DB::table('material_request_items')
-                        ->where('product_id', $product->id);
+                        ->where('product_id', $product->id)
+                        ->whereNull('deleted_at');
 
                     $incomingProdQuery = $this->applyDateFilter($incomingProdQuery, $request);
 

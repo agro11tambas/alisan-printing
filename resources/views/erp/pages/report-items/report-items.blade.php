@@ -336,19 +336,38 @@
                 }, 200);
             });
 
+            $('#product_name').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    lastKeyword = '';
+                    loadMoreData(true);
+                }
+            });
+
             // =========================
             // ✅ Event pencarian
             // =========================
             let searchTimeout;
-            $('#product_name').on('keyup change', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
+            // $('#product_name').on('keyup change', function() {
+            //     clearTimeout(searchTimeout);
+            //     searchTimeout = setTimeout(() => {
+            //         const keyword = $(this).val().trim();
+            //         if (keyword !== lastKeyword) {
+            //             lastKeyword = keyword;
+            //             loadMoreData(true); // 🔹 reset & reload penuh
+            //         }
+            //     }, 200); // debounce biar gak spam
+            // });
+
+            $('#product_name').on('keypress', function(e) {
+                if (e.which === 13) { // 13 = ENTER
+                    e.preventDefault();
+
                     const keyword = $(this).val().trim();
                     if (keyword !== lastKeyword) {
                         lastKeyword = keyword;
-                        loadMoreData(true); // 🔹 reset & reload penuh
+                        loadMoreData(true); // 🔹 reset & reload data
                     }
-                }, 200); // debounce biar gak spam
+                }
             });
 
             let completedIndexes = [6, 8, 12];

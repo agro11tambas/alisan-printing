@@ -423,8 +423,8 @@
                 resetAndReload();
             });
 
-            $('#filter, #apply-filter, #progress_status, #search_type, #search_keyword, #search_product, #start_date, #end_date, #search_payment_status')
-                .on('change keyup input paste click', function() {
+            $('#filter, #apply-filter, #progress_status, #search_type, #start_date, #end_date, #search_payment_status')
+                .on('change', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
                         if ($('#filter').val() === 'custom') {
@@ -450,6 +450,12 @@
                 resetAndReload();
             });
 
+            $('#search_keyword, #search_product').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    resetAndReload();
+                }
+            });
+
             // let searchTimeout = null;
             // $('#search_keyword').on('keyup', function() {
             //     if ($('#search_type').val() !== 'payment_status') {
@@ -459,9 +465,16 @@
             // });
             let searchTimeout = null;
 
-            $('#search_keyword, #search_product').on('keyup input paste', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => resetAndReload(), 400);
+            // $('#search_keyword, #search_product').on('keyup input paste', function() {
+            //     clearTimeout(searchTimeout);
+            //     searchTimeout = setTimeout(() => resetAndReload(), 400);
+            // });
+
+            $('#search_keyword, #search_product').on('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    resetAndReload();
+                }
             });
 
             $('#waitingListTable tbody').on('click', 'tr', function(e) {

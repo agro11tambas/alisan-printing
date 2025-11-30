@@ -87,6 +87,14 @@ class DeliveryOrderController extends Controller
             }
         }
 
+        // 🔎 Search by product name
+        if ($request->filled('search_product')) {
+            $productKeyword = trim(strtolower($request->search_product));
+
+            $deliveryOrders->whereHas('items.product', function ($q) use ($productKeyword) {
+                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+            });
+        }
 
         // ✅ Hindari query count dua kali
         $totalQuery = clone $deliveryOrders;

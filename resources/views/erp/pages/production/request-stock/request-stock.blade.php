@@ -485,9 +485,9 @@
 
             loadMoreData();
 
-            $('#search_product').on('change keyup input paste', function() {
-                reloadActiveTab();
-            });
+            // $('#search_product').on('change keyup input paste', function() {
+            //     reloadActiveTab();
+            // });
 
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
@@ -540,15 +540,44 @@
             });
 
             // 🔸 Filter lain (progress, search, product, date input) tetap auto reload
-            $('#progress_status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
-                .on('change keyup input paste', function() {
-                    clearTimeout(searchTimer);
-                    searchTimer = setTimeout(() => {
-                        const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]')
-                            .parent().hasClass('active');
-                        reloadActiveTab();
-                    }, 100);
-                });
+            // $('#progress_status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+            //     .on('change keyup input paste', function() {
+            //         clearTimeout(searchTimer);
+            //         searchTimer = setTimeout(() => {
+            //             const isDeletedTab = $('a[data-bs-toggle="tab"][href="#deleted-request-stock"]')
+            //                 .parent().hasClass('active');
+            //             reloadActiveTab();
+            //         }, 100);
+            //     });
+
+            // ============================================
+            // 🔹 FILTER HANDLER (Search via ENTER only)
+            // ============================================
+
+            // Dropdown: auto reload
+            $('#progress_status, #search_type').on('change', function() {
+                reloadActiveTab();
+            });
+
+            // Date picker: auto reload jika bukan custom
+            $('#start_date, #end_date').on('change', function() {
+                reloadActiveTab();
+            });
+
+            // Keyword-type search → ENTER ONLY
+            $('#search_keyword, #search_product').on('keypress', function(e) {
+                if (e.which === 13) { // ENTER
+                    e.preventDefault();
+                    reloadActiveTab();
+                }
+            });
+
+            // Jika input dikosongkan → reload otomatis
+            $('#search_keyword, #search_product').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    reloadActiveTab();
+                }
+            });
 
             $('#requestStockTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;

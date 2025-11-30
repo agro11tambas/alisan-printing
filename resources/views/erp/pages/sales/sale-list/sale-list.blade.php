@@ -1001,6 +1001,12 @@
                 }
             });
 
+            $('#search_keyword').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    reloadActiveTab();
+                }
+            });
+
             $('#search_payment_status').on('change', function() {
                 if ($('#search_type').val() === 'payment_status') {
                     reloadActiveTab();

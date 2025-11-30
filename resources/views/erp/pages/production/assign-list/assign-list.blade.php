@@ -458,11 +458,41 @@
             });
 
             // Filter lain tetap auto reload
-            $('#progress_status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
-                .on('change keyup input paste', function() {
-                    clearTimeout(searchTimer);
-                    searchTimer = setTimeout(() => resetAndReload(), 200);
-                });
+            // $('#progress_status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+            //     .on('change keyup input paste', function() {
+            //         clearTimeout(searchTimer);
+            //         searchTimer = setTimeout(() => resetAndReload(), 200);
+            //     });
+
+            // ==========================
+            // 🔹 FILTER HANDLER — UPDATED
+            // ==========================
+
+            // Dropdown: auto reload
+            $('#progress_status, #search_type').on('change', function() {
+                resetAndReload();
+            });
+
+            // Custom date range button
+            $('#apply-filter').on('click', function() {
+                resetAndReload();
+            });
+
+            // Keyword search → ENTER only
+            $('#search_keyword, #search_product').on('keypress', function(e) {
+                if (e.which === 13) { // ENTER
+                    e.preventDefault();
+                    resetAndReload();
+                }
+            });
+
+            // Jika user menghapus text (kosong), reload otomatis
+            $('#search_keyword, #search_product').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    resetAndReload();
+                }
+            });
+
 
 
             let summaryTableInitialized = false;

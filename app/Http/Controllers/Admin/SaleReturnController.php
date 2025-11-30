@@ -93,9 +93,27 @@ class SaleReturnController extends Controller
                 $returns->where('payment_status', $request->payment_status);
             }
         } elseif ($request->filled('search_keyword')) {
+            // if ($request->search_type === 'customer') {
+            //     $returns->whereHas('customer', function ($query) use ($request) {
+            //         $query->where('name', 'like', '%' . $request->search_keyword . '%');
+            //     });
+            // } else {
+            //     $returns->where('order_number', 'like', '%' . $request->search_keyword . '%');
+            // }
             if ($request->search_type === 'customer') {
-                $returns->whereHas('customer', function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                // $keyword = '%' . $request->search_keyword . '%';
+                $keyword = '%' . $request->search_keyword . '%';
+
+                $returns->where(function ($q) use ($keyword) {
+                    // Cari berdasarkan nama customer
+                    $q->whereHas('customer', function ($query) use ($keyword) {
+                        $query->where('name', 'like', $keyword);
+                    });
+
+                    // Cari berdasarkan business_name
+                    $q->orWhereHas('customerAddress', function ($query) use ($keyword) {
+                        $query->where('business_name', 'like', $keyword);
+                    });
                 });
             } else {
                 $returns->where('order_number', 'like', '%' . $request->search_keyword . '%');

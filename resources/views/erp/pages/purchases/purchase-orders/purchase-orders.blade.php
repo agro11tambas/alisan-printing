@@ -126,8 +126,8 @@
                                     <div class="col-md-6">
                                         <select id="search_type" class="form-control"
                                             style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                            <option value="purchase_number">Invoice</option>
                                             <option value="supplier">Supplier</option>
+                                            <option value="purchase_number">Invoice</option>
                                         </select>
                                     </div>
                                     <div class="col-md-6">
@@ -632,7 +632,7 @@
                 $('#purchaseOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            $('#filter, #apply-filter, #search_type, #search_keyword, #search_payment_status, #start_date, #end_date')
+            $('#filter, #apply-filter, #search_type, #search_payment_status, #start_date, #end_date')
                 .on('change keyup click', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
@@ -661,11 +661,25 @@
                 resetAndReload();
             });
 
-            let searchTimeout = null;
-            $('#search_keyword').on('keyup', function() {
-                if ($('#search_type').val() !== 'payment_status') {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => resetAndReload(), 400);
+            // let searchTimeout = null;
+            // $('#search_keyword').on('keyup', function() {
+            //     if ($('#search_type').val() !== 'payment_status') {
+            //         clearTimeout(searchTimeout);
+            //         searchTimeout = setTimeout(() => resetAndReload(), 400);
+            //     }
+            // });
+
+            $('#search_keyword').on('keypress', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    resetAndReload();
+                }
+            });
+
+            // Kosong → auto reload
+            $('#search_keyword').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    resetAndReload();
                 }
             });
 

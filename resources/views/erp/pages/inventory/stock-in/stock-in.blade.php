@@ -291,7 +291,7 @@
 
             let lastProgressStatus = $('#progress_status').val();
 
-            $('#filter, #apply-filter, #progress_status, #search_type, #search_keyword, #search_type_dropdown, #search_product, #start_date, #end_date')
+            $('#filter, #apply-filter, #progress_status, #search_type, #search_type_dropdown, #start_date, #end_date')
                 .on('change keyup input paste click', function(e) {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
@@ -339,10 +339,27 @@
             });
 
             let searchTimeout = null;
-            $('#search_keyword, #search_type_dropdown, #search_product').on('keyup change input paste', function() {
+            $('#search_type_dropdown').on('keyup change input paste', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => resetAndReload(), 400);
             });
+
+            // 🔍 Search keyword: ENTER untuk search
+            $('#search_keyword, #search_product').on('keypress', function(e) {
+                if (e.which === 13) { // ENTER
+                    e.preventDefault();
+                    resetAndReload();
+                }
+            });
+
+            // Hapus keyword → reload
+            $('#search_keyword, #search_product').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    resetAndReload();
+                }
+            });
+
+
 
             $('#inventoryTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;

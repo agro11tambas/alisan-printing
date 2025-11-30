@@ -90,11 +90,22 @@ class SaleOrderController extends Controller
         // 🔹 Filter pencarian
         if ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
-                $orders->whereHas('customer', function ($query) use ($request) {
-                    $query->where('name', 'like', $request->search_keyword . '%');
+                // $keyword = '%' . $request->search_keyword . '%';
+                $keyword = '%' . $request->search_keyword . '%';
+
+                $orders->where(function ($q) use ($keyword) {
+                    // Cari berdasarkan nama customer
+                    $q->whereHas('customer', function ($query) use ($keyword) {
+                        $query->where('name', 'like', $keyword);
+                    });
+
+                    // Cari berdasarkan business_name
+                    $q->orWhereHas('customerAddress', function ($query) use ($keyword) {
+                        $query->where('business_name', 'like', $keyword);
+                    });
                 });
             } else {
-                $orders->where('order_number', 'like', $request->search_keyword . '%');
+                $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
             }
         }
 

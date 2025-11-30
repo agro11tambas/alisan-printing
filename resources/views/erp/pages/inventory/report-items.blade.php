@@ -271,17 +271,41 @@
                 }, 200);
             });
 
-            let searchTimer;
-            $('#product_name').on('keyup change', function() {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(() => {
+            // let searchTimer;
+            // $('#product_name').on('keyup change', function() {
+            //     clearTimeout(searchTimer);
+            //     searchTimer = setTimeout(() => {
+            //         const keyword = $(this).val().trim();
+            //         if (keyword !== lastKeyword) {
+            //             lastKeyword = keyword;
+            //             loadMoreData(true); // 🔹 reset total, biar hasil balik lagi
+            //         }
+            //     }, 200);
+            // });
+
+            // ENTER only search
+            $('#product_name').on('keypress', function(e) {
+                if (e.which === 13) { // ENTER
+                    e.preventDefault();
+
                     const keyword = $(this).val().trim();
                     if (keyword !== lastKeyword) {
                         lastKeyword = keyword;
-                        loadMoreData(true); // 🔹 reset total, biar hasil balik lagi
+                        loadMoreData(true);
                     }
-                }, 200);
+                }
             });
+
+            // Jika kosong → reset dan reload
+            $('#product_name').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    if (lastKeyword !== '') {
+                        lastKeyword = '';
+                        loadMoreData(true);
+                    }
+                }
+            });
+
         });
 
         $(document).on('click', '.btnDefect', function() {

@@ -486,7 +486,7 @@
                 loadMoreData();
             }
 
-            $('#search_keyword, #search_payment_status, #filter, #start_date, #end_date')
+            $('#search_payment_status, #filter, #start_date, #end_date')
                 .on('input change', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
@@ -531,13 +531,29 @@
                 // resetAndReload();
             });
 
-            let searchTimeout = null;
-            $('#search_keyword').on('keyup', function() {
-                if ($('#search_type').val() !== 'payment_status') {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => resetAndReload(), 500);
+            // let searchTimeout = null;
+            // $('#search_keyword').on('keyup', function() {
+            //     if ($('#search_type').val() !== 'payment_status') {
+            //         clearTimeout(searchTimeout);
+            //         searchTimeout = setTimeout(() => resetAndReload(), 500);
+            //     }
+            // });
+
+            // ENTER ONLY search
+            $('#search_keyword').on('keypress', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    resetAndReload();
                 }
             });
+
+            // Auto reload jika dikosongkan
+            $('#search_keyword').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    resetAndReload();
+                }
+            });
+
 
             $('#search_payment_status').on('change', function() {
                 if ($('#search_type').val() === 'payment_status') resetAndReload();

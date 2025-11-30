@@ -685,7 +685,7 @@
                 loadMoreData();
             }
 
-            $('#filter, #apply-filter, #search_type, #search_keyword, #search_payment_status, #start_date, #end_date')
+            $('#filter, #apply-filter, #search_type, #search_payment_status, #start_date, #end_date')
                 .on('change keyup', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
@@ -710,13 +710,13 @@
             });
 
             // Debounce untuk search keyword
-            let searchTimeout = null;
-            $('#search_keyword').on('keyup', function() {
-                if ($('#search_type').val() !== 'payment_status') {
-                    clearTimeout(searchTimeout);
-                    searchTimeout = setTimeout(() => resetAndReload(), 500);
-                }
-            });
+            // let searchTimeout = null;
+            // $('#search_keyword').on('keyup', function() {
+            //     if ($('#search_type').val() !== 'payment_status') {
+            //         clearTimeout(searchTimeout);
+            //         searchTimeout = setTimeout(() => resetAndReload(), 500);
+            //     }
+            // });
 
             $('#search_payment_status').on('change', function() {
                 if ($('#search_type').val() === 'payment_status') resetAndReload();
@@ -929,11 +929,26 @@
                 }
             });
 
-            $('#search_keyword').on('keyup', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
+            // $('#search_keyword').on('keyup', function() {
+            //     clearTimeout(searchTimeout);
+            //     searchTimeout = setTimeout(() => {
+            //         reloadActiveTab();
+            //     }, 300);
+            // });
+
+            // === ENTER ONLY SEARCH ===
+            $('#search_keyword').on('keypress', function(e) {
+                if (e.which === 13) { // ENTER
+                    e.preventDefault();
                     reloadActiveTab();
-                }, 300);
+                }
+            });
+
+            // === Auto reload ketika input dikosongkan ===
+            $('#search_keyword').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    reloadActiveTab();
+                }
             });
 
             // Paste proof functionality

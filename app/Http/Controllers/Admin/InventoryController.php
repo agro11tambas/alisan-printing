@@ -485,34 +485,25 @@ class InventoryController extends Controller
 
                 /**
                  * --------------------------------------------------
-                 * 3. PRINTING → hitung component yang belum selesai
+                 * 3. PENDING WAITING LIST
+                 * pending = total design - total assigned
                  * --------------------------------------------------
                  */
-                $usedPrinting = \App\Models\OrderItemComponent::where('product_id', $productId)
+                $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
                     ->whereNull('deleted_at')
-                    ->whereHas(
-                        'orderItem.order',
-                        fn($q) =>
-                        $q->where('status', 'sale list')
-                            ->where('mode', 'printing')
-                    )
-                    // belum ada delivery (belum shipped)
-                    ->whereDoesntHave(
-                        'orderItem.order.deliveryOrders.shipments.items',
-                        fn($q) =>
-                        $q->where('shipped_quantity', '>', 0)
-                    )
-                    // belum ada assign produksi
-                    ->whereDoesntHave(
-                        'orderItem.order.orderProgress.assignBatches.assigns',
-                        fn($q) =>
-                        $q->where('assigned_quantity', '>', 0)
-                    )
-                    ->sum('qty');
+                    ->sum('quantity');
+
+                $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->sum('assigned_quantity');
+
+                $pendingWaitingList = $totalDesignQty - $totalAssignedQty;
+                if ($pendingWaitingList < 0) $pendingWaitingList = 0;
 
                 /**
                  * --------------------------------------------------
-                 * 4. POLOSAN → TIDAK MENGURANGI STOCK SAMA SEKALI
+                 * 4. CEK POLOSAN
+                 * Polosan → tidak mengurangi stock sama sekali
                  * --------------------------------------------------
                  */
                 $isPolosan = \App\Models\OrderItem::query()
@@ -524,18 +515,18 @@ class InventoryController extends Controller
 
                 /**
                  * --------------------------------------------------
-                 * 5. FINAL STOCK
+                 * 5. STOCK AKHIR
                  * --------------------------------------------------
                  */
                 if ($isPolosan) {
-                    // Polosan → stok tidak berkurang apa pun
+                    // Tanpa pengurangan
                     $stockAfter = $inventoryStock + $productionStock;
                 } else {
-                    // Printing → bahan berkurang dari komponen
-                    $stockAfter = $inventoryStock + $productionStock - $usedPrinting;
+                    // MODE PRINTING → formula baru
+                    $stockAfter = $inventoryStock + $productionStock - $pendingWaitingList;
                 }
 
-                // Format
+                // Format angka
                 $formatted = number_format($stockAfter, 0, ',', '.');
 
                 // Warning minimum stock
@@ -554,6 +545,7 @@ class InventoryController extends Controller
             ->addColumn('incoming_stock', function ($item) {
                 $incoming = DB::table('inventory_items_2')
                     ->where('product_id', $item->product_id)
+                    ->whereNull('deleted_at')
                     ->whereNotNull('purchase_item_id')
                     ->selectRaw('SUM(remaining_stock_in - stock_in) AS incoming')
                     ->value('incoming');
@@ -564,8 +556,9 @@ class InventoryController extends Controller
 
                 $outgoing = DB::table('inventory_items_2')
                     ->where('product_id', $item->product_id)
+                    ->whereNull('deleted_at')
                     ->whereNotNull('material_request_item_id')
-                    ->selectRaw('SUM(remaining_stock_in - stock_out) AS outgoing')
+                    ->selectRaw('SUM(remaining_stock_in - stock_out - stock_in) AS outgoing')
                     ->value('outgoing');
 
                 return number_format($outgoing ?? 0, 0, ',', '.');

@@ -416,11 +416,28 @@
             });
 
             // Filter lain tetap auto reload
-            $('#status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+            $('#status, #search_type, #start_date, #end_date')
                 .on('change keyup input paste', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => resetAndReload(), 200);
                 });
+
+            // =============================================
+            // 🔍 SEARCH ENTER ONLY
+            // =============================================
+            $('#search_keyword, #search_product').on('keypress', function(e) {
+                if (e.which === 13) { // ENTER
+                    e.preventDefault();
+                    resetAndReload();
+                }
+            });
+
+            // Jika input dikosongkan → auto reload
+            $('#search_keyword, #search_product').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    resetAndReload();
+                }
+            });
 
 
             // ========= ACTION ROW (TIDAK DIUBAH) ==========

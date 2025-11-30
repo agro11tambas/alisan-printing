@@ -202,9 +202,33 @@
                 ]
             });
 
-            $('#name').on('keyup', function() {
-                dataTable.ajax.reload();
+            // $('#name').on('keyup', function() {
+            //     dataTable.ajax.reload();
+            // });
+
+            let lastKeyword = '';
+
+            $('#name').on('keypress', function(e) {
+                if (e.which === 13) { // ENTER
+                    e.preventDefault();
+
+                    const keyword = $(this).val().trim();
+                    if (keyword !== lastKeyword) {
+                        lastKeyword = keyword;
+                        dataTable.ajax.reload();
+                    }
+                }
             });
+
+            // Jika dikosongkan → reset & reload
+            $('#name').on('input', function() {
+                const val = $(this).val().trim();
+                if (val === '' && lastKeyword !== '') {
+                    lastKeyword = '';
+                    dataTable.ajax.reload();
+                }
+            });
+
 
             $('#ShopManagerList tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;

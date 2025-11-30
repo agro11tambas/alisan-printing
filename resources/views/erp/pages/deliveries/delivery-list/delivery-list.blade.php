@@ -225,7 +225,7 @@
                                                     <option value="customer">Customer</option>
                                                     <option value="shipment_number">Shipment Number</option>
                                                     <option value="driver">Driver</option>
-                                                    <option value="vehicle">Vehicle</option>
+                                                    {{-- <option value="vehicle">Vehicle</option> --}}
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
@@ -530,12 +530,24 @@
             });
 
             // Filter lain tetap auto reload
-            $('#status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+            $('#status, #search_type, #start_date, #end_date')
                 .on('change keyup input paste', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => resetAndReload(), 200);
                 });
 
+            $('#search_product, #search_keyword').on('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    resetAndReload();
+                }
+            });
+
+            $('#search_keyword, #search_product').on('input', function() {
+                if ($(this).val().trim() === '') {
+                    resetAndReload();
+                }
+            });
 
             $('#deliveryListTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
