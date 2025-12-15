@@ -107,6 +107,110 @@
         .preview-item input.note-input {
             width: 100%;
         }
+
+        /* Hide desktop table on mobile */
+        @media (max-width: 767px) {
+
+            #saleListTable_wrapper,
+            #editedSaleListTable_wrapper,
+            #deletedSaleListTable_wrapper {
+                display: none !important;
+            }
+
+            .sale-tabs {
+                display: none !important;
+            }
+        }
+
+        .sale-mobile-card {
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            overflow: visible !important;
+            position: relative;
+        }
+
+        .sale-mobile-card.active {
+            background-color: #e5e9ef;
+            /* abu-abu halus */
+        }
+
+        .sale-mobile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sale-date {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .sale-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .status-Unpaid {
+            background: #374151;
+        }
+
+        .status-Paid {
+            background: #065f46;
+        }
+
+        .status-Overdue {
+            background: #7f1d1d;
+        }
+
+        .sale-customer {
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        .sale-invoice {
+            font-size: 12px;
+
+        }
+
+        .sale-amount {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+
+        .sale-amount span {
+            color: #9ca3af;
+        }
+
+        /* .sale-tabs {
+                                            display: none !important;
+                                        } */
+
+        .sale-mobile-action {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .sale-mobile-card.active .sale-mobile-action {
+            display: block;
+        }
+
+        .sale-mobile-card.active .dropdown-menu {
+            display: block !important;
+        }
+
+        .mobile-action-menu {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            width: 100%;
+            min-width: unset !important;
+            transform: none !important;
+        }
     </style>
 @endpush
 
@@ -231,7 +335,7 @@
                                 </div>
                             </div>
                         </div>
-                        <ul class="nav nav-tabs mb-3" id="saleListTabs" role="tablist">
+                        <ul class="nav nav-tabs mb-3 sale-tabs" id="saleListTabs" role="tablist">
                             <li class="nav-item">
                                 <a class="nav-link active" id="sale-list-tab" data-bs-toggle="tab" href="#sale-list"
                                     role="tab">Sale List</a>
@@ -251,16 +355,16 @@
                                     <table class="table table-hover bg-transparent" id="saleListTable">
                                         <thead>
                                             <tr>
-                                                <th></th>
-                                                <th>Invoice Number</th>
-                                                <th>Customer</th>
-                                                <th>Grand Total</th>
-                                                <th>Paid Amount</th>
-                                                {{-- <th>Remaining Amount</th> --}}
-                                                <th>Payment Status</th>
-                                                <th>Type</th>
-                                                <th>Note</th>
-                                                <th>Chat</th>
+                                                <th style="width:3%;"></th>
+                                                <th style="width:12%;">Invoice Number</th>
+                                                <th style="width:18%;">Customer</th>
+                                                <th style="width:10%;">Grand Total</th>
+                                                <th style="width:10%;">Paid Amount</th>
+                                                <th style="width:12%;">Payment</th>
+                                                <th style="width:8%;">User</th>
+                                                <th style="width:6%;">Type</th>
+                                                <th style="width:15%;">Note</th>
+                                                <th style="width:6%;">Chat</th>
                                             </tr>
                                         </thead>
                                     </table>
@@ -281,7 +385,8 @@
                                                 <th>Customer</th>
                                                 <th>Grand Total</th>
                                                 <th>Paid Amount</th>
-                                                <th>Payment Status</th>
+                                                <th>Payment</th>
+                                                <th>User</th>
                                                 <th>Type</th>
                                                 <th>Note</th>
                                             </tr>
@@ -322,6 +427,9 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        {{-- MOBILE SALE LIST --}}
+                        <div id="saleListMobile" class="d-md-none px-3 pb-4">
                         </div>
                     </div>
                 </div>
@@ -412,25 +520,6 @@
                                             'bg-success',
                                         ];
                                     @endphp
-                                    {{-- <select class="form-select form-control max-select" data-select2-selector="tag"
-                                        name="cash_bank_account_id" id="cash_bank_account_id">
-                                        <option value="" disabled selected hidden>Pilih Bank atau Cash Account
-                                        </option>
-                                        @foreach ($cashAccounts as $cash)
-                                            @php
-                                                $bg = $bgColors[$loop->index % count($bgColors)];
-                                            @endphp
-                                            <option value="{{ $cash->id }}" data-bg="{{ $bg }}">Cash -
-                                                {{ $cash->type }}</option>
-                                        @endforeach
-                                        @foreach ($bankAccounts as $bank)
-                                            @php
-                                                $bg = $bgColors[$loop->index % count($bgColors)];
-                                            @endphp
-                                            <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank -
-                                                {{ $bank->type }}</option>
-                                        @endforeach
-                                    </select> --}}
                                     <select class="form-select form-control max-select" data-select2-selector="tag"
                                         name="cash_bank_account_id" id="cash_bank_account_id">
                                         <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
@@ -795,7 +884,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [9, 'desc']
+                    [10, 'desc']
                 ],
                 columns: [{
                         className: 'dt-control text-center',
@@ -821,6 +910,9 @@
                     // },
                     {
                         data: 'payment_status'
+                    },
+                    {
+                        data: 'user'
                     },
                     {
                         data: 'mode'
@@ -880,6 +972,8 @@
                             dataTable.clear();
                             dataTable.rows.add(allData);
                             dataTable.draw(false);
+
+                            renderMobileFromAllData();
                             currentPage++;
                             hasMoreData = true;
                         } else {
@@ -929,6 +1023,7 @@
                 currentPage = 0;
                 hasMoreData = true;
                 dataTable.clear().draw();
+                $('#saleListMobile').html('');
                 loadMoreData();
             }
 
@@ -1100,7 +1195,7 @@
                     info: false,
                     lengthChange: false,
                     order: [
-                        [8, 'desc']
+                        [9, 'desc']
                     ],
                     data: [],
                     columns: [{
@@ -1126,13 +1221,16 @@
                             data: 'payment_status'
                         },
                         {
+                            data: 'user'
+                        },
+                        {
                             data: 'mode'
                         },
                         {
                             data: 'notes'
                         },
                         {
-                            data: 'created_at',
+                            data: 'order_date_raw',
                             visible: false,
                             searchable: false
                         }
@@ -2010,6 +2108,72 @@
                 $('#write_off_container').addClass('d-none');
                 $('#customer_deposit_amount').val('0');
             });
+
+            function renderMobileFromAllData() {
+                if (window.innerWidth >= 768) return;
+
+                const container = $('#saleListMobile');
+                container.html('');
+
+                if (!allData.length) {
+                    container.html('<div class="text-center text-muted py-4">No sale data</div>');
+                    return;
+                }
+
+                allData.forEach(row => {
+                    container.append(`
+                        <div class="sale-mobile-card" data-id="${row.id}">
+                            <div class="sale-mobile-main">
+                                <div class="sale-mobile-header">
+                                    <div class="sale-invoice">${row.order_number}</div>                                    
+                                    <span class="sale-status">${row.payment_status}</span>
+                                </div>
+
+                                <div class="sale-customer">${row.customer_mobile}</div>
+
+                                <div class="sale-amount">
+                                    <div>
+                                        <span>Due</span><br>
+                                        ${row.remaining_amount ?? row.grand_total}
+                                    </div>
+                                    <div class="text-end">
+                                        <span>Out Of</span><br>
+                                        ${row.grand_total}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ACTION -->
+                            <div class="sale-mobile-action">
+                                ${row.action_mobile}
+                            </div>
+                        </div>
+                    `);
+                });
+            }
+
+
+            $(document).on('click', '.sale-mobile-card', function(e) {
+                // kalau klik button / link di dropdown → jangan toggle
+                if ($(e.target).closest('.sale-mobile-action, button, a').length) return;
+
+                const card = $(this);
+
+                // tutup card lain
+                $('.sale-mobile-card').not(card).removeClass('active');
+
+                // toggle card ini
+                card.toggleClass('active');
+            });
+
+            $(document).on('click', function(e) {
+                // kalau klik di dalam card atau dropdown → abaikan
+                if ($(e.target).closest('.sale-mobile-card').length) return;
+
+                // kalau klik di mana saja di luar → tutup semua
+                $('.sale-mobile-card').removeClass('active');
+            });
+
         });
 
         // Modal handlers

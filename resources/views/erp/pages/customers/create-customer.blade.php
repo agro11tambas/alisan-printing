@@ -99,8 +99,7 @@
                                             <div class="col-lg-5">
                                                 <div class="input-group">
                                                     <div class="input-group-text"><i class="feather-book"></i></div>
-                                                    <input type="text" class="form-control" name="addresses[0][address]"
-                                                        value="{{ old('addresses.0.address') }}" placeholder="Address">
+                                                    <textarea class="form-control" name="addresses[0][address]" placeholder="Address">{{ old('addresses.0.address') }}</textarea>
                                                 </div>
                                             </div>
                                             <div class="col-lg-3">
@@ -129,6 +128,31 @@
         </div>
     </div>
 @endsection
+
+@push('modals')
+    <!-- Modal Konfirmasi Hapus -->
+    <div class="modal fade" id="deleteAddressModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white">Hapus Alamat?</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Apakah Anda yakin ingin menghapus alamat ini?
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Yes, Delete</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+@endpush
 
 @push('scripts')
     <script>
@@ -159,7 +183,7 @@
             <div class="col-lg-5">
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-book"></i></div>
-                    <input type="text" class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address}">
+                    <textarea class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address}"></textarea>
                 </div>
             </div>
             <div class="col-lg-3">
@@ -177,11 +201,33 @@
             updateRemoveButtons();
         });
 
+        let addressToDelete = null;
+
+        // EVENT REMOVE ADDRESS (BUKA MODAL)
         document.getElementById('addresses').addEventListener('click', function(e) {
-            if (e.target.classList.contains('btn-remove') || e.target.closest('.btn-remove')) {
-                e.target.closest('.address-item').remove();
+            const btn = e.target.closest('.btn-remove');
+            if (!btn) return;
+
+            // Simpan elemen address-item yg mau dihapus
+            addressToDelete = btn.closest('.address-item');
+
+            // Tampilkan modal
+            const modalEl = document.getElementById('deleteAddressModal');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        });
+
+        // KONFIRMASI DELETE
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            if (addressToDelete) {
+                addressToDelete.remove();
                 updateRemoveButtons();
+                addressToDelete = null;
             }
+
+            const modalEl = document.getElementById('deleteAddressModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            modal.hide();
         });
 
         document.addEventListener('DOMContentLoaded', updateRemoveButtons);

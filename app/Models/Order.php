@@ -38,6 +38,7 @@ class Order extends Model
         'deleted_by',
         'deleted_notes',
         'discount_active',
+        'user_id',
     ];
 
     protected $casts = [
@@ -109,6 +110,11 @@ class Order extends Model
     public function designs()
     {
         return $this->hasMany(Design::class, 'order_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     // public function updatePaymentStatus()

@@ -79,10 +79,20 @@ class ReportItemsProductionController extends Controller
 
                 return number_format($finished, 0, ',', '.');
             })
-            ->addColumn(
-                'incoming_stock',
-                fn($item) => number_format($item->incoming_stock ?? 0, 0, ',', '.')
-            )
+            // ->addColumn(
+            //     'incoming_stock',
+            //     fn($item) => number_format($item->incoming_stock ?? 0, 0, ',', '.')
+            // )
+            ->addColumn('incoming_stock', function ($item) {
+
+                $incoming = DB::table('material_request_items')
+                    ->where('product_id', $item->product_id)
+                    ->whereNull('deleted_at')
+                    ->selectRaw('SUM(requested_qty - received_qty) AS incoming')
+                    ->value('incoming');
+
+                return number_format($incoming ?? 0, 0, ',', '.');
+            })
             // ->addColumn(
             //     'pending_waiting_list',
             //     fn($item) => number_format($item->pending_waiting_list ?? 0, 0, ',', '.')

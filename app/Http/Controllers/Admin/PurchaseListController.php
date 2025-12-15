@@ -605,7 +605,7 @@ class PurchaseListController extends Controller
                         'product_id'              => $productId,
                         'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
                         'quantity'                => $qty,
-                        'price'                   => $price,
+                        'price'                   => $finalPrice,
                         'stock_in'                => 0,
                         'remaining_stock_in'      => $qty,
                         'stock_out'               => 0,
@@ -892,7 +892,7 @@ class PurchaseListController extends Controller
                     $invItem->fill([
                         'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
                         'quantity'               => $qty,
-                        'price'                  => $price,
+                        'price'                  => $finalPrice,
                         'remaining_stock_in'     => $qty,
                         'stock_in'               => 0,
                         'stock_out'              => 0,

@@ -53,11 +53,11 @@
 
         /* 🔹 Perbesar juga font di header tabel produk (Qty, Price, Total) */
         /* #tab_logic th {
-                            font-size: 15px !important;
-                            font-weight: 700 !important;
-                            vertical-align: middle !important;
-                            text-transform: uppercase;
-                        } */
+                                                                font-size: 15px !important;
+                                                                font-weight: 700 !important;
+                                                                vertical-align: middle !important;
+                                                                text-transform: uppercase;
+                                                            } */
 
         /* 🔹 Perbesar font Grand Total biar seragam */
         #tab_logic_total input.form-control {
@@ -72,6 +72,46 @@
 
         #notes::placeholder {
             font-size: 16px;
+        }
+
+        .product-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            /* background: #fff; */
+        }
+
+        .product-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .product-number {
+            font-weight: 600;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+
+        .product-col-span-2 {
+            grid-column: span 2;
+        }
+
+        /* MOBILE */
+        @media (max-width: 768px) {
+            .product-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .product-col-span-2 {
+                grid-column: span 1;
+            }
         }
     </style>
 @endpush
@@ -277,7 +317,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card stretch stretch-full">
+                    {{-- <div class="card stretch stretch-full">
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-lg-12">
@@ -403,6 +443,163 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div> --}}
+                    <div class="card stretch stretch-full">
+                        <div class="card-body">
+
+                            <div class="mb-4">
+                                <h5 class="fw-bold">Add Products:</h5>
+                            </div>
+
+                            <!-- PRODUCT LIST -->
+                            <div id="product_list">
+
+                                <div class="product-item" data-index="0">
+                                    <div class="product-item-header">
+                                        <span class="product-number">#1</span>
+                                        <button type="button" class="btn btn-sm btn-danger delete-row">
+                                            <i class="feather-trash"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="product-grid">
+
+                                        <div class="form-group product-col-span-2">
+                                            <label>Product</label>
+                                            <select class="form-control select-product" data-select2-selector="tag"
+                                                name="product[]" id="product_0">
+                                                <option value="" disabled selected hidden>Pilih produk</option>
+                                            </select>
+                                        </div>
+
+                                        <input type="hidden" name="product_type[]" class="product-type"
+                                            id="product_type_0">
+
+                                        <div class="form-group">
+                                            <label>Qty</label>
+                                            <input type="text" inputmode="numeric" name="qty[]"
+                                                class="form-control qty">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Price</label>
+                                            <input type="text" inputmode="numeric"
+                                                class="form-control price_before_discount_display">
+                                            <input type="hidden" name="price_before_discount[]"
+                                                class="price_before_discount">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Total</label>
+                                            <input type="text" class="form-control total_before_discount_display"
+                                                readonly>
+                                            <input type="hidden" name="total_before_discount[]"
+                                                class="total_before_discount">
+                                        </div>
+
+                                        <input type="hidden" name="price_after_discount[]" class="price_after_discount">
+                                        <input type="hidden" name="total_after_discount[]" class="total_after_discount">
+
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <template id="product_item_template">
+                                <div class="product-item" data-index="__index__">
+                                    <div class="product-item-header">
+                                        <span class="product-number">#__number__</span>
+                                        <button type="button" class="btn btn-sm btn-danger delete-row">
+                                            <i class="feather-trash"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="product-grid">
+
+                                        <div class="form-group product-col-span-2">
+                                            <label>Product</label>
+                                            <select class="form-control select-product" data-select2-selector="tag"
+                                                name="product[]" id="product___index__">
+                                                <option value="" disabled selected hidden>Pilih produk</option>
+                                            </select>
+                                        </div>
+
+                                        <input type="hidden" name="product_type[]" class="product-type"
+                                            id="product_type___index__">
+
+                                        <div class="form-group">
+                                            <label>Qty</label>
+                                            <input type="text" inputmode="numeric" name="qty[]"
+                                                class="form-control qty">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Price</label>
+                                            <input type="text" inputmode="numeric"
+                                                class="form-control price_before_discount_display">
+                                            <input type="hidden" name="price_before_discount[]"
+                                                class="price_before_discount">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Total</label>
+                                            <input type="text" class="form-control total_before_discount_display"
+                                                readonly>
+                                            <input type="hidden" name="total_before_discount[]"
+                                                class="total_before_discount">
+                                        </div>
+
+                                        <input type="hidden" name="price_after_discount[]" class="price_after_discount">
+                                        <input type="hidden" name="total_after_discount[]" class="total_after_discount">
+
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- ADD BUTTON -->
+                            <div class="d-flex justify-content-end mt-3">
+                                <button type="button" id="add_row" class="btn btn-primary">
+                                    Add Item
+                                </button>
+                            </div>
+
+                            <!-- GRAND TOTAL -->
+                            <div class="row justify-content-end mt-4">
+                                <div class="col-lg-4">
+                                    <h5 class="fw-bold mb-3">Grand Total:</h5>
+
+                                    <table class="table table-bordered">
+                                        <tbody>
+                                            <tr>
+                                                <th>Sub Total</th>
+                                                <td>
+                                                    <input type="text" id="sub_total_display" class="form-control"
+                                                        readonly>
+                                                    <input type="hidden" name="sub_total" id="sub_total">
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>Total Discount</th>
+                                                <td>
+                                                    <input type="text" id="total_discount_display"
+                                                        class="form-control text-danger" readonly>
+                                                    <input type="hidden" name="total_discount" id="total_discount">
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-gray-100">Grand Total</th>
+                                                <td>
+                                                    <input type="text" id="total_amount_display"
+                                                        class="form-control fw-bold text-success bg-gray-100" readonly>
+                                                    <input type="hidden" name="total_amount" id="total_amount">
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </form>
@@ -629,7 +826,9 @@
         $(document).on('input', '.price_before_discount_display', function() {
             // if (!isOwner) return;
 
-            const row = $(this).closest('tr');
+            // const row = $(this).closest('tr');
+            const row = $(this).closest('.product-item');
+
             let rawValue = $(this).val().replace(/\D/g, ''); // hanya angka
             if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
 
@@ -746,8 +945,15 @@
             row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
         }
 
+        // function recalcAllRows() {
+        //     $('tr[id^="addr"]').each(function() {
+        //         calculateRow($(this));
+        //     });
+        //     calcTotalSummary();
+        // }
+
         function recalcAllRows() {
-            $('tr[id^="addr"]').each(function() {
+            $('.product-item').each(function() {
                 calculateRow($(this));
             });
             calcTotalSummary();
@@ -774,14 +980,27 @@
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
 
+        // $(document).on('change', 'select[name="product[]"]', function() {
+        //     const row = $(this).closest('tr');
+        //     const type = $(this).find('option:selected').data('type') || '';
+        //     row.find('.product-type').val(type);
+        //     recalcAllRows();
+        // });
+
         $(document).on('change', 'select[name="product[]"]', function() {
-            const row = $(this).closest('tr');
+            const row = $(this).closest('.product-item');
+
             const type = $(this).find('option:selected').data('type') || '';
             row.find('.product-type').val(type);
+
             recalcAllRows();
         });
 
-        $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
+        // $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
+
+        $(document).on('input', 'input[name="qty[]"]', function() {
+            recalcAllRows();
+        });
 
         function initSelect2(el) {
             $(el).select2({
@@ -800,56 +1019,90 @@
 
             document.querySelectorAll('select.select-product').forEach(el => initSelect2(el));
 
+            // document.getElementById('add_row').addEventListener('click', function() {
+            //     const tableBody = document.querySelector('#tab_logic_body');
+            //     const rowCount = tableBody.querySelectorAll('tr').length;
+
+            //     const newRow = document.createElement('tr');
+            //     newRow.id = 'addr' + rowCount;
+
+            //     newRow.innerHTML = `
+        //     <td>${rowCount + 1}</td>
+        //     <td>
+        //         <select class="form-control select-product" name="product[]" id="product_${rowCount}">
+        //             <option value="" disabled selected hidden>Pilih produk</option>
+        //         </select>
+        //     </td>
+        //     <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
+        //     <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" min="1"></td>
+        //     <td>
+        //         <input type="text" class="form-control price_before_discount_display">
+        //         <input type="hidden" name="price_before_discount[]" class="price_before_discount">
+        //     </td>
+        //     <td>
+        //         <input type="text"
+        //             class="form-control total_before_discount_display" readonly>
+        //         <input type="hidden" name="total_before_discount[]"
+        //             class="total_before_discount">
+        //     </td>
+        //     <td class="text-center">
+        //         <div class="d-flex justify-content-center">
+        //             <button type="button" class="btn btn-danger delete-row">
+        //                 <i class="feather-trash"></i>
+        //             </button>
+        //         </div>
+        //     </td>
+        //     <input type="hidden" name="price_after_discount[]" class="form-control price_after_discount" readonly>
+        //     <input type="hidden" name="total_after_discount[]" class="form-control total_after_discount" readonly>
+        // `;
+            //     tableBody.appendChild(newRow);
+
+            //     initSelect2(newRow.querySelector('.select-product'));
+            // });
+
             document.getElementById('add_row').addEventListener('click', function() {
-                const tableBody = document.querySelector('#tab_logic_body');
-                const rowCount = tableBody.querySelectorAll('tr').length;
 
-                const newRow = document.createElement('tr');
-                newRow.id = 'addr' + rowCount;
+                const list = document.getElementById('product_list');
+                const index = list.querySelectorAll('.product-item').length;
 
-                newRow.innerHTML = `
-                <td>${rowCount + 1}</td>
-                <td>
-                    <select class="form-control select-product" name="product[]" id="product_${rowCount}">
-                        <option value="" disabled selected hidden>Pilih produk</option>
-                    </select>
-                </td>
-                <input type="hidden" name="product_type[]" class="form-control product-type" readonly>
-                <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" min="1"></td>
-                <td>
-                    <input type="text" class="form-control price_before_discount_display">
-                    <input type="hidden" name="price_before_discount[]" class="price_before_discount">
-                </td>
-                <td>
-                    <input type="text"
-                        class="form-control total_before_discount_display" readonly>
-                    <input type="hidden" name="total_before_discount[]"
-                        class="total_before_discount">
-                </td>
-                <td class="text-center">
-                    <div class="d-flex justify-content-center">
-                        <button type="button" class="btn btn-danger delete-row">
-                            <i class="feather-trash"></i>
-                        </button>
-                    </div>
-                </td>
-                <input type="hidden" name="price_after_discount[]" class="form-control price_after_discount" readonly>
-                <input type="hidden" name="total_after_discount[]" class="form-control total_after_discount" readonly>
-            `;
-                tableBody.appendChild(newRow);
+                const html = document
+                    .getElementById('product_item_template')
+                    .innerHTML
+                    .replace(/__index__/g, index)
+                    .replace(/__number__/g, index + 1);
 
-                initSelect2(newRow.querySelector('.select-product'));
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = html;
+
+                const item = wrapper.firstElementChild;
+                list.appendChild(item);
+
+                // init select2 SETELAH masuk DOM
+                initSelect2(item.querySelector('.select-product'));
             });
 
-            $(document).on('click', '.delete-row', function() {
-                const row = $(this).closest('tr');
-                row.remove();
+            // $(document).on('click', '.delete-row', function() {
+            //     const row = $(this).closest('tr');
+            //     row.remove();
 
-                $('#tab_logic_body tr').each(function(i, el) {
-                    $(el).find('td:first').text(i + 1);
-                });
+            //     $('#tab_logic_body tr').each(function(i, el) {
+            //         $(el).find('td:first').text(i + 1);
+            //     });
 
-                recalcAllRows();
+            //     recalcAllRows();
+            // });
+
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.delete-row')) {
+                    e.target.closest('.product-item').remove();
+
+                    document.querySelectorAll('.product-item').forEach((el, i) => {
+                        el.dataset.index = i;
+                        el.querySelector('.product-number').textContent = '#' + (i + 1);
+                    });
+
+                    recalcAllRows();
+                }
             });
 
         });

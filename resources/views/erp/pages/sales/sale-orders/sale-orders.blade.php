@@ -32,6 +32,107 @@
         #saleOrderTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
+
+
+        /* Hide desktop table on mobile */
+        @media (max-width: 500px) {
+
+            #saleOrderTable_wrapper,
+            #editedSaleOrderTable_wrapper,
+            #deletedSaleOrderTable_wrapper {
+                display: none !important;
+            }
+        }
+
+        .sale-mobile-card {
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            overflow: visible !important;
+            position: relative;
+        }
+
+        .sale-mobile-card.active {
+            background-color: #e5e9ef;
+            /* abu-abu halus */
+        }
+
+        .sale-mobile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sale-date {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .sale-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .status-Unpaid {
+            background: #374151;
+        }
+
+        .status-Paid {
+            background: #065f46;
+        }
+
+        .status-Overdue {
+            background: #7f1d1d;
+        }
+
+        .sale-customer {
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        .sale-invoice {
+            font-size: 12px;
+
+        }
+
+        .sale-amount {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+
+        .sale-amount span {
+            color: #9ca3af;
+        }
+
+        .sale-tabs {
+            display: none !important;
+        }
+
+        .sale-mobile-action {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .sale-mobile-card.active .sale-mobile-action {
+            display: block;
+        }
+
+        .sale-mobile-card.active .dropdown-menu {
+            display: block !important;
+        }
+
+        .mobile-action-menu {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            width: 100%;
+            min-width: unset !important;
+            transform: none !important;
+        }
     </style>
 @endpush
 
@@ -158,6 +259,7 @@
                                         <!-- <th class="d-none d-md-table-cell">Order Date</th> -->
                                         <th class="d-none d-md-table-cell">Customer</th>
                                         <th>Grand Total</th>
+                                        <th>User</th>
                                         <th>Type</th>
                                         <th>Notes</th>
                                     </tr>
@@ -166,6 +268,9 @@
 
                                 </tbody>
                             </table>
+                        </div>
+                        {{-- MOBILE SALE LIST --}}
+                        <div id="saleOrderMobile" class="d-md-none px-3 pb-4">
                         </div>
                     </div>
                 </div>
@@ -378,7 +483,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [6, 'desc']
+                    [7, 'desc']
                 ],
                 data: [],
                 columns: [{
@@ -396,6 +501,9 @@
                     },
                     {
                         data: 'grand_total'
+                    },
+                    {
+                        data: 'user'
                     },
                     {
                         data: 'mode'
@@ -441,6 +549,7 @@
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
+                            renderMobileFromAllData();
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -483,6 +592,7 @@
                 currentPage = 0;
                 hasMoreData = true;
                 dataTable.clear().draw();
+                $('#saleOrderMobile').html('');
                 loadMoreData();
             }
 
@@ -648,6 +758,71 @@
                         });
                     }
                 });
+            });
+
+            function renderMobileFromAllData() {
+                if (window.innerWidth >= 768) return;
+
+                const container = $('#saleOrderMobile');
+                container.html('');
+
+                if (!allData.length) {
+                    container.html('<div class="text-center text-muted py-4">No sale data</div>');
+                    return;
+                }
+
+                allData.forEach(row => {
+                    container.append(`
+                        <div class="sale-mobile-card" data-id="${row.id}">
+                            <div class="sale-mobile-main">
+                                <div class="sale-mobile-header">
+                                    <div class="sale-invoice">${row.order_number}</div>                                    
+                                    <span class="sale-status">${row.payment_status}</span>
+                                </div>
+
+                                <div class="sale-customer">${row.customer_mobile}</div>
+
+                                <div class="sale-amount">
+                                    <div>
+                                        <span>Due</span><br>
+                                        ${row.remaining_amount ?? row.grand_total}
+                                    </div>
+                                    <div class="text-end">
+                                        <span>Out Of</span><br>
+                                        ${row.grand_total}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ACTION -->
+                            <div class="sale-mobile-action">
+                                ${row.action_mobile}
+                            </div>
+                        </div>
+                    `);
+                });
+            }
+
+
+            $(document).on('click', '.sale-mobile-card', function(e) {
+                // kalau klik button / link di dropdown → jangan toggle
+                if ($(e.target).closest('.sale-mobile-action, button, a').length) return;
+
+                const card = $(this);
+
+                // tutup card lain
+                $('.sale-mobile-card').not(card).removeClass('active');
+
+                // toggle card ini
+                card.toggleClass('active');
+            });
+
+            $(document).on('click', function(e) {
+                // kalau klik di dalam card atau dropdown → abaikan
+                if ($(e.target).closest('.sale-mobile-card').length) return;
+
+                // kalau klik di mana saja di luar → tutup semua
+                $('.sale-mobile-card').removeClass('active');
             });
 
         });

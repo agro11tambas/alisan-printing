@@ -144,6 +144,21 @@ class WaitingListController extends Controller
 
 
         // 3️⃣ Ambil batch untuk ditampilkan
+        // $data = (clone $baseQuery)
+        //     ->with([
+        //         'order.customer',
+        //         'items.assigns',
+        //         'items.product.productionStocks',
+        //         'items.product.categories'
+        //     ])
+        //     ->orderBy('created_at', 'desc')
+        //     ->skip($start)
+        //     ->take($length)
+        //     ->get();
+
+        $sort = $request->input('sort', 'latest'); // latest | oldest
+        $sortDirection = $sort === 'oldest' ? 'asc' : 'desc';
+
         $data = (clone $baseQuery)
             ->with([
                 'order.customer',
@@ -151,14 +166,20 @@ class WaitingListController extends Controller
                 'items.product.productionStocks',
                 'items.product.categories'
             ])
-            ->orderBy('created_at', 'desc')
+            ->orderBy('created_at', $sortDirection)
             ->skip($start)
             ->take($length)
             ->get();
 
+
         $mappedData = $data->map(function ($progress) {
-            $orderCreatedAt = optional($progress->order)->created_at;
-            $date = $orderCreatedAt ? Carbon::parse($orderCreatedAt)->format('d M y H:i') : '-';
+            // $orderCreatedAt = optional($progress->order)->created_at;
+            // $date = $orderCreatedAt ? Carbon::parse($orderCreatedAt)->format('d M y H:i') : '-';
+            $orderDate = optional($progress->order)->order_date;
+
+            $date = $orderDate
+                ? Carbon::parse($orderDate)->format('d M y H:i')
+                : '-';
 
             $editedBadge = $progress->status_edited == 1
                 ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
@@ -213,6 +234,9 @@ class WaitingListController extends Controller
                 'order_notes' => $orderNotes,
                 'created_at' => $progress->created_at->toDateTimeString(),
                 'order_created_at' => $date,
+                'order_created_raw' => optional($progress->order)->order_date
+                    ? Carbon::parse($progress->order->order_date)->toIso8601String()
+                    : null,
             ];
         });
 

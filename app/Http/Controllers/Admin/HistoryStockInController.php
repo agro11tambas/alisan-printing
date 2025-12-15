@@ -310,7 +310,7 @@ class HistoryStockInController extends Controller
 
                 // hitung ulang avg_cost
                 $product = Products::findOrFail($productId);
-                ProductCostService::updateCostAndStock($product);
+                // ProductCostService::updateCostAndStock($product);
             }
         }
 
@@ -376,44 +376,108 @@ class HistoryStockInController extends Controller
             ->make(true);
     }
 
+    // public function updateHistoryItem(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'quantity' => 'required|numeric|min:0',
+    //         'notes' => 'nullable|string'
+    //     ]);
+
+    //     // 🔹 Ambil data history lama
+    //     $history = InventoryStockInHistory::findOrFail($id);
+
+    //     // 🔹 Dapatkan inventory item terkait
+    //     $inventoryItem = $history->inventoryItem;
+
+    //     if (!$inventoryItem) {
+    //         return response()->json([
+    //             'message' => 'Data inventory item tidak ditemukan.'
+    //         ], 404);
+    //     }
+
+    //     // 🔹 Hitung selisih
+    //     $oldQty = $history->stock_in;
+    //     $newQty = $request->quantity;
+    //     $diff = $newQty - $oldQty;
+
+    //     // 🔹 Update kolom stock_in di inventory_items
+    //     // jika diff positif → increment, negatif → decrement
+    //     $inventoryItem->stock_in += $diff;
+    //     if ($inventoryItem->stock_in < 0) {
+    //         $inventoryItem->stock_in = 0; // jaga-jaga tidak minus
+    //     }
+    //     $inventoryItem->save();
+
+    //     // 🔹 Update data history
+    //     $history->update([
+    //         'stock_in' => $newQty,
+    //         'notes' => $request->notes,
+    //     ]);
+
+    //     return response()->json(['message' => 'History item dan stok berhasil diperbarui.']);
+    // }
+
     public function updateHistoryItem(Request $request, $id)
     {
         $request->validate([
             'quantity' => 'required|numeric|min:0',
-            'notes' => 'nullable|string'
+            'notes' => 'nullable|string',
         ]);
 
-        // 🔹 Ambil data history lama
+        // Ambil history
         $history = InventoryStockInHistory::findOrFail($id);
 
-        // 🔹 Dapatkan inventory item terkait
-        $inventoryItem = $history->inventoryItem;
+        // Ambil inventory item
+        $inventoryItem = $history->inventoryItem; // RELASI YANG BENAR
 
         if (!$inventoryItem) {
-            return response()->json([
-                'message' => 'Data inventory item tidak ditemukan.'
-            ], 404);
+            return response()->json(['message' => 'Inventory item tidak ditemukan'], 404);
         }
 
-        // 🔹 Hitung selisih
+        // Ambil inventory stock berdasarkan product_id + warehouse_id
+        $inventoryStock = InventoryStock::where('product_id', $inventoryItem->product_id)
+            ->where('inventory_warehouse_id', $inventoryItem->inventory_warehouse_id)
+            ->first();
+
+        if (!$inventoryStock) {
+            return response()->json(['message' => 'Inventory stock tidak ditemukan'], 404);
+        }
+
+        // Hitung selisih
         $oldQty = $history->stock_in;
         $newQty = $request->quantity;
-        $diff = $newQty - $oldQty;
+        $diff   = $newQty - $oldQty;
 
-        // 🔹 Update kolom stock_in di inventory_items
-        // jika diff positif → increment, negatif → decrement
+        // Update inventory_item.stock_in
         $inventoryItem->stock_in += $diff;
-        if ($inventoryItem->stock_in < 0) {
-            $inventoryItem->stock_in = 0; // jaga-jaga tidak minus
-        }
+        if ($inventoryItem->stock_in < 0) $inventoryItem->stock_in = 0;
         $inventoryItem->save();
 
-        // 🔹 Update data history
+        // Update inventory_stocks
+        $inventoryStock->inventory_stock += $diff;
+        $inventoryStock->stock_after_sales += $diff;
+
+        if ($inventoryStock->inventory_stock < 0) $inventoryStock->inventory_stock = 0;
+        if ($inventoryStock->stock_after_sales < 0) $inventoryStock->stock_after_sales = 0;
+
+        // Hitung avg cost
+        $price = $inventoryStock->price;
+        $prevQty = max(0, $inventoryStock->stock_after_sales - $diff);
+        $prevCost = $inventoryStock->avg_cost;
+
+        if (($prevQty + $newQty) > 0) {
+            $inventoryStock->avg_cost =
+                (($prevQty * $prevCost) + ($newQty * $price)) / ($prevQty + $newQty);
+        }
+
+        $inventoryStock->save();
+
+        // Update history
         $history->update([
             'stock_in' => $newQty,
-            'notes' => $request->notes,
+            'notes'    => $request->notes,
         ]);
 
-        return response()->json(['message' => 'History item dan stok berhasil diperbarui.']);
+        return response()->json(['message' => 'History berhasil diperbarui']);
     }
 }

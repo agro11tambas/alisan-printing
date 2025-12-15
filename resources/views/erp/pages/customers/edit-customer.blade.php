@@ -101,10 +101,7 @@
                                                 <div class="col-lg-5 mb-0">
                                                     <div class="input-group">
                                                         <div class="input-group-text"><i class="feather-book"></i></div>
-                                                        <input type="text" class="form-control"
-                                                            name="addresses[{{ $index }}][address]"
-                                                            value="{{ old("addresses.$index.address", $address->address) }}"
-                                                            placeholder="Address">
+                                                        <textarea class="form-control" name="addresses[{{ $index }}][address]" placeholder="Address">{{ old("addresses.$index.address", $address->address) }}</textarea>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-3 mb-0">
@@ -138,6 +135,31 @@
     </div>
 @endsection
 
+@push('modals')
+    <!-- Modal Konfirmasi Hapus -->
+    <div class="modal fade" id="deleteAddressModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white">Hapus Alamat?</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Apakah Anda yakin ingin menghapus alamat ini?
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="confirmDeleteBtn" class="btn btn-danger">Yes, Delete</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+@endpush
+
 @push('scripts')
     <script>
         let addressIndex = {{ $customer->addresses->count() }};
@@ -167,7 +189,7 @@
             <div class="col-lg-5 mb-0">
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-book"></i></div>
-                    <input type="text" class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address">
+                    <textarea class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address"></textarea>
                 </div>
             </div>
             <div class="col-lg-3 mb-0">
@@ -185,11 +207,33 @@
             updateRemoveButtons();
         });
 
+        let addressToDelete = null;
+
+        // EVENT REMOVE ADDRESS (BUKA MODAL)
         document.getElementById('addresses').addEventListener('click', function(e) {
-            if (e.target.closest('.btn-remove')) {
-                e.target.closest('.address-group').remove();
+            const btn = e.target.closest('.btn-remove');
+            if (!btn) return;
+
+            // Simpan elemen address-item yg mau dihapus
+            addressToDelete = btn.closest('.address-group');
+
+            // Tampilkan modal
+            const modalEl = document.getElementById('deleteAddressModal');
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        });
+
+        // KONFIRMASI DELETE
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            if (addressToDelete) {
+                addressToDelete.remove();
                 updateRemoveButtons();
+                addressToDelete = null;
             }
+
+            const modalEl = document.getElementById('deleteAddressModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            modal.hide();
         });
 
         document.addEventListener('DOMContentLoaded', updateRemoveButtons);
@@ -226,7 +270,7 @@
 
             const addressGroups = form.querySelectorAll('.address-group');
             addressGroups.forEach((group, index) => {
-                const addressInput = group.querySelector(`input[name^="addresses"][name$="[address]"]`);
+                const addressInput = group.querySelector(`textarea[name^="addresses"][name$="[address]"]`);
                 const mapsInput = group.querySelector(`input[name^="addresses"][name$="[google_maps]"]`);
 
                 if (!addressInput || addressInput.value.trim() === '') {

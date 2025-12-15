@@ -142,22 +142,88 @@
                                     <tr>
                                         <th class="wd-30">No</th>
                                         <th>Item Name</th>
-                                        <th>Stock After Sales</th>
-                                        <th class="warehouse-col">Opening Stock (Warehouse)</th>
-                                        <th class="warehouse-col">Current Stock (Warehouse)</th>
-                                        <th class="warehouse-col">Incoming Stock (Warehouse)</th>
-                                        <th class="warehouse-col ">Incoming Stock Completed (Warehouse)</th>
-                                        <th class="warehouse-col">Outgoing Stock (Warehouse)</th>
-                                        <th class="warehouse-col ">Outgoing Stock Completed (Warehouse)</th>
+                                        <th>SAS</th>
+                                        <th class="warehouse-col">
+                                            <span class="text-danger">
+                                                <small>Utama</small> <br>
+                                                Stock (W)
+                                            </span>
+                                        </th>
+                                        <th class="warehouse-col">
+                                            <span class="text-warning">
+                                                <small>Opening</small> <br>
+                                                Opening (W)
+                                            </span>
+                                        </th>
+                                        <th class="warehouse-col">
+                                            <small>Ongoing</small> <br>
+                                            Incoming (W)
+                                        </th>
+                                        <th class="warehouse-col">
+                                            <span class="text-primary">
+                                                <small>Completed</small> <br>
+                                                Incoming (W)
+                                            </span>
+                                        </th>
+                                        <th class="warehouse-col">
+                                            <small>Ongoing</small> <br>
+                                            Outgoing (W)
+                                        </th>
+                                        <th class="warehouse-col ">
+                                            <span class="text-primary">
+                                                <small>Completed</small> <br>
+                                                Outgoing (W)
+                                            </span>
+                                        </th>
 
-                                        <th class="production-col">Opening Stock (Production)</th>
-                                        <th class="production-col">Current Stock (Production)</th>
-                                        <th class="production-col">Incoming Stock (Production)</th>
-                                        <th class="production-col ">Incoming Stock Completed (Production)</th>
-                                        <th class="production-col">Waiting List</th>
-                                        <th class="production-col">Assigned</th>
-                                        <th class="production-col">Finished Products</th>
-                                        <th class="production-col">On Delivery</th>
+                                        <th class="production-col">
+                                            <span class="text-danger">
+                                                <small>Utama</small> <br>
+                                                Stock (P)
+                                            </span>
+                                        </th>
+                                        <th class="production-col">
+                                            <span class="text-warning">
+                                                <small>Opening</small> <br>
+                                                Opening (P)
+                                            </span>
+                                        </th>
+                                        <th class="production-col">
+                                            <small>Ongoing</small> <br>
+                                            Incoming (P)
+                                        </th>
+                                        <th class="production-col ">
+                                            <span class="text-primary">
+                                                <small>Completed</small> <br>
+                                                Incoming (P)
+                                            </span>
+                                        </th>
+                                        <th class="production-col">
+                                            <small>Ongoing</small> <br>
+                                            Waiting List
+                                        </th>
+                                        <th class="production-col">
+                                            <small>Ongoing</small> <br>
+                                            Assigned
+                                        </th>
+                                        <th class="production-col">
+                                            <small>Total</small> <br>
+                                            Total Assigned
+                                        </th>
+                                        <th class="production-col">
+                                            <small>Ongoing</small> <br>
+                                            Finished
+                                        </th>
+                                        <th class="production-col">
+                                            <small>Ongoing</small> <br>
+                                            On Delivery
+                                        </th>
+                                        <th class="production-col">
+                                            <span class="text-primary">
+                                                <small>Completed</small> <br>
+                                                Delivered
+                                            </span>
+                                        </th>
                                         <th>Avg. Cost</th>
                                         <th>Fixed Cost</th>
                                     </tr>
@@ -196,7 +262,7 @@
                     [1, 'asc']
                 ],
                 columnDefs: [{
-                    targets: [6, 8, 12],
+                    targets: [4, 6, 8, 10, 12, 18],
                     visible: false
                 }],
                 data: [],
@@ -212,10 +278,10 @@
                         data: 'stock_after_sales'
                     },
                     {
-                        data: 'opening_stock_warehouse'
+                        data: 'inventory_stock'
                     },
                     {
-                        data: 'inventory_stock'
+                        data: 'opening_stock_warehouse'
                     },
                     {
                         data: 'incoming_stock'
@@ -230,10 +296,10 @@
                         data: 'outgoing_stock_completed'
                     },
                     {
-                        data: 'production_opening_stock'
+                        data: 'production_available'
                     },
                     {
-                        data: 'production_available'
+                        data: 'production_opening_stock'
                     },
                     {
                         data: 'incoming_stock_production'
@@ -248,10 +314,16 @@
                         data: 'assigned_minus_completed'
                     },
                     {
+                        data: 'assigned_total'
+                    },
+                    {
                         data: 'finished_product_stock'
                     },
                     {
                         data: 'on_delivery'
+                    },
+                    {
+                        data: 'completed_delivery'
                     },
                     {
                         data: 'avg_cost'
@@ -370,7 +442,7 @@
                 }
             });
 
-            let completedIndexes = [6, 8, 12];
+            let completedIndexes = [4, 6, 8, 10, 12, 18];
             let expanded = false;
 
             $("#toggleCompleted").on("click", function() {

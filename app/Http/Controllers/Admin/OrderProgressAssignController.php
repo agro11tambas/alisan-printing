@@ -666,18 +666,16 @@ class OrderProgressAssignController extends Controller
 
     public function AssignSummary(Request $request)
     {
-        $query = OrderProgressAssign::with([
-            'progressItem.product',
-            'assignBatch',
-            'product' // WAJIB
-        ]);
+        // BASE QUERY
+        $query = OrderProgressAssign::query()
+            ->with(['progressItem.product', 'batch', 'product']);
 
-        // ====== FILTER TANGGAL ======
+        // ================== FILTER TANGGAL ==================
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
                     $query->whereHas(
-                        'assignBatch',
+                        'batch',
                         fn($q) =>
                         $q->whereDate('assign_date', Carbon::today())
                     );
@@ -685,15 +683,18 @@ class OrderProgressAssignController extends Controller
 
                 case 'last_7_days':
                     $query->whereHas(
-                        'assignBatch',
+                        'batch',
                         fn($q) =>
-                        $q->whereBetween('assign_date', [Carbon::now()->subDays(7), Carbon::now()])
+                        $q->whereBetween('assign_date', [
+                            Carbon::now()->subDays(7),
+                            Carbon::now()
+                        ])
                     );
                     break;
 
                 case 'this_month':
                     $query->whereHas(
-                        'assignBatch',
+                        'batch',
                         fn($q) =>
                         $q->whereMonth('assign_date', Carbon::now()->month)
                             ->whereYear('assign_date', Carbon::now()->year)
@@ -702,23 +703,29 @@ class OrderProgressAssignController extends Controller
 
                 case 'last_30_days':
                     $query->whereHas(
-                        'assignBatch',
+                        'batch',
                         fn($q) =>
-                        $q->whereBetween('assign_date', [Carbon::now()->subDays(30), Carbon::now()])
+                        $q->whereBetween('assign_date', [
+                            Carbon::now()->subDays(30),
+                            Carbon::now()
+                        ])
                     );
                     break;
 
                 case 'year_to_date':
                     $query->whereHas(
-                        'assignBatch',
+                        'batch',
                         fn($q) =>
-                        $q->whereBetween('assign_date', [Carbon::now()->startOfYear(), Carbon::now()])
+                        $q->whereBetween('assign_date', [
+                            Carbon::now()->startOfYear(),
+                            Carbon::now()
+                        ])
                     );
                     break;
 
                 case 'yearly':
                     $query->whereHas(
-                        'assignBatch',
+                        'batch',
                         fn($q) =>
                         $q->whereYear('assign_date', Carbon::now()->year)
                     );
@@ -727,16 +734,19 @@ class OrderProgressAssignController extends Controller
                 case 'custom':
                     if ($request->start_date && $request->end_date) {
                         $query->whereHas(
-                            'assignBatch',
+                            'batch',
                             fn($q) =>
-                            $q->whereBetween('assign_date', [$request->start_date, $request->end_date])
+                            $q->whereBetween('assign_date', [
+                                $request->start_date,
+                                $request->end_date
+                            ])
                         );
                     }
                     break;
             }
         }
 
-        // ====== FILTER PRODUCT ======
+        // ================== FILTER PRODUCT ==================
         if ($request->filled('product')) {
             $key = strtolower(trim($request->product));
 
@@ -753,43 +763,71 @@ class OrderProgressAssignController extends Controller
             });
         }
 
-        $summary = OrderProgressAssign::query()
+        // ======================================================
+        // 1) Ambil daftar semua product yang pernah muncul di Assign
+        // ======================================================
+        $allProducts = OrderProgressAssign::query()
             ->leftJoin('order_progress_items', 'order_progress_items.id', '=', 'order_progress_assigns.order_progress_item_id')
-            ->leftJoin('products', 'products.id', '=', DB::raw('
-        CASE 
-            WHEN order_progress_assigns.product_id IS NOT NULL 
-            THEN order_progress_assigns.product_id 
-            ELSE order_progress_items.product_id 
-        END
-    '))
-            ->when($request->filter, function ($q) use ($request) {
-                // (filter bawaanmu tetap dipakai)
-            })
             ->selectRaw("
-        CASE 
-            WHEN order_progress_assigns.product_id IS NOT NULL 
-            THEN order_progress_assigns.product_id 
-            ELSE order_progress_items.product_id 
-        END AS final_product_id,
-        SUM(order_progress_assigns.assigned_quantity) AS total_assigned_qty
-    ")
+            DISTINCT 
+            CASE 
+                WHEN order_progress_assigns.product_id IS NOT NULL 
+                THEN order_progress_assigns.product_id 
+                ELSE order_progress_items.product_id 
+            END AS final_product_id
+        ")
+            ->pluck('final_product_id');
+
+        // ======================================================
+        // 2) Summary hasil filter tanggal (qty bisa hilang → nanti dibuat 0)
+        // ======================================================
+
+        // ORIGINAL SUMMARY QUERY (DIBIARKAN, DITUTUP KOMENTAR)
+        /*
+    $base = $query->getQuery(); 
+
+    $summary = $base
+        ->leftJoin('order_progress_items', 'order_progress_items.id', '=', 'order_progress_assigns.order_progress_item_id')
+        ->selectRaw("
+            CASE 
+                WHEN order_progress_assigns.product_id IS NOT NULL 
+                THEN order_progress_assigns.product_id 
+                ELSE order_progress_items.product_id 
+            END AS final_product_id,
+            SUM(order_progress_assigns.assigned_quantity) AS total_assigned_qty
+        ")
+        ->groupBy('final_product_id')
+        ->get();
+    */
+
+        // → SOLUSI SUMMARY BARU (TETAP MENGGUNAKAN FILTER TANGGAL)
+        $summary = $query->clone()
+            ->leftJoin('order_progress_items', 'order_progress_items.id', '=', 'order_progress_assigns.order_progress_item_id')
+            ->selectRaw("
+            CASE 
+                WHEN order_progress_assigns.product_id IS NOT NULL 
+                THEN order_progress_assigns.product_id 
+                ELSE order_progress_items.product_id 
+            END AS final_product_id,
+            SUM(order_progress_assigns.assigned_quantity) AS total_assigned_qty
+        ")
             ->groupBy('final_product_id')
-            ->get();
+            ->get()
+            ->keyBy('final_product_id'); // supaya mudah dicocokkan
 
-
-        $data = $summary->map(function ($row) {
-            $product = Products::withTrashed()->find($row->final_product_id);
+        // ======================================================
+        // 3) FORMAT RESULT — gabungkan allProducts + summary
+        // ======================================================
+        $data = collect($allProducts)->map(function ($productId) use ($summary) {
+            $product = Products::withTrashed()->find($productId);
 
             return [
                 'product_name'        => $product->name ?? '-',
                 'sku'                 => $product->sku ?? '-',
-                // 'unit'                => $product->unit ?? '-',
-                'total_assigned_qty'  => $row->total_assigned_qty
+                'total_assigned_qty'  => $summary[$productId]->total_assigned_qty ?? 0, // JIKA TIDAK ADA → 0
             ];
         });
 
-        return response()->json([
-            'data' => $data,
-        ]);
+        return response()->json(['data' => $data]);
     }
 }

@@ -21,6 +21,12 @@
             overflow-y: auto !important;
         }
 
+        #assignSummaryTable_wrapper .dataTables_scrollBody {
+            background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
         .dataTables_scrollBody {
             scroll-behavior: smooth;
         }
@@ -180,8 +186,8 @@
                                     <table class="table table-hover bg-transparent" id="assignBatchTable">
                                         <thead>
                                             <tr>
-                                                <th class="wd-250">Invoice Number</th>
-                                                <th class="wd-250">Customer</th>
+                                                <th>Invoice Number</th>
+                                                <th>Customer</th>
                                                 <th>Assign List</th>
                                                 <th>Order Notes</th>
                                             </tr>
@@ -195,9 +201,9 @@
                                     <table class="table table-hover bg-transparent" id="assignSummaryTable">
                                         <thead>
                                             <tr>
-                                                <th class="wd-300">Product</th>
-                                                <th class="wd-150">SKU</th>
-                                                <th class="wd-150">Total Assigned Qty</th>
+                                                <th style="60%">Product</th>
+                                                <th style="20%">SKU</th>
+                                                <th style="20%">Total Assigned Qty</th>
                                                 {{-- <th class="wd-100">Unit</th> --}}
                                             </tr>
                                         </thead>
@@ -505,15 +511,14 @@
                     processing: true,
                     serverSide: false,
                     ajax: {
-                        url: "/erp/productions/assign-list/summary",
+                        url: "/erp/productions/waiting-list/assign-list/summary",
                         data: function(d) {
                             d.filter = $('#filter').val();
                             d.start_date = $('#start_date').val();
                             d.end_date = $('#end_date').val();
                             d.search_type = $('#search_type').val();
                             d.search_keyword = $('#search_keyword').val();
-                            d.search_product = $('#search_product').val();
-                            d.progress_status = $('#progress_status').val();
+                            d.product = $('#search_product').val();
                         }
                     },
                     columns: [{
@@ -552,6 +557,13 @@
                     }
                 }
             });
+
+            $('#filter, #start_date, #end_date, #search_product')
+                .on('change keyup', function() {
+                    if (summaryTableInitialized) {
+                        summaryTable.ajax.reload();
+                    }
+                });
 
         });
 

@@ -73,6 +73,46 @@
         #notes::placeholder {
             font-size: 16px;
         }
+
+        .product-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            /* background: #fff; */
+        }
+
+        .product-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .product-number {
+            font-weight: 600;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+
+        .product-col-span-2 {
+            grid-column: span 2;
+        }
+
+        /* MOBILE */
+        @media (max-width: 768px) {
+            .product-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .product-col-span-2 {
+                grid-column: span 1;
+            }
+        }
     </style>
 @endpush
 
@@ -376,7 +416,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card stretch stretch-full">
+                    {{-- <div class="card stretch stretch-full">
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-lg-12">
@@ -399,9 +439,6 @@
                                             <tbody id="tab_logic">
                                                 @foreach ($order->orderItems as $index => $item)
                                                     <tr id="addr{{ $index }}">
-                                                        <!-- Untuk setiap baris product -->
-                                                        {{-- <input type="hidden" name="order_item_ids[]"
-                                                            value="{{ $item->id ?? null }}"> --}}
                                                         <td>{{ $index + 1 }}</td>
                                                         <td>
                                                             <select class="form-control select-product" name="product[]"
@@ -481,7 +518,6 @@
                                         </table>
                                     </div>
                                     <div class="d-flex justify-content-end gap-2 mt-3">
-                                        <!-- <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button> -->
                                         <button type="button" id="add_row" class="btn btn-md btn-primary">Add
                                             Items</button>
                                     </div>
@@ -538,7 +574,206 @@
                                 </div>
                             </div>
                         </div>
+                    </div> --}}
+                    <div class="card stretch stretch-full">
+                        <div class="card-body">
+
+                            <div class="mb-4">
+                                <h5 class="fw-bold">Add Products:</h5>
+                            </div>
+
+                            <!-- PRODUCT LIST -->
+                            <div id="product_list">
+                                @foreach ($order->orderItems as $index => $item)
+                                    <div class="product-item" data-index="{{ $index }}">
+                                        <div class="product-item-header">
+                                            <span class="product-number">#{{ $index + 1 }}</span>
+                                            <button type="button" class="btn btn-sm btn-danger delete-row">
+                                                <i class="feather-trash"></i>
+                                            </button>
+                                        </div>
+
+                                        <div class="product-grid">
+
+                                            <div class="form-group product-col-span-2">
+                                                <label>Product</label>
+                                                <select class="form-select select-product" name="product[]"
+                                                    data-select2-selector="status">
+                                                    <option value="" disabled hidden>Pilih produk</option>
+
+                                                    @foreach ($products as $prod)
+                                                        <option value="satuan_{{ $prod->id }}"
+                                                            {{ $item->satuan === 'satuan' && $item->product_id == $prod->id ? 'selected' : '' }}
+                                                            data-price="{{ $prod->price }}"
+                                                            data-discounts='@json($prod->discounts ?? [])'
+                                                            data-categories='@json($prod->categories ?? [])'
+                                                            data-type="satuan">
+                                                            {{ $prod->name }}
+                                                        </option>
+                                                    @endforeach
+
+                                                    @foreach ($productBundles as $bundle)
+                                                        <option value="bundle_{{ $bundle->id }}"
+                                                            {{ $item->satuan === 'bundle' && $item->product_bundle_id == $bundle->id ? 'selected' : '' }}
+                                                            data-price="{{ $bundle->price }}"
+                                                            data-discounts='@json($bundle->discounts ?? [])'
+                                                            data-categories='@json($bundle->categories ?? [])'
+                                                            data-type="bundle">
+                                                            {{ $bundle->name }} (Bundle)
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+
+                                            <input type="hidden" name="product_type[]" class="product-type"
+                                                value="{{ $item->satuan }}">
+
+                                            <div class="form-group">
+                                                <label>Qty</label>
+                                                <input type="text" name="qty[]" class="form-control qty"
+                                                    inputmode="numeric"
+                                                    value="{{ number_format($item->quantity, 0, ',', '.') }}">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Price</label>
+                                                <input type="text" class="form-control price_before_discount_display"
+                                                    value="{{ number_format($item->price, 0, ',', '.') }}">
+                                                <input type="hidden" name="price_before_discount[]"
+                                                    class="price_before_discount"
+                                                    value="{{ number_format($item->price, 2, '.', '') }}">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Total</label>
+                                                <input type="text" class="form-control total_before_discount_display"
+                                                    readonly
+                                                    value="{{ number_format($item->price * $item->quantity, 0, ',', '.') }}">
+                                                <input type="hidden" name="total_before_discount[]"
+                                                    class="total_before_discount"
+                                                    value="{{ number_format($item->price * $item->quantity, 2, '.', '') }}">
+                                            </div>
+
+                                            <input type="hidden" name="price_after_discount[]"
+                                                class="price_after_discount" value="{{ $item->price_after_discount }}">
+
+                                            <input type="hidden" name="total_after_discount[]"
+                                                class="total_after_discount" value="{{ $item->total_after_discount }}">
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <template id="product_item_template">
+                                <div class="product-item" data-index="__index__">
+                                    <div class="product-item-header">
+                                        <span class="product-number">#__number__</span>
+                                        <button type="button" class="btn btn-sm btn-danger delete-row">
+                                            <i class="feather-trash"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="product-grid">
+
+                                        <div class="form-group product-col-span-2">
+                                            <label>Product</label>
+                                            <select class="form-select select-product" name="product[]"
+                                                data-select2-selector="status">
+                                                <option value="" disabled selected hidden>Pilih produk</option>
+                                            </select>
+                                        </div>
+
+                                        <input type="hidden" name="product_type[]" class="product-type">
+
+                                        <div class="form-group">
+                                            <label>Qty</label>
+                                            <input type="text" name="qty[]" class="form-control qty"
+                                                inputmode="numeric" value="1">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Price</label>
+                                            <input type="text" class="form-control price_before_discount_display"
+                                                value="0">
+                                            <input type="hidden" name="price_before_discount[]"
+                                                class="price_before_discount" value="0">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Total</label>
+                                            <input type="text" class="form-control total_before_discount_display"
+                                                readonly value="0">
+                                            <input type="hidden" name="total_before_discount[]"
+                                                class="total_before_discount" value="0">
+                                        </div>
+
+                                        <input type="hidden" name="price_after_discount[]" class="price_after_discount"
+                                            value="0">
+                                        <input type="hidden" name="total_after_discount[]" class="total_after_discount"
+                                            value="0">
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- ADD -->
+                            <div class="d-flex justify-content-end mt-3">
+                                <button type="button" id="add_row" class="btn btn-primary">
+                                    Add Item
+                                </button>
+                            </div>
+
+                            <div class="col-lg-12">
+                                <div class="row justify-content-end">
+                                    <div class="col-lg-4 mt-3">
+                                        <div class="mb-4">
+                                            <h5 class="fw-bold">Grand Total:</h5>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered" id="tab_logic_total">
+                                                <tbody>
+                                                    <tr>
+                                                        <th class="fs-10 text-dark text-uppercase">Sub Total (Before
+                                                            Discount)</th>
+                                                        <td>
+                                                            <input type="text" id="sub_total_display"
+                                                                class="form-control" readonly
+                                                                value="{{ number_format($order->sub_total ?? 0, 2, ',', '.') }}">
+                                                            <input type="hidden" name="sub_total" id="sub_total"
+                                                                value="{{ number_format($order->sub_total ?? 0, 2, '.', '') }}">
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th class="fs-10 text-dark text-uppercase">Total Discount</th>
+                                                        <td>
+                                                            <input type="text" id="total_discount_display"
+                                                                class="form-control text-danger" readonly
+                                                                value="{{ number_format($order->total_discount ?? 0, 2, ',', '.') }}">
+                                                            <input type="hidden" name="total_discount"
+                                                                id="total_discount"
+                                                                value="{{ number_format($order->total_discount ?? 0, 2, '.', '') }}">
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
+                                                            Total</th>
+                                                        <td>
+                                                            <input type="text" id="total_amount_display"
+                                                                class="form-control bg-gray-100 fw-700 text-success"
+                                                                readonly
+                                                                value="{{ number_format($order->total_amount ?? 0, 2, ',', '.') }}">
+                                                            <input type="hidden" name="total_amount" id="total_amount"
+                                                                value="{{ number_format($order->total_amount ?? 0, 2, '.', '') }}">
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
                 </form>
             </div>
         </div>
@@ -669,6 +904,26 @@
                 label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
             }
 
+            $('.product-item').each(function() {
+                const select = $(this).find('.select-product');
+
+                const selectedVal = select.val();
+                let selectedType = null,
+                    selectedId = null;
+
+                if (selectedVal) {
+                    [selectedType, selectedId] = selectedVal.split('_');
+                }
+
+                populateProducts(select[0], selectedId, selectedType);
+
+                select.select2({
+                    placeholder: 'Pilih produk',
+                    width: '100%'
+                });
+            });
+
+
             recalcAllRows(); // ✅ hitung ulang setelah semuanya siap
         });
 
@@ -765,15 +1020,27 @@
             const selectedOption = row.find('select[name="product[]"] option:selected');
 
             // 🔥 ambil nilai input manual dari HIDDEN
-            let manualPrice = row.find('input.price_before_discount').val();
-            manualPrice = manualPrice === "" ? null : parseFloat(manualPrice);
+            // let manualPrice = row.find('input.price_before_discount').val();
+            // manualPrice = manualPrice === "" ? null : parseFloat(manualPrice);
 
-            // 🔥 base price logic BARU:
-            // - kalau user sudah input (termasuk 0), pakai input user
-            // - kalau belum pernah input, pakai harga product
-            let basePrice = (manualPrice !== null && !isNaN(manualPrice)) ?
+            // // 🔥 base price logic BARU:
+            // // - kalau user sudah input (termasuk 0), pakai input user
+            // // - kalau belum pernah input, pakai harga product
+            // let basePrice = (manualPrice !== null && !isNaN(manualPrice)) ?
+            //     manualPrice :
+            //     (parseFloat(selectedOption.data('price')) || 0);
+
+            let manualPriceRaw = row.find('input.price_before_discount').val();
+
+            // 🔥 anggap "0" sebagai BELUM DISET
+            let manualPrice = (manualPriceRaw === '' || manualPriceRaw === '0') ?
+                null :
+                parseFloat(manualPriceRaw);
+
+            let basePrice = manualPrice !== null ?
                 manualPrice :
                 (parseFloat(selectedOption.data('price')) || 0);
+
 
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
@@ -857,8 +1124,15 @@
             row.find('.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
         }
 
+        // function recalcAllRows() {
+        //     $('tr[id^="addr"]').each(function() {
+        //         calculateRow($(this));
+        //     });
+        //     calcTotalSummary();
+        // }
+
         function recalcAllRows() {
-            $('tr[id^="addr"]').each(function() {
+            $('.product-item').each(function() {
                 calculateRow($(this));
             });
             calcTotalSummary();
@@ -895,126 +1169,183 @@
             calculateRow(row);
         }
 
-        function initSelect2() {
-            $('[data-select2-selector="status"]').select2({
-                placeholder: 'Pilih produk',
-                width: '100%'
-            }).each(function() {
-                if ($(this).hasClass('select-product')) {
-                    const selectedVal = $(this).val();
-                    const selectedType = $(this).closest('tr').find('.product-type').val();
-                    const selectedId = selectedVal ? selectedVal.split('_')[1] : null;
-                    populateProducts(this, selectedId, selectedType);
-                }
-            });
-        }
+        // function initSelect2() {
+        //     $('[data-select2-selector="status"]').select2({
+        //         placeholder: 'Pilih produk',
+        //         width: '100%'
+        //     }).each(function() {
+        //         if ($(this).hasClass('select-product')) {
+        //             const selectedVal = $(this).val();
+        //             const selectedType = $(this).closest('tr').find('.product-type').val();
+        //             const selectedId = selectedVal ? selectedVal.split('_')[1] : null;
+        //             populateProducts(this, selectedId, selectedType);
+        //         }
+        //     });
+        // }
 
         document.addEventListener('DOMContentLoaded', function() {
-            initSelect2();
+            // initSelect2();
             recalcAllRows();
 
             let rowCount = document.querySelectorAll('#tab_logic tbody tr').length;
 
+            // $('#add_row').on('click', function() {
+            //     const tableBody = $('#tab_logic tbody');
+            //     const newRow = $(`
+        //         <tr id="addr${rowCount}">
+        //             <td>${rowCount + 1}</td>
+
+        //             <td>
+        //                 <select class="form-control select-product" 
+        //                     name="product[]" 
+        //                     id="product_${rowCount}"
+        //                     data-select2-selector="status">
+        //                     <option value="" disabled selected hidden>Pilih produk</option>
+        //                 </select>
+        //             </td>
+
+        //             <input type="hidden" 
+        //                 name="product_type[]" 
+        //                 id="product_type_${rowCount}"
+        //                 class="form-control product-type" 
+        //                 readonly>
+
+        //             <td>
+        //                 <input type="text" 
+        //                     name="qty[]" 
+        //                     class="form-control qty"
+        //                     id="qty_${rowCount}"
+        //                     value="1"
+        //                     inputmode="numeric">
+        //             </td>
+
+        //             <td>
+        //                 <input type="text"
+        //                     class="form-control price_before_discount_display"
+        //                     value="0">
+
+        //                 <input type="hidden"
+        //                     name="price_before_discount[]"
+        //                     class="price_before_discount"
+        //                     id="price_before_discount_${rowCount}"
+        //                     value="0">
+        //             </td>
+
+        //             <td>
+        //                 <input type="text"
+        //                     class="form-control total_before_discount_display"
+        //                     readonly
+        //                     value="0">
+
+        //                 <input type="hidden"
+        //                     name="total_before_discount[]"
+        //                     class="total_before_discount"
+        //                     id="total_before_discount_${rowCount}"
+        //                     value="0">
+        //             </td>
+
+        //             <td class="text-center">
+        //                 <div class="d-flex justify-content-center">
+        //                     <button type="button" class="btn btn-danger delete-row">
+        //                         <i class="feather-trash"></i>
+        //                     </button>
+        //                 </div>          
+        //             </td>
+
+        //             <input type="hidden" 
+        //                 name="price_after_discount[]" 
+        //                 class="price_after_discount"
+        //                 id="price_after_discount_${rowCount}"
+        //                 value="0">
+
+        //             <input type="hidden" 
+        //                 name="total_after_discount[]" 
+        //                 class="total_after_discount"
+        //                 id="total_after_discount_${rowCount}"
+        //                 value="0">
+        //         </tr>
+        //     `);
+
+            //     tableBody.append(newRow);
+            //     initSelect2(newRow.find('.select-product'));
+            //     rowCount++;
+            // });
+
             $('#add_row').on('click', function() {
-                const tableBody = $('#tab_logic tbody');
-                const newRow = $(`
-                    <tr id="addr${rowCount}">
-                        <td>${rowCount + 1}</td>
+                const index = $('.product-item').length;
 
-                        <td>
-                            <select class="form-control select-product" 
-                                name="product[]" 
-                                id="product_${rowCount}"
-                                data-select2-selector="status">
-                                <option value="" disabled selected hidden>Pilih produk</option>
-                            </select>
-                        </td>
+                const html = document.getElementById('product_item_template')
+                    .innerHTML
+                    .replace(/__index__/g, index)
+                    .replace(/__number__/g, index + 1);
 
-                        <input type="hidden" 
-                            name="product_type[]" 
-                            id="product_type_${rowCount}"
-                            class="form-control product-type" 
-                            readonly>
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = html;
 
-                        <td>
-                            <input type="text" 
-                                name="qty[]" 
-                                class="form-control qty"
-                                id="qty_${rowCount}"
-                                value="1"
-                                inputmode="numeric">
-                        </td>
+                const item = wrapper.firstElementChild;
+                $('#product_list').append(item);
 
-                        <td>
-                            <input type="text"
-                                class="form-control price_before_discount_display"
-                                value="0">
-
-                            <input type="hidden"
-                                name="price_before_discount[]"
-                                class="price_before_discount"
-                                id="price_before_discount_${rowCount}"
-                                value="0">
-                        </td>
-
-                        <td>
-                            <input type="text"
-                                class="form-control total_before_discount_display"
-                                readonly
-                                value="0">
-
-                            <input type="hidden"
-                                name="total_before_discount[]"
-                                class="total_before_discount"
-                                id="total_before_discount_${rowCount}"
-                                value="0">
-                        </td>
-
-                        <td class="text-center">
-                            <div class="d-flex justify-content-center">
-                                <button type="button" class="btn btn-danger delete-row">
-                                    <i class="feather-trash"></i>
-                                </button>
-                            </div>          
-                        </td>
-
-                        <input type="hidden" 
-                            name="price_after_discount[]" 
-                            class="price_after_discount"
-                            id="price_after_discount_${rowCount}"
-                            value="0">
-
-                        <input type="hidden" 
-                            name="total_after_discount[]" 
-                            class="total_after_discount"
-                            id="total_after_discount_${rowCount}"
-                            value="0">
-                    </tr>
-                `);
-
-                tableBody.append(newRow);
-                initSelect2(newRow.find('.select-product'));
-                rowCount++;
-            });
-
-            $(document).on('click', '.delete-row', function() {
-                $(this).closest('tr').remove();
-
-                $('#tab_logic tbody tr').each(function(i, el) {
-                    $(el).find('td:first').text(i + 1);
+                populateProducts(item.querySelector('.select-product'));
+                $(item).find('.select-product').select2({
+                    width: '100%'
                 });
 
-                rowCount = $('#tab_logic tbody tr').length;
                 recalcAllRows();
             });
 
-            $(document).on('change', 'select[name="product[]"]', function() {
-                const row = $(this).closest('tr');
-                updateRowTypeAndPrice(row);
+            // $(document).on('click', '.delete-row', function() {
+            //     $(this).closest('tr').remove();
+
+            //     $('#tab_logic tbody tr').each(function(i, el) {
+            //         $(el).find('td:first').text(i + 1);
+            //     });
+
+            //     rowCount = $('#tab_logic tbody tr').length;
+            //     recalcAllRows();
+            // });
+
+            $(document).on('click', '.delete-row', function() {
+                $(this).closest('.product-item').remove();
+
+                $('.product-item').each(function(i) {
+                    $(this).attr('data-index', i);
+                    $(this).find('.product-number').text('#' + (i + 1));
+                });
+
                 recalcAllRows();
             });
 
-            $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
+            // $(document).on('change', 'select[name="product[]"]', function() {
+            //     const row = $(this).closest('tr');
+            //     updateRowTypeAndPrice(row);
+            //     recalcAllRows();
+            // });
+
+            // $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
+
+            // $(document).on('change', '.select-product', function() {
+            //     const row = $(this).closest('.product-item');
+            //     const type = $(this).find(':selected').data('type') || '';
+            //     row.find('.product-type').val(type);
+            //     recalcAllRows();
+            // });
+
+            $(document).on('change', '.select-product', function() {
+                const row = $(this).closest('.product-item');
+                const selected = $(this).find(':selected');
+
+                const type = selected.data('type') || '';
+                const price = parseFloat(selected.data('price')) || 0;
+
+                // 🔥 SET HARGA DB KE HIDDEN
+                row.find('.product-type').val(type);
+                row.find('.price_before_discount').val(price.toFixed(2));
+
+                recalcAllRows();
+            });
+
+
+            $(document).on('input', '.qty, .price_before_discount_display', recalcAllRows);
         });
 
         $(document).ready(function() {
@@ -1183,7 +1514,9 @@
         $(document).on('input', '.price_before_discount_display', function() {
             // if (!isOwner) return; // hanya Owner yang bisa ubah harga
 
-            const row = $(this).closest('tr');
+            // const row = $(this).closest('tr');
+            const row = $(this).closest('.product-item');
+
             let rawValue = $(this).val().replace(/\D/g, '');
             if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
 
@@ -1212,9 +1545,20 @@
         });
 
         $('#orderForm').on('submit', function() {
+            // $('input[name="qty[]"]').each(function() {
+            //     const raw = $(this).val().replace(/\./g, '');
+            //     $(this).val(raw);
+            // });
+
             $('input[name="qty[]"]').each(function() {
-                const raw = $(this).val().replace(/\./g, '');
-                $(this).val(raw);
+                $(this).val($(this).val().replace(/\./g, ''));
+            });
+
+            // pastikan price hidden valid
+            $('input.price_before_discount').each(function() {
+                if ($(this).val() === '' || isNaN($(this).val())) {
+                    $(this).val(0);
+                }
             });
         });
 

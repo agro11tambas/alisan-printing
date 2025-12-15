@@ -18,6 +18,7 @@ class Customers extends Model
         'name',
         'phone',
         'customer_deposit',
+        'user_id',
     ];
 
     protected $casts = [

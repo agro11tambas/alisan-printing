@@ -155,10 +155,10 @@
                                 <a class="nav-link active" id="request-stock-tab" data-bs-toggle="tab" href="#request-stock"
                                     role="tab">Request Stock</a>
                             </li>
-                            <li class="nav-item">
+                            {{-- <li class="nav-item">
                                 <a class="nav-link" id="deleted-request-stock-tab" data-bs-toggle="tab"
                                     href="#deleted-request-stock" role="tab">Deleted Request Stock</a>
-                            </li>
+                            </li> --}}
                             <li class="nav-item">
                                 <a class="nav-link" id="request-summary-tab" data-bs-toggle="tab" href="#request-summary"
                                     role="tab">Request Summary</a>
@@ -181,11 +181,11 @@
                                         </thead>
                                     </table>
                                 </div>
-                                <div class="tab-pane fade" id="deleted-request-stock" role="tabpanel">
+                                {{-- <div class="tab-pane fade" id="deleted-request-stock" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="deletedRequestStockTable">
                                         <thead>
                                             <tr>
-                                                {{-- <th class="wd-30">No</th> --}}
+                                                // <th class="wd-30">No</th>
                                                 <th class="wd-150">Request By</th>
                                                 <th class="wd-150">Date</th>
                                                 <th class="wd-550">Items</th>
@@ -194,7 +194,7 @@
                                             </tr>
                                         </thead>
                                     </table>
-                                </div>
+                                </div> --}}
                                 <div class="tab-pane fade" id="request-summary" role="tabpanel">
                                     <table class="table table-hover bg-transparent" id="requestSummaryTable">
                                         <thead>

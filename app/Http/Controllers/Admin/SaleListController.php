@@ -68,12 +68,17 @@ class SaleListController extends Controller
 
     public function dataSaleList(Request $request)
     {
+        $user = Auth::user();
         $length = (int) $request->input('length', 50);
         $start = (int) $request->input('start', 0);
 
-        $orders = Order::with(['customer'])
+        $orders = Order::with(['customer', 'user'])
             ->where('status', 'sale list')
             ->orderBy('order_date', 'desc');
+
+        if (in_array($user->role, ['Sales'])) {
+            $orders->where('user_id', $user->id);
+        }
 
         if ($request->filled('show_edited') && $request->show_edited == 1) {
             $orders->where('status_edited', 1);
@@ -220,15 +225,21 @@ class SaleListController extends Controller
                 //  PAYMENT STATUS BADGE
                 // =======================
                 $paymentStatus = '
-                    <div class="d-flex align-items-center gap-1">
-                        <div class="badge ' . $badge . '">' . ucfirst($status) . '</div>'
-                    . $verifiedIcon;
+                    <div class="d-flex flex-column gap-1">
+                        <div class="d-flex align-items-center gap-1">
+                            <div class="badge ' . $badge . '">' . ucfirst($status) . '</div>'
+                    . $verifiedIcon . '
+                        </div>';
 
                 if ($isOverdue) {
-                    $paymentStatus .= '<div class="badge bg-soft-danger text-danger">Overdue</div>';
+                    $paymentStatus .= '
+                    <div>
+                        <span class="badge bg-soft-danger text-danger">Overdue</span>
+                    </div>';
                 }
 
                 $paymentStatus .= '</div>';
+
 
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
 
@@ -396,6 +407,21 @@ class SaleListController extends Controller
 
                         </div>
                     ',
+                    'customer_mobile' => '
+                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
+
+                            <div class="d-flex align-items-center fw-semibold">
+                                ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+
+                                <small class="text-muted">' . $businessName . '</small>
+
+                                <small class="ms-1 text-primary fw-bold">
+                                    (' . $orderCount . ')
+                                </small>
+                            </div>                        
+
+                        </div>
+                    ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
                     'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
                     'grand_total' => '<span class="text-primary fw-semibold">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
@@ -405,7 +431,7 @@ class SaleListController extends Controller
                             ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</small>'
                             : ''
                         ),
-                    // 'remaining_amount' => '<span class="text-danger">Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</span>',
+                    'remaining_amount' => '<span class="text-danger">Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</span>',
                     'payment_status' => $paymentStatus,
                     'status' => $statusBadge,
                     'payment_method' => e($order->payment_method ?? '-'),
@@ -435,7 +461,9 @@ class SaleListController extends Controller
 
                     'created_at' => $orderCreatedAt,
                     'mode' => $modeBadge,
+                    'user' => e($order->user?->name ?? '-'),
                     'action' => view('erp.pages.sales.sale-list.partials.action-button', compact('order'))->render(),
+                    'action_mobile' => view('erp.pages.sales.sale-list.partials.action-button-mobile', compact('order'))->render(),
                 ];
             })->values(),
             'has_more' => $totalData > ($start + $length),
@@ -1050,6 +1078,7 @@ class SaleListController extends Controller
 
             // ================== BUAT ORDER ==================
             $order = Order::create([
+                'user_id'            => Auth::id(),
                 'customer_id'        => $request->customer_id,
                 'customer_address_id' => $request->customer_address_id,
                 'order_number'     => $orderNumber,
@@ -1522,10 +1551,8 @@ class SaleListController extends Controller
         try {
             $order = Order::with('orderItems')->findOrFail($id);
 
-            // PENTING !!! TAMBAHKAN REFRESH DI SINI
             $order->refresh();
 
-            // ===== helper kecil buat bikin map item (key: satuan_{product_id} / bundle_{bundle_id})
             $mapItems = function ($items) {
                 return $items->mapWithKeys(function ($item) {
                     $key = $item->satuan === 'satuan'
@@ -1594,7 +1621,6 @@ class SaleListController extends Controller
 
             if ($onlyHeaderChanged) {
 
-                // ===== Hitung due_date (pakai logic existing) =====
                 $orderDate = Carbon::parse($request->order_date);
                 $dueDate = null;
 
@@ -1802,39 +1828,6 @@ class SaleListController extends Controller
                     break;
                 }
             }
-
-            // $hasProgressHistory = \App\Models\OrderProgressHistory::whereHas('progressItem', function ($q) use ($order) {
-            //     $q->whereHas('progress', function ($p) use ($order) {
-            //         $p->where('order_id', $order->id);
-            //     });
-            // })->exists();
-
-            // if ($hasProgressHistory) {
-            //     DB::rollBack();
-            //     return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah memiliki progress history produksi.');
-            // }
-
-            // // Cek apakah sudah ada assign
-            // $hasAssign = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
-            //     $q->where('order_id', $order->id);
-            // })->exists();
-
-            // if ($hasAssign) {
-            //     DB::rollBack();
-            //     return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah memiliki progress assign produksi.');
-            // }
-
-            // // 🔹 CEK Finished Delivery
-            // $hasFinishedDelivery = $order->deliveryOrders()
-            //     ->with('shipments')
-            //     ->get()
-            //     ->flatMap->shipments
-            //     ->contains(fn($shipment) => $shipment->status === 'Finished');
-
-            // if ($hasFinishedDelivery) {
-            //     DB::rollBack();
-            //     return back()->with('error', 'Tidak dapat mengupdate order ini karena sudah ada Delivery List yang selesai.');
-            // }
 
             if ($isProductChanged) {
 
@@ -2911,12 +2904,6 @@ class SaleListController extends Controller
 
                 $warehouseId = 2;
 
-                // ⚠️ GANTI BAGIAN INI:
-                // Jangan ambil snapshot di sini, PAKAI yang udah kamu ambil SEBELUM update item
-                // Contoh:
-                // $oldDesignProductQty = $snapshotOldDesignProductQty; // hasil dari atas function
-
-                // Ambil semua order_items SESUDAH update
                 $order->load('orderItems.productBundle.items');
                 $newProductQty = collect();
 
@@ -3022,61 +3009,6 @@ class SaleListController extends Controller
                         }
                     }
 
-                    // ❌ COMMENTED OUT - KODE LAMA (Loop manual satuan/bundle)
-                    // foreach ($order->orderItems as $orderItem) {
-                    //     $qty = $orderItem->quantity;
-                    //
-                    //     if ($orderItem->satuan === 'satuan') {
-                    //         $key = $orderItem->id . '_' . $orderItem->product_id;
-                    //         // Jika sudah ada design_item untuk order_item ini → update
-                    //         if ($existingDesignItems->has($key)) {
-                    //             $designItem = $existingDesignItems[$key];
-                    //             $designItem->update([
-                    //                 'product_id' => $orderItem->product_id,
-                    //                 'quantity'   => $qty,
-                    //             ]);
-                    //         } else {
-                    //             // Kalau belum ada, baru buat
-                    //             DesignItem::create([
-                    //                 'design_id'          => $design->id,
-                    //                 'order_item_id'      => $orderItem->id,
-                    //                 'product_id'         => $orderItem->product_id,
-                    //                 'quantity'           => $qty,
-                    //                 'completed_quantity' => 0,
-                    //                 'design_file'        => null,
-                    //                 'preview_image'      => null,
-                    //                 // tidak ubah verification_status ke pending
-                    //             ]);
-                    //         }
-                    //     } elseif ($orderItem->satuan === 'bundle') {
-                    //         foreach ($orderItem->productBundle->items as $bundleItem) {
-                    //             $bundleProduct = $bundleItem->product;
-                    //             if (!$bundleProduct) continue;
-                    //
-                    //             // Cari design item berdasarkan order_item_id & product_id
-                    //             $designItem = $design->items()
-                    //                 ->where('order_item_id', $orderItem->id)
-                    //                 ->where('product_id', $bundleProduct->id)
-                    //                 ->first();
-                    //
-                    //             if ($designItem) {
-                    //                 $designItem->update(['quantity' => $qty]);
-                    //             } else {
-                    //                 DesignItem::create([
-                    //                     'design_id'          => $design->id,
-                    //                     'order_item_id'      => $orderItem->id,
-                    //                     'product_id'         => $bundleProduct->id,
-                    //                     'quantity'           => $qty,
-                    //                     'completed_quantity' => 0,
-                    //                     'design_file'        => null,
-                    //                     'preview_image'      => null,
-                    //                     // tidak ubah verification_status ke pending
-                    //                 ]);
-                    //             }
-                    //         }
-                    //     }
-                    // }
-
                     // ❌ Jangan hapus design_items lama — biarkan tetap ada meskipun order berubah
                 } else {
                     // ✅ Jika belum ada design sama sekali
@@ -3122,38 +3054,6 @@ class SaleListController extends Controller
                             'preview_image'      => null,
                         ]);
                     }
-
-                    // ❌ COMMENTED OUT - KODE LAMA (Loop manual untuk create design baru)
-                    // foreach ($order->orderItems as $orderItem) {
-                    //     $qty = $orderItem->quantity;
-                    //
-                    //     if ($orderItem->satuan === 'satuan') {
-                    //         DesignItem::create([
-                    //             'design_id'          => $design->id,
-                    //             'order_item_id'      => $orderItem->id,
-                    //             'product_id'         => $orderItem->product_id,
-                    //             'quantity'           => $qty,
-                    //             'completed_quantity' => 0,
-                    //             'design_file'        => null,
-                    //             'preview_image'      => null,
-                    //         ]);
-                    //     } elseif ($orderItem->satuan === 'bundle') {
-                    //         foreach ($orderItem->productBundle->items as $bundleItem) {
-                    //             $bundleProduct = $bundleItem->product;
-                    //             if (!$bundleProduct) continue;
-                    //
-                    //             DesignItem::create([
-                    //                 'design_id'          => $design->id,
-                    //                 'order_item_id'      => $orderItem->id,
-                    //                 'product_id'         => $bundleProduct->id,
-                    //                 'quantity'           => $qty,
-                    //                 'completed_quantity' => 0,
-                    //                 'design_file'        => null,
-                    //                 'preview_image'      => null,
-                    //             ]);
-                    //         }
-                    //     }
-                    // }
                 }
 
                 // ================== SYNC ORDER PROGRESS ITEMS ==================
@@ -3194,53 +3094,6 @@ class SaleListController extends Controller
                             ]);
                         }
                     }
-
-                    // ❌ COMMENTED OUT - KODE LAMA (Loop manual progress items)
-                    // foreach ($order->orderItems as $orderItem) {
-                    //     $qty = $orderItem->quantity;
-                    //
-                    //     if ($orderItem->satuan === 'satuan') {
-                    //         $key = $orderItem->id . '_' . $orderItem->product_id;
-                    //         $newProgressKeys[] = $key;
-                    //
-                    //         if ($existingProgressItems->has($key)) {
-                    //             // update qty
-                    //             $existingProgressItems[$key]->update([
-                    //                 'quantity' => $qty,
-                    //             ]);
-                    //         } else {
-                    //             OrderProgressItem::create([
-                    //                 'order_progress_id'  => $orderProgress->id,
-                    //                 'order_item_id'      => $orderItem->id,
-                    //                 'product_id'         => $orderItem->product_id,
-                    //                 'quantity'           => $qty,
-                    //                 'completed_quantity' => 0,
-                    //             ]);
-                    //         }
-                    //     } elseif ($orderItem->satuan === 'bundle') {
-                    //         foreach ($orderItem->productBundle->items as $bundleItem) {
-                    //             $bundleProduct = $bundleItem->product;
-                    //             if (!$bundleProduct) continue;
-                    //
-                    //             $key = $orderItem->id . '_' . $bundleProduct->id;
-                    //             $newProgressKeys[] = $key;
-                    //
-                    //             if ($existingProgressItems->has($key)) {
-                    //                 $existingProgressItems[$key]->update([
-                    //                     'quantity' => $qty,
-                    //                 ]);
-                    //             } else {
-                    //                 OrderProgressItem::create([
-                    //                     'order_progress_id'  => $orderProgress->id,
-                    //                     'order_item_id'      => $orderItem->id,
-                    //                     'product_id'         => $bundleProduct->id,
-                    //                     'quantity'           => $qty,
-                    //                     'completed_quantity' => 0,
-                    //                 ]);
-                    //             }
-                    //         }
-                    //     }
-                    // }
 
                     // Hapus progress item lama yang tidak ada di order_items baru
                     foreach ($existingProgressItems as $key => $progressItem) {

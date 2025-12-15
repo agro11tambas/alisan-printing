@@ -332,7 +332,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::delete('/erp/productions/assign-list/delete/{id}', [OrderProgressAssignController::class, 'delete']);
 
             Route::get('/erp/productions/waiting-list/assign-batch/{batch}/assigns', [OrderProgressAssignController::class, 'getAssignsByBatch']);
-            Route::get('/erp/productions/assign-list/summary', [OrderProgressAssignController::class, 'AssignSummary']);
+            Route::get('/erp/productions/waiting-list/assign-list/summary', [OrderProgressAssignController::class, 'AssignSummary']);
         });
 
         Route::middleware(['auth', 'subpermission:request-stocks'])->group(function () {

@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-
 use App\Models\Customers;
+use Illuminate\Http\Request;
 use App\Models\CustomerAddresses;
+
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Yajra\DataTables\Facades\DataTables;
 
 class CustomerController extends Controller
@@ -82,6 +83,7 @@ class CustomerController extends Controller
             $customer = Customers::create([
                 'name' => $request->name,
                 'phone' => $request->phone,
+                'user_id' => Auth::id(),
             ]);
 
             // Simpan setiap alamat

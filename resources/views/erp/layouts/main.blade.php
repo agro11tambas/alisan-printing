@@ -92,18 +92,15 @@
     </style>
 
     <style>
-        /* 🎯 Style khusus untuk tabel dengan class .table-small */
         .table-small {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
-            /* font lebih kecil */
         }
 
         .table-small th,
         .table-small td {
             padding: 5px 10px !important;
-            /* jarak antar sel kecil */
             vertical-align: middle;
             border: 1px solid #dee2e6;
         }
@@ -494,8 +491,6 @@
             /* z-index: 99996 !important; */
         }
 
-        /* TOPBAR + BREADCRUMB naik jadi 5000 */
-        /* Breadcrumb & kawan2 5000 */
         .page-header.sticky-top,
         .page-header,
         .topbar,

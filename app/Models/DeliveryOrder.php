@@ -108,36 +108,36 @@ class DeliveryOrder extends Model
             });
 
         // ✅ 2) Untuk setiap item: ready_qty >= shipped_qty
-        // $qtyOk = $this->items->every(function ($row) {
-        //     $readyQty   = (int) $row->ready_qty;
-        //     $shippedQty = (int) $row->shipped_qty;
-
-        //     return $shippedQty >= $readyQty;
-        // });
-
         $qtyOk = $this->items->every(function ($row) {
-
-            $orderItem = $row->orderItem;
-
-            if (!$orderItem) {
-                return false;
-            }
-
-            // 1) Kalau produk punya komponen → qty target = total qty komponen
-            $componentQty = (int) $orderItem->components->sum('qty');
-
-            if ($componentQty > 0) {
-                $targetQty = $componentQty;
-            } else {
-                // 2) Produk tanpa komponen → fallback ke qty order item
-                $targetQty = (int) $orderItem->quantity;
-            }
-
-            // Qty yang sudah dikirim
+            $readyQty   = (int) $row->ready_qty;
             $shippedQty = (int) $row->shipped_qty;
 
-            return $shippedQty >= $targetQty;
+            return $shippedQty >= $readyQty;
         });
+
+        // $qtyOk = $this->items->every(function ($row) {
+
+        //     $orderItem = $row->orderItem;
+
+        //     if (!$orderItem) {
+        //         return false;
+        //     }
+
+        //     // 1) Kalau produk punya komponen → qty target = total qty komponen
+        //     $componentQty = (int) $orderItem->components->sum('qty');
+
+        //     if ($componentQty > 0) {
+        //         $targetQty = $componentQty;
+        //     } else {
+        //         // 2) Produk tanpa komponen → fallback ke qty order item
+        //         $targetQty = (int) $orderItem->quantity;
+        //     }
+
+        //     // Qty yang sudah dikirim
+        //     $shippedQty = (int) $row->shipped_qty;
+
+        //     return $shippedQty >= $targetQty;
+        // });
 
         $this->status = ($allShipmentsFinished && $qtyOk) ? 'Finished' : 'Ongoing';
         $this->saveQuietly();

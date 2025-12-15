@@ -100,7 +100,7 @@
                                     <h2 class="fs-16 fw-bold text-dark mb-3">Invoiced To:</h2>
                                     <address class="text-muted lh-lg">
                                         {{ $order->business_name }}<br>
-                                        {{ $order->customer->name }}<br>
+                                        <!--{{ $order->customer->name }}<br>-->
                                         {{ $order->customer->phone }}<br>
                                         {{ $order->shipping_address }}
                                     </address>
@@ -142,12 +142,12 @@
                                             <td>
                                                 @if ($item->product)
                                                     Rp.
-                                                    {{ number_format($item->discount_price ?? $item->price, 0, ',', '.') }}
+                                                    {{ number_format($item->price, 0, ',', '.') }}
                                                 @endif
 
                                                 @if ($item->productBundle)
                                                     Rp.
-                                                    {{ number_format($item->discount_price ?? $item->price, 0, ',', '.') }}
+                                                    {{ number_format($item->price, 0, ',', '.') }}
                                                 @endif
                                             </td>
                                             <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
@@ -157,13 +157,13 @@
                                     <tr>
                                         <td colspan="2" class="border-0"></td>
                                         <td class="fw-semibold text-dark text-lg-end border-0 text-end">Sub Total</td>
-                                        <td class="fw-bold text-dark border-0 text-end">Rp.
+                                        <td class="text-dark border-0 text-end">Rp.
                                             {{ number_format($order->total_amount, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr>
                                         <td colspan="2" class="border-0"></td>
                                         <td class="fw-semibold text-dark text-lg-end border-0 text-end">Discount</td>
-                                        <td class="fw-bold text-danger border-0 text-end">- Rp.
+                                        <td class="text-danger border-0 text-end">- Rp.
                                             {{ number_format($order->discount, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr>

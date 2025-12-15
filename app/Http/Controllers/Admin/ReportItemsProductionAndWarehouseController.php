@@ -303,8 +303,6 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($pending, 0, ',', '.');
                 })(),
-
-
                 // Assigned Minus Completed
                 'assigned_minus_completed' => (function () use ($product) {
 
@@ -324,8 +322,18 @@ class ReportItemsProductionAndWarehouseController extends Controller
                     return number_format($result, 0, ',', '.');
                 })(),
 
+                'assigned_total' => (function () use ($product, $request) {
 
+                    $query = \App\Models\OrderProgressAssign::where('product_id', $product->id)
+                        ->whereNull('deleted_at');
 
+                    // ➕ Apply date filter (menggunakan function applyDateFilter)
+                    $query = $this->applyDateFilter($query, $request);
+
+                    $assigned = $query->sum('assigned_quantity');
+
+                    return number_format($assigned ?? 0, 0, ',', '.');
+                })(),
                 // On Delivery
                 'on_delivery' => (function () use ($product) {
 
@@ -348,6 +356,21 @@ class ReportItemsProductionAndWarehouseController extends Controller
                     if ($onDelivery < 0) $onDelivery = 0;
 
                     return number_format($onDelivery, 0, ',', '.');
+                })(),
+                'completed_delivery' => (function () use ($product, $request) {
+
+                    $completedQuery = DB::table('delivery_list_items')
+                        ->where('product_id', $product->id)
+                        ->whereNull('deleted_at');
+
+                    // 🔥 FILTER TANGGAL — PERSIS SEPERTI incoming_stock_production_completed
+                    $completedQuery = $this->applyDateFilter($completedQuery, $request);
+
+                    $completed = $completedQuery
+                        ->selectRaw('SUM(shipped_quantity) AS completed')
+                        ->value('completed');
+
+                    return number_format($completed ?? 0, 0, ',', '.');
                 })(),
                 'avg_cost' =>
                 '<span class="text-primary">' . number_format($avgRounded, 2, ',', '.') . '</span>',

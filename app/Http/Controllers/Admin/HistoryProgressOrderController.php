@@ -529,6 +529,11 @@ class HistoryProgressOrderController extends Controller
             $assign->increment('reject_quantity', $deltaReject);
             $assign->increment('change_quantity', $deltaChange);
 
+            // 🟩 2.1 Update assigned_quantity di assign
+            if ($deltaCompleted !== 0) {
+                $assign->increment('assigned_quantity', $deltaCompleted);
+            }
+
             // ===============================
             // 🟩 3. Update PRODUCTION STOCK
             // ===============================
@@ -552,6 +557,18 @@ class HistoryProgressOrderController extends Controller
                     $ps->decrement('pending_waiting_list', $deltaCompleted);
                 } else {
                     $ps->increment('pending_waiting_list', abs($deltaCompleted));
+                }
+            }
+
+            // ===============================
+            // 🟩 3.1 Update DELIVERY ORDER ITEM (ready_qty)
+            // ===============================
+            if ($deltaCompleted !== 0 && $progressItem) {
+                $deliveryOrderItem = DeliveryOrderItem::where('order_progress_item_id', $progressItem->id)->first();
+
+                if ($deliveryOrderItem) {
+                    // Jika deltaCompleted positif = increment, negatif = decrement
+                    $deliveryOrderItem->increment('ready_qty', $deltaCompleted);
                 }
             }
 
@@ -638,7 +655,7 @@ class HistoryProgressOrderController extends Controller
     {
         DB::beginTransaction();
         try {
-            $history = OrderProgressHistory::with(['progressItem.product', 'assign'])->findOrFail($id);
+            $history = OrderProgressHistory::with(['progressItem.product', 'assign.batch'])->findOrFail($id);
             $progressItem = $history->progressItem;
             $assign = $history->assign;
             $product = $progressItem?->product;
@@ -660,16 +677,22 @@ class HistoryProgressOrderController extends Controller
             $assign->decrement('reject_quantity', $reject);
             $assign->decrement('change_quantity', $totalChange);
 
-            // 2️⃣ Update stok produksi
+            // 2️⃣ Update stok produksi - HANYA untuk finished_product dan pending_waiting_list
             $ps = ProductionStock::where('product_id', $product->id)
                 ->where('production_warehouse_id', 2)
                 ->first();
 
-            if ($ps) {
-                if ($completed > 0) {
-                    $ps->decrement('finished_product_stock', $completed);
-                    $ps->increment('pending_waiting_list', $completed);
-                    $ps->increment('available_quantity', $completed);
+            if ($ps && $completed > 0) {
+                $ps->decrement('finished_product_stock', $completed);
+                $ps->increment('pending_waiting_list', $completed);
+            }
+
+            // 2.1️⃣ Decrement ready_qty pada delivery_order_items
+            if ($completed > 0 && $progressItem) {
+                $deliveryOrderItem = DeliveryOrderItem::where('order_progress_item_id', $progressItem->id)->first();
+
+                if ($deliveryOrderItem) {
+                    $deliveryOrderItem->decrement('ready_qty', $completed);
                 }
             }
 
@@ -677,8 +700,47 @@ class HistoryProgressOrderController extends Controller
             RejectProduct::where('order_progress_history_2_id', $history->id)->forceDelete();
             DefectProduct::where('order_progress_history_2_id', $history->id)->forceDelete();
 
-            // 4️⃣ Hapus history
+            // 4️⃣ Simpan assign_id dan assign_batch_id sebelum hapus history
+            $assignId = $history->order_progress_assign_id;
+            $assignBatchId = $assign?->assign_batch_id;
+
+            // 5️⃣ Hapus history
             $history->forceDelete();
+
+            // 6️⃣ Hapus assign jika tidak ada history lain yang terkait
+            if ($assignId) {
+                $remainingHistories = OrderProgressHistory::where('order_progress_assign_id', $assignId)->count();
+                if ($remainingHistories == 0) {
+                    $assignToDelete = OrderProgressAssign::find($assignId);
+
+                    if ($assignToDelete && $assignToDelete->assigned_quantity > 0) {
+                        // Increment available_quantity di production_stock
+                        $psAssign = ProductionStock::where('product_id', $product->id)
+                            ->where('production_warehouse_id', 2)
+                            ->first();
+
+                        if ($psAssign) {
+                            $psAssign->increment('available_quantity', $assignToDelete->assigned_quantity);
+                        }
+                    }
+
+                    // Hapus assign tanpa trigger event
+                    OrderProgressAssign::withoutEvents(function () use ($assignId) {
+                        OrderProgressAssign::where('id', $assignId)->forceDelete();
+                    });
+                }
+            }
+
+            // 7️⃣ Hapus assign batch jika tidak ada assign lain yang terkait
+            if ($assignBatchId) {
+                $remainingAssigns = OrderProgressAssign::where('assign_batch_id', $assignBatchId)->count();
+                if ($remainingAssigns == 0) {
+                    // Hapus assign batch tanpa trigger event
+                    OrderProgressAssignBatch::withoutEvents(function () use ($assignBatchId) {
+                        OrderProgressAssignBatch::where('id', $assignBatchId)->forceDelete();
+                    });
+                }
+            }
 
             DB::commit();
             return response()->json(['message' => 'History berhasil dihapus dan stok telah diperbarui.']);
@@ -694,8 +756,12 @@ class HistoryProgressOrderController extends Controller
         try {
             $batch = OrderProgressBatch::with([
                 'histories.progressItem.product',
-                'histories.assign'
+                'histories.assign.batch'
             ])->findOrFail($batchId);
+
+            // Kumpulkan assign_id dan assign_batch_id yang akan dihapus
+            $assignIds = [];
+            $assignBatchIds = [];
 
             foreach ($batch->histories as $history) {
                 $progressItem = $history->progressItem;
@@ -717,9 +783,14 @@ class HistoryProgressOrderController extends Controller
                     $assign->decrement('defect_quantity', $defect);
                     $assign->decrement('reject_quantity', $reject);
                     $assign->decrement('change_quantity', $totalChange);
+
+                    // Ambil assign_batch_id dari assign
+                    if ($assign->assign_batch_id) {
+                        $assignBatchIds[] = $assign->assign_batch_id;
+                    }
                 }
 
-                // 🔹 Update stok produksi
+                // 🔹 Update stok produksi - HANYA untuk finished_product dan pending_waiting_list
                 if ($product && $completed > 0) {
                     $ps = ProductionStock::where('product_id', $product->id)
                         ->where('production_warehouse_id', 2)
@@ -728,7 +799,15 @@ class HistoryProgressOrderController extends Controller
                     if ($ps) {
                         $ps->decrement('finished_product_stock', $completed);
                         $ps->increment('pending_waiting_list', $completed);
-                        $ps->increment('available_quantity', $completed);
+                    }
+
+                    // 🔹 Decrement ready_qty pada delivery_order_items
+                    if ($progressItem) {
+                        $deliveryOrderItem = DeliveryOrderItem::where('order_progress_item_id', $progressItem->id)->first();
+
+                        if ($deliveryOrderItem) {
+                            $deliveryOrderItem->decrement('ready_qty', $completed);
+                        }
                     }
                 }
 
@@ -736,12 +815,60 @@ class HistoryProgressOrderController extends Controller
                 RejectProduct::where('order_progress_history_2_id', $history->id)->forceDelete();
                 DefectProduct::where('order_progress_history_2_id', $history->id)->forceDelete();
 
-                // 🔹 Hapus history
-                $history->forceDelete();
+                // 🔹 Simpan assign_id
+                if ($history->order_progress_assign_id) {
+                    $assignIds[] = $history->order_progress_assign_id;
+                }
+
+                // 🔹 Hapus history tanpa trigger event
+                OrderProgressHistory::withoutEvents(function () use ($history) {
+                    $history->forceDelete();
+                });
             }
 
-            // 🔹 Terakhir, hapus batch
-            $batch->forceDelete();
+            // 🔹 Hapus batch tanpa trigger event
+            OrderProgressBatch::withoutEvents(function () use ($batch) {
+                $batch->forceDelete();
+            });
+
+            // 🔹 Hapus order_progress_assign yang tidak memiliki history lagi
+            $uniqueAssignIds = array_unique($assignIds);
+            foreach ($uniqueAssignIds as $assignId) {
+                $remainingHistories = OrderProgressHistory::where('order_progress_assign_id', $assignId)->count();
+                if ($remainingHistories == 0) {
+                    $assignToDelete = OrderProgressAssign::with('progressItem.product')->find($assignId);
+                    if ($assignToDelete && $assignToDelete->assigned_quantity > 0) {
+                        $productAssign = $assignToDelete->progressItem?->product;
+                        if ($productAssign) {
+                            // Increment available_quantity di production_stock
+                            $psAssign = ProductionStock::where('product_id', $productAssign->id)
+                                ->where('production_warehouse_id', 2)
+                                ->first();
+
+                            if ($psAssign) {
+                                $psAssign->increment('available_quantity', $assignToDelete->assigned_quantity);
+                            }
+                        }
+                    }
+
+                    // Hapus tanpa trigger event
+                    OrderProgressAssign::withoutEvents(function () use ($assignId) {
+                        OrderProgressAssign::where('id', $assignId)->forceDelete();
+                    });
+                }
+            }
+
+            // 🔹 Hapus order_progress_assign_batch yang tidak memiliki assign lagi
+            $uniqueAssignBatchIds = array_unique($assignBatchIds);
+            foreach ($uniqueAssignBatchIds as $assignBatchId) {
+                $remainingAssigns = OrderProgressAssign::where('assign_batch_id', $assignBatchId)->count();
+                if ($remainingAssigns == 0) {
+                    // Hapus tanpa trigger event
+                    OrderProgressAssignBatch::withoutEvents(function () use ($assignBatchId) {
+                        OrderProgressAssignBatch::where('id', $assignBatchId)->forceDelete();
+                    });
+                }
+            }
 
             DB::commit();
             return response()->json([

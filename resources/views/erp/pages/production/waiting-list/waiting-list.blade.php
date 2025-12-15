@@ -8,6 +8,16 @@
             #waitingListTable th.desktop-only {
                 display: none !important;
             }
+
+            .page-header-right {
+                display: none !important;
+            }
+        }
+
+        @media (min-width: 769px) {
+            .remaining-progress {
+                display: none !important;
+            }
         }
 
         #waitingListTable {
@@ -65,6 +75,12 @@
                 <li class="breadcrumb-item">Production</li>
                 <li class="breadcrumb-item">Waiting List</li>
             </ul>
+        </div>
+        <div class="page-header-right ms-auto">
+            <div class="d-flex align-items-center gap-2 items-center">
+                <p class="mb-0 fw-semibold align-self-center">Total Remaining Progress</p>
+                <h5 class="fw-bold text-danger mb-0" id="totalRemaining">0</h5>
+            </div>
         </div>
     </div>
 @endsection
@@ -159,7 +175,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="px-4 pb-2">
+                        <div class="px-4 pb-2 remaining-progress">
                             <div class="d-flex justify-content-between align-items-center border rounded p-3">
                                 <div>
                                     <h6 class="mb-0 fw-semibold">Total Remaining Progress</h6>
@@ -175,8 +191,8 @@
                                 <thead>
                                     <tr>
                                         {{-- <th class="wd-30">No</th> --}}
-                                        <th class="wd-250">Order Number</th>
-                                        <th class="wd-250">Customer</th>
+                                        <th>Order Number</th>
+                                        <th>Customer</th>
                                         <th>Progress</th>
                                         <th>Order Notes</th>
                                     </tr>
@@ -329,8 +345,8 @@
                         searchable: false
                     },
                     {
-                        data: 'order_created_at',
-                        name: 'order_created_at',
+                        data: 'order_created_raw',
+                        name: 'order_created_raw',
                         visible: false,
                         searchable: false
                     }

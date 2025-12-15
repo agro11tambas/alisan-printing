@@ -277,14 +277,50 @@
                 $(this).val(formatRibuan(val));
             });
 
-            $('#productBundleForm').on('submit', function() {
+            // $('#productBundleForm').on('submit', function() {
+            //     const val = $('#price').val();
+            //     const enValue = unformatRibuan(val);
+            //     $('#price').val(enValue);
+            // });
+
+            // // 🧩 Validasi dasar
+            // $('#productBundleForm').on('submit', function(e) {
+            //     let productCount = $('.product-select').filter(function() {
+            //         return $(this).val() !== null && $(this).val() !== '';
+            //     }).length;
+
+            //     $('.is-invalid').removeClass('is-invalid');
+            //     $('.invalid-feedback').remove();
+
+            //     let isValid = true;
+
+            //     if (productCount < 2) {
+            //         isValid = false;
+            //         const feedback =
+            //             `<div class="invalid-feedback d-block">Minimal pilih 2 produk untuk membuat bundle.</div>`;
+            //         $('#productTable').after(feedback);
+            //     }
+
+            //     if (!$('#sku').val().trim()) {
+            //         isValid = false;
+            //         showError($('#sku')[0], 'SKU wajib diisi');
+            //     }
+
+            //     if (!$('#price').val().trim()) {
+            //         isValid = false;
+            //         showError($('#price')[0], 'Harga wajib diisi');
+            //     }
+
+            //     if (!isValid) e.preventDefault();
+            // });
+
+            $('#productBundleForm').on('submit', function(e) {
+                // Format harga sebelum submit
                 const val = $('#price').val();
                 const enValue = unformatRibuan(val);
                 $('#price').val(enValue);
-            });
 
-            // 🧩 Validasi dasar
-            $('#productBundleForm').on('submit', function(e) {
+                // Validasi
                 let productCount = $('.product-select').filter(function() {
                     return $(this).val() !== null && $(this).val() !== '';
                 }).length;
@@ -296,9 +332,9 @@
 
                 if (productCount < 2) {
                     isValid = false;
-                    const feedback =
-                        `<div class="invalid-feedback d-block">Minimal pilih 2 produk untuk membuat bundle.</div>`;
-                    $('#productTable').after(feedback);
+                    $('#productTable').after(
+                        '<div class="invalid-feedback d-block">Minimal pilih 2 produk untuk membuat bundle.</div>'
+                    );
                 }
 
                 if (!$('#sku').val().trim()) {
@@ -311,8 +347,14 @@
                     showError($('#price')[0], 'Harga wajib diisi');
                 }
 
-                if (!isValid) e.preventDefault();
+                if (!isValid) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                return true;
             });
+
 
             function showError(input, message) {
                 input.classList.add('is-invalid');

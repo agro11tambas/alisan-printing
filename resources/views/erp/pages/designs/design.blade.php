@@ -80,8 +80,8 @@
                                 <label for="filter" class="fw-semibold fs-12">Date Filter</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                     <select id="filter" class="form-control" style="width:180px;">
-                                        <option value="this_month">This Month</option>
                                         <option value="all">All Time</option>
+                                        <option value="this_month">This Month</option>
                                         <option value="yearly">Yearly</option>
                                         <option value="year_to_date">Year to Date</option>
                                         <option value="last_30_days">Last 30 Days</option>

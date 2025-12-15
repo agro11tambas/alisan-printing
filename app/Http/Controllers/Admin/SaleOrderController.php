@@ -50,12 +50,18 @@ class SaleOrderController extends Controller
 
     public function dataSaleOrder(Request $request)
     {
+        $user = Auth::user();
+
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
         $orders = Order::with(['customer', 'customerAddress'])
             ->where('status', 'sale order')
             ->orderBy('order_date', 'desc');
+
+        if (in_array($user->role, ['Sales'])) {
+            $orders->where('user_id', $user->id);
+        }
 
         // 🔹 Filter tanggal
         if ($request->filter) {
@@ -188,6 +194,15 @@ class SaleOrderController extends Controller
                             <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
                         </div>
                     ',
+                    'customer_mobile' => '
+                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
+                            <div class="d-flex align-items-center fw-semibold">                                
+
+                                <small class="text-muted">' . e($order->customerAddress->business_name ?? '-') . '</small>
+                            </div>                        
+
+                        </div>
+                    ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
                     'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
                     'grand_total' => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
@@ -197,7 +212,9 @@ class SaleOrderController extends Controller
                     'notes' => e($order->notes ?? '-'),
                     'created_at' => $date,
                     'mode' => $modeBadge,
+                    'user' => e($order->user->name ?? '-'),
                     'action' => view('erp.pages.sales.sale-orders.partials.action-button', compact('order'))->render(),
+                    'action_mobile' => view('erp.pages.sales.sale-orders.partials.action-button-mobile', compact('order'))->render(),
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
@@ -348,6 +365,7 @@ class SaleOrderController extends Controller
 
             // ================== BUAT ORDER ==================
             $order = Order::create([
+                'user_id'            => Auth::id(),
                 'customer_id'      => $request->customer_id,
                 'customer_address_id' => $request->customer_address_id,
                 'order_number'     => $orderNumber,

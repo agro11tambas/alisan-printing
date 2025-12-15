@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
+use App\Models\Products;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
-use App\Models\Products;
+use App\Http\Controllers\Controller;
 use Yajra\DataTables\Facades\DataTables;
 
 class ProductBundleController extends Controller
@@ -105,7 +106,7 @@ class ProductBundleController extends Controller
     {
         $request->validate([
             'name'     => 'required|string|max:255',
-            'sku'      => 'required|string|max:255',
+            'sku'      => 'required|string|max:255|unique:product_bundles,sku',
             'price'    => 'required|numeric|min:0',
             'products' => 'required|array|min:1',
         ]);
@@ -194,10 +195,28 @@ class ProductBundleController extends Controller
             ->with('success', 'Product Bundle berhasil diperbarui!');
     }
 
+    // public function delete($id)
+    // {
+    //     $bundle = ProductBundle::findOrFail($id);
+    //     $bundle->delete();
+    //     return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dihapus!');
+    // }
+
     public function delete($id)
     {
         $bundle = ProductBundle::findOrFail($id);
+
+        $new_sku = 'deleted-' . Str::random(10) . '-' . $bundle->sku;
+
+        if (strlen($new_sku) > 255) {
+            $new_sku = 'deleted-' . Str::random(10) . '-' . substr($bundle->sku, -200);
+        }
+
+        $bundle->sku = $new_sku;
+        $bundle->save();
+
         $bundle->delete();
+
         return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dihapus!');
     }
 }
