@@ -35,7 +35,7 @@
 
 
         /* Hide desktop table on mobile */
-        @media (max-width: 500px) {
+        @media (max-width: 767px) {
 
             #saleOrderTable_wrapper,
             #editedSaleOrderTable_wrapper,
@@ -189,7 +189,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-4 p-0 p-md-4 pt-2 pt-md-4">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -231,8 +231,8 @@
                                     <div class="col-md-6">
                                         <select id="search_type" class="form-control"
                                             style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                            <option value="order_number">Order Number</option>
                                             <option value="customer">Customer</option>
+                                            <option value="order_number">Order Number</option>
                                         </select>
                                     </div>
                                     <div class="col-md-6">
@@ -270,7 +270,7 @@
                             </table>
                         </div>
                         {{-- MOBILE SALE LIST --}}
-                        <div id="saleOrderMobile" class="d-md-none px-3 pb-4">
+                        <div id="saleOrderMobile" class="d-md-none px-0 pb-4">
                         </div>
                     </div>
                 </div>

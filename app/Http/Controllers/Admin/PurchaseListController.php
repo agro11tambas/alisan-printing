@@ -297,6 +297,7 @@ class PurchaseListController extends Controller
                     'products' => $products,
                     'status' => $statusBadge,
                     'action' => $actionHtml,
+                    'user' => $purchase->user->name ?? '-',
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
@@ -559,6 +560,7 @@ class PurchaseListController extends Controller
                 'paid_amount'               => 0,
                 'remaining_amount'          => $grandTotal,
                 'status'                    => $status,
+                'user_id'                   => Auth::id(),
             ]);
 
             foreach ($request->product as $index => $productId) {

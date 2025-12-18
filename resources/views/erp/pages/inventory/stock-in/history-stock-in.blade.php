@@ -12,26 +12,6 @@
                 <li class="breadcrumb-item">Stock In History</li>
             </ul>
         </div>
-        <!-- <div class="page-header-right ms-auto">
-                                <div class="page-header-right-items">
-                                    <div class="d-flex d-md-none">
-                                        <a href="javascript:void(0)" class="page-header-right-close-toggle">
-                                            <i class="feather-arrow-left me-2"></i><span>Back</span>
-                                        </a>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                                        <a href="/erp/orders/create-order" class="btn btn-primary">
-                                            <i class="feather-plus me-2"></i>
-                                            <span>Create Order</span>
-                                        </a>
-                                    </div>
-                                </div>
-                                <div class="d-md-none d-flex align-items-center">
-                                    <a href="javascript:void(0)" class="page-header-right-open-toggle">
-                                        <i class="feather-align-right fs-20"></i>
-                                    </a>
-                                </div>
-                            </div> -->
     </div>
 @endsection
 
@@ -45,7 +25,7 @@
             });
         </script>
     @endif
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row align-items-baseline">
             <div class="col-xxl-8 col-xl-6">
                 <div class="card">
@@ -199,8 +179,8 @@
 
                         <div class="mb-3">
                             <label class="form-label">Quantity (pcs)</label>
-                            <input type="number" id="edit_quantity" name="quantity" class="form-control"
-                                min="0" required>
+                            <input type="number" id="edit_quantity" name="quantity" class="form-control" min="0"
+                                required>
                         </div>
 
                         <div class="mb-3">

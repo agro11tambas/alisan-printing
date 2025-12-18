@@ -36,13 +36,12 @@
         }
 
         /* Kolom Qty, Price, Total */
-        #tab_logic input.form-control.qty,
-        #tab_logic input.form-control.price_before_discount_display,
-        #tab_logic input.form-control.total_before_discount_display {
-            font-size: 18px !important;
-            font-weight: 600 !important;
+        .product-grid input.qty,
+        .product-grid input.price_before_discount_display,
+        .product-grid input.total_before_discount_display {
+            font-size: 16px !important;
+            font-weight: 600;
             height: 44px !important;
-            padding: 6px 10px !important;
         }
 
         /* Total readonly: latar abu muda + teks hijau */
@@ -113,6 +112,96 @@
                 grid-column: span 1;
             }
         }
+
+        /* MOBILE */
+        @media (max-width: 768px) {
+
+            /* CARD super tipis */
+            .card-body {
+                padding: 6px !important;
+            }
+
+            .product-item {
+                padding: 4px !important;
+                /* 👈 ini yang kamu mau */
+                border-radius: 8px;
+                margin-bottom: 8px;
+            }
+
+            .product-item-header {
+                margin-bottom: 6px;
+            }
+
+            .product-number {
+                font-size: 13px;
+            }
+
+            .delete-row {
+                padding: 6px 6px;
+            }
+
+            /* GRID MOBILE: custom layout */
+            .product-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                /* ✅ 3 kolom */
+                gap: 6px;
+            }
+
+            /* Product full width */
+            .product-col-span-2 {
+                grid-column: span 3;
+                /* ✅ full */
+            }
+
+            /* Qty & Price satu baris */
+            .product-grid .form-group:nth-of-type(2),
+            .product-grid .form-group:nth-of-type(3),
+            .product-grid .form-group:nth-of-type(4) {
+                grid-column: span 1;
+                /* ✅ sejajar */
+            }
+
+            /* Label diperkecil */
+            .product-grid label {
+                font-size: 12px;
+                margin-bottom: 2px;
+            }
+
+            /* Input lebih compact */
+            .product-grid .form-control {
+                font-size: 14px !important;
+                height: 36px !important;
+                padding: 4px 8px !important;
+            }
+
+            /* Select2 compact */
+            .select2-container--default .select2-selection--single {
+                height: 36px !important;
+                line-height: 36px !important;
+            }
+
+            .select2-selection__rendered {
+                font-size: 14px !important;
+                line-height: 36px !important;
+            }
+
+            .select2-selection__arrow {
+                height: 36px !important;
+            }
+
+            /* Total readonly lebih jelas */
+            .total_before_discount_display {
+                font-weight: 600;
+                color: #198754;
+            }
+
+            .product-grid .form-group:nth-of-type(2) label,
+            .product-grid .form-group:nth-of-type(3) label,
+            .product-grid .form-group:nth-of-type(4) label {
+                display: none !important;
+            }
+        }
     </style>
 @endpush
 
@@ -165,7 +254,7 @@
             });
         </script>
     @endif
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/sales/sale-list/update/{{ $order->id }}" method="POST" id="orderForm">
@@ -891,6 +980,31 @@
         let discountEnabled = {{ $order->discount_active ? 'true' : 'false' }};
         let pendingToggleOff = false;
 
+        function select2ProductConfig() {
+            return {
+                placeholder: 'Pilih produk',
+                width: '100%',
+
+                // dropdown: FULL TEXT
+                templateResult: function(data) {
+                    return data.text;
+                },
+
+                // selected: mobile truncate, desktop full
+                templateSelection: function(data) {
+                    if (window.innerWidth <= 576) {
+                        return truncateText(data.text, 45);
+                    }
+                    return data.text;
+                }
+            };
+        }
+
+        function truncateText(text, max = 45) {
+            if (!text) return '';
+            return text.length > max ? text.slice(0, max) + '...' : text;
+        }
+
         // 🔥 Inisialisasi label dan hidden input sesuai kondisi awal
         $(document).ready(function() {
             const label = $('#toggleDiscount').next('label');
@@ -917,10 +1031,7 @@
 
                 populateProducts(select[0], selectedId, selectedType);
 
-                select.select2({
-                    placeholder: 'Pilih produk',
-                    width: '100%'
-                });
+                select.select2(select2ProductConfig());
             });
 
 
@@ -1286,9 +1397,7 @@
                 $('#product_list').append(item);
 
                 populateProducts(item.querySelector('.select-product'));
-                $(item).find('.select-product').select2({
-                    width: '100%'
-                });
+                $(item).find('.select-product').select2(select2ProductConfig());
 
                 recalcAllRows();
             });

@@ -37,7 +37,7 @@
         </script>
     @endif
 
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -98,10 +98,13 @@
                                     <label for="status" class="fw-semibold">Status:</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
-                                    <select class="form-control select2-status" id="status" name="status" data-select2-selector="tag">
-                                        <option value="Gain" {{ $stockOpname->status == 'Gain' ? 'selected' : '' }} data-bg="bg-success">Gain
+                                    <select class="form-control select2-status" id="status" name="status"
+                                        data-select2-selector="tag">
+                                        <option value="Gain" {{ $stockOpname->status == 'Gain' ? 'selected' : '' }}
+                                            data-bg="bg-success">Gain
                                         </option>
-                                        <option value="Loss" {{ $stockOpname->status == 'Loss' ? 'selected' : '' }} data-bg="bg-danger">Loss
+                                        <option value="Loss" {{ $stockOpname->status == 'Loss' ? 'selected' : '' }}
+                                            data-bg="bg-danger">Loss
                                         </option>
                                     </select>
                                 </div>

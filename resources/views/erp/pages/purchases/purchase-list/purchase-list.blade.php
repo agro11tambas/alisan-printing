@@ -147,7 +147,7 @@
             });
         </script>
     @endif
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -238,6 +238,7 @@
                                                 <th data-column="total_amount_freight">Freight Total</th>
                                                 <th data-column="paid_amount_freight">Freight Paid</th>
                                                 <th data-column="payment_status">Status</th>
+                                                <th>User</th>
                                             </tr>
                                         </thead>
                                     </table>
@@ -742,6 +743,9 @@
                     },
                     {
                         data: 'payment_status'
+                    },
+                    {
+                        data: 'user'
                     },
                     {
                         data: 'purchase_date',

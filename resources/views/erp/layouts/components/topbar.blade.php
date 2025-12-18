@@ -1,3 +1,28 @@
+@push('styles')
+    <style>
+        /* Default (desktop) */
+        .nxl-page-title {
+            font-size: 1rem;
+            line-height: 1.4;
+        }
+
+        /* Tablet */
+        @media (max-width: 768px) {
+            .nxl-page-title {
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Mobile */
+        @media (max-width: 480px) {
+            .nxl-page-title {
+                font-size: 0.7rem;
+                line-height: 1.2;
+            }
+        }
+    </style>
+@endpush
+
 <header class="nxl-header">
     <div class="header-wrapper">
         <div class="header-left d-flex align-items-center gap-4">

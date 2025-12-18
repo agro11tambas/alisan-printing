@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Permission;
-use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Permission;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
 use Yajra\DataTables\Facades\DataTables;
-use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -94,16 +95,43 @@ class UserController extends Controller
         return redirect('/erp/shop-manager/users')->with('success', 'User berhasil dibuat');
     }
 
+    // public function delete($id)
+    // {
+    //     $user = User::findOrFail($id);
+
+    //     if ($user->role === 'Owner') {
+    //         return redirect()->back()
+    //             ->with('error', 'Owner tidak dapat dihapus.');
+    //     }
+
+    //     $user->permissions()->detach(); // hapus semua relasi permission
+    //     $user->delete();
+
+    //     return redirect()->back()->with('success', 'Data berhasil dihapus');
+    // }
+
     public function delete($id)
     {
         $user = User::findOrFail($id);
-        
+
         if ($user->role === 'Owner') {
             return redirect()->back()
                 ->with('error', 'Owner tidak dapat dihapus.');
         }
 
-        $user->permissions()->detach(); // hapus semua relasi permission
+        // 🔹 Buat suffix random
+        $suffix = '_deleted_' . Str::random(6);
+
+        // 🔹 Update username & email agar tidak bentrok unique
+        $user->update([
+            'username' => $user->username . $suffix,
+            'email' => Str::replace('@', $suffix . '@', $user->email),
+        ]);
+
+        // 🔹 Hapus relasi permission
+        $user->permissions()->detach();
+
+        // 🔹 Soft delete / delete
         $user->delete();
 
         return redirect()->back()->with('success', 'Data berhasil dihapus');
@@ -130,7 +158,7 @@ class UserController extends Controller
                 Rule::unique('users', 'username')->ignore($id),
             ],
             'password'               => 'nullable|min:8',
-            'role' => 'required|string|in:Owner,Admin,Kurir',
+            'role' => 'required|string|in:Owner,Admin,Kurir,Sales',
             'permissions'            => 'array',
             'permission_sub_items'   => 'array',
         ], [

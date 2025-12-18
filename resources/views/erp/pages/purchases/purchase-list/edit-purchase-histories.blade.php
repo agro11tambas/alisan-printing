@@ -26,7 +26,7 @@
         </script>
     @endif
 
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row align-items-baseline">
             <div class="col-xxl-12 col-xl-8">
                 <div class="card">
@@ -91,7 +91,8 @@
                                                                 <td class="text-danger">
                                                                     {{ number_format($purchaseChanges['old'][$field], 0, ',', '.') }}
                                                                 </td>
-                                                                <td class="text-success">{{ number_format($newValue, 0, ',', '.') }}</td>
+                                                                <td class="text-success">
+                                                                    {{ number_format($newValue, 0, ',', '.') }}</td>
                                                             </tr>
                                                         @endif
                                                     @endforeach

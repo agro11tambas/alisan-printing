@@ -49,7 +49,7 @@
             });
         </script>
     @endif
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -83,8 +83,7 @@
                                                     <input type="hidden" name="id[]" value="{{ $stock->id }}">
                                                 </td>
                                                 <td>
-                                                    <input type="text" class="form-control"
-                                                        name="opening_stock[]"
+                                                    <input type="text" class="form-control" name="opening_stock[]"
                                                         value="{{ number_format($stock->opening_stock, 0, ',', '.') }}">
                                                 </td>
                                                 <td>

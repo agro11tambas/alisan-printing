@@ -87,7 +87,7 @@
         </script>
     @endif
 
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/purchases/purchase-orders/update/{{ $purchase->id }}" method="POST" id="purchaseForm">
@@ -100,7 +100,8 @@
                                     <label for="purchase_date" class="fw-semibold">Purchase Date:</label>
                                 </div>
                                 <div class="col-lg-10">
-                                    <input type="datetime-local" class="form-control" id="purchase_date" name="purchase_date"
+                                    <input type="datetime-local" class="form-control" id="purchase_date"
+                                        name="purchase_date"
                                         value="{{ old('purchase_date', \Carbon\Carbon::parse($purchase->purchase_date)->format('Y-m-d\TH:i')) }}">
                                 </div>
                             </div>

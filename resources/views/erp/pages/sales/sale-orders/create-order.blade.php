@@ -36,13 +36,12 @@
         }
 
         /* 🔹 Perbesar font untuk kolom Qty, Price, dan Total */
-        #tab_logic input.form-control.qty,
-        #tab_logic input.form-control.price_before_discount_display,
-        #tab_logic input.form-control.total_before_discount_display {
+        .product-grid input.qty,
+        .product-grid input.price_before_discount_display,
+        .product-grid input.total_before_discount_display {
             font-size: 16px !important;
-            font-weight: 600 !important;
+            font-weight: 600;
             height: 44px !important;
-            padding: 6px 10px !important;
         }
 
         /* 🔹 Untuk tampilan readonly total biar lebih kontras */
@@ -50,14 +49,6 @@
             background-color: #f8f9fa !important;
             color: #198754 !important;
         }
-
-        /* 🔹 Perbesar juga font di header tabel produk (Qty, Price, Total) */
-        /* #tab_logic th {
-                                                                font-size: 15px !important;
-                                                                font-weight: 700 !important;
-                                                                vertical-align: middle !important;
-                                                                text-transform: uppercase;
-                                                            } */
 
         /* 🔹 Perbesar font Grand Total biar seragam */
         #tab_logic_total input.form-control {
@@ -104,13 +95,103 @@
         }
 
         /* MOBILE */
+        /* @media (max-width: 768px) {
+                        .product-grid {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .product-col-span-2 {
+                            grid-column: span 1;
+                        }
+                    } */
+
+        /* MOBILE */
         @media (max-width: 768px) {
-            .product-grid {
-                grid-template-columns: 1fr;
+
+            /* CARD super tipis */
+            .card-body {
+                padding: 6px !important;
             }
 
+            .product-item {
+                padding: 4px !important;
+                /* 👈 ini yang kamu mau */
+                border-radius: 8px;
+                margin-bottom: 8px;
+            }
+
+            .product-item-header {
+                margin-bottom: 6px;
+            }
+
+            .product-number {
+                font-size: 13px;
+            }
+
+            .delete-row {
+                padding: 6px 6px;
+            }
+
+            /* GRID MOBILE: custom layout */
+            .product-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                /* ✅ 3 kolom */
+                gap: 6px;
+            }
+
+            /* Product full width */
             .product-col-span-2 {
+                grid-column: span 3;
+                /* ✅ full */
+            }
+
+            /* Qty & Price satu baris */
+            .product-grid .form-group:nth-of-type(2),
+            .product-grid .form-group:nth-of-type(3),
+            .product-grid .form-group:nth-of-type(4) {
                 grid-column: span 1;
+                /* ✅ sejajar */
+            }
+
+            /* Label diperkecil */
+            .product-grid label {
+                font-size: 12px;
+                margin-bottom: 2px;
+            }
+
+            /* Input lebih compact */
+            .product-grid .form-control {
+                font-size: 14px !important;
+                height: 36px !important;
+                padding: 4px 8px !important;
+            }
+
+            /* Select2 compact */
+            .select2-container--default .select2-selection--single {
+                height: 36px !important;
+                line-height: 36px !important;
+            }
+
+            .select2-selection__rendered {
+                font-size: 14px !important;
+                line-height: 36px !important;
+            }
+
+            .select2-selection__arrow {
+                height: 36px !important;
+            }
+
+            /* Total readonly lebih jelas */
+            .total_before_discount_display {
+                font-weight: 600;
+                color: #198754;
+            }
+
+            .product-grid .form-group:nth-of-type(2) label,
+            .product-grid .form-group:nth-of-type(3) label,
+            .product-grid .form-group:nth-of-type(4) label {
+                display: none !important;
             }
         }
     </style>
@@ -165,7 +246,7 @@
             });
         </script>
     @endif
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/sales/sale-orders/store" method="POST" id="orderForm">
@@ -317,134 +398,7 @@
                             </div>
                         </div>
                     </div>
-                    {{-- <div class="card stretch stretch-full">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <div class="mb-4">
-                                        <h5 class="fw-bold">Add Products:</h5>
-                                    </div>
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered overflow-hidden" id="tab_logic">
-                                            <thead>
-                                                <tr class="single-item">
-                                                    <th class="text-center wd-20">#</th>
-                                                    <th class="text-center wd-450">Product</th>
-                                                    <!-- <th class="text-center wd-200">Product Type</th> -->
-                                                    <th class="text-center wd-100">Qty</th>
-                                                    <th class="text-center wd-100">Price</th>
-                                                    <th class="text-center wd-100">Total</th>
-                                                    <th class="text-center wd-50">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="tab_logic_body">
-                                                <tr id="addr0">
-                                                    <td>1</td>
 
-                                                    <td>
-                                                        <select class="form-control select-product"
-                                                            data-select2-selector="status" name="product[]"
-                                                            id="product_0">
-                                                            <option value="" disabled selected hidden>Pilih produk
-                                                            </option>
-                                                        </select>
-                                                    </td>
-
-                                                    <input type="hidden" name="product_type[]"
-                                                        class="form-control product-type" id="product_type_0" readonly>
-
-                                                    <td><input type="text" inputmode="numeric" name="qty[]"
-                                                            class="form-control qty" id="qty_0" min="1"></td>
-
-                                                    <!-- <td><input type="number" name="price_before_discount[]" class="form-control price_before_discount" id="price_before_discount_0" readonly></td>
-                                                                                                                                                                                                            <td><input type="number" name="total_before_discount[]" class="form-control total_before_discount" id="total_before_discount_0" readonly></td> -->
-                                                    <td>
-                                                        @php
-                                                            $isOwner = Auth::user()->role === 'Owner';
-                                                        @endphp
-                                                        <input type="text"
-                                                            class="form-control price_before_discount_display">
-                                                        <input type="hidden" name="price_before_discount[]"
-                                                            class="price_before_discount">
-                                                    </td>
-                                                    <td>
-                                                        <input type="text"
-                                                            class="form-control total_before_discount_display" readonly>
-                                                        <input type="hidden" name="total_before_discount[]"
-                                                            class="total_before_discount">
-                                                    </td>
-
-                                                    <td class="text-center">
-                                                        <div class="d-flex justify-content-center">
-                                                            <button type="button" class="btn btn-danger delete-row">
-                                                                <i class="feather-trash"></i>
-                                                            </button>
-                                                        </div>
-                                                    </td>
-
-                                                    <input type="hidden" name="price_after_discount[]"
-                                                        class="price_after_discount">
-                                                    <input type="hidden" name="total_after_discount[]"
-                                                        class="total_after_discount">
-                                                </tr>
-
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    <div class="d-flex justify-content-end gap-2 mt-3">
-                                        <!-- <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button> -->
-                                        <button type="button" id="add_row" class="btn btn-md btn-primary">Add
-                                            Items</button>
-                                    </div>
-                                </div>
-                                <div class="col-lg-12">
-                                    <div class="row justify-content-end">
-                                        <div class="col-lg-4 mt-3">
-                                            <div class="mb-4">
-                                                <h5 class="fw-bold">Grand Total:</h5>
-                                            </div>
-                                            <div class="table-responsive">
-                                                <table class="table table-bordered" id="tab_logic_total">
-                                                    <tbody>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase">Sub Total (Before
-                                                                Discount)</th>
-                                                            <td>
-                                                                <input type="text" id="sub_total_display"
-                                                                    class="form-control" readonly>
-                                                                <input type="hidden" name="sub_total" id="sub_total">
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase">Total Discount</th>
-                                                            <td>
-                                                                <input type="text" id="total_discount_display"
-                                                                    class="form-control text-danger" readonly>
-                                                                <input type="hidden" name="total_discount"
-                                                                    id="total_discount">
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
-                                                                Total</th>
-                                                            <td>
-                                                                <input type="text" id="total_amount_display"
-                                                                    class="form-control bg-gray-100 fw-700 text-success"
-                                                                    readonly>
-                                                                <input type="hidden" name="total_amount"
-                                                                    id="total_amount">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div> --}}
                     <div class="card stretch stretch-full">
                         <div class="card-body">
 
@@ -569,7 +523,7 @@
                                 <div class="col-lg-4">
                                     <h5 class="fw-bold mb-3">Grand Total:</h5>
 
-                                    <table class="table table-bordered">
+                                    <table class="table table-bordered" id="tab_logic_total">
                                         <tbody>
                                             <tr>
                                                 <th>Sub Total</th>
@@ -799,12 +753,52 @@
             pendingToggleOff = false;
         })
 
+        function initSelect2(el) {
+            $(el).select2({
+                placeholder: 'Pilih produk',
+                width: '100%',
+
+                // dropdown FULL
+                templateResult: function(data) {
+                    return data.text;
+                },
+
+                // selected DIPOTONG
+                templateSelection: function(data) {
+                    // mobile only
+                    if (window.innerWidth <= 576) {
+                        return truncateText(data.text, 45);
+                    }
+
+                    // desktop / tablet: FULL TEXT
+                    return data.text;
+                },
+
+                matcher: (params, data) => {
+                    if ($.trim(params.term) === '') return data;
+                    return data.text.toLowerCase().includes(params.term.toLowerCase()) ?
+                        data :
+                        null;
+                }
+            });
+
+            if ($(el).children('option').length === 1) {
+                populateProducts(el);
+            }
+        }
+
+        function truncateText(text, max = 45) {
+            if (!text) return '';
+            return text.length > max ? text.slice(0, max) + '...' : text;
+        }
+
         function populateProducts(selectEl) {
             $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
             allProducts.forEach(item => {
+                const fullText = `[${item.sku || '-'}] ${item.name}`;
                 $('<option>', {
                         value: item.id,
-                        text: `[${item.sku || '-'}] ${item.name}`,
+                        text: fullText,
                     })
                     .data('price', item.price)
                     .data('discounts', item.discounts || [])
@@ -1002,17 +996,17 @@
             recalcAllRows();
         });
 
-        function initSelect2(el) {
-            $(el).select2({
-                placeholder: 'Pilih produk',
-                width: '100%',
-                matcher: (params, data) => {
-                    if ($.trim(params.term) === '') return data;
-                    return data.text.toLowerCase().includes(params.term.toLowerCase()) ? data : null;
-                }
-            });
-            if ($(el).children('option').length === 1) populateProducts(el);
-        }
+        // function initSelect2(el) {
+        //     $(el).select2({
+        //         placeholder: 'Pilih produk',
+        //         width: '100%',
+        //         matcher: (params, data) => {
+        //             if ($.trim(params.term) === '') return data;
+        //             return data.text.toLowerCase().includes(params.term.toLowerCase()) ? data : null;
+        //         }
+        //     });
+        //     if ($(el).children('option').length === 1) populateProducts(el);
+        // }
 
         document.addEventListener('DOMContentLoaded', function() {
             let rowCount = 1;

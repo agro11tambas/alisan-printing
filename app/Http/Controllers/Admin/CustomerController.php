@@ -21,7 +21,12 @@ class CustomerController extends Controller
 
     public function data(Request $request)
     {
+        $user = Auth::user();
         $customers = Customers::with('addresses')->latest();
+
+        if ($user->role === 'Sales') {
+            $customers->where('user_id', $user->id);
+        }
 
         if ($request->filled('name')) {
             $customers->whereHas('addresses', function ($query) use ($request) {
@@ -42,6 +47,9 @@ class CustomerController extends Controller
             })
             ->addColumn('action', function ($customer) {
                 return view('erp.pages.customers.partials.action-button', compact('customer'))->render();
+            })
+            ->addColumn('user', function ($customer) {
+                return $customer->user?->name ?? '-';
             })
             ->rawColumns(['action', 'addresses', 'phone', 'customer_deposit'])
             ->make(true);

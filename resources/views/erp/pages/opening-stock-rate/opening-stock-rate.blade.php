@@ -70,7 +70,7 @@
             });
         </script>
     @endif
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -98,7 +98,8 @@
                                     @foreach ($openingStockRates as $openingStockRate)
                                         <tr>
                                             <td>{{ $no++ }}</td>
-                                            <td>{{ $openingStockRate->product ? $openingStockRate->product->name : '-' }}</td>
+                                            <td>{{ $openingStockRate->product ? $openingStockRate->product->name : '-' }}
+                                            </td>
                                             <td>{{ number_format($openingStockRate->opening_stock, 0, ',', '.') }}</td>
                                             <td>{{ number_format($openingStockRate->opening_rate, 2, ',', '.') }}</td>
                                             <td>{{ number_format($openingStockRate->minimum_stock, 0, ',', '.') }}</td>

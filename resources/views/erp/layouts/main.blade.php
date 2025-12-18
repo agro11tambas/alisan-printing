@@ -43,6 +43,27 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
+        /* Default (desktop) */
+        .nxl-page-title {
+            font-size: 1rem;
+            line-height: 1.4;
+        }
+
+        /* Tablet */
+        @media (max-width: 768px) {
+            .nxl-page-title {
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Mobile */
+        @media (max-width: 480px) {
+            .nxl-page-title {
+                font-size: 0.7rem;
+                line-height: 1.2;
+            }
+        }
+
         #invoiceContent {
             width: 768px;
             max-width: 768px;
@@ -255,8 +276,10 @@
         } */
 
         /* Pastikan container utama sidebar tidak scroll */
+
         .nxl-navigation {
             overflow: hidden !important;
+            /* z-index: 99999 !important; */
         }
 
         /* Wrapper juga jangan scroll */
@@ -285,7 +308,7 @@
             left: calc(60px + 10px) !important;
             /* samping icon */
             top: auto !important;
-            z-index: 6500 !important;
+            /* z-index: 6500 !important; */
             background: #ffffff !important;
             border-radius: 10px;
             min-width: 200px;
@@ -302,7 +325,7 @@
             /* margin-left: 20px !important; */
             left: unset !important;
             top: unset !important;
-            z-index: 6000 !important;
+            /* z-index: 6000 !important; */
 
             background: #ffffff !important;
             /* light mode */
@@ -323,7 +346,7 @@
             /* margin-left: 20px !important; */
             left: unset !important;
             top: unset !important;
-            z-index: 6000 !important;
+            /* z-index: 9000 !important; */
 
             /* light mode */
             pointer-events: auto !important;
@@ -395,7 +418,7 @@
             left: 75px !important;
             /* tepat di samping sidebar minimize */
             transform: translateY(calc(var(--item-top) * 1px)) !important;
-            z-index: 6000 !important;
+            /* z-index: 99999 !important; */
 
             /* background: var(--submenu-bg, #ffffff) !important; */
             border-radius: 10px;
@@ -415,7 +438,7 @@
             display: block !important;
             position: fixed !important;
             left: 75px !important;
-            z-index: 6000 !important;
+            /* z-index: 6000 !important; */
         }
 
         /* Minimize: hanya LEVEL 1 yang floating */
@@ -431,7 +454,7 @@
             /* background: var(--submenu-bg, #fff) !important; */
             border-radius: 10px !important;
             box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15) !important;
-            z-index: 7000 !important;
+            /* z-index: 7000 !important; */
         }
 
         /* Level 2 & 3 → kembali normal */
@@ -544,6 +567,46 @@
         .nxl-navigation .navbar-content {
             /* z-index: 4000 !important; */
             /* Firefox */
+        }
+
+        /* Default (desktop) */
+        .page-header-right-items-wrapper {
+            flex-wrap: nowrap;
+        }
+
+        /* Mobile */
+        @media (max-width: 576px) {
+            .page-header-right-items-wrapper {
+                flex-wrap: wrap;
+                gap: 6px !important;
+            }
+
+            /* Select filter tetap full */
+            .page-header-right-items-wrapper>.col-auto:first-child {
+                width: 100%;
+            }
+
+            /* Start & End date 1 baris */
+            .page-header-right-items-wrapper .custom-range {
+                width: calc(50% - 3px);
+            }
+
+            /* Apply button full width */
+            .page-header-right-items-wrapper .custom-range:last-child {
+                width: 100%;
+            }
+
+            /* Control size */
+            .page-header-right-items-wrapper select,
+            .page-header-right-items-wrapper input,
+            .page-header-right-items-wrapper button {
+                font-size: 0.75rem;
+                padding: 0.45rem 0.75rem;
+            }
+        }
+
+        .select2-container {
+            z-index: auto !important;
         }
     </style>
 

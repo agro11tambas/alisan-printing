@@ -21,7 +21,7 @@
 @endsection
 
 @section('content')
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch">
@@ -34,7 +34,7 @@
                         </span>
                     </div>
                     <div class="card-body">
-                    
+
                         <div class="table-responsive">
                             <table class="table table-hover align-middle" id="OperatorProductTable">
                                 <thead>
@@ -83,8 +83,7 @@
                 info: false,
                 lengthChange: false,
                 data: [],
-                columns: [
-                    {
+                columns: [{
                         data: 'last_date'
                     },
                     {

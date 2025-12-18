@@ -28,7 +28,7 @@
 @endsection
 
 @section('content')
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="card stretch">
             <form action="/erp/productions/stock-opname/store" method="POST" id="stockOpnameForm">
                 @csrf
@@ -235,9 +235,9 @@
 
                 // bersihkan format ribuan sebelum submit
                 form.querySelectorAll('input[name^="items"][name$="[available_quantity]"]').forEach(
-                input => {
-                    input.value = input.value.replace(/\./g, '');
-                });
+                    input => {
+                        input.value = input.value.replace(/\./g, '');
+                    });
             });
 
             function showError(el, message) {

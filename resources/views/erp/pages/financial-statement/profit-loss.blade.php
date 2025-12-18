@@ -57,7 +57,7 @@
 @endsection
 
 @section('content')
-    <div class="main-content">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -67,7 +67,8 @@
                                 <tbody>
                                     <tr>
                                         <td><strong>Sale</strong></td>
-                                        <td class="text-end" id="RevenueDisplay">Rp {{ number_format($netRevenue, 0, ',', '.') }}</td>
+                                        <td class="text-end" id="RevenueDisplay">Rp
+                                            {{ number_format($netRevenue, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr>
                                         <td>Less: Sale Return</td>
@@ -76,16 +77,19 @@
                                     </tr>
                                     <tr>
                                         <td>Less: COGS</td>
-                                        <td class="text-end" id="COGSDisplay">(Rp {{ number_format($cogs, 0, ',', '.') }})</td>
+                                        <td class="text-end" id="COGSDisplay">(Rp {{ number_format($cogs, 0, ',', '.') }})
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td><strong>Gross Profit</strong></td>
-                                        <td class="text-end" id="GrossProfitDisplay">Rp {{ number_format($grossProfit, 0, ',', '.') }}
+                                        <td class="text-end" id="GrossProfitDisplay">Rp
+                                            {{ number_format($grossProfit, 0, ',', '.') }}
                                         </td>
                                     </tr>
                                     <tr>
                                         <td>Less: Expenses</td>
-                                        <td class="text-end" id="ExpenseDisplay">Rp {{ number_format($expenses, 0, ',', '.') }}</td>
+                                        <td class="text-end" id="ExpenseDisplay">Rp
+                                            {{ number_format($expenses, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr class="table-success">
                                         <td><strong>Net Profit</strong></td>
@@ -109,7 +113,8 @@
                                 <tbody>
                                     <tr>
                                         <td><strong>Sale</strong></td>
-                                        <td class="text-end" id="RevenueFixedDisplay">Rp {{ number_format($netRevenue, 0, ',', '.') }}
+                                        <td class="text-end" id="RevenueFixedDisplay">Rp
+                                            {{ number_format($netRevenue, 0, ',', '.') }}
                                         </td>
                                     </tr>
                                     <tr>

@@ -187,8 +187,8 @@
         }
 
         /* .sale-tabs {
-                                            display: none !important;
-                                        } */
+                                                                                display: none !important;
+                                                                            } */
 
         .sale-mobile-action {
             display: none;
@@ -267,7 +267,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-4 p-0 p-md-4 pt-2 pt-md-4">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -349,10 +349,10 @@
                                     href="#edited-sale-list" role="tab">Edited Sale List</a>
                             </li>
                         </ul>
-                        <div class="table-responsive">
+                        <div class="table-responsive ">
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="sale-list" role="tabpanel">
-                                    <table class="table table-hover bg-transparent" id="saleListTable">
+                                    <table class=" table table-hover bg-transparent" id="saleListTable">
                                         <thead>
                                             <tr>
                                                 <th style="width:3%;"></th>
@@ -429,7 +429,7 @@
                             </div>
                         </div>
                         {{-- MOBILE SALE LIST --}}
-                        <div id="saleListMobile" class="d-md-none px-3 pb-4">
+                        <div id="saleListMobile" class="d-md-none px-0 pb-4">
                         </div>
                     </div>
                 </div>

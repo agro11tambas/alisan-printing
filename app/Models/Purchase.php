@@ -43,6 +43,7 @@ class Purchase extends Model
         'transaction_type',
         'deleted_by',
         'deleted_notes',
+        'user_id',
     ];
 
     protected $casts = [
@@ -94,6 +95,11 @@ class Purchase extends Model
     public function defectProducts()
     {
         return $this->hasMany(DefectProduct::class, 'purchase_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id')->withTrashed();
     }
 
     public function hasStockIn()
