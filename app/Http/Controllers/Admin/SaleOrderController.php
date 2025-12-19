@@ -299,7 +299,15 @@ class SaleOrderController extends Controller
         })->toArray();
 
         // 🔹 Data pendukung lain
-        $customers = Customers::with('addresses')->get();
+        // $customers = Customers::with('addresses')->get();
+        $user = Auth::user();
+
+        $customers = Customers::with('addresses')
+            ->when($user->role === 'Sales', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })
+            ->get();
+
         $discount = Discount::first();
         $transactionTypes = Account::where('name', 'Sale')->get();
         $cashAccounts = Account::where('name', 'Cash')->get();
@@ -535,7 +543,16 @@ class SaleOrderController extends Controller
             ->orderBy('name', 'asc')
             ->get();
 
-        $customers = Customers::with('addresses')->orderBy('name', 'asc')->get();
+        // $customers = Customers::with('addresses')->orderBy('name', 'asc')->get();
+
+        $user = Auth::user();
+
+        $customers = Customers::with('addresses')
+            ->when($user->role === 'Sales', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })
+            ->orderBy('name', 'asc')
+            ->get();
 
         // 🔹 JSON untuk produk tunggal
         $productsJson = $products->map(function ($product) {

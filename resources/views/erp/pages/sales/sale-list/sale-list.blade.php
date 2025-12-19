@@ -123,11 +123,12 @@
         }
 
         .sale-mobile-card {
-            border-radius: 10px;
+            border-radius: 0px;
             padding: 12px 14px;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
             overflow: visible !important;
             position: relative;
+            border-bottom: 1px solid #e5e9ef;
         }
 
         .sale-mobile-card.active {
@@ -178,7 +179,7 @@
         .sale-amount {
             display: flex;
             justify-content: space-between;
-            margin-top: 8px;
+            margin-top: 4px;
             font-size: 13px;
         }
 
@@ -187,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                display: none !important;
-                                                                            } */
+                                                                                                        display: none !important;
+                                                                                                    } */
 
         .sale-mobile-action {
             display: none;
@@ -2129,16 +2130,13 @@
                                     <span class="sale-status">${row.payment_status}</span>
                                 </div>
 
-                                <div class="sale-customer">${row.customer_mobile}</div>
-
-                                <div class="sale-amount">
+                                <div class="sale-amount align-items-end">
                                     <div>
-                                        <span>Due</span><br>
-                                        ${row.remaining_amount ?? row.grand_total}
-                                    </div>
-                                    <div class="text-end">
-                                        <span>Out Of</span><br>
+                                        <div class="sale-customer">${row.customer_mobile}</div>
                                         ${row.grand_total}
+                                    </div>
+                                    <div class="text-end"> 
+                                        ${row.paid_amount}
                                     </div>
                                 </div>
                             </div>
