@@ -790,46 +790,55 @@
             $(this).val(new Intl.NumberFormat('id-ID').format(val));
         });
 
-        let pendingToggleOff = false;
+        $(document).ready(function() {
+            let pendingToggleOff = false;
 
-        $(document).on('change', '#toggleDiscount', function() {
-            const isChecked = $(this).is(':checked');
-            const label = $(this).next('label');
+            $('#toggleDiscount').on('change', function() {
+                const isChecked = this.checked;
+                const label = $(this).next('label');
 
-            if (!isChecked) {
-                // simpan state kalau user mau OFF
-                pendingToggleOff = true;
-                // tampilkan modal konfirmasi
-                $('#confirmDisableDiscountModal').modal('show');
-                // kembalikan toggle ke posisi ON sementara
-                $(this).prop('checked', true);
-            } else {
-                // aktifkan diskon
-                discountEnabled = true;
-                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
-                recalcAllRows();
-            }
-        });
+                if (!isChecked) {
+                    pendingToggleOff = true;
+                    $(this).prop('checked', true);
+                    $('#confirmDisableDiscountModal').modal('show');
+                } else {
+                    discountEnabled = true;
+                    $('#discount_active_hidden').val(1);
+                    label.text('Diskon Aktif')
+                        .removeClass('text-danger')
+                        .addClass('text-success');
+                    recalcAllRows();
+                }
+            });
 
-        // Ketika user konfirmasi matikan diskon dari modal pertama
-        $('#confirmDisableDiscountBtn').on('click', function() {
-            $('#confirmDisableDiscountModal').modal('hide');
-            if (pendingToggleOff) {
-                // Tampilkan modal kedua: tanggung jawab
-                $('#confirmResponsibilityModal').modal('show');
-            }
-        });
+            /* ⬇️ PENTING: OFF dulu event lama */
+            $('#confirmDisableDiscountBtn')
+                .off('click')
+                .on('click', function() {
+                    $('#confirmDisableDiscountModal').modal('hide');
 
-        $('#confirmResponsibilityBtn').on('click', function() {
-            $('#confirmResponsibilityModal').modal('hide');
+                    $('#confirmDisableDiscountModal').one('hidden.bs.modal', function() {
+                        $('#confirmResponsibilityModal').modal('show');
+                    });
+                });
 
-            discountEnabled = false;
-            $('#toggleDiscount').prop('checked', false);
-            $('#discount_active_hidden').val(0); // ✅ ini akan tersimpan
-            const label = $('#toggleDiscount').next('label');
-            label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
-            recalcAllRows();
-            pendingToggleOff = false;
+            $('#confirmResponsibilityBtn')
+                .off('click')
+                .on('click', function() {
+                    $('#confirmResponsibilityModal').modal('hide');
+
+                    discountEnabled = false;
+                    $('#toggleDiscount').prop('checked', false);
+                    $('#discount_active_hidden').val(0);
+
+                    const label = $('#toggleDiscount').next('label');
+                    label.text('Diskon Nonaktif')
+                        .removeClass('text-success')
+                        .addClass('text-danger');
+
+                    pendingToggleOff = false;
+                    recalcAllRows();
+                });
         })
 
         function calculateRow(row) {
@@ -930,13 +939,6 @@
             row.find('input.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
         }
 
-        // function recalcAllRows() {
-        //     $('tr[id^="addr"]').each(function() {
-        //         calculateRow($(this));
-        //     });
-        //     calcTotalSummary();
-        // }
-
         function recalcAllRows() {
             $('.product-item').each(function() {
                 calculateRow($(this));
@@ -963,13 +965,6 @@
             $("#total_discount_display").val(formatNumber(subTotal - totalAfterDiscount));
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
-
-        // $(document).on('change', 'select[name="product[]"]', function() {
-        //     const row = $(this).closest('tr');
-        //     const type = $(this).find('option:selected').data('type') || '';
-        //     row.find('.product-type').val(type);
-        //     recalcAllRows();
-        // });
 
         $(document).on('change', 'select[name="product[]"]', function() {
             const row = $(this).closest('.product-item');
@@ -1002,68 +997,6 @@
 
             document.querySelectorAll('select.select-product').forEach(el => initSelect2(el));
 
-            // document.getElementById('add_row').addEventListener('click', function() {
-            //     const tableBody = document.querySelector('#tab_logic_body');
-            //     const rowCount = tableBody.querySelectorAll('tr').length;
-
-            //     const newRow = document.createElement('tr');
-            //     newRow.id = 'addr' + rowCount;
-
-            //     newRow.innerHTML = `
-        //         <td>${rowCount + 1}</td>
-
-        //         <td>
-        //             <select class="form-control select-product"
-        //                 data-select2-selector="status"
-        //                 name="product[]"
-        //                 id="product_${rowCount}">
-        //                 <option value="" disabled selected hidden>Pilih produk</option>
-        //             </select>
-        //         </td>
-
-        //         <input type="hidden" name="product_type[]" 
-        //             class="form-control product-type" 
-        //             id="product_type_${rowCount}" readonly>
-
-        //         <td>
-        //             <input type="text" inputmode="numeric" 
-        //                 name="qty[]" class="form-control qty" value="">
-        //         </td>
-
-        //         <td>
-        //             <input type="text" inputmode="numeric" 
-        //                 class="form-control price_before_discount_display">
-        //             <input type="hidden" name="price_before_discount[]" 
-        //                 class="price_before_discount">
-        //         </td>
-
-        //         <td>
-        //             <input type="text" inputmode="numeric"
-        //                 class="form-control total_before_discount_display" readonly>
-        //             <input type="hidden" name="total_before_discount[]" 
-        //                 class="total_before_discount">
-        //         </td>
-
-        //         <td class="text-center">
-        //             <div class="d-flex justify-content-center">
-        //                 <button type="button" class="btn btn-danger delete-row">
-        //                     <i class="feather-trash"></i>
-        //                 </button>
-        //             </div>
-        //         </td>
-
-        //         <input type="hidden" name="price_after_discount[]" 
-        //             class="form-control price_after_discount" readonly>
-
-        //         <input type="hidden" name="total_after_discount[]" 
-        //             class="form-control total_after_discount" readonly>
-        //     `;
-
-            //     tableBody.appendChild(newRow);
-
-            //     initSelect2(newRow.querySelector('.select-product'));
-            // });
-
             document.getElementById('add_row').addEventListener('click', function() {
 
                 const list = document.getElementById('product_list');
@@ -1084,17 +1017,6 @@
                 // init select2 SETELAH masuk DOM
                 initSelect2(item.querySelector('.select-product'));
             });
-
-            // $(document).on('click', '.delete-row', function() {
-            //     const row = $(this).closest('tr');
-            //     row.remove();
-
-            //     $('#tab_logic_body tr').each(function(i, el) {
-            //         $(el).find('td:first').text(i + 1);
-            //     });
-
-            //     recalcAllRows();
-            // });
 
             document.addEventListener('click', function(e) {
                 if (e.target.closest('.delete-row')) {
@@ -1346,52 +1268,109 @@
             form.submit();
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const toggle = document.getElementById('toggleMode');
-            const label = document.getElementById('modeLabel');
-            const hidden = document.getElementById('mode');
-            const nextModeText = document.getElementById('nextModeText');
-            const confirmChangeBtn = document.getElementById('confirmChangeModeBtn');
-            const confirmResponsibilityBtn = document.getElementById('confirmModeResponsibilityBtn');
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     const toggle = document.getElementById('toggleMode');
+        //     const label = document.getElementById('modeLabel');
+        //     const hidden = document.getElementById('mode');
+        //     const nextModeText = document.getElementById('nextModeText');
+        //     const confirmChangeBtn = document.getElementById('confirmChangeModeBtn');
+        //     const confirmResponsibilityBtn = document.getElementById('confirmModeResponsibilityBtn');
 
-            // default
-            label.textContent = 'Printing';
-            hidden.value = 'printing';
+        //     // default
+        //     label.textContent = 'Printing';
+        //     hidden.value = 'printing';
+        //     let pendingMode = null;
+
+        //     toggle.addEventListener('change', function() {
+        //         const nextMode = toggle.checked ? 'printing' : 'polosan';
+        //         const currentMode = hidden.value;
+
+        //         // Kalau beda, munculkan konfirmasi modal
+        //         if (nextMode !== currentMode) {
+        //             pendingMode = nextMode;
+        //             nextModeText.textContent = nextMode === 'printing' ? 'Printing' : 'Polosan';
+
+        //             // balikin toggle sementara
+        //             toggle.checked = currentMode === 'printing';
+        //             $('#confirmChangeModeModal').modal('show');
+        //         }
+        //     });
+
+        //     // Tombol konfirmasi pertama
+        //     confirmChangeBtn.addEventListener('click', function() {
+        //         $('#confirmChangeModeModal').modal('hide');
+        //         $('#confirmModeResponsibilityModal').modal('show');
+        //     });
+
+        //     // Tombol tanggung jawab
+        //     confirmResponsibilityBtn.addEventListener('click', function() {
+        //         $('#confirmModeResponsibilityModal').modal('hide');
+
+        //         // apply perubahan mode
+        //         if (pendingMode) {
+        //             hidden.value = pendingMode;
+        //             label.textContent = pendingMode === 'printing' ? 'Printing' : 'Polosan';
+        //             toggle.checked = pendingMode === 'printing';
+        //             pendingMode = null;
+        //         }
+        //     });
+        // });
+
+        $(document).ready(function() {
+
             let pendingMode = null;
 
-            toggle.addEventListener('change', function() {
-                const nextMode = toggle.checked ? 'printing' : 'polosan';
-                const currentMode = hidden.value;
+            // default state
+            $('#modeLabel').text('Printing');
+            $('#mode').val('printing');
+            $('#toggleMode').prop('checked', true);
 
-                // Kalau beda, munculkan konfirmasi modal
+            $('#toggleMode').on('change', function() {
+                const nextMode = this.checked ? 'printing' : 'polosan';
+                const currentMode = $('#mode').val();
+
                 if (nextMode !== currentMode) {
                     pendingMode = nextMode;
-                    nextModeText.textContent = nextMode === 'printing' ? 'Printing' : 'Polosan';
 
-                    // balikin toggle sementara
-                    toggle.checked = currentMode === 'printing';
+                    $('#nextModeText').text(
+                        nextMode === 'printing' ? 'Printing' : 'Polosan'
+                    );
+
+                    // rollback toggle
+                    $(this).prop('checked', currentMode === 'printing');
+
                     $('#confirmChangeModeModal').modal('show');
                 }
             });
 
-            // Tombol konfirmasi pertama
-            confirmChangeBtn.addEventListener('click', function() {
-                $('#confirmChangeModeModal').modal('hide');
-                $('#confirmModeResponsibilityModal').modal('show');
-            });
+            $('#confirmChangeModeBtn')
+                .off('click')
+                .on('click', function() {
+                    $('#confirmChangeModeModal').modal('hide');
 
-            // Tombol tanggung jawab
-            confirmResponsibilityBtn.addEventListener('click', function() {
-                $('#confirmModeResponsibilityModal').modal('hide');
+                    $('#confirmChangeModeModal').one('hidden.bs.modal', function() {
+                        $('#confirmModeResponsibilityModal').modal('show');
+                    });
+                });
 
-                // apply perubahan mode
-                if (pendingMode) {
-                    hidden.value = pendingMode;
-                    label.textContent = pendingMode === 'printing' ? 'Printing' : 'Polosan';
-                    toggle.checked = pendingMode === 'printing';
-                    pendingMode = null;
-                }
-            });
+            $('#confirmModeResponsibilityBtn')
+                .off('click')
+                .on('click', function() {
+                    $('#confirmModeResponsibilityModal').modal('hide');
+
+                    if (pendingMode) {
+                        $('#mode').val(pendingMode);
+                        $('#modeLabel').text(
+                            pendingMode === 'printing' ? 'Printing' : 'Polosan'
+                        );
+                        $('#toggleMode').prop(
+                            'checked',
+                            pendingMode === 'printing'
+                        );
+                        pendingMode = null;
+                    }
+                });
+
         });
     </script>
 @endpush

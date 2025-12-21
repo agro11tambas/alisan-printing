@@ -24,7 +24,7 @@ class DashboardController extends Controller
 
     public function summary(Request $request)
     {
-        $filter = $request->get('filter', 'all');
+        $filter = strtolower(trim($request->get('filter', 'this_month')));
         $start  = $request->get('start_date');
         $end    = $request->get('end_date');
 
@@ -190,9 +190,13 @@ class DashboardController extends Controller
                 $endDate   = $end ? Carbon::parse($end)->endOfDay() : null;
                 break;
             case 'all':
-            default:
+                // 🔥 all time = tanpa filter tanggal
                 $startDate = null;
                 $endDate   = null;
+                break;
+            default:
+                $startDate = Carbon::now()->startOfMonth();
+                $endDate   = Carbon::now()->endOfMonth();
                 break;
         }
 

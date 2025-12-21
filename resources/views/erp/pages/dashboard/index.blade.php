@@ -22,11 +22,11 @@
                     <div class="col-auto">
                         <select id="filter" class="form-control"
                             style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                            <option value="this_month">This Month</option>
                             <option value="all">All Time</option>
                             <option value="yearly">Yearly</option>
                             <option value="year_to_date">Year to Date</option>
                             <option value="last_30_days">Last 30 Days</option>
-                            <option value="this_month">This Month</option>
                             <option value="last_7_days">Last 7 Days</option>
                             <option value="today">Today</option>
                             <option value="custom">Custom Range</option>
@@ -403,7 +403,7 @@
         }
 
         $(document).ready(function() {
-            fetchAccount('all');
+            fetchAccount('this_month');
 
             $('#filter').change(function() {
                 const filter = $(this).val();
