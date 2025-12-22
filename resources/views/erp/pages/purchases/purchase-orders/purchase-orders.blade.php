@@ -153,6 +153,7 @@
                                         <th>Purchase Number</th>
                                         <th>Supplier</th>
                                         <th>Total Amount</th>
+                                        <th>User</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -483,7 +484,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [4, 'desc']
+                    [5, 'desc']
                 ],
                 data: [],
                 columns: [{
@@ -501,6 +502,9 @@
                     },
                     {
                         data: 'total_amount'
+                    },
+                    {
+                        data: 'user',
                     },
                     {
                         data: 'purchase_date',

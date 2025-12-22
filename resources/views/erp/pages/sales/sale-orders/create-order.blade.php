@@ -96,14 +96,14 @@
 
         /* MOBILE */
         /* @media (max-width: 768px) {
-                                .product-grid {
-                                    grid-template-columns: 1fr;
-                                }
+                                                        .product-grid {
+                                                            grid-template-columns: 1fr;
+                                                        }
 
-                                .product-col-span-2 {
-                                    grid-column: span 1;
-                                }
-                            } */
+                                                        .product-col-span-2 {
+                                                            grid-column: span 1;
+                                                        }
+                                                    } */
 
         /* MOBILE */
         @media (max-width: 768px) {
@@ -111,6 +111,21 @@
             /* CARD super tipis */
             .card-body {
                 padding: 6px !important;
+            }
+
+            .select2-container--default .select2-selection--single {
+                padding: 1px !important;
+                height: auto !important;
+            }
+
+            .select2-container--default .select2-selection--single .select2-selection__arrow {
+                display: none !important;
+            }
+
+            .select2-container--default .select2-selection--single .select2-selection__rendered {
+                padding-left: 4px;
+                padding-right: 4px;
+                line-height: 1.5;
             }
 
             .product-item {
@@ -412,7 +427,7 @@
                                 <div class="product-item" data-index="0">
                                     <div class="product-item-header">
                                         <span class="product-number">#1</span>
-                                        <button type="button" class="btn btn-sm btn-danger delete-row">
+                                        <button type="button" class="btn btn-danger delete-row">
                                             <i class="feather-trash"></i>
                                         </button>
                                     </div>
@@ -762,38 +777,94 @@
                 });
         })
 
+        // function initSelect2(el) {
+        //     $(el).select2({
+        //         placeholder: 'Pilih produk',
+        //         width: '100%',
+
+        //         // dropdown FULL
+        //         templateResult: function(data) {
+        //             return data.text;
+        //         },
+
+        //         // selected DIPOTONG
+        //         templateSelection: function(data) {
+        //             // mobile only
+        //             if (window.innerWidth <= 576) {
+        //                 return truncateText(data.text, 45);
+        //             }
+
+        //             // desktop / tablet: FULL TEXT
+        //             return data.text;
+        //         },
+
+        //         matcher: (params, data) => {
+        //             if ($.trim(params.term) === '') return data;
+        //             return data.text.toLowerCase().includes(params.term.toLowerCase()) ?
+        //                 data :
+        //                 null;
+        //         }
+        //     });
+
+        //     if ($(el).children('option').length === 1) {
+        //         populateProducts(el);
+        //     }
+        // }
+
+        function isMobile() {
+            return window.matchMedia('(max-width: 768px)').matches;
+        }
+
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih produk',
                 width: '100%',
 
-                // dropdown FULL
-                templateResult: function(data) {
-                    return data.text;
-                },
+                /* 🔍 SEARCH: pakai nama + SKU */
+                matcher: function(params, data) {
+                    if ($.trim(params.term) === '') return data;
+                    if (!data.element) return null;
 
-                // selected DIPOTONG
-                templateSelection: function(data) {
-                    // mobile only
-                    if (window.innerWidth <= 576) {
-                        return truncateText(data.text, 45);
+                    const term = params.term.toLowerCase();
+                    const text = data.text.toLowerCase();
+                    const sku = $(data.element).data('sku')?.toLowerCase() || '';
+
+                    if (text.includes(term) || sku.includes(term)) {
+                        return data;
                     }
 
-                    // desktop / tablet: FULL TEXT
-                    return data.text;
+                    return null;
                 },
 
-                matcher: (params, data) => {
-                    if ($.trim(params.term) === '') return data;
-                    return data.text.toLowerCase().includes(params.term.toLowerCase()) ?
-                        data :
-                        null;
+                /* 📱 Tampilan list dropdown */
+                templateResult: function(data) {
+                    if (!data.element) return data.text;
+
+                    const name = data.text.replace(/^\[.*?\]\s*/, '');
+                    const sku = $(data.element).data('sku');
+
+                    if (isMobile()) {
+                        return name; // MOBILE → tanpa SKU
+                    }
+
+                    return data.text; // DESKTOP → pakai SKU
+                },
+
+                /* 📱 Tampilan selected value */
+                templateSelection: function(data) {
+                    if (!data.element) return data.text;
+
+                    const name = data.text.replace(/^\[.*?\]\s*/, '');
+
+                    if (isMobile()) {
+                        return name;
+                    }
+
+                    return data.text;
                 }
             });
 
-            if ($(el).children('option').length === 1) {
-                populateProducts(el);
-            }
+            if ($(el).children('option').length === 1) populateProducts(el);
         }
 
         function truncateText(text, max = 45) {

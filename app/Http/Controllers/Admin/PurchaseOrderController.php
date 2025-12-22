@@ -155,6 +155,7 @@ class PurchaseOrderController extends Controller
                     'products' => $products,
                     'status' => $statusBadge,
                     'action' => $actionHtml,
+                    'user' => $purchase->user->name ?? '-',
                 ];
             }),
             'has_more' => $totalData > ($start + $length),

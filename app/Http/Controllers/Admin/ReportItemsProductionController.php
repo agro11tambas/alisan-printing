@@ -23,10 +23,32 @@ class ReportItemsProductionController extends Controller
     public function dataReportItems(Request $request)
     {
         // 🔹 Query utama, hanya ambil yang punya product aktif (tidak soft-deleted)
-        $reportItems = ProductionStock::whereHas('product', function ($q) {
-            $q->whereNull('products.deleted_at');
-        })
-            ->with('product');
+        $reportItems = ProductionStock::query()
+            ->whereHas('product', fn($q) => $q->whereNull('products.deleted_at'))
+            ->with('product')
+            ->select(
+                'production_stocks.*',
+                DB::raw('
+            GREATEST(
+                COALESCE((
+                    SELECT SUM(quantity)
+                    FROM design_items
+                    WHERE design_items.product_id = production_stocks.product_id
+                    AND design_items.deleted_at IS NULL
+                ),0)
+                -
+                COALESCE((
+                    SELECT SUM(assigned_quantity)
+                    FROM order_progress_assigns
+                    WHERE order_progress_assigns.product_id = production_stocks.product_id
+                    AND order_progress_assigns.deleted_at IS NULL
+                ),0),
+                0
+            ) AS pending_waiting_list
+        ')
+            )
+            ->orderByDesc('pending_waiting_list'); // 🔥 INI YANG KAMU MAU
+
 
         if ($request->filled('product_name')) {
             $keyword = $request->product_name;
@@ -79,10 +101,6 @@ class ReportItemsProductionController extends Controller
 
                 return number_format($finished, 0, ',', '.');
             })
-            // ->addColumn(
-            //     'incoming_stock',
-            //     fn($item) => number_format($item->incoming_stock ?? 0, 0, ',', '.')
-            // )
             ->addColumn('incoming_stock', function ($item) {
 
                 $incoming = DB::table('material_request_items')
@@ -93,30 +111,32 @@ class ReportItemsProductionController extends Controller
 
                 return number_format($incoming ?? 0, 0, ',', '.');
             })
-            // ->addColumn(
-            //     'pending_waiting_list',
-            //     fn($item) => number_format($item->pending_waiting_list ?? 0, 0, ',', '.')
-            // )
-            ->addColumn('pending_waiting_list', function ($item) {
+            // ->addColumn('pending_waiting_list', function ($item) {
 
-                $productId = $item->product_id;
+            //     $productId = $item->product_id;
 
-                // 1️⃣ Total QTY dari Design Items
-                $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
-                    ->whereNull('deleted_at')
-                    ->sum('quantity');
+            //     // 1️⃣ Total QTY dari Design Items
+            //     $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
+            //         ->whereNull('deleted_at')
+            //         ->sum('quantity');
 
-                // 2️⃣ Total Assigned QTY
-                $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
-                    ->whereNull('deleted_at')
-                    ->sum('assigned_quantity');
+            //     // 2️⃣ Total Assigned QTY
+            //     $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
+            //         ->whereNull('deleted_at')
+            //         ->sum('assigned_quantity');
 
-                $pending = $totalDesignQty - $totalAssignedQty;
+            //     $pending = $totalDesignQty - $totalAssignedQty;
 
-                if ($pending < 0) $pending = 0;
+            //     if ($pending < 0) $pending = 0;
 
-                return number_format($pending, 0, ',', '.');
-            })
+            //     return number_format($pending, 0, ',', '.');
+            // })
+
+            ->addColumn(
+                'pending_waiting_list',
+                fn($item) => number_format($item->pending_waiting_list ?? 0, 0, ',', '.')
+            )
+
             ->addColumn('assigned_minus_completed', function ($item) {
 
                 $productId = $item->product_id;

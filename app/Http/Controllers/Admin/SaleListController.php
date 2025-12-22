@@ -366,8 +366,12 @@ class SaleListController extends Controller
 
                 $businessName = $order->customerAddress->business_name ?? null;
 
+                $orderMonthStart = Carbon::parse($order->order_date)->startOfMonth();
+                $orderMonthEnd   = Carbon::parse($order->order_date)->endOfMonth();
+
                 $orderCount = Order::where('status', 'sale list')
                     ->where('customer_id', $order->customer_id)
+                    ->whereBetween('order_date', [$orderMonthStart, $orderMonthEnd])
                     ->when($businessName, function ($q) use ($businessName) {
                         $q->whereHas('customerAddress', function ($sub) use ($businessName) {
                             $sub->where('business_name', $businessName);
@@ -4300,12 +4304,12 @@ class SaleListController extends Controller
             // 🔹 DEFECT PRODUCT - Hapus berdasarkan order_progress_history
             \App\Models\DefectProduct::whereHas('orderProgressHistory2.progressItem.progress', function ($q) use ($order) {
                 $q->where('order_id', $order->id);
-            })->forceDelete();
+            })->delete();
 
             // 🔹 REJECT PRODUCT  
             \App\Models\RejectProduct::whereHas('orderProgress', fn($q) => $q->where('order_id', $order->id))
                 ->orWhereHas('orderProgressBatch.orderProgress', fn($q) => $q->where('order_id', $order->id))
-                ->forceDelete();
+                ->delete();
 
             // ======================================================
             // 🔥 ROLLBACK TRANSAKSI KEUANGAN (FORCE DELETE MODE)
@@ -4376,32 +4380,32 @@ class SaleListController extends Controller
                 }
 
                 // HAPUS transaksi ini total
-                $trx->forceDelete();
+                $trx->delete();
             }
 
-            // AccountTransaction::where('order_id', $order->id)->forceDelete();
-            OrderProgressHistory::whereHas('progressItem.progress', fn($q) => $q->where('order_id', $order->id))->forceDelete();
-            OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->forceDelete();
-            OrderProgress::where('order_id', $order->id)->forceDelete();
-            OrderItem::where('order_id', $order->id)->forceDelete();
-            OrderEditHistory::where('order_id', $order->id)->forceDelete();
-            Design::withTrashed()->where('order_id', $order->id)->forceDelete();
-            FinancialReport::withTrashed()->where('reference_table', 'orders')->where('reference_id', $order->id)->forceDelete();
+            // AccountTransaction::where('order_id', $order->id)->delete();
+            OrderProgressHistory::whereHas('progressItem.progress', fn($q) => $q->where('order_id', $order->id))->delete();
+            OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->delete();
+            OrderProgress::where('order_id', $order->id)->delete();
+            OrderItem::where('order_id', $order->id)->delete();
+            OrderEditHistory::where('order_id', $order->id)->delete();
+            Design::withTrashed()->where('order_id', $order->id)->delete();
+            FinancialReport::withTrashed()->where('reference_table', 'orders')->where('reference_id', $order->id)->delete();
 
             // 🔹 Delivery Order dan List
             $deliveryOrders = DeliveryOrder::with(['items', 'shipments'])->where('order_id', $order->id)->get();
             foreach ($deliveryOrders as $do) {
-                if (method_exists($do, 'items')) $do->items()->forceDelete();
-                if (method_exists($do, 'shipments')) $do->shipments()->forceDelete();
-                $do->forceDelete();
+                if (method_exists($do, 'items')) $do->items()->delete();
+                if (method_exists($do, 'shipments')) $do->shipments()->delete();
+                $do->delete();
             }
 
             $deliveryLists = DeliveryList::with(['items'])
                 ->whereHas('deliveryOrder', fn($q) => $q->where('order_id', $order->id))
                 ->get();
             foreach ($deliveryLists as $dl) {
-                if (method_exists($dl, 'items')) $dl->items()->forceDelete();
-                $dl->forceDelete();
+                if (method_exists($dl, 'items')) $dl->items()->delete();
+                $dl->delete();
             }
 
             /**
@@ -4410,7 +4414,7 @@ class SaleListController extends Controller
             $order->delete_notes = $request->input('delete_notes');
             $order->deleted_by   = Auth::id();
             $order->saveQuietly();
-            $order->forceDelete();
+            $order->delete();
 
             DB::commit();
             return redirect()->back()->with('success', 'Order berhasil dihapus total. Semua stok direset ke 0 (efek order hilang sepenuhnya).');
@@ -4420,6 +4424,526 @@ class SaleListController extends Controller
             return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
         }
     }
+
+    // public function forceDeleteOwner($id, Request $request)
+    // {
+    //     if (!Auth::check() || Auth::user()->role !== 'Owner') {
+    //         abort(403, 'Only Owner can force delete.');
+    //     }
+
+    //     $request->validate([
+    //         'delete_notes' => 'required|string|max:1000',
+    //         'inventory_warehouse_id' => 'nullable|integer',
+    //         'production_warehouse_id' => 'nullable|integer',
+    //     ]);
+
+    //     DB::beginTransaction();
+    //     try {
+    //         $order = Order::with([
+    //             'orderItems.components.product'
+    //         ])->findOrFail($id);
+
+    //         $hasSaleReturn = SaleReturn::where('sale_order_id', $order->id)->exists();
+    //         if ($hasSaleReturn) {
+    //             DB::rollBack();
+    //             $msg = 'Tidak dapat menghapus order ini karena sudah memiliki sale return.';
+    //             return $this->deleteResponse($request, false, $msg);
+    //         }
+
+    //         $inventoryWarehouseId  = $request->inventory_warehouse_id  ?? 1;
+    //         $productionWarehouseId = $request->production_warehouse_id ?? 2;
+
+    //         /**
+    //          * 1️⃣ Hitung quantity balik ke 0 dan implementasikan ke semua stok
+    //          */
+    //         // 🧱 Tambah sebelum foreach
+    //         $processedProducts = []; // penanda produk yang sudah rollback (hindari double)
+    //         foreach ($order->orderItems as $item) {
+
+    //             /**
+    //              * 🧩 HANDLE PRODUK SATUAN
+    //              * ------------------------------------------------------
+    //              * Produk satuan dilewati di kode kamu sebelumnya,
+    //              * jadi stok inventory gak pernah balik.
+    //              */
+    //             // 🧩 HANDLE PRODUK SATUAN
+    //             // ------------------------------------------------------
+    //             if ($item->satuan === 'satuan' && $item->product_id) {
+
+    //                 // ✅ Cegah double rollback kalau produk sudah di-handle
+    //                 if (in_array($item->product_id, $processedProducts)) {
+    //                     Log::info('Skip rollback SATUAN (already processed)', [
+    //                         'product_id' => $item->product_id,
+    //                     ]);
+    //                     continue;
+    //                 }
+
+    //                 $qty = (float) $item->quantity;
+
+    //                 // ============================
+    //                 // 1) Cek jejak produksi dulu
+    //                 // ============================
+    //                 $hasVerifiedDesign = \App\Models\Design::where('order_id', $order->id)
+    //                     ->whereRaw('LOWER(status) = ?', ['verified'])
+    //                     ->exists();
+
+    //                 $assignedQty = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
+    //                     $q->where('order_id', $order->id);
+    //                 })
+    //                     ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
+    //                     ->sum('assigned_quantity');
+
+    //                 $producedQty = \App\Models\OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
+    //                     $q->where('order_id', $order->id);
+    //                 })
+    //                     ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
+    //                     ->selectRaw('COALESCE(SUM(completed_quantity + defect_quantity + reject_quantity), 0) as total')
+    //                     ->value('total');
+
+    //                 $shippedQty = \App\Models\DeliveryOrderItem::whereHas('deliveryOrder', function ($q) use ($order) {
+    //                     $q->where('order_id', $order->id);
+    //                 })
+    //                     ->where('product_id', $item->product_id)
+    //                     ->sum('shipped_qty');
+
+    //                 // ===============================================
+    //                 // 2) INVENTORY SELALU DI-ROLLBACK
+    //                 //    (order SATUAN SELALU ngurangin inventory)
+    //                 // ===============================================
+    //                 $inventoryStock = InventoryStock::firstOrCreate(
+    //                     ['product_id' => $item->product_id, 'inventory_warehouse_id' => $inventoryWarehouseId],
+    //                     ['stock_after_sales' => 0]
+    //                 );
+    //                 $inventoryStock->stock_after_sales += $qty;
+    //                 $inventoryStock->save();
+
+    //                 // ===============================================
+    //                 // 3) Kalau order ini BELUM menyentuh PRODUKSI → SKIP PRODUKSI
+    //                 //    (tapi INVENTORY SUDAH dibalikin di atas)
+    //                 // ===============================================
+    //                 // if (
+    //                 //     !$hasVerifiedDesign &&
+    //                 //     (float) $assignedQty <= 0 &&
+    //                 //     (float) $producedQty <= 0 &&
+    //                 //     (float) $shippedQty  <= 0
+    //                 // ) {
+    //                 //     Log::warning('SKIP rollback PRODUCTION SATUAN — order ini belum menyentuh produksi', [
+    //                 //         'order_id'   => $order->id,
+    //                 //         'product_id' => $item->product_id,
+    //                 //         'qty'        => $qty,
+    //                 //     ]);
+
+    //                 //     // tandai sudah diproses supaya bundle gak ganggu
+    //                 //     $processedProducts[] = $item->product_id;
+    //                 //     continue;
+    //                 // }
+
+    //                 $skipProduction = (
+    //                     !$hasVerifiedDesign &&
+    //                     $assignedQty <= 0 &&
+    //                     $producedQty <= 0 &&
+    //                     $shippedQty <= 0
+    //                 );
+
+    //                 // ❗ MODE POLOSAN jangan pernah skip
+    //                 if ($order->mode !== 'polosan' && $skipProduction) {
+
+    //                     Log::warning('SKIP rollback PRODUCTION SATUAN — order ini belum menyentuh produksi', [
+    //                         'order_id'   => $order->id,
+    //                         'product_id' => $item->product_id,
+    //                         'qty'        => $qty,
+    //                     ]);
+
+    //                     $processedProducts[] = $item->product_id;
+    //                     continue;
+    //                 }
+
+
+    //                 // ===============================================
+    //                 // 4) Mulai ROLLBACK PRODUKSI, karena ada jejak
+    //                 // ===============================================
+    //                 $ps = ProductionStock::firstOrCreate(
+    //                     ['product_id' => $item->product_id, 'production_warehouse_id' => $productionWarehouseId],
+    //                     [
+    //                         'available_quantity'     => 0,
+    //                         'finished_product_stock' => 0,
+    //                         'pending_waiting_list'   => 0,
+    //                         'canceled_product_stock' => 0,
+    //                     ]
+    //                 );
+
+    //                 if ($order->mode === 'printing') {
+    //                     // MODE PRINTING
+    //                     if ($hasVerifiedDesign) {
+    //                         // 1) Verified → turunkan pending by base qty
+    //                         $ps->pending_waiting_list -= $qty;
+
+    //                         // 2) Ada assign → balikin ke available
+    //                         if ($assignedQty > 0) {
+    //                             $ps->available_quantity += $assignedQty;
+    //                         }
+
+    //                         // 3) Ada produksi → kurangi finished
+    //                         if ($producedQty > 0) {
+    //                             $ps->finished_product_stock -= $producedQty;
+    //                         }
+
+    //                         // 4) Ada shipped → finished naik lagi sebesar shipped
+    //                         if ($shippedQty > 0) {
+    //                             $ps->finished_product_stock += $shippedQty;
+    //                         }
+    //                     }
+    //                 } else {
+    //                     // MODE POLOSAN → kembalikan available by base qty
+    //                     $ps->available_quantity += $qty;
+    //                 }
+
+    //                 // pastikan gak negatif
+    //                 foreach (['available_quantity', 'finished_product_stock', 'pending_waiting_list'] as $f) {
+    //                     $ps->{$f} = max(0, (float) $ps->{$f});
+    //                 }
+    //                 $ps->save();
+
+    //                 Log::info('Force delete rollback SATUAN', [
+    //                     'order_id'          => $order->id,
+    //                     'product_id'        => $item->product_id,
+    //                     'qty'               => $qty,
+    //                     'avail'             => $ps->available_quantity,
+    //                     'pending'           => $ps->pending_waiting_list,
+    //                     'finish'            => $ps->finished_product_stock,
+    //                     'stock_after_sales' => $inventoryStock->stock_after_sales,
+    //                 ]);
+
+    //                 // ✅ Tandai sudah diproses biar gak double dari bundle
+    //                 $processedProducts[] = $item->product_id;
+
+    //                 continue; // lanjut ke item berikutnya
+    //             }
+
+    //             /**
+    //              * 🧩 HANDLE PRODUK BUNDLE
+    //              * ------------------------------------------------------
+    //              */
+    //             if ($item->satuan !== 'bundle' || !$item->product_bundle_id) {
+    //                 continue;
+    //             }
+
+    //             $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
+    //             if (!$bundle) continue;
+
+    //             foreach ($bundle->items as $bundleItem) {
+    //                 if (!$bundleItem->product_id) continue;
+
+    //                 // Hitung total qty aktual komponen bundle
+    //                 $componentQty = (float) $item->quantity * ($bundleItem->quantity ?? 1);
+
+    //                 /**
+    //                  * ======================================================
+    //                  * 1) INVENTORY ALWAYS ROLLBACK — tanpa syarat
+    //                  *    (Order SATUAN & BUNDLE SELALU mengurangi inventory)
+    //                  * ======================================================
+    //                  */
+    //                 $inventoryStock = InventoryStock::firstOrCreate(
+    //                     [
+    //                         'product_id'             => $bundleItem->product_id,
+    //                         'inventory_warehouse_id' => $inventoryWarehouseId
+    //                     ],
+    //                     ['stock_after_sales' => 0]
+    //                 );
+    //                 $inventoryStock->stock_after_sales += $componentQty;
+    //                 $inventoryStock->save();
+
+    //                 // Kalau produk sudah di-handle oleh SATUAN → skip
+    //                 if (in_array($bundleItem->product_id, $processedProducts)) {
+    //                     // Tapi masih harus kurangi pending kalau sudah verified
+    //                     $hasVerifiedDesign = \App\Models\Design::where('order_id', $order->id)
+    //                         ->whereRaw('LOWER(status) = ?', ['verified'])
+    //                         ->exists();
+
+    //                     if ($order->mode === 'printing' && $hasVerifiedDesign) {
+    //                         $ps = ProductionStock::firstOrCreate(
+    //                             [
+    //                                 'product_id'             => $bundleItem->product_id,
+    //                                 'production_warehouse_id' => $productionWarehouseId
+    //                             ],
+    //                             [
+    //                                 'available_quantity'     => 0,
+    //                                 'finished_product_stock' => 0,
+    //                                 'pending_waiting_list'   => 0,
+    //                                 'canceled_product_stock' => 0,
+    //                             ]
+    //                         );
+
+    //                         $ps->pending_waiting_list = max(0, $ps->pending_waiting_list - $componentQty);
+    //                         $ps->save();
+
+    //                         Log::info('Decrement pending (skip bundle handled by single)', [
+    //                             'component_id' => $bundleItem->product_id,
+    //                             'bundle_id' => $item->product_bundle_id,
+    //                             'componentQty' => $componentQty,
+    //                             'pending_after' => $ps->pending_waiting_list,
+    //                         ]);
+    //                     }
+
+    //                     continue;
+    //                 }
+
+    //                 /**
+    //                  * ======================================================
+    //                  * 2) CEK JEJAK PRODUKSI → kalau TIDAK ADA → SKIP produksi
+    //                  * ======================================================
+    //                  */
+    //                 $hasVerifiedDesign = \App\Models\Design::where('order_id', $order->id)
+    //                     ->whereRaw('LOWER(status) = ?', ['verified'])
+    //                     ->exists();
+
+    //                 $assignedQty = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
+    //                     $q->where('order_id', $order->id);
+    //                 })
+    //                     ->whereHas('progressItem', fn($q) => $q->where('product_id', $bundleItem->product_id))
+    //                     ->sum('assigned_quantity');
+
+    //                 $producedQty = \App\Models\OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
+    //                     $q->where('order_id', $order->id);
+    //                 })
+    //                     ->whereHas('progressItem', fn($q) => $q->where('product_id', $bundleItem->product_id))
+    //                     ->selectRaw('COALESCE(SUM(completed_quantity + defect_quantity + reject_quantity), 0) as total')
+    //                     ->value('total');
+
+    //                 $shippedQty = \App\Models\DeliveryOrderItem::whereHas('deliveryOrder', function ($q) use ($order) {
+    //                     $q->where('order_id', $order->id);
+    //                 })
+    //                     ->where('product_id', $bundleItem->product_id)
+    //                     ->sum('shipped_qty');
+
+    //                 // 🔥 SKIP PRODUKSI kalau order bundle BELUM menyentuh produksi
+    //                 // if (
+    //                 //     !$hasVerifiedDesign &&
+    //                 //     (float) $assignedQty <= 0 &&
+    //                 //     (float) $producedQty <= 0 &&
+    //                 //     (float) $shippedQty <= 0
+    //                 // ) {
+    //                 //     Log::warning("SKIP rollback PRODUCTION BUNDLE — order belum menyentuh produksi", [
+    //                 //         'order_id' => $order->id,
+    //                 //         'component_id' => $bundleItem->product_id,
+    //                 //         'componentQty' => $componentQty,
+    //                 //     ]);
+
+    //                 //     // tandai sudah diproses, biar bundle lain atau satuan tidak ulang rollback
+    //                 //     $processedProducts[] = $bundleItem->product_id;
+    //                 //     continue;
+    //                 // }
+
+    //                 $skipProduction = (
+    //                     !$hasVerifiedDesign &&
+    //                     $assignedQty <= 0 &&
+    //                     $producedQty <= 0 &&
+    //                     $shippedQty <= 0
+    //                 );
+
+    //                 // ❗ MODE POLOSAN tidak boleh skip
+    //                 if ($order->mode !== 'polosan' && $skipProduction) {
+
+    //                     Log::warning("SKIP rollback PRODUCTION BUNDLE — order belum menyentuh produksi", [
+    //                         'order_id' => $order->id,
+    //                         'component_id' => $bundleItem->product_id,
+    //                         'componentQty' => $componentQty,
+    //                     ]);
+
+    //                     $processedProducts[] = $bundleItem->product_id;
+    //                     continue;
+    //                 }
+
+
+    //                 /**
+    //                  * ======================================================
+    //                  * 3) MULAI ROLLBACK PRODUKSI — karena ada jejak produksi
+    //                  * ======================================================
+    //                  */
+    //                 $ps = ProductionStock::firstOrCreate(
+    //                     ['product_id' => $bundleItem->product_id, 'production_warehouse_id' => $productionWarehouseId],
+    //                     [
+    //                         'available_quantity'     => 0,
+    //                         'finished_product_stock' => 0,
+    //                         'pending_waiting_list'   => 0,
+    //                         'canceled_product_stock' => 0,
+    //                     ]
+    //                 );
+
+    //                 if ($order->mode === 'printing') {
+
+    //                     if ($hasVerifiedDesign) {
+    //                         // 1) Verified — turunkan pending
+    //                         $ps->pending_waiting_list -= $componentQty;
+
+    //                         // 2) Assigned rollback
+    //                         if ($assignedQty > 0) {
+    //                             $ps->available_quantity += $assignedQty;
+    //                         }
+
+    //                         // 3) Produced rollback
+    //                         if ($producedQty > 0) {
+    //                             $ps->finished_product_stock -= $producedQty;
+    //                         }
+
+    //                         // 4) Shipped rollback
+    //                         if ($shippedQty > 0) {
+    //                             $ps->finished_product_stock += $shippedQty;
+    //                         }
+    //                     }
+    //                 } else {
+    //                     // MODE POLOSAN
+    //                     $ps->available_quantity += $componentQty;
+    //                 }
+
+    //                 // pastikan tidak negatif
+    //                 foreach (['available_quantity', 'finished_product_stock', 'pending_waiting_list'] as $field) {
+    //                     $ps->{$field} = max(0, (float) $ps->{$field});
+    //                 }
+    //                 $ps->save();
+
+    //                 Log::info('Force delete rollback BUNDLE', [
+    //                     'bundle_id' => $item->product_bundle_id,
+    //                     'component_id' => $bundleItem->product_id,
+    //                     'component_qty' => $componentQty,
+    //                     'assigned_qty' => $assignedQty,
+    //                     'avail' => $ps->available_quantity,
+    //                     'pending' => $ps->pending_waiting_list,
+    //                     'finish' => $ps->finished_product_stock,
+    //                     'stock_after_sales' => $inventoryStock->stock_after_sales,
+    //                 ]);
+
+    //                 $processedProducts[] = $bundleItem->product_id;
+    //             }
+    //         }
+
+    //         /**
+    //          * 2️⃣ Hapus relasi + transaksi (tetap force delete semua)
+    //          */
+
+    //         // 🔹 DEFECT PRODUCT - Hapus berdasarkan order_progress_history
+    //         \App\Models\DefectProduct::whereHas('orderProgressHistory2.progressItem.progress', function ($q) use ($order) {
+    //             $q->where('order_id', $order->id);
+    //         })->forceDelete();
+
+    //         // 🔹 REJECT PRODUCT  
+    //         \App\Models\RejectProduct::whereHas('orderProgress', fn($q) => $q->where('order_id', $order->id))
+    //             ->orWhereHas('orderProgressBatch.orderProgress', fn($q) => $q->where('order_id', $order->id))
+    //             ->forceDelete();
+
+    //         // ======================================================
+    //         // 🔥 ROLLBACK TRANSAKSI KEUANGAN (FORCE DELETE MODE)
+    //         // ======================================================
+    //         $transactions = AccountTransaction::where('order_id', $order->id)->get();
+
+    //         $customer = $order->customer;
+    //         $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
+
+    //         foreach ($transactions as $trx) {
+
+    //             $account = Account::find($trx->account_id);
+    //             if (!$account) continue;
+
+    //             $debit  = (float) $trx->debit;
+    //             $credit = (float) $trx->credit;
+
+    //             switch ($account->type) {
+
+    //                 case 'Customer Deposit':
+    //                     // deposit_used dicatat CREDIT
+    //                     // deposit_topup dicatat DEBIT
+
+    //                     if ($credit > 0) {
+    //                         // deposit_used → dikembalikan
+    //                         if ($customer) {
+    //                             $customer->customer_deposit -= $credit;
+    //                             $customer->save();
+    //                         }
+    //                         $customerDepositAccount->closing_balance -= $credit;
+    //                     }
+
+    //                     if ($debit > 0) {
+    //                         // deposit topup → dihapus (saldo berkurang)
+    //                         if ($customer) {
+    //                             $customer->customer_deposit += $debit;
+    //                             $customer->save();
+    //                         }
+    //                         $customerDepositAccount->closing_balance += $debit;
+    //                     }
+
+    //                     $customerDepositAccount->save();
+    //                     break;
+
+    //                 case 'Sale Account':
+    //                     // SALE ACCOUNT always:
+    //                     // debit = paid
+    //                     // credit = sale order total
+    //                     $account->closing_balance += $debit;
+    //                     $account->closing_balance -= $credit;
+    //                     $account->save();
+    //                     break;
+
+    //                 case 'Cash':
+    //                 case 'Bank':
+    //                     // bank/cash rollback:
+    //                     $account->closing_balance -= $debit; // uang masuk → rollback
+    //                     $account->closing_balance += $credit; // uang keluar → rollback
+    //                     $account->save();
+    //                     break;
+
+    //                 default:
+    //                     // account lain rollback standar
+    //                     $account->closing_balance -= $debit;
+    //                     $account->closing_balance += $credit;
+    //                     $account->save();
+    //                     break;
+    //             }
+
+    //             // HAPUS transaksi ini total
+    //             $trx->forceDelete();
+    //         }
+
+    //         // AccountTransaction::where('order_id', $order->id)->forceDelete();
+    //         OrderProgressHistory::whereHas('progressItem.progress', fn($q) => $q->where('order_id', $order->id))->forceDelete();
+    //         OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->forceDelete();
+    //         OrderProgress::where('order_id', $order->id)->forceDelete();
+    //         OrderItem::where('order_id', $order->id)->forceDelete();
+    //         OrderEditHistory::where('order_id', $order->id)->forceDelete();
+    //         Design::withTrashed()->where('order_id', $order->id)->forceDelete();
+    //         FinancialReport::withTrashed()->where('reference_table', 'orders')->where('reference_id', $order->id)->forceDelete();
+
+    //         // 🔹 Delivery Order dan List
+    //         $deliveryOrders = DeliveryOrder::with(['items', 'shipments'])->where('order_id', $order->id)->get();
+    //         foreach ($deliveryOrders as $do) {
+    //             if (method_exists($do, 'items')) $do->items()->forceDelete();
+    //             if (method_exists($do, 'shipments')) $do->shipments()->forceDelete();
+    //             $do->forceDelete();
+    //         }
+
+    //         $deliveryLists = DeliveryList::with(['items'])
+    //             ->whereHas('deliveryOrder', fn($q) => $q->where('order_id', $order->id))
+    //             ->get();
+    //         foreach ($deliveryLists as $dl) {
+    //             if (method_exists($dl, 'items')) $dl->items()->forceDelete();
+    //             $dl->forceDelete();
+    //         }
+
+    //         /**
+    //          * 3️⃣ FORCE DELETE ORDER
+    //          */
+    //         $order->delete_notes = $request->input('delete_notes');
+    //         $order->deleted_by   = Auth::id();
+    //         $order->saveQuietly();
+    //         $order->forceDelete();
+
+    //         DB::commit();
+    //         return redirect()->back()->with('success', 'Order berhasil dihapus total. Semua stok direset ke 0 (efek order hilang sepenuhnya).');
+    //     } catch (\Throwable $e) {
+    //         DB::rollBack();
+    //         Log::error('Force delete owner failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+    //         return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
+    //     }
+    // }
 
     public function getSaleListDetail($id)
     {
