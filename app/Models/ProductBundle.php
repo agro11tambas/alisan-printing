@@ -27,7 +27,7 @@ class ProductBundle extends Model
 
     public function items()
     {
-        return $this->hasMany(ProductBundleItem::class, 'bundle_id')->with('product');
+        return $this->hasMany(ProductBundleItem::class, 'bundle_id');
     }
 
     public function products()

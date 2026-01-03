@@ -557,31 +557,31 @@ class SaleReturnController extends Controller
             // =====================================================
             // 🔹 Tambahkan ke Customer Deposit (DEBIT)
             // =====================================================
-            $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
+            // $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
 
-            if ($customerDepositAccount) {
-                AccountTransaction::create([
-                    'sale_return_id'       => $saleReturn->id,
-                    'order_number'         => $saleReturn->order_number,
-                    'transaction_date'     => $request->return_date,
-                    'account_id'           => $customerDepositAccount->id,
-                    'debit'                => 0, // deposit bertambah
-                    'credit'               => $grandTotal,
-                    'note'                 => $request->note ?? '',
-                    'particular'           => 'Customer Deposit from Sale Return',
-                    'transaction_group_id' => $groupId,
-                    'verified'             => 1,
-                    'customer_id'          => $saleReturn->customer_id,
-                ]);
+            // if ($customerDepositAccount) {
+            //     AccountTransaction::create([
+            //         'sale_return_id'       => $saleReturn->id,
+            //         'order_number'         => $saleReturn->order_number,
+            //         'transaction_date'     => $request->return_date,
+            //         'account_id'           => $customerDepositAccount->id,
+            //         'debit'                => 0, // deposit bertambah
+            //         'credit'               => $grandTotal,
+            //         'note'                 => $request->note ?? '',
+            //         'particular'           => 'Customer Deposit from Sale Return',
+            //         'transaction_group_id' => $groupId,
+            //         'verified'             => 1,
+            //         'customer_id'          => $saleReturn->customer_id,
+            //     ]);
 
-                // 🔹 Update closing balance akun Customer Deposit
-                $customerDepositAccount->closing_balance += $grandTotal;
-                $customerDepositAccount->save();
+            //     // 🔹 Update closing balance akun Customer Deposit
+            //     $customerDepositAccount->closing_balance += $grandTotal;
+            //     $customerDepositAccount->save();
 
-                // 🔹 Increment deposit customer
-                $saleReturn->customer->customer_deposit += $grandTotal;
-                $saleReturn->customer->save();
-            }
+            //     // 🔹 Increment deposit customer
+            //     $saleReturn->customer->customer_deposit += $grandTotal;
+            //     $saleReturn->customer->save();
+            // }
 
             // ================== CATAT FINANCIAL REPORT ==================
             try {
@@ -1425,15 +1425,15 @@ class SaleReturnController extends Controller
             $cashBankAccount->save();
 
             // 🔹 DECREMENT customer deposit
-            if ($saleReturn->customer) {
-                $saleReturn->customer->customer_deposit -= $request->refund_amount;
+            // if ($saleReturn->customer) {
+            //     $saleReturn->customer->customer_deposit -= $request->refund_amount;
 
-                if ($saleReturn->customer->customer_deposit < 0) {
-                    $saleReturn->customer->customer_deposit = 0;
-                }
+            //     if ($saleReturn->customer->customer_deposit < 0) {
+            //         $saleReturn->customer->customer_deposit = 0;
+            //     }
 
-                $saleReturn->customer->save();
-            }
+            //     $saleReturn->customer->save();
+            // }
 
             // $cashBankAccount->closing_balance -= $request->refund_amount;
             // $cashBankAccount->save();
@@ -1482,6 +1482,101 @@ class SaleReturnController extends Controller
             return redirect()->back()->with('error', 'Gagal memproses refund: ' . $e->getMessage());
         }
     }
+
+    public function markAsCustomerDeposit($id, Request $request)
+    {
+        $request->merge([
+            'deposit_amount' => str_replace('.', '', $request->deposit_amount),
+        ]);
+
+        $request->validate([
+            'sale_return_id'   => 'required|exists:sale_returns,id',
+            'deposit_amount'  => 'required|numeric|min:1',
+            'transaction_date' => 'required|date',
+            'note'            => 'nullable|string',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $saleReturn = SaleReturn::findOrFail($request->sale_return_id);
+            $customer   = $saleReturn->customer;
+
+            if (!$customer) {
+                throw new \Exception('Customer tidak ditemukan');
+            }
+
+            if ($request->deposit_amount > $saleReturn->remaining_amount) {
+                throw new \Exception('Jumlah deposit melebihi sisa nilai retur');
+            }
+
+            $groupId = Str::uuid();
+
+            // 🔹 Ambil akun Customer Deposit
+            $customerDepositAccount = Account::where('type', 'Customer Deposit')->firstOrFail();
+
+            // =====================================================
+            // 🔹 Transaksi Customer Deposit (CREDIT)
+            // =====================================================
+            AccountTransaction::create([
+                'sale_return_id'       => $saleReturn->id,
+                'customer_id'          => $customer->id,
+                'order_number'         => $saleReturn->order_number,
+                'transaction_date'     => $request->transaction_date,
+                'account_id'           => $customerDepositAccount->id,
+                'debit'                => 0,
+                'credit'               => $request->deposit_amount,
+                'note'                 => $request->note ?? '',
+                'particular'           => 'Customer Deposit from Sale Return',
+                'transaction_group_id' => $groupId,
+                'verified'             => 1,
+            ]);
+
+            // 🔹 Update closing balance akun
+            $customerDepositAccount->closing_balance += $request->deposit_amount;
+            $customerDepositAccount->save();
+
+            // 🔹 Increment saldo deposit customer
+            $customer->customer_deposit += $request->deposit_amount;
+            $customer->save();
+
+            // =====================================================
+            // 🔹 Update Sale Return
+            // =====================================================
+            $saleReturn->refund_amount =
+                ($saleReturn->refund_amount ?? 0) + $request->deposit_amount;
+
+            $saleReturn->remaining_amount =
+                max(0, $saleReturn->total_amount - $saleReturn->refund_amount);
+
+            // 🔹 Update payment status
+            if ($saleReturn->refund_amount >= $saleReturn->total_amount) {
+                $saleReturn->payment_status = 'Refunded';
+            } else {
+                $saleReturn->payment_status = 'Partially Paid';
+            }
+
+            $saleReturn->verified = false;
+            $saleReturn->save();
+
+            DB::commit();
+
+            return redirect()->back()
+                ->with('success', 'Sale Return berhasil dijadikan Customer Deposit.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Mark As Customer Deposit Failed', [
+                'message' => $e->getMessage(),
+                'line'    => $e->getLine(),
+                'file'    => $e->getFile(),
+            ]);
+
+            return redirect()->back()
+                ->with('error', 'Gagal menjadikan customer deposit: ' . $e->getMessage());
+        }
+    }
+
 
     public function getInvoice($id)
     {

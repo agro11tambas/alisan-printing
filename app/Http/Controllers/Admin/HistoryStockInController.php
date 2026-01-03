@@ -350,7 +350,7 @@ class HistoryStockInController extends Controller
                 return $html;
             })
             ->addColumn('change_date', function ($stockIn) {
-                return Carbon::parse($stockIn->change_date)->format('j M y');
+                return Carbon::parse($stockIn->created_at)->format('j M y H:i:s');
             })
             ->addColumn('user_name', function ($stockIn) {
                 return $stockIn->user->name;

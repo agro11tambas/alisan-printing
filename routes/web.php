@@ -251,6 +251,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::get('/erp/sales/sale-list/detail-order/{id}', [SaleListController::class, 'getSaleListDetail']);
             Route::post('/erp/sales/sale-list/mark-as-paid/{id}', [SaleListController::class, 'markAsPaid']);
             Route::get('/erp/sales/sale-list/invoice/{id}', [SaleListController::class, 'getInvoice']);
+            Route::get('/erp/sales/sale-list/invoice-image/{id}', [SaleListController::class, 'getInvoiceImage']);
             Route::get('/erp/sales/sale-list/payment-history/{id}', [SaleListController::class, 'getPaymentHistory']);
             Route::put('/erp/sales/sale-list/update-payment/{groupId}', [SaleListController::class, 'updatePayment']);
             Route::get('/erp/sales/sale-list/edit-history/{id}', [SaleListController::class, 'getEditHistory']);
@@ -265,7 +266,10 @@ Route::middleware(['auth', 'check.session'])->group(function () {
 
             Route::post('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDeleteOwner'])
                 ->name('sales.sale-list.forceDeleteOwner')
-                ->middleware('auth'); // pastikan pakai middlewaremu
+                ->middleware('auth');
+
+            Route::post('/erp/invoice/convert-to-image', [SaleListController::class, 'convertToImage'])->name('invoice.convert');
+            Route::get('/invoices/{filename}', [SaleListController::class, 'showInvoice'])->name('invoice.show');
         });
 
         Route::middleware(['auth', 'subpermission:sale-returns'])->group(function () {
@@ -278,6 +282,10 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::delete('/erp/sales/sale-returns/delete/{id}', [SaleReturnController::class, 'delete']);
             Route::get('/erp/sales/sale-returns/detail-order/{id}', [SaleReturnController::class, 'getSaleReturnDetail']);
             Route::post('/erp/sales/sale-returns/mark-as-refund/{id}', [SaleReturnController::class, 'markAsRefund']);
+            Route::post(
+                '/erp/sales/sale-returns/mark-as-customer-deposit/{id}',
+                [SaleReturnController::class, 'markAsCustomerDeposit']
+            );
             Route::get('/erp/sales/sale-returns/invoice/{id}', [SaleReturnController::class, 'getInvoice']);
             Route::get('/erp/sales/sale-return/payment-history/{id}', [SaleReturnController::class, 'getPaymentHistory']);
             Route::put('/erp/sales/sale-return/update-payment/{groupId}', [SaleReturnController::class, 'updatePayment']);

@@ -48,7 +48,7 @@ class OrderItem extends Model
 
     public function productBundle(): BelongsTo
     {
-        return $this->belongsTo(ProductBundle::class, 'product_bundle_id');
+        return $this->belongsTo(ProductBundle::class, 'product_bundle_id')->withTrashed();
     }
 
     public function inventoryItems()

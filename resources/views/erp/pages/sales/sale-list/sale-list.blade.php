@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                        display: none !important;
-                                                                                                    } */
+                                                                                                                                                                                                                                                display: none !important;
+                                                                                                                                                                                                                                            } */
 
         .sale-mobile-action {
             display: none;
@@ -321,11 +321,11 @@
                                             style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search..." />
                                         <select id="search_payment_status" class="form-control search-input d-none"
                                             style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                            <option value="">All</option>
+                                            {{-- <option value="">All</option> --}}
                                             <option value="Paid">Paid</option>
                                             <option value="Unpaid">Unpaid</option>
-                                            <option value="Partially Paid">Partially Paid</option>
-                                            <option value="Overdue">Overdue</option>
+                                            {{-- <option value="Partially Paid">Partially Paid</option>
+                                            <option value="Overdue">Overdue</option> --}}
                                         </select>
                                         <select id="due_date_order" class="form-control d-none"
                                             style="padding: 0.5rem 1rem;">
@@ -437,6 +437,7 @@
             </div>
         </div>
     </div>
+    <iframe id="invoiceIframe" style="display:none;"></iframe>
 @endsection
 
 @push('modals')
@@ -1005,6 +1006,7 @@
             // Lazy load saat scroll
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
+                if (window.innerWidth < 768) return;
                 clearTimeout(scrollTimeout);
 
                 const scrollTop = $(this).scrollTop();
@@ -1023,6 +1025,7 @@
                 allData = [];
                 currentPage = 0;
                 hasMoreData = true;
+                mobilePage = 0;
                 dataTable.clear().draw();
                 $('#saleListMobile').html('');
                 loadMoreData();
@@ -2110,45 +2113,66 @@
                 $('#customer_deposit_amount').val('0');
             });
 
+            let mobilePage = 0;
+            const MOBILE_LIMIT = 50;
+
             function renderMobileFromAllData() {
                 if (window.innerWidth >= 768) return;
 
                 const container = $('#saleListMobile');
-                container.html('');
 
                 if (!allData.length) {
                     container.html('<div class="text-center text-muted py-4">No sale data</div>');
                     return;
                 }
 
-                allData.forEach(row => {
+                const start = 0;
+                const end = (mobilePage + 1) * MOBILE_LIMIT;
+                const slicedData = allData.slice(start, end);
+
+                container.html('');
+
+                slicedData.forEach(row => {
                     container.append(`
-                        <div class="sale-mobile-card" data-id="${row.id}">
-                            <div class="sale-mobile-main">
-                                <div class="sale-mobile-header">
-                                    <div class="sale-invoice">${row.order_number}</div>                                    
-                                    <span class="sale-status">${row.payment_status}</span>
-                                </div>
+            <div class="sale-mobile-card" data-id="${row.id}">
+                <div class="sale-mobile-main">
+                    <div class="sale-mobile-header">
+                        <div class="sale-invoice">${row.order_number}</div>                                    
+                        <span class="sale-status">${row.payment_status}</span>
+                    </div>
 
-                                <div class="sale-amount align-items-end">
-                                    <div>
-                                        <div class="sale-customer">${row.customer_mobile}</div>
-                                        ${row.grand_total}
-                                    </div>
-                                    <div class="text-end"> 
-                                        ${row.paid_amount}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- ACTION -->
-                            <div class="sale-mobile-action">
-                                ${row.action_mobile}
-                            </div>
+                    <div class="sale-amount align-items-end">
+                        <div>
+                            <div class="sale-customer">${row.customer_mobile}</div>
+                            ${row.grand_total}
                         </div>
-                    `);
+                        <div class="text-end"> 
+                            ${row.paid_amount}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sale-mobile-action">
+                    ${row.action_mobile}
+                </div>
+            </div>
+        `);
                 });
             }
+
+            $(window).on('scroll', function() {
+                if (window.innerWidth >= 768) return;
+                if (isLoading || !hasMoreData) return;
+
+                const scrollTop = $(window).scrollTop();
+                const windowHeight = $(window).height();
+                const documentHeight = $(document).height();
+
+                if (scrollTop + windowHeight >= documentHeight - 200) {
+                    mobilePage++;
+                    loadMoreData();
+                }
+            });
 
 
             $(document).on('click', '.sale-mobile-card', function(e) {
@@ -2281,10 +2305,10 @@
             this.submit();
         });
 
-        $(document).on('click', '.btn-share-invoice', function() {
-            const url = $(this).data('url');
-            window.open(url, '_blank');
-        });
+        // $(document).on('click', '.btn-share-invoice', function() {
+        //     const url = $(this).data('url');
+        //     window.open(url, '_blank');
+        // });
 
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalForceDeleteOrder');
@@ -2340,6 +2364,102 @@
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
 
+        $('#modalChangeStatus').on('shown.bs.modal', function() {
+            $('#cash_bank_account_id').trigger('change.select2');
+        });
+
+        document.getElementById('payment_proof').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const previewWrapper = document.getElementById('proof_preview_wrapper');
+            const preview = document.getElementById('proof_preview');
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    previewWrapper.classList.remove('d-none');
+                }
+                reader.readAsDataURL(file);
+            } else {
+                previewWrapper.classList.add('d-none');
+                preview.src = '#';
+            }
+        });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        $(document).on('click', '.btn-share-invoice', async function() {
+            const btn = $(this);
+
+            const orderId = btn.data('id');
+            const invoiceUrl = btn.data('url');
+            const business = btn.data('business');
+            const invoiceNo = btn.data('invoice');
+            const total = btn.data('total');
+
+            const rawPhone = btn.attr('data-phone') ?? '';
+            let phone = String(rawPhone).replace(/[^0-9]/g, '');
+            if (phone.startsWith('0')) phone = '62' + phone.substring(1);
+
+            try {
+                // 🔹 ambil HTML invoice
+                const html = await fetch(invoiceUrl).then(r => r.text());
+
+                const temp = document.createElement('div');
+                temp.style.position = 'fixed';
+                temp.style.left = '-99999px';
+                temp.innerHTML = html;
+                document.body.appendChild(temp);
+
+                const invoiceContent = temp.querySelector('#invoiceContent');
+                if (!invoiceContent) throw new Error('invoiceContent tidak ditemukan');
+
+                // 🔹 convert ke image
+                const canvas = await html2canvas(invoiceContent, {
+                    scale: 2,
+                    backgroundColor: '#ffffff'
+                });
+
+                document.body.removeChild(temp);
+
+                const imageData = canvas.toDataURL('image/jpeg', 0.95);
+
+                // 🔹 upload ke server
+                const response = await fetch('{{ route('invoice.convert') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        image: imageData,
+                        order_id: orderId
+                    })
+                });
+
+                const result = await response.json();
+                if (!result.success) return;
+
+                // 🔹 TEXT SAMA PERSIS
+                const message =
+                    `Halo *${business}*,\n\n` +
+                    `Berikut adalah invoice untuk pesanan Anda:\n` +
+                    `No Invoice: *${invoiceNo}*\n` +
+                    `Total: *Rp. ${total}*\n\n` +
+                    `Link Invoice: ${result.url}\n\n` +
+                    `Terima kasih atas kepercayaan Anda! 🙏`;
+
+                // 🔥 WA.ME + _BLANK (SAMA KAYAK HALAMAN INVOICE)
+                window.open(
+                    `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+                    '_blank'
+                );
+
+            } catch (e) {
+                console.error(e);
+            }
+        });
+
         $(document).on('click', '.btn-share-invoice-image', async function() {
             const url = $(this).data('url');
             const name = $(this).data('customer');
@@ -2383,28 +2503,6 @@
                 link.href = dataUrl;
                 link.download = 'invoice.png';
                 link.click();
-            }
-        });
-
-        $('#modalChangeStatus').on('shown.bs.modal', function() {
-            $('#cash_bank_account_id').trigger('change.select2');
-        });
-
-        document.getElementById('payment_proof').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            const previewWrapper = document.getElementById('proof_preview_wrapper');
-            const preview = document.getElementById('proof_preview');
-
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    preview.src = e.target.result;
-                    previewWrapper.classList.remove('d-none');
-                }
-                reader.readAsDataURL(file);
-            } else {
-                previewWrapper.classList.add('d-none');
-                preview.src = '#';
             }
         });
     </script>

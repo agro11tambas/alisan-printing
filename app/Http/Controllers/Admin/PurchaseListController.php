@@ -57,7 +57,7 @@ class PurchaseListController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $purchases = Purchase::with(['supplier', 'purchaseItems.purchaseProduct'])
+        $purchases = Purchase::with(['supplier', 'purchaseItems.purchaseProduct', 'inventories.stockIns'])
             ->where('status', 'Purchase List')
             ->orderByDesc('id');
 

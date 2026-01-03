@@ -3,8 +3,18 @@
         <div class="action-grid">
             <div class="action-col">
                 <li>
-                    <button type="button" class="dropdown-item btn-share-invoice-image" data-id="{{ $order->id }}"
+                    <button type="button" class="dropdown-item btn-share-invoice" data-id="{{ $order->id }}"
                         data-url="{{ url('/erp/sales/sale-list/invoice/' . $order->id) }}"
+                        data-phone="{{ $order->customer->phone }}" data-business="{{ $order->business_name }}"
+                        data-invoice="{{ $order->order_number }}"
+                        data-total="{{ number_format($order->grand_total, 0, ',', '.') }}">
+                        <i class="feather feather-share-2 me-3"></i>
+                        <span>Share ke WA</span>
+                    </button>
+                </li>
+                <li>
+                    <button type="button" class="dropdown-item btn-share-invoice-image" data-id="{{ $order->id }}"
+                        data-url="{{ url('/erp/sales/sale-list/invoice-image/' . $order->id) }}"
                         data-customer="{{ $order->customer->name }}">
                         <i class="feather feather-share-2 me-3"></i>
                         <span>Share Invoice</span>

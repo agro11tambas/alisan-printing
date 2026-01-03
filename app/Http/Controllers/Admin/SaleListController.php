@@ -118,6 +118,8 @@ class SaleListController extends Controller
         if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
             if ($request->payment_status === 'Paid') {
                 $orders->whereIn('payment_status', ['Paid', 'Overpaid']);
+            } else if ($request->payment_status === 'Unpaid') {
+                $orders->whereIn('payment_status', ['Unpaid', 'Partially Paid']);
             } else {
                 $orders->where('payment_status', $request->payment_status);
             }
@@ -253,9 +255,10 @@ class SaleListController extends Controller
 
                 // 🔸 Produk
                 $items = $order->orderItems()
+                    ->withTrashed() // ⬅⬅⬅ INI YANG KAMU LUPA
                     ->with([
                         'product' => fn($q) => $q->withTrashed(),
-                        'productBundle.items.product',
+                        'productBundle.items.product' => fn($q) => $q->withTrashed(),
                         'deliveryItems.deliveryOrder',
                     ])
                     ->get()
@@ -369,7 +372,17 @@ class SaleListController extends Controller
                 $orderMonthStart = Carbon::parse($order->order_date)->startOfMonth();
                 $orderMonthEnd   = Carbon::parse($order->order_date)->endOfMonth();
 
-                $orderCount = Order::where('status', 'sale list')
+                // $orderCount = Order::where('status', 'sale list')
+                //     ->where('customer_id', $order->customer_id)
+                //     ->whereBetween('order_date', [$orderMonthStart, $orderMonthEnd])
+                //     ->when($businessName, function ($q) use ($businessName) {
+                //         $q->whereHas('customerAddress', function ($sub) use ($businessName) {
+                //             $sub->where('business_name', $businessName);
+                //         });
+                //     })
+                //     ->count();
+
+                $ordersInMonth = Order::where('status', 'sale list')
                     ->where('customer_id', $order->customer_id)
                     ->whereBetween('order_date', [$orderMonthStart, $orderMonthEnd])
                     ->when($businessName, function ($q) use ($businessName) {
@@ -377,7 +390,15 @@ class SaleListController extends Controller
                             $sub->where('business_name', $businessName);
                         });
                     })
-                    ->count();
+                    ->orderBy('order_date')
+                    ->pluck('id');
+
+                $totalOrders = $ordersInMonth->count();
+                $currentIndex = $ordersInMonth->search($order->id);
+
+                $sequenceLabel = $currentIndex !== false
+                    ? '(' . ($currentIndex + 1) . '/' . $totalOrders . ')'
+                    : '';
 
                 return [
                     'id' => $order->id,
@@ -403,7 +424,7 @@ class SaleListController extends Controller
                                 ' . $businessName . '
 
                                 <span class="ms-1 text-primary fw-bold">
-                                    (' . $orderCount . ')
+                                    ' . $sequenceLabel . '
                                 </span>
                             </div>
 
@@ -420,7 +441,7 @@ class SaleListController extends Controller
                                 <small class="text-muted">' . $businessName . '</small>
 
                                 <small class="ms-1 text-primary fw-bold">
-                                    (' . $orderCount . ')
+                                    ' . $sequenceLabel . '
                                 </small>
                             </div>                        
 
@@ -5212,6 +5233,98 @@ class SaleListController extends Controller
         }
     }
 
+    public function convertToImage(Request $request)
+    {
+        try {
+            // Validasi input
+            if (!$request->has('image') || !$request->has('order_id')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data tidak lengkap'
+                ], 400);
+            }
+
+            $imageData = $request->input('image');
+            $orderId = $request->input('order_id');
+
+            // Decode base64 image
+            $image = str_replace('data:image/jpeg;base64,', '', $imageData);
+            $image = str_replace('data:image/png;base64,', '', $image);
+            $image = str_replace(' ', '+', $image);
+            $imageDecoded = base64_decode($image);
+
+            // Validasi decode
+            if ($imageDecoded === false) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal decode gambar'
+                ], 400);
+            }
+
+            // Generate unique filename dengan extension .jpg
+            $filename = 'invoice_' . $orderId . '_' . time() . '.jpg';
+
+            // Path ke folder storage/app/invoices (di luar public)
+            $directory = storage_path('app/invoices');
+
+            // Buat folder jika belum ada
+            if (!file_exists($directory)) {
+                if (!mkdir($directory, 0755, true)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Gagal membuat folder invoices'
+                    ], 500);
+                }
+            }
+
+            // Save file
+            $filepath = $directory . '/' . $filename;
+            $result = file_put_contents($filepath, $imageDecoded);
+
+            if ($result === false) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal menyimpan file'
+                ], 500);
+            }
+
+            // Generate URL menggunakan route: domain.com/invoices/nama_file.jpg
+            $url = route('invoice.show', ['filename' => $filename]);
+
+            return response()->json([
+                'success' => true,
+                'url' => $url,
+                'filename' => $filename
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error convert invoice: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function showInvoice($filename)
+    {
+        // Sanitize filename untuk keamanan
+        $filename = basename($filename);
+
+        $filepath = storage_path('app/invoices/' . $filename);
+
+        // Cek apakah file ada
+        if (!file_exists($filepath)) {
+            abort(404, 'Invoice tidak ditemukan');
+        }
+
+        // Return file sebagai response
+        return response()->file($filepath, [
+            'Content-Type' => 'image/jpeg',
+            'Cache-Control' => 'public, max-age=31536000',
+        ]);
+    }
+
     public function markAsWaitingList($id)
     {
         $order = Order::find($id);
@@ -5231,6 +5344,13 @@ class SaleListController extends Controller
         $order = Order::with('orderItems')->findOrFail($id);
         $invoice = Invoice::with('termAndConditions')->first();
         return view('erp.pages.sales.invoice.index', compact('order', 'invoice'));
+    }
+
+    public function getInvoiceImage($id)
+    {
+        $order = Order::with('orderItems')->findOrFail($id);
+        $invoice = Invoice::with('termAndConditions')->first();
+        return view('erp.pages.sales.invoice.invoice-image', compact('order', 'invoice'));
     }
 
     public function returnMoney($id, Request $request)

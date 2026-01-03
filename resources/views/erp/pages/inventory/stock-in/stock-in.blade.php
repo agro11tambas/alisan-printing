@@ -121,8 +121,8 @@
                                             <div class="col-md-6">
                                                 <select id="search_type" class="form-control"
                                                     style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                                    <option value="partner">Supplier / Customer</option>
                                                     <option value="invoice_number">Invoice Number</option>
-                                                    {{-- <option value="partner">Supplier / Customer</option> --}}
                                                     {{-- <option value="type">Transaction Type</option> --}}
                                                 </select>
                                             </div>

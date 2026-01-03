@@ -124,6 +124,19 @@ class Purchase extends Model
         return $totalPurchased > 0 && $totalPurchased <= $totalReturned;
     }
 
+    public function hasInventoryStockIn()
+    {
+        return $this->inventories()
+            ->whereHas('stockIns')
+            ->exists();
+    }
+
+    public function firstInventoryForStockIn()
+    {
+        return $this->inventories()
+            ->whereHas('stockIns')
+            ->first();
+    }
 
     protected static function booted()
     {

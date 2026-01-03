@@ -70,6 +70,22 @@
                         <span>Edit History</span>
                     </a>
                 </li>
+                @if ($purchase->hasInventoryStockIn())
+                    @php
+                        $inventory = $purchase->firstInventoryForStockIn();
+                    @endphp
+
+                    @if ($inventory)
+                        <li>
+                            <a class="dropdown-item"
+                                href="{{ url('/erp/inventory/stock-in/history/' . $inventory->id) }}">
+                                <i class="feather feather-info me-3"></i>
+                                <span>History Stock In</span>
+                            </a>
+                        </li>
+                    @endif
+                @endif
+
             </div>
             <div class="action-col">
                 <li>

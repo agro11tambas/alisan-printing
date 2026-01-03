@@ -507,6 +507,56 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade-scale" id="modalMarkAsCustomerDeposit" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="fw-bold mb-0">Mark as Customer Deposit</h5>
+                    <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger" data-bs-dismiss="modal">
+                        <i class="feather-x text-danger"></i>
+                    </a>
+                </div>
+
+                <form method="POST" id="markAsCustomerDepositForm">
+                    @csrf
+                    <input type="hidden" name="sale_return_id" id="deposit_sale_return_id">
+
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="fw-semibold">Deposit Amount</label>
+                            <input type="text" class="form-control" id="deposit_amount" name="deposit_amount"
+                                value="0">
+                        </div>
+
+                        <div class="alert alert-warning d-flex justify-content-between align-items-center">
+                            <span>Balance</span>
+                            <strong id="deposit_balance_display">0</strong>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="fw-semibold">Transaction Date</label>
+                            <input type="date" class="form-control" name="transaction_date"
+                                value="{{ date('Y-m-d') }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="fw-semibold">Note (optional)</label>
+                            <textarea class="form-control" name="note" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">
+                            Mark as Customer Deposit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 @endpush
 
 @push('scripts')
@@ -1382,7 +1432,94 @@
             this.value = new Intl.NumberFormat("id-ID").format(angka);
         });
 
+        // ========= MARK AS CUSTOMER DEPOSIT =========
+        $(document).on('click', '.btn-mark-deposit', function(e) {
+            e.preventDefault();
 
+            const button = $(this);
+            const saleReturnId = button.data('id');
+            const remaining = parseInt(button.data('remaining')) || 0;
+            const url = button.data('url');
+
+            // set form
+            $('#deposit_sale_return_id').val(saleReturnId);
+            $('#markAsCustomerDepositForm').attr('action', url);
+
+            // set balance display
+            $('#deposit_balance_display').text(
+                new Intl.NumberFormat('id-ID').format(remaining)
+            );
+
+            // auto fill deposit amount = sisa
+            $('#deposit_amount').val(
+                new Intl.NumberFormat('id-ID').format(remaining)
+            );
+
+            $('#modalMarkAsCustomerDeposit').modal('show');
+        });
+
+        // format number input
+        $('#deposit_amount').on('input', function() {
+            let angka = this.value.replace(/\D/g, '') || '0';
+            this.value = new Intl.NumberFormat('id-ID').format(angka);
+        });
+
+        // submit handler
+        $('#markAsCustomerDepositForm').on('submit', function(e) {
+            e.preventDefault();
+
+            const form = $(this);
+            const url = form.attr('action');
+            const formData = new FormData(this);
+
+            let depositRaw = $('#deposit_amount').val().replace(/\./g, '');
+            let balanceRaw = $('#deposit_balance_display').text().replace(/\D/g, '');
+
+            if (!depositRaw || parseInt(depositRaw) <= 0) {
+                Swal.fire('Error', 'Deposit amount harus lebih dari 0', 'error');
+                return;
+            }
+
+            if (parseInt(depositRaw) > parseInt(balanceRaw)) {
+                Swal.fire('Error', 'Deposit amount tidak boleh melebihi Balance', 'error');
+                return;
+            }
+
+            // normalisasi angka
+            $('#deposit_amount').val(depositRaw);
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function() {
+                    Swal.close();
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: 'Berhasil dijadikan Customer Deposit',
+                        timer: 800,
+                        showConfirmButton: false
+                    });
+
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 100);
+                },
+
+                error: function(xhr) {
+                    Swal.close();
+                    Swal.fire(
+                        'Gagal!',
+                        xhr.responseJSON?.message ?? 'Gagal memproses Customer Deposit',
+                        'error'
+                    );
+                }
+            });
+        });
 
         document.querySelector("form").addEventListener("submit", function() {
             refundInput.value = refundInput.value.replace(/\./g, "");

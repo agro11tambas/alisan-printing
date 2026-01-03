@@ -2,7 +2,7 @@
     <ul class="dropdown-menu show static-action-menu">
         <div class="action-grid">
             <div class="action-col">
-                @if ($return->payment_status !== 'Refunded')
+                @if ($return->saleOrder && $return->saleOrder->payment_status !== 'Unpaid' && $return->payment_status !== 'Refunded')
                     <li>
                         <button type="button" class="dropdown-item btn-mark-paid" data-bs-toggle="modal"
                             data-bs-target="#modalChangeStatus" data-id="{{ $return->id }}"
@@ -14,6 +14,23 @@
                         </button>
                     </li>
                 @endif
+
+                @if (
+                    $return->saleOrder &&
+                        $return->saleOrder->payment_status !== 'Unpaid' &&
+                        $return->payment_status !== 'Refunded' &&
+                        $return->remaining_amount > 0)
+                    <li>
+                        <button type="button" class="dropdown-item btn-mark-deposit" data-bs-toggle="modal"
+                            data-bs-target="#modalMarkAsCustomerDeposit" data-id="{{ $return->id }}"
+                            data-remaining="{{ $return->remaining_amount }}"
+                            data-url="{{ url('/erp/sales/sale-returns/mark-as-customer-deposit/' . $return->id) }}">
+                            <i class="feather feather-credit-card me-3"></i>
+                            <span>Mark as Customer Deposit</span>
+                        </button>
+                    </li>
+                @endif
+
                 <li>
                     <a href="/erp/sales/sale-return/payment-history/{{ $return->id }}" class="dropdown-item">
                         <i class="feather feather-dollar-sign me-3"></i>
