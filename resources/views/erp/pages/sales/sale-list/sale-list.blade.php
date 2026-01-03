@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                display: none !important;
-                                                                                                                                                                                                                                            } */
+                                                                                                                                                                                                                                                            display: none !important;
+                                                                                                                                                                                                                                                        } */
 
         .sale-mobile-action {
             display: none;
@@ -2442,12 +2442,20 @@
 
                 // 🔹 TEXT SAMA PERSIS
                 const message =
-                    `Halo *${business}*,\n\n` +
-                    `Berikut adalah invoice untuk pesanan Anda:\n` +
-                    `No Invoice: *${invoiceNo}*\n` +
-                    `Total: *Rp. ${total}*\n\n` +
-                    `Link Invoice: ${result.url}\n\n` +
-                    `Terima kasih atas kepercayaan Anda! 🙏`;
+                    `Berikut Invoice *${invoiceNo}*
+                    ${result.url}
+
+                    ❗️*Harap MELUNASI Tagihan*❗️
+                    Terlebih dahulu sebelum proses produksi dimulai.
+
+                    🧾 Setelah pembayaran diterima, produksi akan berjalan sesuai estimasi yang disepakati.
+
+                    ✨️ *REKENING BCA*
+                    Nomor: *0590712647*
+                    Nama: *STEFAN LEWIS*
+
+                    📌 *WAJIB:*
+                    Mengirim bukti transfer setelah pembayaran`;
 
                 // 🔥 WA.ME + _BLANK (SAMA KAYAK HALAMAN INVOICE)
                 window.open(

@@ -5288,7 +5288,6 @@ class SaleListController extends Controller
                 ], 500);
             }
 
-            // Generate URL menggunakan route: domain.com/invoices/nama_file.jpg
             $url = route('invoice.show', ['filename' => $filename]);
 
             return response()->json([

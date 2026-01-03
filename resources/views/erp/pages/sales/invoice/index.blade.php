@@ -304,12 +304,21 @@
                         const formattedPhone = phoneNumber.startsWith('0') ?
                             '62' + phoneNumber.substring(1) : phoneNumber;
 
-                        const message = `Halo *{{ $order->business_name }}*,\n\n` +
-                            `Berikut adalah invoice untuk pesanan Anda:\n` +
-                            `No Invoice: *{{ $order->order_number }}*\n` +
-                            `Total: *Rp. {{ number_format($order->grand_total, 0, ',', '.') }}*\n\n` +
-                            `Link Invoice: ${result.url}\n\n` +
-                            `Terima kasih atas kepercayaan Anda! 🙏`;
+                        const message =
+                            `Berikut Invoice *${invoiceNo}*
+                            ${result.url}
+
+                            ❗️*Harap MELUNASI Tagihan*❗️
+                            Terlebih dahulu sebelum proses produksi dimulai.
+
+                            🧾 Setelah pembayaran diterima, produksi akan berjalan sesuai estimasi yang disepakati.
+
+                            ✨️ *REKENING BCA*
+                            Nomor: *0590712647*
+                            Nama: *STEFAN LEWIS*
+
+                            📌 *WAJIB:*
+                            Mengirim bukti transfer setelah pembayaran`;
 
                         const whatsappUrl =
                             `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
