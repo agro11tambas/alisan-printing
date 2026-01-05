@@ -44,6 +44,7 @@ class Purchase extends Model
         'deleted_by',
         'deleted_notes',
         'user_id',
+        'stock_destination',
     ];
 
     protected $casts = [

@@ -546,7 +546,7 @@ class InventoryController extends Controller
                 $incoming = DB::table('inventory_items_2')
                     ->where('product_id', $item->product_id)
                     ->whereNull('deleted_at')
-                    ->whereNotNull('purchase_item_id')
+                    ->whereNotNull(['purchase_item_id', 'inventory_warehouse_id'])
                     ->selectRaw('SUM(remaining_stock_in - stock_in) AS incoming')
                     ->value('incoming');
 

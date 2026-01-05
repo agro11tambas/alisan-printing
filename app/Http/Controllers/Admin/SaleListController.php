@@ -4405,14 +4405,32 @@ class SaleListController extends Controller
             }
 
             // AccountTransaction::where('order_id', $order->id)->delete();
+            $batches = OrderProgressAssignBatch::whereHas(
+                'orderProgress',
+                fn($q) => $q->where('order_id', $order->id)
+            )->get();
+
+            foreach ($batches as $batch) {
+                $batch->delete(); // 🔥 INI YANG MEMICU booted()
+            }
+
             OrderProgressHistory::whereHas('progressItem.progress', fn($q) => $q->where('order_id', $order->id))->delete();
             OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->delete();
             OrderProgress::where('order_id', $order->id)->delete();
             OrderItem::where('order_id', $order->id)->delete();
             OrderEditHistory::where('order_id', $order->id)->delete();
-            Design::withTrashed()->where('order_id', $order->id)->delete();
-            FinancialReport::withTrashed()->where('reference_table', 'orders')->where('reference_id', $order->id)->delete();
+            // Design::withTrashed()->where('order_id', $order->id)->delete();
+            $designs = Design::withTrashed()->where('order_id', $order->id)->get();
+            foreach ($designs as $design) {
+                // kalau ada relasi items, ini opsional tapi lebih aman
+                if (method_exists($design, 'items')) {
+                    $design->items()->withTrashed()->delete(); // atau ->delete() kalau items soft delete
+                }
 
+                $design->delete(); // hard delete
+            }
+
+            FinancialReport::withTrashed()->where('reference_table', 'orders')->where('reference_id', $order->id)->delete();
             // 🔹 Delivery Order dan List
             $deliveryOrders = DeliveryOrder::with(['items', 'shipments'])->where('order_id', $order->id)->get();
             foreach ($deliveryOrders as $do) {

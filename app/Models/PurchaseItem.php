@@ -21,6 +21,7 @@ class PurchaseItem extends Model
         'purchase_id',
         'product_id',
         'inventory_warehouse_id',
+        'production_warehouse_id',
         'status',
         'quantity',
         'price',

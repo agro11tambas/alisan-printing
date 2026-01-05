@@ -38,6 +38,8 @@ use App\Http\Controllers\Admin\OpeningStockRateController;
 use App\Http\Controllers\Admin\OperatorController;
 use App\Http\Controllers\Admin\OrderProgressAssignController;
 use App\Http\Controllers\Admin\ProductBundleController;
+use App\Http\Controllers\Admin\ProductionController;
+use App\Http\Controllers\Admin\ProductionStockInController;
 use App\Http\Controllers\Admin\PurchaseDetailController;
 use App\Http\Controllers\Admin\PurchaseListController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
@@ -54,6 +56,7 @@ use App\Http\Controllers\Admin\StockOpnameController;
 use App\Http\Controllers\Admin\StockOpnameProductionController;
 use App\Http\Controllers\Admin\StockRequestController;
 use App\Http\Controllers\AuthController;
+
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\isLogin;
@@ -371,6 +374,19 @@ Route::middleware(['auth', 'check.session'])->group(function () {
 
             Route::post('/erp/defect-product/store-production', [ReportItemsProductionController::class, 'storeProduction'])
                 ->name('erp.defect-product.store-production');
+        });
+
+        // Stock in
+        Route::middleware(['auth', 'subpermission:stock-in-production'])->group(function () {
+            Route::get('/erp/productions/stock-in/data', [ProductionController::class, 'dataStockIn']);
+            Route::get('/erp/productions/stock-in', [ProductionController::class, 'getStockIn']);
+            Route::get('/erp/productions/stock-in/add-stock-in/{id}', [ProductionStockInController::class, 'addStockIn']);
+            Route::post('/erp/productions/stock-in/store/{id}', [ProductionStockInController::class, 'store']);
+            Route::get('/erp/productions/stock-in/edit-stock-in/{id}', [ProductionStockInController::class, 'edit']);
+            Route::put('/erp/productions/stock-in/update/{id}', [ProductionStockInController::class, 'update']);
+            Route::get('/erp/productions/stock-in/history/{id}/data', [ProductionStockInController::class, 'dataHistory']);
+            Route::get('/erp/productions/stock-in/history/{id}', [ProductionStockInController::class, 'getHistory']);
+            Route::post('/erp/productions/stock-in/history/item/{id}/update', [ProductionStockInController::class, 'updateHistoryItem']);
         });
 
         // Route::middleware(['auth', 'subpermission:canceled-products'])->group(function () {

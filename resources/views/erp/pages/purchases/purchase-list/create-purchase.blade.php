@@ -185,6 +185,21 @@
                                             </div>
                                         </div>
                                     </div> --}}
+                                    {{-- <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="stock_destination" class="fw-semibold">
+                                                Stock Destination:
+                                            </label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <select class="form-select" name="stock_destination" id="stock_destination"
+                                                required>
+                                                <option value="warehouse">Inventory Warehouse</option>
+                                                <option value="production">Production</option>
+                                            </select>
+                                        </div>
+                                    </div> --}}
+
                                 </div>
                             </div>
                         </div>
@@ -1097,6 +1112,16 @@
             setTimeout(() => {
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();
             }, 50);
+        });
+
+        document.getElementById('stock_destination').addEventListener('change', function() {
+            const statusField = document.getElementById('inventory_status');
+
+            if (this.value === 'warehouse') {
+                statusField.value = 'Stock In';
+            } else if (this.value === 'production') {
+                statusField.value = 'Stock In Production';
+            }
         });
     </script>
 @endpush

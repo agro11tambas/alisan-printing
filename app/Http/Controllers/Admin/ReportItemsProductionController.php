@@ -47,7 +47,7 @@ class ReportItemsProductionController extends Controller
             ) AS pending_waiting_list
         ')
             )
-            ->orderByDesc('pending_waiting_list'); // 🔥 INI YANG KAMU MAU
+            ->orderByDesc('pending_waiting_list');
 
 
         if ($request->filled('product_name')) {
@@ -101,36 +101,41 @@ class ReportItemsProductionController extends Controller
 
                 return number_format($finished, 0, ',', '.');
             })
+            // ->addColumn('incoming_stock', function ($item) {
+
+            //     $incoming = DB::table('material_request_items')
+            //         ->where('product_id', $item->product_id)
+            //         ->whereNull('deleted_at')
+            //         ->selectRaw('SUM(requested_qty - received_qty) AS incoming')
+            //         ->value('incoming');
+
+            //     return number_format($incoming ?? 0, 0, ',', '.');
+            // })
+
             ->addColumn('incoming_stock', function ($item) {
 
-                $incoming = DB::table('material_request_items')
-                    ->where('product_id', $item->product_id)
+                $productId = $item->product_id;
+
+                // 1️⃣ Incoming dari Material Request
+                $incomingMaterial = DB::table('material_request_items')
+                    ->where('product_id', $productId)
                     ->whereNull('deleted_at')
                     ->selectRaw('SUM(requested_qty - received_qty) AS incoming')
                     ->value('incoming');
 
-                return number_format($incoming ?? 0, 0, ',', '.');
+                // 2️⃣ Incoming dari Inventory Items (Production Warehouse)
+                $incomingInventory = DB::table('inventory_items_2')
+                    ->where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->whereNotNull('purchase_item_id')
+                    ->whereNotNull('production_warehouse_id') // 🔥 GANTI DI SINI
+                    ->selectRaw('SUM(remaining_stock_in - stock_in) AS incoming')
+                    ->value('incoming');
+
+                $incomingTotal = ($incomingMaterial ?? 0) + ($incomingInventory ?? 0);
+
+                return number_format($incomingTotal, 0, ',', '.');
             })
-            // ->addColumn('pending_waiting_list', function ($item) {
-
-            //     $productId = $item->product_id;
-
-            //     // 1️⃣ Total QTY dari Design Items
-            //     $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
-            //         ->whereNull('deleted_at')
-            //         ->sum('quantity');
-
-            //     // 2️⃣ Total Assigned QTY
-            //     $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
-            //         ->whereNull('deleted_at')
-            //         ->sum('assigned_quantity');
-
-            //     $pending = $totalDesignQty - $totalAssignedQty;
-
-            //     if ($pending < 0) $pending = 0;
-
-            //     return number_format($pending, 0, ',', '.');
-            // })
 
             ->addColumn(
                 'pending_waiting_list',

@@ -42,6 +42,7 @@ class PermissionSubItemSeeder extends Seeder
                 ['name' => 'Report Items', 'slug' => 'report-items'],
                 ['name' => 'Canceled Products', 'slug' => 'canceled-products'],
                 ['name' => 'Assign List', 'slug' => 'assign-list'],
+                ['name' => 'Stock In Production', 'slug' => 'stock-in-production'],
             ],
 
             // Delivery Module

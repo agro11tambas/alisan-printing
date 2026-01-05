@@ -18,6 +18,7 @@ class InventoryItem extends Model
         'inventory_id',
         'product_id',
         'inventory_warehouse_id',
+        'production_warehouse_id',
         'order_item_id',
         'product_bundle_id',
         'purchase_item_id',

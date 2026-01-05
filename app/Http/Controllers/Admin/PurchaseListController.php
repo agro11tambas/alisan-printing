@@ -12,6 +12,7 @@ use App\Models\FinancialReport;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
 use App\Models\InventoryStock;
+use App\Models\ProductionStock;
 use App\Models\Products;
 use App\Models\PurchaseEditHistory;
 use App\Models\PurchaseReturn;
@@ -506,6 +507,7 @@ class PurchaseListController extends Controller
             'total_amount_product'  => 'required|numeric|min:0',
             'total_amount_freight'  => 'required|numeric|min:0',
             'total_amount'          => 'required|numeric|min:0',
+            'stock_destination' => 'required|in:warehouse,production',
         ]);
 
         DB::beginTransaction();
@@ -560,8 +562,14 @@ class PurchaseListController extends Controller
                 'paid_amount'               => 0,
                 'remaining_amount'          => $grandTotal,
                 'status'                    => $status,
+                'stock_destination'        => $request->stock_destination,
                 'user_id'                   => Auth::id(),
             ]);
+
+            $inventoryStatus = match ($request->stock_destination) {
+                'warehouse'  => 'Stock In',
+                'production' => 'Stock In Production',
+            };
 
             foreach ($request->product as $index => $productId) {
                 $qty     = $request->qty[$index];
@@ -576,17 +584,38 @@ class PurchaseListController extends Controller
 
                 $product = Products::findOrFail($productId);
 
+                // $purchaseItem = PurchaseItem::create([
+                //     'purchase_id'              => $purchase->id,
+                //     'product_id'               => $productId,
+                //     'inventory_warehouse_id'   => $request->inventory_warehouse_id ?? 1,
+                //     'status'                   => 'Purchase Account',
+                //     'quantity'                 => $qty,
+                //     'price'                    => $price,
+                //     'price_after_tax'          => $priceAfterTax,
+                //     'freight'                  => $freight,
+                //     'final_price'              => $finalPrice,
+                //     'subtotal'                 => $total,
+                // ]);
+
                 $purchaseItem = PurchaseItem::create([
-                    'purchase_id'              => $purchase->id,
-                    'product_id'               => $productId,
-                    'inventory_warehouse_id'   => $request->inventory_warehouse_id ?? 1,
-                    'status'                   => 'Purchase Account',
-                    'quantity'                 => $qty,
-                    'price'                    => $price,
-                    'price_after_tax'          => $priceAfterTax,
-                    'freight'                  => $freight,
-                    'final_price'              => $finalPrice,
-                    'subtotal'                 => $total,
+                    'purchase_id' => $purchase->id,
+                    'product_id'  => $productId,
+
+                    'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
+                        ? ($request->inventory_warehouse_id ?? 1)
+                        : null,
+
+                    'production_warehouse_id' => $request->stock_destination === 'production'
+                        ? ($request->production_warehouse_id ?? 2)
+                        : null,
+
+                    'status'          => 'Purchase Account',
+                    'quantity'        => $qty,
+                    'price'           => $price,
+                    'price_after_tax' => $priceAfterTax,
+                    'freight'         => $freight,
+                    'final_price'     => $finalPrice,
+                    'subtotal'        => $total,
                 ]);
 
                 if ($purchase->status === 'Purchase List') {
@@ -596,32 +625,67 @@ class PurchaseListController extends Controller
                             'purchase_number' => $purchase->purchase_number,
                             'supplier_id'     => $purchase->supplier_id,
                             'date'            => $purchase->purchase_date,
-                            'status'          => 'Stock In',
+                            'status'          => $inventoryStatus,
                             'note'            => 'Purchase Account',
                         ]
                     );
 
+                    // InventoryItem::create([
+                    //     'inventory_id'            => $inventory->id,
+                    //     'purchase_item_id'        => $purchaseItem->id,
+                    //     'product_id'              => $productId,
+                    //     'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
+                    //     'quantity'                => $qty,
+                    //     'price'                   => $finalPrice,
+                    //     'stock_in'                => 0,
+                    //     'remaining_stock_in'      => $qty,
+                    //     'stock_out'               => 0,
+                    // ]);
+
                     InventoryItem::create([
-                        'inventory_id'            => $inventory->id,
-                        'purchase_item_id'        => $purchaseItem->id,
-                        'product_id'              => $productId,
-                        'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
-                        'quantity'                => $qty,
-                        'price'                   => $finalPrice,
-                        'stock_in'                => 0,
-                        'remaining_stock_in'      => $qty,
-                        'stock_out'               => 0,
+                        'inventory_id'     => $inventory->id,
+                        'purchase_item_id' => $purchaseItem->id,
+                        'product_id'       => $productId,
+
+                        'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
+                            ? ($request->inventory_warehouse_id ?? 1)
+                            : null,
+
+                        'production_warehouse_id' => $request->stock_destination === 'production'
+                            ? ($request->production_warehouse_id ?? 2)
+                            : null,
+
+                        'quantity'           => $qty,
+                        'price'              => $finalPrice,
+                        'stock_in'           => 0,
+                        'remaining_stock_in' => $qty,
+                        'stock_out'          => 0,
                     ]);
 
-                    $inventoryStock = InventoryStock::firstOrCreate(
-                        [
-                            'product_id' => $productId,
-                            'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
-                        ],
-                        ['incoming_stock' => 0]
-                    );
+                    // 🧩 Update Stock berdasarkan destination
+                    if ($request->stock_destination === 'warehouse') {
+                        $inventoryStock = InventoryStock::firstOrCreate(
+                            [
+                                'product_id' => $productId,
+                                'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
+                            ],
+                            ['incoming_stock' => 0]
+                        );
 
-                    $inventoryStock->increment('incoming_stock', $qty);
+                        $inventoryStock->increment('incoming_stock', $qty);
+                    }
+
+                    if ($request->stock_destination === 'production') {
+                        $productionStock = ProductionStock::firstOrCreate(
+                            [
+                                'product_id' => $productId,
+                                'production_warehouse_id' => $request->production_warehouse_id ?? 2,
+                            ],
+                            ['incoming_stock' => 0]
+                        );
+
+                        $productionStock->increment('incoming_stock', $qty);
+                    }
                 }
             }
 
@@ -720,6 +784,7 @@ class PurchaseListController extends Controller
             'note'            => 'nullable|string',
             'image'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'edit_note'       => 'required|string|max:500',
+            'stock_destination' => 'required|in:warehouse,production',
         ]);
 
         DB::beginTransaction();
@@ -782,6 +847,8 @@ class PurchaseListController extends Controller
             $remainingFreight = max(0, $totalFreight - $paidFreight);
             $remainingAmount  = $remainingProduct + $remainingFreight;
 
+            $stockDestination = $request->stock_destination;
+
             // ===== 4️⃣ UPDATE PURCHASE HEADER
             $purchase->update([
                 'purchase_number' => $request->purchase_number,
@@ -798,11 +865,25 @@ class PurchaseListController extends Controller
                 'remaining_amount_product' => $remainingProduct,
                 'remaining_amount_freight' => $remainingFreight,
                 'remaining_amount'         => $remainingAmount,
+                'stock_destination' => $stockDestination
             ]);
 
             // ===== 5️⃣ UPDATE ITEMS
             $existingItems = $purchase->purchaseItems->keyBy('product_id');
             $requestKeys   = [];
+
+            $inventoryStatus = match ($stockDestination) {
+                'warehouse'  => 'Stock In',
+                'production' => 'Stock In Production',
+            };
+
+            $invWarehouseId = $stockDestination === 'warehouse'
+                ? ($request->inventory_warehouse_id ?? 1)
+                : null;
+
+            $prodWarehouseId = $stockDestination === 'production'
+                ? ($request->production_warehouse_id ?? 2)
+                : null;
 
             foreach ($request->input('product', []) as $index => $productId) {
                 $qty     = $request->qty[$index] ?? 0;
@@ -841,6 +922,8 @@ class PurchaseListController extends Controller
                     $oldQty = $item->quantity;
 
                     $item->update([
+                        'inventory_warehouse_id'  => $stockDestination === 'warehouse' ? ($request->inventory_warehouse_id ?? 1) : null,
+                        'production_warehouse_id' => $stockDestination === 'production' ? ($request->production_warehouse_id ?? 2) : null,
                         'quantity'        => $qty,
                         'price'           => $price,
                         'price_after_tax' => $priceAfterTax,
@@ -851,17 +934,25 @@ class PurchaseListController extends Controller
                 } else {
                     $oldQty = 0;
                     $item = PurchaseItem::create([
-                        'purchase_id'             => $purchase->id,
-                        'product_id'              => $productId,
-                        'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
-                        'status'                  => 'Purchase Account',
-                        'product_name'            => $product->name,
-                        'quantity'                => $qty,
-                        'price'                   => $price,
-                        'price_after_tax'         => $priceAfterTax,
-                        'freight'                 => $freight,
-                        'final_price'             => $finalPrice,
-                        'subtotal'                => $total,
+                        'purchase_id' => $purchase->id,
+                        'product_id'  => $productId,
+
+                        'inventory_warehouse_id'  => $stockDestination === 'warehouse'
+                            ? ($request->inventory_warehouse_id ?? 1)
+                            : null,
+
+                        'production_warehouse_id' => $stockDestination === 'production'
+                            ? ($request->production_warehouse_id ?? 2)
+                            : null,
+
+                        'status'          => 'Purchase Account',
+                        'product_name'    => $product->name,
+                        'quantity'        => $qty,
+                        'price'           => $price,
+                        'price_after_tax' => $priceAfterTax,
+                        'freight'         => $freight,
+                        'final_price'     => $finalPrice,
+                        'subtotal'        => $total,
                     ]);
                 }
 
@@ -872,7 +963,7 @@ class PurchaseListController extends Controller
                         'purchase_number' => $purchase->purchase_number,
                         'supplier_id'     => $purchase->supplier_id,
                         'date'            => $purchase->purchase_date,
-                        'status'          => 'Stock In',
+                        'status'          => $inventoryStatus,
                         'note'            => 'Purchase Account',
                     ]
                 );
@@ -885,14 +976,16 @@ class PurchaseListController extends Controller
 
                 if ($invItem->exists) {
                     $invItem->fill([
-                        'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
+                        'inventory_warehouse_id'  => $invWarehouseId,
+                        'production_warehouse_id' => $prodWarehouseId,
                         'quantity'               => $qty,
                         'price'                  => $price,
                         'remaining_stock_in'     => $qty,
                     ]);
                 } else {
                     $invItem->fill([
-                        'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
+                        'inventory_warehouse_id'  => $invWarehouseId,
+                        'production_warehouse_id' => $prodWarehouseId,
                         'quantity'               => $qty,
                         'price'                  => $finalPrice,
                         'remaining_stock_in'     => $qty,
@@ -904,16 +997,35 @@ class PurchaseListController extends Controller
                 $invItem->save();
 
                 // 🧩 Update InventoryStock
-                $invStock = InventoryStock::firstOrCreate(
-                    [
-                        'product_id' => $productId,
-                        'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
-                    ],
-                    ['incoming_stock' => 0]
-                );
+                if ($stockDestination === 'warehouse') {
+                    $invStock = InventoryStock::firstOrCreate(
+                        [
+                            'product_id' => $productId,
+                            'inventory_warehouse_id' => $invWarehouseId,
+                        ],
+                        ['incoming_stock' => 0]
+                    );
 
-                $difference = $qty - $oldQty;
-                $invStock->increment('incoming_stock', $difference);
+                    $difference = $qty - $oldQty;
+                    $invStock->increment('incoming_stock', $difference);
+                }
+
+                if ($stockDestination === 'production') {
+                    $prodStock = ProductionStock::firstOrCreate(
+                        [
+                            'product_id' => $productId,
+                            'production_warehouse_id' => $prodWarehouseId,
+                        ],
+                        ['incoming_stock' => 0]
+                    );
+
+                    $difference = $qty - $oldQty;
+                    $prodStock->increment('incoming_stock', $difference);
+                }
+
+
+                // $difference = $qty - $oldQty;
+                // $invStock->increment('incoming_stock', $difference);
             }
 
             foreach ($existingItems as $pid => $item) {
@@ -924,6 +1036,26 @@ class PurchaseListController extends Controller
                     if ($invStock) {
                         $totalPurchasedQty = PurchaseItem::where('product_id', $pid)->sum('quantity');
                         $invStock->update(['incoming_stock' => $totalPurchasedQty]);
+                    }
+
+                    if ($stockDestination === 'production') {
+                        $prodStock = ProductionStock::where('product_id', $pid)
+                            ->where('production_warehouse_id', $prodWarehouseId)
+                            ->first();
+
+                        if ($prodStock) {
+                            $totalPurchasedQty = PurchaseItem::where('product_id', $pid)
+                                ->whereHas(
+                                    'purchase',
+                                    fn($q) =>
+                                    $q->where('stock_destination', 'production')
+                                )
+                                ->sum('quantity');
+
+                            $prodStock->update([
+                                'incoming_stock' => $totalPurchasedQty
+                            ]);
+                        }
                     }
                 }
             }

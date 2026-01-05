@@ -224,7 +224,6 @@ class OrderProgressAssignController extends Controller
         }
     }
 
-
     public function edit($batch_id)
     {
         $batch = OrderProgressAssignBatch::with([
@@ -259,22 +258,62 @@ class OrderProgressAssignController extends Controller
         ')
                 ->first();
 
-            $activeAssign = max(
+            // $activeAssign = max(
+            //     $totals->total_assigned - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
+            //     0
+            // );
+
+            // $currentBatchAssign = $assign->assigned_quantity;
+
+            // $remaining = max(
+            //     $item->quantity - (($item->completed_quantity ?? 0) + $activeAssign),
+            //     0
+            // );
+
+            // $assign->active_assign      = $activeAssign;
+            // $assign->available_quantity = $remaining;
+            // $assign->remaining_quantity = $remaining + $currentBatchAssign;
+
+            // $activeAssignAll = max(
+            //     $totals->total_assigned - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
+            //     0
+            // );
+
+            // $currentBatchAssign = (int) ($assign->assigned_quantity ?? 0);
+
+            // // active assign selain batch ini
+            // $activeAssignOther = max($activeAssignAll - $currentBatchAssign, 0);
+
+            // $completedQty = (int) ($item->completed_quantity ?? 0);
+
+            // // sisa yang masih bisa di-assign (di luar jatah batch ini)
+            // $remaining = max($item->quantity - ($completedQty + $activeAssignOther), 0);
+
+            // $assign->active_assign      = $activeAssignOther;          // ini “assigning” selain batch ini
+            // $assign->available_quantity = $remaining;                  // available real (tanpa batch ini)
+            // $assign->remaining_quantity = $remaining + $currentBatchAssign; // max yang boleh kamu isi saat edit
+
+            // $item->production_stock = $productionStocks[$item->product_id] ?? 0;
+            $activeAssignAll = max(
                 $totals->total_assigned - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
                 0
             );
 
-            $currentBatchAssign = $assign->assigned_quantity;
+            $currentBatchAssign = (int) ($assign->assigned_quantity ?? 0);
 
-            $remaining = max(
-                $item->quantity - (($item->completed_quantity ?? 0) + $activeAssign),
-                0
-            );
+            // Active assign SEBELUM batch ini di-edit
+            $activeAssignOther = max($activeAssignAll - $currentBatchAssign, 0);
 
-            $assign->active_assign      = $activeAssign;
-            $assign->available_quantity = $remaining;
-            $assign->remaining_quantity = $remaining + $currentBatchAssign;
-            $item->production_stock = $productionStocks[$item->product_id] ?? 0;
+            $completedQty = (int) ($item->completed_quantity ?? 0);
+
+            // Sisa yang bisa di-assign (tanpa memperhitungkan batch ini)
+            $remaining = max($item->quantity - ($completedQty + $activeAssignOther), 0);
+
+            // ✅ MAX = REMAINING (jangan tambah currentBatchAssign!)
+            $item->active_assign      = $activeAssignOther;
+            $item->available_quantity = $remaining;
+            $item->remaining_quantity = $remaining; // ✅ INI YANG BENAR!
+            $item->production_stock   = $productionStocks[$item->product_id] ?? 0;
         }
 
         return view('erp.pages.production.assign-list.edit-assign', compact(

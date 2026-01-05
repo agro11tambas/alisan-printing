@@ -176,7 +176,7 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     $incomingQuery = DB::table('inventory_items_2')
                         ->where('product_id', $product->id)
-                        ->whereNotNull('purchase_item_id');
+                        ->whereNotNull(['purchase_item_id', 'inventory_warehouse_id']);
 
                     $incomingQuery = $this->applyDateFilter($incomingQuery, $request);
 
@@ -188,15 +188,9 @@ class ReportItemsProductionAndWarehouseController extends Controller
                     return number_format($incoming ?? 0, 0, ',', '.');
                 })(),
                 'incoming_stock_completed' => (function () use ($product, $request) {
-                    // $incoming = DB::table('inventory_items_2')
-                    //     ->where('product_id', $product->id)
-                    //     ->whereNotNull('purchase_item_id')
-                    //     ->selectRaw('SUM(stock_in) AS incoming')
-                    //     ->value('incoming');
-
                     $incomingQuery = DB::table('inventory_items_2')
                         ->where('product_id', $product->id)
-                        ->whereNotNull('purchase_item_id');
+                        ->whereNotNull(['purchase_item_id', 'inventory_warehouse_id']);
 
                     $incomingQuery = $this->applyDateFilter($incomingQuery, $request);
 
@@ -249,42 +243,94 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 })(),
                 // 'incoming_stock_production' =>
                 // number_format($prod->incoming_stock ?? 0, 0, ',', '.'),
-                'incoming_stock_production' => (function () use ($product, $request) {
-                    // $incomingProd = DB::table('material_request_items')
-                    //     ->where('product_id', $product->id)
-                    //     ->selectRaw('SUM(requested_qty - received_qty) AS incoming')
-                    //     ->value('incoming');
+                // 'incoming_stock_production' => (function () use ($product, $request) {
+                //     $incomingProdQuery = DB::table('material_request_items')
+                //         ->where('product_id', $product->id)
+                //         ->whereNull('deleted_at');
 
-                    $incomingProdQuery = DB::table('material_request_items')
+                //     $incomingProdQuery = $this->applyDateFilter($incomingProdQuery, $request);
+
+                //     $incomingProd = $incomingProdQuery
+                //         ->selectRaw('SUM(requested_qty - received_qty) AS incoming')
+                //         ->value('incoming');
+
+                //     return number_format($incomingProd ?? 0, 0, ',', '.');
+                // })(),
+                'incoming_stock_production' => (function () use ($product, $request) {
+
+                    // 1️⃣ Dari material_request_items
+                    $incomingMaterialQuery = DB::table('material_request_items')
                         ->where('product_id', $product->id)
                         ->whereNull('deleted_at');
 
-                    $incomingProdQuery = $this->applyDateFilter($incomingProdQuery, $request);
+                    $incomingMaterialQuery = $this->applyDateFilter($incomingMaterialQuery, $request);
 
-                    $incomingProd = $incomingProdQuery
+                    $incomingMaterial = $incomingMaterialQuery
                         ->selectRaw('SUM(requested_qty - received_qty) AS incoming')
                         ->value('incoming');
 
-                    return number_format($incomingProd ?? 0, 0, ',', '.');
-                })(),
-                'incoming_stock_production_completed' => (function () use ($product, $request) {
-                    // $incomingProd = DB::table('material_request_items')
-                    //     ->where('product_id', $product->id)
-                    //     ->selectRaw('SUM(received_qty) AS incoming')
-                    //     ->value('incoming');
+                    // 2️⃣ Dari inventory_items_2 (purchase → production warehouse)
+                    $incomingInventoryQuery = DB::table('inventory_items_2')
+                        ->where('product_id', $product->id)
+                        ->whereNull('deleted_at')
+                        ->whereNotNull('purchase_item_id')
+                        ->whereNotNull('production_warehouse_id');
 
-                    $incomingProdQuery = DB::table('material_request_items')
+                    $incomingInventoryQuery = $this->applyDateFilter($incomingInventoryQuery, $request);
+
+                    $incomingInventory = $incomingInventoryQuery
+                        ->selectRaw('SUM(remaining_stock_in - stock_in) AS incoming')
+                        ->value('incoming');
+
+                    $totalIncoming = ($incomingMaterial ?? 0) + ($incomingInventory ?? 0);
+
+                    return number_format($totalIncoming, 0, ',', '.');
+                })(),
+
+                // 'incoming_stock_production_completed' => (function () use ($product, $request) {
+                //     $incomingProdQuery = DB::table('material_request_items')
+                //         ->where('product_id', $product->id)
+                //         ->whereNull('deleted_at');
+
+                //     $incomingProdQuery = $this->applyDateFilter($incomingProdQuery, $request);
+
+                //     $incomingProd = $incomingProdQuery
+                //         ->selectRaw('SUM(received_qty) AS incoming')
+                //         ->value('incoming');
+
+                //     return number_format($incomingProd ?? 0, 0, ',', '.');
+                // })(),
+                'incoming_stock_production_completed' => (function () use ($product, $request) {
+
+                    // 1️⃣ Material request yang sudah diterima
+                    $incomingMaterialQuery = DB::table('material_request_items')
                         ->where('product_id', $product->id)
                         ->whereNull('deleted_at');
 
-                    $incomingProdQuery = $this->applyDateFilter($incomingProdQuery, $request);
+                    $incomingMaterialQuery = $this->applyDateFilter($incomingMaterialQuery, $request);
 
-                    $incomingProd = $incomingProdQuery
+                    $incomingMaterial = $incomingMaterialQuery
                         ->selectRaw('SUM(received_qty) AS incoming')
                         ->value('incoming');
 
-                    return number_format($incomingProd ?? 0, 0, ',', '.');
+                    // 2️⃣ Inventory masuk ke production warehouse
+                    $incomingInventoryQuery = DB::table('inventory_items_2')
+                        ->where('product_id', $product->id)
+                        ->whereNull('deleted_at')
+                        ->whereNotNull('purchase_item_id')
+                        ->whereNotNull('production_warehouse_id');
+
+                    $incomingInventoryQuery = $this->applyDateFilter($incomingInventoryQuery, $request);
+
+                    $incomingInventory = $incomingInventoryQuery
+                        ->selectRaw('SUM(stock_in) AS incoming')
+                        ->value('incoming');
+
+                    $totalCompleted = ($incomingMaterial ?? 0) + ($incomingInventory ?? 0);
+
+                    return number_format($totalCompleted, 0, ',', '.');
                 })(),
+
                 // Pending Waiting List
                 'pending_waiting_list' => (function () use ($product) {
 
@@ -357,21 +403,37 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($onDelivery, 0, ',', '.');
                 })(),
+                // 'completed_delivery' => (function () use ($product, $request) {
+
+                //     $completedQuery = DB::table('delivery_list_items')
+                //         ->where('product_id', $product->id)
+                //         ->whereNull('deleted_at');
+
+                //     // 🔥 FILTER TANGGAL — PERSIS SEPERTI incoming_stock_production_completed
+                //     $completedQuery = $this->applyDateFilter($completedQuery, $request);
+
+                //     $completed = $completedQuery
+                //         ->selectRaw('SUM(shipped_quantity) AS completed')
+                //         ->value('completed');
+
+                //     return number_format($completed ?? 0, 0, ',', '.');
+                // })(),
                 'completed_delivery' => (function () use ($product, $request) {
 
-                    $completedQuery = DB::table('delivery_list_items')
-                        ->where('product_id', $product->id)
-                        ->whereNull('deleted_at');
+                    $query = \App\Models\DeliveryListItem::where('product_id', $product->id)
+                        ->whereNull('deleted_at')
+                        ->whereHas('shipment', function ($q) {
+                            $q->where('status', 'finished');
+                        });
 
-                    // 🔥 FILTER TANGGAL — PERSIS SEPERTI incoming_stock_production_completed
-                    $completedQuery = $this->applyDateFilter($completedQuery, $request);
+                    // 🔥 KALAU MAU FILTER TANGGAL → PAKAI YANG SAMA
+                    $query = $this->applyDateFilter($query, $request);
 
-                    $completed = $completedQuery
-                        ->selectRaw('SUM(shipped_quantity) AS completed')
-                        ->value('completed');
+                    $completed = $query->sum('shipped_quantity');
 
                     return number_format($completed ?? 0, 0, ',', '.');
                 })(),
+
                 'avg_cost' =>
                 '<span class="text-primary">' . number_format($avgRounded, 2, ',', '.') . '</span>',
                 'fixed_cost' =>
