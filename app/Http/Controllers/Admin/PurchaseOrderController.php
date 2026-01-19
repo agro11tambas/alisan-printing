@@ -12,6 +12,7 @@ use App\Models\AccountTransaction;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
 use App\Models\InventoryStock;
+use App\Models\ProductionStock;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
@@ -193,6 +194,7 @@ class PurchaseOrderController extends Controller
             'product.*'     => 'exists:products,id',
             'qty'           => 'required|array',
             'qty.*'         => 'numeric|min:1',
+            'stock_destination' => 'required|in:warehouse,production',
         ]);
 
         DB::beginTransaction();
@@ -218,6 +220,7 @@ class PurchaseOrderController extends Controller
                 'total_amount_freight' => 0,
                 'paid_amount'     => 0,
                 'remaining_amount' => 0,
+                'stock_destination'        => $request->stock_destination,
             ]);
 
             // === Simpan Item Purchase ===
@@ -285,6 +288,7 @@ class PurchaseOrderController extends Controller
             // 'total_amount_product'   => 'required|numeric|min:0',
             // 'total_amount_freight'   => 'required|numeric|min:0',
             // 'total_amount'           => 'required|numeric|min:0',
+            'stock_destination' => 'required|in:warehouse,production',
         ]);
 
         DB::beginTransaction();
@@ -341,6 +345,7 @@ class PurchaseOrderController extends Controller
                 'remaining_amount'         => $remainingAmount,
                 'status'                   => $status,
                 'notes'                    => $request->notes,
+                'stock_destination'        => $request->stock_destination,
             ]);
 
             // ===== 4️⃣ UPDATE / INSERT ITEM BARU =====
@@ -520,6 +525,7 @@ class PurchaseOrderController extends Controller
             'total_amount_product'  => 'required|numeric|min:0',
             'total_amount_freight'  => 'required|numeric|min:0',
             'total_amount'          => 'required|numeric|min:0',
+
         ]);
 
         DB::beginTransaction();
@@ -590,6 +596,7 @@ class PurchaseOrderController extends Controller
                 'paid_amount'               => 0,
                 'remaining_amount'          => $grandTotal,
                 'status'                    => $status,
+
             ]);
 
             // foreach ($purchase->purchaseItems as $oldItem) {
@@ -616,7 +623,14 @@ class PurchaseOrderController extends Controller
                 $item = $purchase->purchaseItems[$index] ?? new PurchaseItem(['purchase_id' => $purchase->id]);
                 $item->fill([
                     'product_id'              => $productId,
-                    'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
+                    // 'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
+                    'inventory_warehouse_id' => $purchase->stock_destination === 'warehouse'
+                        ? ($request->inventory_warehouse_id ?? 1)
+                        : null,
+
+                    'production_warehouse_id' => $purchase->stock_destination === 'production'
+                        ? ($request->production_warehouse_id ?? 2)
+                        : null,
                     'status'                  => 'Purchase Account',
                     'quantity'                => $qty,
                     'price'                   => $price,
@@ -627,14 +641,29 @@ class PurchaseOrderController extends Controller
                 ]);
                 $item->save();
 
-                // === Update atau buat Inventory ===
+                // // === Update atau buat Inventory ===
+                // $inventory = Inventory::firstOrCreate(
+                //     ['purchase_id' => $purchase->id],
+                //     [
+                //         'purchase_number' => $purchase->purchase_number,
+                //         'supplier_id'     => $purchase->supplier_id,
+                //         'date'            => $purchase->purchase_date,
+                //         'status'          => 'Stock In',
+                //         'note'            => 'Purchase Account',
+                //     ]
+                // );
+
+                $inventoryStatus = $purchase->stock_destination === 'production'
+                    ? 'Stock In Production'
+                    : 'Stock In';
+
                 $inventory = Inventory::firstOrCreate(
                     ['purchase_id' => $purchase->id],
                     [
                         'purchase_number' => $purchase->purchase_number,
                         'supplier_id'     => $purchase->supplier_id,
                         'date'            => $purchase->purchase_date,
-                        'status'          => 'Stock In',
+                        'status'          => $inventoryStatus,
                         'note'            => 'Purchase Account',
                     ]
                 );
@@ -646,7 +675,14 @@ class PurchaseOrderController extends Controller
 
                 $inventoryItem->fill([
                     'product_id'              => $productId,
-                    'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
+                    // 'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
+                    'inventory_warehouse_id' => $purchase->stock_destination === 'warehouse'
+                        ? ($request->inventory_warehouse_id ?? 1)
+                        : null,
+
+                    'production_warehouse_id' => $purchase->stock_destination === 'production'
+                        ? ($request->production_warehouse_id ?? 2)
+                        : null,
                     'quantity'                => $qty,
                     'price'                   => $price,
                     'stock_in'                => 0,
@@ -655,15 +691,40 @@ class PurchaseOrderController extends Controller
                 ]);
                 $inventoryItem->save();
 
-                $inventoryStock = InventoryStock::firstOrCreate(
-                    [
-                        'product_id' => $productId,
-                        'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
-                    ],
-                    ['incoming_stock' => 0]
-                );
+                // $inventoryStock = InventoryStock::firstOrCreate(
+                //     [
+                //         'product_id' => $productId,
+                //         'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
+                //     ],
+                //     ['incoming_stock' => 0]
+                // );
 
-                $inventoryStock->increment('incoming_stock', $qty);
+                // $inventoryStock->increment('incoming_stock', $qty);
+
+                // 🧩 UPDATE INCOMING STOCK SESUAI DESTINATION
+                if ($purchase->stock_destination === 'warehouse') {
+                    $inventoryStock = InventoryStock::firstOrCreate(
+                        [
+                            'product_id' => $productId,
+                            'inventory_warehouse_id' => $request->inventory_warehouse_id ?? 1,
+                        ],
+                        ['incoming_stock' => 0]
+                    );
+
+                    $inventoryStock->increment('incoming_stock', $qty);
+                }
+
+                if ($purchase->stock_destination === 'production') {
+                    $productionStock = ProductionStock::firstOrCreate(
+                        [
+                            'product_id' => $productId,
+                            'production_warehouse_id' => $request->production_warehouse_id ?? 2,
+                        ],
+                        ['incoming_stock' => 0]
+                    );
+
+                    $productionStock->increment('incoming_stock', $qty);
+                }
             }
 
             // ======= UPDATE / CREATE TRANSAKSI AKUN ==========

@@ -968,6 +968,12 @@ class PurchaseListController extends Controller
                     ]
                 );
 
+                if ($inventory->status !== $inventoryStatus) {
+                    $inventory->update([
+                        'status' => $inventoryStatus,
+                    ]);
+                }
+
                 $invItem = InventoryItem::firstOrNew([
                     'inventory_id' => $inventory->id,
                     'purchase_item_id' => $item->id,

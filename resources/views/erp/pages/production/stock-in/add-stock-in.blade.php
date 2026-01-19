@@ -52,7 +52,7 @@
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-12">
-                <form action="/erp/inventory/stock-in/store/{{ $stockIn->id }}" method="POST" id="stockInForm"
+                <form action="/erp/productions/stock-in/store/{{ $stockIn->id }}" method="POST" id="stockInForm"
                     enctype="multipart/form-data">
                     @csrf
                     @method('POST')

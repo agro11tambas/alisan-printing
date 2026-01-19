@@ -86,13 +86,15 @@ class SaleReturnController extends Controller
         }
 
         // 🔹 Filter payment status & keyword
-        if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
-            if ($request->payment_status === 'Paid') {
-                $returns->whereIn('payment_status', ['Paid', 'Over Refunded']);
-            } else {
-                $returns->where('payment_status', $request->payment_status);
-            }
-        } elseif ($request->filled('search_keyword')) {
+        // if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
+        //     if ($request->payment_status === 'Refunded') {
+        //         $returns->whereIn('payment_status', ['Refunded', 'Over Refunded']);
+        //     } elseif ($request->payment_status === 'Customer Deposit') {
+        //         $returns->whereIn('payment_status', ['Customer Deposit', 'Over Customer Deposit']);
+        //     } else {
+        //         $returns->where('payment_status', $request->payment_status);
+        //     }
+        if ($request->filled('search_keyword')) {
             // if ($request->search_type === 'customer') {
             //     $returns->whereHas('customer', function ($query) use ($request) {
             //         $query->where('name', 'like', '%' . $request->search_keyword . '%');
@@ -117,6 +119,31 @@ class SaleReturnController extends Controller
                 });
             } else {
                 $returns->where('order_number', 'like', '%' . $request->search_keyword . '%');
+            }
+        }
+
+        if ($request->filled('payment_status')) {
+
+            switch ($request->payment_status) {
+                case 'Partially Paid':
+                    $returns->whereIn('payment_status', ['Partially Paid', 'Over Refunded']);
+                    break;
+
+                case 'Refunded':
+                    $returns->whereIn('payment_status', ['Refunded', 'Over Refunded']);
+                    break;
+
+                case 'Customer Deposit':
+                    $returns->whereIn('payment_status', ['Customer Deposit', 'Over Customer Deposit']);
+                    break;
+
+                case 'Unpaid':
+                    $returns->where('payment_status', 'Unpaid');
+                    break;
+
+                default:
+                    $returns->where('payment_status', $request->payment_status);
+                    break;
             }
         }
 
@@ -150,6 +177,8 @@ class SaleReturnController extends Controller
                     'refunded', 'paid' => 'bg-soft-success text-success',
                     'over refunded'    => 'bg-soft-primary text-primary',
                     'unpaid'           => 'bg-soft-danger text-danger',
+                    'partially paid'   => 'bg-soft-warning text-warning',
+                    'customer deposit' => 'bg-soft-primary text-primary',
                     default             => 'bg-soft-warning text-warning',
                 };
 
@@ -1551,7 +1580,7 @@ class SaleReturnController extends Controller
 
             // 🔹 Update payment status
             if ($saleReturn->refund_amount >= $saleReturn->total_amount) {
-                $saleReturn->payment_status = 'Refunded';
+                $saleReturn->payment_status = 'Customer Deposit';
             } else {
                 $saleReturn->payment_status = 'Partially Paid';
             }

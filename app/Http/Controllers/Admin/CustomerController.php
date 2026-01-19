@@ -129,6 +129,14 @@ class CustomerController extends Controller
             'addresses.*.google_maps' => 'required|string',
         ]);
 
+        $hasDuplicate = Customers::where('phone', $request->phone)
+            ->where('id', '!=', $customer->id)
+            ->exists();
+
+        if ($hasDuplicate) {
+            return back()->with('error', 'Nomor telepon sudah terdaftar. Gunakan nomor lain.');
+        }
+
         // Update data customer
         $customer->update([
             'name' => $request->name,
@@ -157,7 +165,11 @@ class CustomerController extends Controller
         // Hapus semua alamat terkait
         $customer->addresses()->delete();
 
-        // Hapus data customer
+        // Ubah phone menjadi nomor random sebelum soft delete
+        $customer->phone = 'deleted_' . mt_rand(1000000000, 9999999999);
+        $customer->save();
+
+        // Soft delete customer
         $customer->delete();
 
         return redirect('/erp/customers')->with('success', 'Customer berhasil dihapus.');

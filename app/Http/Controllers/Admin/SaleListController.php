@@ -50,6 +50,7 @@ use App\Services\InvoiceNumberService;
 use App\Services\ProductCostService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SaleListController extends Controller
@@ -5251,74 +5252,155 @@ class SaleListController extends Controller
         }
     }
 
+    // public function convertToImage(Request $request)
+    // {
+    //     try {
+    //         // Validasi input
+    //         if (!$request->has('image') || !$request->has('order_id')) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Data tidak lengkap'
+    //             ], 400);
+    //         }
+
+    //         $imageData = $request->input('image');
+    //         $orderId = $request->input('order_id');
+
+    //         // Decode base64 image
+    //         $image = str_replace('data:image/jpeg;base64,', '', $imageData);
+    //         $image = str_replace('data:image/png;base64,', '', $image);
+    //         $image = str_replace(' ', '+', $image);
+    //         $imageDecoded = base64_decode($image);
+
+    //         // Validasi decode
+    //         if ($imageDecoded === false) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Gagal decode gambar'
+    //             ], 400);
+    //         }
+
+    //         // Generate unique filename dengan extension .jpg
+    //         $filename = 'invoice_' . $orderId . '_' . time() . '.jpg';
+
+    //         // Path ke folder storage/app/invoices (di luar public)
+    //         $directory = storage_path('app/invoices');
+
+    //         // Buat folder jika belum ada
+    //         if (!file_exists($directory)) {
+    //             if (!mkdir($directory, 0755, true)) {
+    //                 return response()->json([
+    //                     'success' => false,
+    //                     'message' => 'Gagal membuat folder invoices'
+    //                 ], 500);
+    //             }
+    //         }
+
+    //         // Save file
+    //         $filepath = $directory . '/' . $filename;
+    //         $result = file_put_contents($filepath, $imageDecoded);
+
+    //         if ($result === false) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Gagal menyimpan file'
+    //             ], 500);
+    //         }
+
+    //         $url = route('invoice.show', ['filename' => $filename]);
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'url' => $url,
+    //             'filename' => $filename
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         Log::error('Error convert invoice: ' . $e->getMessage());
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function convertToImage(Request $request)
     {
         try {
-            // Validasi input
-            if (!$request->has('image') || !$request->has('order_id')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data tidak lengkap'
-                ], 400);
-            }
-
             $imageData = $request->input('image');
             $orderId = $request->input('order_id');
 
-            // Decode base64 image
-            $image = str_replace('data:image/jpeg;base64,', '', $imageData);
-            $image = str_replace('data:image/png;base64,', '', $image);
-            $image = str_replace(' ', '+', $image);
-            $imageDecoded = base64_decode($image);
+            // Debug token
+            $uploadToken = env('IMAGE_UPLOAD_TOKEN');
 
-            // Validasi decode
-            if ($imageDecoded === false) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Gagal decode gambar'
-                ], 400);
+            Log::info('=== UPLOAD DEBUG START ===');
+            Log::info('Token from env', ['token' => $uploadToken]);
+            Log::info('Order ID', ['order_id' => $orderId]);
+            Log::info('Image data length', ['length' => strlen($imageData)]);
+
+            if (!$uploadToken) {
+                throw new \Exception('IMAGE_UPLOAD_TOKEN not found in .env file!');
             }
 
-            // Generate unique filename dengan extension .jpg
-            $filename = 'invoice_' . $orderId . '_' . time() . '.jpg';
+            // Upload
+            Log::info('Sending request to image server...');
 
-            // Path ke folder storage/app/invoices (di luar public)
-            $directory = storage_path('app/invoices');
+            $response = Http::timeout(30)
+                ->withHeaders([
+                    'X-Upload-Token' => $uploadToken,
+                    'Content-Type' => 'application/json'
+                ])
+                ->post('https://image.alisanprinting.com/upload12552.php', [
+                    'image' => $imageData,
+                    'order_id' => $orderId
+                ]);
 
-            // Buat folder jika belum ada
-            if (!file_exists($directory)) {
-                if (!mkdir($directory, 0755, true)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Gagal membuat folder invoices'
-                    ], 500);
-                }
-            }
+            Log::info('Response received', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'headers' => $response->headers()
+            ]);
 
-            // Save file
-            $filepath = $directory . '/' . $filename;
-            $result = file_put_contents($filepath, $imageDecoded);
+            if (!$response->successful()) {
+                Log::error('Upload failed!', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
 
-            if ($result === false) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Gagal menyimpan file'
+                    'message' => 'Upload failed: ' . $response->body(),
+                    'status_code' => $response->status()
                 ], 500);
             }
 
-            $url = route('invoice.show', ['filename' => $filename]);
+            $result = $response->json();
+            Log::info('Upload success!', $result);
 
             return response()->json([
                 'success' => true,
-                'url' => $url,
-                'filename' => $filename
+                'url' => $result['url'],
+                'filename' => $result['filename']
             ]);
-        } catch (\Exception $e) {
-            Log::error('Error convert invoice: ' . $e->getMessage());
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('Connection error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+                'message' => 'Connection error: ' . $e->getMessage()
+            ], 500);
+        } catch (\Exception $e) {
+            Log::error('General error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
             ], 500);
         }
     }

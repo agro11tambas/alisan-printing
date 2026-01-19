@@ -64,7 +64,7 @@
                                 <li
                                     class="nxl-item {{ request()->is('adjustment-products/canceled-products*') ? 'active' : '' }}">
                                     <a class="nxl-link" href="/erp/adjustment-products/canceled-products"><span
-                                            class="">Recoverable Product</span></a>
+                                            class="">Canceled Product</span></a>
                                 </li>
                             @endif
                             @if (Auth::user()->hasSubPermission('defect'))

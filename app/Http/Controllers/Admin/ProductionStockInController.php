@@ -141,7 +141,7 @@ class ProductionStockInController extends Controller
                     }
                 } elseif ($inventory->canceled_product_id) {
 
-                    $productionStock->increment('inventory_stock', $item['stock_in']);
+                    $productionStock->increment('available_quantity', $item['stock_in']);
 
                     $canceledProduct = CanceledProduct::find($inventory->canceled_product_id);
                     $cost = $canceledProduct?->avg_cost_at_cancel ?? 0;

@@ -21,8 +21,8 @@
                     </button>
                 </li>
                 <li>
-                    <button type="button" class="dropdown-item btn-share-invoice" data-id="{{ $order->id }}"
-                        data-url="{{ url('/erp/sales/sale-list/invoice/' . $order->id) }}">
+                    <button type="button" class="dropdown-item btn-share-invoice-img" data-id="{{ $order->id }}"
+                        data-url="{{ url('/erp/sales/sale-list/invoice-image/' . $order->id) }}">
                         <i class="feather feather-file-text me-3"></i>
                         <span>Invoice</span>
                     </button>

@@ -163,28 +163,44 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-lg-4">
-                                <label for="search_type" class="fw-semibold fs-12">Filter By</label>
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <select id="search_type" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                            <option value="customer">Customer</option>
-                                            <option value="order_number">Order Number</option>
-                                            <option value="payment_status">Payment Status</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <input type="text" id="search_keyword" name="search_keyword"
-                                            class="form-control search-input"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search..." />
-                                        <select id="search_payment_status" class="form-control search-input d-none"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                            <option value="">All</option>
-                                            <option value="Refunded">Refunded</option>
-                                            <option value="Unpaid">Unpaid</option>
-                                            <option value="Partially Paid">Partially Paid</option>
-                                        </select>
+                            {{-- <div class="col-lg-3">
+
+                            </div> --}}
+                            <div class="d-flex gap-2 col-lg-4">
+                                <div class="col-lg-4">
+                                    <label class="fw-semibold fs-12">Payment Status</label>
+                                    <select id="payment_status" class="form-control"
+                                        style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                        <option value="Unpaid">Unpaid</option>
+                                        <option value="Refunded">Refunded</option>
+                                        <option value="Customer Deposit">Customer Deposit</option>
+                                        <option value="Partially Paid">Partially Paid</option>
+                                    </select>
+                                </div>
+                                <div class="col-lg-8">
+                                    <label for="search_type" class="fw-semibold fs-12">Filter By</label>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <select id="search_type" class="form-control"
+                                                style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                                <option value="customer">Customer</option>
+                                                <option value="order_number">Order Number</option>
+                                                <option value="payment_status">Payment Status</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <input type="text" id="search_keyword" name="search_keyword"
+                                                class="form-control search-input"
+                                                style="padding: 0.5rem 1rem; font-size: 0.875rem;"
+                                                placeholder="Search..." />
+                                            <select id="search_payment_status" class="form-control search-input d-none"
+                                                style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                                <option value="Refunded">Refunded</option>
+                                                <option value="Unpaid">Unpaid</option>
+                                                <option value="Customer Deposit">Customer Deposit</option>
+                                                <option value="Partially Paid">Partially Paid</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -327,25 +343,6 @@
                                             'bg-success',
                                         ];
                                     @endphp
-                                    {{-- <select class="form-select form-control max-select" data-select2-selector="tag"
-                                        name="cash_bank_account_id" id="cash_bank_account_id">
-                                        <option value="" disabled selected hidden>Pilih Bank atau Cash Account
-                                        </option>
-                                        @foreach ($cashAccounts as $cash)
-                                            @php
-                                                $bg = $bgColors[$loop->index % count($bgColors)];
-                                            @endphp
-                                            <option value="{{ $cash->id }}" data-bg="{{ $bg }}">Cash -
-                                                {{ $cash->type }}</option>
-                                        @endforeach
-                                        @foreach ($bankAccounts as $bank)
-                                            @php
-                                                $bg = $bgColors[$loop->index % count($bgColors)];
-                                            @endphp
-                                            <option value="{{ $bank->id }}" data-bg="{{ $bg }}">Bank -
-                                                {{ $bank->type }}</option>
-                                        @endforeach
-                                    </select> --}}
                                     <select class="form-select form-control max-select" data-select2-selector="tag"
                                         name="cash_bank_account_id" id="cash_bank_account_id">
                                         <option value="" disabled {{ !$defaultAccount ? 'selected' : '' }} hidden>
@@ -685,7 +682,7 @@
                         end_date: $('#end_date').val(),
                         search_type: $('#search_type').val(),
                         search_keyword: $('#search_keyword').val(),
-                        payment_status: $('#search_payment_status').val(),
+                        payment_status: $('#payment_status').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -735,7 +732,7 @@
                 loadMoreData();
             }
 
-            $('#filter, #apply-filter, #search_type, #search_payment_status, #start_date, #end_date')
+            $('#filter, #apply-filter, #search_type, #search_keyword, #payment_status, #start_date, #end_date')
                 .on('change keyup', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
@@ -751,10 +748,10 @@
                 const selected = $(this).val();
                 if (selected === 'payment_status') {
                     $('#search_keyword').addClass('d-none').val('');
-                    $('#search_payment_status').removeClass('d-none');
+                    // $('#search_payment_status').removeClass('d-none');
                 } else {
                     $('#search_keyword').removeClass('d-none');
-                    $('#search_payment_status').addClass('d-none').val('');
+                    // $('#search_payment_status').addClass('d-none').val('');
                 }
                 resetAndReload();
             });
@@ -768,9 +765,14 @@
             //     }
             // });
 
-            $('#search_payment_status').on('change', function() {
-                if ($('#search_type').val() === 'payment_status') resetAndReload();
+            // $('#search_payment_status').on('change', function() {
+            //     if ($('#search_type').val() === 'payment_status') resetAndReload();
+            // });
+
+            $('#payment_status').on('change', function() {
+                reloadActiveTab();
             });
+
 
             // Expand/collapse products detail
             $('#saleReturnTable tbody').on('click', 'td.dt-control', function() {
@@ -934,7 +936,7 @@
                         end_date: $('#end_date').val(),
                         search_type: $('#search_type').val(),
                         search_keyword: $('#search_keyword').val(),
-                        payment_status: $('#search_payment_status').val(),
+                        payment_status: $('#payment_status').val(),
                     },
                     success: function(response) {
 

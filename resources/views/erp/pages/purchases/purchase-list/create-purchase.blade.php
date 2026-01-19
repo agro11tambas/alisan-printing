@@ -185,7 +185,7 @@
                                             </div>
                                         </div>
                                     </div> --}}
-                                    {{-- <div class="row mb-3 align-items-center">
+                                    <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="stock_destination" class="fw-semibold">
                                                 Stock Destination:
@@ -198,7 +198,7 @@
                                                 <option value="production">Production</option>
                                             </select>
                                         </div>
-                                    </div> --}}
+                                    </div>
 
                                 </div>
                             </div>

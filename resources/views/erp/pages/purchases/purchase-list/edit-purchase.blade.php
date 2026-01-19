@@ -200,7 +200,7 @@
                                             </div>
                                         </div>
                                     </div> --}}
-                                    {{-- <div class="row mb-3 align-items-center">
+                                    <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="stock_destination" class="fw-semibold">
                                                 Stock Destination:
@@ -220,7 +220,7 @@
                                                 </option>
                                             </select>
                                         </div>
-                                    </div> --}}
+                                    </div>
                                     <input type="hidden" name="inventory_warehouse_id" id="inventory_warehouse_id"
                                         value="1">
                                     <input type="hidden" name="production_warehouse_id" id="production_warehouse_id"

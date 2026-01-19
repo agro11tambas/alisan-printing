@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                            display: none !important;
-                                                                                                                                                                                                                                                        } */
+                                                                                                                                                                                                                                                                    display: none !important;
+                                                                                                                                                                                                                                                                } */
 
         .sale-mobile-action {
             display: none;
@@ -2305,10 +2305,10 @@
             this.submit();
         });
 
-        // $(document).on('click', '.btn-share-invoice', function() {
-        //     const url = $(this).data('url');
-        //     window.open(url, '_blank');
-        // });
+        $(document).on('click', '.btn-share-invoice-img', function() {
+            const url = $(this).data('url');
+            window.open(url, '_blank');
+        });
 
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalForceDeleteOrder');
@@ -2443,21 +2443,19 @@
                 // 🔹 TEXT SAMA PERSIS
                 const message =
                     `Berikut Invoice *${invoiceNo}*
-                    ${result.url}
+                ${result.url}
 
-                    ❗️*Harap MELUNASI Tagihan*❗️
-                    Terlebih dahulu sebelum proses produksi dimulai.
+                *Harap MELUNASI Tagihan*
+                Terlebih dahulu sebelum proses produksi dimulai.
 
-                    🧾 Setelah pembayaran diterima, produksi akan berjalan sesuai estimasi yang disepakati.
+                Setelah pembayaran diterima, produksi akan berjalan sesuai estimasi yang disepakati.
 
-                    ✨️ *REKENING BCA*
-                    Nomor: *0590712647*
-                    Nama: *STEFAN LEWIS*
+                *REKENING BCA*
+                Nomor: *0590712647*
+                Nama: *STEFAN LEWIS*
 
-                    📌 *WAJIB:*
-                    Mengirim bukti transfer setelah pembayaran`;
-
-                // 🔥 WA.ME + _BLANK (SAMA KAYAK HALAMAN INVOICE)
+                *WAJIB:*
+                Mengirim bukti transfer setelah pembayaran`;
                 window.open(
                     `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
                     '_blank'
