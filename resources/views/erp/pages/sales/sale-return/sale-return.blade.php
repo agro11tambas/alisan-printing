@@ -171,10 +171,12 @@
                                     <label class="fw-semibold fs-12">Payment Status</label>
                                     <select id="payment_status" class="form-control"
                                         style="padding: 0.5rem 1rem; font-size: 0.875rem;">
-                                        <option value="Unpaid">Unpaid</option>
-                                        <option value="Refunded">Refunded</option>
-                                        <option value="Customer Deposit">Customer Deposit</option>
+                                        <option value="Progress">Progress</option>
+                                        <option value="Complete">Complete</option>
+                                        {{-- <option value="Unpaid">Unpaid</option>
                                         <option value="Partially Paid">Partially Paid</option>
+                                        <option value="Refunded">Refunded</option>
+                                        <option value="Customer Deposit">Customer Deposit</option> --}}
                                     </select>
                                 </div>
                                 <div class="col-lg-8">
@@ -547,6 +549,170 @@
                     <div class="modal-footer">
                         <button type="submit" class="btn btn-primary">
                             Mark as Customer Deposit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {{-- <div class="modal fade-scale" id="modalReturnToWarehouse" tabindex="-1"
+        aria-labelledby="modalReturnToWarehouseLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="d-flex flex-column mb-0">
+                        <span class="fs-18 fw-bold mb-1">Return to Warehouse</span>
+                        <small class="text-muted">Sale Return: <span id="modal-order-number">-</span></small>
+                    </h2>
+                    <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger close-icon"
+                        data-bs-dismiss="modal">
+                        <i class="feather-x text-danger"></i>
+                    </a>
+                </div>
+                <form method="POST" id="formReturnToWarehouse">
+                    @csrf
+                    <input type="hidden" name="sale_return_id" id="sale_return_id">
+
+                    <div class="modal-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="return_date" class="fw-semibold">Date:</label>
+                                <input type="date" id="return_date" name="return_date" class="form-control"
+                                    value="{{ date('Y-m-d') }}">
+                                <small class="text-danger d-none" id="error_return_date"></small>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover" id="tableReturnProducts">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Product Name</th>
+                                        <th>SKU</th>
+                                        <th width="15%" class="text-center">Available Qty</th>
+                                        <th width="20%">Return Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="productListBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer d-flex justify-content-between">
+                        <div>
+                            <p class="m-0">Total Return Qty:</p>
+                            <h5 class="fw-semibold text-primary" id="total_return_qty">0</h5>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitReturn">
+                            <i class="feather-package me-2"></i>Return to Warehouse
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div> --}}
+
+    <div class="modal fade-scale" id="modalReturnToWarehouse" tabindex="-1"
+        aria-labelledby="modalReturnToWarehouseLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="d-flex flex-column mb-0">
+                        <span class="fs-18 fw-bold mb-1">Return to Warehouse</span>
+                        <small class="text-muted">Sale Return: <span id="modal-order-number">-</span></small>
+                    </h2>
+                    <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger close-icon"
+                        data-bs-dismiss="modal">
+                        <i class="feather-x text-danger"></i>
+                    </a>
+                </div>
+                <form method="POST" id="formReturnToWarehouse">
+                    @csrf
+                    <input type="hidden" name="sale_return_id" id="sale_return_id">
+
+                    <div class="modal-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="return_date" class="fw-semibold">Date:</label>
+                                <input type="date" id="return_date" name="return_date" class="form-control"
+                                    value="{{ date('Y-m-d') }}">
+                                <small class="text-danger d-none" id="error_return_date"></small>
+                            </div>
+
+                            {{-- 🆕 Pilihan Destination --}}
+                            <div class="col-md-6">
+                                <label for="stock_destination" class="fw-semibold">Stock Destination:</label>
+                                <select id="stock_destination" name="stock_destination" class="form-control">
+                                    <option value="warehouse">Warehouse</option>
+                                    <option value="production">Production</option>
+                                </select>
+                                <small class="text-danger d-none" id="error_stock_destination"></small>
+                            </div>
+                        </div>
+
+                        {{-- 🆕 Warehouse Selection (show/hide based on destination) --}}
+                        <div class="row g-3 mb-3" id="warehouse_selection">
+                            <div class="col-md-12">
+                                <label for="inventory_warehouse_id" class="fw-semibold">Warehouse:</label>
+                                <select id="inventory_warehouse_id" name="inventory_warehouse_id" class="form-control">
+                                    @foreach (\App\Models\InventoryWarehouse::all() as $warehouse)
+                                        <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        {{-- 🆕 Production Warehouse Selection (hidden by default) --}}
+                        <div class="row g-3 mb-3 d-none" id="production_selection">
+                            <div class="col-md-6">
+                                <label for="production_warehouse_id" class="fw-semibold">Production Warehouse:</label>
+                                <select id="production_warehouse_id" name="production_warehouse_id" class="form-control">
+                                    @foreach (\App\Models\ProductionWarehouse::all() as $prodWarehouse)
+                                        <option value="{{ $prodWarehouse->id }}">{{ $prodWarehouse->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover" id="tableReturnProducts">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Product Name</th>
+                                        <th>SKU</th>
+                                        <th width="15%" class="text-center">Available Qty</th>
+                                        <th width="20%">Return Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="productListBody">
+                                    <tr>
+                                        <td colspan="4" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer d-flex justify-content-between">
+                        <div>
+                            <p class="m-0">Total Return Qty:</p>
+                            <h5 class="fw-semibold text-primary" id="total_return_qty">0</h5>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitReturn">
+                            <i class="feather-package me-2"></i>Return to Warehouse
                         </button>
                     </div>
                 </form>
@@ -1374,6 +1540,230 @@
                         });
                     }
                 });
+            });
+
+            console.log('🔥 Script Return to Warehouse loaded!'); // CEK INI MUNCUL GA
+
+            $(document).on('click', '.btn-return-warehouse', function(e) {
+                e.preventDefault();
+                console.log('🚀 Button clicked!'); // CEK INI MUNCUL GA
+
+                const button = $(this);
+                const saleReturnId = button.data('id');
+                const url = button.data('url');
+
+                console.log('Sale Return ID:', saleReturnId);
+                console.log('URL:', url);
+
+                // Set sale return id
+                $('#sale_return_id').val(saleReturnId);
+                $('#formReturnToWarehouse').data('sale-return-id', saleReturnId);
+
+                // Load products via AJAX
+                loadCanceledProducts(url, saleReturnId);
+            });
+
+            function loadCanceledProducts(url, saleReturnId) {
+                console.log('📦 Loading products...', url);
+
+                const tbody = $('#productListBody');
+                tbody.html(`
+            <tr>
+                <td colspan="4" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </td>
+            </tr>
+        `);
+
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function(response) {
+                        console.log('✅ Response:', response);
+
+                        tbody.empty();
+
+                        if (!response.data || response.data.length === 0) {
+                            tbody.html(`
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">No canceled products available</td>
+                        </tr>
+                    `);
+                            $('#btnSubmitReturn').prop('disabled', true);
+                            return;
+                        }
+
+                        $('#btnSubmitReturn').prop('disabled', false);
+                        $('#modal-order-number').text(response.order_number || '-');
+
+                        response.data.forEach(function(item) {
+                            const maxQty = item.remaining_quantity;
+
+                            const row = `
+                        <tr data-id="${item.id}">
+                            <td>${item.product_name}</td>
+                            <td>${item.sku}</td>
+                            <td class="text-center">
+                                <span class="badge bg-soft-warning text-warning">${maxQty}</span>
+                            </td>
+                            <td>
+                                <input type="number" 
+                                    class="form-control return-qty-input" 
+                                    name="products[${item.id}][quantity]"
+                                    data-id="${item.id}"
+                                    min="0" 
+                                    max="${maxQty}" 
+                                    value="0"
+                                    placeholder="Enter qty">
+                                <input type="hidden" name="products[${item.id}][canceled_product_id]" value="${item.id}">
+                            </td>
+                        </tr>
+                    `;
+                            tbody.append(row);
+                        });
+
+                        updateTotalReturn();
+                    },
+                    error: function(xhr) {
+                        console.error('❌ Error:', xhr);
+                        tbody.html(`
+                    <tr>
+                        <td colspan="4" class="text-center text-danger">
+                            Failed to load products: ${xhr.responseJSON?.message || 'Unknown error'}
+                        </td>
+                    </tr>
+                `);
+                        $('#btnSubmitReturn').prop('disabled', true);
+                    }
+                });
+            }
+
+            // ========== Toggle Warehouse/Production Selection ==========
+            $('#stock_destination').on('change', function() {
+                const destination = $(this).val();
+
+                if (destination === 'warehouse') {
+                    $('#warehouse_selection').removeClass('d-none');
+                    $('#production_selection').addClass('d-none');
+                    $('#inventory_warehouse_id').prop('required', true);
+                    $('#production_warehouse_id').prop('required', false);
+                } else {
+                    $('#warehouse_selection').addClass('d-none');
+                    $('#production_selection').removeClass('d-none');
+                    $('#inventory_warehouse_id').prop('required', false);
+                    $('#production_warehouse_id').prop('required', true);
+                }
+            });
+
+            // Reset modal on close
+            $('#modalReturnToWarehouse').on('hidden.bs.modal', function() {
+                $('#formReturnToWarehouse')[0].reset();
+                $('#productListBody').empty();
+                $('#total_return_qty').text('0');
+                $('#modal-order-number').text('-');
+
+                // Reset ke warehouse by default
+                $('#stock_destination').val('warehouse').trigger('change');
+            });
+
+            // Update total when quantity input changed
+            $(document).on('input', '.return-qty-input', function() {
+                const input = $(this);
+                const max = parseInt(input.attr('max')) || 0;
+                let val = parseInt(input.val()) || 0;
+
+                if (val > max) {
+                    input.val(max);
+                }
+
+                if (val < 0) {
+                    input.val(0);
+                }
+
+                updateTotalReturn();
+            });
+
+            function updateTotalReturn() {
+                let total = 0;
+                $('.return-qty-input').each(function() {
+                    total += parseInt($(this).val()) || 0;
+                });
+                $('#total_return_qty').text(total);
+            }
+
+            // Submit form
+            $('#formReturnToWarehouse').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = $(this);
+                const formData = new FormData(this);
+                const saleReturnId = form.data('sale-return-id');
+
+                // Validation
+                let totalQty = 0;
+                $('.return-qty-input').each(function() {
+                    totalQty += parseInt($(this).val()) || 0;
+                });
+
+                if (totalQty === 0) {
+                    Swal.fire('Warning', 'Please enter at least one product quantity to return', 'warning');
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Processing...',
+                    text: 'Returning products to warehouse',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                $.ajax({
+                    url: `/erp/sales/sale-returns/process-return-to-warehouse/${saleReturnId}`,
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function(response) {
+                        Swal.close();
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: response.message ||
+                                'Products returned to warehouse successfully',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalReturnToWarehouse').modal('hide');
+                        form[0].reset();
+
+                        // Refresh table
+                        reloadActiveTab();
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Failed!',
+                            text: xhr.responseJSON?.message ||
+                                'Failed to return products to warehouse'
+                        });
+                    }
+                });
+            });
+
+            // Reset modal on close
+            $('#modalReturnToWarehouse').on('hidden.bs.modal', function() {
+                $('#formReturnToWarehouse')[0].reset();
+                $('#productListBody').empty();
+                $('#total_return_qty').text('0');
+                $('#modal-order-number').text('-');
             });
 
         });

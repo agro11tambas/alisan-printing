@@ -28,6 +28,86 @@
         #inventoryTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
+
+        #stockInTable_wrapper {
+            display: none !important;
+        }
+
+        .stockin-mobile-card {
+            padding: 12px 14px;
+            border-bottom: 1px solid #e5e9ef;
+        }
+
+        .stockin-mobile-card.active {
+            background: #e5e9ef;
+        }
+
+        .stockin-mobile-action {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .stockin-mobile-card.active .stockin-mobile-action {
+            display: block;
+        }
+
+        .stockin-product {
+            font-size: 13px;
+            padding: 6px 0;
+            border-bottom: 1px dashed #ddd;
+        }
+
+        .stockin-product:last-child {
+            border-bottom: none;
+        }
+
+        @media (max-width: 768px) {
+
+            .stockin-mobile-card {
+                background: #fff;
+                border-radius: 10px;
+                margin: 0 12px 12px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, .06);
+            }
+
+            .stockin-header {
+                font-weight: 600;
+                font-size: 14px;
+                line-height: 1.3;
+            }
+
+            .stockin-partner {
+                font-size: 12px;
+                color: #6b7280;
+            }
+
+            .stockin-items {
+                font-size: 13px;
+                margin-top: 8px;
+            }
+
+            .stockin-mobile-action {
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px dashed #e5e7eb;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #inventoryTable_wrapper {
+                display: none !important;
+            }
+
+            #stockInMobile {
+                display: block !important;
+            }
+        }
+
+        @media (min-width: 769px) {
+            #stockInMobile {
+                display: none !important;
+            }
+        }
     </style>
 @endpush
 
@@ -158,6 +238,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="stockInMobile" class="d-md-none px-0 pb-4"></div>
                     </div>
                 </div>
             </div>
@@ -242,6 +323,7 @@
                             allData = allData.concat(response.data);
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
+                            renderStockInMobile();
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -410,6 +492,67 @@
                             }
                         });
                 }
+            });
+
+            let mobilePage = 0;
+            const MOBILE_LIMIT = 30;
+
+            function renderStockInMobile() {
+                if (window.innerWidth >= 768) return;
+
+                const container = $('#stockInMobile');
+
+                if (!allData.length) {
+                    container.html('<div class="text-center text-muted py-4">No stock in data</div>');
+                    return;
+                }
+
+                const end = (mobilePage + 1) * MOBILE_LIMIT;
+                const slicedData = allData.slice(0, end);
+
+                if (mobilePage === 0) {
+                    container.html('');
+                }
+
+                slicedData.forEach(row => {
+                    container.append(`
+            <div class="stockin-mobile-card" data-id="${row.id}">
+                <div class="stockin-mobile-main">
+                    <div class="stockin-header">
+                        ${row.transaction_mobile}
+                    </div>
+
+                    <div class="stockin-partner mt-1">
+                        ${row.partner_mobile}
+                    </div>
+
+                    <div class="stockin-items mt-2">
+                        ${row.items_mobile}
+                    </div>
+                </div>
+
+                <div class="stockin-mobile-action">
+                    ${row.action_mobile}
+                </div>
+            </div>
+        `);
+                });
+            }
+
+            $(window).on('scroll', function() {
+                if (window.innerWidth >= 768) return;
+                if (isLoading || !hasMoreData) return;
+
+                if ($(window).scrollTop() + $(window).height() >= $(document).height() - 200) {
+                    mobilePage++;
+                    loadMoreData();
+                }
+            });
+
+            $(document).on('click', '.stockin-mobile-card', function(e) {
+                if ($(e.target).closest('.stockin-mobile-action, a, button').length) return;
+                $('.stockin-mobile-card').not(this).removeClass('active');
+                $(this).toggleClass('active');
             });
         });
 

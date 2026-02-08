@@ -2,6 +2,24 @@
     <ul class="dropdown-menu show static-action-menu">
         <div class="action-grid">
             <div class="action-col">
+                @php
+                    // Cek apakah masih ada canceled product yang belum di-return semua
+                    $hasRemainingCanceled = \App\Models\CanceledProduct::where('sale_return_id', $return->id)
+                        ->whereRaw('quantity > completed_quantity')
+                        ->exists();
+                @endphp
+
+                @if ($hasRemainingCanceled)
+                    <li>
+                        <button type="button" class="dropdown-item btn-return-warehouse" data-bs-toggle="modal"
+                            data-bs-target="#modalReturnToWarehouse" data-id="{{ $return->id }}"
+                            data-url="{{ url('/erp/sales/sale-returns/get-canceled-products/' . $return->id) }}">
+                            <i class="feather feather-package me-3"></i>
+                            <span>Return to Warehouse</span>
+                        </button>
+                    </li>
+                @endif
+
                 @if ($return->saleOrder && $return->saleOrder->payment_status !== 'Unpaid' && $return->payment_status !== 'Refunded')
                     <li>
                         <button type="button" class="dropdown-item btn-mark-paid" data-bs-toggle="modal"

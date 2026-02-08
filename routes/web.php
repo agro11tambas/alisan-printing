@@ -289,6 +289,8 @@ Route::middleware(['auth', 'check.session'])->group(function () {
                 '/erp/sales/sale-returns/mark-as-customer-deposit/{id}',
                 [SaleReturnController::class, 'markAsCustomerDeposit']
             );
+            Route::get('/erp/sales/sale-returns/get-canceled-products/{id}', [SaleReturnController::class, 'getCanceledProducts']);
+            Route::post('/erp/sales/sale-returns/process-return-to-warehouse/{id}', [SaleReturnController::class, 'processReturnToWarehouse']);
             Route::get('/erp/sales/sale-returns/invoice/{id}', [SaleReturnController::class, 'getInvoice']);
             Route::get('/erp/sales/sale-return/payment-history/{id}', [SaleReturnController::class, 'getPaymentHistory']);
             Route::put('/erp/sales/sale-return/update-payment/{groupId}', [SaleReturnController::class, 'updatePayment']);

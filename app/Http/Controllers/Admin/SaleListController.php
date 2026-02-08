@@ -256,7 +256,7 @@ class SaleListController extends Controller
 
                 // 🔸 Produk
                 $items = $order->orderItems()
-                    ->withTrashed() // ⬅⬅⬅ INI YANG KAMU LUPA
+                    // ->withTrashed()
                     ->with([
                         'product' => fn($q) => $q->withTrashed(),
                         'productBundle.items.product' => fn($q) => $q->withTrashed(),
@@ -311,14 +311,6 @@ class SaleListController extends Controller
                             ->filter(fn($d) => $d->order_item_id === $item->id)
                             ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
 
-                        // $deliveredQty = $deliveryListItems
-                        //     ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
-                        //     ->sum('shipped_quantity');
-
-                        // $onDeliveryQty = $deliveryListItems
-                        //     ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
-                        //     ->sum('shipped_quantity');
-
                         if ($item->productBundle) {
                             $uniqueDeliveries = $deliveryListItems
                                 ->unique('delivery_list_id');
@@ -357,9 +349,13 @@ class SaleListController extends Controller
                         ];
                     });
 
+                // $isCompleted = $items->every(function ($i) {
+                //     return $i['raw_progress_qty'] > 0
+                //         && $i['raw_delivered_qty'] >= $i['raw_progress_qty'];
+                // });
+
                 $isCompleted = $items->every(function ($i) {
-                    return $i['raw_progress_qty'] > 0
-                        && $i['raw_delivered_qty'] >= $i['raw_progress_qty'];
+                    return $i['raw_delivered_qty'] >= (int) str_replace('.', '', $i['qty']);
                 });
 
                 $businessName = e($order->customerAddress->business_name ?? '-');
@@ -407,15 +403,6 @@ class SaleListController extends Controller
                     'order_date_raw' => Carbon::parse($order->order_date)->format('Y-m-d H:i:s'),
                     'order_date' => $date,
 
-                    // 'customer' => '
-                    //     <div style="white-space: normal; word-break: break-word; max-width:180px;">
-                    //         <div class="d-flex align-items-center fw-semibold">
-                    //             ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
-                    //             ' . $businessName . '
-                    //         </div>
-                    //         <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
-                    //     </div>
-                    // ',
                     'customer' => '
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
 
@@ -5143,24 +5130,6 @@ class SaleListController extends Controller
                     $expenseAccount->closing_balance += $writeOffAmount;
                     $expenseAccount->save();
 
-                    // // 🔥 Transaksi CREDIT di Cash/Bank Account (kas berkurang)
-                    // AccountTransaction::create([
-                    //     'order_id' => $order->id,
-                    //     'order_number' => $order->order_number,
-                    //     'transaction_date' => $request->transaction_date,
-                    //     'account_id' => $cashBankAccount->id, // 🔥 INI YANG DIGANTI!
-                    //     'debit' => 0,
-                    //     'credit' => $writeOffAmount,
-                    //     'note' => 'Write off remaining balance',
-                    //     'particular' => 'Write Off - ' . $order->order_number,
-                    //     'transaction_group_id' => $writeOffGroupId,
-                    //     'proof' => $proofJson,
-                    // ]);
-
-                    // $cashBankAccount->closing_balance -= $writeOffAmount; // 🔥 closing balance berkurang
-                    // $cashBankAccount->save();
-
-                    // 🔥 Update paid_amount dan remaining_amount
                     $order->paid_amount = 0;
                     $order->remaining_amount = 0;
                     $order->payment_status = 'Paid';
@@ -5348,8 +5317,8 @@ class SaleListController extends Controller
             $response = Http::timeout(30)
                 ->withHeaders([
                     'X-Upload-Token' => $uploadToken,
-                    'Content-Type' => 'application/json'
                 ])
+                ->asJson()
                 ->post('https://image.alisanprinting.com/upload12552.php', [
                     'image' => $imageData,
                     'order_id' => $orderId

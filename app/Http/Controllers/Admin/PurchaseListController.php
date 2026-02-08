@@ -460,7 +460,14 @@ class PurchaseListController extends Controller
                     ->whereColumn('pi.product_id', 'products.id')
                     ->where('pi.price', '>', 0)
                     ->orderByDesc('pi.id')
-                    ->limit(1)
+                    ->limit(1),
+
+                'last_freight' => DB::table('purchase_items as pi')
+                    ->select('pi.freight')
+                    ->whereColumn('pi.product_id', 'products.id')
+                    ->where('pi.freight', '>', 0)
+                    ->orderByDesc('pi.id')
+                    ->limit(1),
             ])
             ->get();
 

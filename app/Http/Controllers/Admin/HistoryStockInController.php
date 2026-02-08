@@ -30,6 +30,38 @@ class HistoryStockInController extends Controller
         return view('erp.pages.inventory.stock-in.add-stock-in', compact('stockIn'));
     }
 
+    public function addStockInBySupplier($supplierId)
+    {
+        $inventories = Inventory::with(['items.product', 'purchase'])
+            ->where('status', 'Stock In')
+            ->whereHas('purchase', fn($q) => $q->where('supplier_id', $supplierId))
+            ->get();
+
+        if ($inventories->isEmpty()) {
+            abort(404);
+        }
+
+        // 🔥 GABUNG SEMUA ITEM → GROUP BY PRODUCT
+        $products = $inventories
+            ->flatMap(fn($inv) => $inv->items)
+            ->groupBy('product_id')
+            ->map(function ($items) {
+                return [
+                    'product' => $items->first()->product,
+                    'items'   => $items, // ← penting untuk submit
+                    'qty'     => $items->sum('quantity'),
+                    'stock_in' => $items->sum('stock_in'),
+                ];
+            });
+
+        return view(
+            'erp.pages.inventory.stock-in.add-stock-in-by-supplier',
+            compact('supplierId', 'products')
+        );
+    }
+
+
+
     private function getTotalStockForAvg($productId)
     {
         // dari inventory_stocks

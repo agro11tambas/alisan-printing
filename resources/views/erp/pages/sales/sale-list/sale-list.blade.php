@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                    display: none !important;
-                                                                                                                                                                                                                                                                } */
+                                                                                                                                                                                                                                                                                display: none !important;
+                                                                                                                                                                                                                                                                            } */
 
         .sale-mobile-action {
             display: none;
@@ -2389,6 +2389,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script>
         $(document).on('click', '.btn-share-invoice', async function() {
+            console.log('SCRIPT SHARE LOADED');
             const btn = $(this);
 
             const orderId = btn.data('id');

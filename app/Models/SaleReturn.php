@@ -95,6 +95,13 @@ class SaleReturn extends Model
             ->exists();
     }
 
+    // public function hasStockIn(): bool
+    // {
+    //     return Inventory::where('sale_return_id', $this->id)
+    //         ->where('status', 'Stock In')
+    //         ->exists();
+    // }
+
     protected static function booted()
     {
         static::deleting(function ($saleReturn) {

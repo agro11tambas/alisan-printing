@@ -22,6 +22,7 @@ use App\Models\DefectProduct;
 use App\Models\FinancialReport;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
+use App\Models\InventoryStock;
 use App\Models\Invoice;
 use App\Models\ProductionStock;
 use App\Models\SaleReturnEditHistory;
@@ -51,11 +52,10 @@ class SaleReturnController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $returns = SaleReturn::with(['customer', 'customerAddress'])
+        $returns = SaleReturn::with(['customer', 'customerAddress', 'items'])
             ->where('status', 'sale returns')
             ->orderBy('created_at', 'desc');
 
-        // 🔹 Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
                 case 'today':
@@ -85,23 +85,7 @@ class SaleReturnController extends Controller
             }
         }
 
-        // 🔹 Filter payment status & keyword
-        // if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
-        //     if ($request->payment_status === 'Refunded') {
-        //         $returns->whereIn('payment_status', ['Refunded', 'Over Refunded']);
-        //     } elseif ($request->payment_status === 'Customer Deposit') {
-        //         $returns->whereIn('payment_status', ['Customer Deposit', 'Over Customer Deposit']);
-        //     } else {
-        //         $returns->where('payment_status', $request->payment_status);
-        //     }
         if ($request->filled('search_keyword')) {
-            // if ($request->search_type === 'customer') {
-            //     $returns->whereHas('customer', function ($query) use ($request) {
-            //         $query->where('name', 'like', '%' . $request->search_keyword . '%');
-            //     });
-            // } else {
-            //     $returns->where('order_number', 'like', '%' . $request->search_keyword . '%');
-            // }
             if ($request->search_type === 'customer') {
                 // $keyword = '%' . $request->search_keyword . '%';
                 $keyword = '%' . $request->search_keyword . '%';
@@ -141,6 +125,14 @@ class SaleReturnController extends Controller
                     $returns->where('payment_status', 'Unpaid');
                     break;
 
+                case 'Progress':
+                    $returns->whereIn('payment_status', ['Partially Paid', 'Unpaid']);
+                    break;
+
+                case 'Complete':
+                    $returns->whereIn('payment_status', ['Refunded', 'Customer Deposit', 'Over Refunded', 'Over Customer Deposit']);
+                    break;
+
                 default:
                     $returns->where('payment_status', $request->payment_status);
                     break;
@@ -157,6 +149,8 @@ class SaleReturnController extends Controller
         // 🔹 Return format JSON untuk lazy-load
         return response()->json([
             'data' => $data->map(function ($return) {
+                $totalCanceledQty = $return->items->sum('canceled_quantity');
+
                 $date = Carbon::parse($return->return_date)->format('j M y H:i');
 
                 // 🔸 Order number & edited badge
@@ -237,7 +231,14 @@ class SaleReturnController extends Controller
                             ' . e($return->note ?? '-') . '
                         </div>
                     ',
-                    'action' => view('erp.pages.sales.sale-return.partials.action-button', compact('return'))->render(),
+                    // 'action' => view('erp.pages.sales.sale-return.partials.action-button', compact('return'))->render(),
+                    'action' => view(
+                        'erp.pages.sales.sale-return.partials.action-button',
+                        [
+                            'return' => $return,
+                            'totalCanceledQty' => $totalCanceledQty,
+                        ]
+                    )->render(),
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
@@ -2018,6 +2019,281 @@ class SaleReturnController extends Controller
                 'error' => $e->getMessage()
             ]);
             return redirect()->back()->with('error', 'Gagal mengembalikan sale return!');
+        }
+    }
+
+    public function getCanceledProducts($id)
+    {
+        Log::info("Getting canceled products for sale return ID: {$id}");
+
+        try {
+            $saleReturn = SaleReturn::with([
+                'items.product',
+                'canceledProducts.product'
+            ])->findOrFail($id);
+
+            Log::info("Sale Return found: " . $saleReturn->order_number);
+
+            $canceledProducts = CanceledProduct::where('sale_return_id', $id)
+                ->with('product')
+                ->get();
+
+            Log::info("Canceled Products count: " . $canceledProducts->count());
+
+            $mapped = $canceledProducts->map(function ($item) {
+                $remainingQty = $item->quantity - $item->completed_quantity;
+
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product->name ?? '-',
+                    'sku' => $item->product->sku ?? '-',
+                    'canceled_quantity' => $item->quantity,
+                    'completed_quantity' => $item->completed_quantity,
+                    'remaining_quantity' => $remainingQty,
+                ];
+            })->filter(fn($item) => $item['remaining_quantity'] > 0);
+
+            Log::info("Mapped data: ", $mapped->toArray());
+
+            return response()->json([
+                'success' => true,
+                'order_number' => $saleReturn->order_number,
+                'data' => $mapped->values()
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error getting canceled products: " . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // public function processReturnToWarehouse(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'return_date' => 'required|date',
+    //         'products' => 'required|array',
+    //         'products.*.quantity' => 'required|integer|min:0',
+    //         'products.*.canceled_product_id' => 'required|exists:canceled_products,id',
+    //     ]);
+
+    //     DB::beginTransaction();
+
+    //     try {
+    //         $saleReturn = SaleReturn::findOrFail($id);
+    //         $totalProcessed = 0;
+    //         $processedProducts = [];
+
+    //         // 🔥 Buat 1 Inventory dulu (di luar loop)
+    //         $inventory = Inventory::create([
+    //             'date'           => $request->return_date,
+    //             'order_number'   => $saleReturn->order_number,
+    //             'sale_return_id' => $saleReturn->id,
+    //             'status'         => 'Stock In',
+    //             'note'           => "Return Canceled Product to Warehouse - Sale Return: {$saleReturn->order_number}",
+    //         ]);
+
+    //         foreach ($request->products as $productData) {
+    //             $quantity = (int) $productData['quantity'];
+
+    //             if ($quantity <= 0) continue;
+
+    //             $canceledProduct = CanceledProduct::with('stock', 'product')->findOrFail($productData['canceled_product_id']);
+
+    //             // Validasi quantity
+    //             $maxQty = $canceledProduct->quantity - $canceledProduct->completed_quantity;
+    //             if ($quantity > $maxQty) {
+    //                 throw new \Exception("Quantity for {$canceledProduct->product->name} exceeds available quantity ({$maxQty})");
+    //             }
+
+    //             // 🔥 Buat inventory item untuk INVENTORY yang sama
+    //             InventoryItem::create([
+    //                 'inventory_warehouse_id' => $request->warehouse_id ?? 1,
+    //                 'inventory_id'        => $inventory->id, // ← pakai inventory yang sama
+    //                 'product_id'          => $canceledProduct->product_id,
+    //                 'canceled_product_id' => $canceledProduct->id, // ← tambahkan ini biar tracking
+    //                 'quantity'            => $quantity,
+    //                 'stock_in'            => 0,
+    //                 'remaining_stock_in'  => $quantity,
+    //                 'stock_out'           => 0,
+    //             ]);
+
+    //             // Update stok production
+    //             $productionStock = $canceledProduct->stock;
+    //             if ($productionStock) {
+    //                 $productionStock->decrement('canceled_product_stock', $quantity);
+    //             }
+
+    //             // Update canceled product
+    //             // $canceledProduct->decrement('quantity', $quantity);
+    //             $canceledProduct->increment('completed_quantity', $quantity);
+
+    //             // Update status jika semua sudah completed
+    //             if ($canceledProduct->quantity <= 0 || $canceledProduct->completed_quantity >= ($canceledProduct->quantity + $canceledProduct->completed_quantity - $quantity)) {
+    //                 $canceledProduct->update(['status' => 'completed']);
+    //             }
+
+    //             $totalProcessed += $quantity;
+    //             $processedProducts[] = $canceledProduct->product->name ?? 'Unknown Product';
+    //         }
+
+    //         if ($totalProcessed === 0) {
+    //             throw new \Exception("No products were processed. Please enter quantity for at least one product.");
+    //         }
+
+    //         DB::commit();
+
+    //         Log::info("Return to Warehouse Success - Sale Return: {$saleReturn->order_number}, Inventory ID: {$inventory->id}, Total: {$totalProcessed}, Products: " . implode(', ', $processedProducts));
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => "{$totalProcessed} products successfully returned to warehouse"
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+
+    //         Log::error("Return to Warehouse Failed - Sale Return ID: {$id}, Error: " . $e->getMessage());
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => $e->getMessage()
+    //         ], 422);
+    //     }
+    // }
+
+    public function processReturnToWarehouse(Request $request, $id)
+    {
+        $request->validate([
+            'return_date' => 'required|date',
+            'stock_destination' => 'required|in:warehouse,production',
+            'inventory_warehouse_id' => 'required_if:stock_destination,warehouse|nullable|exists:inventory_warehouses,id',
+            'production_warehouse_id' => 'required_if:stock_destination,production|nullable|exists:production_warehouses,id',
+            'products' => 'required|array',
+            'products.*.quantity' => 'required|integer|min:0',
+            'products.*.canceled_product_id' => 'required|exists:canceled_products,id',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $saleReturn = SaleReturn::findOrFail($id);
+            $totalProcessed = 0;
+            $processedProducts = [];
+
+            // Tentukan inventory status berdasarkan destination
+            $inventoryStatus = match ($request->stock_destination) {
+                'warehouse'  => 'Stock In',
+                'production' => 'Stock In Production',
+            };
+
+            // Buat 1 Inventory dulu (di luar loop)
+            $inventory = Inventory::create([
+                'date'           => $request->return_date,
+                'order_number'   => $saleReturn->order_number,
+                'sale_return_id' => $saleReturn->id,
+                'status'         => $inventoryStatus,
+                'note'           => "Return Canceled Product to {$request->stock_destination} - Sale Return: {$saleReturn->order_number}",
+            ]);
+
+            foreach ($request->products as $productData) {
+                $quantity = (int) $productData['quantity'];
+
+                if ($quantity <= 0) continue;
+
+                $canceledProduct = CanceledProduct::with('stock', 'product')->findOrFail($productData['canceled_product_id']);
+
+                // Validasi quantity
+                $maxQty = $canceledProduct->quantity - $canceledProduct->completed_quantity;
+                if ($quantity > $maxQty) {
+                    throw new \Exception("Quantity for {$canceledProduct->product->name} exceeds available quantity ({$maxQty})");
+                }
+
+                // Buat inventory item
+                InventoryItem::create([
+                    'inventory_id'        => $inventory->id,
+                    'product_id'          => $canceledProduct->product_id,
+                    'canceled_product_id' => $canceledProduct->id,
+
+                    // Set warehouse/production based on destination
+                    'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
+                        ? $request->inventory_warehouse_id
+                        : null,
+
+                    'production_warehouse_id' => $request->stock_destination === 'production'
+                        ? $request->production_warehouse_id
+                        : null,
+
+                    'quantity'            => $quantity,
+                    'stock_in'            => 0,
+                    'remaining_stock_in'  => $quantity,
+                    'stock_out'           => 0,
+                ]);
+
+                // Update stock berdasarkan destination
+                if ($request->stock_destination === 'warehouse') {
+                    // Update Inventory Stock
+                    $inventoryStock = InventoryStock::firstOrCreate(
+                        [
+                            'product_id' => $canceledProduct->product_id,
+                            'inventory_warehouse_id' => $request->inventory_warehouse_id,
+                        ],
+                        ['incoming_stock' => 0]
+                    );
+                    $inventoryStock->increment('incoming_stock', $quantity);
+                } else {
+                    // Update Production Stock
+                    $productionStock = ProductionStock::firstOrCreate(
+                        [
+                            'product_id' => $canceledProduct->product_id,
+                            'production_warehouse_id' => $request->production_warehouse_id,
+                        ],
+                        ['incoming_stock' => 0]
+                    );
+                    $productionStock->increment('incoming_stock', $quantity);
+                }
+
+                // Decrement canceled_product_stock dari stock asal
+                $originalStock = $canceledProduct->stock;
+                if ($originalStock) {
+                    $originalStock->decrement('canceled_product_stock', $quantity);
+                }
+
+                // Update canceled product
+                $canceledProduct->increment('completed_quantity', $quantity);
+
+                // Update status jika semua sudah completed
+                if ($canceledProduct->completed_quantity >= $canceledProduct->quantity) {
+                    $canceledProduct->update(['status' => 'completed']);
+                }
+
+                $totalProcessed += $quantity;
+                $processedProducts[] = $canceledProduct->product->name ?? 'Unknown Product';
+            }
+
+            if ($totalProcessed === 0) {
+                throw new \Exception("No products were processed. Please enter quantity for at least one product.");
+            }
+
+            DB::commit();
+
+            Log::info("Return to {$request->stock_destination} Success - Sale Return: {$saleReturn->order_number}, Inventory ID: {$inventory->id}, Total: {$totalProcessed}, Products: " . implode(', ', $processedProducts));
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$totalProcessed} products successfully returned to {$request->stock_destination}"
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error("Return to Warehouse Failed - Sale Return ID: {$id}, Error: " . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
         }
     }
 }

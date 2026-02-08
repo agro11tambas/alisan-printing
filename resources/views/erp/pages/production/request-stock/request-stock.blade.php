@@ -232,10 +232,22 @@
                     <div class="modal-body">
                         <p>Apakah Anda yakin ingin menghapus RequestStock <strong id="RequestStockName"></strong>?</p>
                         <p class="text-muted">Data yang dihapus tidak dapat dikembalikan.</p>
+
+                        <div class="mt-3">
+                            <label class="form-label fw-bold">
+                                Ketik <span class="text-danger">DELETE</span> untuk konfirmasi
+                            </label>
+                            <input type="text" class="form-control" id="confirmDeleteRequestStock"
+                                placeholder="Ketik DELETE">
+                        </div>
                     </div>
+
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-danger btn-md">Hapus</button>
+                        <button type="submit" class="btn btn-danger btn-md" disabled id="btnDeleteRequestStock">
+                            Hapus
+                        </button>
+
                     </div>
                 </div>
             </form>
@@ -260,10 +272,19 @@
                         <p class="text-muted">⚠️ Request Stock ini belum di-issued maupun di-received.</p>
                         <p class="text-danger mb-0">Aksi ini hanya akan <strong>mengurangi incoming stock</strong> di
                             Production.</p>
+                        <div class="mt-3">
+                            <label class="form-label fw-bold">
+                                Ketik <span class="text-danger">DELETE</span> untuk konfirmasi
+                            </label>
+                            <input type="text" class="form-control" id="confirmDeleteEmptyRequestStock"
+                                placeholder="Ketik DELETE" autocomplete="off">
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-warning btn-md">Hapus</button>
+                        <button type="submit" class="btn btn-warning btn-md" disabled id="btnDeleteEmptyRequestStock">
+                            Hapus
+                        </button>
                     </div>
                 </div>
             </form>
@@ -948,6 +969,45 @@
 
                 form.action = url;
                 nameHolder.textContent = name;
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.getElementById('confirmDeleteRequestStock');
+            const button = document.getElementById('btnDeleteRequestStock');
+
+            input.addEventListener('input', function() {
+                if (this.value === 'DELETE') {
+                    button.removeAttribute('disabled');
+                } else {
+                    button.setAttribute('disabled', true);
+                }
+            });
+
+            // reset saat modal ditutup
+            const modal = document.getElementById('modalDeleteRequestStock');
+            modal.addEventListener('hidden.bs.modal', function() {
+                input.value = '';
+                button.setAttribute('disabled', true);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.getElementById('confirmDeleteEmptyRequestStock');
+            const button = document.getElementById('btnDeleteEmptyRequestStock');
+            const modal = document.getElementById('modalDeleteEmptyRequestStock');
+
+            input.addEventListener('input', function() {
+                if (this.value.trim().toUpperCase() === 'DELETE') {
+                    button.disabled = false;
+                } else {
+                    button.disabled = true;
+                }
+            });
+
+            modal.addEventListener('hidden.bs.modal', function() {
+                input.value = '';
+                button.disabled = true;
             });
         });
     </script>

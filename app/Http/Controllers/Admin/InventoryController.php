@@ -166,6 +166,12 @@ class InventoryController extends Controller
                     $partner = '-';
                 }
 
+                $isCompleted = $inventory->items->every(fn($i) => $i->stock_in >= $i->quantity);
+
+                $completeIcon = $isCompleted
+                    ? '<i class="fa fa-check-circle text-success ms-1"></i>'
+                    : '';
+
                 // 📦 Stock in partial
                 $stockInHtml = view('erp.pages.inventory.stock-in.partials.product-stock-in', compact('inventory'))->render();
 
@@ -179,6 +185,29 @@ class InventoryController extends Controller
                     'partner_name' => $partner,
                     'stock_in' => $stockInHtml,
                     'action' => $actionHtml,
+
+                    // 📱 MOBILE
+                    'transaction_mobile' => '
+                <div>
+                    <div class="d-flex align-items-center gap-1">
+                        ' . $badge . '
+                        ' . $completeIcon . '
+                    </div>
+                    <div class="fw-semibold">' . $number . '</div>
+                    <small class="text-muted">' . $date . '</small>
+                </div>
+            ',
+
+                    'partner_mobile' => '
+                <div class="fw-semibold">' . $partner . '</div>
+            ',
+
+                    'items_mobile' => view(
+                        'erp.pages.inventory.stock-in.partials.product-stock-in-mobile',
+                        compact('inventory')
+                    )->render(),
+
+                    'action_mobile' => $actionHtml,
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
