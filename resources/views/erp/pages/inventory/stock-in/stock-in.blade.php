@@ -61,7 +61,15 @@
             border-bottom: none;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 991px) {
+
+            #inventoryTable_wrapper {
+                display: none !important;
+            }
+
+            #stockInMobile {
+                display: block !important;
+            }
 
             .stockin-mobile-card {
                 background: #fff;
@@ -93,17 +101,11 @@
             }
         }
 
-        @media (max-width: 768px) {
-            #inventoryTable_wrapper {
-                display: none !important;
-            }
-
-            #stockInMobile {
-                display: block !important;
-            }
+        #stockInMobile {
+            display: block !important;
         }
 
-        @media (min-width: 769px) {
+        @media (min-width: 992px) {
             #stockInMobile {
                 display: none !important;
             }
@@ -238,7 +240,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div id="stockInMobile" class="d-md-none px-0 pb-4"></div>
+                        <div id="stockInMobile" class="px-0 pb-4"></div>
                     </div>
                 </div>
             </div>
@@ -498,7 +500,7 @@
             const MOBILE_LIMIT = 30;
 
             function renderStockInMobile() {
-                if (window.innerWidth >= 768) return;
+                if (window.innerWidth >= 992) return;
 
                 const container = $('#stockInMobile');
 
@@ -540,7 +542,7 @@
             }
 
             $(window).on('scroll', function() {
-                if (window.innerWidth >= 768) return;
+                if (window.innerWidth >= 992) return;
                 if (isLoading || !hasMoreData) return;
 
                 if ($(window).scrollTop() + $(window).height() >= $(document).height() - 200) {

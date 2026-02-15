@@ -1,5 +1,50 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        .stockin-history-mobile {
+            display: none;
+        }
+
+        @media (max-width: 991px) {
+
+            #stockInHistoryTable_wrapper {
+                display: none !important;
+            }
+
+            .stockin-history-mobile {
+                display: block;
+            }
+
+            .history-mobile-card {
+                background: #fff;
+                border-radius: 12px;
+                padding: 16px;
+                margin: 0 12px 14px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, .06);
+            }
+
+            .history-mobile-title {
+                font-weight: 600;
+                font-size: 14px;
+                margin-bottom: 6px;
+            }
+
+            .history-mobile-row {
+                font-size: 12px;
+                margin-bottom: 6px;
+                color: #6b7280;
+            }
+
+            .history-mobile-label {
+                font-weight: 600;
+                color: #111;
+            }
+
+        }
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -150,6 +195,8 @@
                                 <tbody>
                                 </tbody>
                             </table>
+                            <div id="stockInHistoryMobile" class="stockin-history-mobile">TEst</div>
+
                         </div>
                     </div>
                 </div>
@@ -247,6 +294,13 @@
                 ]
             });
 
+            dataTable.on('xhr', function(e, settings, json) {
+                if (window.innerWidth >= 992) return;
+                if (json && json.data) {
+                    renderStockInHistoryMobile(json.data);
+                }
+            });
+
             $('#start_date, #end_date').on('change', function() {
                 dataTable.ajax.reload();
             });
@@ -302,6 +356,55 @@
                     }
                 });
             });
+        });
+
+        function renderStockInHistoryMobile(data) {
+            if (window.innerWidth >= 992) return;
+
+            const container = $('#stockInHistoryMobile');
+            container.html('');
+
+            if (!data.length) {
+                container.html('<div class="text-center text-muted py-4">No history data</div>');
+                return;
+            }
+
+            data.forEach((row) => {
+                container.append(`
+            <div class="history-mobile-card">
+                <div class="history-mobile-title">
+                    ${row.invoice_number ?? '-'}
+                </div>
+
+                <div class="history-mobile-row">
+                    <span class="history-mobile-label">Date:</span>
+                    ${row.change_date ?? '-'}
+                </div>
+
+                <div class="history-mobile-row">
+                    <span class="history-mobile-label">Updated By:</span>
+                    ${row.user_name ?? '-'}
+                </div>
+
+                <div class="history-mobile-row">
+                    <span class="history-mobile-label">Waybill:</span>
+                    ${row.waybill_number ?? '-'}
+                </div>
+
+                <div class="history-mobile-row">
+                    <span class="history-mobile-label">Stock In:</span>
+                    ${row.stock_in ?? '-'}
+                </div>
+            </div>
+        `);
+            });
+        }
+
+
+        $('#stockInHistoryTable').on('xhr.dt', function(e, settings, json) {
+            if (json && json.data) {
+                renderStockInHistoryMobile(json.data);
+            }
         });
     </script>
 @endpush

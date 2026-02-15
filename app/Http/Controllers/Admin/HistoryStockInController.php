@@ -30,38 +30,6 @@ class HistoryStockInController extends Controller
         return view('erp.pages.inventory.stock-in.add-stock-in', compact('stockIn'));
     }
 
-    public function addStockInBySupplier($supplierId)
-    {
-        $inventories = Inventory::with(['items.product', 'purchase'])
-            ->where('status', 'Stock In')
-            ->whereHas('purchase', fn($q) => $q->where('supplier_id', $supplierId))
-            ->get();
-
-        if ($inventories->isEmpty()) {
-            abort(404);
-        }
-
-        // 🔥 GABUNG SEMUA ITEM → GROUP BY PRODUCT
-        $products = $inventories
-            ->flatMap(fn($inv) => $inv->items)
-            ->groupBy('product_id')
-            ->map(function ($items) {
-                return [
-                    'product' => $items->first()->product,
-                    'items'   => $items, // ← penting untuk submit
-                    'qty'     => $items->sum('quantity'),
-                    'stock_in' => $items->sum('stock_in'),
-                ];
-            });
-
-        return view(
-            'erp.pages.inventory.stock-in.add-stock-in-by-supplier',
-            compact('supplierId', 'products')
-        );
-    }
-
-
-
     private function getTotalStockForAvg($productId)
     {
         // dari inventory_stocks
@@ -76,6 +44,16 @@ class HistoryStockInController extends Controller
     public function store(Request $request, $id)
     {
         // dd($request->all());
+
+        $items = $request->input('items', []);
+        foreach ($items as $index => $item) {
+            if (isset($item['stock_in'])) {
+                // Hapus semua karakter non-numeric kecuali minus
+                $cleaned = preg_replace('/[^0-9-]/', '', $item['stock_in']);
+                $items[$index]['stock_in'] = (int) $cleaned;
+            }
+        }
+        $request->merge(['items' => $items]);
         $request->validate([
             'inventory_id' => 'required|exists:inventories_2,id',
             'change_date' => 'required|date',
@@ -132,7 +110,114 @@ class HistoryStockInController extends Controller
                 }
 
                 // --- Update InventoryStock ---
+                // $productId = $inventoryItem->product_id;
+
+                // $inventoryStock = InventoryStock::firstOrCreate(
+                //     [
+                //         'product_id'             => $productId,
+                //         'inventory_warehouse_id' => $inventoryItem->inventory_warehouse_id ?? 1,
+                //     ],
+                //     [
+                //         'opening_stock'     => 0,
+                //         'opening_rate'      => 0,
+                //         'inventory_stock'   => 0,
+                //         'stock_after_sales' => 0,
+                //         'incoming_stock'    => 0,
+                //         'avg_cost'          => 0,
+                //     ]
+                // );
+
+                // if ($inventory->purchase_id) {
+                //     // Barang dari Purchase List → update stok fisik dan hapus dari incoming
+                //     $inventoryStock->decrement('incoming_stock', $item['stock_in']);
+                //     $inventoryStock->increment('inventory_stock', $item['stock_in']);
+                //     $inventoryStock->increment('stock_after_sales', $item['stock_in']);
+
+                //     // 🔹 Hitung ulang avg_cost (weighted average pakai stock_after_sales)
+                //     $purchaseItem = $inventoryItem->purchaseItem ?? null;
+                //     // if ($purchaseItem) {
+                //     //     $purchaseCost = $purchaseItem->final_price;
+
+                //     //     // Hitung stok total sebelum pembelian dari stock_after_sales
+                //     //     $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
+                //     //     $previousCost = $inventoryStock->avg_cost;
+
+                //     //     // Weighted average formula
+                //     //     $inventoryStock->avg_cost = round(
+                //     //         (($previousCost * $previousQty) + ($purchaseCost * $item['stock_in']))
+                //     //             / max(1, $previousQty + $item['stock_in']),
+                //     //         3
+                //     //     );
+                //     //     $inventoryStock->save();
+                //     // }
+                //     if ($purchaseItem) {
+                //         $cost = $purchaseItem->final_price;
+
+                //         $previousQty  = max(0, $this->getTotalStockForAvg($productId) - $item['stock_in']);
+                //         $previousCost = $inventoryStock->avg_cost;
+
+                //         $inventoryStock->avg_cost = round(
+                //             (($previousCost * $previousQty) + ($cost * $item['stock_in']))
+                //                 / max(1, $previousQty + $item['stock_in']),
+                //             3
+                //         );
+
+                //         $inventoryStock->save();
+                //     }
+                //     // } elseif ($inventory->canceled_product_id) {
+                //     //     // 🔹 Barang dari Sale Return (Canceled Product)
+                //     //     $inventoryStock->increment('inventory_stock', $item['stock_in']);
+                //     //     $inventoryStock->increment('stock_after_sales', $item['stock_in']);
+
+                //     //     // Ambil data canceled product
+                //     //     $canceledProduct = \App\Models\CanceledProduct::find($inventory->canceled_product_id);
+                //     //     $avgCostAtCancel = $canceledProduct?->avg_cost_at_cancel ?? 0;
+
+                //     //     // Ambil total stok sebelumnya dari stock_after_sales (bukan inventory_stock)
+                //     //     $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
+                //     //     $previousCost = $inventoryStock->avg_cost;
+
+                //     //     // Weighted average baru berdasarkan stock_after_sales
+                //     //     $inventoryStock->avg_cost = round(
+                //     //         (($previousCost * $previousQty) + ($avgCostAtCancel * $item['stock_in']))
+                //     //             / max(1, $previousQty + $item['stock_in']),
+                //     //         3
+                //     //     );
+
+                //     //     $inventoryStock->save();
+                // } elseif ($inventory->canceled_product_id) {
+
+                //     $inventoryStock->increment('inventory_stock', $item['stock_in']);
+
+                //     $canceledProduct = CanceledProduct::find($inventory->canceled_product_id);
+                //     $cost = $canceledProduct?->avg_cost_at_cancel ?? 0;
+
+                //     $previousQty  = max(0, $this->getTotalStockForAvg($productId) - $item['stock_in']);
+                //     $previousCost = $inventoryStock->avg_cost;
+
+                //     $inventoryStock->avg_cost = round(
+                //         (($previousCost * $previousQty) + ($cost * $item['stock_in']))
+                //             / max(1, $previousQty + $item['stock_in']),
+                //         3
+                //     );
+
+                //     $inventoryStock->save();
+                // } elseif ($inventoryItem->material_request_item_id) {
+                //     // hanya update stok fisik gudang
+                //     $inventoryStock->increment('inventory_stock', $item['stock_in']);
+                //     // ❌ tidak update stock_after_sales
+                //     $inventoryStock->save();
+                // }
+
+                // Products::where('id', $productId)->update([
+                //     'avg_cost' => $inventoryStock->avg_cost,
+                // ]);
+
                 $productId = $inventoryItem->product_id;
+
+                $product = Products::findOrFail($productId);
+                $previousCost = $product->avg_cost ?? 0;
+                $previousQty = max(0, $this->getTotalStockForAvg($productId) - $item['stock_in']);
 
                 $inventoryStock = InventoryStock::firstOrCreate(
                     [
@@ -150,90 +235,46 @@ class HistoryStockInController extends Controller
                 );
 
                 if ($inventory->purchase_id) {
-                    // Barang dari Purchase List → update stok fisik dan hapus dari incoming
                     $inventoryStock->decrement('incoming_stock', $item['stock_in']);
                     $inventoryStock->increment('inventory_stock', $item['stock_in']);
                     $inventoryStock->increment('stock_after_sales', $item['stock_in']);
 
-                    // 🔹 Hitung ulang avg_cost (weighted average pakai stock_after_sales)
                     $purchaseItem = $inventoryItem->purchaseItem ?? null;
-                    // if ($purchaseItem) {
-                    //     $purchaseCost = $purchaseItem->final_price;
-
-                    //     // Hitung stok total sebelum pembelian dari stock_after_sales
-                    //     $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
-                    //     $previousCost = $inventoryStock->avg_cost;
-
-                    //     // Weighted average formula
-                    //     $inventoryStock->avg_cost = round(
-                    //         (($previousCost * $previousQty) + ($purchaseCost * $item['stock_in']))
-                    //             / max(1, $previousQty + $item['stock_in']),
-                    //         3
-                    //     );
-                    //     $inventoryStock->save();
-                    // }
                     if ($purchaseItem) {
                         $cost = $purchaseItem->final_price;
 
-                        $previousQty  = max(0, $this->getTotalStockForAvg($productId) - $item['stock_in']);
-                        $previousCost = $inventoryStock->avg_cost;
-
-                        $inventoryStock->avg_cost = round(
+                        $newAvgCost = round(
                             (($previousCost * $previousQty) + ($cost * $item['stock_in']))
                                 / max(1, $previousQty + $item['stock_in']),
                             3
                         );
 
-                        $inventoryStock->save();
+                        $product->update(['avg_cost' => $newAvgCost]);
                     }
-                    // } elseif ($inventory->canceled_product_id) {
-                    //     // 🔹 Barang dari Sale Return (Canceled Product)
-                    //     $inventoryStock->increment('inventory_stock', $item['stock_in']);
-                    //     $inventoryStock->increment('stock_after_sales', $item['stock_in']);
-
-                    //     // Ambil data canceled product
-                    //     $canceledProduct = \App\Models\CanceledProduct::find($inventory->canceled_product_id);
-                    //     $avgCostAtCancel = $canceledProduct?->avg_cost_at_cancel ?? 0;
-
-                    //     // Ambil total stok sebelumnya dari stock_after_sales (bukan inventory_stock)
-                    //     $previousQty  = max(0, $inventoryStock->stock_after_sales - $item['stock_in']);
-                    //     $previousCost = $inventoryStock->avg_cost;
-
-                    //     // Weighted average baru berdasarkan stock_after_sales
-                    //     $inventoryStock->avg_cost = round(
-                    //         (($previousCost * $previousQty) + ($avgCostAtCancel * $item['stock_in']))
-                    //             / max(1, $previousQty + $item['stock_in']),
-                    //         3
-                    //     );
-
-                    //     $inventoryStock->save();
                 } elseif ($inventory->canceled_product_id) {
-
                     $inventoryStock->increment('inventory_stock', $item['stock_in']);
+                    $inventoryStock->increment('stock_after_sales', $item['stock_in']);
 
                     $canceledProduct = CanceledProduct::find($inventory->canceled_product_id);
                     $cost = $canceledProduct?->avg_cost_at_cancel ?? 0;
 
-                    $previousQty  = max(0, $this->getTotalStockForAvg($productId) - $item['stock_in']);
-                    $previousCost = $inventoryStock->avg_cost;
-
-                    $inventoryStock->avg_cost = round(
+                    $newAvgCost = round(
                         (($previousCost * $previousQty) + ($cost * $item['stock_in']))
                             / max(1, $previousQty + $item['stock_in']),
                         3
                     );
 
-                    $inventoryStock->save();
+                    $product->update(['avg_cost' => $newAvgCost]);
                 } elseif ($inventoryItem->material_request_item_id) {
-                    // hanya update stok fisik gudang
                     $inventoryStock->increment('inventory_stock', $item['stock_in']);
-                    // ❌ tidak update stock_after_sales
-                    $inventoryStock->save();
+                } else {
+                    $inventoryStock->increment('inventory_stock', $item['stock_in']);
+                    $inventoryStock->increment('stock_after_sales', $item['stock_in']);
                 }
 
-                Products::where('id', $productId)->update([
-                    'avg_cost' => $inventoryStock->avg_cost,
-                ]);
+                // Sync avg_cost dari product ke inventoryStock
+                $inventoryStock->avg_cost = $product->avg_cost;
+                $inventoryStock->save();
             }
 
             DB::commit();

@@ -42,7 +42,7 @@ class PurchaseOrderController extends Controller
 
         $purchases = Purchase::with(['supplier', 'purchaseAccount', 'purchaseItems.purchaseProduct'])
             ->where('status', 'Purchase Orders')
-            ->orderByDesc('id');
+            ->orderByDesc('purchase_date');
 
         // ✅ Filter tanggal
         if ($request->filter) {
