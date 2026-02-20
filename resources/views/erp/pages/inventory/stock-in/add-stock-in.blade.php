@@ -167,7 +167,7 @@
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <input type="file" class="form-control" id="waybill_image"
-                                                    name="waybill_image" accept="image/*"
+                                                    name="waybill_image" accept="image/*" capture="environment"
                                                     value="{{ old('waybill_image') }}">
                                             </div>
                                             <img id="preview-image" src="#" alt="Preview"
@@ -349,10 +349,17 @@
                     }
                 });
 
-                const waybillNumber = $('#waybill_number');
-                if (!waybillNumber.val().trim()) {
+                // const waybillNumber = $('#waybill_number');
+                // if (!waybillNumber.val().trim()) {
+                //     isValid = false;
+                //     showError(waybillNumber[0], 'Waybill number wajib diisi');
+                // }
+
+                const waybillImage = $('#waybill_image');
+
+                if (!waybillImage[0].files.length) {
                     isValid = false;
-                    showError(waybillNumber[0], 'Waybill number wajib diisi');
+                    showError(waybillImage[0], 'Waybill image wajib diupload');
                 }
 
                 if (!isValid) {

@@ -39,7 +39,7 @@
         }
 
         .stockin-mobile-card.active {
-            background: #e5e9ef;
+            /* background: #e5e9ef; */
         }
 
         .stockin-mobile-action {
@@ -54,7 +54,7 @@
         .stockin-product {
             font-size: 13px;
             padding: 6px 0;
-            border-bottom: 1px dashed #ddd;
+            border-bottom: 1px dashed;
         }
 
         .stockin-product:last-child {
@@ -72,7 +72,6 @@
             }
 
             .stockin-mobile-card {
-                background: #fff;
                 border-radius: 10px;
                 margin: 0 12px 12px;
                 box-shadow: 0 4px 12px rgba(0, 0, 0, .06);
@@ -97,7 +96,7 @@
             .stockin-mobile-action {
                 margin-top: 10px;
                 padding-top: 10px;
-                border-top: 1px dashed #e5e7eb;
+                border-top: 1px dashed;
             }
         }
 
