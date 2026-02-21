@@ -18,7 +18,6 @@
             }
 
             .stockin-mobile-card {
-                background: #fff;
                 border-radius: 12px;
                 padding: 16px;
                 margin-bottom: 14px;
@@ -33,7 +32,6 @@
 
             .stockin-mobile-label {
                 font-size: 12px;
-                color: #6b7280;
                 margin-bottom: 4px;
             }
 
@@ -206,7 +204,7 @@
                                     @foreach ($stockIn->items as $index => $item)
                                         <tr>
                                             <td>{{ $item->product->name ?? '-' }}</td>
-                                            <td>{{ $item->quantity }}</td>
+                                            <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
                                             <td>
                                                 <input type="hidden" name="items[{{ $index }}][inventory_item_id]"
                                                     value="{{ $item->id }}">
@@ -235,7 +233,7 @@
 
                                     <div class="stockin-mobile-label">Quantity</div>
                                     <div class="stockin-mobile-value">
-                                        {{ $item->quantity }}
+                                        {{ number_format($item->quantity, 0, ',', '.') }}
                                     </div>
 
                                     <div class="stockin-mobile-label">Stock In</div>

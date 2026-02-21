@@ -266,7 +266,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [3, 'desc']
+                    [3, 'asc']
                 ],
                 data: [],
                 columns: [
@@ -285,7 +285,7 @@
                         data: 'stock_in'
                     },
                     {
-                        data: 'date',
+                        data: 'date_raw',
                         visible: false,
                         searchable: false
                     }
@@ -365,6 +365,7 @@
                 currentPage = 0;
                 hasMoreData = true;
                 dataTable.clear().draw();
+                $('#stockInMobile').html('');
                 loadMoreData();
             }
 
@@ -508,8 +509,14 @@
                     return;
                 }
 
+                const sortedData = [...allData].sort((a, b) => {
+                    return new Date(a.date_raw) - new Date(b.date_raw);
+                });
+
                 const end = (mobilePage + 1) * MOBILE_LIMIT;
-                const slicedData = allData.slice(0, end);
+                // const slicedData = allData.slice(0, end);
+
+                const slicedData = sortedData.slice(0, end);
 
                 if (mobilePage === 0) {
                     container.html('');

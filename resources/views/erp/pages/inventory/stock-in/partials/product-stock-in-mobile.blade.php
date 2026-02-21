@@ -5,7 +5,7 @@
                 {{ $item->product->name ?? '-' }}
             </div>
             <small class="text-muted">
-                Qty: {{ $item->quantity }}
+                Qty: {{ number_format($item->quantity, 0, ',', '.') }}
             </small>
         </div>
 

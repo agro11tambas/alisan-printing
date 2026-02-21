@@ -34,8 +34,7 @@ class InventoryController extends Controller
             'saleReturn.customer',
             'materialRequest',
         ])
-            ->where('status', 'Stock In')
-            ->orderByDesc('id');
+            ->where('status', 'Stock In')->orderByDesc('created_at');
 
         // ✅ Filter tanggal
         if ($request->filter) {
@@ -145,6 +144,7 @@ class InventoryController extends Controller
 
                 // 📅 Date
                 $date = Carbon::parse($inventory->created_at)->format('d M y H:i');
+                $dateRaw = $inventory->created_at;
 
                 // 🔥 Gabungkan seperti sale list
                 $transactionDisplay = '
@@ -182,6 +182,7 @@ class InventoryController extends Controller
                     'id' => $inventory->id,
                     'transaction_number' => $transactionDisplay,
                     'date' => $date,
+                    'date_raw' => $dateRaw,
                     'partner_name' => $partner,
                     'stock_in' => $stockInHtml,
                     'action' => $actionHtml,
