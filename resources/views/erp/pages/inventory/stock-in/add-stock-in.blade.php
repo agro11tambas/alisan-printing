@@ -100,13 +100,14 @@
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-12">
-                <form action="/erp/inventory/stock-in/store/{{ $stockIn->id }}" method="POST" id="stockInForm"
-                    enctype="multipart/form-data">
+                {{-- <form action="/erp/inventory/stock-in/store/{{ $stockIn->id }}" method="POST" id="stockInForm" --}}
+                <form action="/erp/inventory/stock-in/store/{{ $supplierId }}/{{ $year }}/{{ $month }}"
+                    method="POST" id="stockInForm" enctype="multipart/form-data">
                     @csrf
                     @method('POST')
                     <div class="card">
                         <div class="card-header">
-                            <h4 class="card-title">
+                            {{-- <h4 class="card-title">
                                 Invoice Number :
                                 <span>
                                     @if ($stockIn->note === 'Sale Returns')
@@ -117,6 +118,9 @@
                                         -
                                     @endif
                                 </span>
+                            </h4> --}}
+                            <h4 class="card-title">
+                                {{ $supplier->name }} — {{ $monthLabel }}
                             </h4>
                         </div>
                         <div class="card-body">
@@ -128,11 +132,15 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                <input type="hidden" name="inventory_id" value="{{ $stockIn->id }}">
+                                                {{-- <input type="hidden" name="inventory_id" value="{{ $stockIn->id }}">
                                                 <input type="text" class="form-control" id="invoice_number"
                                                     name="invoice_number"
                                                     value="{{ $stockIn->note === 'Sale Returns' ? $stockIn->order_number : $stockIn->purchase_number }}"
+                                                    readonly> --}}
+
+                                                <input type="text" class="form-control" value="{{ $invoiceNumbers }}"
                                                     readonly>
+
                                             </div>
                                         </div>
                                     </div>
@@ -153,8 +161,10 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
+                                                {{-- <input type="text" class="form-control" id="waybill_number"
+                                                    name="waybill_number" value="{{ $stockIn->waybill_number }}"> --}}
                                                 <input type="text" class="form-control" id="waybill_number"
-                                                    name="waybill_number" value="{{ $stockIn->waybill_number }}">
+                                                    name="waybill_number" value="">
                                             </div>
                                         </div>
                                     </div>
@@ -190,31 +200,44 @@
                         <div class="card-header">
                             <h4 class="card-title">Add Stock In</h4>
                         </div>
+
+                        {{-- DESKTOP --}}
                         <div class="stockin-desktop-table">
                             <table class="table">
                                 <thead>
                                     <tr>
                                         <th>Product</th>
-                                        <th>Quantity</th>
-                                        <th>Stock In</th>
+                                        <th>Total Qty</th>
+                                        <th>Total Stock In</th>
+                                        <th>Remaining</th>
+                                        <th>Add Stock In</th>
                                         <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($stockIn->items as $index => $item)
+                                    @foreach ($mergedItems as $index => $item)
                                         <tr>
-                                            <td>{{ $item->product->name ?? '-' }}</td>
+                                            <td class="fw-semibold">{{ $item->product->name ?? '-' }}</td>
                                             <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                            <td class="text-success">{{ number_format($item->stock_in, 0, ',', '.') }}</td>
+                                            <td class="text-danger">{{ number_format($item->remaining, 0, ',', '.') }}
+                                            </td>
                                             <td>
-                                                <input type="hidden" name="items[{{ $index }}][inventory_item_id]"
-                                                    value="{{ $item->id }}">
+                                                {{-- Kirim semua item_ids yang terkait product ini --}}
+                                                @foreach ($item->item_ids as $itemId)
+                                                    <input type="hidden"
+                                                        name="items[{{ $index }}][inventory_item_ids][]"
+                                                        value="{{ $itemId }}">
+                                                @endforeach
+                                                <input type="hidden" name="items[{{ $index }}][product_id]"
+                                                    value="{{ $item->product_id }}">
                                                 <input type="text" inputmode="numeric"
                                                     name="items[{{ $index }}][stock_in]"
                                                     class="form-control stock-in-input" value="0"
-                                                    data-max="{{ $item->quantity - $item->stock_in }}"
-                                                    placeholder="Jumlah dikirim">
-                                                <small class="text-muted">Sisa:
-                                                    {{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}</small>
+                                                    data-max="{{ $item->remaining }}" placeholder="Jumlah dikirim">
+                                                <small class="text-muted">
+                                                    Sisa: {{ number_format($item->remaining, 0, ',', '.') }}
+                                                </small>
                                             </td>
                                             <td>
                                                 <input type="text" name="items[{{ $index }}][notes]"
@@ -225,34 +248,45 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="stockin-mobile-wrapper">
-                            @foreach ($stockIn->items as $index => $item)
-                                <div class="stockin-mobile-card">
 
+                        {{-- MOBILE --}}
+                        <div class="stockin-mobile-wrapper">
+                            @foreach ($mergedItems as $index => $item)
+                                <div class="stockin-mobile-card">
                                     <h5>{{ $item->product->name ?? '-' }}</h5>
 
-                                    <div class="stockin-mobile-label">Quantity</div>
-                                    <div class="stockin-mobile-value">
-                                        {{ number_format($item->quantity, 0, ',', '.') }}
+                                    <div class="stockin-mobile-label">Total Quantity</div>
+                                    <div class="stockin-mobile-value">{{ number_format($item->quantity, 0, ',', '.') }}
                                     </div>
 
-                                    <div class="stockin-mobile-label">Stock In</div>
-                                    <input type="hidden" name="items[{{ $index }}][inventory_item_id]"
-                                        value="{{ $item->id }}">
+                                    <div class="stockin-mobile-label">Already Stock In</div>
+                                    <div class="stockin-mobile-value text-success">
+                                        {{ number_format($item->stock_in, 0, ',', '.') }}
+                                    </div>
 
+                                    <div class="stockin-mobile-label">Remaining</div>
+                                    <div class="stockin-mobile-value text-danger">
+                                        {{ number_format($item->remaining, 0, ',', '.') }}
+                                    </div>
+
+                                    <div class="stockin-mobile-label">Add Stock In</div>
+                                    @foreach ($item->item_ids as $itemId)
+                                        <input type="hidden" name="items[{{ $index }}][inventory_item_ids][]"
+                                            value="{{ $itemId }}">
+                                    @endforeach
+                                    <input type="hidden" name="items[{{ $index }}][product_id]"
+                                        value="{{ $item->product_id }}">
                                     <input type="text" inputmode="numeric"
                                         name="items[{{ $index }}][stock_in]"
                                         class="form-control form-control-sm mb-2 stock-in-input" value="0"
-                                        data-max="{{ $item->quantity - $item->stock_in }}">
-
+                                        data-max="{{ $item->remaining }}">
                                     <small class="text-muted d-block mb-2">
-                                        Sisa: {{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}
+                                        Sisa: {{ number_format($item->remaining, 0, ',', '.') }}
                                     </small>
 
                                     <div class="stockin-mobile-label">Notes</div>
                                     <input type="text" name="items[{{ $index }}][notes]"
                                         class="form-control form-control-sm mb-2">
-
                                 </div>
                             @endforeach
                         </div>

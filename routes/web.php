@@ -508,12 +508,20 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::middleware(['auth', 'subpermission:stock-in'])->group(function () {
             Route::get('/erp/inventory/stock-in/data', [InventoryController::class, 'dataStockIn']);
             Route::get('/erp/inventory/stock-in', [InventoryController::class, 'getStockIn']);
-            Route::get('/erp/inventory/stock-in/add-stock-in/{id}', [HistoryStockInController::class, 'addStockIn']);
-            Route::post('/erp/inventory/stock-in/store/{id}', [HistoryStockInController::class, 'store']);
+
+            // Route::get('/erp/inventory/stock-in/add-stock-in/{id}', [HistoryStockInController::class, 'addStockIn']);
+            Route::get('/erp/inventory/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'addStockIn']);
+
+            // Route::post('/erp/inventory/stock-in/store/{id}', [HistoryStockInController::class, 'store']);
+            Route::post('/erp/inventory/stock-in/store/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'storeGrouped']);
+
             Route::get('/erp/inventory/stock-in/edit-stock-in/{id}', [HistoryStockInController::class, 'edit']);
             Route::put('/erp/inventory/stock-in/update/{id}', [HistoryStockInController::class, 'update']);
-            Route::get('/erp/inventory/stock-in/history/{id}/data', [HistoryStockInController::class, 'dataHistory']);
-            Route::get('/erp/inventory/stock-in/history/{id}', [HistoryStockInController::class, 'getHistory']);
+            // Route::get('/erp/inventory/stock-in/history/{id}/data', [HistoryStockInController::class, 'dataHistory']);
+            // Route::get('/erp/inventory/stock-in/history/{id}', [HistoryStockInController::class, 'getHistory']);
+            Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'getHistory']);
+            Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}/data', [HistoryStockInController::class, 'dataHistory']);
+
             Route::post('/erp/inventory/stock-in/history/item/{id}/update', [HistoryStockInController::class, 'updateHistoryItem']);
         });
 

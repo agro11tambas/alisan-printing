@@ -121,99 +121,312 @@ class InventoryController extends Controller
         // ✅ Ambil data sesuai offset dan limit
         $data = $inventory->skip($start)->take($length)->get();
 
-        // ✅ Format JSON ringan (lazy-load)
+        // Group by supplier + year-month
+        $grouped = $data->groupBy(function ($item) {
+            $supplierId = optional($item->purchase->supplier ?? null)->id
+                ?? ($item->sale_return_id ? 'return_' . (optional($item->saleReturn->customer)->id ?? 'unknown') : 'other');
+            $month = Carbon::parse($item->created_at)->format('Y-m');
+            return $supplierId . '_' . $month;
+        });
+
         return response()->json([
-            'data' => $data->map(function ($inventory) {
-                // 🧾 Transaction number + badge
-                if ($inventory->purchase_id) {
-                    $badge = '<span class="badge bg-soft-success text-success mb-1">Purchase</span>';
-                    $number = e($inventory->purchase->purchase_number ?? '-');
-                } elseif ($inventory->canceled_product_id) {
-                    $badge = '<span class="badge bg-soft-warning text-warning mb-1">Canceled Product</span>';
-                    $number = e($inventory->order_number ?? '-');
-                } elseif ($inventory->sale_return_id) {
-                    $badge = '<span class="badge bg-soft-danger text-danger mb-1">Sale Returns</span>';
-                    $number = e($inventory->order_number ?? '-');
-                } elseif ($inventory->material_request_id) {
-                    $badge = '<span class="badge bg-soft-primary text-primary mb-1">Material Request</span>';
-                    $number = e($inventory->material_request_number ?? '-');
+            'data' => $grouped->map(function ($items) {
+                $first = $items->first();
+
+                // Partner
+                if ($first->purchase_id) {
+                    $partner = e(optional($first->purchase->supplier)->name ?? '-');
+                    $badge   = '<span class="badge bg-soft-success text-success mb-1">Purchase</span>';
+                } elseif ($first->sale_return_id) {
+                    $partner = e(optional($first->saleReturn->customer)->name ?? '-');
+                    $badge   = '<span class="badge bg-soft-danger text-danger mb-1">Sale Returns</span>';
                 } else {
-                    $badge = '';
-                    $number = '-';
+                    $partner = '-';
+                    $badge   = '';
                 }
 
-                // 📅 Date
-                $date = Carbon::parse($inventory->created_at)->format('d M y H:i');
-                $dateRaw = $inventory->created_at;
+                $month   = Carbon::parse($first->created_at)->format('F Y');
+                $numbers = $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
+                    ->filter()->unique()->implode(', ');
 
-                // 🔥 Gabungkan seperti sale list
+                // ✅ Merge items by product_id
+                $mergedItems = $items->flatMap(fn($inv) => $inv->items)
+                    ->groupBy('product_id')
+                    ->map(function ($productItems) {
+                        $first = $productItems->first();
+                        return (object)[
+                            'product'  => $first->product,
+                            'quantity' => $productItems->sum('quantity'),
+                            'stock_in' => $productItems->sum('stock_in'),
+                        ];
+                    })->values();
+
+                $fakeInventory = (object)['items' => $mergedItems];
+
+                $stockInHtml = view(
+                    'erp.pages.inventory.stock-in.partials.product-stock-in',
+                    ['inventory' => $fakeInventory]
+                )->render();
+
+                $isCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->quantity);
+                $completeIcon = $isCompleted ? '<i class="fa fa-check-circle text-success ms-1"></i>' : '';
+
+                // $actionHtml = $items->map(function ($inventory) {
+                //     return view('erp.pages.inventory.stock-in.partials.action-button-stock-in', compact('inventory'))->render();
+                // })->implode(' ');
+
+                $supplierId = $first->purchase?->supplier?->id;
+                $year       = Carbon::parse($first->created_at)->year;
+                $month      = Carbon::parse($first->created_at)->month;
+                $isGroupCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->quantity);
+
+                $actionHtml = view(
+                    'erp.pages.inventory.stock-in.partials.action-button-stock-in',
+                    [
+                        'supplierId'  => $supplierId,
+                        'year'        => $year,
+                        'month'       => $month,
+                        'isCompleted' => $isGroupCompleted,
+                        'inventory'   => $first, // untuk history link
+                    ]
+                )->render();
+
+                $numbersList = $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
+                    ->filter()->unique()->values();
+
+                $displayNumbers = $numbersList->take(2)->implode('<br>');
+                $remainingCount = $numbersList->count() - 2;
+                $numberHtml = $displayNumbers;
+                if ($remainingCount > 0) {
+                    $numberHtml .= '<br><small class="text-muted">+' . $remainingCount . ' more</small>';
+                }
+
                 $transactionDisplay = '
                     <div>
                         <div>' . $badge . '</div>
-                        <div class="fw-semibold">' . $number . '</div>
-                        <small class="text-muted">' . $date . '</small>
+                        <div class="fw-semibold">' . $numberHtml . '</div>
+                        <small class="text-muted">' . $month . ' (' . $items->count() . ' transactions)</small>
                     </div>
                 ';
 
-                // 👤 Partner
-                if ($inventory->purchase_id) {
-                    $partner = e(optional($inventory->purchase->supplier)->name ?? '-');
-                } elseif ($inventory->production_stock_id) {
-                    $partner = 'Production';
-                } elseif ($inventory->sale_return_id) {
-                    $partner = e(optional($inventory->saleReturn->customer)->name ?? '-');
-                } else {
-                    $partner = '-';
-                }
-
-                $isCompleted = $inventory->items->every(fn($i) => $i->stock_in >= $i->quantity);
-
-                $completeIcon = $isCompleted
-                    ? '<i class="fa fa-check-circle text-success ms-1"></i>'
-                    : '';
-
-                // 📦 Stock in partial
-                $stockInHtml = view('erp.pages.inventory.stock-in.partials.product-stock-in', compact('inventory'))->render();
-
-                // ⚙️ Action partial
-                $actionHtml = view('erp.pages.inventory.stock-in.partials.action-button-stock-in', compact('inventory'))->render();
-
                 return [
-                    'id' => $inventory->id,
+                    'id'                 => $first->id,
                     'transaction_number' => $transactionDisplay,
-                    'date' => $date,
-                    'date_raw' => $dateRaw,
-                    'partner_name' => $partner,
-                    'stock_in' => $stockInHtml,
-                    'action' => $actionHtml,
-
-                    // 📱 MOBILE
+                    'date'               => $month,
+                    'date_raw'           => $first->created_at,
+                    'partner_name'       => $partner . ' <small class="text-muted">(' . $items->count() . ' PO)</small>',
+                    'stock_in'           => $stockInHtml,
+                    'action'             => $actionHtml,
                     'transaction_mobile' => '
                 <div>
-                    <div class="d-flex align-items-center gap-1">
-                        ' . $badge . '
-                        ' . $completeIcon . '
-                    </div>
-                    <div class="fw-semibold">' . $number . '</div>
-                    <small class="text-muted">' . $date . '</small>
-                </div>
-            ',
-
-                    'partner_mobile' => '
-                <div class="fw-semibold">' . $partner . '</div>
-            ',
-
-                    'items_mobile' => view(
+                    <div class="d-flex align-items-center gap-1">' . $badge . $completeIcon . '</div>
+                    <div class="fw-semibold">' . $partner . '</div>
+                    <small class="text-muted">' . $month . ' · ' . $items->count() . ' transactions</small>
+                </div>',
+                    'partner_mobile'     => '<div class="fw-semibold">' . $partner . '</div>',
+                    'items_mobile'       => view(
                         'erp.pages.inventory.stock-in.partials.product-stock-in-mobile',
-                        compact('inventory')
+                        ['inventory' => $fakeInventory]
                     )->render(),
-
-                    'action_mobile' => $actionHtml,
+                    'action_mobile'      => $actionHtml,
                 ];
-            }),
+            })->values(),
             'has_more' => $totalData > ($start + $length),
         ]);
     }
+
+    // public function dataStockIn(Request $request)
+    // {
+    //     $length = (int) $request->input('length', 15);
+    //     $start = (int) $request->input('start', 0);
+
+    //     $inventory = Inventory::with([
+    //         'items',
+    //         'purchase.supplier',
+    //         'order.customer',
+    //         'saleReturn.customer',
+    //         'materialRequest',
+    //     ])
+    //         ->where('status', 'Stock In')->orderByDesc('created_at');
+
+    //     // ✅ Filter tanggal
+    //     if ($request->filter) {
+    //         switch ($request->filter) {
+    //             case 'today':
+    //                 $inventory->whereDate('date', Carbon::today());
+    //                 break;
+    //             case 'last_7_days':
+    //                 $inventory->whereBetween('date', [Carbon::now()->subDays(7), Carbon::now()]);
+    //                 break;
+    //             case 'this_month':
+    //                 $inventory->whereMonth('date', Carbon::now()->month)
+    //                     ->whereYear('date', Carbon::now()->year);
+    //                 break;
+    //             case 'last_30_days':
+    //                 $inventory->whereBetween('date', [Carbon::now()->subDays(30), Carbon::now()]);
+    //                 break;
+    //             case 'year_to_date':
+    //                 $inventory->whereBetween('date', [Carbon::now()->startOfYear(), Carbon::now()]);
+    //                 break;
+    //             case 'yearly':
+    //                 $inventory->whereYear('date', Carbon::now()->year);
+    //                 break;
+    //             case 'custom':
+    //                 if ($request->filled('start_date') && $request->filled('end_date')) {
+    //                     $inventory->whereBetween('date', [$request->start_date, $request->end_date]);
+    //                 }
+    //                 break;
+    //         }
+    //     }
+
+    //     // ✅ Filter pencarian
+    //     if ($request->search_type && $request->filled('search_keyword')) {
+    //         if ($request->search_type === 'invoice_number') {
+    //             $inventory->where(function ($q) use ($request) {
+    //                 $q->where('purchase_number', 'like', '%' . $request->search_keyword . '%')
+    //                     ->orWhere('order_number', 'like', '%' . $request->search_keyword . '%');
+    //             });
+    //         } elseif ($request->search_type === 'partner') {
+    //             $inventory->where(function ($q) use ($request) {
+    //                 $q->whereHas('purchase.supplier', function ($query) use ($request) {
+    //                     $query->where('name', 'like', '%' . $request->search_keyword . '%');
+    //                 });
+
+    //                 $q->orWhereHas('saleReturn.customer', function ($query) use ($request) {
+    //                     $query->where('name', 'like', '%' . $request->search_keyword . '%');
+    //                 });
+    //             });
+    //         }
+    //     } elseif ($request->search_type === 'type' && $request->filled('search_type_dropdown')) {
+    //         if ($request->search_type_dropdown === 'purchase') {
+    //             $inventory->where('note', 'Purchase Account');
+    //         } elseif ($request->search_type_dropdown === 'sale_return') {
+    //             $inventory->where('note', 'Sale Returns');
+    //         }
+    //     }
+
+    //     if ($request->filled('search_product')) {
+    //         $productKeyword = trim(strtolower($request->search_product));
+
+    //         $inventory->whereHas('items.product', function ($q) use ($productKeyword) {
+    //             // gunakan COLLATE biar bisa handle tanda kurung
+    //             $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+    //         });
+    //     }
+
+    //     // ✅ Filter progress status
+    //     if ($request->filled('progress_status')) {
+    //         if ($request->progress_status === 'completed') {
+    //             $inventory->whereDoesntHave('items', function ($q) {
+    //                 $q->whereColumn('stock_in', '<', 'quantity');
+    //             });
+    //         } elseif ($request->progress_status === 'progress') {
+    //             $inventory->whereHas('items', function ($q) {
+    //                 $q->whereColumn('stock_in', '<', 'quantity');
+    //             });
+    //         }
+    //     }
+
+    //     // ✅ Hitung total data sebelum pagination
+    //     $totalQuery = clone $inventory;
+    //     $totalData = $totalQuery->count();
+
+    //     // ✅ Ambil data sesuai offset dan limit
+    //     $data = $inventory->skip($start)->take($length)->get();
+
+    //     // ✅ Format JSON ringan (lazy-load)
+    //     return response()->json([
+    //         'data' => $data->map(function ($inventory) {
+    //             // 🧾 Transaction number + badge
+    //             if ($inventory->purchase_id) {
+    //                 $badge = '<span class="badge bg-soft-success text-success mb-1">Purchase</span>';
+    //                 $number = e($inventory->purchase->purchase_number ?? '-');
+    //             } elseif ($inventory->canceled_product_id) {
+    //                 $badge = '<span class="badge bg-soft-warning text-warning mb-1">Canceled Product</span>';
+    //                 $number = e($inventory->order_number ?? '-');
+    //             } elseif ($inventory->sale_return_id) {
+    //                 $badge = '<span class="badge bg-soft-danger text-danger mb-1">Sale Returns</span>';
+    //                 $number = e($inventory->order_number ?? '-');
+    //             } elseif ($inventory->material_request_id) {
+    //                 $badge = '<span class="badge bg-soft-primary text-primary mb-1">Material Request</span>';
+    //                 $number = e($inventory->material_request_number ?? '-');
+    //             } else {
+    //                 $badge = '';
+    //                 $number = '-';
+    //             }
+
+    //             // 📅 Date
+    //             $date = Carbon::parse($inventory->created_at)->format('d M y H:i');
+    //             $dateRaw = $inventory->created_at;
+
+    //             // 🔥 Gabungkan seperti sale list
+    //             $transactionDisplay = '
+    //                 <div>
+    //                     <div>' . $badge . '</div>
+    //                     <div class="fw-semibold">' . $number . '</div>
+    //                     <small class="text-muted">' . $date . '</small>
+    //                 </div>
+    //             ';
+
+    //             // 👤 Partner
+    //             if ($inventory->purchase_id) {
+    //                 $partner = e(optional($inventory->purchase->supplier)->name ?? '-');
+    //             } elseif ($inventory->production_stock_id) {
+    //                 $partner = 'Production';
+    //             } elseif ($inventory->sale_return_id) {
+    //                 $partner = e(optional($inventory->saleReturn->customer)->name ?? '-');
+    //             } else {
+    //                 $partner = '-';
+    //             }
+
+    //             $isCompleted = $inventory->items->every(fn($i) => $i->stock_in >= $i->quantity);
+
+    //             $completeIcon = $isCompleted
+    //                 ? '<i class="fa fa-check-circle text-success ms-1"></i>'
+    //                 : '';
+
+    //             // 📦 Stock in partial
+    //             $stockInHtml = view('erp.pages.inventory.stock-in.partials.product-stock-in', compact('inventory'))->render();
+
+    //             // ⚙️ Action partial
+    //             $actionHtml = view('erp.pages.inventory.stock-in.partials.action-button-stock-in', compact('inventory'))->render();
+
+    //             return [
+    //                 'id' => $inventory->id,
+    //                 'transaction_number' => $transactionDisplay,
+    //                 'date' => $date,
+    //                 'date_raw' => $dateRaw,
+    //                 'partner_name' => $partner,
+    //                 'stock_in' => $stockInHtml,
+    //                 'action' => $actionHtml,
+
+    //                 // 📱 MOBILE
+    //                 'transaction_mobile' => '
+    //             <div>
+    //                 <div class="d-flex align-items-center gap-1">
+    //                     ' . $badge . '
+    //                     ' . $completeIcon . '
+    //                 </div>
+    //                 <div class="fw-semibold">' . $number . '</div>
+    //                 <small class="text-muted">' . $date . '</small>
+    //             </div>
+    //         ',
+
+    //                 'partner_mobile' => '
+    //             <div class="fw-semibold">' . $partner . '</div>
+    //         ',
+
+    //                 'items_mobile' => view(
+    //                     'erp.pages.inventory.stock-in.partials.product-stock-in-mobile',
+    //                     compact('inventory')
+    //                 )->render(),
+
+    //                 'action_mobile' => $actionHtml,
+    //             ];
+    //         }),
+    //         'has_more' => $totalData > ($start + $length),
+    //     ]);
+    // }
 
     public function getStockOut()
     {
