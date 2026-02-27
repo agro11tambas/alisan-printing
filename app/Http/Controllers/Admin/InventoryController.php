@@ -102,32 +102,58 @@ class InventoryController extends Controller
         }
 
         // ✅ Filter progress status
-        if ($request->filled('progress_status')) {
-            if ($request->progress_status === 'completed') {
-                $inventory->whereDoesntHave('items', function ($q) {
-                    $q->whereColumn('stock_in', '<', 'quantity');
-                });
-            } elseif ($request->progress_status === 'progress') {
-                $inventory->whereHas('items', function ($q) {
-                    $q->whereColumn('stock_in', '<', 'quantity');
-                });
-            }
-        }
+        // if ($request->filled('progress_status')) {
+        //     if ($request->progress_status === 'completed') {
+        //         $inventory->whereDoesntHave('items', function ($q) {
+        //             $q->whereColumn('stock_in', '<', 'quantity');
+        //         });
+        //     } elseif ($request->progress_status === 'progress') {
+        //         $inventory->whereHas('items', function ($q) {
+        //             $q->whereColumn('stock_in', '<', 'quantity');
+        //         });
+        //     }
+        // }
 
         // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $inventory;
-        $totalData = $totalQuery->count();
+        // $totalQuery = clone $inventory;
+        // $totalData = $totalQuery->count();
 
         // ✅ Ambil data sesuai offset dan limit
         $data = $inventory->skip($start)->take($length)->get();
 
         // Group by supplier + year-month
+        // $grouped = $data->groupBy(function ($item) {
+        //     $supplierId = optional($item->purchase->supplier ?? null)->id
+        //         ?? ($item->sale_return_id ? 'return_' . (optional($item->saleReturn->customer)->id ?? 'unknown') : 'other');
+        //     $month = Carbon::parse($item->purchase_date)->format('Y-m');
+        //     return $supplierId . '_' . $month;
+        // });
+
         $grouped = $data->groupBy(function ($item) {
             $supplierId = optional($item->purchase->supplier ?? null)->id
                 ?? ($item->sale_return_id ? 'return_' . (optional($item->saleReturn->customer)->id ?? 'unknown') : 'other');
-            $month = Carbon::parse($item->created_at)->format('Y-m');
+            $month = Carbon::parse($item->purchase?->purchase_date ?? $item->created_at)->format('Y-m');
             return $supplierId . '_' . $month;
         });
+
+        if ($request->filled('progress_status')) {
+            $grouped = $grouped->filter(function ($items) use ($request) {
+                // Cek apakah SEMUA items di semua invoice dalam group ini completed
+                $allCompleted = $items->every(function ($inv) {
+                    return $inv->items->every(fn($item) => $item->stock_in >= $item->quantity);
+                });
+
+                if ($request->progress_status === 'completed') {
+                    return $allCompleted;
+                } elseif ($request->progress_status === 'progress') {
+                    return !$allCompleted;
+                }
+
+                return true;
+            });
+        }
+
+        $totalData = $grouped->count();
 
         return response()->json([
             'data' => $grouped->map(function ($items) {
@@ -145,7 +171,10 @@ class InventoryController extends Controller
                     $badge   = '';
                 }
 
-                $month   = Carbon::parse($first->created_at)->format('F Y');
+                // $month   = Carbon::parse($first->purchase_date)->format('F Y');
+
+                $month = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->format('F Y');
+
                 $numbers = $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
                     ->filter()->unique()->implode(', ');
 
@@ -176,8 +205,11 @@ class InventoryController extends Controller
                 // })->implode(' ');
 
                 $supplierId = $first->purchase?->supplier?->id;
-                $year       = Carbon::parse($first->created_at)->year;
-                $month      = Carbon::parse($first->created_at)->month;
+                // $year       = Carbon::parse($first->purchase_date)->year;
+                // $month      = Carbon::parse($first->purchase_date)->month;
+
+                $year  = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->year;
+                $month = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->month;
                 $isGroupCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->quantity);
 
                 $actionHtml = view(
@@ -194,12 +226,14 @@ class InventoryController extends Controller
                 $numbersList = $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
                     ->filter()->unique()->values();
 
-                $displayNumbers = $numbersList->take(2)->implode('<br>');
-                $remainingCount = $numbersList->count() - 2;
-                $numberHtml = $displayNumbers;
-                if ($remainingCount > 0) {
-                    $numberHtml .= '<br><small class="text-muted">+' . $remainingCount . ' more</small>';
-                }
+                // $displayNumbers = $numbersList->take(2)->implode('<br>');
+                // $remainingCount = $numbersList->count() - 2;
+                // $numberHtml = $displayNumbers;
+                // if ($remainingCount > 0) {
+                //     $numberHtml .= '<br><small class="text-muted">+' . $remainingCount . ' more</small>';
+                // }
+
+                $numberHtml = $numbersList->implode('<br>');
 
                 $transactionDisplay = '
                     <div>
@@ -213,7 +247,8 @@ class InventoryController extends Controller
                     'id'                 => $first->id,
                     'transaction_number' => $transactionDisplay,
                     'date'               => $month,
-                    'date_raw'           => $first->created_at,
+                    // 'date_raw'           => $first->purchase_date,
+                    'date_raw' => $first->purchase?->purchase_date ?? $first->created_at,
                     'partner_name'       => $partner . ' <small class="text-muted">(' . $items->count() . ' PO)</small>',
                     'stock_in'           => $stockInHtml,
                     'action'             => $actionHtml,

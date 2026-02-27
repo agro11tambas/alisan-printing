@@ -2574,55 +2574,55 @@ class SaleListController extends Controller
                     $orderItem->refresh();
 
                     // ✅ CREATE COMPONENTS BARU
-                    if ($type === 'satuan') {
-                        $product = Products::findOrFail($productId);
-                        $avgCost = $product->avg_cost ?? 0;
-                        $fixedCostAtSale = $product->fixed_cost ?? 0;
+                    // if ($type === 'satuan') {
+                    //     $product = Products::findOrFail($productId);
+                    //     $avgCost = $product->avg_cost ?? 0;
+                    //     $fixedCostAtSale = $product->fixed_cost ?? 0;
 
-                        Log::info("➕ CREATING SATUAN COMPONENT", [
-                            'order_item_id' => $orderItem->id,
-                            'product_id' => $product->id,
-                            'qty' => $qty,
-                        ]);
+                    //     Log::info("➕ CREATING SATUAN COMPONENT", [
+                    //         'order_item_id' => $orderItem->id,
+                    //         'product_id' => $product->id,
+                    //         'qty' => $qty,
+                    //     ]);
 
-                        $orderItem->components()->create([
-                            'product_id'         => $product->id,
-                            'qty'                => $qty,
-                            'avg_cost_at_sale'   => $avgCost,
-                            'fixed_cost_at_sale' => $fixedCostAtSale,
-                            'total_cost'         => $avgCost * $qty,
-                            'total_fixed_cost'   => $fixedCostAtSale * $qty,
-                        ]);
+                    //     $orderItem->components()->create([
+                    //         'product_id'         => $product->id,
+                    //         'qty'                => $qty,
+                    //         'avg_cost_at_sale'   => $avgCost,
+                    //         'fixed_cost_at_sale' => $fixedCostAtSale,
+                    //         'total_cost'         => $avgCost * $qty,
+                    //         'total_fixed_cost'   => $fixedCostAtSale * $qty,
+                    //     ]);
 
-                        Log::info("✅ SATUAN COMPONENT CREATED");
-                    } elseif ($type === 'bundle') {
-                        $bundle = ProductBundle::with('items.product')->findOrFail($productId);
+                    //     Log::info("✅ SATUAN COMPONENT CREATED");
+                    // } elseif ($type === 'bundle') {
+                    //     $bundle = ProductBundle::with('items.product')->findOrFail($productId);
 
-                        Log::info("➕ CREATING BUNDLE COMPONENTS", [
-                            'order_item_id' => $orderItem->id,
-                            'bundle_id' => $bundle->id,
-                            'items_count' => $bundle->items->count(),
-                        ]);
+                    //     Log::info("➕ CREATING BUNDLE COMPONENTS", [
+                    //         'order_item_id' => $orderItem->id,
+                    //         'bundle_id' => $bundle->id,
+                    //         'items_count' => $bundle->items->count(),
+                    //     ]);
 
-                        foreach ($bundle->items as $bundleItem) {
-                            $componentProduct = $bundleItem->product;
-                            if (!$componentProduct) continue;
+                    //     foreach ($bundle->items as $bundleItem) {
+                    //         $componentProduct = $bundleItem->product;
+                    //         if (!$componentProduct) continue;
 
-                            $avgCost = $componentProduct->avg_cost ?? 0;
-                            $fixedCostAtSale = $componentProduct->fixed_cost ?? 0;
+                    //         $avgCost = $componentProduct->avg_cost ?? 0;
+                    //         $fixedCostAtSale = $componentProduct->fixed_cost ?? 0;
 
-                            $orderItem->components()->create([
-                                'product_id'         => $componentProduct->id,
-                                'qty'                => $qty,
-                                'avg_cost_at_sale'   => $avgCost,
-                                'fixed_cost_at_sale' => $fixedCostAtSale,
-                                'total_cost'         => $avgCost * $qty,
-                                'total_fixed_cost'   => $fixedCostAtSale * $qty,
-                            ]);
+                    //         $orderItem->components()->create([
+                    //             'product_id'         => $componentProduct->id,
+                    //             'qty'                => $qty,
+                    //             'avg_cost_at_sale'   => $avgCost,
+                    //             'fixed_cost_at_sale' => $fixedCostAtSale,
+                    //             'total_cost'         => $avgCost * $qty,
+                    //             'total_fixed_cost'   => $fixedCostAtSale * $qty,
+                    //         ]);
 
-                            Log::info("✅ BUNDLE COMPONENT CREATED for product_id: " . $componentProduct->id);
-                        }
-                    }
+                    //         Log::info("✅ BUNDLE COMPONENT CREATED for product_id: " . $componentProduct->id);
+                    //     }
+                    // }
 
                     Log::info("🎯 FINAL COMPONENT COUNT", [
                         'order_item_id' => $orderItem->id,

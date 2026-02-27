@@ -35,8 +35,10 @@ class HistoryStockInController extends Controller
         $groupedInventories = Inventory::with(['items.product', 'purchase.supplier'])
             ->where('status', 'Stock In')
             ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
-            ->whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
+            ->whereHas('purchase', function ($q) use ($year, $month) {
+                $q->whereYear('purchase_date', $year)
+                    ->whereMonth('purchase_date', $month);
+            })
             ->get();
 
         abort_if($groupedInventories->isEmpty(), 404);
@@ -369,8 +371,15 @@ class HistoryStockInController extends Controller
                 if ($addQty <= 0) continue;
 
                 // FIFO: urutkan inventory_item dari yang terlama (created_at ASC)
-                $inventoryItems = InventoryItem::whereIn('id', $itemData['inventory_item_ids'])
-                    ->orderBy('created_at', 'asc')
+                // $inventoryItems = InventoryItem::whereIn('id', $itemData['inventory_item_ids'])
+                //     ->orderBy('created_at', 'asc')
+                //     ->get();
+
+                $inventoryItems = InventoryItem::whereIn('inventory_items_2.id', $itemData['inventory_item_ids'])
+                    ->join('inventories_2', 'inventory_items_2.inventory_id', '=', 'inventories_2.id')
+                    ->join('purchases', 'inventories_2.purchase_id', '=', 'purchases.id')
+                    ->orderBy('purchases.purchase_date', 'asc')
+                    ->select('inventory_items_2.*')
                     ->get();
 
                 $remaining = $addQty;
@@ -405,8 +414,6 @@ class HistoryStockInController extends Controller
                         'notes'                 => $itemData['notes'] ?? null,
                     ]);
 
-                    $inventoryItem->increment('stock_in', $toAdd);
-
                     if ($inventoryItem->purchase_item_id) {
                         $purchaseItem = PurchaseItem::find($inventoryItem->purchase_item_id);
                         if ($purchaseItem) {
@@ -418,7 +425,9 @@ class HistoryStockInController extends Controller
                     $productId    = $inventoryItem->product_id;
                     $product      = Products::findOrFail($productId);
                     $previousCost = $product->avg_cost ?? 0;
-                    $previousQty  = max(0, $this->getTotalStockForAvg($productId) - $toAdd);
+                    $previousQty  = max(0, $this->getTotalStockForAvg($productId));
+
+                    $inventoryItem->increment('stock_in', $toAdd);
 
                     $inventoryStock = InventoryStock::firstOrCreate(
                         [
@@ -606,8 +615,10 @@ class HistoryStockInController extends Controller
         $groupedInventories = Inventory::with(['items.product', 'purchase.supplier'])
             ->where('status', 'Stock In')
             ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
-            ->whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
+            ->whereHas('purchase', function ($q) use ($year, $month) {
+                $q->whereYear('purchase_date', $year)
+                    ->whereMonth('purchase_date', $month);
+            })
             ->get();
 
         abort_if($groupedInventories->isEmpty(), 404);
@@ -642,8 +653,10 @@ class HistoryStockInController extends Controller
     {
         $inventoryIds = Inventory::where('status', 'Stock In')
             ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
-            ->whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
+            ->whereHas('purchase', function ($q) use ($year, $month) {
+                $q->whereYear('purchase_date', $year)
+                    ->whereMonth('purchase_date', $month);
+            })
             ->pluck('id');
 
         $stockIn = InventoryStockIn::with(['user', 'histories.inventoryItem.product'])
