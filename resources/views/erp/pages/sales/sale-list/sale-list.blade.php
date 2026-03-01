@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                                display: none !important;
-                                                                                                                                                                                                                                                                            } */
+                                                                                                                                                                                                                                                                                                                                                    display: none !important;
+                                                                                                                                                                                                                                                                                                                                                } */
 
         .sale-mobile-action {
             display: none;
@@ -456,6 +456,11 @@
                         <p style="font-size: 16px;">1. Apakah anda yakin ingin menghapus data ?</p>
                         <p style="font-size: 16px;">2. Jika ada kesalahan saat audit. Anda siap untuk Bertanggung Jawab ?
                             Kolom Keterangan (Wajib diisi)</p>
+                        <p style="font-size: 16px;">3. Anda akan menghapus order dari customer:</p>
+                        <ul style="font-size: 15px;">
+                            <li><strong>Nama Customer:</strong> <span id="delete_customer_name">-</span></li>
+                            <li><strong>Business:</strong> <span id="delete_business_name">-</span></li>
+                        </ul>
                         <div class="form-group mt-3">
                             <label for="delete_notes" class="fw-semibold">Keterangan <span
                                     class="text-danger">*</span></label>
@@ -789,6 +794,10 @@
                     <div class="modal-body">
                         <p class="mb-2">Anda akan menghapus <strong id="fd-order-number"></strong> secara permanen
                             beserta rollback stok produksi.</p>
+                        <ul>
+                            <li><strong>Nama Customer:</strong> <span id="fd-customer-name">-</span></li>
+                            <li><strong>Business:</strong> <span id="fd-business-name">-</span></li>
+                        </ul>
                         <div class="mb-3">
                             <label class="form-label">Delete Notes <span class="text-danger">*</span></label>
                             <textarea name="delete_notes" class="form-control" rows="3" required placeholder="Alasan penghapusan..."></textarea>
@@ -1159,13 +1168,6 @@
                 }
             });
 
-            // Close action dropdown saat klik di luar
-            // $(document).on('click', function(e) {
-            //     if ($(e.target).closest('#saleListTable').length) return;
-            //     $('#saleListTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-            // });
-
-            // Close action dropdown saat klik di luar - SALE LIST (setelah action button dropdown sale list)
             $(document).on('click', function(e) {
                 // Cek apakah klik di dalam salah satu tabel
                 if ($(e.target).closest('#saleListTable, #editedSaleListTable, #deletedSaleListTable')
@@ -2176,7 +2178,6 @@
 
 
             $(document).on('click', '.sale-mobile-card', function(e) {
-                // kalau klik button / link di dropdown → jangan toggle
                 if ($(e.target).closest('.sale-mobile-action, button, a').length) return;
 
                 const card = $(this);
@@ -2189,31 +2190,46 @@
             });
 
             $(document).on('click', function(e) {
-                // kalau klik di dalam card atau dropdown → abaikan
                 if ($(e.target).closest('.sale-mobile-card').length) return;
 
-                // kalau klik di mana saja di luar → tutup semua
                 $('.sale-mobile-card').removeClass('active');
             });
 
         });
 
         // Modal handlers
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('modalDeleteOrder');
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     const modal = document.getElementById('modalDeleteOrder');
+        //     const form = document.getElementById('formDeleteOrder');
+        //     const nameHolder = document.getElementById('OrderName');
+
+        //     modal.addEventListener('show.bs.modal', function(event) {
+        //         const button = event.relatedTarget;
+        //         const id = button.getAttribute('data-id');
+        //         const name = button.getAttribute('data-name');
+        //         const url = button.getAttribute('data-url');
+
+        //         form.action = url;
+        //         form.dataset.id = id;
+        //         nameHolder.textContent = name;
+        //     });
+        // });
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-delete');
+            if (!btn) return;
+
+            const id = btn.getAttribute('data-id');
+            const url = btn.getAttribute('data-url');
+            const customer = btn.getAttribute('data-customer');
+            const business = btn.getAttribute('data-business');
+
             const form = document.getElementById('formDeleteOrder');
-            const nameHolder = document.getElementById('OrderName');
+            form.action = url;
+            form.dataset.id = id;
 
-            modal.addEventListener('show.bs.modal', function(event) {
-                const button = event.relatedTarget;
-                const id = button.getAttribute('data-id');
-                const name = button.getAttribute('data-name');
-                const url = button.getAttribute('data-url');
-
-                form.action = url;
-                form.dataset.id = id;
-                nameHolder.textContent = name;
-            });
+            document.getElementById('delete_customer_name').textContent = customer ?? '-';
+            document.getElementById('delete_business_name').textContent = business ?? '-';
         });
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -2233,23 +2249,22 @@
             });
         });
 
-        // ========== MODAL HANDLER FORCE DELETE OWNER (COPY PERSIS DARI formDeleteOrder) ==========
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('modalForceDeleteOwner');
-            const form = document.getElementById('forceDeleteOwnerForm');
-            const nameHolder = document.getElementById('fd-order-number'); // id di modal kamu
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     const modal = document.getElementById('modalForceDeleteOwner');
+        //     const form = document.getElementById('forceDeleteOwnerForm');
+        //     const nameHolder = document.getElementById('fd-order-number'); // id di modal kamu
 
-            modal.addEventListener('show.bs.modal', function(event) {
-                const button = event.relatedTarget;
-                const id = button.getAttribute('data-id');
-                const name = button.getAttribute('data-name');
-                const url = button.getAttribute('data-url');
+        //     modal.addEventListener('show.bs.modal', function(event) {
+        //         const button = event.relatedTarget;
+        //         const id = button.getAttribute('data-id');
+        //         const name = button.getAttribute('data-name');
+        //         const url = button.getAttribute('data-url');
 
-                form.action = url;
-                form.dataset.id = id;
-                if (nameHolder) nameHolder.textContent = name; // isi nama ordernya
-            });
-        });
+        //         form.action = url;
+        //         form.dataset.id = id;
+        //         if (nameHolder) nameHolder.textContent = name; // isi nama ordernya
+        //     });
+        // });
 
         $(document).on('input', '#paid_amount', function() {
             // Jangan format kalau lagi di-set programmatically
@@ -2310,21 +2325,40 @@
             window.open(url, '_blank');
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('modalForceDeleteOrder');
-            const form = document.getElementById('formForceDeleteOrder');
-            const nameHolder = document.getElementById('ForceOrderName');
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     const modal = document.getElementById('modalForceDeleteOrder');
+        //     const form = document.getElementById('formForceDeleteOrder');
+        //     const nameHolder = document.getElementById('ForceOrderName');
 
-            modal.addEventListener('show.bs.modal', function(event) {
-                const button = event.relatedTarget;
-                const id = button.getAttribute('data-id');
-                const name = button.getAttribute('data-name');
-                const url = button.getAttribute('data-url');
+        //     modal.addEventListener('show.bs.modal', function(event) {
+        //         const button = event.relatedTarget;
+        //         const id = button.getAttribute('data-id');
+        //         const name = button.getAttribute('data-name');
+        //         const url = button.getAttribute('data-url');
 
-                form.action = url;
-                form.dataset.id = id;
-                nameHolder.textContent = name;
-            });
+        //         form.action = url;
+        //         form.dataset.id = id;
+        //         nameHolder.textContent = name;
+        //     });
+        // });
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-force-delete-owner');
+            if (!btn) return;
+
+            const id = btn.getAttribute('data-id');
+            const url = btn.getAttribute('data-url');
+            const name = btn.getAttribute('data-name');
+            const customer = btn.getAttribute('data-customer');
+            const business = btn.getAttribute('data-business');
+
+            const form = document.getElementById('forceDeleteOwnerForm');
+            form.action = url;
+            form.dataset.id = id;
+
+            document.getElementById('fd-order-number').textContent = name ?? '-';
+            document.getElementById('fd-customer-name').textContent = customer ?? '-';
+            document.getElementById('fd-business-name').textContent = business ?? '-';
         });
 
         document.addEventListener('DOMContentLoaded', function() {

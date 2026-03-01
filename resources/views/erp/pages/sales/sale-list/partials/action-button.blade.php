@@ -92,7 +92,8 @@
                 <li>
                     <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
                         data-bs-target="#modalDeleteOrder" data-id="{{ $order->id }}"
-                        data-name="{{ $order->name }}"
+                        data-name="{{ $order->name }}" data-customer="{{ $order->customer->name ?? '-' }}"
+                        data-business="{{ $order->customerAddress->business_name ?? '-' }}"
                         data-url="{{ url('/erp/sales/sale-list/delete/' . $order->id) }}">
                         <i class="feather feather-trash-2 me-3"></i>
                         <span>Delete</span>
@@ -116,6 +117,8 @@
                         <button type="button" class="dropdown-item text-danger btn-force-delete-owner"
                             data-bs-toggle="modal" data-bs-target="#modalForceDeleteOwner"
                             data-id="{{ $order->id }}" data-name="{{ $order->order_number }}"
+                            data-customer="{{ $order->customer->name ?? '-' }}"
+                            data-business="{{ $order->customerAddress->business_name ?? ($order->business_name ?? '-') }}"
                             data-url="{{ route('sales.sale-list.forceDeleteOwner', $order->id) }}">
                             <i class="feather feather-zap-off me-3"></i>
                             <span>Force Delete (Owner)</span>

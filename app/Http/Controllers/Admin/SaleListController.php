@@ -73,7 +73,7 @@ class SaleListController extends Controller
         $length = (int) $request->input('length', 50);
         $start = (int) $request->input('start', 0);
 
-        $orders = Order::with(['customer', 'user'])
+        $orders = Order::with(['customer', 'user', 'customerAddress'])
             ->where('status', 'sale list')
             ->orderBy('order_date', 'desc');
 
@@ -133,14 +133,6 @@ class SaleListController extends Controller
         }
         // 🔹 Pencarian keyword
         elseif ($request->filled('search_keyword')) {
-            // if ($request->search_type === 'customer') {
-            //     $orders->whereHas('customer', function ($query) use ($request) {
-            //         $query->where('name', 'like', '%' . $request->search_keyword . '%');
-            //     });
-            // } else {
-            //     $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
-            // }
-
             if ($request->search_type === 'customer') {
                 // $keyword = '%' . $request->search_keyword . '%';
                 $keyword = '%' . $request->search_keyword . '%';
@@ -161,14 +153,11 @@ class SaleListController extends Controller
             }
         }
 
-        // 🔹 Hindari query count dua kali
         $totalQuery = clone $orders;
         $totalData = $totalQuery->count();
 
-        // 🔹 Ambil data sesuai offset dan limit
         $data = $orders->skip($start)->take($length)->get();
 
-        // 🔹 Return format sama seperti product → JSON ringan untuk lazy load
         return response()->json([
             'data' => $data->map(function ($order) {
                 $orderCreatedAt = Carbon::parse($order->order_date)->format('d M y H:i');
@@ -183,7 +172,6 @@ class SaleListController extends Controller
                     ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Sale Return</span></div>'
                     : '';
 
-                // 🔸 Kolom tampilan
                 $orderNumber = $returnBadge . '
                 <div>
                     <div>' . e($order->order_number) . $editedBadge . '</div>
@@ -195,23 +183,16 @@ class SaleListController extends Controller
                 $badge = match ($status) {
                     'paid' => 'bg-soft-success text-success',
                     'unpaid' => 'bg-soft-dark text-dark',
-                    // 'overdue' => 'bg-soft-danger text-danger',
                     'overpaid' => 'bg-soft-primary text-primary',
                     'partially paid' => 'bg-soft-warning text-warning',
                     default => 'bg-secondary',
                 };
 
-                // 🔹 Tambahkan centang jika verified = true
                 $verifiedIcon = '';
                 if ($order->verified) {
                     $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
                 }
 
-                // $paymentStatus = '<div class="badge ' . $badge . '">' . ucfirst($status) . '</div>' . $verifiedIcon;
-
-                // =======================
-                //  CEK OVERDUE
-                // =======================
                 $isOverdue = false;
 
                 if ($order->due_date) {
@@ -224,9 +205,6 @@ class SaleListController extends Controller
                     }
                 }
 
-                // =======================
-                //  PAYMENT STATUS BADGE
-                // =======================
                 $paymentStatus = '
                     <div class="d-flex flex-column gap-1">
                         <div class="d-flex align-items-center gap-1">
@@ -368,16 +346,6 @@ class SaleListController extends Controller
 
                 $orderMonthStart = Carbon::parse($order->order_date)->startOfMonth();
                 $orderMonthEnd   = Carbon::parse($order->order_date)->endOfMonth();
-
-                // $orderCount = Order::where('status', 'sale list')
-                //     ->where('customer_id', $order->customer_id)
-                //     ->whereBetween('order_date', [$orderMonthStart, $orderMonthEnd])
-                //     ->when($businessName, function ($q) use ($businessName) {
-                //         $q->whereHas('customerAddress', function ($sub) use ($businessName) {
-                //             $sub->where('business_name', $businessName);
-                //         });
-                //     })
-                //     ->count();
 
                 $ordersInMonth = Order::where('status', 'sale list')
                     ->where('customer_id', $order->customer_id)
