@@ -176,6 +176,7 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     $incomingQuery = DB::table('inventory_items_2')
                         ->where('product_id', $product->id)
+                        ->whereNull('deleted_at')
                         ->whereNotNull(['purchase_item_id', 'inventory_warehouse_id']);
 
                     $incomingQuery = $this->applyDateFilter($incomingQuery, $request);
