@@ -67,4 +67,19 @@ class OrderProgressItem extends Model
     {
         return $this->belongsTo(DesignItem::class, 'design_item_id');
     }
+
+    protected static function booted()
+    {
+        static::deleting(function ($item) {
+            if ($item->isForceDeleting()) {
+                $item->assigns()->withTrashed()->get()->each->forceDelete();
+            } else {
+                $item->assigns()->get()->each->delete();
+            }
+        });
+
+        static::restoring(function ($item) {
+            $item->assigns()->withTrashed()->get()->each->restore();
+        });
+    }
 }

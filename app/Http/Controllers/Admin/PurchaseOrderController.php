@@ -525,7 +525,7 @@ class PurchaseOrderController extends Controller
             'total_amount_product'  => 'required|numeric|min:0',
             'total_amount_freight'  => 'required|numeric|min:0',
             'total_amount'          => 'required|numeric|min:0',
-
+            'stock_destination'     => 'required|in:warehouse,production',
         ]);
 
         DB::beginTransaction();
@@ -567,6 +567,26 @@ class PurchaseOrderController extends Controller
             $paidFreight       = 0;
             $remainingFreight  = $totalFreight;
 
+            foreach ($purchase->purchaseItems as $oldItem) {
+                if ($purchase->stock_destination === 'warehouse' && $oldItem->inventory_warehouse_id) {
+                    $oldStock = InventoryStock::where('product_id', $oldItem->product_id)
+                        ->where('inventory_warehouse_id', $oldItem->inventory_warehouse_id)
+                        ->first();
+                    if ($oldStock) {
+                        $oldStock->decrement('incoming_stock', $oldItem->quantity);
+                    }
+                }
+
+                if ($purchase->stock_destination === 'production' && $oldItem->production_warehouse_id) {
+                    $oldStock = ProductionStock::where('product_id', $oldItem->product_id)
+                        ->where('production_warehouse_id', $oldItem->production_warehouse_id)
+                        ->first();
+                    if ($oldStock) {
+                        $oldStock->decrement('incoming_stock', $oldItem->quantity);
+                    }
+                }
+            }
+
             // ====== UPDATE HEADER ======
             $purchase->update([
                 'purchase_number'           => $request->purchase_number,
@@ -596,8 +616,16 @@ class PurchaseOrderController extends Controller
                 'paid_amount'               => 0,
                 'remaining_amount'          => $grandTotal,
                 'status'                    => $status,
-
+                'stock_destination'         => $request->stock_destination,
             ]);
+
+            $purchase->refresh();
+
+            $inventoryStatus = match ($request->stock_destination) {
+                'warehouse'  => 'Stock In',
+                'production' => 'Stock In Production',
+            };
+
 
             // foreach ($purchase->purchaseItems as $oldItem) {
             //     $oldStock = InventoryStock::where('product_id', $oldItem->product_id)
@@ -653,9 +681,9 @@ class PurchaseOrderController extends Controller
                 //     ]
                 // );
 
-                $inventoryStatus = $purchase->stock_destination === 'production'
-                    ? 'Stock In Production'
-                    : 'Stock In';
+                // $inventoryStatus = $purchase->stock_destination === 'production'
+                //     ? 'Stock In Production'
+                //     : 'Stock In';
 
                 $inventory = Inventory::firstOrCreate(
                     ['purchase_id' => $purchase->id],
