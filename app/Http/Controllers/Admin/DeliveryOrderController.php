@@ -27,7 +27,7 @@ class DeliveryOrderController extends Controller
             'items.product',                      // 🔥 load semua item barang
             'items.orderProgress.items',          // 🔥 load progress per item
             'items.deliveryListItems.shipment',   // 🔥 load list pengiriman
-        ])->orderByDesc('id');
+        ]);
 
         // 🔎 Filter by date
         if ($request->filter) {
@@ -94,6 +94,16 @@ class DeliveryOrderController extends Controller
             $deliveryOrders->whereHas('items.product', function ($q) use ($productKeyword) {
                 $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
             });
+        }
+
+        $status = strtolower($request->input('status', ''));
+
+        if (in_array($status, ['finished', 'shipped'])) {
+            $deliveryOrders->orderBy('delivery_date', 'desc');
+        } elseif (in_array($status, ['pending', 'ongoing'])) {
+            $deliveryOrders->orderBy('delivery_date', 'asc');
+        } else {
+            $deliveryOrders->orderByDesc('id'); // default
         }
 
         // ✅ Hindari query count dua kali

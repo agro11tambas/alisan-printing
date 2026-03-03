@@ -518,8 +518,22 @@ class OrderProgressAssignController extends Controller
         $batches = OrderProgressAssignBatch::with([
             'assigns.operator',
             'orderProgress.order.customer'
-        ])->orderBy('assign_date', 'desc');
+        ]);
 
+        if ($request->filled('progress_status')) {
+            switch ($request->progress_status) {
+                case 'progress':
+                    $batches->where('status', '!=', 'completed')
+                        ->orderBy('assign_date', 'asc'); // ⬅️ terlama dulu
+                    break;
+                case 'completed':
+                    $batches->where('status', 'completed')
+                        ->orderBy('assign_date', 'desc'); // ⬅️ terbaru dulu
+                    break;
+            }
+        } else {
+            $batches->orderBy('assign_date', 'desc'); // ⬅️ default = desc
+        }
 
         // 🔹 Filter berdasarkan status progress
         if ($request->filled('progress_status')) {

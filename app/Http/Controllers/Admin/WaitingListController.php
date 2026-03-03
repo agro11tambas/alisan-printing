@@ -156,9 +156,28 @@ class WaitingListController extends Controller
         //     ->take($length)
         //     ->get();
 
-        $sort = $request->input('sort', 'latest'); // latest | oldest
-        $sortDirection = $sort === 'oldest' ? 'asc' : 'desc';
+        // $sort = $request->input('sort', 'latest');
+        // $sortDirection = $sort === 'oldest' ? 'asc' : 'desc';
 
+        // Filter progress_status — SEKALI SAJA
+        if ($request->filled('progress_status')) {
+            if ($request->progress_status === 'completed') {
+                $baseQuery->whereDoesntHave('items', function ($q) {
+                    $q->whereColumn('completed_quantity', '<', 'quantity');
+                })->orderBy('created_at', 'desc'); // terbaru dulu
+            } elseif ($request->progress_status === 'progress') {
+                $baseQuery->whereHas('items', function ($q) {
+                    $q->whereColumn('completed_quantity', '<', 'quantity');
+                })->orderBy('created_at', 'asc'); // terlama dulu
+            }
+        } else {
+            $baseQuery->orderBy('created_at', 'desc'); // default
+        }
+
+        // Hitung total SETELAH semua filter diterapkan
+        $totalData = (clone $baseQuery)->count();
+
+        // Ambil data — SEKALI SAJA
         $data = (clone $baseQuery)
             ->with([
                 'order.customer',
@@ -166,11 +185,9 @@ class WaitingListController extends Controller
                 'items.product.productionStocks',
                 'items.product.categories'
             ])
-            ->orderBy('created_at', $sortDirection)
             ->skip($start)
             ->take($length)
             ->get();
-
 
         $mappedData = $data->map(function ($progress) {
             // $orderCreatedAt = optional($progress->order)->created_at;

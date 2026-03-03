@@ -109,7 +109,18 @@ class DeliveryListController extends Controller
         $totalData = $totalQuery->count();
 
         // ✅ Ambil data sesuai offset dan limit
-        $data = $deliveryLists->latest()->skip($start)->take($length)->get();
+        // $data = $deliveryLists->latest()->skip($start)->take($length)->get();
+        $status = strtolower($request->input('status', ''));
+
+        if ($status === 'finished') {
+            $deliveryLists->orderBy('shipment_date', 'desc'); // terbaru dulu
+        } elseif ($status === 'ongoing') {
+            $deliveryLists->orderBy('shipment_date', 'asc'); // terlama dulu
+        } else {
+            $deliveryLists->orderBy('shipment_date', 'desc'); // default
+        }
+
+        $data = $deliveryLists->skip($start)->take($length)->get();
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
