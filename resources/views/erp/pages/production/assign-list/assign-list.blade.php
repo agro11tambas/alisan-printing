@@ -295,9 +295,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                order: [
-                    [4, 'asc']
-                ],
+                order: [],
                 data: [],
                 columns: [
                     // {

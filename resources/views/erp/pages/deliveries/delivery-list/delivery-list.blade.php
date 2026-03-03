@@ -377,9 +377,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
-                order: [
-                    [7, 'asc']
-                ],
+                order: [],
                 data: [],
                 columns: [
 
