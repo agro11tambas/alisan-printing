@@ -1232,83 +1232,169 @@ class SaleListController extends Controller
                         }
                     }
                 }
-            } else {
-                // ================== MODE POLOSAN → SIMPAN KE DELIVERY ORDER ==================
-                $deliveryNumber = $orderNumber;
-                $customer = $order->customer?->name ?? '-';
-                $address = $order->shipping_address ?? '-';
-                $maps = $order->google_maps ?? null;
+                // } else {
+                //     // ================== MODE POLOSAN → SIMPAN KE DELIVERY ORDER ==================
+                //     $deliveryNumber = $orderNumber;
+                //     $customer = $order->customer?->name ?? '-';
+                //     $address = $order->shipping_address ?? '-';
+                //     $maps = $order->google_maps ?? null;
 
-                $deliveryOrder = DeliveryOrder::create([
-                    'order_id'         => $order->id,
-                    'design_id'        => null,
-                    'delivery_number'  => $deliveryNumber,
-                    'delivery_date'    => $request->order_date,
-                    'note'             => $request->notes,
-                    'status'           => 'Ongoing',
-                    'customer'         => $customer,
-                    'shipping_address' => $address,
-                    'google_map_link'  => $maps,
-                    'created_by'       => Auth::id(),
+                //     $deliveryOrder = DeliveryOrder::create([
+                //         'order_id'         => $order->id,
+                //         'design_id'        => null,
+                //         'delivery_number'  => $deliveryNumber,
+                //         'delivery_date'    => $request->order_date,
+                //         'note'             => $request->notes,
+                //         'status'           => 'Ongoing',
+                //         'customer'         => $customer,
+                //         'shipping_address' => $address,
+                //         'google_map_link'  => $maps,
+                //         'created_by'       => Auth::id(),
+                //     ]);
+
+                //     foreach ($order->orderItems as $orderItem) {
+                //         // Produk satuan
+                //         if ($orderItem->satuan === 'satuan') {
+                //             DeliveryOrderItem::create([
+                //                 'delivery_order_id' => $deliveryOrder->id,
+                //                 'order_item_id'     => $orderItem->id,
+                //                 'product_id'        => $orderItem->product_id,
+                //                 'status'            => 'Pending',
+                //                 'progress_qty'      => 0,
+                //                 'ready_qty'         => $orderItem->quantity,
+                //                 'shipped_qty'       => 0,
+                //                 'note'              => null,
+                //             ]);
+
+                //             $productionStock = \App\Models\ProductionStock::where('product_id', $orderItem->product_id)->first();
+                //             if ($productionStock) {
+                //                 $productionStock->decrement('available_quantity', $orderItem->quantity);
+                //             }
+
+                //             // $inventoryStock = \App\Models\InventoryStock::where('product_id', $orderItem->product_id)
+                //             //     ->where('inventory_warehouse_id', $warehouseId)
+                //             //     ->first();
+                //             // if ($inventoryStock) {
+                //             //     $inventoryStock->decrement('stock_after_sales', $orderItem->quantity);
+                //             // }
+                //         }
+
+                //         // Produk bundle
+                //         elseif ($orderItem->satuan === 'bundle') {
+                //             foreach ($orderItem->productBundle->items as $bundleItem) {
+                //                 $bundleProduct = $bundleItem->product;
+                //                 if (!$bundleProduct) continue;
+
+                //                 DeliveryOrderItem::create([
+                //                     'delivery_order_id' => $deliveryOrder->id,
+                //                     'order_item_id'     => $orderItem->id,
+                //                     'product_id'        => $bundleProduct->id,
+                //                     'status'            => 'Pending',
+                //                     'progress_qty'      => 0,
+                //                     'ready_qty'         => $orderItem->quantity,
+                //                     'shipped_qty'       => 0,
+                //                     'note'              => null,
+                //                 ]);
+
+                //                 $productionStock = \App\Models\ProductionStock::where('product_id', $bundleProduct->id)->first();
+                //                 if ($productionStock) {
+                //                     $productionStock->decrement('available_quantity', $orderItem->quantity);
+                //                 }
+
+                //                 $inventoryStock = \App\Models\InventoryStock::where('product_id', $bundleProduct->id)
+                //                     ->where('inventory_warehouse_id', $warehouseId)
+                //                     ->first();
+                //                 if ($inventoryStock) {
+                //                     $inventoryStock->decrement('stock_after_sales', $orderItem->quantity);
+                //                 }
+                //             }
+                //         }
+                //     }
+                // }
+            } else {
+                // ================== MODE POLOSAN → DESIGN (approved) → ORDER PROGRESS → DELIVERY ==================
+                // 1️⃣ Buat Design langsung approved
+                $design = Design::create([
+                    'order_id'            => $order->id,
+                    'design_number'       => $orderNumber,
+                    'date'                => now()->format('Y-m-d'),
+                    'status'              => 'Verified',
+                    'notes'               => null,
+                    'verification_status' => 'approved',
+                    'verified_by'         => Auth::id(),
+                    'verified_at'         => now(),
                 ]);
 
+                // Buat DesignItem (sama seperti mode printing)
                 foreach ($order->orderItems as $orderItem) {
-                    // Produk satuan
+                    $qty = $orderItem->quantity;
+
                     if ($orderItem->satuan === 'satuan') {
-                        DeliveryOrderItem::create([
-                            'delivery_order_id' => $deliveryOrder->id,
-                            'order_item_id'     => $orderItem->id,
-                            'product_id'        => $orderItem->product_id,
-                            'status'            => 'Pending',
-                            'progress_qty'      => 0,
-                            'ready_qty'         => $orderItem->quantity,
-                            'shipped_qty'       => 0,
-                            'note'              => null,
+                        DesignItem::create([
+                            'design_id'           => $design->id,
+                            'order_item_id'       => $orderItem->id,
+                            'product_id'          => $orderItem->product_id,
+                            'quantity'            => $qty,
+                            'completed_quantity'  => 0,
+                            'design_file'         => null,
+                            'preview_image'       => null,
+                            'verification_status' => 'approved',
                         ]);
-
-                        $productionStock = \App\Models\ProductionStock::where('product_id', $orderItem->product_id)->first();
-                        if ($productionStock) {
-                            $productionStock->decrement('available_quantity', $orderItem->quantity);
-                        }
-
-                        // $inventoryStock = \App\Models\InventoryStock::where('product_id', $orderItem->product_id)
-                        //     ->where('inventory_warehouse_id', $warehouseId)
-                        //     ->first();
-                        // if ($inventoryStock) {
-                        //     $inventoryStock->decrement('stock_after_sales', $orderItem->quantity);
-                        // }
-                    }
-
-                    // Produk bundle
-                    elseif ($orderItem->satuan === 'bundle') {
+                    } elseif ($orderItem->satuan === 'bundle') {
                         foreach ($orderItem->productBundle->items as $bundleItem) {
                             $bundleProduct = $bundleItem->product;
                             if (!$bundleProduct) continue;
 
-                            DeliveryOrderItem::create([
-                                'delivery_order_id' => $deliveryOrder->id,
-                                'order_item_id'     => $orderItem->id,
-                                'product_id'        => $bundleProduct->id,
-                                'status'            => 'Pending',
-                                'progress_qty'      => 0,
-                                'ready_qty'         => $orderItem->quantity,
-                                'shipped_qty'       => 0,
-                                'note'              => null,
+                            DesignItem::create([
+                                'design_id'           => $design->id,
+                                'order_item_id'       => $orderItem->id,
+                                'product_id'          => $bundleProduct->id,
+                                'quantity'            => $qty,
+                                'completed_quantity'  => 0,
+                                'design_file'         => null,
+                                'preview_image'       => null,
+                                'verification_status' => 'approved',
                             ]);
-
-                            $productionStock = \App\Models\ProductionStock::where('product_id', $bundleProduct->id)->first();
-                            if ($productionStock) {
-                                $productionStock->decrement('available_quantity', $orderItem->quantity);
-                            }
-
-                            $inventoryStock = \App\Models\InventoryStock::where('product_id', $bundleProduct->id)
-                                ->where('inventory_warehouse_id', $warehouseId)
-                                ->first();
-                            if ($inventoryStock) {
-                                $inventoryStock->decrement('stock_after_sales', $orderItem->quantity);
-                            }
                         }
                     }
+                }
+
+                // 2️⃣ Buat OrderProgress (seperti di verify())
+                $orderProgress = OrderProgress::create([
+                    'order_id'       => $order->id,
+                    'design_id'      => $design->id,
+                    'date'           => now()->format('Y-m-d'),
+                    'status'         => 'Pending',
+                    'notes'          => null,
+                    'invoice_number' => $order->order_number,
+                ]);
+
+                foreach ($design->items as $designItem) {
+                    OrderProgressItem::create([
+                        'order_progress_id'  => $orderProgress->id,
+                        'design_item_id'     => $designItem->id,
+                        'order_item_id'      => $designItem->order_item_id,
+                        'product_id'         => $designItem->product_id,
+                        'quantity'           => $designItem->quantity,
+                        'completed_quantity' => 0,
+                    ]);
+
+                    // Increment pending_waiting_list di ProductionStock
+                    $productionStock = \App\Models\ProductionStock::firstOrCreate(
+                        [
+                            'product_id'              => $designItem->product_id,
+                            'production_warehouse_id' => 2,
+                        ],
+                        [
+                            'opening_stock'          => 0,
+                            'available_quantity'     => 0,
+                            'finished_product_stock' => 0,
+                            'canceled_product_stock' => 0,
+                            'pending_waiting_list'   => 0,
+                        ]
+                    );
+
+                    $productionStock->increment('pending_waiting_list', $designItem->quantity);
                 }
             }
 
@@ -3250,171 +3336,349 @@ class SaleListController extends Controller
                     // ❌ Tidak ada OrderProgress → skip update DO
                     Log::info("Skip sinkronisasi Delivery Order karena OrderProgress belum ada untuk Order ID {$order->id}");
                 }
-            } else {
-                // ================== MODE POLOSAN (Tanpa Design & Progress) ==================
-                $warehouseId = $request->inventory_warehouse_id ?? 1;
+                // } else {
+                //     // ================== MODE POLOSAN (Tanpa Design & Progress) ==================
+                //     $warehouseId = $request->inventory_warehouse_id ?? 1;
 
-                // Ambil DO (termasuk soft deleted)
-                $deliveryOrder = \App\Models\DeliveryOrder::withTrashed()
+                //     // Ambil DO (termasuk soft deleted)
+                //     $deliveryOrder = \App\Models\DeliveryOrder::withTrashed()
+                //         ->where('order_id', $order->id)
+                //         ->first();
+
+                //     if ($deliveryOrder) {
+                //         if ($deliveryOrder->trashed()) {
+                //             $deliveryOrder->restore();
+                //         }
+
+                //         $deliveryOrder->update([
+                //             'delivery_date'    => $order->order_date,
+                //             'note'             => $request->notes,
+                //             'status'           => 'Ongoing',
+                //             'customer'         => $order->customer?->name ?? '-',
+                //             'shipping_address' => $order->shipping_address,
+                //             'google_map_link'  => $order->google_maps,
+                //         ]);
+                //     } else {
+                //         $deliveryOrder = \App\Models\DeliveryOrder::create([
+                //             'order_id'         => $order->id,
+                //             'design_id'        => null,
+                //             'delivery_number'  => $order->order_number,
+                //             'delivery_date'    => $order->order_date,
+                //             'note'             => $request->notes,
+                //             'status'           => 'Ongoing',
+                //             'customer'         => $order->customer?->name ?? '-',
+                //             'shipping_address' => $order->shipping_address,
+                //             'google_map_link'  => $order->google_maps,
+                //             'created_by'       => Auth::id(),
+                //         ]);
+                //     }
+
+                //     // 🔥 FIX: Ambil existing items DI AWAL untuk snapshot stok lama
+                //     $existingDoItemsForStock = $deliveryOrder->items->mapWithKeys(fn($i) => [
+                //         $i->order_item_id . '_' . $i->product_id => [
+                //             'product_id' => $i->product_id,
+                //             'ready_qty'  => $i->ready_qty
+                //         ]
+                //     ]);
+
+                //     // Ambil existing items untuk update/create logic
+                //     $existingDoItems = $deliveryOrder->items->keyBy(
+                //         fn($item) => $item->order_item_id . '_' . $item->product_id
+                //     );
+
+                //     $newDoKeys = [];
+
+                //     // 🔥 GUNAKAN OrderItemComponent untuk Mode Polosan
+                //     $components = \App\Models\OrderItemComponent::whereIn('order_item_id', $order->orderItems->pluck('id'))
+                //         ->with('orderItem')
+                //         ->get();
+
+                //     foreach ($components as $component) {
+                //         $orderItem = $component->orderItem;
+                //         $productId = $component->product_id;
+                //         $qty = $component->qty;
+
+                //         // 🔥 KEY BERDASARKAN order_item_id + product_id dari component
+                //         $key = "{$component->order_item_id}_{$productId}";
+                //         $newDoKeys[] = $key;
+
+                //         $existingItem = $existingDoItems->get($key);
+
+                //         if ($existingItem) {
+                //             // ================== UPDATE ITEM ==================
+                //             $oldQty = $existingItem->ready_qty;
+                //             $newQty = $qty;
+                //             $diffQty = $newQty - $oldQty;
+
+                //             $existingItem->update([
+                //                 'ready_qty'    => $newQty,
+                //                 'progress_qty' => 0,
+                //                 'shipped_qty'  => 0,
+                //                 'note'         => $request->notes,
+                //             ]);
+
+                //             Log::info("✅ DO Item Polosan Updated", [
+                //                 'key' => $key,
+                //                 'order_item_id' => $orderItem->id,
+                //                 'product_id' => $productId,
+                //                 'old_qty' => $oldQty,
+                //                 'new_qty' => $newQty,
+                //             ]);
+
+                //             // UPDATE STOK PRODUKSI
+                //             if ($diffQty !== 0) {
+                //                 $ps = \App\Models\ProductionStock::firstOrCreate(
+                //                     ['product_id' => $productId],
+                //                     ['available_quantity' => 0]
+                //                 );
+
+                //                 if ($diffQty > 0) {
+                //                     // Qty naik → stok berkurang
+                //                     $ps->decrement('available_quantity', $diffQty);
+                //                     Log::info("⬇️ Decrement available_quantity: {$diffQty} for product {$productId}");
+                //                 } else {
+                //                     // Qty turun → stok kembali
+                //                     $ps->increment('available_quantity', abs($diffQty));
+                //                     Log::info("⬆️ Increment available_quantity: " . abs($diffQty) . " for product {$productId}");
+                //                 }
+                //             }
+                //         } else {
+                //             // ================== CREATE ITEM BARU ==================
+                //             \App\Models\DeliveryOrderItem::create([
+                //                 'delivery_order_id' => $deliveryOrder->id,
+                //                 'order_item_id'     => $orderItem->id,
+                //                 'product_id'        => $productId,
+                //                 'status'            => 'Pending',
+                //                 'progress_qty'      => 0,
+                //                 'ready_qty'         => $qty,
+                //                 'shipped_qty'       => 0,
+                //                 'note'              => $request->notes,
+                //             ]);
+
+                //             Log::info("➕ DO Item Polosan Created", [
+                //                 'key' => $key,
+                //                 'order_item_id' => $orderItem->id,
+                //                 'product_id' => $productId,
+                //                 'qty' => $qty,
+                //             ]);
+
+                //             // Kurangi stok produksi
+                //             $ps = \App\Models\ProductionStock::firstOrCreate(
+                //                 ['product_id' => $productId],
+                //                 ['available_quantity' => 0]
+                //             );
+                //             $ps->decrement('available_quantity', $qty);
+                //             Log::info("⬇️ Decrement available_quantity (new item): {$qty} for product {$productId}");
+                //         }
+                //     }
+
+                //     // ================== DELETE ITEM LAMA ==================
+                //     // 🔥 FIX: Gunakan snapshot stok lama (existingDoItemsForStock) untuk detect item yang dihapus
+                //     foreach ($existingDoItemsForStock as $key => $oldItem) {
+                //         if (!in_array($key, $newDoKeys)) {
+
+                //             $restoreProductId = $oldItem['product_id'];
+                //             $restoreQty       = $oldItem['ready_qty'];
+
+                //             Log::info("🗑️ Menghapus DO Item Polosan yang tidak ada lagi", [
+                //                 'key' => $key,
+                //                 'product_id' => $restoreProductId,
+                //                 'qty' => $restoreQty,
+                //             ]);
+
+                //             // Kembalikan stok
+                //             if ($restoreQty > 0) {
+                //                 $ps = \App\Models\ProductionStock::firstOrCreate(
+                //                     ['product_id' => $restoreProductId],
+                //                     ['available_quantity' => 0]
+                //                 );
+                //                 $ps->increment('available_quantity', $restoreQty);
+                //                 Log::info("⬆️ Restore available_quantity: {$restoreQty} for product {$restoreProductId}");
+                //             }
+
+                //             // Hapus DO item
+                //             $deliveryOrder->items()
+                //                 ->where('order_item_id', explode('_', $key)[0])
+                //                 ->where('product_id', $restoreProductId)
+                //                 ->delete();
+                //         }
+                //     }
+                // }
+
+            } else {
+                // ================== MODE POLOSAN → SYNC DESIGN (approved) + ORDER PROGRESS ==================
+
+                // 1️⃣ Ambil atau buat Design (langsung approved)
+                // Cek dulu termasuk soft deleted
+                $design = \App\Models\Design::withTrashed()
                     ->where('order_id', $order->id)
                     ->first();
 
-                if ($deliveryOrder) {
-                    if ($deliveryOrder->trashed()) {
-                        $deliveryOrder->restore();
+                if ($design) {
+                    // Restore kalau soft deleted
+                    if ($design->trashed()) {
+                        $design->restore();
                     }
-
-                    $deliveryOrder->update([
-                        'delivery_date'    => $order->order_date,
-                        'note'             => $request->notes,
-                        'status'           => 'Ongoing',
-                        'customer'         => $order->customer?->name ?? '-',
-                        'shipping_address' => $order->shipping_address,
-                        'google_map_link'  => $order->google_maps,
+                    $design->update([
+                        'date'                => now()->format('Y-m-d'),
+                        'notes'               => $request->notes ?? $design->notes,
+                        'status'              => 'Verified',
+                        'verification_status' => 'approved',
+                        'verified_by'         => $design->verified_by ?? Auth::id(),
+                        'verified_at'         => $design->verified_at ?? now(),
                     ]);
                 } else {
-                    $deliveryOrder = \App\Models\DeliveryOrder::create([
-                        'order_id'         => $order->id,
-                        'design_id'        => null,
-                        'delivery_number'  => $order->order_number,
-                        'delivery_date'    => $order->order_date,
-                        'note'             => $request->notes,
-                        'status'           => 'Ongoing',
-                        'customer'         => $order->customer?->name ?? '-',
-                        'shipping_address' => $order->shipping_address,
-                        'google_map_link'  => $order->google_maps,
-                        'created_by'       => Auth::id(),
+                    $design = Design::create([
+                        'order_id'            => $order->id,
+                        'design_number'       => $order->order_number,
+                        'date'                => now()->format('Y-m-d'),
+                        'status'              => 'Verified',
+                        'notes'               => $request->notes ?? null,
+                        'verification_status' => 'approved',
+                        'verified_by'         => Auth::id(),
+                        'verified_at'         => now(),
                     ]);
                 }
 
-                // 🔥 FIX: Ambil existing items DI AWAL untuk snapshot stok lama
-                $existingDoItemsForStock = $deliveryOrder->items->mapWithKeys(fn($i) => [
-                    $i->order_item_id . '_' . $i->product_id => [
-                        'product_id' => $i->product_id,
-                        'ready_qty'  => $i->ready_qty
-                    ]
-                ]);
-
-                // Ambil existing items untuk update/create logic
-                $existingDoItems = $deliveryOrder->items->keyBy(
+                // 2️⃣ Sync DesignItems dari OrderItemComponent
+                $existingDesignItems = $design->items->keyBy(
                     fn($item) => $item->order_item_id . '_' . $item->product_id
                 );
 
-                $newDoKeys = [];
-
-                // 🔥 GUNAKAN OrderItemComponent untuk Mode Polosan
                 $components = \App\Models\OrderItemComponent::whereIn('order_item_id', $order->orderItems->pluck('id'))
                     ->with('orderItem')
                     ->get();
 
+                $newDesignKeys = [];
+
                 foreach ($components as $component) {
                     $orderItem = $component->orderItem;
                     $productId = $component->product_id;
-                    $qty = $component->qty;
+                    $qty       = $component->qty;
+                    $key       = "{$component->order_item_id}_{$productId}";
+                    $newDesignKeys[] = $key;
 
-                    // 🔥 KEY BERDASARKAN order_item_id + product_id dari component
-                    $key = "{$component->order_item_id}_{$productId}";
-                    $newDoKeys[] = $key;
-
-                    $existingItem = $existingDoItems->get($key);
-
-                    if ($existingItem) {
-                        // ================== UPDATE ITEM ==================
-                        $oldQty = $existingItem->ready_qty;
-                        $newQty = $qty;
-                        $diffQty = $newQty - $oldQty;
-
-                        $existingItem->update([
-                            'ready_qty'    => $newQty,
-                            'progress_qty' => 0,
-                            'shipped_qty'  => 0,
-                            'note'         => $request->notes,
+                    if ($existingDesignItems->has($key)) {
+                        $existingDesignItems[$key]->update([
+                            'quantity'            => $qty,
+                            'verification_status' => 'approved',
                         ]);
-
-                        Log::info("✅ DO Item Polosan Updated", [
-                            'key' => $key,
-                            'order_item_id' => $orderItem->id,
-                            'product_id' => $productId,
-                            'old_qty' => $oldQty,
-                            'new_qty' => $newQty,
-                        ]);
-
-                        // UPDATE STOK PRODUKSI
-                        if ($diffQty !== 0) {
-                            $ps = \App\Models\ProductionStock::firstOrCreate(
-                                ['product_id' => $productId],
-                                ['available_quantity' => 0]
-                            );
-
-                            if ($diffQty > 0) {
-                                // Qty naik → stok berkurang
-                                $ps->decrement('available_quantity', $diffQty);
-                                Log::info("⬇️ Decrement available_quantity: {$diffQty} for product {$productId}");
-                            } else {
-                                // Qty turun → stok kembali
-                                $ps->increment('available_quantity', abs($diffQty));
-                                Log::info("⬆️ Increment available_quantity: " . abs($diffQty) . " for product {$productId}");
-                            }
-                        }
                     } else {
-                        // ================== CREATE ITEM BARU ==================
-                        \App\Models\DeliveryOrderItem::create([
-                            'delivery_order_id' => $deliveryOrder->id,
-                            'order_item_id'     => $orderItem->id,
-                            'product_id'        => $productId,
-                            'status'            => 'Pending',
-                            'progress_qty'      => 0,
-                            'ready_qty'         => $qty,
-                            'shipped_qty'       => 0,
-                            'note'              => $request->notes,
+                        DesignItem::create([
+                            'design_id'           => $design->id,
+                            'order_item_id'       => $orderItem->id,
+                            'product_id'          => $productId,
+                            'quantity'            => $qty,
+                            'completed_quantity'  => 0,
+                            'design_file'         => null,
+                            'preview_image'       => null,
+                            'verification_status' => 'approved',
                         ]);
-
-                        Log::info("➕ DO Item Polosan Created", [
-                            'key' => $key,
-                            'order_item_id' => $orderItem->id,
-                            'product_id' => $productId,
-                            'qty' => $qty,
-                        ]);
-
-                        // Kurangi stok produksi
-                        $ps = \App\Models\ProductionStock::firstOrCreate(
-                            ['product_id' => $productId],
-                            ['available_quantity' => 0]
-                        );
-                        $ps->decrement('available_quantity', $qty);
-                        Log::info("⬇️ Decrement available_quantity (new item): {$qty} for product {$productId}");
                     }
                 }
 
-                // ================== DELETE ITEM LAMA ==================
-                // 🔥 FIX: Gunakan snapshot stok lama (existingDoItemsForStock) untuk detect item yang dihapus
-                foreach ($existingDoItemsForStock as $key => $oldItem) {
-                    if (!in_array($key, $newDoKeys)) {
+                // Hapus design items yang sudah tidak ada
+                foreach ($existingDesignItems as $key => $designItem) {
+                    if (!in_array($key, $newDesignKeys)) {
+                        $designItem->delete();
+                    }
+                }
 
-                        $restoreProductId = $oldItem['product_id'];
-                        $restoreQty       = $oldItem['ready_qty'];
+                // 3️⃣ Sync OrderProgress
+                $orderProgress = $order->orderProgress()->first();
 
-                        Log::info("🗑️ Menghapus DO Item Polosan yang tidak ada lagi", [
-                            'key' => $key,
-                            'product_id' => $restoreProductId,
-                            'qty' => $restoreQty,
+                if ($orderProgress) {
+                    // Update header progress
+                    $orderProgress->update([
+                        'date'  => now()->format('Y-m-d'),
+                        'notes' => $request->notes ?? $orderProgress->notes,
+                    ]);
+
+                    $existingProgressItems = $orderProgress->items->keyBy(
+                        fn($item) => $item->order_item_id . '_' . $item->product_id
+                    );
+
+                    $newProgressKeys = [];
+
+                    // Refresh components
+                    $components = \App\Models\OrderItemComponent::whereIn('order_item_id', $order->orderItems->pluck('id'))
+                        ->with('orderItem')
+                        ->get();
+
+                    foreach ($components as $component) {
+                        $orderItem = $component->orderItem;
+                        $productId = $component->product_id;
+                        $qty       = $component->qty;
+                        $key       = "{$component->order_item_id}_{$productId}";
+                        $newProgressKeys[] = $key;
+
+                        if ($existingProgressItems->has($key)) {
+                            $existingProgressItems[$key]->update(['quantity' => $qty]);
+                        } else {
+                            // Item baru → increment pending_waiting_list
+                            $designItem = \App\Models\DesignItem::where('design_id', $design->id)
+                                ->where('order_item_id', $orderItem->id)
+                                ->where('product_id', $productId)
+                                ->first();
+
+                            OrderProgressItem::create([
+                                'order_progress_id'  => $orderProgress->id,
+                                'design_item_id'     => $designItem?->id,
+                                'order_item_id'      => $orderItem->id,
+                                'product_id'         => $productId,
+                                'quantity'           => $qty,
+                                'completed_quantity' => 0,
+                            ]);
+
+                            $ps = \App\Models\ProductionStock::firstOrCreate(
+                                ['product_id' => $productId, 'production_warehouse_id' => 2],
+                                ['pending_waiting_list' => 0, 'available_quantity' => 0, 'finished_product_stock' => 0, 'canceled_product_stock' => 0]
+                            );
+                            $ps->increment('pending_waiting_list', $qty);
+                        }
+                    }
+
+                    // Hapus progress items yang sudah tidak ada → decrement pending_waiting_list
+                    foreach ($existingProgressItems as $key => $progressItem) {
+                        if (!in_array($key, $newProgressKeys)) {
+                            $ps = \App\Models\ProductionStock::where('product_id', $progressItem->product_id)
+                                ->where('production_warehouse_id', 2)
+                                ->first();
+                            if ($ps) {
+                                $dec = min($ps->pending_waiting_list, $progressItem->quantity);
+                                if ($dec > 0) $ps->decrement('pending_waiting_list', $dec);
+                            }
+                            $progressItem->delete();
+                        }
+                    }
+                } else {
+                    // Belum ada OrderProgress → buat baru
+                    $orderProgress = OrderProgress::create([
+                        'order_id'       => $order->id,
+                        'design_id'      => $design->id,
+                        'date'           => now()->format('Y-m-d'),
+                        'status'         => 'Pending',
+                        'notes'          => null,
+                        'invoice_number' => $order->order_number,
+                    ]);
+
+                    $design->load('items');
+
+                    foreach ($design->items as $designItem) {
+                        OrderProgressItem::create([
+                            'order_progress_id'  => $orderProgress->id,
+                            'design_item_id'     => $designItem->id,
+                            'order_item_id'      => $designItem->order_item_id,
+                            'product_id'         => $designItem->product_id,
+                            'quantity'           => $designItem->quantity,
+                            'completed_quantity' => 0,
                         ]);
 
-                        // Kembalikan stok
-                        if ($restoreQty > 0) {
-                            $ps = \App\Models\ProductionStock::firstOrCreate(
-                                ['product_id' => $restoreProductId],
-                                ['available_quantity' => 0]
-                            );
-                            $ps->increment('available_quantity', $restoreQty);
-                            Log::info("⬆️ Restore available_quantity: {$restoreQty} for product {$restoreProductId}");
-                        }
-
-                        // Hapus DO item
-                        $deliveryOrder->items()
-                            ->where('order_item_id', explode('_', $key)[0])
-                            ->where('product_id', $restoreProductId)
-                            ->delete();
+                        $ps = \App\Models\ProductionStock::firstOrCreate(
+                            ['product_id' => $designItem->product_id, 'production_warehouse_id' => 2],
+                            ['pending_waiting_list' => 0, 'available_quantity' => 0, 'finished_product_stock' => 0, 'canceled_product_stock' => 0]
+                        );
+                        $ps->increment('pending_waiting_list', $designItem->quantity);
                     }
                 }
             }
