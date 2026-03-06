@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                                                                                                    display: none !important;
-                                                                                                                                                                                                                                                                                                                                                } */
+                                                                                                                                                                                                                                                                                                                                                        display: none !important;
+                                                                                                                                                                                                                                                                                                                                                    } */
 
         .sale-mobile-action {
             display: none;
@@ -2475,22 +2475,23 @@
                 const result = await response.json();
                 if (!result.success) return;
 
-                // 🔹 TEXT SAMA PERSIS
-                const message =
-                    `Berikut Invoice *${invoiceNo}*
-                ${result.url}
-
-                *Harap MELUNASI Tagihan*
-                Terlebih dahulu sebelum proses produksi dimulai.
-
-                Setelah pembayaran diterima, produksi akan berjalan sesuai estimasi yang disepakati.
-
-                *REKENING BCA*
-                Nomor: *0590712647*
-                Nama: *STEFAN LEWIS*
-
-                *WAJIB:*
-                Mengirim bukti transfer setelah pembayaran`;
+                const message = [
+                    `Berikut Invoice *${invoiceNo}*`,
+                    result.url,
+                    ``,
+                    `1) Diwajibkan Melunasi Tagihan`,
+                    `Terlebih dahulu sebelum proses produksi dimulai.`,
+                    ``,
+                    `2) Setelah pembayaran diterima`,
+                    `Produksi akan berjalan sesuai estimasi yang disepakati.`,
+                    ``,
+                    `*REKENING BCA*`,
+                    `Nomor: *0590712647*`,
+                    `Nama: *STEFAN LEWIS*`,
+                    ``,
+                    `*WAJIB:*`,
+                    `Mengirim bukti transfer setelah pembayaran`,
+                ].join('\n');
                 window.open(
                     `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
                     '_blank'

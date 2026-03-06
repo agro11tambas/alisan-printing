@@ -631,7 +631,16 @@ class OrderProgressAssignController extends Controller
                 $date = Carbon::parse($batch->created_at)->format('d M y H:i');
 
                 // 🧾 Assign Code + Date
-                $assignCodeHtml = "<div><div>{$batch->assign_code}</div><small class='text-muted'>{$date}</small></div>";
+                // $assignCodeHtml = "<div><div>{$batch->assign_code}</div><small class='text-muted'>{$date}</small></div>";
+                $mode = $batch->orderProgress?->order?->mode;
+                $modeBadge = '';
+                if ($mode === 'printing') {
+                    $modeBadge = '<div><span class="badge bg-soft-info text-info mb-1">Printing</span></div>';
+                } elseif ($mode === 'polosan') {
+                    $modeBadge = '<div><span class="badge bg-soft-warning text-warning mb-1">Polosan</span></div>';
+                }
+
+                $assignCodeHtml = $modeBadge . "<div><div>{$batch->assign_code}</div><small class='text-muted'>{$date}</small></div>";
 
                 // 🧍‍♂️ Order info + customer
                 $order = $batch->orderProgress->order ?? null;

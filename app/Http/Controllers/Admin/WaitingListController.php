@@ -206,8 +206,15 @@ class WaitingListController extends Controller
                 ? '<div><span class="badge bg-soft-success text-success mb-1">Completed</span></div>'
                 : '';
 
-            $invoiceNumberHtml = $completeBadge . '
-            <div>
+            $modeBadge = '';
+            if ($progress->order?->mode === 'printing') {
+                $modeBadge = '<div><span class="badge bg-soft-info text-info mb-1">Printing</span></div>';
+            } elseif ($progress->order?->mode === 'polosan') {
+                $modeBadge = '<div><span class="badge bg-soft-warning text-warning mb-1">Polosan</span></div>';
+            }
+
+            $invoiceNumberHtml = $modeBadge . $completeBadge . '
+            <div>                
                 <div>' . e($progress->invoice_number) . $editedBadge . '</div>
                 <small class="text-muted">' . $date . '</small>
             </div>';
