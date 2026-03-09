@@ -1395,6 +1395,34 @@ class SaleListController extends Controller
                     );
 
                     $productionStock->increment('pending_waiting_list', $designItem->quantity);
+
+                    $deliveryOrder = DeliveryOrder::create([
+                        'order_id'         => $order->id,
+                        'design_id'        => $design->id,
+                        'delivery_number'  => $order->order_number,
+                        'delivery_date'    => now()->format('Y-m-d'),
+                        'note'             => $order->notes ?? '',
+                        'status'           => 'Ongoing',
+                        'customer'         => $order->customer->name,
+                        'shipping_address' => $order->shipping_address,
+                        'google_map_link'  => $order->google_maps,
+                        'created_by'       => Auth::id(),
+                    ]);
+
+                    foreach ($orderProgress->items as $progressItem) {
+                        DeliveryOrderItem::create([
+                            'delivery_order_id'      => $deliveryOrder->id,
+                            'order_progress_id'      => $orderProgress->id,
+                            'order_item_id'          => $progressItem->order_item_id,
+                            'order_progress_item_id' => $progressItem->id,
+                            'design_item_id'         => $progressItem->design_item_id,
+                            'product_id'             => $progressItem->product_id,
+                            'status'                 => 'Pending',
+                            'progress_qty'           => $progressItem->quantity,
+                            'ready_qty'              => 0,
+                            'note'                   => null,
+                        ]);
+                    }
                 }
             }
 
@@ -3679,6 +3707,77 @@ class SaleListController extends Controller
                             ['pending_waiting_list' => 0, 'available_quantity' => 0, 'finished_product_stock' => 0, 'canceled_product_stock' => 0]
                         );
                         $ps->increment('pending_waiting_list', $designItem->quantity);
+                    }
+                }
+
+                // 4️⃣ Sync DeliveryOrder + DeliveryOrderItem (mode polosan)
+                $orderProgress->refresh();
+
+                $deliveryOrder = \App\Models\DeliveryOrder::withTrashed()
+                    ->where('order_id', $order->id)
+                    ->first();
+
+                if ($deliveryOrder) {
+                    if ($deliveryOrder->trashed()) {
+                        $deliveryOrder->restore();
+                    }
+                    $deliveryOrder->update([
+                        'delivery_date'    => now()->format('Y-m-d'),
+                        'note'             => $request->notes ?? $deliveryOrder->note,
+                        'status'           => 'Ongoing',
+                        'customer'         => $order->customer?->name ?? $deliveryOrder->customer,
+                        'shipping_address' => $order->shipping_address ?? $deliveryOrder->shipping_address,
+                        'google_map_link'  => $order->google_maps ?? $deliveryOrder->google_map_link,
+                    ]);
+                } else {
+                    $deliveryOrder = \App\Models\DeliveryOrder::create([
+                        'order_id'         => $order->id,
+                        'design_id'        => $design->id,
+                        'delivery_number'  => $order->order_number,
+                        'delivery_date'    => now()->format('Y-m-d'),
+                        'note'             => $request->notes ?? null,
+                        'status'           => 'Ongoing',
+                        'customer'         => $order->customer?->name ?? '-',
+                        'shipping_address' => $order->shipping_address,
+                        'google_map_link'  => $order->google_maps,
+                        'created_by'       => Auth::id(),
+                    ]);
+                }
+
+                // Sync DeliveryOrderItem
+                $existingDoItems = $deliveryOrder->items->keyBy(
+                    fn($item) => $item->order_progress_item_id
+                );
+
+                $newDoKeys = [];
+
+                foreach ($orderProgress->items as $progressItem) {
+                    $newDoKeys[] = $progressItem->id;
+
+                    if ($existingDoItems->has($progressItem->id)) {
+                        $existingDoItems[$progressItem->id]->update([
+                            'progress_qty' => $progressItem->quantity,
+                        ]);
+                    } else {
+                        \App\Models\DeliveryOrderItem::create([
+                            'delivery_order_id'      => $deliveryOrder->id,
+                            'order_progress_id'      => $orderProgress->id,
+                            'order_item_id'          => $progressItem->order_item_id,
+                            'order_progress_item_id' => $progressItem->id,
+                            'design_item_id'         => $progressItem->design_item_id,
+                            'product_id'             => $progressItem->product_id,
+                            'status'                 => 'Pending',
+                            'progress_qty'           => $progressItem->quantity,
+                            'ready_qty'              => 0,
+                            'note'                   => null,
+                        ]);
+                    }
+                }
+
+                // Hapus DO items yang sudah tidak ada
+                foreach ($existingDoItems as $progressItemId => $doItem) {
+                    if (!in_array($progressItemId, $newDoKeys)) {
+                        $doItem->delete();
                     }
                 }
             }
