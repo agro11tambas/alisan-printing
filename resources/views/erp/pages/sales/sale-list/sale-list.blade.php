@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                                                                                                            display: none !important;
-                                                                                                                                                                                                                                                                                                                                                        } */
+                                                                                                                                                                                                                                                                                                                                                                    display: none !important;
+                                                                                                                                                                                                                                                                                                                                                                } */
 
         .sale-mobile-action {
             display: none;
@@ -2468,7 +2468,8 @@
                     },
                     body: JSON.stringify({
                         image: imageData,
-                        order_id: orderId
+                        order_id: orderId,
+                        order_number: invoiceNo
                     })
                 });
 
