@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                                                                                                                    display: none !important;
-                                                                                                                                                                                                                                                                                                                                                                } */
+                                                                                                                                                                                                                                                                                                                                                                        display: none !important;
+                                                                                                                                                                                                                                                                                                                                                                    } */
 
         .sale-mobile-action {
             display: none;
@@ -2479,7 +2479,8 @@
                 const message = [
                     `Kepada *${business}*`,
                     `Berikut Invoice *${invoiceNo}*`,
-                    result.url,
+                    // result.url,
+                    result.url.replace('https://', ''),
                     ``,
                     `*1) Diwajibkan Melunasi Tagihan*`,
                     `Terlebih dahulu sebelum proses produksi dimulai.`,
