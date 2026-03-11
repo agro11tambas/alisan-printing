@@ -1312,8 +1312,6 @@ class SaleListController extends Controller
                 //     }
                 // }
             } else {
-                // ================== MODE POLOSAN → DESIGN (approved) → ORDER PROGRESS → DELIVERY ==================
-                // 1️⃣ Buat Design langsung approved
                 $design = Design::create([
                     'order_id'            => $order->id,
                     'design_number'       => $orderNumber,
@@ -1325,10 +1323,8 @@ class SaleListController extends Controller
                     'verified_at'         => now(),
                 ]);
 
-                // Buat DesignItem (sama seperti mode printing)
                 foreach ($order->orderItems as $orderItem) {
                     $qty = $orderItem->quantity;
-
                     if ($orderItem->satuan === 'satuan') {
                         DesignItem::create([
                             'design_id'           => $design->id,
@@ -1344,7 +1340,6 @@ class SaleListController extends Controller
                         foreach ($orderItem->productBundle->items as $bundleItem) {
                             $bundleProduct = $bundleItem->product;
                             if (!$bundleProduct) continue;
-
                             DesignItem::create([
                                 'design_id'           => $design->id,
                                 'order_item_id'       => $orderItem->id,
@@ -1359,7 +1354,6 @@ class SaleListController extends Controller
                     }
                 }
 
-                // 2️⃣ Buat OrderProgress (seperti di verify())
                 $orderProgress = OrderProgress::create([
                     'order_id'       => $order->id,
                     'design_id'      => $design->id,
@@ -1369,6 +1363,7 @@ class SaleListController extends Controller
                     'invoice_number' => $order->order_number,
                 ]);
 
+                // ✅ Loop design items HANYA untuk OrderProgressItem + ProductionStock
                 foreach ($design->items as $designItem) {
                     OrderProgressItem::create([
                         'order_progress_id'  => $orderProgress->id,
@@ -1379,50 +1374,41 @@ class SaleListController extends Controller
                         'completed_quantity' => 0,
                     ]);
 
-                    // Increment pending_waiting_list di ProductionStock
                     $productionStock = \App\Models\ProductionStock::firstOrCreate(
-                        [
-                            'product_id'              => $designItem->product_id,
-                            'production_warehouse_id' => 2,
-                        ],
-                        [
-                            'opening_stock'          => 0,
-                            'available_quantity'     => 0,
-                            'finished_product_stock' => 0,
-                            'canceled_product_stock' => 0,
-                            'pending_waiting_list'   => 0,
-                        ]
+                        ['product_id' => $designItem->product_id, 'production_warehouse_id' => 2],
+                        ['opening_stock' => 0, 'available_quantity' => 0, 'finished_product_stock' => 0, 'canceled_product_stock' => 0, 'pending_waiting_list' => 0]
                     );
-
                     $productionStock->increment('pending_waiting_list', $designItem->quantity);
+                }
 
-                    $deliveryOrder = DeliveryOrder::create([
-                        'order_id'         => $order->id,
-                        'design_id'        => $design->id,
-                        'delivery_number'  => $order->order_number,
-                        'delivery_date'    => now()->format('Y-m-d'),
-                        'note'             => $order->notes ?? '',
-                        'status'           => 'Ongoing',
-                        'customer'         => $order->customer->name,
-                        'shipping_address' => $order->shipping_address,
-                        'google_map_link'  => $order->google_maps,
-                        'created_by'       => Auth::id(),
+                // ✅ DeliveryOrder dibuat SEKALI di luar loop
+                $deliveryOrder = DeliveryOrder::create([
+                    'order_id'         => $order->id,
+                    'design_id'        => $design->id,
+                    'delivery_number'  => $order->order_number,
+                    'delivery_date'    => now()->format('Y-m-d'),
+                    'note'             => $order->notes ?? '',
+                    'status'           => 'Ongoing',
+                    'customer'         => $order->customer->name,
+                    'shipping_address' => $order->shipping_address,
+                    'google_map_link'  => $order->google_maps,
+                    'created_by'       => Auth::id(),
+                ]);
+
+                // ✅ DeliveryOrderItem dari orderProgress->items
+                foreach ($orderProgress->items as $progressItem) {
+                    DeliveryOrderItem::create([
+                        'delivery_order_id'      => $deliveryOrder->id,
+                        'order_progress_id'      => $orderProgress->id,
+                        'order_item_id'          => $progressItem->order_item_id,
+                        'order_progress_item_id' => $progressItem->id,
+                        'design_item_id'         => $progressItem->design_item_id,
+                        'product_id'             => $progressItem->product_id,
+                        'status'                 => 'Pending',
+                        'progress_qty'           => $progressItem->quantity,
+                        'ready_qty'              => 0,
+                        'note'                   => null,
                     ]);
-
-                    foreach ($orderProgress->items as $progressItem) {
-                        DeliveryOrderItem::create([
-                            'delivery_order_id'      => $deliveryOrder->id,
-                            'order_progress_id'      => $orderProgress->id,
-                            'order_item_id'          => $progressItem->order_item_id,
-                            'order_progress_item_id' => $progressItem->id,
-                            'design_item_id'         => $progressItem->design_item_id,
-                            'product_id'             => $progressItem->product_id,
-                            'status'                 => 'Pending',
-                            'progress_qty'           => $progressItem->quantity,
-                            'ready_qty'              => 0,
-                            'note'                   => null,
-                        ]);
-                    }
                 }
             }
 

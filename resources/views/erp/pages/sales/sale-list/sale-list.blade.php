@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                                                                                                        display: none !important;
-                                                                                                                                                                                                                                                                                                                                                    } */
+                                                                                                                                                                                                                                                                                                                                                            display: none !important;
+                                                                                                                                                                                                                                                                                                                                                        } */
 
         .sale-mobile-action {
             display: none;
@@ -2476,13 +2476,14 @@
                 if (!result.success) return;
 
                 const message = [
+                    `Kepada *${business}*`,
                     `Berikut Invoice *${invoiceNo}*`,
                     result.url,
                     ``,
-                    `1) Diwajibkan Melunasi Tagihan`,
+                    `*1) Diwajibkan Melunasi Tagihan*`,
                     `Terlebih dahulu sebelum proses produksi dimulai.`,
                     ``,
-                    `2) Setelah pembayaran diterima`,
+                    `*2) Setelah pembayaran diterima*`,
                     `Produksi akan berjalan sesuai estimasi yang disepakati.`,
                     ``,
                     `*REKENING BCA*`,
