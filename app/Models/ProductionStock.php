@@ -49,6 +49,12 @@ class ProductionStock extends Model
         return $this->hasMany(DesignItem::class, 'product_id', 'product_id');
     }
 
+    public function todaySnapshot()
+    {
+        return $this->hasOne(ProductionStockSnapshot::class, 'product_id', 'product_id')
+            ->whereDate('snapshot_date', today());
+    }
+
     // public function getRemainingQuantityAttribute()
     // {
     //     $totalDesignQty = $this->designItems()

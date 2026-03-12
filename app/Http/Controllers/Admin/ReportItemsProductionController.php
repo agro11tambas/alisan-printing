@@ -22,10 +22,11 @@ class ReportItemsProductionController extends Controller
 
     public function dataReportItems(Request $request)
     {
+        $today = today()->toDateString();
         // 🔹 Query utama, hanya ambil yang punya product aktif (tidak soft-deleted)
         $reportItems = ProductionStock::query()
             ->whereHas('product', fn($q) => $q->whereNull('products.deleted_at'))
-            ->with('product')
+            ->with(['product', 'todaySnapshot'])
             ->select(
                 'production_stocks.*',
                 DB::raw('
@@ -185,6 +186,52 @@ class ReportItemsProductionController extends Controller
                 if ($onDelivery < 0) $onDelivery = 0;
 
                 return number_format($onDelivery, 0, ',', '.');
+            })
+            ->addColumn('opening_stock_today', function ($item) {
+                // Ambil dari snapshot hari ini, fallback ke available_quantity jika belum ada snapshot
+                $opening = $item->todaySnapshot?->opening_stock ?? $item->available_quantity ?? 0;
+                return number_format($opening, 0, ',', '.');
+            })
+
+            ->addColumn('closing_stock_today', function ($item) {
+                // Closing = available_quantity real-time saat ini
+                return number_format($item->available_quantity ?? 0, 0, ',', '.');
+            })
+
+            ->addColumn('assign_today', function ($item) use ($today) {
+                $productId = $item->product_id;
+
+                // 1️⃣ assigned_minus_completed yang created_at-nya hari ini
+                $assignedToday = \App\Models\OrderProgressAssign::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->whereDate('created_at', $today)
+                    ->sum('assigned_quantity');
+
+                $completedToday = \App\Models\OrderProgressAssign::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->whereDate('created_at', $today)
+                    ->selectRaw('SUM(completed_quantity + defect_quantity + reject_quantity) as total')
+                    ->value('total');
+
+                $assignMinusCompletedToday = max($assignedToday - ($completedToday ?? 0), 0);
+
+                // 2️⃣ finished_product_stock yang created_at-nya hari ini
+                $completedQtyToday = \App\Models\OrderProgressItem::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->whereDate('created_at', $today)
+                    ->sum('completed_quantity');
+
+                $shippedQtyToday = \App\Models\DeliveryOrderItem::where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->whereDate('created_at', $today)
+                    ->sum('shipped_qty');
+
+                $finishedToday = max($completedQtyToday - $shippedQtyToday, 0);
+
+                // 3️⃣ Total assign today
+                $assignToday = $assignMinusCompletedToday + $finishedToday;
+
+                return number_format($assignToday, 0, ',', '.');
             })
             ->addColumn('action', fn($item) => '
             <button type="button" class="btn btn-sm btn-outline-danger btnDefect" 

@@ -4043,9 +4043,6 @@ class SaleListController extends Controller
         }
     }
 
-    /**
-     * Helper function untuk kirim response yang sesuai (AJAX vs non-AJAX)
-     */
     private function deleteResponse(Request $request, bool $success, string $message)
     {
         if ($request->expectsJson()) {
@@ -4848,78 +4845,6 @@ class SaleListController extends Controller
             return redirect()->back()->with('error', 'Gagal menyimpan pembayaran: ' . $e->getMessage());
         }
     }
-
-    // public function convertToImage(Request $request)
-    // {
-    //     try {
-    //         // Validasi input
-    //         if (!$request->has('image') || !$request->has('order_id')) {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'Data tidak lengkap'
-    //             ], 400);
-    //         }
-
-    //         $imageData = $request->input('image');
-    //         $orderId = $request->input('order_id');
-
-    //         // Decode base64 image
-    //         $image = str_replace('data:image/jpeg;base64,', '', $imageData);
-    //         $image = str_replace('data:image/png;base64,', '', $image);
-    //         $image = str_replace(' ', '+', $image);
-    //         $imageDecoded = base64_decode($image);
-
-    //         // Validasi decode
-    //         if ($imageDecoded === false) {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'Gagal decode gambar'
-    //             ], 400);
-    //         }
-
-    //         // Generate unique filename dengan extension .jpg
-    //         $filename = 'invoice_' . $orderId . '_' . time() . '.jpg';
-
-    //         // Path ke folder storage/app/invoices (di luar public)
-    //         $directory = storage_path('app/invoices');
-
-    //         // Buat folder jika belum ada
-    //         if (!file_exists($directory)) {
-    //             if (!mkdir($directory, 0755, true)) {
-    //                 return response()->json([
-    //                     'success' => false,
-    //                     'message' => 'Gagal membuat folder invoices'
-    //                 ], 500);
-    //             }
-    //         }
-
-    //         // Save file
-    //         $filepath = $directory . '/' . $filename;
-    //         $result = file_put_contents($filepath, $imageDecoded);
-
-    //         if ($result === false) {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'Gagal menyimpan file'
-    //             ], 500);
-    //         }
-
-    //         $url = route('invoice.show', ['filename' => $filename]);
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'url' => $url,
-    //             'filename' => $filename
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('Error convert invoice: ' . $e->getMessage());
-
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Terjadi kesalahan: ' . $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
 
     public function convertToImage(Request $request)
     {

@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('orders:update-overdue')->daily();
+Schedule::command('stock:snapshot')->dailyAt('00:00');
