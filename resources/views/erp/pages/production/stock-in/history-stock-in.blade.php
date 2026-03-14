@@ -30,6 +30,8 @@
             <div class="col-xxl-8 col-xl-6">
                 <div class="card">
                     <div class="card-header">
+                        <h5>{{ $supplier->name }} — {{ $monthLabel }}</h5>
+                        <br>
                         <h5 class="card-title">Products</h5>
                     </div>
                     <div class="card-body px-0">
@@ -44,7 +46,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($stockIn->items as $item)
+                                    {{-- @foreach ($stockIn->items as $item)
                                         <tr>
                                             <td>{{ $item->product->name ?? '-' }}</td>
                                             <td><span
@@ -58,6 +60,14 @@
                                                     {{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}
                                                 </span>
                                             </td>
+                                        </tr>
+                                    @endforeach --}}
+                                    @foreach ($mergedItems as $item)
+                                        <tr>
+                                            <td>{{ $item->product->name ?? '-' }}</td>
+                                            <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                            <td>{{ number_format($item->stock_in, 0, ',', '.') }}</td>
+                                            <td>{{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -73,7 +83,7 @@
                     </div>
                     <div class="card-body task-info">
                         <div class="task-info-list">
-                            <div class="row align-items-center mb-3 task-list-row">
+                            {{-- <div class="row align-items-center mb-3 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-star me-2"></i>
                                     <span class="fw-semibold">
@@ -106,6 +116,28 @@
                                 <div class="col-6 d-flex">
                                     <span
                                         class="border-bottom border-bottom-dashed border-gray-5">{{ date('d M Y', strtotime($stockIn->date)) }}</span>
+                                </div>
+                            </div> --}}
+                            <div class="row align-items-center mb-3 task-list-row">
+                                <div class="col-6">
+                                    <i class="feather-star me-2"></i>
+                                    <span class="fw-semibold">Supplier Name:</span>
+                                </div>
+                                <div class="col-6 d-flex">
+                                    <span class="border-bottom border-bottom-dashed border-gray-5">
+                                        {{ $supplier->name ?? '-' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="row align-items-center mb-3 task-list-row">
+                                <div class="col-6">
+                                    <i class="feather-calendar me-2"></i>
+                                    <span class="fw-semibold">Period:</span>
+                                </div>
+                                <div class="col-6 d-flex">
+                                    <span class="border-bottom border-bottom-dashed border-gray-5">
+                                        {{ $monthLabel }}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -208,7 +240,7 @@
                 searching: false,
                 lengthChange: false,
                 ajax: {
-                    url: "{{ url('/erp/productions/stock-in/history/' . $stockIn->id . '/data') }}",
+                    url: "{{ url('/erp/productions/stock-in/history/' . $supplierId . '/' . $year . '/' . $month . '/data') }}",
                     data: function(d) {
                         d.start_date = $('#start_date').val();
                         d.end_date = $('#end_date').val();
