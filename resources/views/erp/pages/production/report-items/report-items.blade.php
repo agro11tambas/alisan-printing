@@ -86,6 +86,13 @@
                                             style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Item...">
                                     </div>
                                 </div>
+                                <div class="mt-2 d-flex align-items-center gap-2">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="dailyToggle">
+                                        <label class="form-check-label fs-12 fw-semibold" for="dailyToggle">Daily
+                                            Columns</label>
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-lg-4">
                                 <div class="d-flex justify-content-end align-items-center p-3">
@@ -302,6 +309,23 @@
             }
 
             loadMoreData();
+
+            const allColIndexes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+            const dailyColIndexes = [1, 8, 9, 10]; // OP Today, CLS Today, Assign Today
+            const otherColIndexes = allColIndexes.filter(i => !dailyColIndexes.includes(i));
+
+            $("#dailyToggle").on("change", function() {
+                const dailyOnly = $(this).is(":checked");
+
+                if (dailyOnly) {
+                    // ON: sembunyiin kolom non-daily, tampilkan daily
+                    otherColIndexes.forEach(i => table.column(i).visible(false));
+                    dailyColIndexes.forEach(i => table.column(i).visible(true));
+                } else {
+                    // OFF: tampilkan semua
+                    allColIndexes.forEach(i => table.column(i).visible(true));
+                }
+            });
 
             let scrollTimeout = null;
             $(".dataTables_scrollBody").on("scroll", function() {
