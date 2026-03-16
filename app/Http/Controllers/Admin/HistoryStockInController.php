@@ -362,7 +362,14 @@ class HistoryStockInController extends Controller
             if ($request->hasFile('waybill_image')) {
                 $image    = $request->file('waybill_image');
                 $filename = time() . '_' . $image->getClientOriginalName();
-                $image->move(public_path('uploads/waybill_image'), $filename);
+                // $image->move(public_path('uploads/waybill_image'), $filename);
+                // $waybillImagePath = 'uploads/waybill_image/' . $filename;
+
+                $uploadPath = base_path('../uploads/waybill_image');
+                if (!file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+                $image->move($uploadPath, $filename);
                 $waybillImagePath = 'uploads/waybill_image/' . $filename;
             }
 
