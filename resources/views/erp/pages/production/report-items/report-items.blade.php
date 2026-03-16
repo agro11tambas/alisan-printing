@@ -21,6 +21,56 @@
             height: 60vh !important;
             overflow-y: auto !important;
         }
+
+        @media (max-width: 991px) {
+            #reportItemsTable_wrapper {
+                display: none !important;
+            }
+
+            #reportItemsMobile {
+                display: block !important;
+            }
+        }
+
+        @media (min-width: 992px) {
+            #reportItemsMobile {
+                display: none !important;
+            }
+        }
+
+        .report-mobile-card {
+            padding: 14px 16px;
+            margin: 0 12px 12px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .06);
+        }
+
+        .report-mobile-card .product-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .report-mobile-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px dashed #e5e9ef;
+            font-size: 13px;
+        }
+
+        .report-mobile-row:last-child {
+            border-bottom: none;
+        }
+
+        .report-mobile-row .label {
+            color: #6b7280;
+        }
+
+        .report-mobile-row .value {
+            font-weight: 500;
+        }
     </style>
 @endpush
 
@@ -125,6 +175,8 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        <div id="reportItemsMobile" class="px-0 pb-4"></div>
                     </div>
                 </div>
             </div>
@@ -250,6 +302,32 @@
             let searchTimer = null;
             let currentRequest = null;
 
+            function renderMobileCards(data, dailyOnly = false) {
+                const $c = $("#reportItemsMobile");
+                $c.empty();
+                data.forEach(function(row) {
+                    const allRows = `
+            <div class="report-mobile-row"><span class="label">Current Stock</span><span class="value">${row.available_quantity ?? 0}</span></div>
+            <div class="report-mobile-row"><span class="label">Waiting List</span><span class="value">${row.pending_waiting_list ?? 0}</span></div>
+            <div class="report-mobile-row"><span class="label">Assign</span><span class="value">${row.assigned_minus_completed ?? 0}</span></div>
+            <div class="report-mobile-row"><span class="label">Finished Products</span><span class="value">${row.finished_product_stock ?? 0}</span></div>
+            <div class="report-mobile-row"><span class="label">On Delivery</span><span class="value">${row.on_delivery ?? 0}</span></div>
+            <div class="report-mobile-row"><span class="label">Incoming Stock</span><span class="value">${row.incoming_stock ?? 0}</span></div>
+        `;
+                    const dailyRows = `
+            <div class="report-mobile-row"><span class="label">Opening Today</span><span class="value">${row.opening_stock_today ?? 0}</span></div>
+            <div class="report-mobile-row"><span class="label">Closing Today</span><span class="value">${row.closing_stock_today ?? 0}</span></div>
+            <div class="report-mobile-row"><span class="label">Assign Today</span><span class="value">${row.assign_today ?? 0}</span></div>
+        `;
+                    $c.append(`
+            <div class="report-mobile-card">
+                <div class="product-name">${row.name}</div>
+                ${dailyOnly ? dailyRows : allRows + dailyRows}
+            </div>
+        `);
+                });
+            }
+
             function loadMoreData(reset = false) {
                 if (isLoading) return;
                 if (!hasMoreData && !reset) return;
@@ -290,6 +368,8 @@
                             currentPage++;
                             hasMoreData = true;
                             restoreCheckboxState();
+
+                            renderMobileCards(allData, $("#dailyToggle").is(":checked"));
                         } else {
                             hasMoreData = false;
                         }
@@ -311,7 +391,7 @@
             loadMoreData();
 
             const allColIndexes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-            const dailyColIndexes = [1, 8, 9, 10]; // OP Today, CLS Today, Assign Today
+            const dailyColIndexes = [1, 8, 9, 10];
             const otherColIndexes = allColIndexes.filter(i => !dailyColIndexes.includes(i));
 
             $("#dailyToggle").on("change", function() {
@@ -325,6 +405,8 @@
                     // OFF: tampilkan semua
                     allColIndexes.forEach(i => table.column(i).visible(true));
                 }
+
+                renderMobileCards(allData, dailyOnly);
             });
 
             let scrollTimeout = null;
