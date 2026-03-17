@@ -165,9 +165,9 @@
                                         <th>Finished Products</th>
                                         <th>On Delivery</th>
                                         <th>Incoming Stock</th>
-                                        <th>OP Today</th>
-                                        <th>CLS Today</th>
+                                        <th>Opening</th>
                                         <th>Assign Today</th>
+                                        <th>Closing</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -286,10 +286,10 @@
                         data: 'opening_stock_today'
                     },
                     {
-                        data: 'closing_stock_today'
+                        data: 'assign_today'
                     },
                     {
-                        data: 'assign_today'
+                        data: 'closing_stock_today'
                     },
                     {
                         data: 'action',
