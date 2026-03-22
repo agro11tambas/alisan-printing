@@ -198,38 +198,73 @@ class ReportItemsProductionController extends Controller
                 return number_format($item->available_quantity ?? 0, 0, ',', '.');
             })
 
+            // ->addColumn('assign_today', function ($item) use ($today) {
+            //     $productId = $item->product_id;
+
+            //     // 1️⃣ assigned_minus_completed yang created_at-nya hari ini
+            //     $assignedToday = \App\Models\OrderProgressAssign::where('product_id', $productId)
+            //         ->whereNull('deleted_at')
+            //         ->whereDate('created_at', $today)
+            //         ->sum('assigned_quantity');
+
+            //     $completedToday = \App\Models\OrderProgressAssign::where('product_id', $productId)
+            //         ->whereNull('deleted_at')
+            //         ->whereDate('created_at', $today)
+            //         ->selectRaw('SUM(completed_quantity + defect_quantity + reject_quantity) as total')
+            //         ->value('total');
+
+            //     $assignMinusCompletedToday = max($assignedToday - ($completedToday ?? 0), 0);
+
+            //     // 2️⃣ finished_product_stock yang created_at-nya hari ini
+            //     $completedQtyToday = \App\Models\OrderProgressItem::where('product_id', $productId)
+            //         ->whereNull('deleted_at')
+            //         ->whereDate('created_at', $today)
+            //         ->sum('completed_quantity');
+
+            //     $shippedQtyToday = \App\Models\DeliveryOrderItem::where('product_id', $productId)
+            //         ->whereNull('deleted_at')
+            //         ->whereDate('created_at', $today)
+            //         ->sum('shipped_qty');
+
+            //     $finishedToday = max($completedQtyToday - $shippedQtyToday, 0);
+
+            //     // 3️⃣ Total assign today
+            //     $assignToday = $assignMinusCompletedToday + $finishedToday;
+
+            //     return number_format($assignToday, 0, ',', '.');
+            // })
+
+            ->addColumn('stock_in_today', function ($item) use ($today) {
+                $productId = $item->product_id;
+
+                // 1️⃣ received_qty dari material_request_items hari ini
+                $fromMaterial = DB::table('material_request_items')
+                    ->where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->whereDate('created_at', $today)
+                    ->sum('received_qty');
+
+                // 2️⃣ stock_in dari inventory_items_2 hari ini
+                $fromInventory = DB::table('inventory_items_2')
+                    ->where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->whereNotNull('purchase_item_id')
+                    ->whereNotNull('production_warehouse_id')
+                    ->whereDate('created_at', $today)
+                    ->sum('stock_in');
+
+                $total = ($fromMaterial ?? 0) + ($fromInventory ?? 0);
+
+                return number_format($total, 0, ',', '.');
+            })
+
             ->addColumn('assign_today', function ($item) use ($today) {
                 $productId = $item->product_id;
 
-                // 1️⃣ assigned_minus_completed yang created_at-nya hari ini
-                $assignedToday = \App\Models\OrderProgressAssign::where('product_id', $productId)
+                $assignToday = \App\Models\OrderProgressAssign::where('product_id', $productId)
                     ->whereNull('deleted_at')
                     ->whereDate('created_at', $today)
                     ->sum('assigned_quantity');
-
-                $completedToday = \App\Models\OrderProgressAssign::where('product_id', $productId)
-                    ->whereNull('deleted_at')
-                    ->whereDate('created_at', $today)
-                    ->selectRaw('SUM(completed_quantity + defect_quantity + reject_quantity) as total')
-                    ->value('total');
-
-                $assignMinusCompletedToday = max($assignedToday - ($completedToday ?? 0), 0);
-
-                // 2️⃣ finished_product_stock yang created_at-nya hari ini
-                $completedQtyToday = \App\Models\OrderProgressItem::where('product_id', $productId)
-                    ->whereNull('deleted_at')
-                    ->whereDate('created_at', $today)
-                    ->sum('completed_quantity');
-
-                $shippedQtyToday = \App\Models\DeliveryOrderItem::where('product_id', $productId)
-                    ->whereNull('deleted_at')
-                    ->whereDate('created_at', $today)
-                    ->sum('shipped_qty');
-
-                $finishedToday = max($completedQtyToday - $shippedQtyToday, 0);
-
-                // 3️⃣ Total assign today
-                $assignToday = $assignMinusCompletedToday + $finishedToday;
 
                 return number_format($assignToday, 0, ',', '.');
             })
@@ -243,7 +278,6 @@ class ReportItemsProductionController extends Controller
             ->rawColumns(['action'])
             ->make(true);
     }
-
     public function storeProduction(Request $request)
     {
         $request->validate([

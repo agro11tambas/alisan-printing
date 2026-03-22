@@ -167,6 +167,7 @@
                                         <th>Incoming Stock</th>
                                         <th>Opening</th>
                                         <th>Assign Today</th>
+                                        <th>Stock In Today</th>
                                         <th>Closing</th>
                                         <th>Action</th>
                                     </tr>
@@ -289,6 +290,9 @@
                         data: 'assign_today'
                     },
                     {
+                        data: 'stock_in_today'
+                    },
+                    {
                         data: 'closing_stock_today'
                     },
                     {
@@ -316,8 +320,9 @@
         `;
                     const dailyRows = `
             <div class="report-mobile-row"><span class="label">Opening Today</span><span class="value">${row.opening_stock_today ?? 0}</span></div>
-            <div class="report-mobile-row"><span class="label">Closing Today</span><span class="value">${row.closing_stock_today ?? 0}</span></div>
             <div class="report-mobile-row"><span class="label">Assign Today</span><span class="value">${row.assign_today ?? 0}</span></div>
+            <div class="report-mobile-row"><span class="label">Stock In Today</span><span class="value">${row.stock_in_today ?? 0}</span></div>
+            <div class="report-mobile-row"><span class="label">Closing Today</span><span class="value">${row.closing_stock_today ?? 0}</span></div>
         `;
                     $c.append(`
             <div class="report-mobile-card">
