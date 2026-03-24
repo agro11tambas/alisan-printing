@@ -278,6 +278,7 @@ class ReportItemsProductionController extends Controller
             ->rawColumns(['action'])
             ->make(true);
     }
+
     public function storeProduction(Request $request)
     {
         $request->validate([

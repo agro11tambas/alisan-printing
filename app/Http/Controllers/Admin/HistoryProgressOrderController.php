@@ -529,9 +529,13 @@ class HistoryProgressOrderController extends Controller
             $assign->increment('reject_quantity', $deltaReject);
             $assign->increment('change_quantity', $deltaChange);
 
-            // 🟩 2.1 Update assigned_quantity di assign
-            if ($deltaCompleted !== 0) {
-                $assign->increment('assigned_quantity', $deltaCompleted);
+            // 🟩 2.1 Sync assigned_quantity dengan total baru (completed + defect + reject)
+            $newTotalChange = $newCompleted + $newDefect + $newReject;
+            $oldTotalChange = $oldCompleted + $oldDefect + $oldReject;
+            $deltaAssigned  = $newTotalChange - $oldTotalChange;
+
+            if ($deltaAssigned !== 0) {
+                $assign->increment('assigned_quantity', $deltaAssigned);
             }
 
             // ===============================
@@ -549,14 +553,26 @@ class HistoryProgressOrderController extends Controller
             );
 
             if ($deltaCompleted !== 0) {
-                // Update finished stock
                 $ps->increment('finished_product_stock', $deltaCompleted);
 
-                // Update pending waiting list (kebalikan dari delta)
                 if ($deltaCompleted > 0) {
                     $ps->decrement('pending_waiting_list', $deltaCompleted);
+                    $ps->decrement('available_quantity', $deltaCompleted); // ← TAMBAH INI SAJA
                 } else {
                     $ps->increment('pending_waiting_list', abs($deltaCompleted));
+                    $ps->increment('available_quantity', abs($deltaCompleted)); // ← TAMBAH INI SAJA
+                }
+            }
+
+            if ($deltaAssigned !== 0) {
+                $deltaAssignedOnly = $deltaAssigned - $deltaCompleted; // exclude yang sudah dihitung di deltaCompleted
+
+                if ($deltaAssignedOnly > 0) {
+                    $ps->decrement('available_quantity', $deltaAssignedOnly);
+                    $ps->decrement('pending_waiting_list', $deltaAssignedOnly);
+                } elseif ($deltaAssignedOnly < 0) {
+                    $ps->increment('available_quantity', abs($deltaAssignedOnly));
+                    $ps->increment('pending_waiting_list', abs($deltaAssignedOnly));
                 }
             }
 
@@ -685,6 +701,7 @@ class HistoryProgressOrderController extends Controller
             if ($ps && $completed > 0) {
                 $ps->decrement('finished_product_stock', $completed);
                 $ps->increment('pending_waiting_list', $completed);
+                $ps->increment('available_quantity', $completed);
             }
 
             // 2.1️⃣ Decrement ready_qty pada delivery_order_items
@@ -721,6 +738,7 @@ class HistoryProgressOrderController extends Controller
 
                         if ($psAssign) {
                             $psAssign->increment('available_quantity', $assignToDelete->assigned_quantity);
+                            $psAssign->increment('pending_waiting_list', $assignToDelete->assigned_quantity);
                         }
                     }
 
