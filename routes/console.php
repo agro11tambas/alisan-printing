@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('orders:update-overdue')->daily();
 Schedule::command('stock:snapshot')->dailyAt('00:00');
+Schedule::command('stock:snapshot')->dailyAt('23:59');

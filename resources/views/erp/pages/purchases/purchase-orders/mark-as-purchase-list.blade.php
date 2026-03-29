@@ -584,12 +584,11 @@
                 let val = $(this).val().trim();
                 const row = $(this).closest('tr');
 
-                // kalau dikosongkan → isi 0
                 if (val === '' || val === null || val === undefined) {
                     $(this).val('0');
                 } else {
-                    // format ulang kalau ada angka
-                    $(this).val(formatRibuan(val));
+                    const num = unformatRibuan(val); // ✅ fix: unformat dulu
+                    $(this).val(formatRibuan(num)); // baru format ulang
                 }
 
                 updateRowTotal(row);

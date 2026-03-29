@@ -14,6 +14,9 @@ class ProductionStockSnapshot extends Model
     protected $fillable = [
         'product_id',
         'opening_stock',
+        'closing_stock',
+        'stock_in_today',
+        'assign_today',
         'snapshot_date',
     ];
 
