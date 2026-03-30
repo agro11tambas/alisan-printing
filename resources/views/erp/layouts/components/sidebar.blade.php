@@ -186,6 +186,12 @@
                                         href="/erp/productions/report-items"><span class="">Report
                                             Items</span></a></li>
                             @endif
+                            @if (Auth::user()->hasSubPermission('snapshot-report'))
+                                <li class="nxl-item"><a
+                                        class="nxl-link {{ request()->is('productions/snapshot-report*') ? 'active' : '' }}"
+                                        href="/erp/productions/snapshot-report"><span class="">Snapshot
+                                            Report</span></a></li>
+                            @endif
                             @if (Auth::user()->hasSubPermission('stock-in-production'))
                                 <li class="nxl-item "><a class="nxl-link" href="/erp/productions/stock-in"><span
                                             class="">Stock In</span></a></li>

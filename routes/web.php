@@ -40,6 +40,7 @@ use App\Http\Controllers\Admin\OrderProgressAssignController;
 use App\Http\Controllers\Admin\ProductBundleController;
 use App\Http\Controllers\Admin\ProductionController;
 use App\Http\Controllers\Admin\ProductionStockInController;
+use App\Http\Controllers\Admin\ProductionStockSnapshotController;
 use App\Http\Controllers\Admin\PurchaseDetailController;
 use App\Http\Controllers\Admin\PurchaseListController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
@@ -376,6 +377,11 @@ Route::middleware(['auth', 'check.session'])->group(function () {
 
             Route::post('/erp/defect-product/store-production', [ReportItemsProductionController::class, 'storeProduction'])
                 ->name('erp.defect-product.store-production');
+        });
+
+        Route::middleware(['auth', 'subpermission:snapshot-report'])->group(function () {
+            Route::get('/erp/productions/snapshot-report', [ProductionStockSnapshotController::class, 'getSnapshotReport']);
+            Route::get('/erp/productions/snapshot-report/data', [ProductionStockSnapshotController::class, 'dataSnapshotReport']);
         });
 
         // Stock in
