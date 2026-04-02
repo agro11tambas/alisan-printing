@@ -209,14 +209,13 @@
                                         <div class="col-lg-10 mb-0">
                                             <select class="form-select" name="stock_destination" id="stock_destination"
                                                 required>
-                                                <option value="warehouse"
-                                                    {{ old('stock_destination', $purchase->stock_destination) === 'warehouse' ? 'selected' : '' }}>
-                                                    Inventory Warehouse
-                                                </option>
-
                                                 <option value="production"
                                                     {{ old('stock_destination', $purchase->stock_destination) === 'production' ? 'selected' : '' }}>
                                                     Production
+                                                </option>
+                                                <option value="warehouse"
+                                                    {{ old('stock_destination', $purchase->stock_destination) === 'warehouse' ? 'selected' : '' }}>
+                                                    Inventory Warehouse
                                                 </option>
                                             </select>
                                         </div>

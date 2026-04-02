@@ -147,8 +147,8 @@
                                         <div class="col-lg-10 mb-0">
                                             <select class="form-select" name="stock_destination" id="stock_destination"
                                                 required>
-                                                <option value="warehouse">Inventory Warehouse</option>
                                                 <option value="production">Production</option>
+                                                <option value="warehouse">Inventory Warehouse</option>
                                             </select>
                                         </div>
                                     </div>

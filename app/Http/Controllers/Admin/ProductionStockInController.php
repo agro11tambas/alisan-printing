@@ -243,7 +243,7 @@ class ProductionStockInController extends Controller
                 // $image->move(public_path('uploads/waybill_image'), $filename);
                 // $waybillImagePath = 'uploads/waybill_image/' . $filename;
 
-                $uploadPath = base_path('uploads/payment_proofs');
+                $uploadPath = base_path('uploads/waybill_image');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
