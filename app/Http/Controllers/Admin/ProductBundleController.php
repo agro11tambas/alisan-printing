@@ -102,16 +102,51 @@ class ProductBundleController extends Controller
         return view('erp.pages.product-bundles.create-product', compact('products'));
     }
 
+    // public function store(Request $request)
+    // {
+    //     $request->validate([
+    //         'name'     => 'required|string|max:255',
+    //         'sku'      => 'required|string|max:255|unique:product_bundles,sku',
+    //         'price'    => 'required|numeric|min:0',
+    //         'products' => 'required|array|min:1',
+    //     ]);
+
+    //     // 🧩 Cek SKU di tabel product_bundles dan products
+    //     $skuExists = \App\Models\ProductBundle::where('sku', $request->sku)->exists()
+    //         || \App\Models\Products::where('sku', $request->sku)->exists();
+
+    //     if ($skuExists) {
+    //         return redirect()->back()
+    //             ->withInput()
+    //             ->with('error', 'Product Bundle dengan SKU yang sama sudah ada di ERP dengan nama ' . ProductBundle::where('sku', $request->sku)->first()->name . '. Silakan gunakan SKU lain.');
+    //     }
+
+    //     // Simpan bundle
+    //     $bundle = \App\Models\ProductBundle::create([
+    //         'name'  => trim($request->name) . ' (BUNDLE)',
+    //         'sku'   => $request->sku,
+    //         'price' => $request->price,
+    //     ]);
+
+    //     // Simpan item bundle
+    //     foreach ($request->products as $product_id) {
+    //         \App\Models\ProductBundleItem::create([
+    //             'bundle_id'  => $bundle->id,
+    //             'product_id' => $product_id,
+    //         ]);
+    //     }
+
+    //     return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dibuat!');
+    // }
+
     public function store(Request $request)
     {
         $request->validate([
             'name'     => 'required|string|max:255',
             'sku'      => 'required|string|max:255|unique:product_bundles,sku',
-            'price'    => 'required|numeric|min:0',
-            'products' => 'required|array|min:1',
+            'products' => 'required|array|min:2',
         ]);
 
-        // 🧩 Cek SKU di tabel product_bundles dan products
         $skuExists = \App\Models\ProductBundle::where('sku', $request->sku)->exists()
             || \App\Models\Products::where('sku', $request->sku)->exists();
 
@@ -121,14 +156,15 @@ class ProductBundleController extends Controller
                 ->with('error', 'Product Bundle dengan SKU yang sama sudah ada di ERP dengan nama ' . ProductBundle::where('sku', $request->sku)->first()->name . '. Silakan gunakan SKU lain.');
         }
 
-        // Simpan bundle
+        // Hitung price dari produk-produk yang dipilih
+        $totalPrice = \App\Models\Products::whereIn('id', $request->products)->sum('price');
+
         $bundle = \App\Models\ProductBundle::create([
             'name'  => trim($request->name) . ' (BUNDLE)',
             'sku'   => $request->sku,
-            'price' => $request->price,
+            'price' => $totalPrice,
         ]);
 
-        // Simpan item bundle
         foreach ($request->products as $product_id) {
             \App\Models\ProductBundleItem::create([
                 'bundle_id'  => $bundle->id,
@@ -138,7 +174,6 @@ class ProductBundleController extends Controller
 
         return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dibuat!');
     }
-
 
     public function edit($id)
     {

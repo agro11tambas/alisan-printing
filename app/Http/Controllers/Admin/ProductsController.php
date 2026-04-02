@@ -291,6 +291,18 @@ class ProductsController extends Controller
             'fixed_cost' => $fixedCost,
         ]);
 
+        $bundleIds = \App\Models\ProductBundleItem::where('product_id', $id)
+            ->pluck('bundle_id')
+            ->unique();
+
+        foreach ($bundleIds as $bundleId) {
+            $total = \App\Models\ProductBundleItem::where('bundle_id', $bundleId)
+                ->join('products', 'product_bundle_items.product_id', '=', 'products.id')
+                ->sum('products.price');
+
+            \App\Models\ProductBundle::where('id', $bundleId)->update(['price' => $total]);
+        }
+
         $product->categories()->sync($request->categories);
         $product->tags()->sync($request->tags);
 

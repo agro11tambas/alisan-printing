@@ -112,7 +112,7 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3 align-items-center">
+                            {{-- <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="price" class="fw-semibold">Price</label>
                                 </div>
@@ -120,7 +120,7 @@
                                     <input type="text" inputmode="numeric" class="form-control" id="price"
                                         name="price" value="{{ old('price') }}" placeholder="Price">
                                 </div>
-                            </div>
+                            </div> --}}
 
                         </div>
                     </form>
@@ -267,10 +267,10 @@
                     showError($('#sku')[0], 'SKU wajib diisi');
                 }
 
-                if (!$('#price').val().trim()) {
-                    isValid = false;
-                    showError($('#price')[0], 'Harga wajib diisi');
-                }
+                // if (!$('#price').val().trim()) {
+                //     isValid = false;
+                //     showError($('#price')[0], 'Harga wajib diisi');
+                // }
 
                 if (!isValid) e.preventDefault();
             });

@@ -374,5 +374,25 @@
                 nameHolder.textContent = name;
             });
         });
+
+        // ⚠️ Restore search state dari sessionStorage
+        const savedSearch = sessionStorage.getItem('product_search');
+        const savedCategory = sessionStorage.getItem('product_category');
+        const savedTag = sessionStorage.getItem('product_tag');
+
+        if (savedSearch) $('#search_keyword').val(savedSearch);
+        if (savedCategory) $('#category_id').val(savedCategory).trigger('change');
+        if (savedTag) $('#tag_id').val(savedTag).trigger('change');
+
+        // ⚠️ Simpan state saat input berubah
+        $('#search_keyword').on('input', function() {
+            sessionStorage.setItem('product_search', $(this).val());
+        });
+        $('#category_id').on('change', function() {
+            sessionStorage.setItem('product_category', $(this).val());
+        });
+        $('#tag_id').on('change', function() {
+            sessionStorage.setItem('product_tag', $(this).val());
+        });
     </script>
 @endpush

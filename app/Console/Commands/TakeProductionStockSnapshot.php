@@ -71,13 +71,21 @@ class TakeProductionStockSnapshot extends Command
 
             // stock_in_today
             $fromMaterial = DB::table('material_request_items')
-                ->where('product_id', $productId)->whereNull('deleted_at')
-                ->whereDate('created_at', $today)->sum('received_qty');
+                ->where('product_id', $productId)
+                ->whereNull('deleted_at')
+                ->whereDate('created_at', $today)
+                ->sum('received_qty');
 
-            $fromInventory = DB::table('inventory_items_2')
-                ->where('product_id', $productId)->whereNull('deleted_at')
-                ->whereNotNull('purchase_item_id')->whereNotNull('production_warehouse_id')
-                ->whereDate('created_at', $today)->sum('stock_in');
+            $fromInventory = DB::table('inventory_stock_in_histories_2 as h')
+                ->join('inventory_stock_ins_2 as s', 's.id', '=', 'h.inventory_stock_in_id')
+                ->join('inventory_items_2 as i', 'i.id', '=', 'h.inventory_item_id')
+                ->join('inventories_2 as inv', 'inv.id', '=', 'i.inventory_id')
+                ->where('i.product_id', $productId)
+                ->where('inv.status', 'Stock In Production')
+                ->whereNull('h.deleted_at')
+                ->whereNull('s.deleted_at')
+                ->whereDate('s.created_at', $today)
+                ->sum('h.stock_in');
 
             $snapshot->stock_in_today = ($fromMaterial ?? 0) + ($fromInventory ?? 0);
 
