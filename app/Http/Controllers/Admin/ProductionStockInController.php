@@ -457,9 +457,66 @@ class ProductionStockInController extends Controller
         ));
     }
 
+    // public function dataHistory(Request $request, $supplierId, $year, $month)
+    // {
+    //     $inventoryIds = Inventory::where('status', 'Stock In Production') // ← beda
+    //         ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
+    //         ->whereHas('purchase', function ($q) use ($year, $month) {
+    //             $q->whereYear('purchase_date', $year)
+    //                 ->whereMonth('purchase_date', $month);
+    //         })
+    //         ->pluck('id');
+
+    //     $stockIn = InventoryStockIn::with(['user', 'histories.inventoryItem.product'])
+    //         ->whereIn('inventory_id', $inventoryIds)
+    //         ->latest();
+
+    //     if ($request->start_date && $request->end_date) {
+    //         $stockIn->whereBetween('change_date', [$request->start_date, $request->end_date]);
+    //     }
+
+    //     return DataTables::of($stockIn)
+    //         ->addIndexColumn()
+    //         ->addColumn('invoice_number', function ($stockIn) {
+    //             $html = '';
+    //             if (strtolower($stockIn->status) === 'add stock in') {
+    //                 $html .= '<div class="badge bg-soft-primary text-primary mb-1">Add Stock In</div><br>';
+    //             } elseif (strtolower($stockIn->status) === 'edit stock in') {
+    //                 $html .= '<div class="badge bg-soft-danger text-danger mb-1">Edit Stock Out</div><br>';
+    //             }
+    //             $html .= $stockIn->invoice_number;
+    //             return $html;
+    //         })
+    //         ->addColumn('change_date', function ($stockIn) {
+    //             return Carbon::parse($stockIn->created_at)->format('j M y H:i:s');
+    //         })
+    //         ->addColumn('user_name', function ($stockIn) {
+    //             return $stockIn->user->name;
+    //         })
+    //         ->addColumn('waybill_number', function ($stockIn) {
+    //             return $stockIn->waybill_number;
+    //         })
+    //         ->addColumn('waybill_image', function ($stockIn) {
+    //             if ($stockIn->waybill_image) {
+    //                 $imageUrl = asset($stockIn->waybill_image);
+    //                 return '<a href="' . $imageUrl . '" data-lightbox="waybill-' . $stockIn->id . '">
+    //                 <img src="' . $imageUrl . '" alt="Waybill Image" class="img-fluid" style="max-width: 60px;">
+    //             </a>';
+    //             }
+    //             return '-';
+    //         })
+    //         ->addColumn('stock_in', function ($stockIn) {
+    //             return view('erp.pages.production.stock-in.partials.product-stock-in-history', [ // ← beda
+    //                 'items' => $stockIn->histories
+    //             ])->render();
+    //         })
+    //         ->rawColumns(['invoice_number', 'waybill_image', 'stock_in'])
+    //         ->make(true);
+    // }
+
     public function dataHistory(Request $request, $supplierId, $year, $month)
     {
-        $inventoryIds = Inventory::where('status', 'Stock In Production') // ← beda
+        $inventoryIds = Inventory::where('status', 'Stock In Production')
             ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
             ->whereHas('purchase', function ($q) use ($year, $month) {
                 $q->whereYear('purchase_date', $year)
@@ -467,47 +524,76 @@ class ProductionStockInController extends Controller
             })
             ->pluck('id');
 
-        $stockIn = InventoryStockIn::with(['user', 'histories.inventoryItem.product'])
+        $query = InventoryStockIn::with(['user', 'histories.inventoryItem.product'])
             ->whereIn('inventory_id', $inventoryIds)
             ->latest();
 
         if ($request->start_date && $request->end_date) {
-            $stockIn->whereBetween('change_date', [$request->start_date, $request->end_date]);
+            $query->whereBetween('change_date', [$request->start_date, $request->end_date]);
         }
 
-        return DataTables::of($stockIn)
+        // Group by waybill_number, merge histories
+        $grouped = $query->get()
+            ->groupBy(fn($row) => $row->waybill_number ?: 'NO_WAYBILL_' . $row->id)
+            ->map(function ($rows) {
+                $first = $rows->first();
+
+                // Merge histories, gabung quantity kalau product sama
+                $mergedHistories = $rows->flatMap(fn($r) => $r->histories)
+                    ->groupBy(fn($h) => $h->inventoryItem->product_id ?? $h->id)
+                    ->map(function ($items) {
+                        $first = $items->first();
+                        $first->merged_stock_in = $items->sum('stock_in');
+                        return $first;
+                    })
+                    ->values();
+
+                return (object) [
+                    'id'             => $first->id,
+                    'status'         => $first->status,
+                    'invoice_number' => $rows->pluck('invoice_number')->unique()->implode(', '),
+                    'change_date'    => $first->created_at,
+                    'user'           => $first->user,
+                    'waybill_number' => $first->waybill_number,
+                    'waybill_image'  => $first->waybill_image,
+                    'histories'      => $mergedHistories,
+                ];
+            })
+            ->values();
+
+        return DataTables::of($grouped)
             ->addIndexColumn()
-            ->addColumn('invoice_number', function ($stockIn) {
+            ->addColumn('invoice_number', function ($row) {
                 $html = '';
-                if (strtolower($stockIn->status) === 'add stock in') {
+                if (strtolower($row->status) === 'add stock in') {
                     $html .= '<div class="badge bg-soft-primary text-primary mb-1">Add Stock In</div><br>';
-                } elseif (strtolower($stockIn->status) === 'edit stock in') {
+                } elseif (strtolower($row->status) === 'edit stock in') {
                     $html .= '<div class="badge bg-soft-danger text-danger mb-1">Edit Stock Out</div><br>';
                 }
-                $html .= $stockIn->invoice_number;
+                $html .= $row->invoice_number;
                 return $html;
             })
-            ->addColumn('change_date', function ($stockIn) {
-                return Carbon::parse($stockIn->created_at)->format('j M y H:i:s');
+            ->addColumn('change_date', function ($row) {
+                return Carbon::parse($row->change_date)->format('j M y H:i:s');
             })
-            ->addColumn('user_name', function ($stockIn) {
-                return $stockIn->user->name;
+            ->addColumn('user_name', function ($row) {
+                return $row->user->name;
             })
-            ->addColumn('waybill_number', function ($stockIn) {
-                return $stockIn->waybill_number;
+            ->addColumn('waybill_number', function ($row) {
+                return $row->waybill_number;
             })
-            ->addColumn('waybill_image', function ($stockIn) {
-                if ($stockIn->waybill_image) {
-                    $imageUrl = asset($stockIn->waybill_image);
-                    return '<a href="' . $imageUrl . '" data-lightbox="waybill-' . $stockIn->id . '">
+            ->addColumn('waybill_image', function ($row) {
+                if ($row->waybill_image) {
+                    $imageUrl = asset($row->waybill_image);
+                    return '<a href="' . $imageUrl . '" data-lightbox="waybill-' . $row->id . '">
                     <img src="' . $imageUrl . '" alt="Waybill Image" class="img-fluid" style="max-width: 60px;">
                 </a>';
                 }
                 return '-';
             })
-            ->addColumn('stock_in', function ($stockIn) {
-                return view('erp.pages.production.stock-in.partials.product-stock-in-history', [ // ← beda
-                    'items' => $stockIn->histories
+            ->addColumn('stock_in', function ($row) {
+                return view('erp.pages.production.stock-in.partials.product-stock-in-history', [
+                    'items' => $row->histories
                 ])->render();
             })
             ->rawColumns(['invoice_number', 'waybill_image', 'stock_in'])
