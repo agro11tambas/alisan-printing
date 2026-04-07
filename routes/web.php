@@ -53,6 +53,7 @@ use App\Http\Controllers\Admin\ReportItemsProductionAndWarehouseController;
 use App\Http\Controllers\Admin\ReportItemsProductionController;
 use App\Http\Controllers\Admin\SaleOrderController;
 use App\Http\Controllers\Admin\SaleReturnController;
+use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\StockOpnameController;
 use App\Http\Controllers\Admin\StockOpnameProductionController;
 use App\Http\Controllers\Admin\StockRequestController;
@@ -697,5 +698,10 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::get('/erp/invoices/edit-invoice/{id}', [InvoiceController::class, 'edit']);
         Route::put('/erp/invoices/update/{id}', [InvoiceController::class, 'update']);
         Route::delete('/erp/invoices/delete/{id}', [InvoiceController::class, 'delete']);
+    });
+
+    Route::middleware(['auth', 'permission:settings'])->group(function () {
+        Route::get('/erp/settings',              [SettingController::class, 'index'])->name('settings.index');
+        Route::post('/erp/settings/toggle/{key}', [SettingController::class, 'toggle'])->name('settings.toggle');
     });
 });

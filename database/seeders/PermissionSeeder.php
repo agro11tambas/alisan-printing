@@ -34,6 +34,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Operator Module', 'slug' => 'operator'],
             ['name' => 'Adjustment Module', 'slug' => 'adjustment'],
             ['name' => 'Design Module', 'slug' => 'design'],
+            ['name' => 'Settings', 'slug' => 'settings'],
         ];
 
         foreach ($permissions as $permission) {

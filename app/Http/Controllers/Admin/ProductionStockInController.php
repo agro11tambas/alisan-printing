@@ -546,6 +546,7 @@ class ProductionStockInController extends Controller
                         $first->merged_stock_in = $items->sum('stock_in');
                         return $first;
                     })
+                    ->filter(fn($item) => $item->merged_stock_in > 0)
                     ->values();
 
                 return (object) [

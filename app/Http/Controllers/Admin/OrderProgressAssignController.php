@@ -10,6 +10,7 @@ use App\Models\OrderProgressAssignBatch;
 use App\Models\OrderProgressItem;
 use App\Models\ProductionStock;
 use App\Models\Products;
+use App\Models\Setting;
 use App\Services\AssignCode;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -186,6 +187,20 @@ class OrderProgressAssignController extends Controller
                 //     ]);
                 // }
 
+                if (!Setting::isEnabled('allow_negative_stock')) {
+                    if ($productionStock->available_quantity <= 0) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "items.$idx.assigned_quantity" => "Stok available 0 untuk produk {$item->product->name}.",
+                        ]);
+                    }
+
+                    if ($requested > $productionStock->available_quantity) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
+                        ]);
+                    }
+                }
+
                 OrderProgressAssign::create([
                     'assign_batch_id'        => $batch->id,
                     'order_progress_item_id' => $item->id,
@@ -196,18 +211,18 @@ class OrderProgressAssignController extends Controller
                     'note'                   => $data['note'] ?? null,
                 ]);
 
-                $productionStock = ProductionStock::firstOrCreate(
-                    [
-                        'product_id' => $item->product_id,
-                        'production_warehouse_id' => 2, // sesuaikan jika perlu
-                    ],
-                    [
-                        'opening_stock' => 0,
-                        'available_quantity' => 0,
-                        'finished_product_stock' => 0,
-                        'canceled_product_stock' => 0,
-                    ]
-                );
+                // $productionStock = ProductionStock::firstOrCreate(
+                //     [
+                //         'product_id' => $item->product_id,
+                //         'production_warehouse_id' => 2, // sesuaikan jika perlu
+                //     ],
+                //     [
+                //         'opening_stock' => 0,
+                //         'available_quantity' => 0,
+                //         'finished_product_stock' => 0,
+                //         'canceled_product_stock' => 0,
+                //     ]
+                // );
 
                 $productionStock->decrement('available_quantity', $requested);
                 $productionStock->decrement('pending_waiting_list', $requested);

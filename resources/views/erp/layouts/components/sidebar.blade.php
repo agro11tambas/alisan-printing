@@ -459,6 +459,15 @@
                         </a>
                     </li>
                 @endif
+                @if (Auth::check() && Auth::user()->hasPermission('settings'))
+                    <li class="nxl-item nxl-hasmenu">
+                        <a href="/erp/settings"
+                            class="nxl-link {{ request()->is('erp/settings*') ? 'active' : '' }}">
+                            <span class="nxl-micon"><i class="feather-settings"></i></span>
+                            <span class="nxl-mtext ">Settings</span><span class="nxl-arrow"></span>
+                        </a>
+                    </li>
+                @endif
             </ul>
         </div>
     </div>

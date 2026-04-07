@@ -190,7 +190,7 @@ class ReportItemsProductionController extends Controller
             })
             ->addColumn('opening_stock_today', function ($item) {
                 // Ambil dari snapshot hari ini, fallback ke available_quantity jika belum ada snapshot
-                $opening = $item->todaySnapshot?->opening_stock ?? $item->available_quantity ?? 0;
+                $opening = $item->todaySnapshot?->closing_stock ?? 0;
                 return number_format($opening, 0, ',', '.');
             })
 

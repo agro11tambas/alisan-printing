@@ -52,7 +52,7 @@ class ProductionStock extends Model
     public function todaySnapshot()
     {
         return $this->hasOne(ProductionStockSnapshot::class, 'product_id', 'product_id')
-            ->whereDate('snapshot_date', today());
+            ->whereDate('snapshot_date', today()->subDay());
     }
 
     // public function getRemainingQuantityAttribute()
