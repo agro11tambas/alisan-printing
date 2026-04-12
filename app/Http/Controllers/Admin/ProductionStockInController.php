@@ -14,6 +14,7 @@ use App\Models\Products;
 use App\Models\PurchaseItem;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -419,43 +420,43 @@ class ProductionStockInController extends Controller
     //         ->make(true);
     // }
 
-    public function getHistory($supplierId, $year, $month)
-    {
-        $groupedInventories = Inventory::with(['items.product', 'purchase.supplier'])
-            ->where('status', 'Stock In Production') // ← beda
-            ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
-            ->whereHas('purchase', function ($q) use ($year, $month) {
-                $q->whereYear('purchase_date', $year)
-                    ->whereMonth('purchase_date', $month);
-            })
-            ->get();
+    // public function getHistory($supplierId, $year, $month)
+    // {
+    //     $groupedInventories = Inventory::with(['items.product', 'purchase.supplier'])
+    //         ->where('status', 'Stock In Production') // ← beda
+    //         ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
+    //         ->whereHas('purchase', function ($q) use ($year, $month) {
+    //             $q->whereYear('purchase_date', $year)
+    //                 ->whereMonth('purchase_date', $month);
+    //         })
+    //         ->get();
 
-        abort_if($groupedInventories->isEmpty(), 404);
+    //     abort_if($groupedInventories->isEmpty(), 404);
 
-        $supplier     = optional($groupedInventories->first()->purchase->supplier);
-        $monthLabel   = Carbon::createFromDate($year, $month, 1)->format('F Y');
-        $inventoryIds = $groupedInventories->pluck('id')->toArray();
+    //     $supplier     = optional($groupedInventories->first()->purchase->supplier);
+    //     $monthLabel   = Carbon::createFromDate($year, $month, 1)->format('F Y');
+    //     $inventoryIds = $groupedInventories->pluck('id')->toArray();
 
-        $mergedItems = $groupedInventories->flatMap(fn($inv) => $inv->items)
-            ->groupBy('product_id')
-            ->map(function ($productItems) {
-                return (object)[
-                    'product'  => $productItems->first()->product,
-                    'quantity' => $productItems->sum('quantity'),
-                    'stock_in' => $productItems->sum('stock_in'),
-                ];
-            })->values();
+    //     $mergedItems = $groupedInventories->flatMap(fn($inv) => $inv->items)
+    //         ->groupBy('product_id')
+    //         ->map(function ($productItems) {
+    //             return (object)[
+    //                 'product'  => $productItems->first()->product,
+    //                 'quantity' => $productItems->sum('quantity'),
+    //                 'stock_in' => $productItems->sum('stock_in'),
+    //             ];
+    //         })->values();
 
-        return view('erp.pages.production.stock-in.history-stock-in', compact( // ← beda
-            'mergedItems',
-            'supplier',
-            'monthLabel',
-            'inventoryIds',
-            'supplierId',
-            'year',
-            'month'
-        ));
-    }
+    //     return view('erp.pages.production.stock-in.history-stock-in', compact( // ← beda
+    //         'mergedItems',
+    //         'supplier',
+    //         'monthLabel',
+    //         'inventoryIds',
+    //         'supplierId',
+    //         'year',
+    //         'month'
+    //     ));
+    // }
 
     // public function dataHistory(Request $request, $supplierId, $year, $month)
     // {
@@ -514,14 +515,111 @@ class ProductionStockInController extends Controller
     //         ->make(true);
     // }
 
-    public function dataHistory(Request $request, $supplierId, $year, $month)
+    // public function dataHistory(Request $request, $supplierId, $year, $month)
+    // {
+    //     $inventoryIds = Inventory::where('status', 'Stock In Production')
+    //         ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
+    //         ->whereHas('purchase', function ($q) use ($year, $month) {
+    //             $q->whereYear('purchase_date', $year)
+    //                 ->whereMonth('purchase_date', $month);
+    //         })
+    //         ->pluck('id');
+
+    //     $query = InventoryStockIn::with(['user', 'histories.inventoryItem.product'])
+    //         ->whereIn('inventory_id', $inventoryIds)
+    //         ->latest();
+
+    //     if ($request->start_date && $request->end_date) {
+    //         $query->whereBetween('change_date', [$request->start_date, $request->end_date]);
+    //     }
+
+    //     // Group by waybill_number, merge histories
+    //     $grouped = $query->get()
+    //         ->groupBy(fn($row) => $row->waybill_number ?: 'NO_WAYBILL_' . $row->id)
+    //         ->map(function ($rows) {
+    //             $first = $rows->first();
+
+    //             // Merge histories, gabung quantity kalau product sama
+    //             $mergedHistories = $rows->flatMap(fn($r) => $r->histories)
+    //                 ->groupBy(fn($h) => $h->inventoryItem->product_id ?? $h->id)
+    //                 ->map(function ($items) {
+    //                     $first = $items->first();
+    //                     $first->merged_stock_in = $items->sum('stock_in');
+    //                     return $first;
+    //                 })
+    //                 ->filter(fn($item) => $item->merged_stock_in > 0)
+    //                 ->values();
+
+    //             return (object) [
+    //                 'id'             => $first->id,
+    //                 'status'         => $first->status,
+    //                 'invoice_number' => $rows->pluck('invoice_number')->unique()->implode(', '),
+    //                 'change_date'    => $first->created_at,
+    //                 'user'           => $first->user,
+    //                 'waybill_number' => $first->waybill_number,
+    //                 'waybill_image'  => $first->waybill_image,
+    //                 'histories'      => $mergedHistories,
+    //                 'is_verified'    => $first->is_verified,
+    //                 'verified_at'    => $first->verified_at,
+    //             ];
+    //         })
+    //         ->values();
+
+    //     return DataTables::of($grouped)
+    //         ->addIndexColumn()
+    //         ->addColumn('invoice_number', function ($row) {
+    //             $html = '';
+    //             if (strtolower($row->status) === 'add stock in') {
+    //                 $html .= '<div class="badge bg-soft-primary text-primary mb-1">Add Stock In</div><br>';
+    //             } elseif (strtolower($row->status) === 'edit stock in') {
+    //                 $html .= '<div class="badge bg-soft-danger text-danger mb-1">Edit Stock Out</div><br>';
+    //             }
+    //             $html .= $row->invoice_number;
+    //             return $html;
+    //         })
+    //         ->addColumn('change_date', function ($row) {
+    //             return Carbon::parse($row->change_date)->format('j M y H:i:s');
+    //         })
+    //         ->addColumn('user_name', function ($row) {
+    //             return $row->user->name;
+    //         })
+    //         ->addColumn('waybill_number', function ($row) {
+    //             return $row->waybill_number;
+    //         })
+    //         ->addColumn('waybill_image', function ($row) {
+    //             if ($row->waybill_image) {
+    //                 $imageUrl = asset($row->waybill_image);
+    //                 return '<a href="' . $imageUrl . '" data-lightbox="waybill-' . $row->id . '">
+    //                 <img src="' . $imageUrl . '" alt="Waybill Image" class="img-fluid" style="max-width: 60px;">
+    //             </a>';
+    //             }
+    //             return '-';
+    //         })
+    //         ->addColumn('stock_in', function ($row) {
+    //             return view('erp.pages.production.stock-in.partials.product-stock-in-history', [
+    //                 'items' => $row->histories
+    //             ])->render();
+    //         })
+    //         ->addColumn('verified', function ($row) {
+    //             if ($row->is_verified) {
+    //                 return '<button class="btn btn-success btn-sm btn-verified" 
+    //                 data-id="' . $row->id . '" disabled>
+    //                 <i class="ri-checkbox-circle-line"></i> Paid
+    //             </button>';
+    //             }
+    //             return '<button class="btn btn-outline-primary btn-sm btn-verify" 
+    //             data-id="' . $row->id . '">
+    //             <i class="ri-checkbox-circle-line"></i> Mark As Paid
+    //         </button>';
+    //         })
+    //         ->rawColumns(['invoice_number', 'waybill_image', 'stock_in', 'verified'])
+    //         ->make(true);
+    // }
+
+    public function dataHistory(Request $request, $supplierId)
     {
         $inventoryIds = Inventory::where('status', 'Stock In Production')
             ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
-            ->whereHas('purchase', function ($q) use ($year, $month) {
-                $q->whereYear('purchase_date', $year)
-                    ->whereMonth('purchase_date', $month);
-            })
             ->pluck('id');
 
         $query = InventoryStockIn::with(['user', 'histories.inventoryItem.product'])
@@ -532,13 +630,20 @@ class ProductionStockInController extends Controller
             $query->whereBetween('change_date', [$request->start_date, $request->end_date]);
         }
 
+        if ($request->filled('verified')) {
+            if ($request->verified === 'verified') {
+                $query->where('is_verified', true);
+            } elseif ($request->verified === 'unverified') {
+                $query->where('is_verified', false);
+            }
+        }
+
         // Group by waybill_number, merge histories
         $grouped = $query->get()
             ->groupBy(fn($row) => $row->waybill_number ?: 'NO_WAYBILL_' . $row->id)
             ->map(function ($rows) {
                 $first = $rows->first();
 
-                // Merge histories, gabung quantity kalau product sama
                 $mergedHistories = $rows->flatMap(fn($r) => $r->histories)
                     ->groupBy(fn($h) => $h->inventoryItem->product_id ?? $h->id)
                     ->map(function ($items) {
@@ -558,6 +663,8 @@ class ProductionStockInController extends Controller
                     'waybill_number' => $first->waybill_number,
                     'waybill_image'  => $first->waybill_image,
                     'histories'      => $mergedHistories,
+                    'is_verified'    => $first->is_verified,
+                    'verified_at'    => $first->verified_at,
                 ];
             })
             ->values();
@@ -574,15 +681,9 @@ class ProductionStockInController extends Controller
                 $html .= $row->invoice_number;
                 return $html;
             })
-            ->addColumn('change_date', function ($row) {
-                return Carbon::parse($row->change_date)->format('j M y H:i:s');
-            })
-            ->addColumn('user_name', function ($row) {
-                return $row->user->name;
-            })
-            ->addColumn('waybill_number', function ($row) {
-                return $row->waybill_number;
-            })
+            ->addColumn('change_date', fn($row) => Carbon::parse($row->change_date)->format('j M y H:i:s'))
+            ->addColumn('user_name', fn($row) => $row->user->name)
+            ->addColumn('waybill_number', fn($row) => $row->waybill_number)
             ->addColumn('waybill_image', function ($row) {
                 if ($row->waybill_image) {
                     $imageUrl = asset($row->waybill_image);
@@ -592,13 +693,69 @@ class ProductionStockInController extends Controller
                 }
                 return '-';
             })
-            ->addColumn('stock_in', function ($row) {
-                return view('erp.pages.production.stock-in.partials.product-stock-in-history', [
-                    'items' => $row->histories
-                ])->render();
+            ->addColumn('stock_in', fn($row) => view('erp.pages.production.stock-in.partials.product-stock-in-history', [
+                'items' => $row->histories
+            ])->render())
+            ->addColumn('verified', function ($row) {
+                if ($row->is_verified) {
+                    return '<button class="btn btn-success btn-sm btn-verified" data-id="' . $row->id . '" disabled>
+                    <i class="ri-checkbox-circle-line"></i> Paid
+                </button>';
+                }
+                return '<button class="btn btn-outline-primary btn-sm btn-verify" data-id="' . $row->id . '">
+                <i class="ri-checkbox-circle-line"></i> Mark As Paid
+            </button>';
             })
-            ->rawColumns(['invoice_number', 'waybill_image', 'stock_in'])
+            ->rawColumns(['invoice_number', 'waybill_image', 'stock_in', 'verified'])
             ->make(true);
+    }
+
+    public function getHistory($supplierId)
+    {
+        $groupedInventories = Inventory::with(['items.product', 'purchase.supplier'])
+            ->where('status', 'Stock In Production')
+            ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
+            ->get();
+
+        abort_if($groupedInventories->isEmpty(), 404);
+
+        $supplier = optional($groupedInventories->first()->purchase->supplier);
+
+        $inventoryIds = $groupedInventories->pluck('id')->toArray();
+
+        $mergedItems = $groupedInventories->flatMap(fn($inv) => $inv->items)
+            ->groupBy('product_id')
+            ->map(function ($productItems) {
+                return (object)[
+                    'product'  => $productItems->first()->product,
+                    'quantity' => $productItems->sum('quantity'),
+                    'stock_in' => $productItems->sum('stock_in'),
+                ];
+            })->values();
+
+        return view('erp.pages.production.stock-in.history-stock-in', compact(
+            'mergedItems',
+            'supplier',
+            'inventoryIds',
+            'supplierId',
+        ));
+    }
+
+    public function verify($id)
+    {
+        $stockIn = InventoryStockIn::findOrFail($id);
+
+        if ($stockIn->is_verified) {
+            return response()->json(['message' => 'Already verified'], 400);
+        }
+
+        $stockIn->update([
+            'is_verified'  => true,
+            'verified_by'  => Auth::id(),
+            'verified_at'  => now(),
+        ]);
+
+        return response()->json(['message' => 'Berhasil diverifikasi']);
     }
 
     public function updateHistoryItem(Request $request, $id)

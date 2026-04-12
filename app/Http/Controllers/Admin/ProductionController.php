@@ -258,11 +258,17 @@ class ProductionController extends Controller
         $data = $inventory->skip($start)->take($length)->get();
 
         // ✅ Group by supplier + purchase_date year-month
+        // $grouped = $data->groupBy(function ($item) {
+        //     $supplierId = optional($item->purchase->supplier ?? null)->id
+        //         ?? ($item->sale_return_id ? 'return_' . (optional($item->saleReturn->customer)->id ?? 'unknown') : 'other');
+        //     $month = Carbon::parse($item->purchase?->purchase_date ?? $item->created_at)->format('Y-m');
+        //     return $supplierId . '_' . $month;
+        // });
+
         $grouped = $data->groupBy(function ($item) {
             $supplierId = optional($item->purchase->supplier ?? null)->id
                 ?? ($item->sale_return_id ? 'return_' . (optional($item->saleReturn->customer)->id ?? 'unknown') : 'other');
-            $month = Carbon::parse($item->purchase?->purchase_date ?? $item->created_at)->format('Y-m');
-            return $supplierId . '_' . $month;
+            return $supplierId;
         });
 
         // ✅ Filter progress_status setelah grouping
@@ -296,7 +302,9 @@ class ProductionController extends Controller
                     $badge   = '';
                 }
 
-                $month = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->format('F Y');
+                // $month = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->format('F Y');
+                $dates = $items->map(fn($inv) => Carbon::parse($inv->purchase?->purchase_date ?? $inv->created_at));
+                $month = $dates->min()->format('M Y') . ' – ' . $dates->max()->format('M Y');
 
                 // Merge items by product_id
                 $mergedItems = $items->flatMap(fn($inv) => $inv->items)
@@ -328,8 +336,8 @@ class ProductionController extends Controller
                     'erp.pages.production.stock-in.partials.action-button-stock-in',
                     [
                         'supplierId'  => $supplierId,
-                        'year'        => $year,
-                        'month'       => $monthNum,
+                        // 'year'        => $year,
+                        // 'month'       => $monthNum,
                         'isCompleted' => $isGroupCompleted,
                         'inventory'   => $first,
                     ]

@@ -24,6 +24,9 @@ class InventoryStockIn extends Model
         'waybill_number',
         'waybill_image',
         'status',
+        'is_verified',
+        'verified_by',
+        'verified_at',
         'note',
     ];
 
