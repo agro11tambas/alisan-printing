@@ -52,9 +52,8 @@
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-12">
-                <form
-                    action="/erp/productions/stock-in/store-grouped/{{ $supplierId }}/{{ $year }}/{{ $month }}"
-                    method="POST" id="stockInForm" enctype="multipart/form-data">
+                <form action="/erp/productions/stock-in/store-grouped/{{ $supplierId }}" method="POST" id="stockInForm"
+                    enctype="multipart/form-data">
                     @csrf
                     @method('POST')
                     <div class="card">
@@ -71,7 +70,7 @@
                                     @endif
                                 </span>
                             </h4> --}}
-                            <h4 class="card-title">{{ $supplier->name }} — {{ $monthLabel }}</h4>
+                            <h4 class="card-title">{{ $supplier->name }}</h4>
 
                         </div>
                         <div class="card-body">

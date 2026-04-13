@@ -27,21 +27,16 @@ class ProductionStockInController extends Controller
     //     return view('erp.pages.production.stock-in.add-stock-in', compact('stockIn'));
     // }
 
-    public function addStockIn($supplierId, $year, $month)
+    public function addStockIn($supplierId)
     {
         $groupedInventories = Inventory::with(['items.product', 'purchase.supplier'])
             ->where('status', 'Stock In Production')
             ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
-            ->whereHas('purchase', function ($q) use ($year, $month) {
-                $q->whereYear('purchase_date', $year)
-                    ->whereMonth('purchase_date', $month);
-            })
             ->get();
 
         abort_if($groupedInventories->isEmpty(), 404);
 
         $supplier       = optional($groupedInventories->first()->purchase->supplier);
-        $monthLabel     = Carbon::createFromDate($year, $month, 1)->format('F Y');
         $invoiceNumbers = $groupedInventories
             ->map(fn($inv) => $inv->purchase->purchase_number ?? '-')
             ->filter()->unique()->implode(', ');
@@ -64,12 +59,9 @@ class ProductionStockInController extends Controller
         return view('erp.pages.production.stock-in.add-stock-in', compact( // ← beda di sini
             'mergedItems',
             'supplier',
-            'monthLabel',
             'invoiceNumbers',
             'firstInventory',
             'supplierId',
-            'year',
-            'month'
         ));
     }
 
@@ -213,7 +205,7 @@ class ProductionStockInController extends Controller
     //     }
     // }
 
-    public function storeGrouped(Request $request, $supplierId, $year, $month)
+    public function storeGrouped(Request $request, $supplierId)
     {
         $items = $request->input('items', []);
         foreach ($items as $index => $item) {

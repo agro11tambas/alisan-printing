@@ -776,7 +776,7 @@ class PurchaseOrderController extends Controller
 
             DB::commit();
 
-            return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase list berhasil diperbarui tanpa hapus data lama!');
+            return redirect('/erp/purchases/purchase-orders')->with('success', 'Purchase list berhasil diperbarui tanpa hapus data lama!');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Purchase update failed: ' . $e->getMessage());
