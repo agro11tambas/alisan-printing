@@ -1,5 +1,29 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        /* Pindah lightbox ke kiri */
+        #lightbox {
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
+            padding-left: 20px;
+            padding-top: 20px;
+        }
+
+        .lb-outerContainer {
+            margin: 0 !important;
+        }
+
+        /* Hapus blur backdrop */
+        #lightboxOverlay {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            /* tetap gelap tapi tanpa blur */
+        }
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -414,6 +438,18 @@
                     }
                 });
             });
+        });
+
+        // Setelah lightbox2 loaded
+        $(document).on('click', '[data-lightbox]', function() {
+            setTimeout(function() {
+                var lb = $('#lightbox');
+                lb.css({
+                    'justify-content': 'flex-start',
+                    'align-items': 'flex-start',
+                    'padding': '20px 0 0 20px'
+                });
+            }, 50);
         });
     </script>
 @endpush

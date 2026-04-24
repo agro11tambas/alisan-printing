@@ -3842,29 +3842,29 @@ class SaleListController extends Controller
             }
 
 
-            if ($order->mode === 'polosan') {
-                foreach ($order->orderItems as $item) {
-                    if ($item->satuan === 'satuan' && $item->product_id) {
-                        $productionStock = ProductionStock::firstOrCreate(
-                            ['product_id' => $item->product_id],
-                            ['available_quantity' => 0]
-                        );
-                        $productionStock->increment('available_quantity', $item->quantity);
-                    } elseif ($item->satuan === 'bundle' && $item->product_bundle_id) {
-                        $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
-                        if ($bundle) {
-                            foreach ($bundle->items as $bundleItem) {
-                                if (!$bundleItem->product_id) continue;
-                                $productionStock = ProductionStock::firstOrCreate(
-                                    ['product_id' => $bundleItem->product_id],
-                                    ['available_quantity' => 0]
-                                );
-                                $productionStock->increment('available_quantity', $item->quantity);
-                            }
-                        }
-                    }
-                }
-            }
+            // if ($order->mode === 'polosan') {
+            //     foreach ($order->orderItems as $item) {
+            //         if ($item->satuan === 'satuan' && $item->product_id) {
+            //             $productionStock = ProductionStock::firstOrCreate(
+            //                 ['product_id' => $item->product_id],
+            //                 ['available_quantity' => 0]
+            //             );
+            //             $productionStock->increment('available_quantity', $item->quantity);
+            //         } elseif ($item->satuan === 'bundle' && $item->product_bundle_id) {
+            //             $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
+            //             if ($bundle) {
+            //                 foreach ($bundle->items as $bundleItem) {
+            //                     if (!$bundleItem->product_id) continue;
+            //                     $productionStock = ProductionStock::firstOrCreate(
+            //                         ['product_id' => $bundleItem->product_id],
+            //                         ['available_quantity' => 0]
+            //                     );
+            //                     $productionStock->increment('available_quantity', $item->quantity);
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
 
             // ======================================================
             // 🔁 Kembalikan stok di inventory

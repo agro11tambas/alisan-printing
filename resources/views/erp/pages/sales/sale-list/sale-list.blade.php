@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                                                                                                                        display: none !important;
-                                                                                                                                                                                                                                                                                                                                                                    } */
+                                                                                                                                                                                                                                                                                                                                                                                    display: none !important;
+                                                                                                                                                                                                                                                                                                                                                                                } */
 
         .sale-mobile-action {
             display: none;
@@ -1614,6 +1614,10 @@
             document.getElementById('markAsSaleForm').addEventListener('submit', function(e) {
                 e.preventDefault();
 
+                const $btn = $(this).find('[type="submit"]');
+                if ($btn.prop('disabled')) return;
+                $btn.prop('disabled', true);
+
                 const form = this;
                 const url = form.getAttribute('action');
                 const formData = new FormData(form);
@@ -1753,6 +1757,9 @@
                             title: 'Gagal!',
                             text: msg,
                         });
+                    },
+                    complete: function() {
+                        $btn.prop('disabled', false);
                     }
                 });
 
