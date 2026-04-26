@@ -13,12 +13,24 @@
             </a>
         </li>
         <li>
-            <button type="button"
-                class="dropdown-item btn-delete"
-                data-bs-toggle="modal"
-                data-bs-target="#modalDeleteCustomer"
-                data-id="{{ $customer->id }}"
-                data-name="{{ $customer->name }}"
+            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalCustomerDeposit"
+                data-id="{{ $customer->id }}" data-name="{{ $customer->name }}"
+                data-deposit="{{ $customer->customer_deposit }}" data-type="add">
+                <i class="feather feather-plus-circle me-3"></i>
+                <span>Add Deposit</span>
+            </button>
+        </li>
+        <li>
+            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalCustomerDeposit"
+                data-id="{{ $customer->id }}" data-name="{{ $customer->name }}"
+                data-deposit="{{ $customer->customer_deposit }}" data-type="subtract">
+                <i class="feather feather-minus-circle me-3"></i>
+                <span>Subtract Deposit</span>
+            </button>
+        </li>
+        <li>
+            <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
+                data-bs-target="#modalDeleteCustomer" data-id="{{ $customer->id }}" data-name="{{ $customer->name }}"
                 data-url="{{ url('/erp/customers/delete/' . $customer->id) }}">
                 <i class="feather feather-trash-2 me-3"></i>
                 <span>Delete</span>

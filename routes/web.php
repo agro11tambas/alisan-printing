@@ -683,6 +683,8 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::get('/erp/customers/edit-customer/{id}', [CustomerController::class, 'edit']);
         Route::put('/erp/customers/update/{id}', [CustomerController::class, 'update']);
         Route::put('/erp/customers/delete/{id}', [CustomerController::class, 'delete']);
+
+        Route::post('/erp/customers/{customer}/deposit', [CustomerController::class, 'updateDeposit']);
     });
 
     Route::middleware(['auth', 'permission:supplier'])->group(function () {

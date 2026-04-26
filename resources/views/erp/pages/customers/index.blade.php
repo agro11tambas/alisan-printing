@@ -149,6 +149,55 @@
             </form>
         </div>
     </div>
+
+    <div class="modal fade-scale" id="modalCustomerDeposit" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header" id="depositModalHeader">
+                    <h2 class="d-flex flex-column mb-0">
+                        <span class="fs-18 fw-bold mb-1" id="depositModalTitle"></span>
+                        <span class="fs-12 text-muted fw-normal" id="depositCustomerName"></span>
+                    </h2>
+                    <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger close-icon"
+                        data-bs-dismiss="modal">
+                        <i class="feather-x text-danger"></i>
+                    </a>
+                </div>
+                <form method="POST" id="formCustomerDeposit">
+                    @csrf
+                    <input type="hidden" name="customer_id" id="depositCustomerId">
+                    <input type="hidden" name="deposit_type" id="depositType">
+                    <div class="modal-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <label class="fw-semibold">Current Deposit:</label>
+                                <h5 class="fw-bold text-primary" id="depositCurrentAmount">Rp. 0</h5>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-12">
+                                <label for="deposit_amount" class="fw-semibold">Amount:</label>
+                                <input type="text" class="form-control" id="deposit_amount" name="deposit_amount"
+                                    value="0" required>
+                                <small class="text-danger d-none" id="error_deposit_amount"></small>
+                            </div>
+                        </div>
+                        {{-- <div class="row g-3">
+                            <div class="col-md-12">
+                                <label for="deposit_note" class="fw-semibold">Note (optional):</label>
+                                <textarea class="form-control" id="deposit_note" name="deposit_note" rows="2"
+                                    placeholder="e.g. DP order #123"></textarea>
+                            </div>
+                        </div> --}}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn" id="depositSubmitBtn">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endpush
 
 
@@ -283,6 +332,89 @@
                         }
                     });
                 }
+            });
+
+            const depositModal = document.getElementById('modalCustomerDeposit');
+            const depositForm = document.getElementById('formCustomerDeposit');
+
+            function formatRupiah(el) {
+                let raw = el.value.replace(/\D/g, '');
+                el.value = raw ? parseInt(raw).toLocaleString('id-ID') : '';
+            }
+
+            document.getElementById('deposit_amount').addEventListener('input', function() {
+                formatRupiah(this);
+            });
+
+            depositModal.addEventListener('show.bs.modal', function(event) {
+                const btn = event.relatedTarget;
+                const type = btn.getAttribute('data-type'); // 'add' | 'subtract'
+
+                document.getElementById('depositCustomerId').value = btn.getAttribute('data-id');
+                document.getElementById('depositCustomerName').textContent = btn.getAttribute('data-name');
+                document.getElementById('depositType').value = type;
+
+                const deposit = parseFloat(btn.getAttribute('data-deposit')) || 0;
+                document.getElementById('depositCurrentAmount').textContent =
+                    'Rp. ' + deposit.toLocaleString('id-ID');
+
+                // Ubah title & warna header sesuai type
+                const isAdd = type === 'add';
+                document.getElementById('depositModalTitle').textContent = isAdd ? 'Add Customer Deposit' :
+                    'Subtract Customer Deposit';
+                document.getElementById('depositModalHeader').className = 'modal-header ' + (isAdd ?
+                    'bg-soft-success' :
+                    'bg-soft-danger');
+                const submitBtn = document.getElementById('depositSubmitBtn');
+                submitBtn.className = 'btn ' + (isAdd ? 'btn-success' : 'btn-danger');
+                submitBtn.textContent = isAdd ? 'Add' : 'Subtract';
+
+                // Reset field
+                document.getElementById('deposit_amount').value = '0';
+                document.getElementById('deposit_note').value = '';
+                document.getElementById('error_deposit_amount').classList.add('d-none');
+            });
+
+            depositForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const customerId = document.getElementById('depositCustomerId').value;
+                // const formData = new FormData(depositForm);
+
+                const rawAmount = document.getElementById('deposit_amount').value.replace(/\./g, '');
+                const formData = new FormData(depositForm);
+                formData.set('deposit_amount', rawAmount);
+
+                fetch(`/erp/customers/${customerId}/deposit`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: formData,
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.success) {
+                            bootstrap.Modal.getInstance(depositModal).hide();
+                            dataTable.ajax.reload(null, false);
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: res.message
+                            });
+                        } else {
+                            if (res.errors?.deposit_amount) {
+                                const err = document.getElementById('error_deposit_amount');
+                                err.textContent = res.errors.deposit_amount[0];
+                                err.classList.remove('d-none');
+                            }
+                        }
+                    })
+                    .catch(() => Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Terjadi kesalahan.'
+                    }));
             });
         });
 

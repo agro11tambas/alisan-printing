@@ -174,4 +174,28 @@ class CustomerController extends Controller
 
         return redirect('/erp/customers')->with('success', 'Customer berhasil dihapus.');
     }
+
+    public function updateDeposit(Request $request, Customers $customer)
+    {
+        $request->validate([
+            'deposit_type'   => 'required|in:add,subtract',
+            'deposit_amount' => 'required|numeric|min:1',
+        ]);
+
+        $amount = $request->deposit_amount;
+
+        if ($request->deposit_type === 'add') {
+            $customer->increment('customer_deposit', $amount);
+        } else {
+            if ($amount > $customer->customer_deposit) {
+                return response()->json([
+                    'success' => false,
+                    'errors'  => ['deposit_amount' => ['Amount melebihi saldo deposit.']],
+                ], 422);
+            }
+            $customer->decrement('customer_deposit', $amount);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Deposit berhasil diupdate.']);
+    }
 }
