@@ -4624,6 +4624,19 @@ class SaleListController extends Controller
             'use_write_off_only' => 'nullable|boolean',
         ]);
 
+        $exists = AccountTransaction::where('order_id', $request->order_id)
+            ->where('debit', $request->paid_amount)
+            ->where('transaction_date', $request->transaction_date)
+            ->where('created_at', '>=', now()->subSeconds(5))
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Transaksi duplikat terdeteksi.',
+            ], 422);
+        }
+
         DB::beginTransaction();
 
         try {
