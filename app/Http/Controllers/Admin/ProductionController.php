@@ -255,7 +255,8 @@ class ProductionController extends Controller
         }
 
         // ✅ Ambil data
-        $data = $inventory->skip($start)->take($length)->get();
+        // $data = $inventory->skip($start)->take($length)->get();
+        $allData = $inventory->get();
 
         // ✅ Group by supplier + purchase_date year-month
         // $grouped = $data->groupBy(function ($item) {
@@ -265,11 +266,12 @@ class ProductionController extends Controller
         //     return $supplierId . '_' . $month;
         // });
 
-        $grouped = $data->groupBy(function ($item) {
+        $grouped = $allData->groupBy(function ($item) {
             $supplierId = optional($item->purchase->supplier ?? null)->id
                 ?? ($item->sale_return_id ? 'return_' . (optional($item->saleReturn->customer)->id ?? 'unknown') : 'other');
             return $supplierId;
         });
+
 
         // ✅ Filter progress_status setelah grouping
         if ($request->filled('progress_status')) {
@@ -285,9 +287,10 @@ class ProductionController extends Controller
         }
 
         $totalData = $grouped->count();
+        $paginated = $grouped->slice($start, $length);
 
         return response()->json([
-            'data' => $grouped->map(function ($items) {
+            'data' => $paginated->map(function ($items) {
                 $first = $items->first();
 
                 // Partner + badge

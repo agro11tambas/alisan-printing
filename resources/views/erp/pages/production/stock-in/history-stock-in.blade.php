@@ -211,7 +211,7 @@
                                         <th>Waybill Number</th>
                                         <th>Waybill Image</th>
                                         <th>Histories</th>
-                                        <th>Mark As Paid</th>
+                                        {{-- <th>Mark As Paid</th> --}}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -331,12 +331,12 @@
                         data: 'stock_in',
                         name: 'stock_in'
                     },
-                    {
-                        data: 'verified',
-                        name: 'verified',
-                        orderable: false,
-                        searchable: false
-                    },
+                    // {
+                    //     data: 'verified',
+                    //     name: 'verified',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                 ]
             });
 

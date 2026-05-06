@@ -663,6 +663,17 @@ class ProductionStockInController extends Controller
 
         return DataTables::of($grouped)
             ->addIndexColumn()
+            // ->addColumn('invoice_number', function ($row) {
+            //     $html = '';
+            //     if (strtolower($row->status) === 'add stock in') {
+            //         $html .= '<div class="badge bg-soft-primary text-primary mb-1">Add Stock In</div><br>';
+            //     } elseif (strtolower($row->status) === 'edit stock in') {
+            //         $html .= '<div class="badge bg-soft-danger text-danger mb-1">Edit Stock Out</div><br>';
+            //     }
+            //     $html .= $row->invoice_number;
+            //     return $html;
+            // })
+
             ->addColumn('invoice_number', function ($row) {
                 $html = '';
                 if (strtolower($row->status) === 'add stock in') {
@@ -671,6 +682,19 @@ class ProductionStockInController extends Controller
                     $html .= '<div class="badge bg-soft-danger text-danger mb-1">Edit Stock Out</div><br>';
                 }
                 $html .= $row->invoice_number;
+
+                // Verified button di bawah invoice number
+                $html .= '<br>';
+                if ($row->is_verified) {
+                    $html .= '<button class="btn btn-success btn-sm btn-verified mt-1" data-id="' . $row->id . '" disabled>
+                                <i class="ri-checkbox-circle-line"></i> Paid
+                            </button>';
+                } else {
+                    $html .= '<button class="btn btn-outline-primary btn-sm btn-verify mt-1" data-id="' . $row->id . '">
+                                <i class="ri-checkbox-circle-line"></i> Mark As Paid
+                            </button>';
+                }
+
                 return $html;
             })
             ->addColumn('change_date', fn($row) => Carbon::parse($row->change_date)->format('j M y H:i:s'))

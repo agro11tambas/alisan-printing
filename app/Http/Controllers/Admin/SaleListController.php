@@ -241,91 +241,209 @@ class SaleListController extends Controller
                         'deliveryItems.deliveryOrder',
                     ])
                     ->get()
+                    // ->map(function ($item) {
+                    //     if ($item->product) {
+                    //         $name = $item->product->name;
+                    //         $sku = $item->product->sku;
+                    //     } elseif ($item->productBundle) {
+                    //         $bundleNames = $item->productBundle->items
+                    //             ->map(fn($b) => $b->product->name ?? '-')
+                    //             ->implode(' + ');
+                    //         $name = $bundleNames ?: '-';
+                    //         $sku = $item->productBundle->sku ?? '-';
+                    //     } else {
+                    //         $name = '-';
+                    //         $sku = '-';
+                    //     }
+
+                    //     $deliveryData = $item->order
+                    //         ->deliveryOrders()
+                    //         ->with(['items' => function ($q) use ($item) {
+                    //             $q->where('order_item_id', $item->id);
+                    //         }])
+                    //         ->get()
+                    //         ->pluck('items')
+                    //         ->flatten();
+
+                    //     if ($item->productBundle) {
+                    //         $progressQty = $deliveryData->first()->progress_qty ?? 0;
+                    //         $readyQty = $deliveryData->first()->ready_qty ?? 0;
+                    //         $shippedQty = $deliveryData->first()->shipped_qty ?? 0;
+                    //     } else {
+                    //         $progressQty = $deliveryData->sum('progress_qty');
+                    //         $readyQty = $deliveryData->sum('ready_qty');
+                    //         $shippedQty = $deliveryData->sum('shipped_qty');
+                    //     }
+
+                    //     $deliveryOrders = $item->order->deliveryOrders()
+                    //         ->with(['shipments', 'items' => function ($q) use ($item) {
+                    //             $q->where('order_item_id', $item->id);
+                    //         }])
+                    //         ->get();
+
+                    //     $deliveryListItems = $item->order->deliveryOrders()
+                    //         ->with(['items.deliveryListItems.shipment'])
+                    //         ->get()
+                    //         ->pluck('items')
+                    //         ->flatten()
+                    //         ->filter(fn($d) => $d->order_item_id === $item->id)
+                    //         ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
+
+                    //     if ($item->productBundle) {
+                    //         $uniqueDeliveries = $deliveryListItems
+                    //             ->unique('delivery_list_id');
+
+                    //         $deliveredQty = $uniqueDeliveries
+                    //             ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
+                    //             ->sum('shipped_quantity');
+
+                    //         $onDeliveryQty = $uniqueDeliveries
+                    //             ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
+                    //             ->sum('shipped_quantity');
+                    //     } else {
+                    //         $deliveredQty = $deliveryListItems
+                    //             ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
+                    //             ->sum('shipped_quantity');
+
+                    //         $onDeliveryQty = $deliveryListItems
+                    //             ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
+                    //             ->sum('shipped_quantity');
+                    //     }
+
+                    //     return [
+                    //         'name' => e($name),
+                    //         'sku' => e($sku),
+
+                    //         'raw_progress_qty' => $progressQty,
+                    //         'raw_delivered_qty' => $deliveredQty,
+
+                    //         'qty' => number_format($item->quantity, 0, ',', '.'),
+                    //         'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                    //         'progress_qty' => number_format($progressQty, 0, ',', '.'),
+                    //         'ready_qty' => number_format($readyQty, 0, ',', '.'),
+                    //         'shipped_qty' => number_format($shippedQty, 0, ',', '.'),
+                    //         'delivered' => number_format($deliveredQty, 0, ',', '.'),
+                    //         'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
+                    //     ];
+                    // });
+
                     ->map(function ($item) {
+                        // Kalau bukan bundle, sama seperti sebelumnya
                         if ($item->product) {
-                            $name = $item->product->name;
-                            $sku = $item->product->sku;
-                        } elseif ($item->productBundle) {
-                            $bundleNames = $item->productBundle->items
-                                ->map(fn($b) => $b->product->name ?? '-')
-                                ->implode(' + ');
-                            $name = $bundleNames ?: '-';
-                            $sku = $item->productBundle->sku ?? '-';
-                        } else {
-                            $name = '-';
-                            $sku = '-';
-                        }
+                            $deliveryData = $item->order
+                                ->deliveryOrders()
+                                ->with(['items' => function ($q) use ($item) {
+                                    $q->where('order_item_id', $item->id);
+                                }])
+                                ->get()
+                                ->pluck('items')
+                                ->flatten();
 
-                        $deliveryData = $item->order
-                            ->deliveryOrders()
-                            ->with(['items' => function ($q) use ($item) {
-                                $q->where('order_item_id', $item->id);
-                            }])
-                            ->get()
-                            ->pluck('items')
-                            ->flatten();
-
-                        if ($item->productBundle) {
-                            $progressQty = $deliveryData->first()->progress_qty ?? 0;
-                            $readyQty = $deliveryData->first()->ready_qty ?? 0;
-                            $shippedQty = $deliveryData->first()->shipped_qty ?? 0;
-                        } else {
                             $progressQty = $deliveryData->sum('progress_qty');
-                            $readyQty = $deliveryData->sum('ready_qty');
-                            $shippedQty = $deliveryData->sum('shipped_qty');
+                            $readyQty    = $deliveryData->sum('ready_qty');
+                            $shippedQty  = $deliveryData->sum('shipped_qty');
+
+                            $deliveryListItems = $item->order->deliveryOrders()
+                                ->with(['items.deliveryListItems.shipment'])
+                                ->get()
+                                ->pluck('items')->flatten()
+                                ->filter(fn($d) => $d->order_item_id === $item->id)
+                                ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
+
+                            $deliveredQty   = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
+                            $onDeliveryQty  = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
+
+                            return [[
+                                'name' => e($item->product->name) . ' <span class="badge bg-soft-success text-success">Satuan</span>',
+                                'sku'              => e($item->product->sku),
+                                'qty'              => number_format($item->quantity, 0, ',', '.'),
+                                'price'            => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                                'progress_qty'     => number_format($progressQty, 0, ',', '.'),
+                                'ready_qty'        => number_format($readyQty, 0, ',', '.'),
+                                'shipped_qty'      => number_format($shippedQty, 0, ',', '.'),
+                                'delivered'        => number_format($deliveredQty, 0, ',', '.'),
+                                'on_delivery'      => number_format($onDeliveryQty, 0, ',', '.'),
+                                'raw_progress_qty' => $progressQty,
+                                'raw_delivered_qty' => $deliveredQty,
+                            ]];
                         }
 
-                        $deliveryOrders = $item->order->deliveryOrders()
-                            ->with(['shipments', 'items' => function ($q) use ($item) {
-                                $q->where('order_item_id', $item->id);
-                            }])
-                            ->get();
-
-                        $deliveryListItems = $item->order->deliveryOrders()
-                            ->with(['items.deliveryListItems.shipment'])
-                            ->get()
-                            ->pluck('items')
-                            ->flatten()
-                            ->filter(fn($d) => $d->order_item_id === $item->id)
-                            ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
-
+                        // Bundle → pecah per bundleItem
                         if ($item->productBundle) {
-                            $uniqueDeliveries = $deliveryListItems
-                                ->unique('delivery_list_id');
+                            $deliveryData = $item->order
+                                ->deliveryOrders()
+                                ->with(['items' => function ($q) use ($item) {
+                                    $q->where('order_item_id', $item->id);
+                                }])
+                                ->get()
+                                ->pluck('items')
+                                ->flatten();
 
-                            $deliveredQty = $uniqueDeliveries
-                                ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
-                                ->sum('shipped_quantity');
+                            $deliveryListItems = $item->order->deliveryOrders()
+                                ->with(['items.deliveryListItems.shipment'])
+                                ->get()
+                                ->pluck('items')->flatten()
+                                ->filter(fn($d) => $d->order_item_id === $item->id)
+                                ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
 
-                            $onDeliveryQty = $uniqueDeliveries
-                                ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
-                                ->sum('shipped_quantity');
-                        } else {
-                            $deliveredQty = $deliveryListItems
-                                ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
-                                ->sum('shipped_quantity');
+                            $uniqueDeliveries = $deliveryListItems->unique('delivery_list_id');
 
-                            $onDeliveryQty = $deliveryListItems
-                                ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
-                                ->sum('shipped_quantity');
+                            // Ambil nilai agregat dari bundle (sama seperti sebelumnya)
+                            $progressQty   = $deliveryData->first()->progress_qty ?? 0;
+                            $readyQty      = $deliveryData->first()->ready_qty ?? 0;
+                            $shippedQty    = $deliveryData->first()->shipped_qty ?? 0;
+                            $deliveredQty  = $uniqueDeliveries->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
+                            $onDeliveryQty = $uniqueDeliveries->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
+
+                            // Pecah per produk dalam bundle
+                            return $item->productBundle->items->map(function ($bundleItem) use (
+                                $item,
+                                $progressQty,
+                                $readyQty,
+                                $shippedQty,
+                                $deliveredQty,
+                                $onDeliveryQty
+                            ) {
+                                $product  = $bundleItem->product;
+                                $name     = $product->name ?? '-';
+                                $sku      = $product->sku ?? '-';
+
+                                // Qty per bundle item = order qty × bundle item qty
+                                $qty = $item->quantity * ($bundleItem->quantity ?? 1);
+
+                                return [
+                                    'name'             => e($name) . ' <span class="badge bg-soft-primary text-primary">Bundle</span>',
+                                    'sku'              => e($sku),
+                                    'qty'              => number_format($qty, 0, ',', '.'),
+                                    'price'            => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                                    'progress_qty'     => number_format($progressQty, 0, ',', '.'),
+                                    'ready_qty'        => number_format($readyQty, 0, ',', '.'),
+                                    'shipped_qty'      => number_format($shippedQty, 0, ',', '.'),
+                                    'delivered'        => number_format($deliveredQty, 0, ',', '.'),
+                                    'on_delivery'      => number_format($onDeliveryQty, 0, ',', '.'),
+                                    'raw_progress_qty' => $progressQty,
+                                    'raw_delivered_qty' => $deliveredQty,
+                                ];
+                            })->values()->all();
                         }
 
-                        return [
-                            'name' => e($name),
-                            'sku' => e($sku),
-
-                            'raw_progress_qty' => $progressQty,
-                            'raw_delivered_qty' => $deliveredQty,
-
-                            'qty' => number_format($item->quantity, 0, ',', '.'),
-                            'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
-                            'progress_qty' => number_format($progressQty, 0, ',', '.'),
-                            'ready_qty' => number_format($readyQty, 0, ',', '.'),
-                            'shipped_qty' => number_format($shippedQty, 0, ',', '.'),
-                            'delivered' => number_format($deliveredQty, 0, ',', '.'),
-                            'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
-                        ];
-                    });
+                        // Fallback
+                        return [[
+                            'name'             => '-',
+                            'sku'              => '-',
+                            'qty'              => '0',
+                            'price'            => '0',
+                            'progress_qty'     => '0',
+                            'ready_qty'        => '0',
+                            'shipped_qty'      => '0',
+                            'delivered'        => '0',
+                            'on_delivery'      => '0',
+                            'raw_progress_qty' => 0,
+                            'raw_delivered_qty' => 0,
+                        ]];
+                    })
+                    ->flatten(1)  // ← karena setiap item return array of arrays
+                    ->values();
 
                 // $isCompleted = $items->every(function ($i) {
                 //     return $i['raw_progress_qty'] > 0

@@ -701,7 +701,7 @@ class HistoryProgressOrderController extends Controller
             if ($ps && $completed > 0) {
                 $ps->decrement('finished_product_stock', $completed);
                 $ps->increment('pending_waiting_list', $completed);
-                $ps->increment('available_quantity', $completed);
+                // $ps->increment('available_quantity', $completed);
             }
 
             // 2.1️⃣ Decrement ready_qty pada delivery_order_items
