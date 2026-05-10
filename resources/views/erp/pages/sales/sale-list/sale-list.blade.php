@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                                                                                                                                    display: none !important;
-                                                                                                                                                                                                                                                                                                                                                                                } */
+                                                                                                                                                                                                                                                                                                                                                                                            display: none !important;
+                                                                                                                                                                                                                                                                                                                                                                                        } */
 
         .sale-mobile-action {
             display: none;
@@ -821,47 +821,110 @@
     <script>
         $(document).ready(function() {
             // Helper function untuk format products
+            // function formatProducts(products) {
+            //     if (!products || products.length === 0) {
+            //         return '<div class="p-2 text-muted">No products</div>';
+            //     }
+
+            //     let html = `
+        //         <div class="table-responsive p-2">
+        //             <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
+        //                 <thead>
+        //                     <tr>
+        //                         <th>Product</th>
+        //                         <th>SKU</th>
+        //                         <th>Qty</th>
+        //                         <th class="text-end">Price</th>
+        //                         <th class="text-end">Progress</th>
+        //                         <th class="text-end">Delivered</th>
+        //                         <th class="text-end">On Delivery</th>
+        //                     </tr>
+        //                 </thead>
+        //                 <tbody>
+        //     `;
+
+            //     products.forEach(p => {
+            //         html += `
+        //             <tr>
+        //                 <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
+        //                 <td>${p.sku}</td>
+        //                 <td>${p.qty}</td>
+        //                 <td class="text-end">${p.price}</td>
+        //                 <td class="text-end">${p.ready_qty} / ${p.qty}</td>
+        //                 <td class="text-end">${p.delivered}</td>
+        //                 <td class="text-end">${p.on_delivery}</td>
+        //             </tr>
+        //         `;
+            //     });
+
+            //     html += `
+        //                 </tbody>
+        //             </table>
+        //         </div>
+        //     `;
+            //     return html;
+            // }
+
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
                 }
 
                 let html = `
-                    <div class="table-responsive p-2">
-                        <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>SKU</th>
-                                    <th>Qty</th>
-                                    <th class="text-end">Price</th>
-                                    <th class="text-end">Progress</th>
-                                    <th class="text-end">Delivered</th>
-                                    <th class="text-end">On Delivery</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                `;
+        <div class="table-responsive p-2">
+            <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>SKU</th>
+                        <th>Qty</th>
+                        <th class="text-end">Price</th>
+                        <th class="text-end">Progress</th>
+                        <th class="text-end">Delivered</th>
+                        <th class="text-end">On Delivery</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
 
                 products.forEach(p => {
+                    const isBundleHeader = p.is_bundle_header ?? false;
+
+                    let progressCell, deliveredCell, onDeliveryCell;
+
+                    if (isBundleHeader && p.bundle_children && p.bundle_children.length > 0) {
+                        // Buat mini list per produk bundle
+                        const buildList = (field) => {
+                            return p.bundle_children.map(c => `
+                    <div class="text-end">${c[field]}</div>
+                `).join('');
+                        };
+                        progressCell =
+                            `<div>${p.bundle_children.map(c => `<div class="text-end">${c.ready_qty} / ${p.qty}</div>`).join('')}</div>`;
+                        deliveredCell = `<div>${buildList('delivered')}</div>`;
+                        onDeliveryCell = `<div>${buildList('on_delivery')}</div>`;
+                    } else if (!isBundleHeader) {
+                        progressCell = `<div class="text-end">${p.ready_qty} / ${p.qty}</div>`;
+                        deliveredCell = `<div class="text-end">${p.delivered}</div>`;
+                        onDeliveryCell = `<div class="text-end">${p.on_delivery}</div>`;
+                    } else {
+                        progressCell = deliveredCell = onDeliveryCell = '-';
+                    }
+
                     html += `
-                        <tr>
-                            <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
-                            <td>${p.sku}</td>
-                            <td>${p.qty}</td>
-                            <td class="text-end">${p.price}</td>
-                            <td class="text-end">${p.ready_qty} / ${p.qty}</td>
-                            <td class="text-end">${p.delivered}</td>
-                            <td class="text-end">${p.on_delivery}</td>
-                        </tr>
-                    `;
+            <tr>
+                <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
+                <td>${p.sku}</td>
+                <td>${p.qty}</td>
+                <td class="text-end">${p.price}</td>
+                <td>${progressCell}</td>
+                <td>${deliveredCell}</td>
+                <td>${onDeliveryCell}</td>
+            </tr>
+        `;
                 });
 
-                html += `
-                            </tbody>
-                        </table>
-                    </div>
-                `;
+                html += `</tbody></table></div>`;
                 return html;
             }
 

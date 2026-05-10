@@ -67,6 +67,390 @@ class SaleListController extends Controller
         return view('erp.pages.sales.sale-list.sale-list', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount'));
     }
 
+    // public function dataSaleList(Request $request)
+    // {
+    //     $user = Auth::user();
+    //     $length = (int) $request->input('length', 50);
+    //     $start = (int) $request->input('start', 0);
+
+    //     $orders = Order::with(['customer', 'user', 'customerAddress'])
+    //         ->where('status', 'sale list')
+    //         ->orderBy('order_date', 'desc');
+
+    //     if (in_array($user->role, ['Sales'])) {
+    //         $orders->where('user_id', $user->id);
+    //     }
+
+    //     if ($request->filled('show_edited') && $request->show_edited == 1) {
+    //         $orders->where('status_edited', 1);
+    //     }
+
+    //     // 🔹 Filter tanggal
+    //     if ($request->filter) {
+    //         switch ($request->filter) {
+    //             case 'today':
+    //                 $orders->whereDate('order_date', Carbon::today());
+    //                 break;
+    //             case 'last_7_days':
+    //                 $orders->whereBetween('order_date', [Carbon::now()->subDays(7), Carbon::now()]);
+    //                 break;
+    //             case 'this_month':
+    //                 $orders->whereMonth('order_date', Carbon::now()->month)
+    //                     ->whereYear('order_date', Carbon::now()->year);
+    //                 break;
+    //             case 'last_30_days':
+    //                 $orders->whereBetween('order_date', [Carbon::now()->subDays(30), Carbon::now()]);
+    //                 break;
+    //             case 'year_to_date':
+    //                 $orders->whereBetween('order_date', [Carbon::now()->startOfYear(), Carbon::now()]);
+    //                 break;
+    //             case 'yearly':
+    //                 $orders->whereYear('order_date', Carbon::now()->year);
+    //                 break;
+    //             case 'custom':
+    //                 if ($request->filled('start_date') && $request->filled('end_date')) {
+    //                     $orders->whereBetween('order_date', [$request->start_date, $request->end_date]);
+    //                 }
+    //                 break;
+    //         }
+    //     }
+
+    //     // 🔹 Filter payment status
+    //     if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
+    //         if ($request->payment_status === 'Paid') {
+    //             $orders->whereIn('payment_status', ['Paid', 'Overpaid']);
+    //         } else if ($request->payment_status === 'Unpaid') {
+    //             $orders->whereIn('payment_status', ['Unpaid', 'Partially Paid']);
+    //         } else {
+    //             $orders->where('payment_status', $request->payment_status);
+    //         }
+    //     }
+    //     // 🔹 Sort by due_date
+    //     elseif ($request->search_type === 'due_date') {
+    //         $direction = strtolower($request->due_date_order ?? 'asc');
+    //         $orders->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
+    //             ->orderBy('due_date', $direction);
+    //     }
+    //     // 🔹 Pencarian keyword
+    //     elseif ($request->filled('search_keyword')) {
+    //         if ($request->search_type === 'customer') {
+    //             // $keyword = '%' . $request->search_keyword . '%';
+    //             $keyword = '%' . $request->search_keyword . '%';
+
+    //             $orders->where(function ($q) use ($keyword) {
+    //                 // Cari berdasarkan nama customer
+    //                 $q->whereHas('customer', function ($query) use ($keyword) {
+    //                     $query->where('name', 'like', $keyword);
+    //                 });
+
+    //                 // Cari berdasarkan business_name
+    //                 $q->orWhereHas('customerAddress', function ($query) use ($keyword) {
+    //                     $query->where('business_name', 'like', $keyword);
+    //                 });
+    //             });
+    //         } else {
+    //             $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
+    //         }
+    //     }
+
+    //     $totalQuery = clone $orders;
+    //     $totalData = $totalQuery->count();
+
+    //     $data = $orders->skip($start)->take($length)->get();
+
+    //     return response()->json([
+    //         'data' => $data->map(function ($order) {
+    //             $orderCreatedAt = Carbon::parse($order->order_date)->format('d M y H:i');
+    //             $date = Carbon::parse($order->order_date)->format('j M y H:i');
+    //             $dueDate = $order->due_date ? Carbon::parse($order->due_date)->format('j M y') : '-';
+
+    //             $editedBadge = $order->status_edited == 1
+    //                 ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
+    //                 : '';
+
+    //             $returnBadge = $order->saleReturns()->exists()
+    //                 ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Sale Return</span></div>'
+    //                 : '';
+
+    //             $orderNumber = $returnBadge . '
+    //             <div>
+    //                 <div>' . e($order->order_number) . $editedBadge . '</div>
+    //                 <small class="text-muted">' . $orderCreatedAt . '</small>,
+    //                 <small class="text-danger">Due: ' . $dueDate . '</small>
+    //             </div>';
+
+    //             $status = strtolower($order->payment_status);
+    //             $badge = match ($status) {
+    //                 'paid' => 'bg-soft-success text-success',
+    //                 'unpaid' => 'bg-soft-dark text-dark',
+    //                 'overpaid' => 'bg-soft-primary text-primary',
+    //                 'partially paid' => 'bg-soft-warning text-warning',
+    //                 default => 'bg-secondary',
+    //             };
+
+    //             $verifiedIcon = '';
+    //             if ($order->verified) {
+    //                 $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
+    //             }
+
+    //             $isOverdue = false;
+
+    //             if ($order->due_date) {
+    //                 $due = Carbon::parse($order->due_date)->endOfDay();
+    //                 $today = Carbon::now();
+
+    //                 // overdue = due_date lewat dan belum Paid/Overpaid
+    //                 if ($today->gt($due) && !in_array($order->payment_status, ['Paid', 'Overpaid'])) {
+    //                     $isOverdue = true;
+    //                 }
+    //             }
+
+    //             $paymentStatus = '
+    //                 <div class="d-flex flex-column gap-1">
+    //                     <div class="d-flex align-items-center gap-1">
+    //                         <div class="badge ' . $badge . '">' . ucfirst($status) . '</div>'
+    //                 . $verifiedIcon . '
+    //                     </div>';
+
+    //             if ($isOverdue) {
+    //                 $paymentStatus .= '
+    //                 <div>
+    //                     <span class="badge bg-soft-danger text-danger">Overdue</span>
+    //                 </div>';
+    //             }
+
+    //             $paymentStatus .= '</div>';
+
+
+    //             $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
+
+    //             $mode = strtolower($order->mode ?? 'printing');
+    //             $modeBadgeClass = match ($mode) {
+    //                 'printing' => 'bg-soft-success text-success',
+    //                 'polosan'    => 'bg-soft-primary text-primary',
+    //                 default  => 'bg-soft-dark text-dark',
+    //             };
+    //             $modeBadge = '<div class="badge ' . $modeBadgeClass . '">' . ucfirst($mode) . '</div>';
+
+    //             // 🔸 Produk
+    //             $items = $order->orderItems()
+    //                 // ->withTrashed()
+    //                 ->with([
+    //                     'product' => fn($q) => $q->withTrashed(),
+    //                     'productBundle.items.product' => fn($q) => $q->withTrashed(),
+    //                     'deliveryItems.deliveryOrder',
+    //                 ])
+    //                 ->get()
+    //                 ->map(function ($item) {
+    //                     if ($item->product) {
+    //                         $name = $item->product->name;
+    //                         $sku = $item->product->sku;
+    //                     } elseif ($item->productBundle) {
+    //                         $bundleNames = $item->productBundle->items
+    //                             ->map(fn($b) => $b->product->name ?? '-')
+    //                             ->implode(' + ');
+    //                         $name = $bundleNames ?: '-';
+    //                         $sku = $item->productBundle->sku ?? '-';
+    //                     } else {
+    //                         $name = '-';
+    //                         $sku = '-';
+    //                     }
+
+    //                     $deliveryData = $item->order
+    //                         ->deliveryOrders()
+    //                         ->with(['items' => function ($q) use ($item) {
+    //                             $q->where('order_item_id', $item->id);
+    //                         }])
+    //                         ->get()
+    //                         ->pluck('items')
+    //                         ->flatten();
+
+    //                     if ($item->productBundle) {
+    //                         $progressQty = $deliveryData->first()->progress_qty ?? 0;
+    //                         $readyQty = $deliveryData->first()->ready_qty ?? 0;
+    //                         $shippedQty = $deliveryData->first()->shipped_qty ?? 0;
+    //                     } else {
+    //                         $progressQty = $deliveryData->sum('progress_qty');
+    //                         $readyQty = $deliveryData->sum('ready_qty');
+    //                         $shippedQty = $deliveryData->sum('shipped_qty');
+    //                     }
+
+    //                     $deliveryOrders = $item->order->deliveryOrders()
+    //                         ->with(['shipments', 'items' => function ($q) use ($item) {
+    //                             $q->where('order_item_id', $item->id);
+    //                         }])
+    //                         ->get();
+
+    //                     $deliveryListItems = $item->order->deliveryOrders()
+    //                         ->with(['items.deliveryListItems.shipment'])
+    //                         ->get()
+    //                         ->pluck('items')
+    //                         ->flatten()
+    //                         ->filter(fn($d) => $d->order_item_id === $item->id)
+    //                         ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
+
+    //                     if ($item->productBundle) {
+    //                         $uniqueDeliveries = $deliveryListItems
+    //                             ->unique('delivery_list_id');
+
+    //                         $deliveredQty = $uniqueDeliveries
+    //                             ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
+    //                             ->sum('shipped_quantity');
+
+    //                         $onDeliveryQty = $uniqueDeliveries
+    //                             ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
+    //                             ->sum('shipped_quantity');
+    //                     } else {
+    //                         $deliveredQty = $deliveryListItems
+    //                             ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
+    //                             ->sum('shipped_quantity');
+
+    //                         $onDeliveryQty = $deliveryListItems
+    //                             ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
+    //                             ->sum('shipped_quantity');
+    //                     }
+
+    //                     return [
+    //                         'name' => e($name),
+    //                         'sku' => e($sku),
+
+    //                         'raw_progress_qty' => $progressQty,
+    //                         'raw_delivered_qty' => $deliveredQty,
+
+    //                         'qty' => number_format($item->quantity, 0, ',', '.'),
+    //                         'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+    //                         'progress_qty' => number_format($progressQty, 0, ',', '.'),
+    //                         'ready_qty' => number_format($readyQty, 0, ',', '.'),
+    //                         'shipped_qty' => number_format($shippedQty, 0, ',', '.'),
+    //                         'delivered' => number_format($deliveredQty, 0, ',', '.'),
+    //                         'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
+    //                     ];
+    //                 });
+
+    //             // $isCompleted = $items->every(function ($i) {
+    //             //     return $i['raw_progress_qty'] > 0
+    //             //         && $i['raw_delivered_qty'] >= $i['raw_progress_qty'];
+    //             // });
+
+    //             $isCompleted = $items->every(function ($i) {
+    //                 return $i['raw_delivered_qty'] >= (int) str_replace('.', '', $i['qty']);
+    //             });
+
+    //             $businessName = e($order->customerAddress->business_name ?? '-');
+
+    //             $completeIcon = $isCompleted
+    //                 ? ' <i class="fa fa-check-circle text-success ms-1"></i>'
+    //                 : '';
+
+    //             $businessName = $order->customerAddress->business_name ?? null;
+
+    //             $orderMonthStart = Carbon::parse($order->order_date)->startOfMonth();
+    //             $orderMonthEnd   = Carbon::parse($order->order_date)->endOfMonth();
+
+    //             $ordersInMonth = Order::where('status', 'sale list')
+    //                 ->where('customer_id', $order->customer_id)
+    //                 ->whereBetween('order_date', [$orderMonthStart, $orderMonthEnd])
+    //                 ->when($businessName, function ($q) use ($businessName) {
+    //                     $q->whereHas('customerAddress', function ($sub) use ($businessName) {
+    //                         $sub->where('business_name', $businessName);
+    //                     });
+    //                 })
+    //                 ->orderBy('order_date')
+    //                 ->pluck('id');
+
+    //             $totalOrders = $ordersInMonth->count();
+    //             $currentIndex = $ordersInMonth->search($order->id);
+
+    //             $sequenceLabel = $currentIndex !== false
+    //                 ? '(' . ($currentIndex + 1) . '/' . $totalOrders . ')'
+    //                 : '';
+
+    //             return [
+    //                 'id' => $order->id,
+    //                 'order_number' => $orderNumber,
+    //                 'order_date_raw' => Carbon::parse($order->order_date)->format('Y-m-d H:i:s'),
+    //                 'order_date' => $date,
+
+    //                 'customer' => '
+    //                     <div style="white-space: normal; word-break: break-word; max-width:180px;">
+
+    //                         <div class="d-flex align-items-center fw-semibold">
+    //                             ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+
+    //                             ' . $businessName . '
+
+    //                             <span class="ms-1 text-primary fw-bold">
+    //                                 ' . $sequenceLabel . '
+    //                             </span>
+    //                         </div>
+
+    //                     <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
+
+    //                     </div>
+    //                 ',
+    //                 'customer_mobile' => '
+    //                     <div style="white-space: normal; word-break: break-word; max-width:180px;">
+
+    //                         <div class="d-flex align-items-center fw-semibold">
+    //                             ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+
+    //                             <small class="text-muted">' . $businessName . '</small>
+
+    //                             <small class="ms-1 text-primary fw-bold">
+    //                                 ' . $sequenceLabel . '
+    //                             </small>
+    //                         </div>                        
+
+    //                     </div>
+    //                 ',
+    //                 'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
+    //                 'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
+    //                 'grand_total' => '<span class="text-primary fw-semibold">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
+    //                 'paid_amount' => '
+    //                     <div class="text-success fw-semibold">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</div>'
+    //                     . ($order->remaining_amount > 0
+    //                         ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</small>'
+    //                         : ''
+    //                     ),
+    //                 'remaining_amount' => '<span class="text-danger">Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</span>',
+    //                 'payment_status' => $paymentStatus,
+    //                 'status' => $statusBadge,
+    //                 'payment_method' => e($order->payment_method ?? '-'),
+    //                 'products' => $items,
+    //                 'notes' => '
+    //                     <div style="white-space: normal; word-break: break-word; max-width: 220px;">
+    //                         ' . e($order->notes ?? '-') . '
+    //                     </div>
+    //                 ',
+    //                 'whatsapp' => '
+    //                     <a href="https://wa.me/' . (
+    //                     function ($phone) {
+    //                         $num = preg_replace('/\D/', '', $phone ?? '');
+    //                         if (strpos($num, '0') === 0) $num = '62' . substr($num, 1);
+    //                         if (strpos($num, '62') !== 0) {
+    //                             if (strpos($num, '8') === 0) $num = '62' . $num;
+    //                         }
+    //                         return $num;
+    //                     }
+    //                 )($order->customer->phone) . '"
+    //                         target="_blank"
+    //                         class="btn btn-success btn-sm"
+    //                         style="padding:6px 10px;">
+    //                         Chat
+    //                     </a>
+    //                 ',
+
+    //                 'created_at' => $orderCreatedAt,
+    //                 'mode' => $modeBadge,
+    //                 'user' => e($order->user?->name ?? '-'),
+    //                 'action' => view('erp.pages.sales.sale-list.partials.action-button', compact('order'))->render(),
+    //                 'action_mobile' => view('erp.pages.sales.sale-list.partials.action-button-mobile', compact('order'))->render(),
+    //             ];
+    //         })->values(),
+    //         'has_more' => $totalData > ($start + $length),
+    //     ]);
+    // }
+
     public function dataSaleList(Request $request)
     {
         $user = Auth::user();
@@ -326,123 +710,105 @@ class SaleListController extends Controller
                     //         'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
                     //     ];
                     // });
-
                     ->map(function ($item) {
-                        // Kalau bukan bundle, sama seperti sebelumnya
+                        // Ambil deliveryData dan deliveryListItems (sama untuk semua tipe)
+                        $deliveryData = $item->order
+                            ->deliveryOrders()
+                            ->with(['items' => function ($q) use ($item) {
+                                $q->where('order_item_id', $item->id);
+                            }])
+                            ->get()
+                            ->pluck('items')
+                            ->flatten();
+
+                        $deliveryListItems = $item->order->deliveryOrders()
+                            ->with(['items.deliveryListItems.shipment', 'items.deliveryListItems.deliveryOrderItem'])
+                            ->get()
+                            ->pluck('items')->flatten()
+                            ->filter(fn($d) => $d->order_item_id === $item->id)
+                            ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
+
+                        // ── SATUAN ──
                         if ($item->product) {
-                            $deliveryData = $item->order
-                                ->deliveryOrders()
-                                ->with(['items' => function ($q) use ($item) {
-                                    $q->where('order_item_id', $item->id);
-                                }])
-                                ->get()
-                                ->pluck('items')
-                                ->flatten();
-
-                            $progressQty = $deliveryData->sum('progress_qty');
-                            $readyQty    = $deliveryData->sum('ready_qty');
-                            $shippedQty  = $deliveryData->sum('shipped_qty');
-
-                            $deliveryListItems = $item->order->deliveryOrders()
-                                ->with(['items.deliveryListItems.shipment'])
-                                ->get()
-                                ->pluck('items')->flatten()
-                                ->filter(fn($d) => $d->order_item_id === $item->id)
-                                ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
-
-                            $deliveredQty   = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
-                            $onDeliveryQty  = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
+                            $progressQty   = $deliveryData->sum('progress_qty');
+                            $readyQty      = $deliveryData->sum('ready_qty');
+                            $shippedQty    = $deliveryData->sum('shipped_qty');
+                            $deliveredQty  = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
+                            $onDeliveryQty = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
 
                             return [[
-                                'name' => e($item->product->name) . ' <span class="badge bg-soft-success text-success">Satuan</span>',
-                                'sku'              => e($item->product->sku),
-                                'qty'              => number_format($item->quantity, 0, ',', '.'),
-                                'price'            => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
-                                'progress_qty'     => number_format($progressQty, 0, ',', '.'),
-                                'ready_qty'        => number_format($readyQty, 0, ',', '.'),
-                                'shipped_qty'      => number_format($shippedQty, 0, ',', '.'),
-                                'delivered'        => number_format($deliveredQty, 0, ',', '.'),
-                                'on_delivery'      => number_format($onDeliveryQty, 0, ',', '.'),
-                                'raw_progress_qty' => $progressQty,
+                                'name'              => e($item->product->name) . ' <span class="badge bg-soft-success text-success">Satuan</span>',
+                                'sku'               => e($item->product->sku),
+                                'qty'               => number_format($item->quantity, 0, ',', '.'),
+                                'price'             => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                                'progress_qty'      => number_format($progressQty, 0, ',', '.'),
+                                'ready_qty'         => number_format($readyQty, 0, ',', '.'),
+                                'shipped_qty'       => number_format($shippedQty, 0, ',', '.'),
+                                'delivered'         => number_format($deliveredQty, 0, ',', '.'),
+                                'on_delivery'       => number_format($onDeliveryQty, 0, ',', '.'),
+                                'raw_progress_qty'  => $progressQty,
                                 'raw_delivered_qty' => $deliveredQty,
+                                'is_bundle_header'  => false,
                             ]];
                         }
 
-                        // Bundle → pecah per bundleItem
+                        // ── BUNDLE ──
                         if ($item->productBundle) {
-                            $deliveryData = $item->order
-                                ->deliveryOrders()
-                                ->with(['items' => function ($q) use ($item) {
-                                    $q->where('order_item_id', $item->id);
-                                }])
-                                ->get()
-                                ->pluck('items')
-                                ->flatten();
+                            $bundleNames = $item->productBundle->items
+                                ->map(fn($b) => $b->product->name ?? '-')
+                                ->implode(' + ');
 
-                            $deliveryListItems = $item->order->deliveryOrders()
-                                ->with(['items.deliveryListItems.shipment'])
-                                ->get()
-                                ->pluck('items')->flatten()
-                                ->filter(fn($d) => $d->order_item_id === $item->id)
-                                ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
+                            $bundleChildren = $item->productBundle->items->map(function ($bundleItem) use ($item, $deliveryData, $deliveryListItems) {
+                                $productId = $bundleItem->product->id ?? null;
 
-                            $uniqueDeliveries = $deliveryListItems->unique('delivery_list_id');
+                                $productDeliveryData      = $deliveryData->filter(fn($d) => $d->product_id == $productId);
+                                $productDeliveryListItems = $deliveryListItems->filter(fn($d) => $d->deliveryOrderItem && $d->deliveryOrderItem->product_id == $productId);
 
-                            // Ambil nilai agregat dari bundle (sama seperti sebelumnya)
-                            $progressQty   = $deliveryData->first()->progress_qty ?? 0;
-                            $readyQty      = $deliveryData->first()->ready_qty ?? 0;
-                            $shippedQty    = $deliveryData->first()->shipped_qty ?? 0;
-                            $deliveredQty  = $uniqueDeliveries->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
-                            $onDeliveryQty = $uniqueDeliveries->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
-
-                            // Pecah per produk dalam bundle
-                            return $item->productBundle->items->map(function ($bundleItem) use (
-                                $item,
-                                $progressQty,
-                                $readyQty,
-                                $shippedQty,
-                                $deliveredQty,
-                                $onDeliveryQty
-                            ) {
-                                $product  = $bundleItem->product;
-                                $name     = $product->name ?? '-';
-                                $sku      = $product->sku ?? '-';
-
-                                // Qty per bundle item = order qty × bundle item qty
-                                $qty = $item->quantity * ($bundleItem->quantity ?? 1);
+                                $readyQty      = $productDeliveryData->sum('ready_qty');
+                                $deliveredQty  = $productDeliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
+                                $onDeliveryQty = $productDeliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
 
                                 return [
-                                    'name'             => e($name) . ' <span class="badge bg-soft-primary text-primary">Bundle</span>',
-                                    'sku'              => e($sku),
-                                    'qty'              => number_format($qty, 0, ',', '.'),
-                                    'price'            => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
-                                    'progress_qty'     => number_format($progressQty, 0, ',', '.'),
-                                    'ready_qty'        => number_format($readyQty, 0, ',', '.'),
-                                    'shipped_qty'      => number_format($shippedQty, 0, ',', '.'),
-                                    'delivered'        => number_format($deliveredQty, 0, ',', '.'),
-                                    'on_delivery'      => number_format($onDeliveryQty, 0, ',', '.'),
-                                    'raw_progress_qty' => $progressQty,
-                                    'raw_delivered_qty' => $deliveredQty,
+                                    'ready_qty'   => number_format($readyQty, 0, ',', '.'),
+                                    'delivered'   => number_format($deliveredQty, 0, ',', '.'),
+                                    'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
                                 ];
-                            })->values()->all();
+                            })->values()->toArray();
+
+                            return [[
+                                'name'              => e($bundleNames) . ' <span class="badge bg-soft-primary text-primary">Bundle</span>',
+                                'sku'               => e($item->productBundle->sku ?? '-'),
+                                'qty'               => number_format($item->quantity, 0, ',', '.'),
+                                'price'             => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                                'progress_qty'      => '-',
+                                'ready_qty'         => '-',
+                                'shipped_qty'       => '-',
+                                'delivered'         => '-',
+                                'on_delivery'       => '-',
+                                'raw_progress_qty'  => 0,
+                                'raw_delivered_qty' => 0,
+                                'is_bundle_header'  => true,
+                                'bundle_children'   => $bundleChildren,
+                            ]];
                         }
 
-                        // Fallback
+                        // ── FALLBACK ──
                         return [[
-                            'name'             => '-',
-                            'sku'              => '-',
-                            'qty'              => '0',
-                            'price'            => '0',
-                            'progress_qty'     => '0',
-                            'ready_qty'        => '0',
-                            'shipped_qty'      => '0',
-                            'delivered'        => '0',
-                            'on_delivery'      => '0',
-                            'raw_progress_qty' => 0,
+                            'name'              => '-',
+                            'sku'               => '-',
+                            'qty'               => '0',
+                            'price'             => '0',
+                            'progress_qty'      => '0',
+                            'ready_qty'         => '0',
+                            'shipped_qty'       => '0',
+                            'delivered'         => '0',
+                            'on_delivery'       => '0',
+                            'raw_progress_qty'  => 0,
                             'raw_delivered_qty' => 0,
+                            'is_bundle_header'  => false,
                         ]];
                     })
-                    ->flatten(1)  // ← karena setiap item return array of arrays
+                    ->flatten(1)
                     ->values();
 
                 // $isCompleted = $items->every(function ($i) {
