@@ -156,13 +156,22 @@ class InvoiceController extends Controller
         ]);
 
         if ($request->hasFile('logo')) {
-            if ($invoice->logo && Storage::disk('public')->exists($invoice->logo)) {
-                Storage::disk('public')->delete($invoice->logo);
+            $uploadPath = public_path('invoice_logos');
+
+            if (!file_exists($uploadPath)) {
+                mkdir($uploadPath, 0755, true);
             }
 
-            $path = $request->file('logo')->store('invoice_logos', 'public');
+            if ($invoice->logo && file_exists(public_path($invoice->logo))) {
+                @unlink(public_path($invoice->logo));
+            }
 
-            $invoice->logo = $path;
+            $file = $request->file('logo');
+            $filename = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
+
+            $file->move($uploadPath, $filename);
+
+            $invoice->logo = 'invoice_logos/' . $filename;
             $invoice->save();
         }
 

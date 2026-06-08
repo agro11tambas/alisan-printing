@@ -65,7 +65,7 @@
                             <div class="row justify-content-between">
                                 <div class="col-lg-4">
                                     @php
-                                        $logoPath = $invoice?->logo ? asset('storage/' . $invoice->logo) : null;
+                                        $logoPath = $invoice?->logo ? asset($invoice->logo) : null;
                                     @endphp
                                     @if ($logoPath)
                                         <img src="{{ asset($logoPath) }}" alt="Logo"
