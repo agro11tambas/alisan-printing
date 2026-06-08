@@ -65,9 +65,8 @@
                             <div class="row justify-content-between">
                                 <div class="col-lg-4">
                                     @php
-                                        $logoPath = $invoice?->logo ? str_replace('public/', '', $invoice->logo) : null;
+                                        $logoPath = $invoice?->logo ? asset('storage/' . $invoice->logo) : null;
                                     @endphp
-
                                     @if ($logoPath)
                                         <img src="{{ asset($logoPath) }}" alt="Logo"
                                             style="max-height: 50px; max-width: 200px; object-fit: contain;">
