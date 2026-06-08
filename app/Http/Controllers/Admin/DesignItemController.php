@@ -52,7 +52,7 @@ class DesignItemController extends Controller
 
         if ($request->hasFile('preview_image')) {
             // ✅ simpan di folder uploads/designs (satu level di atas /public)
-            $uploadPath = public_path('../uploads/designs');
+            $uploadPath = public_path('uploads/designs');
 
             if (!file_exists($uploadPath)) {
                 mkdir($uploadPath, 0755, true);

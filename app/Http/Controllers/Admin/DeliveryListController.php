@@ -550,7 +550,7 @@ class DeliveryListController extends Controller
         $savedPhotos = [];
 
         // ✅ simpan di folder uploads/proof-photos di luar /public
-        $uploadPath = public_path('../uploads/proof-photos');
+        $uploadPath = public_path('uploads/proof-photos');
         if (!file_exists($uploadPath)) {
             mkdir($uploadPath, 0755, true);
         }

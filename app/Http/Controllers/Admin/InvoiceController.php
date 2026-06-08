@@ -39,7 +39,7 @@ class InvoiceController extends Controller
             ->addIndexColumn()
             ->addColumn('logo', function ($invoice) {
                 if ($invoice->logo) {
-                    $url = asset('storage/' . $invoice->logo);
+                    $url = asset($invoice->logo);
                     return '
                         <a href="' . $url . '" 
                             data-lightbox="invoice-logo-' . $invoice->id . '" 

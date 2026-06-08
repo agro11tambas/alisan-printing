@@ -212,42 +212,6 @@ class DesignController extends Controller
                     </div>
                 ';
 
-                // $customerHtml = '
-                //     <div style="white-space: normal; word-break: break-word; max-width:180px;">
-
-                //         <div class="mb-1">
-                //             <a href="https://wa.me/' . (
-                //     function ($phone) {
-                //         $num = preg_replace('/\D/', '', $phone ?? '');
-
-                //         // Jika mulai dengan 0 → ganti jadi 62
-                //         if (strpos($num, '0') === 0) {
-                //             $num = '62' . substr($num, 1);
-                //         }
-
-                //         // Jika mulai 8xxxx → tambahkan 62
-                //         if (strpos($num, '8') === 0) {
-                //             $num = '62' . $num;
-                //         }
-
-                //         // Jika sudah 62xxxx → biarkan
-                //         return $num;
-                //     }
-                // )($design->order?->customer?->phone) . '"
-                //                 target="_blank"
-                //                 class="badge bg-success text-white"
-                //                 style="font-size:12px;">
-                //                 Chat WhatsApp
-                //             </a>
-                //         </div>
-
-                //         <div class="fw-semibold">'
-                //     . e($design->order?->customerAddress?->business_name ?? '-') .
-                //     '</div>
-                //         <small class="text-muted">' . e($design->order?->customer?->name ?? '-') . '</small>
-                //     </div>
-                // ';
-
                 $whatsappNumber = (function ($phone) {
                     $num = preg_replace('/\D/', '', $phone ?? '');
 

@@ -234,48 +234,58 @@
 
             document.body.appendChild(clone);
 
-            // Render ke canvas
             const canvas = await html2canvas(clone, {
-                scale: 2
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff'
             });
+
             document.body.removeChild(clone);
 
             return canvas.toDataURL('image/png');
         }
 
         document.getElementById('shareInvoiceBtn').addEventListener('click', async function() {
-                        const dataUrl = await captureInvoice();
-                        const response = await fetch(dataUrl);
-                        const blob = await response.blob();
-                        const file = new File([blob], 'invoice.png', {
-                            type: 'image/png'
-                        });
+            const dataUrl = await captureInvoice();
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
 
-                        const shareText = `Halo {{ $order->customer->name }}, berikut invoice pembelian Anda.`;
+            const file = new File([blob], 'invoice.png', {
+                type: 'image/png'
+            });
 
-                        if (navigator.canShare && navigator.canShare({
-                                files: [file]
-                            })) {
-                            navigator.share({
-                                    files: [file],
-                                    title: 'Invoice',
-                                    text: shareText
-                                }
-                                else {
-                                    alert('Browser tidak mendukung share langsung. Gambar akan di-download.');
-                                    const link = document.createElement('a');
-                                    link.href = dataUrl;
-                                    link.download = 'invoice.png';
-                                    link.click();
-                                }
-                            });
+            const shareText = `Halo {{ $order->customer->name }}, berikut invoice pembelian Anda.`;
 
-                        document.getElementById('downloadInvoiceBtn').addEventListener('click', async function() {
-                            const dataUrl = await captureInvoice();
-                            const link = document.createElement('a');
-                            link.href = dataUrl;
-                            link.download = 'invoice-{{ $order->order_number }}.png';
-                            link.click();
-                        });
+            if (navigator.canShare && navigator.canShare({
+                    files: [file]
+                })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Invoice',
+                    text: shareText
+                });
+            } else {
+                alert('Browser tidak mendukung share langsung. Gambar akan di-download.');
+
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                link.download = 'invoice.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        });
+
+        document.getElementById('downloadInvoiceBtn').addEventListener('click', async function() {
+            const dataUrl = await captureInvoice();
+
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = 'invoice-{{ $order->order_number }}.png';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
     </script>
 @endpush
