@@ -28,7 +28,23 @@ class DesignController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $designs = Design::with(['order.customer', 'items.product'])->orderBy('created_at', 'desc');
+        // $designs = Design::with(['order.customer', 'items.product'])->orderBy('created_at', 'desc');
+
+        $designs = Design::with([
+            'order.customer',
+            'order.customerAddress',
+            'items' => function ($query) {
+                $query->whereHas('orderItem', function ($q) {
+                    $q->where('mode', 'printing');
+                });
+            },
+            'items.product',
+            'items.orderItem',
+        ])
+            ->whereHas('items.orderItem', function ($q) {
+                $q->where('mode', 'printing');
+            })
+            ->orderBy('created_at', 'desc');
 
         // ✅ Filter tanggal
         if ($request->filter) {
@@ -273,12 +289,138 @@ class DesignController extends Controller
         ]);
     }
 
+    // public function verify(Request $request, $id)
+    // {
+    //     DB::beginTransaction();
+    //     try {
+    //         $design = Design::with(['order', 'items.product'])->findOrFail($id);
+    //         $order = $design->order;
+
+    //         $design->update([
+    //             'verification_status' => 'approved',
+    //             'status'              => 'Verified',
+    //             'verified_by'         => Auth::id(),
+    //             'verified_at'         => now(),
+    //         ]);
+
+    //         $orderProgress = OrderProgress::create([
+    //             'order_id'       => $order->id,
+    //             'design_id'     => $design->id,
+    //             'date'           => now()->format('Y-m-d'),
+    //             'status'         => 'Pending',
+    //             'notes'          => null,
+    //             'invoice_number' => $order->order_number,
+    //         ]);
+
+    //         foreach ($design->items as $designItem) {
+    //             OrderProgressItem::create([
+    //                 'order_progress_id'  => $orderProgress->id,
+    //                 'design_item_id'     => $designItem->id,
+    //                 'order_item_id'      => $designItem->order_item_id,
+    //                 'product_id'         => $designItem->product_id,
+    //                 'quantity'           => $designItem->quantity,
+    //                 'completed_quantity' => 0,
+    //             ]);
+
+    //             // 🔹 Increment pending waiting list di ProductionStock
+    //             $productionStock = \App\Models\ProductionStock::firstOrCreate(
+    //                 [
+    //                     'product_id' => $designItem->product_id,
+    //                     'production_warehouse_id' => 2, // sesuaikan jika perlu
+    //                 ],
+    //                 [
+    //                     'opening_stock' => 0,
+    //                     'available_quantity' => 0,
+    //                     'finished_product_stock' => 0,
+    //                     'canceled_product_stock' => 0,
+    //                     'pending_waiting_list' => 0,
+    //                 ]
+    //             );
+
+    //             $productionStock->increment('pending_waiting_list', $designItem->quantity);
+    //         }
+
+    //         $deliveryOrder = DeliveryOrder::create([
+    //             'order_id'        => $order->id,
+    //             'design_id'      => $design->id,
+    //             'delivery_number' => $order->order_number,
+    //             'delivery_date'   => now()->format('Y-m-d'),
+    //             'note'            => $design->notes ?? '',
+    //             'status'          => 'Ongoing',
+    //             'customer'       => $order->customer->name,
+    //             'shipping_address' => $order->shipping_address,
+    //             'google_map_link'  => $order->google_maps,
+    //             'created_by'      => Auth::id(),
+    //         ]);
+
+    //         foreach ($orderProgress->items as $progressItem) {
+    //             DeliveryOrderItem::create([
+    //                 'delivery_order_id'     => $deliveryOrder->id,
+    //                 'order_progress_id'     => $orderProgress->id,
+    //                 'order_item_id'         => $progressItem->order_item_id,
+    //                 'order_progress_item_id' => $progressItem->id,
+    //                 'design_item_id'        => $progressItem->design_item_id,
+    //                 'product_id'            => $progressItem->product_id,
+    //                 'status'                => $orderProgress->status, // Pending
+    //                 'progress_qty'          => $progressItem->quantity,
+    //                 'ready_qty'             => 0,
+    //                 'note'                  => null,
+    //             ]);
+    //         }
+
+    //         DB::commit();
+
+    //         if ($request->ajax()) {
+    //             return response()->json([
+    //                 'success' => true,
+    //                 'message' => 'Design verified successfully.'
+    //             ]);
+    //         }
+
+    //         return redirect()->back()->with('success', 'Design verified successfully.');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         Log::error('Error verifying design: ' . $e->getMessage());
+    //         if ($request->ajax()) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Failed to verify design: ' . $e->getMessage()
+    //             ], 500);
+    //         }
+
+    //         return redirect()->back()->with('error', 'Failed to verify design: ' . $e->getMessage());
+    //     }
+    // }
+
     public function verify(Request $request, $id)
     {
         DB::beginTransaction();
+
         try {
-            $design = Design::with(['order', 'items.product'])->findOrFail($id);
+            $design = Design::with([
+                'order.customer',
+                'items.product',
+                'items.orderItem',
+            ])->findOrFail($id);
+
             $order = $design->order;
+
+            $printingItems = $design->items->filter(function ($designItem) {
+                return $designItem->orderItem?->mode === 'printing';
+            });
+
+            if ($printingItems->isEmpty()) {
+                DB::rollBack();
+
+                if ($request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Tidak ada item printing yang perlu diverifikasi.'
+                    ], 422);
+                }
+
+                return redirect()->back()->with('error', 'Tidak ada item printing yang perlu diverifikasi.');
+            }
 
             $design->update([
                 'verification_status' => 'approved',
@@ -287,16 +429,22 @@ class DesignController extends Controller
                 'verified_at'         => now(),
             ]);
 
+            foreach ($printingItems as $designItem) {
+                $designItem->update([
+                    'verification_status' => 'approved',
+                ]);
+            }
+
             $orderProgress = OrderProgress::create([
                 'order_id'       => $order->id,
-                'design_id'     => $design->id,
+                'design_id'      => $design->id,
                 'date'           => now()->format('Y-m-d'),
                 'status'         => 'Pending',
                 'notes'          => null,
                 'invoice_number' => $order->order_number,
             ]);
 
-            foreach ($design->items as $designItem) {
+            foreach ($printingItems as $designItem) {
                 OrderProgressItem::create([
                     'order_progress_id'  => $orderProgress->id,
                     'design_item_id'     => $designItem->id,
@@ -306,49 +454,52 @@ class DesignController extends Controller
                     'completed_quantity' => 0,
                 ]);
 
-                // 🔹 Increment pending waiting list di ProductionStock
                 $productionStock = \App\Models\ProductionStock::firstOrCreate(
                     [
                         'product_id' => $designItem->product_id,
-                        'production_warehouse_id' => 2, // sesuaikan jika perlu
+                        'production_warehouse_id' => 2,
                     ],
                     [
-                        'opening_stock' => 0,
-                        'available_quantity' => 0,
+                        'opening_stock'          => 0,
+                        'available_quantity'    => 0,
                         'finished_product_stock' => 0,
                         'canceled_product_stock' => 0,
-                        'pending_waiting_list' => 0,
+                        'pending_waiting_list'   => 0,
                     ]
                 );
 
                 $productionStock->increment('pending_waiting_list', $designItem->quantity);
             }
 
-            $deliveryOrder = DeliveryOrder::create([
-                'order_id'        => $order->id,
-                'design_id'      => $design->id,
-                'delivery_number' => $order->order_number,
-                'delivery_date'   => now()->format('Y-m-d'),
-                'note'            => $design->notes ?? '',
-                'status'          => 'Ongoing',
-                'customer'       => $order->customer->name,
-                'shipping_address' => $order->shipping_address,
-                'google_map_link'  => $order->google_maps,
-                'created_by'      => Auth::id(),
-            ]);
+            $deliveryOrder = DeliveryOrder::firstOrCreate(
+                [
+                    'order_id'   => $order->id,
+                    'design_id'  => $design->id,
+                ],
+                [
+                    'delivery_number'   => $order->order_number,
+                    'delivery_date'     => now()->format('Y-m-d'),
+                    'note'              => $design->notes ?? '',
+                    'status'            => 'Ongoing',
+                    'customer'          => $order->customer->name,
+                    'shipping_address'  => $order->shipping_address,
+                    'google_map_link'   => $order->google_maps,
+                    'created_by'        => Auth::id(),
+                ]
+            );
 
             foreach ($orderProgress->items as $progressItem) {
                 DeliveryOrderItem::create([
-                    'delivery_order_id'     => $deliveryOrder->id,
-                    'order_progress_id'     => $orderProgress->id,
-                    'order_item_id'         => $progressItem->order_item_id,
-                    'order_progress_item_id' => $progressItem->id,
-                    'design_item_id'        => $progressItem->design_item_id,
-                    'product_id'            => $progressItem->product_id,
-                    'status'                => $orderProgress->status, // Pending
-                    'progress_qty'          => $progressItem->quantity,
-                    'ready_qty'             => 0,
-                    'note'                  => null,
+                    'delivery_order_id'       => $deliveryOrder->id,
+                    'order_progress_id'       => $orderProgress->id,
+                    'order_item_id'           => $progressItem->order_item_id,
+                    'order_progress_item_id'  => $progressItem->id,
+                    'design_item_id'          => $progressItem->design_item_id,
+                    'product_id'              => $progressItem->product_id,
+                    'status'                  => $orderProgress->status,
+                    'progress_qty'            => $progressItem->quantity,
+                    'ready_qty'               => 0,
+                    'note'                    => null,
                 ]);
             }
 
@@ -364,7 +515,9 @@ class DesignController extends Controller
             return redirect()->back()->with('success', 'Design verified successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
+
             Log::error('Error verifying design: ' . $e->getMessage());
+
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,

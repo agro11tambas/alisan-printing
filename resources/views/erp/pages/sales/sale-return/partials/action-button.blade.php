@@ -20,7 +20,28 @@
                     </li>
                 @endif
 
-                @if ($return->saleOrder && $return->saleOrder->payment_status !== 'Unpaid' && $return->payment_status !== 'Refunded')
+                <li>
+                    <hr class="my-2">
+                </li>
+
+                @php
+                    $hidePaymentActions = in_array($return->payment_status, ['Retur', 'Refunded', 'Customer Deposit']);
+
+                    $canShowPaymentActions = !$hidePaymentActions && $return->remaining_amount > 0;
+                @endphp
+
+                {{-- @if ($return->payment_status !== 'Retur' && $return->payment_status !== 'Refunded' && $return->remaining_amount > 0)
+                    <li>
+                        <button type="button" class="dropdown-item btn-mark-retur" data-id="{{ $return->id }}"
+                            data-order-number="{{ $return->order_number }}"
+                            data-url="{{ url('/erp/sales/sale-returns/mark-as-retur/' . $return->id) }}">
+                            <i class="feather feather-corner-down-left me-3"></i>
+                            <span>Mark as Retur</span>
+                        </button>
+                    </li>
+                @endif
+
+                @if ($return->saleOrder && $return->saleOrder->payment_status !== 'Retur' && $return->payment_status !== 'Refunded' && $return->remaining_amount > 0)
                     <li>
                         <button type="button" class="dropdown-item btn-mark-paid" data-bs-toggle="modal"
                             data-bs-target="#modalChangeStatus" data-id="{{ $return->id }}"
@@ -33,11 +54,43 @@
                     </li>
                 @endif
 
-                @if (
-                    $return->saleOrder &&
-                        $return->saleOrder->payment_status !== 'Unpaid' &&
-                        $return->payment_status !== 'Refunded' &&
-                        $return->remaining_amount > 0)
+                @if ($return->saleOrder && $return->saleOrder->payment_status !== 'Retur' && $return->payment_status !== 'Refunded' && $return->remaining_amount > 0)
+                    <li>
+                        <button type="button" class="dropdown-item btn-mark-deposit" data-bs-toggle="modal"
+                            data-bs-target="#modalMarkAsCustomerDeposit" data-id="{{ $return->id }}"
+                            data-remaining="{{ $return->remaining_amount }}"
+                            data-url="{{ url('/erp/sales/sale-returns/mark-as-customer-deposit/' . $return->id) }}">
+                            <i class="feather feather-credit-card me-3"></i>
+                            <span>Mark as Customer Deposit</span>
+                        </button>
+                    </li>
+                @endif --}}
+
+                @if ($canShowPaymentActions)
+                    <li>
+                        <button type="button" class="dropdown-item btn-mark-retur" data-id="{{ $return->id }}"
+                            data-order-number="{{ $return->order_number }}"
+                            data-url="{{ url('/erp/sales/sale-returns/mark-as-retur/' . $return->id) }}">
+                            <i class="feather feather-corner-down-left me-3"></i>
+                            <span>Mark as Retur</span>
+                        </button>
+                    </li>
+                @endif
+
+                @if ($return->saleOrder && $return->saleOrder->payment_status !== 'Retur' && $canShowPaymentActions)
+                    <li>
+                        <button type="button" class="dropdown-item btn-mark-paid" data-bs-toggle="modal"
+                            data-bs-target="#modalChangeStatus" data-id="{{ $return->id }}"
+                            data-paid="{{ $return->refund_amount }}" data-total-amount="{{ $return->total_amount }}"
+                            data-paid-amount="{{ $return->refund_amount }}"
+                            data-url="{{ url('/erp/sales/sale-returns/mark-as-refund/' . $return->id) }}">
+                            <i class="feather feather-check"></i>
+                            <span>Mark as Refund</span>
+                        </button>
+                    </li>
+                @endif
+
+                @if ($return->saleOrder && $return->saleOrder->payment_status !== 'Retur' && $canShowPaymentActions)
                     <li>
                         <button type="button" class="dropdown-item btn-mark-deposit" data-bs-toggle="modal"
                             data-bs-target="#modalMarkAsCustomerDeposit" data-id="{{ $return->id }}"
@@ -48,6 +101,10 @@
                         </button>
                     </li>
                 @endif
+
+                <li>
+                    <hr class="my-2">
+                </li>
 
                 <li>
                     <a href="/erp/sales/sale-return/payment-history/{{ $return->id }}" class="dropdown-item">

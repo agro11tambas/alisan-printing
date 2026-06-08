@@ -260,7 +260,7 @@
                                         <th class="d-none d-md-table-cell">Customer</th>
                                         <th>Grand Total</th>
                                         <th>User</th>
-                                        <th>Type</th>
+                                        {{-- <th>Type</th> --}}
                                         <th>Notes</th>
                                     </tr>
                                 </thead>
@@ -483,7 +483,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [7, 'desc']
+                    [6, 'desc']
                 ],
                 data: [],
                 columns: [{
@@ -505,9 +505,9 @@
                     {
                         data: 'user'
                     },
-                    {
-                        data: 'mode'
-                    },
+                    // {
+                    //     data: 'mode'
+                    // },
                     {
                         data: 'notes'
                     },

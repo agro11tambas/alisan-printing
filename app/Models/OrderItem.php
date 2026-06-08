@@ -18,17 +18,26 @@ class OrderItem extends Model
         'status',
         'product_name',
         'satuan',
+        'mode',
         'quantity',
         'completed_quantity',
         'price',
         'subtotal',
         'discount_price',
         'total_after_discount',
-        'stock_out'
+        'stock_out',
+        'product_unit_conversion_id',
+        'unit_name',
+        'unit_conversion_value',
+        'qty_base',
+        'product_bundle_unit_conversion_id',
     ];
 
     protected $casts = [
         'deleted_at' => 'datetime',
+        'quantity' => 'decimal:2',
+        'unit_conversion_value' => 'decimal:2',
+        'qty_base' => 'decimal:2',
     ];
 
     public function order(): BelongsTo
@@ -36,9 +45,24 @@ class OrderItem extends Model
         return $this->belongsTo(Order::class);
     }
 
-    public function deliveryItems()
+    // public function deliveryItems()
+    // {
+    //     return $this->hasMany(DeliveryItemHistory::class);
+    // }
+
+    public function productUnitConversion(): BelongsTo
     {
-        return $this->hasMany(DeliveryItemHistory::class);
+        return $this->belongsTo(ProductUnitConversion::class, 'product_unit_conversion_id');
+    }
+
+    public function productBundleUnitConversion()
+    {
+        return $this->belongsTo(ProductBundleUnitConversion::class, 'product_bundle_unit_conversion_id');
+    }
+
+    public function deliveryListItems()
+    {
+        return $this->hasMany(DeliveryListItem::class, 'delivery_order_item_id');
     }
 
     public function product(): BelongsTo

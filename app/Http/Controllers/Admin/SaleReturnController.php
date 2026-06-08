@@ -52,7 +52,7 @@ class SaleReturnController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $returns = SaleReturn::with(['customer', 'customerAddress', 'items'])
+        $returns = SaleReturn::with(['customer', 'customerAddress', 'items', 'saleOrder'])
             ->where('status', 'sale returns')
             ->orderBy('created_at', 'desc');
 
@@ -109,6 +109,7 @@ class SaleReturnController extends Controller
         if ($request->filled('payment_status')) {
 
             switch ($request->payment_status) {
+
                 case 'Partially Paid':
                     $returns->whereIn('payment_status', ['Partially Paid', 'Over Refunded']);
                     break;
@@ -122,15 +123,15 @@ class SaleReturnController extends Controller
                     break;
 
                 case 'Unpaid':
-                    $returns->where('payment_status', 'Unpaid');
+                    $returns->where('payment_status', '-');
                     break;
 
                 case 'Progress':
-                    $returns->whereIn('payment_status', ['Partially Paid', 'Unpaid']);
+                    $returns->whereIn('payment_status', ['Partially Paid', '-']);
                     break;
 
                 case 'Complete':
-                    $returns->whereIn('payment_status', ['Refunded', 'Customer Deposit', 'Over Refunded', 'Over Customer Deposit']);
+                    $returns->whereIn('payment_status', ['Refunded', 'Customer Deposit', 'Over Refunded', 'Over Customer Deposit', 'Retur']);
                     break;
 
                 default:
@@ -166,14 +167,50 @@ class SaleReturnController extends Controller
             ';
 
                 // 🔸 Payment status badge + verified icon
-                $paymentStatus = strtolower($return->payment_status);
-                $badgeClass = match ($paymentStatus) {
+                // $paymentStatus = strtolower($return->payment_status);
+                // $badgeClass = match ($paymentStatus) {
+                //     'refunded', 'paid' => 'bg-soft-success text-success',
+                //     'over refunded'    => 'bg-soft-primary text-primary',
+                //     'unpaid'           => 'bg-soft-danger text-danger',
+                //     'partially paid'   => 'bg-soft-warning text-warning',
+                //     'customer deposit' => 'bg-soft-primary text-primary',
+                //     default             => 'bg-soft-warning text-warning',
+                // };
+
+                // $verifiedIcon = '';
+                // if ($return->verified) {
+                //     $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
+                // }
+
+                // $badge = '<div class="badge ' . $badgeClass . '">' . ucfirst($paymentStatus) . '</div>' . $verifiedIcon;
+
+                // 🔸 Order Payment Status
+                $orderPaymentStatus = strtolower($return->saleOrder?->payment_status ?? '-');
+
+                $orderBadgeClass = match ($orderPaymentStatus) {
+                    'paid'             => 'bg-soft-success text-success',
+                    'overpaid'         => 'bg-soft-primary text-primary',
+                    'unpaid'           => 'bg-soft-danger text-danger',
+                    'partially paid'   => 'bg-soft-warning text-warning',
+                    default            => 'bg-soft-secondary text-secondary',
+                };
+
+                $orderPaymentBadge = '<div class="badge ' . $orderBadgeClass . '">' . ucwords($orderPaymentStatus) . '</div>';
+
+
+                // 🔸 Sale Return Payment Status
+                $returnPaymentStatusRaw = trim($return->payment_status ?? '');
+                $returnPaymentStatus = $returnPaymentStatusRaw !== ''
+                    ? strtolower($returnPaymentStatusRaw)
+                    : '-';
+
+                $returnBadgeClass = match ($returnPaymentStatus) {
                     'refunded', 'paid' => 'bg-soft-success text-success',
                     'over refunded'    => 'bg-soft-primary text-primary',
                     'unpaid'           => 'bg-soft-danger text-danger',
                     'partially paid'   => 'bg-soft-warning text-warning',
                     'customer deposit' => 'bg-soft-primary text-primary',
-                    default             => 'bg-soft-warning text-warning',
+                    default            => 'bg-soft-warning text-warning',
                 };
 
                 $verifiedIcon = '';
@@ -181,7 +218,11 @@ class SaleReturnController extends Controller
                     $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
                 }
 
-                $badge = '<div class="badge ' . $badgeClass . '">' . ucfirst($paymentStatus) . '</div>' . $verifiedIcon;
+                $returnPaymentText = $returnPaymentStatus === '-'
+                    ? '-'
+                    : ucwords($returnPaymentStatus);
+
+                $returnPaymentBadge = '<div class="badge ' . $returnBadgeClass . '">' . $returnPaymentText . '</div>' . $verifiedIcon;
 
                 // 🔸 Status badge
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($return->status) . '</div>';
@@ -222,7 +263,9 @@ class SaleReturnController extends Controller
                             ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($return->remaining_amount, 0, ',', '.') . '</small>'
                             : ''
                         ),
-                    'payment_status' => $badge,
+                    // 'payment_status' => $badge,
+                    'order_payment_status' => $orderPaymentBadge,
+                    'return_payment_status' => $returnPaymentBadge,
                     'status' => $statusBadge,
                     'products' => $items,
                     'account' => e($return->account ?? '-'),
@@ -357,9 +400,17 @@ class SaleReturnController extends Controller
                     ->value('total_return');
 
                 // 🔹 Remaining qty = shipped - returned
-                $item->remaining_qty = max(0, $totalShipped - $returnedQty);
+                $remainingQty = max(0, $totalShipped - $returnedQty);
 
-                $expandedItems->push($item);
+                $expandedItems->push((object) [
+                    'id'            => $item->id,
+                    'order_id'      => $item->order_id,
+                    'product_id'    => $item->product_id,
+                    'product'       => $item->product,
+                    'quantity'      => $item->quantity,
+                    'remaining_qty' => $remainingQty,
+                    'price'         => $item->product->price ?? 0,
+                ]);
             } elseif ($item->product_bundle_id) {
                 foreach ($item->productBundle->items as $bundleItem) {
                     // 🔹 Hitung total sudah dikirim (shipped)
@@ -435,7 +486,8 @@ class SaleReturnController extends Controller
             $remainingAmount = $grandTotal - $paidAmount;
             $status = 'Sale Returns';
             $account = 'Sale Return';
-            $paymentStatus = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $grandTotal) ? 'Partially Paid' : 'Refunded');
+            // $paymentStatus = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $grandTotal) ? 'Partially Paid' : 'Refunded');
+            $paymentStatus = '-';
 
             // Buat SaleReturn
             $saleReturn = SaleReturn::create([
@@ -1881,6 +1933,32 @@ class SaleReturnController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Gagal verifikasi refund: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function markAsRetur($id)
+    {
+        try {
+            $saleReturn = \App\Models\SaleReturn::find($id);
+
+            if (!$saleReturn) {
+                return response()->json([
+                    'message' => 'Sale return tidak ditemukan.'
+                ], 404);
+            }
+
+            $saleReturn->update([
+                'payment_status' => 'Retur',
+            ]);
+
+            return response()->json([
+                'message' => 'Payment status sale return berhasil diubah menjadi Retur.',
+                'sale_return_id' => $saleReturn->id,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Gagal mengubah payment status sale return: ' . $e->getMessage()
             ], 500);
         }
     }

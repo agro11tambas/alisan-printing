@@ -12,21 +12,43 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('reject_products', function (Blueprint $table) {
-            $table->dropForeign(['order_progress_history_id']);
-            $table->unsignedBigInteger('order_progress_history_id')->nullable()->change();
-            $table->foreign('order_progress_history_id')
-                ->references('id')
-                ->on('order_progress_histories')
-                ->onDelete('set null');
+            if (Schema::hasColumn('reject_products', 'order_progress_history_id')) {
+
+                try {
+                    $table->dropForeign(['order_progress_history_id']);
+                } catch (\Throwable $e) {
+                    // FK sudah tidak ada, abaikan
+                }
+
+                $table->unsignedBigInteger('order_progress_history_id')
+                    ->nullable()
+                    ->change();
+
+                $table->foreign('order_progress_history_id')
+                    ->references('id')
+                    ->on('order_progress_histories_2')
+                    ->onDelete('set null');
+            }
         });
 
         Schema::table('defect_products', function (Blueprint $table) {
-            $table->dropForeign(['order_progress_history_id']);
-            $table->unsignedBigInteger('order_progress_history_id')->nullable()->change();
-            $table->foreign('order_progress_history_id')
-                ->references('id')
-                ->on('order_progress_histories')
-                ->onDelete('set null');
+            if (Schema::hasColumn('defect_products', 'order_progress_history_id')) {
+
+                try {
+                    $table->dropForeign(['order_progress_history_id']);
+                } catch (\Throwable $e) {
+                    // FK sudah tidak ada
+                }
+
+                $table->unsignedBigInteger('order_progress_history_id')
+                    ->nullable()
+                    ->change();
+
+                $table->foreign('order_progress_history_id')
+                    ->references('id')
+                    ->on('order_progress_histories_2')
+                    ->onDelete('set null');
+            }
         });
     }
 
@@ -40,7 +62,7 @@ return new class extends Migration
             $table->unsignedBigInteger('order_progress_history_id')->nullable(false)->change();
             $table->foreign('order_progress_history_id')
                 ->references('id')
-                ->on('order_progress_histories')
+                ->on('order_progress_histories_2')
                 ->onDelete('cascade');
         });
 
@@ -49,7 +71,7 @@ return new class extends Migration
             $table->unsignedBigInteger('order_progress_history_id')->nullable(false)->change();
             $table->foreign('order_progress_history_id')
                 ->references('id')
-                ->on('order_progress_histories')
+                ->on('order_progress_histories_2')
                 ->onDelete('cascade');
         });
     }

@@ -19,7 +19,6 @@ class Purchase extends Model
         'purchase_number',
         'purchase_date',
         'due_date',
-        'name',
         'sub_total',
         'tax_percent',
         'tax_amount',

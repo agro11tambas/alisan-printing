@@ -34,6 +34,13 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('order_progress_assigns', function (Blueprint $table) {
+            if (Schema::hasColumn('order_progress_assigns', 'assign_batch_id')) {
+                $table->dropForeign(['assign_batch_id']);
+                $table->dropColumn('assign_batch_id');
+            }
+        });
+
         Schema::dropIfExists('order_progress_assign_batches');
     }
 };

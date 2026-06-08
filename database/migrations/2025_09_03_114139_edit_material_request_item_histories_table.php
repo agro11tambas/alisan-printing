@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('material_request_item_histories', function (Blueprint $table) {
-            $table->date('date');
+            $table->dropColumn('date');
         });
     }
 };

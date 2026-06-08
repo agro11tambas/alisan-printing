@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
 use App\Http\Controllers\Controller;
+use App\Models\ProductBundleUnitConversion;
+use App\Models\ProductUnit;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class ProductBundleController extends Controller
@@ -98,92 +101,126 @@ class ProductBundleController extends Controller
 
     public function create()
     {
-        $products = Products::all(); // ambil semua produk
-        return view('erp.pages.product-bundles.create-product', compact('products'));
+        $products = Products::orderBy('name', 'asc')->get();
+        $productUnits = ProductUnit::orderBy('name', 'asc')->get();
+
+        return view('erp.pages.product-bundles.create-product', compact(
+            'products',
+            'productUnits'
+        ));
     }
-
-    // public function store(Request $request)
-    // {
-    //     $request->validate([
-    //         'name'     => 'required|string|max:255',
-    //         'sku'      => 'required|string|max:255|unique:product_bundles,sku',
-    //         'price'    => 'required|numeric|min:0',
-    //         'products' => 'required|array|min:1',
-    //     ]);
-
-    //     // 🧩 Cek SKU di tabel product_bundles dan products
-    //     $skuExists = \App\Models\ProductBundle::where('sku', $request->sku)->exists()
-    //         || \App\Models\Products::where('sku', $request->sku)->exists();
-
-    //     if ($skuExists) {
-    //         return redirect()->back()
-    //             ->withInput()
-    //             ->with('error', 'Product Bundle dengan SKU yang sama sudah ada di ERP dengan nama ' . ProductBundle::where('sku', $request->sku)->first()->name . '. Silakan gunakan SKU lain.');
-    //     }
-
-    //     // Simpan bundle
-    //     $bundle = \App\Models\ProductBundle::create([
-    //         'name'  => trim($request->name) . ' (BUNDLE)',
-    //         'sku'   => $request->sku,
-    //         'price' => $request->price,
-    //     ]);
-
-    //     // Simpan item bundle
-    //     foreach ($request->products as $product_id) {
-    //         \App\Models\ProductBundleItem::create([
-    //             'bundle_id'  => $bundle->id,
-    //             'product_id' => $product_id,
-    //         ]);
-    //     }
-
-    //     return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dibuat!');
-    // }
 
     public function store(Request $request)
     {
         $request->validate([
             'name'     => 'required|string|max:255',
-            'sku'      => 'required|string|max:255|unique:product_bundles,sku',
+            'sku'      => 'required|string|max:255',
+            'price'    => 'required|numeric|min:0',
             'products' => 'required|array|min:2',
+            'products.*' => 'required|exists:products,id',
+
+            'units' => 'required|array|min:1',
+            'units.*.unit_id' => 'required|exists:product_units,id',
+            'units.*.conversion_value' => 'required|numeric|min:0.01',
+            'units.*.sale_price' => 'required|numeric|min:0',
+        ], [
+            'products.min' => 'Minimal pilih 2 produk untuk membuat bundle.',
+            'units.required' => 'Minimal satu product unit wajib diisi.',
+            'units.*.unit_id.required' => 'Unit wajib dipilih.',
+            'units.*.conversion_value.required' => 'Conversion wajib diisi.',
+            'units.*.conversion_value.min' => 'Conversion wajib lebih dari 0.',
+            'units.*.sale_price.required' => 'Harga unit wajib diisi.',
         ]);
 
-        $skuExists = \App\Models\ProductBundle::where('sku', $request->sku)->exists()
-            || \App\Models\Products::where('sku', $request->sku)->exists();
+        $bundleSku = ProductBundle::where('sku', $request->sku)->first();
+        $productSku = Products::where('sku', $request->sku)->first();
 
-        if ($skuExists) {
+        if ($bundleSku || $productSku) {
+            $existingName = $bundleSku?->name ?? $productSku?->name ?? '-';
+
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Product Bundle dengan SKU yang sama sudah ada di ERP dengan nama ' . ProductBundle::where('sku', $request->sku)->first()->name . '. Silakan gunakan SKU lain.');
+                ->with('error', 'SKU sudah digunakan di ERP dengan nama ' . $existingName . '. Silakan gunakan SKU lain.');
         }
 
-        // Hitung price dari produk-produk yang dipilih
-        $totalPrice = \App\Models\Products::whereIn('id', $request->products)->sum('price');
+        $selectedProducts = collect($request->products)
+            ->filter()
+            ->unique()
+            ->values();
 
-        $bundle = \App\Models\ProductBundle::create([
-            'name'  => trim($request->name) . ' (BUNDLE)',
-            'sku'   => $request->sku,
-            'price' => $totalPrice,
-        ]);
-
-        foreach ($request->products as $product_id) {
-            \App\Models\ProductBundleItem::create([
-                'bundle_id'  => $bundle->id,
-                'product_id' => $product_id,
-            ]);
+        if ($selectedProducts->count() < 2) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Minimal pilih 2 produk berbeda untuk membuat bundle.');
         }
 
-        return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dibuat!');
+        $selectedUnits = collect($request->units)
+            ->pluck('unit_id')
+            ->filter()
+            ->values();
+
+        if ($selectedUnits->count() !== $selectedUnits->unique()->count()) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Unit tidak boleh duplikat.');
+        }
+
+        try {
+            DB::transaction(function () use ($request, $selectedProducts) {
+                $bundle = ProductBundle::create([
+                    'name'  => trim($request->name) . ' (BUNDLE)',
+                    'sku'   => $request->sku,
+                    'price' => $request->price,
+                ]);
+
+                foreach ($selectedProducts as $productId) {
+                    ProductBundleItem::create([
+                        'bundle_id'  => $bundle->id,
+                        'product_id' => $productId,
+
+                        // Karena bundle kamu cuma gabungan produk,
+                        // setiap produk dianggap 1 komponen.
+                        'quantity' => 1,
+                    ]);
+                }
+
+                foreach ($request->units as $unit) {
+                    ProductBundleUnitConversion::create([
+                        'product_bundle_id' => $bundle->id,
+                        'unit_id' => $unit['unit_id'],
+                        'conversion_value' => $unit['conversion_value'],
+                        'sale_price' => $unit['sale_price'],
+                    ]);
+                }
+            });
+
+            return redirect('/erp/products/product-bundles')
+                ->with('success', 'Product Bundle berhasil dibuat!');
+        } catch (\Throwable $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Gagal membuat Product Bundle: ' . $e->getMessage());
+        }
     }
 
     public function edit($id)
     {
-        $bundle = ProductBundle::with('items')->findOrFail($id);
-        $products = Products::all();
+        $bundle = ProductBundle::with([
+            'items',
+            'unitConversions.unit',
+        ])->findOrFail($id);
 
-        // Ambil ID produk yang sudah ada di bundle untuk pre-select
+        $products = Products::orderBy('name', 'asc')->get();
+        $productUnits = ProductUnit::orderBy('name', 'asc')->get();
+
         $selectedProducts = $bundle->items->pluck('product_id')->toArray();
 
-        return view('erp.pages.product-bundles.edit-product', compact('bundle', 'products', 'selectedProducts'));
+        return view('erp.pages.product-bundles.edit-product', compact(
+            'bundle',
+            'products',
+            'productUnits',
+            'selectedProducts'
+        ));
     }
 
     public function update(Request $request, $id)
@@ -194,40 +231,95 @@ class ProductBundleController extends Controller
             'name'     => 'required|string|max:255',
             'sku'      => 'required|string|max:255',
             'price'    => 'required|numeric|min:0',
-            'products' => 'required|array|min:1',
+            'products' => 'required|array|min:2',
+            'products.*' => 'required|exists:products,id',
+
+            'units' => 'required|array|min:1',
+            'units.*.unit_id' => 'required|exists:product_units,id',
+            'units.*.conversion_value' => 'required|numeric|min:0.01',
+            'units.*.sale_price' => 'required|numeric|min:0',
+        ], [
+            'products.min' => 'Minimal pilih 2 produk untuk membuat bundle.',
+            'units.required' => 'Minimal satu product unit wajib diisi.',
+            'units.*.unit_id.required' => 'Unit wajib dipilih.',
+            'units.*.conversion_value.required' => 'Conversion wajib diisi.',
+            'units.*.conversion_value.min' => 'Conversion wajib lebih dari 0.',
+            'units.*.sale_price.required' => 'Harga unit wajib diisi.',
         ]);
 
-        // 🧩 Cek SKU duplikat di product_bundles (kecuali bundle ini) dan di products
-        $skuExists = ProductBundle::where('sku', $request->sku)
+        $bundleSku = ProductBundle::where('sku', $request->sku)
             ->where('id', '!=', $bundle->id)
-            ->exists()
-            || Products::where('sku', $request->sku)->exists();
+            ->first();
 
-        if ($skuExists) {
+        $productSku = Products::where('sku', $request->sku)->first();
+
+        if ($bundleSku || $productSku) {
+            $existingName = $bundleSku?->name ?? $productSku?->name ?? '-';
+
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Product Bundle dengan SKU yang sama sudah ada di ERP dengan nama ' . ProductBundle::where('sku', $request->sku)->first()->name . '. Silakan gunakan SKU lain.');
+                ->with('error', 'SKU sudah digunakan di ERP dengan nama ' . $existingName . '. Silakan gunakan SKU lain.');
         }
 
-        // 🔄 Update data utama bundle
-        $bundle->update([
-            'name'  => trim($request->name),
-            'sku'   => $request->sku,
-            'price' => $request->price,
-        ]);
+        $selectedProducts = collect($request->products)
+            ->filter()
+            ->unique()
+            ->values();
 
-        // 🔁 Hapus item lama & simpan ulang produk baru
-        ProductBundleItem::where('bundle_id', $bundle->id)->delete();
-
-        foreach ($request->products as $product_id) {
-            ProductBundleItem::create([
-                'bundle_id'  => $bundle->id,
-                'product_id' => $product_id,
-            ]);
+        if ($selectedProducts->count() < 2) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Minimal pilih 2 produk berbeda untuk membuat bundle.');
         }
 
-        return redirect('/erp/products/product-bundles')
-            ->with('success', 'Product Bundle berhasil diperbarui!');
+        $selectedUnits = collect($request->units)
+            ->pluck('unit_id')
+            ->filter()
+            ->values();
+
+        if ($selectedUnits->count() !== $selectedUnits->unique()->count()) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Unit tidak boleh duplikat.');
+        }
+
+        try {
+            DB::transaction(function () use ($request, $bundle, $selectedProducts) {
+                $bundle->update([
+                    'name'  => trim($request->name),
+                    'sku'   => $request->sku,
+                    'price' => $request->price,
+                ]);
+
+                ProductBundleItem::where('bundle_id', $bundle->id)->delete();
+
+                foreach ($selectedProducts as $productId) {
+                    ProductBundleItem::create([
+                        'bundle_id'  => $bundle->id,
+                        'product_id' => $productId,
+                        'quantity'   => 1,
+                    ]);
+                }
+
+                ProductBundleUnitConversion::where('product_bundle_id', $bundle->id)->delete();
+
+                foreach ($request->units as $unit) {
+                    ProductBundleUnitConversion::create([
+                        'product_bundle_id' => $bundle->id,
+                        'unit_id' => $unit['unit_id'],
+                        'conversion_value' => $unit['conversion_value'],
+                        'sale_price' => $unit['sale_price'],
+                    ]);
+                }
+            });
+
+            return redirect('/erp/products/product-bundles')
+                ->with('success', 'Product Bundle berhasil diperbarui!');
+        } catch (\Throwable $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Gagal memperbarui Product Bundle: ' . $e->getMessage());
+        }
     }
 
     // public function delete($id)

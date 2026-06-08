@@ -103,7 +103,6 @@ class ExpenseController extends Controller
         ]);
     }
 
-
     public function create()
     {
         $transactionTypes = Account::where('name', 'Expense')->get();

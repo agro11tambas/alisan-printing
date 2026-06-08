@@ -94,7 +94,7 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(7, 1fr);
             gap: 10px;
         }
 
@@ -401,7 +401,7 @@
                                                 </div>
 
                                                 <!-- 🔹 Kolom Mode -->
-                                                <div class="col-md-6">
+                                                {{-- <div class="col-md-6">
                                                     <div class="d-flex flex-column">
                                                         <label class="fw-semibold mb-1">Mode:</label>
                                                         @php
@@ -421,7 +421,7 @@
                                                         <input type="hidden" id="mode" name="mode"
                                                             value="{{ $isPrinting ? 'printing' : 'polosan' }}">
                                                     </div>
-                                                </div>
+                                                </div> --}}
                                             </div>
                                         </div>
                                     </div>
@@ -430,167 +430,6 @@
                             </div>
                         </div>
                     </div>
-                    {{-- <div class="card stretch stretch-full">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <div class="mb-4">
-                                        <h5 class="fw-bold">Add Products:</h5>
-                                    </div>
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered overflow-hidden" id="tab_logic">
-                                            <thead>
-                                                <tr class="single-item">
-                                                    <th class="text-center wd-50">#</th>
-                                                    <th class="text-center wd-450">Product</th>
-                                                    <!-- <th class="text-center wd-200">Product Type</th> -->
-                                                    <th class="text-center wd-100">Qty</th>
-                                                    <th class="text-center wd-150">Price</th>
-                                                    <th class="text-center wd-150">Total</th>
-                                                    <th class="text-center wd-100">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="tab_logic">
-                                                @foreach ($order->orderItems as $index => $item)
-                                                    <tr id="addr{{ $index }}">
-                                                        <td>{{ $index + 1 }}</td>
-                                                        <td>
-                                                            <select class="form-control select-product" name="product[]"
-                                                                id="product_{{ $index }}"
-                                                                data-select2-selector="status"
-                                                                data-selected-id="{{ $item->satuan == 'satuan' ? $item->product_id : $item->product_bundle_id }}"
-                                                                data-selected-type="{{ $item->satuan }}">
-                                                                <option value="" disabled hidden>Pilih produk
-                                                                </option>
-                                                                @foreach ($products as $prod)
-                                                                    <option value="satuan_{{ $prod->id }}"
-                                                                        {{ $item->satuan == 'satuan' && $item->product_id == $prod->id ? 'selected' : '' }}
-                                                                        data-price="{{ $prod->price }}"
-                                                                        data-discounts='@json($prod->discounts ?? [])'
-                                                                        data-categories='@json($prod->categories ?? [])'
-                                                                        data-type="satuan">
-                                                                        {{ $prod->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                                @foreach ($productBundles as $bundle)
-                                                                    <option value="bundle_{{ $bundle->id }}"
-                                                                        {{ $item->satuan == 'bundle' && $item->product_bundle_id == $bundle->id ? 'selected' : '' }}
-                                                                        data-price="{{ $bundle->price }}"
-                                                                        data-discounts='@json($bundle->discounts ?? [])'
-                                                                        data-categories='@json($bundle->categories ?? [])'
-                                                                        data-type="bundle">
-                                                                        {{ $bundle->name }} (Bundle)
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <input type="hidden" class="form-control product-type"
-                                                            name="product_type[]" id="product_type_{{ $index }}"
-                                                            value="{{ $item->satuan }}" readonly>
-                                                        <td>
-                                                            <input type="text" inputmode="numeric" name="qty[]"
-                                                                class="form-control qty" id="qty_{{ $index }}"
-                                                                value="{{ number_format($item->quantity, 0, ',', '.') }}">
-                                                        </td>
-
-                                                        </td>
-                                                        <td>
-                                                            @php
-                                                                $isOwner = Auth::user()->role === 'Owner';
-                                                            @endphp
-                                                            <input type="text"
-                                                                class="form-control price_before_discount_display"
-                                                                value="{{ number_format($item->price, 2, ',', '.') }}">
-                                                            <input type="hidden" name="price_before_discount[]"
-                                                                class="price_before_discount"
-                                                                id="price_before_discount_{{ $index }}"
-                                                                value="{{ number_format($item->price, 2, '.', '') }}">
-                                                        </td>
-                                                        <td>
-                                                            <input type="text"
-                                                                class="form-control total_before_discount_display" readonly
-                                                                value="{{ number_format($item->price * $item->quantity, 2, ',', '.') }}">
-                                                            <input type="hidden" name="total_before_discount[]"
-                                                                class="total_before_discount"
-                                                                id="total_before_discount_{{ $index }}"
-                                                                value="{{ number_format($item->price * $item->quantity, 2, '.', '') }}">
-                                                        </td>
-
-                                                        <td class="text-center">
-                                                            <div class="d-flex justify-content-center">
-                                                                <button type="button" class="btn btn-danger delete-row">
-                                                                    <i class="feather-trash"></i>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-
-                                                        <input type="hidden" name="price_after_discount[]"
-                                                            class="form-control price_after_discount"
-                                                            id="price_after_discount_{{ $index }}"
-                                                            value="{{ $item->price_after_discount }}">
-                                                        <input type="hidden" name="total_after_discount[]"
-                                                            class="form-control total_after_discount"
-                                                            id="total_after_discount_{{ $index }}"
-                                                            value="{{ $item->total_after_discount }}">
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-
-                                        </table>
-                                    </div>
-                                    <div class="d-flex justify-content-end gap-2 mt-3">
-                                        <!-- <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button> -->
-                                        <button type="button" id="add_row" class="btn btn-md btn-primary">Add
-                                            Items</button>
-                                    </div>
-                                </div>
-                                <div class="col-lg-12">
-                                    <div class="row justify-content-end">
-                                        <div class="col-lg-4 mt-3">
-                                            <div class="mb-4">
-                                                <h5 class="fw-bold">Grand Total:</h5>
-                                            </div>
-                                            <div class="table-responsive">
-                                                <table class="table table-bordered" id="tab_logic_total">
-                                                    <tbody>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase">Sub Total (Before
-                                                                Discount)</th>
-                                                            <td>
-                                                                <input type="text" id="sub_total_display"
-                                                                    class="form-control" readonly>
-                                                                <input type="hidden" name="sub_total" id="sub_total">
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase">Total Discount</th>
-                                                            <td>
-                                                                <input type="text" id="total_discount_display"
-                                                                    class="form-control text-danger" readonly>
-                                                                <input type="hidden" name="total_discount"
-                                                                    id="total_discount">
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
-                                                                Total</th>
-                                                            <td>
-                                                                <input type="text" id="total_amount_display"
-                                                                    class="form-control bg-gray-100 fw-700 text-success"
-                                                                    readonly>
-                                                                <input type="hidden" name="total_amount"
-                                                                    id="total_amount">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div> --}}
 
                     <div class="card stretch stretch-full">
                         <div class="card-body">
@@ -644,6 +483,67 @@
 
                                             <input type="hidden" name="product_type[]" class="product-type"
                                                 value="{{ $item->satuan }}">
+
+                                            <div class="form-group product-unit-wrapper">
+                                                <label>Unit</label>
+                                                <select name="product_unit_id[]" class="form-control product-unit">
+                                                    <option value="">Pilih unit</option>
+
+                                                    @if ($item->satuan === 'satuan' && $item->product)
+                                                        @foreach ($item->product->unitConversions as $conversion)
+                                                            <option value="{{ $conversion->id }}"
+                                                                data-unit-id="{{ $conversion->unit_id }}"
+                                                                data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                                data-conversion-value="{{ $conversion->conversion_value }}"
+                                                                data-sale-price="{{ $conversion->sale_price }}"
+                                                                {{ (int) $item->product_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
+                                                                {{ optional($conversion->unit)->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    @elseif ($item->satuan === 'bundle' && $item->productBundle)
+                                                        <option value="default_pcs" data-unit-id="" data-unit-name="Pcs"
+                                                            data-conversion-value="1"
+                                                            data-sale-price="{{ $item->productBundle->price ?? $item->price }}"
+                                                            {{ empty($item->product_bundle_unit_conversion_id) && ($item->unit_name ?? 'Pcs') === 'Pcs' ? 'selected' : '' }}>
+                                                            Pcs
+                                                        </option>
+
+                                                        @foreach ($item->productBundle->unitConversions as $conversion)
+                                                            @if (strtolower(optional($conversion->unit)->name ?? '') !== 'pcs')
+                                                                <option value="{{ $conversion->id }}"
+                                                                    data-unit-id="{{ $conversion->unit_id }}"
+                                                                    data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                                    data-conversion-value="{{ $conversion->conversion_value }}"
+                                                                    data-sale-price="{{ $conversion->sale_price }}"
+                                                                    {{ (int) $item->product_bundle_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
+                                                                    {{ optional($conversion->unit)->name }}
+                                                                </option>
+                                                            @endif
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+
+                                                <input type="hidden" name="unit_conversion_value[]"
+                                                    class="unit-conversion-value"
+                                                    value="{{ $item->unit_conversion_value ?? 1 }}">
+
+                                                <input type="hidden" name="unit_name[]" class="unit-name"
+                                                    value="{{ $item->unit_name ?? 'Pcs' }}">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Mode</label>
+                                                <select name="mode[]" class="form-control item-mode">
+                                                    <option value="printing"
+                                                        {{ ($item->mode ?? 'printing') === 'printing' ? 'selected' : '' }}>
+                                                        Printing
+                                                    </option>
+                                                    <option value="polosan"
+                                                        {{ ($item->mode ?? 'printing') === 'polosan' ? 'selected' : '' }}>
+                                                        Polosan
+                                                    </option>
+                                                </select>
+                                            </div>
 
                                             <div class="form-group">
                                                 <label>Qty</label>
@@ -701,6 +601,25 @@
                                         </div>
 
                                         <input type="hidden" name="product_type[]" class="product-type">
+
+                                        <div class="form-group product-unit-wrapper">
+                                            <label>Unit</label>
+                                            <select name="product_unit_id[]" class="form-control product-unit">
+                                                <option value="">Pilih unit</option>
+                                            </select>
+
+                                            <input type="hidden" name="unit_conversion_value[]"
+                                                class="unit-conversion-value" value="1">
+                                            <input type="hidden" name="unit_name[]" class="unit-name" value="">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Mode</label>
+                                            <select name="mode[]" class="form-control item-mode">
+                                                <option value="printing" selected>Printing</option>
+                                                <option value="polosan">Polosan</option>
+                                            </select>
+                                        </div>
 
                                         <div class="form-group">
                                             <label>Qty</label>
@@ -933,6 +852,78 @@
             return text.length > max ? text.slice(0, max) + '...' : text;
         }
 
+        function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0, forceDefaultPcs = false) {
+            const unitSelect = row.find('.product-unit');
+
+            unitSelect.empty();
+            unitSelect.append('<option value="">Pilih unit</option>');
+
+            row.find('.unit-conversion-value').val('1');
+            row.find('.unit-name').val('Pcs');
+
+            if (forceDefaultPcs) {
+                unitSelect.append(`
+            <option value="default_pcs"
+                data-unit-id=""
+                data-unit-name="Pcs"
+                data-conversion-value="1"
+                data-sale-price="${defaultPrice}">
+                Pcs
+            </option>
+        `);
+            }
+
+            if (Array.isArray(units) && units.length > 0) {
+                units.forEach(function(unit) {
+                    const unitName = unit.unit_name || 'Pcs';
+
+                    if (forceDefaultPcs && unitName.toLowerCase() === 'pcs') {
+                        return;
+                    }
+
+                    unitSelect.append(`
+                <option value="${unit.id}"
+                    data-unit-id="${unit.unit_id}"
+                    data-unit-name="${unitName}"
+                    data-conversion-value="${unit.conversion_value || 1}"
+                    data-sale-price="${unit.sale_price || defaultPrice}">
+                    ${unitName}
+                </option>
+            `);
+                });
+            }
+
+            if (selectedUnitId) {
+                unitSelect.val(String(selectedUnitId));
+            } else if (forceDefaultPcs) {
+                unitSelect.val('default_pcs');
+            } else {
+                unitSelect.val(unitSelect.find('option:eq(1)').val());
+            }
+
+            unitSelect.trigger('change');
+        }
+
+        function updatePriceFromSelectedUnit(row) {
+            const selectedUnit = row.find('.product-unit option:selected');
+
+            if (!selectedUnit.val()) {
+                return;
+            }
+
+            const unitName = selectedUnit.data('unit-name') || 'Pcs';
+            const conversionValue = selectedUnit.data('conversion-value') || 1;
+            const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
+
+            row.find('.unit-name').val(unitName);
+            row.find('.unit-conversion-value').val(conversionValue);
+
+            row.find('.price_before_discount').val(salePrice.toFixed(2));
+            row.find('.price_before_discount_display').val(formatNumber(salePrice));
+
+            recalcAllRows();
+        }
+
         // 🔥 Inisialisasi label dan hidden input sesuai kondisi awal
         $(document).ready(function() {
             const label = $('#toggleDiscount').next('label');
@@ -947,19 +938,38 @@
             }
 
             $('.product-item').each(function() {
-                const select = $(this).find('.select-product');
+                const row = $(this);
+                const select = row.find('.select-product');
 
                 const selectedVal = select.val();
-                let selectedType = null,
-                    selectedId = null;
+                let selectedType = null;
+                let selectedId = null;
 
                 if (selectedVal) {
                     [selectedType, selectedId] = selectedVal.split('_');
                 }
 
+                const selectedUnitId = row.find('.product-unit').val();
+
                 populateProducts(select[0], selectedId, selectedType);
 
                 select.select2(select2ProductConfig());
+
+                const selectedOption = select.find('option:selected');
+                const type = selectedOption.data('type') || selectedType;
+                const units = selectedOption.data('units') || [];
+
+                row.find('.product-type').val(type);
+
+                const defaultPrice = parseFloat(selectedOption.data('price') || 0);
+
+                if (type === 'satuan' || type === 'bundle') {
+                    fillProductUnits(row, units, selectedUnitId, defaultPrice, type === 'bundle');
+                } else {
+                    row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+                    row.find('.unit-conversion-value').val('1');
+                    row.find('.unit-name').val('Pcs');
+                }
             });
 
 
@@ -998,15 +1008,17 @@
         // Populate dropdown produk
         function populateProducts(selectEl, selectedId = null, selectedType = null) {
             $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
+
             allProducts.forEach(item => {
                 const option = $('<option>', {
                         value: item.type + '_' + item.id,
-                        text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? '' : '')
+                        text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? ' (Bundle)' : '')
                     })
                     .data('price', item.price)
                     .data('discounts', item.discounts || [])
                     .data('categories', item.categories || [])
-                    .data('type', item.type);
+                    .data('type', item.type)
+                    .data('units', item.units || []);
 
                 if (selectedId && selectedType === item.type && selectedId == item.id) {
                     option.prop('selected', true);
@@ -1208,107 +1220,11 @@
             calculateRow(row);
         }
 
-        // function initSelect2() {
-        //     $('[data-select2-selector="status"]').select2({
-        //         placeholder: 'Pilih produk',
-        //         width: '100%'
-        //     }).each(function() {
-        //         if ($(this).hasClass('select-product')) {
-        //             const selectedVal = $(this).val();
-        //             const selectedType = $(this).closest('tr').find('.product-type').val();
-        //             const selectedId = selectedVal ? selectedVal.split('_')[1] : null;
-        //             populateProducts(this, selectedId, selectedType);
-        //         }
-        //     });
-        // }
-
         document.addEventListener('DOMContentLoaded', function() {
             // initSelect2();
             recalcAllRows();
 
             let rowCount = document.querySelectorAll('#tab_logic tbody tr').length;
-
-            // $('#add_row').on('click', function() {
-            //     const tableBody = $('#tab_logic tbody');
-            //     const newRow = $(`
-        //         <tr id="addr${rowCount}">
-        //             <td>${rowCount + 1}</td>
-
-        //             <td>
-        //                 <select class="form-control select-product" 
-        //                     name="product[]" 
-        //                     id="product_${rowCount}"
-        //                     data-select2-selector="status">
-        //                     <option value="" disabled selected hidden>Pilih produk</option>
-        //                 </select>
-        //             </td>
-
-        //             <input type="hidden" 
-        //                 name="product_type[]" 
-        //                 id="product_type_${rowCount}"
-        //                 class="form-control product-type" 
-        //                 readonly>
-
-        //             <td>
-        //                 <input type="text" 
-        //                     name="qty[]" 
-        //                     class="form-control qty"
-        //                     id="qty_${rowCount}"
-        //                     value="1"
-        //                     inputmode="numeric">
-        //             </td>
-
-        //             <td>
-        //                 <input type="text"
-        //                     class="form-control price_before_discount_display"
-        //                     value="0">
-
-        //                 <input type="hidden"
-        //                     name="price_before_discount[]"
-        //                     class="price_before_discount"
-        //                     id="price_before_discount_${rowCount}"
-        //                     value="0">
-        //             </td>
-
-        //             <td>
-        //                 <input type="text"
-        //                     class="form-control total_before_discount_display"
-        //                     readonly
-        //                     value="0">
-
-        //                 <input type="hidden"
-        //                     name="total_before_discount[]"
-        //                     class="total_before_discount"
-        //                     id="total_before_discount_${rowCount}"
-        //                     value="0">
-        //             </td>
-
-        //             <td class="text-center">
-        //                 <div class="d-flex justify-content-center">
-        //                     <button type="button" class="btn btn-danger delete-row">
-        //                         <i class="feather-trash"></i>
-        //                     </button>
-        //                 </div>          
-        //             </td>
-
-        //             <input type="hidden" 
-        //                 name="price_after_discount[]" 
-        //                 class="price_after_discount"
-        //                 id="price_after_discount_${rowCount}"
-        //                 value="0">
-
-        //             <input type="hidden" 
-        //                 name="total_after_discount[]" 
-        //                 class="total_after_discount"
-        //                 id="total_after_discount_${rowCount}"
-        //                 value="0">
-        //         </tr>
-        //     `);
-
-            //     tableBody.append(newRow);
-            //     initSelect2(newRow.find('.select-product'));
-            //     rowCount++;
-            // });
 
             $('#add_row').on('click', function() {
                 const index = $('.product-item').length;
@@ -1330,17 +1246,6 @@
                 recalcAllRows();
             });
 
-            // $(document).on('click', '.delete-row', function() {
-            //     $(this).closest('tr').remove();
-
-            //     $('#tab_logic tbody tr').each(function(i, el) {
-            //         $(el).find('td:first').text(i + 1);
-            //     });
-
-            //     rowCount = $('#tab_logic tbody tr').length;
-            //     recalcAllRows();
-            // });
-
             $(document).on('click', '.delete-row', function() {
                 $(this).closest('.product-item').remove();
 
@@ -1352,37 +1257,37 @@
                 recalcAllRows();
             });
 
-            // $(document).on('change', 'select[name="product[]"]', function() {
-            //     const row = $(this).closest('tr');
-            //     updateRowTypeAndPrice(row);
-            //     recalcAllRows();
-            // });
-
-            // $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
-
-            // $(document).on('change', '.select-product', function() {
-            //     const row = $(this).closest('.product-item');
-            //     const type = $(this).find(':selected').data('type') || '';
-            //     row.find('.product-type').val(type);
-            //     recalcAllRows();
-            // });
-
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('.product-item');
                 const selected = $(this).find(':selected');
 
                 const type = selected.data('type') || '';
                 const price = parseFloat(selected.data('price')) || 0;
+                const units = selected.data('units') || [];
 
-                // 🔥 SET HARGA DB KE HIDDEN
                 row.find('.product-type').val(type);
-                row.find('.price_before_discount').val(price.toFixed(2));
 
-                recalcAllRows();
+                if (type === 'satuan' || type === 'bundle') {
+                    fillProductUnits(row, units, null, price, type === 'bundle');
+                } else {
+                    row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+                    row.find('.unit-conversion-value').val('1');
+                    row.find('.unit-name').val('Pcs');
+
+                    row.find('.price_before_discount').val(price.toFixed(2));
+                    row.find('.price_before_discount_display').val(formatNumber(price));
+
+                    recalcAllRows();
+                }
             });
 
-
             $(document).on('input', '.qty, .price_before_discount_display', recalcAllRows);
+        });
+
+        $(document).on('change', '.product-unit', function() {
+            const row = $(this).closest('.product-item');
+
+            updatePriceFromSelectedUnit(row);
         });
 
         $(document).ready(function() {
@@ -1443,10 +1348,12 @@
             $(element).addClass("is-invalid");
         }
 
-        $("#customers, #addresses").on("change", function() {
-            $(this).removeClass("is-invalid");
-            $(this).next(".invalid-feedback").remove();
-        });
+        $(document).on("change input",
+            "#customers, #addresses, #edit_note, select[name='mode[]'], select[name='product[]'], select[name='product_unit_id[]'], input[name='qty[]']",
+            function() {
+                $(this).removeClass("is-invalid");
+                $(this).next(".invalid-feedback").remove();
+            });
 
         $("form").on("submit", function(e) {
             let valid = true;
@@ -1460,6 +1367,36 @@
                 showError($("#addresses"), "Alamat wajib dipilih");
                 valid = false;
             }
+
+            $(".product-item").each(function() {
+                const product = $(this).find('select[name="product[]"]');
+                const unit = $(this).find('select[name="product_unit_id[]"]');
+                const mode = $(this).find('select[name="mode[]"]');
+                const qty = $(this).find('input[name="qty[]"]');
+                const type = $(this).find('.product-type').val();
+
+                const cleanQty = qty.val().replace(/[^\d]/g, '');
+
+                if (!product.val()) {
+                    showError(product, "Produk wajib dipilih");
+                    valid = false;
+                }
+
+                if ((type === 'satuan' || type === 'bundle') && !unit.val()) {
+                    showError(unit, "Unit wajib dipilih");
+                    valid = false;
+                }
+
+                if (!mode.val()) {
+                    showError(mode, "Mode wajib dipilih");
+                    valid = false;
+                }
+
+                if (!cleanQty || parseInt(cleanQty) < 1) {
+                    showError(qty, "Qty minimal 1");
+                    valid = false;
+                }
+            });
 
             if (!valid) {
                 e.preventDefault();
@@ -1577,16 +1514,15 @@
         });
 
         $('#orderForm').on('submit', function() {
-            // $('input[name="qty[]"]').each(function() {
-            //     const raw = $(this).val().replace(/\./g, '');
-            //     $(this).val(raw);
-            // });
-
             $('input[name="qty[]"]').each(function() {
                 $(this).val($(this).val().replace(/\./g, ''));
             });
 
-            // pastikan price hidden valid
+            $('input[name="unit_conversion_value[]"]').each(function() {
+                const raw = $(this).val().toString().replace(',', '.');
+                $(this).val(raw || '1');
+            });
+
             $('input.price_before_discount').each(function() {
                 if ($(this).val() === '' || isNaN($(this).val())) {
                     $(this).val(0);
@@ -1594,64 +1530,64 @@
             });
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const toggle = document.getElementById('toggleMode');
-            const label = document.getElementById('modeLabel');
-            const hidden = document.getElementById('mode');
-            const nextModeText = document.getElementById('nextModeText');
-            const confirmChangeBtn = document.getElementById('confirmChangeModeBtn');
-            const confirmResponsibilityBtn = document.getElementById('confirmModeResponsibilityBtn');
+        // document.addEventListener('DOMContentLoaded', function() {
+        //     const toggle = document.getElementById('toggleMode');
+        //     const label = document.getElementById('modeLabel');
+        //     const hidden = document.getElementById('mode');
+        //     const nextModeText = document.getElementById('nextModeText');
+        //     const confirmChangeBtn = document.getElementById('confirmChangeModeBtn');
+        //     const confirmResponsibilityBtn = document.getElementById('confirmModeResponsibilityBtn');
 
-            // 🔥 FIX: Ambil nilai dari hidden input yang udah di-set Blade
-            const initialMode = hidden.value; // Ambil dari Blade, bukan hardcode!
+        //     // 🔥 FIX: Ambil nilai dari hidden input yang udah di-set Blade
+        //     const initialMode = hidden.value; // Ambil dari Blade, bukan hardcode!
 
-            // Set label sesuai nilai awal
-            label.textContent = initialMode === 'printing' ? 'Printing' : 'Polosan';
-            toggle.checked = initialMode === 'printing';
+        //     // Set label sesuai nilai awal
+        //     label.textContent = initialMode === 'printing' ? 'Printing' : 'Polosan';
+        //     toggle.checked = initialMode === 'printing';
 
-            let pendingMode = null;
+        //     let pendingMode = null;
 
-            toggle.addEventListener('change', function() {
-                const nextMode = toggle.checked ? 'printing' : 'polosan';
-                const currentMode = hidden.value;
+        //     toggle.addEventListener('change', function() {
+        //         const nextMode = toggle.checked ? 'printing' : 'polosan';
+        //         const currentMode = hidden.value;
 
-                // Kalau beda, munculkan konfirmasi modal
-                if (nextMode !== currentMode) {
-                    pendingMode = nextMode;
-                    nextModeText.textContent = nextMode === 'printing' ? 'Printing' : 'Polosan';
+        //         // Kalau beda, munculkan konfirmasi modal
+        //         if (nextMode !== currentMode) {
+        //             pendingMode = nextMode;
+        //             nextModeText.textContent = nextMode === 'printing' ? 'Printing' : 'Polosan';
 
-                    // balikin toggle sementara
-                    toggle.checked = currentMode === 'printing';
-                    $('#confirmChangeModeModal').modal('show');
-                }
-            });
+        //             // balikin toggle sementara
+        //             toggle.checked = currentMode === 'printing';
+        //             $('#confirmChangeModeModal').modal('show');
+        //         }
+        //     });
 
-            // Tombol konfirmasi pertama
-            confirmChangeBtn.addEventListener('click', function() {
-                $('#confirmChangeModeModal').modal('hide');
-                $('#confirmModeResponsibilityModal').modal('show');
-            });
+        //     // Tombol konfirmasi pertama
+        //     confirmChangeBtn.addEventListener('click', function() {
+        //         $('#confirmChangeModeModal').modal('hide');
+        //         $('#confirmModeResponsibilityModal').modal('show');
+        //     });
 
-            // Tombol tanggung jawab
-            confirmResponsibilityBtn.addEventListener('click', function() {
-                $('#confirmModeResponsibilityModal').modal('hide');
+        //     // Tombol tanggung jawab
+        //     confirmResponsibilityBtn.addEventListener('click', function() {
+        //         $('#confirmModeResponsibilityModal').modal('hide');
 
-                // apply perubahan mode
-                if (pendingMode) {
-                    hidden.value = pendingMode;
-                    label.textContent = pendingMode === 'printing' ? 'Printing' : 'Polosan';
-                    toggle.checked = pendingMode === 'printing';
+        //         // apply perubahan mode
+        //         if (pendingMode) {
+        //             hidden.value = pendingMode;
+        //             label.textContent = pendingMode === 'printing' ? 'Printing' : 'Polosan';
+        //             toggle.checked = pendingMode === 'printing';
 
-                    // 🔥 Tambahkan log untuk debug
-                    console.log('Mode changed to:', pendingMode);
+        //             // 🔥 Tambahkan log untuk debug
+        //             console.log('Mode changed to:', pendingMode);
 
-                    pendingMode = null;
-                }
-            });
+        //             pendingMode = null;
+        //         }
+        //     });
 
-            // 🔥 Debug log saat page load
-            console.log('Initial mode from Blade:', initialMode);
-            console.log('Hidden input value:', hidden.value);
-        });
+        //     // 🔥 Debug log saat page load
+        //     console.log('Initial mode from Blade:', initialMode);
+        //     console.log('Hidden input value:', hidden.value);
+        // });
     </script>
 @endpush

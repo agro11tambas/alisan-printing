@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('inventories_2', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('purchase_id')->constrained('purchases')->onDelete('cascade');
-            $table->foreignId('order_id')->constrained('orders')->onDelete('cascade');
-            $table->string('purchase_number');
-            $table->string('order_number');
+            $table->foreignId('purchase_id')->nullable()->constrained('purchases')->onDelete('cascade');
+            $table->foreignId('order_id')->nullable()->constrained('orders')->onDelete('cascade');
+            $table->string('purchase_number')->nullable();
+            $table->string('order_number')->nullable();
             $table->date('date');
             $table->string('waybill_number')->nullable();
             $table->string('waybill_image')->nullable();

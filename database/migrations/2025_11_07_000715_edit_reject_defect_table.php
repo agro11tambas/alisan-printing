@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::table('reject_products', function (Blueprint $table) {
             $table->foreignId('order_progress_history_id')
                 ->nullable()
-                ->constrained('order_progress_histories')
+                ->constrained('order_progress_histories_2')
                 ->onDelete('set null')
                 ->after('product_id');
         });
@@ -22,7 +22,7 @@ return new class extends Migration
         Schema::table('defect_products', function (Blueprint $table) {
             $table->foreignId('order_progress_history_id')
                 ->nullable()
-                ->constrained('order_progress_histories')
+                ->constrained('order_progress_histories_2')
                 ->onDelete('set null')
                 ->after('order_progress_id');
         });

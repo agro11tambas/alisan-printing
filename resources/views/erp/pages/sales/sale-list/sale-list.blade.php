@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                                                                                                                                            display: none !important;
-                                                                                                                                                                                                                                                                                                                                                                                        } */
+                                                                                                                                                                                                                                                                                                                                                                                                        display: none !important;
+                                                                                                                                                                                                                                                                                                                                                                                                    } */
 
         .sale-mobile-action {
             display: none;
@@ -363,7 +363,7 @@
                                                 <th style="width:10%;">Paid Amount</th>
                                                 <th style="width:12%;">Payment</th>
                                                 <th style="width:8%;">User</th>
-                                                <th style="width:6%;">Type</th>
+                                                {{-- <th style="width:6%;">Type</th> --}}
                                                 <th style="width:15%;">Note</th>
                                                 <th style="width:6%;">Chat</th>
                                             </tr>
@@ -388,7 +388,7 @@
                                                 <th>Paid Amount</th>
                                                 <th>Payment</th>
                                                 <th>User</th>
-                                                <th>Type</th>
+                                                {{-- <th>Type</th> --}}
                                                 <th>Note</th>
                                             </tr>
                                         </thead>
@@ -820,51 +820,6 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // Helper function untuk format products
-            // function formatProducts(products) {
-            //     if (!products || products.length === 0) {
-            //         return '<div class="p-2 text-muted">No products</div>';
-            //     }
-
-            //     let html = `
-        //         <div class="table-responsive p-2">
-        //             <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
-        //                 <thead>
-        //                     <tr>
-        //                         <th>Product</th>
-        //                         <th>SKU</th>
-        //                         <th>Qty</th>
-        //                         <th class="text-end">Price</th>
-        //                         <th class="text-end">Progress</th>
-        //                         <th class="text-end">Delivered</th>
-        //                         <th class="text-end">On Delivery</th>
-        //                     </tr>
-        //                 </thead>
-        //                 <tbody>
-        //     `;
-
-            //     products.forEach(p => {
-            //         html += `
-        //             <tr>
-        //                 <td style="white-space: normal; word-break: break-word; max-width: 280px;">${p.name}</td>
-        //                 <td>${p.sku}</td>
-        //                 <td>${p.qty}</td>
-        //                 <td class="text-end">${p.price}</td>
-        //                 <td class="text-end">${p.ready_qty} / ${p.qty}</td>
-        //                 <td class="text-end">${p.delivered}</td>
-        //                 <td class="text-end">${p.on_delivery}</td>
-        //             </tr>
-        //         `;
-            //     });
-
-            //     html += `
-        //                 </tbody>
-        //             </table>
-        //         </div>
-        //     `;
-            //     return html;
-            // }
-
             function formatProducts(products) {
                 if (!products || products.length === 0) {
                     return '<div class="p-2 text-muted">No products</div>';
@@ -958,7 +913,7 @@
                 info: false,
                 lengthChange: false,
                 order: [
-                    [10, 'desc']
+                    [9, 'desc']
                 ],
                 columns: [{
                         className: 'dt-control text-center',
@@ -988,9 +943,9 @@
                     {
                         data: 'user'
                     },
-                    {
-                        data: 'mode'
-                    },
+                    // {
+                    //     data: 'mode'
+                    // },
                     {
                         data: 'notes'
                     },
@@ -1264,7 +1219,7 @@
                     info: false,
                     lengthChange: false,
                     order: [
-                        [9, 'desc']
+                        [8, 'desc']
                     ],
                     data: [],
                     columns: [{
@@ -1292,9 +1247,9 @@
                         {
                             data: 'user'
                         },
-                        {
-                            data: 'mode'
-                        },
+                        // {
+                        //     data: 'mode'
+                        // },
                         {
                             data: 'notes'
                         },

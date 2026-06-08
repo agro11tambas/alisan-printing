@@ -14,7 +14,9 @@ return new class extends Migration
         Schema::create('material_request_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('material_request_id')->constrained('material_requests')->cascadeOnDelete();
-            $table->foreignId('product_id')->constrained('products')->onDelete('set null'); // bisa product satuan
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
             $table->integer('requested_qty')->default(0);
             $table->integer('issued_qty')->default(0);
             $table->integer('received_qty')->default(0);

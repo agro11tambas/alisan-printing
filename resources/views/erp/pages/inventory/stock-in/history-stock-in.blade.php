@@ -1,50 +1,5 @@
 @extends('erp.layouts.main')
 
-@push('styles')
-    <style>
-        .stockin-history-mobile {
-            display: none;
-        }
-
-        @media (max-width: 991px) {
-
-            #stockInHistoryTable_wrapper {
-                display: none !important;
-            }
-
-            .stockin-history-mobile {
-                display: block;
-            }
-
-            .history-mobile-card {
-                background: #fff;
-                border-radius: 12px;
-                padding: 16px;
-                margin: 0 12px 14px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, .06);
-            }
-
-            .history-mobile-title {
-                font-weight: 600;
-                font-size: 14px;
-                margin-bottom: 6px;
-            }
-
-            .history-mobile-row {
-                font-size: 12px;
-                margin-bottom: 6px;
-                color: #6b7280;
-            }
-
-            .history-mobile-label {
-                font-weight: 600;
-                color: #111;
-            }
-
-        }
-    </style>
-@endpush
-
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -75,8 +30,6 @@
             <div class="col-xxl-8 col-xl-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5>{{ $supplier->name }} — {{ $monthLabel }}</h5>
-                        <br>
                         <h5 class="card-title">Products</h5>
                     </div>
                     <div class="card-body px-0">
@@ -91,12 +44,20 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($mergedItems as $item)
+                                    @foreach ($stockIn->items as $item)
                                         <tr>
                                             <td>{{ $item->product->name ?? '-' }}</td>
-                                            <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
-                                            <td>{{ number_format($item->stock_in, 0, ',', '.') }}</td>
-                                            <td>{{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}</td>
+                                            <td><span
+                                                    class="fw-bold text-primary">{{ number_format($item->quantity, 0, ',', '.') }}</span>
+                                            </td>
+                                            <td><span
+                                                    class="fw-bold text-success">{{ number_format($item->stock_in, 0, ',', '.') }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold text-danger">
+                                                    {{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}
+                                                </span>
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -105,7 +66,6 @@
                     </div>
                 </div>
             </div>
-            {{-- HAPUS/GANTI bagian ini --}}
             <div class="col-xxl-4 col-xl-6">
                 <div class="card stretch">
                     <div class="card-header">
@@ -116,23 +76,36 @@
                             <div class="row align-items-center mb-3 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-star me-2"></i>
-                                    <span class="fw-semibold">Supplier Name:</span>
+                                    <span class="fw-semibold">
+                                        @if ($stockIn->note === 'Purchase Account')
+                                            Supplier Name:
+                                        @elseif($stockIn->note === 'Sale Returns')
+                                            Customer Name:
+                                        @else
+                                            -
+                                        @endif
+                                    </span>
                                 </div>
                                 <div class="col-6 d-flex">
                                     <span class="border-bottom border-bottom-dashed border-gray-5">
-                                        {{ $supplier->name ?? '-' }}
+                                        @if ($stockIn->note === 'Purchase Account')
+                                            {{ $stockIn->purchase->supplier->name ?? '-' }}
+                                        @elseif($stockIn->note === 'Sale Returns')
+                                            {{ $stockIn->saleReturn->customer->name ?? '-' }}
+                                        @else
+                                            -
+                                        @endif
                                     </span>
                                 </div>
                             </div>
                             <div class="row align-items-center mb-3 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-calendar me-2"></i>
-                                    <span class="fw-semibold">Period:</span>
+                                    <span class="fw-semibold">Date:</span>
                                 </div>
                                 <div class="col-6 d-flex">
-                                    <span class="border-bottom border-bottom-dashed border-gray-5">
-                                        {{ $monthLabel }}
-                                    </span>
+                                    <span
+                                        class="border-bottom border-bottom-dashed border-gray-5">{{ date('d M Y', strtotime($stockIn->date)) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -177,8 +150,6 @@
                                 <tbody>
                                 </tbody>
                             </table>
-                            <div id="stockInHistoryMobile" class="stockin-history-mobile">TEst</div>
-
                         </div>
                     </div>
                 </div>
@@ -237,7 +208,7 @@
                 searching: false,
                 lengthChange: false,
                 ajax: {
-                    url: "{{ url('/erp/inventory/stock-in/history/' . $supplierId . '/' . $year . '/' . $month . '/data') }}",
+                    url: "{{ url('/erp/inventory/stock-in/history/' . $stockIn->id . '/data') }}",
                     data: function(d) {
                         d.start_date = $('#start_date').val();
                         d.end_date = $('#end_date').val();
@@ -274,13 +245,6 @@
                         name: 'stock_in'
                     },
                 ]
-            });
-
-            dataTable.on('xhr', function(e, settings, json) {
-                if (window.innerWidth >= 992) return;
-                if (json && json.data) {
-                    renderStockInHistoryMobile(json.data);
-                }
             });
 
             $('#start_date, #end_date').on('change', function() {
@@ -338,55 +302,6 @@
                     }
                 });
             });
-        });
-
-        function renderStockInHistoryMobile(data) {
-            if (window.innerWidth >= 992) return;
-
-            const container = $('#stockInHistoryMobile');
-            container.html('');
-
-            if (!data.length) {
-                container.html('<div class="text-center text-muted py-4">No history data</div>');
-                return;
-            }
-
-            data.forEach((row) => {
-                container.append(`
-            <div class="history-mobile-card">
-                <div class="history-mobile-title">
-                    ${row.invoice_number ?? '-'}
-                </div>
-
-                <div class="history-mobile-row">
-                    <span class="history-mobile-label">Date:</span>
-                    ${row.change_date ?? '-'}
-                </div>
-
-                <div class="history-mobile-row">
-                    <span class="history-mobile-label">Updated By:</span>
-                    ${row.user_name ?? '-'}
-                </div>
-
-                <div class="history-mobile-row">
-                    <span class="history-mobile-label">Waybill:</span>
-                    ${row.waybill_number ?? '-'}
-                </div>
-
-                <div class="history-mobile-row">
-                    <span class="history-mobile-label">Stock In:</span>
-                    ${row.stock_in ?? '-'}
-                </div>
-            </div>
-        `);
-            });
-        }
-
-
-        $('#stockInHistoryTable').on('xhr.dt', function(e, settings, json) {
-            if (json && json.data) {
-                renderStockInHistoryMobile(json.data);
-            }
         });
     </script>
 @endpush

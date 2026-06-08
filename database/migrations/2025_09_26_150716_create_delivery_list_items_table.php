@@ -15,7 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('delivery_list_id')->constrained('delivery_lists')->onDelete('cascade');
             $table->foreignId('delivery_order_item_id')->constrained('delivery_order_items')->onDelete('cascade');
-            $table->foreignId('product_id')->constrained('products')->onDelete('set null');
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
             $table->integer('shipped_quantity')->default(0);
             $table->text('note')->nullable();
             $table->timestamps();

@@ -48,6 +48,11 @@
                                         class="nxl-link" href="/erp/products/tags"><span class="">Merek
                                             Produk</span></a></li>
                             @endif
+                            @if (Auth::user()->hasSubPermission('product-units'))
+                                <li class="nxl-item {{ request()->is('products/units*') ? 'active' : '' }}"><a
+                                        class="nxl-link" href="/erp/products/units"><span class="">Satuan
+                                            Produk</span></a></li>
+                            @endif
                         </ul>
                     </li>
                 @endif

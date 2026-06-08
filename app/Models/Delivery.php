@@ -23,10 +23,10 @@ class Delivery extends Model
         return $this->belongsTo(Order::class);
     }
 
-    public function items()
-    {
-        return $this->hasMany(DeliveryItemHistory::class);
-    }
+    // public function items()
+    // {
+    //     return $this->hasMany(DeliveryItemHistory::class);
+    // }
 
     public function user()
     {

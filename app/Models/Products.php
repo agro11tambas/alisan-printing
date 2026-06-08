@@ -50,15 +50,20 @@ class Products extends Model
         return $this->belongsToMany(ProductCategory::class, 'product_category_product', 'product_id', 'category_id')->with('discounts');
     }
 
+    public function unitConversions()
+    {
+        return $this->hasMany(ProductUnitConversion::class, 'product_id');
+    }
+
     public function tags()
     {
         return $this->belongsToMany(ProductTag::class, 'product_tag_product', 'product_id', 'tag_id');
     }
 
-    public function deliveryItems(): HasMany
-    {
-        return $this->hasMany(DeliveryItemHistory::class);
-    }
+    // public function deliveryItems(): HasMany
+    // {
+    //     return $this->hasMany(DeliveryItemHistory::class);
+    // }
 
     public function orderItems(): HasMany
     {

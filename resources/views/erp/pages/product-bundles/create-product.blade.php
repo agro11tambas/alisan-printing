@@ -112,7 +112,7 @@
                                 </div>
                             </div>
 
-                            {{-- <div class="row mb-3 align-items-center">
+                            <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="price" class="fw-semibold">Price</label>
                                 </div>
@@ -120,8 +120,70 @@
                                     <input type="text" inputmode="numeric" class="form-control" id="price"
                                         name="price" value="{{ old('price') }}" placeholder="Price">
                                 </div>
-                            </div> --}}
+                            </div>
 
+                            <div class="row mb-3 align-items-start">
+                                <div class="col-lg-2">
+                                    <label class="fw-semibold">Product Units</label>
+                                </div>
+
+                                <div class="col-lg-10 mb-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered align-middle" id="bundleUnitTable">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width: 30%">Unit</th>
+                                                    <th style="width: 25%">Conversion</th>
+                                                    <th style="width: 30%">Sale Price</th>
+                                                    <th style="width: 10%" class="text-center">Aksi</th>
+                                                </tr>
+                                            </thead>
+
+                                            <tbody id="bundleUnitBody">
+                                                <tr>
+                                                    <td>
+                                                        <select name="units[0][unit_id]"
+                                                            class="form-control bundle-unit-select">
+                                                            <option value="">Pilih unit</option>
+                                                            @foreach ($productUnits as $unit)
+                                                                <option value="{{ $unit->id }}">{{ $unit->name }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                    </td>
+
+                                                    <td>
+                                                        <input type="text" name="units[0][conversion_value]"
+                                                            class="form-control conversion-input" inputmode="decimal"
+                                                            value="1" placeholder="Contoh: 1 / 10 / 100">
+                                                    </td>
+
+                                                    <td>
+                                                        <input type="text" name="units[0][sale_price]"
+                                                            class="form-control unit-money-field" inputmode="numeric"
+                                                            placeholder="0">
+                                                    </td>
+
+                                                    <td class="text-center">
+                                                        <button type="button"
+                                                            class="btn btn-danger btn-sm removeUnitRow">
+                                                            <i class="feather-trash-2"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="addUnitRowBtn">
+                                        <i class="feather-plus"></i> Tambah Unit
+                                    </button>
+
+                                    <small class="text-muted d-block mt-2">
+                                        Contoh: Paket = 1, Dus = 10. Jika jual 2 Dus, sistem membaca 20 bundle.
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -138,6 +200,7 @@
 
         $(document).ready(function() {
             let rowIndex = 1;
+            let unitRowIndex = 1;
 
             function initSelect2(el) {
                 $(el).select2({
@@ -267,12 +330,70 @@
                     showError($('#sku')[0], 'SKU wajib diisi');
                 }
 
-                // if (!$('#price').val().trim()) {
-                //     isValid = false;
-                //     showError($('#price')[0], 'Harga wajib diisi');
-                // }
+                if (!$('#price').val().trim()) {
+                    isValid = false;
+                    showError($('#price')[0], 'Harga wajib diisi');
+                }
 
-                if (!isValid) e.preventDefault();
+                let selectedUnits = [];
+
+                $('#bundleUnitBody tr').each(function() {
+                    const unitSelect = $(this).find('.bundle-unit-select');
+                    const conversionInput = $(this).find('.conversion-input');
+                    const salePriceInput = $(this).find('.unit-money-field');
+
+                    const unitId = unitSelect.val();
+                    const conversion = conversionInput.val();
+                    const salePrice = salePriceInput.val();
+
+                    const rowEmpty =
+                        (!unitId || unitId === '') &&
+                        (!conversion || conversion.trim() === '') &&
+                        (!salePrice || salePrice.trim() === '');
+
+                    if (rowEmpty) {
+                        return;
+                    }
+
+                    if (!unitId) {
+                        isValid = false;
+                        showError(unitSelect[0], 'Unit wajib dipilih');
+                    }
+
+                    if (!conversion || parseFloat(conversion) <= 0) {
+                        isValid = false;
+                        showError(conversionInput[0], 'Conversion wajib lebih dari 0');
+                    }
+
+                    if (!salePrice || salePrice.trim() === '') {
+                        isValid = false;
+                        showError(salePriceInput[0], 'Sale price wajib diisi');
+                    }
+
+                    if (unitId) {
+                        if (selectedUnits.includes(unitId)) {
+                            isValid = false;
+                            showError(unitSelect[0], 'Unit tidak boleh duplikat');
+                        }
+
+                        selectedUnits.push(unitId);
+                    }
+                });
+
+                if (!isValid) {
+                    e.preventDefault();
+                    return;
+                }
+
+                $('.unit-money-field').each(function() {
+                    const raw = $(this).val().replace(/\./g, '').replace(',', '.');
+                    $(this).val(raw || '0');
+                });
+
+                $('.conversion-input').each(function() {
+                    const raw = $(this).val().replace(',', '.');
+                    $(this).val(raw || '1');
+                });
             });
 
             function showError(input, message) {
@@ -327,6 +448,68 @@
                     document.querySelector('.select2-container--open .select2-search__field')
                         ?.focus();
                 }, 50);
+            });
+
+            $('#addUnitRowBtn').on('click', function() {
+                const row = `
+        <tr>
+            <td>
+                <select name="units[${unitRowIndex}][unit_id]" class="form-control bundle-unit-select">
+                    <option value="">Pilih unit</option>
+                    @foreach ($productUnits as $unit)
+                        <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                    @endforeach
+                </select>
+            </td>
+
+            <td>
+                <input type="text"
+                    name="units[${unitRowIndex}][conversion_value]"
+                    class="form-control conversion-input"
+                    inputmode="decimal"
+                    placeholder="Contoh: 1 / 10 / 100">
+            </td>
+
+            <td>
+                <input type="text"
+                    name="units[${unitRowIndex}][sale_price]"
+                    class="form-control unit-money-field"
+                    inputmode="numeric"
+                    placeholder="0">
+            </td>
+
+            <td class="text-center">
+                <button type="button" class="btn btn-danger btn-sm removeUnitRow">
+                    <i class="feather-trash-2"></i>
+                </button>
+            </td>
+        </tr>
+    `;
+
+                $('#bundleUnitBody').append(row);
+                unitRowIndex++;
+            });
+
+            $(document).on('click', '.removeUnitRow', function() {
+                $(this).closest('tr').remove();
+            });
+
+            $(document).on('input', '.conversion-input', function() {
+                let val = $(this).val().replace(/[^0-9.,]/g, '');
+                val = val.replace(',', '.');
+
+                $(this).val(val);
+            });
+
+            $(document).on('input', '.unit-money-field', function() {
+                let raw = $(this).val().replace(/\D/g, '');
+
+                if (!raw) {
+                    $(this).val('');
+                    return;
+                }
+
+                $(this).val(raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
             });
         });
     </script>

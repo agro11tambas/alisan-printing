@@ -94,7 +94,7 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(7, 1fr);
             gap: 10px;
         }
 
@@ -373,44 +373,6 @@
                                         </div>
                                     </div>
                                     <input type="hidden" value="6" name="transaction_type" id="transaction_type">
-                                    {{-- <div class="row mb-3 align-items-center">
-                                        <div class="col-lg-2">
-                                            <label for="transaction_type" class="fw-semibold">Sale:</label>
-                                        </div>
-                                        <div class="col-lg-10 mb-0">
-                                            <div class="input-group">
-                                                <select class="form-select form-control max-select"
-                                                    data-select2-selector="tag" id="transaction_type"
-                                                    name="transaction_type">
-                                                    <option value="6" data-bg="bg-success">Sale Account</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div> --}}
-                                    {{-- <div class="row mb-3 align-items-center">
-                                        <div class="col-lg-2">
-                                            <label class="fw-semibold">Mode:</label>
-                                        </div>
-                                        <div class="col-lg-10 mb-0">
-                                            <div class="form-check form-switch">
-                                                @php
-                                                    // Tentukan default value
-                                                    $isPrinting =
-                                                        !isset($order) ||
-                                                        (isset($order) && $order->mode === 'printing');
-                                                @endphp
-                                                <input class="form-check-input" type="checkbox" id="toggleMode"
-                                                    name="mode_toggle" {{ $isPrinting ? 'checked' : '' }}>
-                                                <label class="form-check-label fw-semibold" for="toggleMode"
-                                                    id="modeLabel">
-                                                    {{ $isPrinting ? 'Printing' : 'Polosan' }}
-                                                </label>
-                                            </div>
-                                            <!-- Hidden input yang dikirim ke backend -->
-                                            <input type="hidden" id="mode" name="mode"
-                                                value="{{ $isPrinting ? 'printing' : 'polosan' }}">
-                                        </div>
-                                    </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
@@ -422,26 +384,9 @@
                                             </div>
                                         </div>
                                     </div>
-                                    {{-- <div class="row mb-3 align-items-center">
-                                        <div class="col-lg-2">
-                                            <label class="fw-semibold">Diskon:</label>
-                                        </div>
-                                        <div class="col-lg-10 mb-0">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="toggleDiscount"
-                                                    name="discount_active" {{ $order->discount_active ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="toggleDiscount">
-                                                    {{ $order->discount_active ? 'Aktifkan Diskon' : 'Diskon Nonaktif' }}
-                                                </label>
-                                            </div>
-                                            <input type="hidden" id="discount_active_hidden"
-                                                name="discount_active_hidden"
-                                                value="{{ $order->discount_active ? 1 : 0 }}">
-                                        </div>
-                                    </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
-                                            <label class="fw-semibold">Mode & Diskon:</label>
+                                            <label class="fw-semibold">Diskon:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="row align-items-center">
@@ -465,7 +410,7 @@
                                                 </div>
 
                                                 <!-- 🔹 Kolom Mode -->
-                                                <div class="col-md-6">
+                                                {{-- <div class="col-md-6">
                                                     <div class="d-flex flex-column">
                                                         <label class="fw-semibold mb-1">Mode:</label>
                                                         @php
@@ -485,7 +430,7 @@
                                                         <input type="hidden" id="mode" name="mode"
                                                             value="{{ $isPrinting ? 'printing' : 'polosan' }}">
                                                     </div>
-                                                </div>
+                                                </div> --}}
                                             </div>
                                         </div>
                                     </div>
@@ -505,165 +450,6 @@
                             </div>
                         </div>
                     </div>
-                    {{-- <div class="card stretch stretch-full">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <div class="mb-4">
-                                        <h5 class="fw-bold">Add Products:</h5>
-                                    </div>
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered overflow-hidden" id="tab_logic">
-                                            <thead>
-                                                <tr class="single-item">
-                                                    <th class="text-center wd-50">#</th>
-                                                    <th class="text-center wd-450">Product</th>
-                                                    <!-- <th class="text-center wd-200">Product Type</th> -->
-                                                    <th class="text-center wd-100">Qty</th>
-                                                    <th class="text-center wd-150">Price</th>
-                                                    <th class="text-center wd-150">Total</th>
-                                                    <th class="text-center wd-100">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="tab_logic">
-                                                @foreach ($order->orderItems as $index => $item)
-                                                    <tr id="addr{{ $index }}">
-                                                        <td>{{ $index + 1 }}</td>
-                                                        <td>
-                                                            <select class="form-control select-product" name="product[]"
-                                                                id="product_{{ $index }}"
-                                                                data-select2-selector="status">
-                                                                <option value="" disabled hidden>Pilih produk
-                                                                </option>
-                                                                @foreach ($products as $prod)
-                                                                    <option value="satuan_{{ $prod->id }}"
-                                                                        {{ $item->satuan == 'satuan' && $item->product_id == $prod->id ? 'selected' : '' }}
-                                                                        data-price="{{ $prod->price }}"
-                                                                        data-discounts='@json($prod->discounts ?? [])'
-                                                                        data-categories='@json($prod->categories ?? [])'
-                                                                        data-type="satuan">
-                                                                        {{ $prod->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                                @foreach ($productBundles as $bundle)
-                                                                    <option value="bundle_{{ $bundle->id }}"
-                                                                        {{ $item->satuan == 'bundle' && $item->product_bundle_id == $bundle->id ? 'selected' : '' }}
-                                                                        data-price="{{ $bundle->price }}"
-                                                                        data-discounts='@json($bundle->discounts ?? [])'
-                                                                        data-categories='@json($bundle->categories ?? [])'
-                                                                        data-type="bundle">
-                                                                        {{ $bundle->name }} (Bundle)
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <input type="hidden" class="form-control product-type"
-                                                            name="product_type[]" id="product_type_{{ $index }}"
-                                                            value="{{ $item->satuan }}" readonly>
-                                                        <td><input type="text" inputmode="numeric" name="qty[]"
-                                                                class="form-control qty" id="qty_{{ $index }}"
-                                                                min="1"
-                                                                value="{{ number_format($item->quantity, 0, ',', '.') }}">
-                                                        </td>
-                                                        <td>
-                                                            @php
-                                                                $isOwner = Auth::user()->role === 'Owner';
-                                                            @endphp
-                                                            <input type="text" inputmode="numeric"
-                                                                class="form-control price_before_discount_display"
-                                                                value="{{ number_format($item->price, 2, ',', '.') }}">
-                                                            <input type="hidden" name="price_before_discount[]"
-                                                                class="price_before_discount"
-                                                                id="price_before_discount_{{ $index }}"
-                                                                value="{{ number_format($item->price, 2, '.', '') }}">
-                                                        </td>
-                                                        <td>
-                                                            <input type="text"
-                                                                class="form-control total_before_discount_display" readonly
-                                                                value="{{ number_format($item->price * $item->quantity, 2, ',', '.') }}">
-                                                            <input type="hidden" name="total_before_discount[]"
-                                                                class="total_before_discount"
-                                                                id="total_before_discount_{{ $index }}"
-                                                                value="{{ number_format($item->price * $item->quantity, 2, '.', '') }}">
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <div class="d-flex justify-content-center">
-                                                                <button type="button" class="btn btn-danger delete-row">
-                                                                    <i class="feather-trash"></i>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                        <input type="hidden" name="price_after_discount[]"
-                                                            class="form-control price_after_discount"
-                                                            id="price_after_discount_{{ $index }}"
-                                                            value="{{ $item->price_after_discount }}" readonly>
-                                                        <input type="hidden" name="total_after_discount[]"
-                                                            class="form-control total_after_discount"
-                                                            id="total_after_discount_{{ $index }}"
-                                                            value="{{ $item->total_after_discount }}" readonly>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <div class="d-flex justify-content-end gap-2 mt-3">
-                                        <button type="button" id="add_row" class="btn btn-md btn-primary">Add
-                                            Items</button>
-                                    </div>
-                                </div>
-                                <div class="col-lg-12">
-                                    <div class="row justify-content-end">
-                                        <div class="col-lg-4 mt-3">
-                                            <div class="mb-4">
-                                                <h5 class="fw-bold">Grand Total:</h5>
-                                            </div>
-                                            <div class="table-responsive">
-                                                <table class="table table-bordered" id="tab_logic_total">
-                                                    <tbody>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase">Sub Total (Before
-                                                                Discount)</th>
-                                                            <td>
-                                                                <input type="text" id="sub_total_display"
-                                                                    class="form-control" readonly
-                                                                    value="{{ number_format($order->sub_total ?? 0, 2, ',', '.') }}">
-                                                                <input type="hidden" name="sub_total" id="sub_total"
-                                                                    value="{{ number_format($order->sub_total ?? 0, 2, '.', '') }}">
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase">Total Discount</th>
-                                                            <td>
-                                                                <input type="text" id="total_discount_display"
-                                                                    class="form-control text-danger" readonly
-                                                                    value="{{ number_format($order->total_discount ?? 0, 2, ',', '.') }}">
-                                                                <input type="hidden" name="total_discount"
-                                                                    id="total_discount"
-                                                                    value="{{ number_format($order->total_discount ?? 0, 2, '.', '') }}">
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
-                                                                Total</th>
-                                                            <td>
-                                                                <input type="text" id="total_amount_display"
-                                                                    class="form-control bg-gray-100 fw-700 text-success"
-                                                                    readonly
-                                                                    value="{{ number_format($order->total_amount ?? 0, 2, ',', '.') }}">
-                                                                <input type="hidden" name="total_amount"
-                                                                    id="total_amount"
-                                                                    value="{{ number_format($order->total_amount ?? 0, 2, '.', '') }}">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div> --}}
                     <div class="card stretch stretch-full">
                         <div class="card-body">
 
@@ -716,6 +502,60 @@
 
                                             <input type="hidden" name="product_type[]" class="product-type"
                                                 value="{{ $item->satuan }}">
+
+
+                                            <div class="form-group product-unit-wrapper">
+                                                <label>Unit</label>
+
+                                                <select name="product_unit_id[]" class="form-control product-unit">
+                                                    <option value="">Pilih unit</option>
+
+                                                    @if ($item->satuan === 'satuan' && $item->product)
+                                                        @foreach ($item->product->unitConversions as $conversion)
+                                                            <option value="{{ $conversion->id }}"
+                                                                data-unit-id="{{ $conversion->unit_id }}"
+                                                                data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                                data-conversion-value="{{ $conversion->conversion_value }}"
+                                                                data-sale-price="{{ $conversion->sale_price }}"
+                                                                {{ (int) $item->product_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
+                                                                {{ optional($conversion->unit)->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    @elseif ($item->satuan === 'bundle' && $item->productBundle)
+                                                        @foreach ($item->productBundle->unitConversions as $conversion)
+                                                            <option value="{{ $conversion->id }}"
+                                                                data-unit-id="{{ $conversion->unit_id }}"
+                                                                data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                                data-conversion-value="{{ $conversion->conversion_value }}"
+                                                                data-sale-price="{{ $conversion->sale_price }}"
+                                                                {{ (int) $item->product_bundle_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
+                                                                {{ optional($conversion->unit)->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+
+                                                <input type="hidden" name="unit_conversion_value[]"
+                                                    class="unit-conversion-value"
+                                                    value="{{ $item->unit_conversion_value ?? 1 }}">
+
+                                                <input type="hidden" name="unit_name[]" class="unit-name"
+                                                    value="{{ $item->unit_name ?? 'Pcs' }}">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Mode</label>
+                                                <select name="mode[]" class="form-control item-mode">
+                                                    <option value="printing"
+                                                        {{ ($item->mode ?? 'printing') === 'printing' ? 'selected' : '' }}>
+                                                        Printing
+                                                    </option>
+                                                    <option value="polosan"
+                                                        {{ ($item->mode ?? 'printing') === 'polosan' ? 'selected' : '' }}>
+                                                        Polosan
+                                                    </option>
+                                                </select>
+                                            </div>
 
                                             <div class="form-group">
                                                 <label>Qty</label>
@@ -773,6 +613,31 @@
                                         </div>
 
                                         <input type="hidden" name="product_type[]" class="product-type">
+
+                                        <div class="form-group product-unit-wrapper">
+                                            <label>Unit</label>
+                                            <select name="product_unit_id[]" class="form-control product-unit">
+                                                <option value="">Pilih unit</option>
+                                            </select>
+
+                                            <input type="hidden" name="unit_conversion_value[]"
+                                                class="unit-conversion-value" value="1">
+                                            <input type="hidden" name="unit_name[]" class="unit-name" value="">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Mode</label>
+                                            <select name="mode[]" class="form-control item-mode">
+                                                <option value="printing"
+                                                    {{ ($item->mode ?? 'printing') === 'printing' ? 'selected' : '' }}>
+                                                    Printing
+                                                </option>
+                                                <option value="polosan"
+                                                    {{ ($item->mode ?? 'printing') === 'polosan' ? 'selected' : '' }}>
+                                                    Polosan
+                                                </option>
+                                            </select>
+                                        </div>
 
                                         <div class="form-group">
                                             <label>Qty</label>
@@ -973,6 +838,25 @@
     </div>
 @endpush
 
+@php
+    $customerAddressesData = $customers
+        ->mapWithKeys(function ($customer) {
+            return [
+                $customer->id => $customer->addresses
+                    ->map(function ($address) {
+                        return [
+                            'id' => $address->id,
+                            'address' => $address->address,
+                            'google_maps' => $address->google_maps,
+                            'business_name' => $address->business_name,
+                        ];
+                    })
+                    ->values(),
+            ];
+        })
+        ->toArray();
+@endphp
+
 @push('scripts')
     <script>
         const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
@@ -980,78 +864,7 @@
         let discountEnabled = {{ $order->discount_active ? 'true' : 'false' }};
         let pendingToggleOff = false;
 
-        function select2ProductConfig() {
-            return {
-                placeholder: 'Pilih produk',
-                width: '100%',
-
-                // dropdown: FULL TEXT
-                templateResult: function(data) {
-                    return data.text;
-                },
-
-                // selected: mobile truncate, desktop full
-                templateSelection: function(data) {
-                    if (window.innerWidth <= 576) {
-                        return truncateText(data.text, 45);
-                    }
-                    return data.text;
-                }
-            };
-        }
-
-        function truncateText(text, max = 45) {
-            if (!text) return '';
-            return text.length > max ? text.slice(0, max) + '...' : text;
-        }
-
-        // 🔥 Inisialisasi label dan hidden input sesuai kondisi awal
-        $(document).ready(function() {
-            const label = $('#toggleDiscount').next('label');
-            if (discountEnabled) {
-                $('#toggleDiscount').prop('checked', true);
-                $('#discount_active_hidden').val(1);
-                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
-            } else {
-                $('#toggleDiscount').prop('checked', false);
-                $('#discount_active_hidden').val(0);
-                label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
-            }
-
-            $('.product-item').each(function() {
-                const select = $(this).find('.select-product');
-
-                const selectedVal = select.val();
-                let selectedType = null,
-                    selectedId = null;
-
-                if (selectedVal) {
-                    [selectedType, selectedId] = selectedVal.split('_');
-                }
-
-                populateProducts(select[0], selectedId, selectedType);
-
-                select.select2(select2ProductConfig());
-            });
-
-
-            recalcAllRows(); // ✅ hitung ulang setelah semuanya siap
-        });
-
-        const customerAddresses = <?php echo json_encode(
-            $customers->mapWithKeys(function ($customer) {
-                return [
-                    $customer->id => $customer->addresses->map(function ($address) {
-                        return [
-                            'id' => $address->id,
-                            'address' => $address->address,
-                            'google_maps' => $address->google_maps,
-                            'business_name' => $address->business_name,
-                        ];
-                    }),
-                ];
-            }),
-        ); ?>;
+        const customerAddresses = @json($customerAddressesData);
 
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
@@ -1067,83 +880,151 @@
             })),
         ];
 
-        // Populate dropdown produk
-        function populateProducts(selectEl, selectedId = null, selectedType = null) {
-            $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
-            allProducts.forEach(item => {
-                const option = $('<option>', {
-                        value: item.type + '_' + item.id,
-                        text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? '' : '')
-                    })
-                    .data('price', item.price)
-                    .data('discounts', item.discounts || [])
-                    .data('categories', item.categories || [])
-                    .data('type', item.type);
+        function truncateText(text, max = 45) {
+            if (!text) return '';
+            return text.length > max ? text.slice(0, max) + '...' : text;
+        }
 
-                if (selectedId && selectedType === item.type && selectedId == item.id) {
-                    option.prop('selected', true);
+        function select2ProductConfig() {
+            return {
+                placeholder: 'Pilih produk',
+                width: '100%',
+                templateResult: function(data) {
+                    return data.text;
+                },
+                templateSelection: function(data) {
+                    if (window.innerWidth <= 576) {
+                        return truncateText(data.text, 45);
+                    }
+
+                    return data.text;
                 }
+            };
+        }
 
-                $(selectEl).append(option);
-            });
+        function findSelectedProductData(selectedValue) {
+            if (!selectedValue) {
+                return null;
+            }
+
+            const [type, id] = selectedValue.split('_');
+
+            return allProducts.find(item => {
+                return item.type === type && String(item.id) === String(id);
+            }) || null;
         }
 
         function formatNumber(num) {
             return new Intl.NumberFormat('id-ID', {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0
-            }).format(num);
+            }).format(num || 0);
         }
 
-        $(document).on('change', '#toggleDiscount', function() {
-            const isChecked = $(this).is(':checked');
-            const label = $(this).next('label');
+        function populateProducts(selectEl, selectedId = null, selectedType = null) {
+            const select = $(selectEl);
 
-            if (!isChecked) {
-                pendingToggleOff = true;
-                $('#confirmDisableDiscountModal').modal('show');
-                $(this).prop('checked', true);
-            } else {
-                discountEnabled = true;
-                $('#discount_active_hidden').val(1);
-                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
-                recalcAllRows();
+            select.empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
+
+            allProducts.forEach(item => {
+                const option = $('<option>', {
+                        value: item.type + '_' + item.id,
+                        text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? ' (Bundle)' : '')
+                    })
+                    .data('price', item.price)
+                    .data('discounts', item.discounts || [])
+                    .data('categories', item.categories || [])
+                    .data('type', item.type)
+                    .data('units', item.units || []);
+
+                if (selectedId && selectedType === item.type && String(selectedId) === String(item.id)) {
+                    option.prop('selected', true);
+                }
+
+                select.append(option);
+            });
+        }
+
+        function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0, forceDefaultPcs = false) {
+            const unitSelect = row.find('.product-unit');
+            const unitWrapper = row.find('.product-unit-wrapper');
+
+            unitSelect.empty().append('<option value="">Pilih unit</option>');
+
+            row.find('.unit-conversion-value').val('1');
+            row.find('.unit-name').val('Pcs');
+
+            unitWrapper.show();
+
+            if (forceDefaultPcs) {
+                unitSelect.append(`
+            <option value="default_pcs"
+                data-unit-id=""
+                data-unit-name="Pcs"
+                data-conversion-value="1"
+                data-sale-price="${defaultPrice}">
+                Pcs
+            </option>
+        `);
             }
-        });
 
-        $('#confirmDisableDiscountBtn').on('click', function() {
-            $('#confirmDisableDiscountModal').modal('hide');
-            if (pendingToggleOff) $('#confirmResponsibilityModal').modal('show');
-        });
+            if (Array.isArray(units) && units.length > 0) {
+                units.forEach(function(unit) {
+                    const unitName = unit.unit_name || 'Pcs';
 
-        $('#confirmResponsibilityBtn').on('click', function() {
-            $('#confirmResponsibilityModal').modal('hide');
-            discountEnabled = false;
-            $('#toggleDiscount').prop('checked', false);
-            $('#discount_active_hidden').val(0);
-            const label = $('#toggleDiscount').next('label');
-            label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+                    // kalau data DB juga punya Pcs, jangan dobel
+                    if (forceDefaultPcs && unitName.toLowerCase() === 'pcs') {
+                        return;
+                    }
+
+                    unitSelect.append(`
+                <option value="${unit.id}"
+                    data-unit-id="${unit.unit_id}"
+                    data-unit-name="${unitName}"
+                    data-conversion-value="${unit.conversion_value || 1}"
+                    data-sale-price="${unit.sale_price || defaultPrice}">
+                    ${unitName}
+                </option>
+            `);
+                });
+            }
+
+            if (selectedUnitId) {
+                unitSelect.val(String(selectedUnitId));
+            } else if (forceDefaultPcs) {
+                unitSelect.val('default_pcs');
+            } else {
+                unitSelect.val(unitSelect.find('option:eq(1)').val());
+            }
+
+            unitSelect.trigger('change');
+        }
+
+        function updatePriceFromSelectedUnit(row) {
+            const selectedUnit = row.find('.product-unit option:selected');
+
+            if (!selectedUnit.val()) {
+                return;
+            }
+
+            const unitName = selectedUnit.data('unit-name') || 'Pcs';
+            const conversionValue = selectedUnit.data('conversion-value') || 1;
+            const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
+
+            row.find('.unit-name').val(unitName);
+            row.find('.unit-conversion-value').val(conversionValue);
+
+            row.find('.price_before_discount').val(salePrice.toFixed(2));
+            row.find('.price_before_discount_display').val(formatNumber(salePrice));
+
             recalcAllRows();
-            pendingToggleOff = false;
-        });
+        }
 
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
 
-            // 🔥 ambil nilai input manual dari HIDDEN
-            // let manualPrice = row.find('input.price_before_discount').val();
-            // manualPrice = manualPrice === "" ? null : parseFloat(manualPrice);
-
-            // // 🔥 base price logic BARU:
-            // // - kalau user sudah input (termasuk 0), pakai input user
-            // // - kalau belum pernah input, pakai harga product
-            // let basePrice = (manualPrice !== null && !isNaN(manualPrice)) ?
-            //     manualPrice :
-            //     (parseFloat(selectedOption.data('price')) || 0);
-
             let manualPriceRaw = row.find('input.price_before_discount').val();
 
-            // 🔥 anggap "0" sebagai BELUM DISET
             let manualPrice = (manualPriceRaw === '' || manualPriceRaw === '0') ?
                 null :
                 parseFloat(manualPriceRaw);
@@ -1152,10 +1033,8 @@
                 manualPrice :
                 (parseFloat(selectedOption.data('price')) || 0);
 
-
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
-
             const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
 
             const priceBeforeDiscount = basePrice;
@@ -1164,9 +1043,7 @@
             let finalPrice = priceBeforeDiscount;
             let allDiscounts = discountEnabled ? [...discounts] : [];
 
-            // 🔥 hanya hitung diskon kalau diskon aktif DAN harga tidak 0
             if (discountEnabled && priceBeforeDiscount > 0) {
-
                 categories.forEach(cat => {
                     if (cat.discounts) {
                         allDiscounts = allDiscounts.concat(cat.discounts);
@@ -1177,35 +1054,17 @@
                     let eligible = false;
 
                     if (discount.apply_on === 'Product') {
-                        if (discount.minimum_based_on === 'Quantity of Items' &&
-                            qty >= discount.minimum_qty_or_amount) {
-                            eligible = true;
-                        } else if (discount.minimum_based_on === 'Purchase Amount' &&
-                            totalBeforeDiscount >= discount.minimum_qty_or_amount) {
+                        if (
+                            discount.minimum_based_on === 'Quantity of Items' &&
+                            qty >= discount.minimum_qty_or_amount
+                        ) {
                             eligible = true;
                         }
-                    } else if (discount.apply_on === 'Category') {
-                        let totalQtyCategory = 0;
-                        let totalAmountCategory = 0;
 
-                        $('select[name="product[]"]').each(function(i, el) {
-                            const opt = $(el).find('option:selected');
-                            const cats = opt.data('categories') || [];
-                            const price = parseFloat(opt.data('price')) || 0;
-                            const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
-                                '')) || 0;
-
-                            if (cats.some(c => c.id === discount.category_id)) {
-                                totalQtyCategory += qtyVal;
-                                totalAmountCategory += price * qtyVal;
-                            }
-                        });
-
-                        if (discount.minimum_based_on === 'Quantity of Items' &&
-                            totalQtyCategory >= discount.minimum_qty_or_amount) {
-                            eligible = true;
-                        } else if (discount.minimum_based_on === 'Purchase Amount' &&
-                            totalAmountCategory >= discount.minimum_qty_or_amount) {
+                        if (
+                            discount.minimum_based_on === 'Purchase Amount' &&
+                            totalBeforeDiscount >= discount.minimum_qty_or_amount
+                        ) {
                             eligible = true;
                         }
                     }
@@ -1222,30 +1081,23 @@
 
             const totalAfterDiscount = finalPrice * qty;
 
-            // simpan hidden
             row.find('input.price_before_discount').val(priceBeforeDiscount.toFixed(2));
             row.find('input.total_before_discount').val(totalBeforeDiscount.toFixed(2));
             row.find('input.price_after_discount').val(finalPrice.toFixed(2));
             row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
 
-            // update tampilan (display)
             if (!row.find('.price_before_discount_display').is(':focus')) {
                 row.find('.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
             }
+
             row.find('.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
         }
-
-        // function recalcAllRows() {
-        //     $('tr[id^="addr"]').each(function() {
-        //         calculateRow($(this));
-        //     });
-        //     calcTotalSummary();
-        // }
 
         function recalcAllRows() {
             $('.product-item').each(function() {
                 calculateRow($(this));
             });
+
             calcTotalSummary();
         }
 
@@ -1253,303 +1105,79 @@
             let subTotal = 0;
             let totalAfterDiscount = 0;
 
-            $(".total_before_discount").each(function() {
+            $('.total_before_discount').each(function() {
                 subTotal += parseFloat($(this).val()) || 0;
             });
 
-            $(".total_after_discount").each(function() {
+            $('.total_after_discount').each(function() {
                 totalAfterDiscount += parseFloat($(this).val()) || 0;
             });
 
             const totalDiscount = subTotal - totalAfterDiscount;
 
-            $("#sub_total").val(subTotal.toFixed(2));
-            $("#total_discount").val(totalDiscount.toFixed(2));
-            $("#total_amount").val(totalAfterDiscount.toFixed(2));
+            $('#sub_total').val(subTotal.toFixed(2));
+            $('#total_discount').val(totalDiscount.toFixed(2));
+            $('#total_amount').val(totalAfterDiscount.toFixed(2));
 
-            $("#sub_total_display").val(formatNumber(subTotal));
-            $("#total_discount_display").val(formatNumber(totalDiscount));
-            $("#total_amount_display").val(formatNumber(totalAfterDiscount));
+            $('#sub_total_display').val(formatNumber(subTotal));
+            $('#total_discount_display').val(formatNumber(totalDiscount));
+            $('#total_amount_display').val(formatNumber(totalAfterDiscount));
         }
-
-        function updateRowTypeAndPrice(row) {
-            const selectedOption = row.find('select[name="product[]"] option:selected');
-            if (!selectedOption.length) return;
-            const type = selectedOption.data('type') || '';
-            row.find('.product-type').val(type);
-            calculateRow(row);
-        }
-
-        // function initSelect2() {
-        //     $('[data-select2-selector="status"]').select2({
-        //         placeholder: 'Pilih produk',
-        //         width: '100%'
-        //     }).each(function() {
-        //         if ($(this).hasClass('select-product')) {
-        //             const selectedVal = $(this).val();
-        //             const selectedType = $(this).closest('tr').find('.product-type').val();
-        //             const selectedId = selectedVal ? selectedVal.split('_')[1] : null;
-        //             populateProducts(this, selectedId, selectedType);
-        //         }
-        //     });
-        // }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // initSelect2();
-            recalcAllRows();
-
-            let rowCount = document.querySelectorAll('#tab_logic tbody tr').length;
-
-            // $('#add_row').on('click', function() {
-            //     const tableBody = $('#tab_logic tbody');
-            //     const newRow = $(`
-        //         <tr id="addr${rowCount}">
-        //             <td>${rowCount + 1}</td>
-
-        //             <td>
-        //                 <select class="form-control select-product" 
-        //                     name="product[]" 
-        //                     id="product_${rowCount}"
-        //                     data-select2-selector="status">
-        //                     <option value="" disabled selected hidden>Pilih produk</option>
-        //                 </select>
-        //             </td>
-
-        //             <input type="hidden" 
-        //                 name="product_type[]" 
-        //                 id="product_type_${rowCount}"
-        //                 class="form-control product-type" 
-        //                 readonly>
-
-        //             <td>
-        //                 <input type="text" 
-        //                     name="qty[]" 
-        //                     class="form-control qty"
-        //                     id="qty_${rowCount}"
-        //                     value="1"
-        //                     inputmode="numeric">
-        //             </td>
-
-        //             <td>
-        //                 <input type="text"
-        //                     class="form-control price_before_discount_display"
-        //                     value="0">
-
-        //                 <input type="hidden"
-        //                     name="price_before_discount[]"
-        //                     class="price_before_discount"
-        //                     id="price_before_discount_${rowCount}"
-        //                     value="0">
-        //             </td>
-
-        //             <td>
-        //                 <input type="text"
-        //                     class="form-control total_before_discount_display"
-        //                     readonly
-        //                     value="0">
-
-        //                 <input type="hidden"
-        //                     name="total_before_discount[]"
-        //                     class="total_before_discount"
-        //                     id="total_before_discount_${rowCount}"
-        //                     value="0">
-        //             </td>
-
-        //             <td class="text-center">
-        //                 <div class="d-flex justify-content-center">
-        //                     <button type="button" class="btn btn-danger delete-row">
-        //                         <i class="feather-trash"></i>
-        //                     </button>
-        //                 </div>          
-        //             </td>
-
-        //             <input type="hidden" 
-        //                 name="price_after_discount[]" 
-        //                 class="price_after_discount"
-        //                 id="price_after_discount_${rowCount}"
-        //                 value="0">
-
-        //             <input type="hidden" 
-        //                 name="total_after_discount[]" 
-        //                 class="total_after_discount"
-        //                 id="total_after_discount_${rowCount}"
-        //                 value="0">
-        //         </tr>
-        //     `);
-
-            //     tableBody.append(newRow);
-            //     initSelect2(newRow.find('.select-product'));
-            //     rowCount++;
-            // });
-
-            $('#add_row').on('click', function() {
-                const index = $('.product-item').length;
-
-                const html = document.getElementById('product_item_template')
-                    .innerHTML
-                    .replace(/__index__/g, index)
-                    .replace(/__number__/g, index + 1);
-
-                const wrapper = document.createElement('div');
-                wrapper.innerHTML = html;
-
-                const item = wrapper.firstElementChild;
-                $('#product_list').append(item);
-
-                populateProducts(item.querySelector('.select-product'));
-                $(item).find('.select-product').select2(select2ProductConfig());
-
-                recalcAllRows();
-            });
-
-            // $(document).on('click', '.delete-row', function() {
-            //     $(this).closest('tr').remove();
-
-            //     $('#tab_logic tbody tr').each(function(i, el) {
-            //         $(el).find('td:first').text(i + 1);
-            //     });
-
-            //     rowCount = $('#tab_logic tbody tr').length;
-            //     recalcAllRows();
-            // });
-
-            $(document).on('click', '.delete-row', function() {
-                $(this).closest('.product-item').remove();
-
-                $('.product-item').each(function(i) {
-                    $(this).attr('data-index', i);
-                    $(this).find('.product-number').text('#' + (i + 1));
-                });
-
-                recalcAllRows();
-            });
-
-            // $(document).on('change', 'select[name="product[]"]', function() {
-            //     const row = $(this).closest('tr');
-            //     updateRowTypeAndPrice(row);
-            //     recalcAllRows();
-            // });
-
-            // $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
-
-            // $(document).on('change', '.select-product', function() {
-            //     const row = $(this).closest('.product-item');
-            //     const type = $(this).find(':selected').data('type') || '';
-            //     row.find('.product-type').val(type);
-            //     recalcAllRows();
-            // });
-
-            $(document).on('change', '.select-product', function() {
-                const row = $(this).closest('.product-item');
-                const selected = $(this).find(':selected');
-
-                const type = selected.data('type') || '';
-                const price = parseFloat(selected.data('price')) || 0;
-
-                // 🔥 SET HARGA DB KE HIDDEN
-                row.find('.product-type').val(type);
-                row.find('.price_before_discount').val(price.toFixed(2));
-
-                recalcAllRows();
-            });
-
-
-            $(document).on('input', '.qty, .price_before_discount_display', recalcAllRows);
-        });
-
-        $(document).ready(function() {
-            const initialCustomerId = $('#customers').val();
-            if (initialCustomerId) {
-                updateAddresses(initialCustomerId);
-            }
-
-            $('#customers').on('change', function() {
-                const customerId = $(this).val();
-                updateAddresses(customerId);
-            });
-
-            $('#addresses').on('change', function() {
-                updateGoogleMapsLink();
-            });
-
-            function updateAddresses(customerId) {
-                const addresses = customerAddresses[customerId] || [];
-                const $addressSelect = $('#addresses');
-                const selectedAddressId = "{{ $order->customer_address_id ?? '' }}";
-
-                $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
-
-                addresses.forEach(function(address, index) {
-                    const isSelected = address.id == selectedAddressId;
-                    $addressSelect.append(
-                        `<option value="${address.id}" data-map="${address.google_maps}" ${isSelected ? 'selected' : ''}>
-                            ${address.business_name ?? 'None'} - ${address.address}
-                        </option>`
-                    );
-                });
-
-                updateGoogleMapsLink();
-            }
-
-            function updateGoogleMapsLink() {
-                const selectedOption = $('#addresses').find('option:selected');
-                const mapUrl = selectedOption.data('map');
-
-                if (mapUrl) {
-                    $('#google-maps-link').html(`
-                    <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
-                        Lihat di Google Maps
-                    </a>
-                `);
-                } else {
-                    $('#google-maps-link').empty();
-                }
-            }
-        });
 
         function showError(element, message) {
-            $(element).next(".invalid-feedback").remove();
-
+            $(element).next('.invalid-feedback').remove();
             $(element).after(`<div class="invalid-feedback">${message}</div>`);
-
-            $(element).addClass("is-invalid");
+            $(element).addClass('is-invalid');
         }
 
-        $("#customers, #addresses, #edit_note").on("change", function() {
-            $(this).removeClass("is-invalid");
-            $(this).next(".invalid-feedback").remove();
-        });
+        function updateAddresses(customerId) {
+            const addresses = customerAddresses[customerId] || [];
+            const addressSelect = $('#addresses');
+            const selectedAddressId = "{{ $order->customer_address_id ?? '' }}";
 
-        $("form").on("submit", function(e) {
-            let valid = true;
+            addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
 
-            if (!$("#customers").val()) {
-                showError($("#customers"), "Customer wajib dipilih");
-                valid = false;
+            addresses.forEach(function(address) {
+                const isSelected = String(address.id) === String(selectedAddressId);
+
+                addressSelect.append(`
+                <option value="${address.id}"
+                    data-map="${address.google_maps || ''}"
+                    ${isSelected ? 'selected' : ''}>
+                    ${address.business_name ?? 'None'} - ${address.address}
+                </option>
+            `);
+            });
+
+            updateGoogleMapsLink();
+        }
+
+        function updateGoogleMapsLink() {
+            const selectedOption = $('#addresses').find('option:selected');
+            const mapUrl = selectedOption.data('map');
+
+            if (mapUrl) {
+                $('#google-maps-link').html(`
+                <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                    Lihat di Google Maps
+                </a>
+            `);
+            } else {
+                $('#google-maps-link').empty();
             }
+        }
 
-            if (!$("#addresses").val()) {
-                showError($("#addresses"), "Alamat wajib dipilih");
-                valid = false;
-            }
-
-            if (!$("#edit_note").val()) {
-                showError($("#edit_note"), "Catatan edit wajib diisi");
-                valid = false;
-            }
-
-            if (!valid) {
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('DOMContentLoaded', function() {
+        function initDueDate() {
             const optionEl = document.getElementById('due_date_option');
             const dateInput = document.getElementById('custom_due_date');
 
+            if (!optionEl || !dateInput) {
+                return;
+            }
+
             const savedDate = dateInput.value ? new Date(dateInput.value) : null;
             const today = new Date();
-            let defaultOption = 'custom';
+            let defaultOption = 'none';
 
             if (savedDate) {
                 const diffDays = Math.floor((savedDate - today) / (1000 * 60 * 60 * 24));
@@ -1565,8 +1193,6 @@
                 } else {
                     defaultOption = 'custom';
                 }
-            } else {
-                defaultOption = 'none';
             }
 
             optionEl.value = defaultOption;
@@ -1591,48 +1217,136 @@
                     newDate.setMonth(newDate.getMonth() + 3);
                     dateInput.readOnly = true;
                 } else if (val === 'custom') {
-                    newDate = null;
                     dateInput.readOnly = false;
+                    return;
                 } else {
-                    newDate = null;
                     dateInput.readOnly = true;
-                    dateInput.value = "";
+                    dateInput.value = '';
+                    return;
                 }
 
-                if (newDate) {
-                    const yyyy = newDate.getFullYear();
-                    const mm = String(newDate.getMonth() + 1).padStart(2, '0');
-                    const dd = String(newDate.getDate()).padStart(2, '0');
-                    dateInput.value = `${yyyy}-${mm}-${dd}`;
-                }
+                const yyyy = newDate.getFullYear();
+                const mm = String(newDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(newDate.getDate()).padStart(2, '0');
+
+                dateInput.value = `${yyyy}-${mm}-${dd}`;
             }
 
             optionEl.addEventListener('change', updateDueDate);
 
             updateDueDate();
+        }
+
+        $(document).ready(function() {
+            const label = $('#toggleDiscount').next('label');
+
+            if (discountEnabled) {
+                $('#toggleDiscount').prop('checked', true);
+                $('#discount_active_hidden').val(1);
+                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
+            } else {
+                $('#toggleDiscount').prop('checked', false);
+                $('#discount_active_hidden').val(0);
+                label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+            }
+
+            $('.product-item').each(function() {
+                const row = $(this);
+                const select = row.find('.select-product');
+
+                const selectedVal = select.val();
+                let selectedType = null;
+                let selectedId = null;
+
+                if (selectedVal) {
+                    [selectedType, selectedId] = selectedVal.split('_');
+                }
+
+                const selectedUnitId = row.find('.product-unit').val();
+
+                populateProducts(select[0], selectedId, selectedType);
+
+                select.select2(select2ProductConfig());
+
+                const selectedData = findSelectedProductData(select.val());
+
+                const type = selectedData ? selectedData.type : selectedType;
+                const units = selectedData ? (selectedData.units || []) : [];
+                const defaultPrice = selectedData ? parseFloat(selectedData.price || 0) : 0;
+
+                row.find('.product-type').val(type);
+
+                if (type === 'satuan' || type === 'bundle') {
+                    fillProductUnits(row, units, selectedUnitId, defaultPrice, type === 'bundle');
+                } else {
+                    row.find('.product-unit-wrapper').hide();
+                    row.find('.product-unit').val('');
+                    row.find('.unit-conversion-value').val('1');
+                    row.find('.unit-name').val('');
+                }
+            });
+
+            const initialCustomerId = $('#customers').val();
+
+            if (initialCustomerId) {
+                updateAddresses(initialCustomerId);
+            }
+
+            initDueDate();
+            recalcAllRows();
         });
 
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
+        $(document).on('change', '.select-product', function() {
+            const row = $(this).closest('.product-item');
+            const selectedData = findSelectedProductData($(this).val());
+
+            const type = selectedData ? selectedData.type : '';
+            const price = selectedData ? parseFloat(selectedData.price || 0) : 0;
+            const units = selectedData ? (selectedData.units || []) : [];
+
+            row.find('.product-type').val(type);
+
+            if (type === 'satuan' || type === 'bundle') {
+                fillProductUnits(row, units, null, price, type === 'bundle');
+            } else {
+                row.find('.product-unit-wrapper').hide();
+                row.find('.product-unit').val('');
+                row.find('.unit-conversion-value').val('1');
+                row.find('.unit-name').val('');
+
+                row.find('.price_before_discount').val(price.toFixed(2));
+                row.find('.price_before_discount_display').val(formatNumber(price));
+
+                recalcAllRows();
+            }
         });
 
-        // === Harga bisa diubah hanya oleh Owner ===
+        $(document).on('change', '.product-unit', function() {
+            const row = $(this).closest('.product-item');
+            updatePriceFromSelectedUnit(row);
+        });
+
+        $(document).on('input', '.qty', function() {
+            let rawValue = $(this).val().replace(/\D/g, '');
+            $(this).val(new Intl.NumberFormat('id-ID').format(rawValue));
+            recalcAllRows();
+        });
+
         let priceInputTimeout;
-        $(document).on('input', '.price_before_discount_display', function() {
-            // if (!isOwner) return; // hanya Owner yang bisa ubah harga
 
-            // const row = $(this).closest('tr');
+        $(document).on('input', '.price_before_discount_display', function() {
             const row = $(this).closest('.product-item');
 
             let rawValue = $(this).val().replace(/\D/g, '');
-            if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
 
-            const formatted = new Intl.NumberFormat('id-ID').format(rawValue);
-            $(this).val(formatted);
+            if (rawValue.length > 12) {
+                rawValue = rawValue.substring(0, 12);
+            }
+
+            $(this).val(new Intl.NumberFormat('id-ID').format(rawValue));
 
             clearTimeout(priceInputTimeout);
+
             priceInputTimeout = setTimeout(() => {
                 const parsed = parseFloat(rawValue) || 0;
                 row.find('input.price_before_discount').val(parsed.toFixed(2));
@@ -1645,90 +1359,169 @@
             $(this).val(new Intl.NumberFormat('id-ID').format(val));
         });
 
-        $(document).on('input', 'input[name="qty[]"]', function(e) {
-            let rawValue = $(this).val().replace(/\D/g, '');
+        $(document).on('click', '#add_row', function() {
+            const index = $('.product-item').length;
 
-            let formatted = new Intl.NumberFormat('id-ID').format(rawValue);
+            const html = document.getElementById('product_item_template')
+                .innerHTML
+                .replace(/__index__/g, index)
+                .replace(/__number__/g, index + 1);
 
-            $(this).val(formatted);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+
+            const item = wrapper.firstElementChild;
+
+            $('#product_list').append(item);
+
+            populateProducts(item.querySelector('.select-product'));
+            $(item).find('.select-product').select2(select2ProductConfig());
+
+            recalcAllRows();
         });
 
-        $('#orderForm').on('submit', function() {
-            // $('input[name="qty[]"]').each(function() {
-            //     const raw = $(this).val().replace(/\./g, '');
-            //     $(this).val(raw);
-            // });
+        $(document).on('click', '.delete-row', function() {
+            $(this).closest('.product-item').remove();
+
+            $('.product-item').each(function(i) {
+                $(this).attr('data-index', i);
+                $(this).find('.product-number').text('#' + (i + 1));
+            });
+
+            recalcAllRows();
+        });
+
+        $(document).on('change', '#toggleDiscount', function() {
+            const isChecked = $(this).is(':checked');
+            const label = $(this).next('label');
+
+            if (!isChecked) {
+                pendingToggleOff = true;
+                $('#confirmDisableDiscountModal').modal('show');
+                $(this).prop('checked', true);
+            } else {
+                discountEnabled = true;
+                $('#discount_active_hidden').val(1);
+                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
+                recalcAllRows();
+            }
+        });
+
+        $('#confirmDisableDiscountBtn').on('click', function() {
+            $('#confirmDisableDiscountModal').modal('hide');
+
+            if (pendingToggleOff) {
+                $('#confirmResponsibilityModal').modal('show');
+            }
+        });
+
+        $('#confirmResponsibilityBtn').on('click', function() {
+            $('#confirmResponsibilityModal').modal('hide');
+
+            discountEnabled = false;
+            $('#toggleDiscount').prop('checked', false);
+            $('#discount_active_hidden').val(0);
+
+            const label = $('#toggleDiscount').next('label');
+
+            label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+
+            recalcAllRows();
+
+            pendingToggleOff = false;
+        });
+
+        $('#customers').on('change', function() {
+            updateAddresses($(this).val());
+        });
+
+        $('#addresses').on('change', function() {
+            updateGoogleMapsLink();
+        });
+
+        $(document).on('change input',
+            "#customers, #addresses, #edit_note, select[name='mode[]'], select[name='product[]'], select[name='product_unit_id[]'], input[name='qty[]']",
+            function() {
+                $(this).removeClass('is-invalid');
+                $(this).next('.invalid-feedback').remove();
+            }
+        );
+
+        $('#orderForm').on('submit', function(e) {
+            let valid = true;
+
+            if (!$('#customers').val()) {
+                showError($('#customers'), 'Customer wajib dipilih');
+                valid = false;
+            }
+
+            if (!$('#addresses').val()) {
+                showError($('#addresses'), 'Alamat wajib dipilih');
+                valid = false;
+            }
+
+            if (!$('#edit_note').val()) {
+                showError($('#edit_note'), 'Catatan edit wajib diisi');
+                valid = false;
+            }
+
+            $('.product-item').each(function() {
+                const product = $(this).find('select[name="product[]"]');
+                const mode = $(this).find('select[name="mode[]"]');
+                const qty = $(this).find('input[name="qty[]"]');
+                const type = $(this).find('.product-type').val();
+                const unit = $(this).find('select[name="product_unit_id[]"]');
+
+                const cleanQty = qty.val().replace(/[^\d]/g, '');
+
+                if (!product.val()) {
+                    showError(product, 'Produk wajib dipilih');
+                    valid = false;
+                }
+
+                if ((type === 'satuan' || type === 'bundle') && !unit.val()) {
+                    showError(unit, 'Unit wajib dipilih');
+                    valid = false;
+                }
+
+                if (!mode.val()) {
+                    showError(mode, 'Mode wajib dipilih');
+                    valid = false;
+                }
+
+                if (!cleanQty || parseInt(cleanQty) < 1) {
+                    showError(qty, 'Qty minimal 1');
+                    valid = false;
+                }
+            });
+
+            if (!valid) {
+                e.preventDefault();
+                return false;
+            }
 
             $('input[name="qty[]"]').each(function() {
                 $(this).val($(this).val().replace(/\./g, ''));
             });
 
-            // pastikan price hidden valid
+            $('input[name="unit_conversion_value[]"]').each(function() {
+                const raw = $(this).val().toString().replace(',', '.');
+                $(this).val(raw || '1');
+            });
+
             $('input.price_before_discount').each(function() {
                 if ($(this).val() === '' || isNaN($(this).val())) {
                     $(this).val(0);
                 }
             });
+
+            return true;
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const toggle = document.getElementById('toggleMode');
-            const label = document.getElementById('modeLabel');
-            const hidden = document.getElementById('mode');
-            const nextModeText = document.getElementById('nextModeText');
-            const confirmChangeBtn = document.getElementById('confirmChangeModeBtn');
-            const confirmResponsibilityBtn = document.getElementById('confirmModeResponsibilityBtn');
-
-            // 🔥 FIX: Ambil nilai dari hidden input yang udah di-set Blade
-            const initialMode = hidden.value; // Ambil dari Blade, bukan hardcode!
-
-            // Set label sesuai nilai awal
-            label.textContent = initialMode === 'printing' ? 'Printing' : 'Polosan';
-            toggle.checked = initialMode === 'printing';
-
-            let pendingMode = null;
-
-            toggle.addEventListener('change', function() {
-                const nextMode = toggle.checked ? 'printing' : 'polosan';
-                const currentMode = hidden.value;
-
-                // Kalau beda, munculkan konfirmasi modal
-                if (nextMode !== currentMode) {
-                    pendingMode = nextMode;
-                    nextModeText.textContent = nextMode === 'printing' ? 'Printing' : 'Polosan';
-
-                    // balikin toggle sementara
-                    toggle.checked = currentMode === 'printing';
-                    $('#confirmChangeModeModal').modal('show');
-                }
-            });
-
-            // Tombol konfirmasi pertama
-            confirmChangeBtn.addEventListener('click', function() {
-                $('#confirmChangeModeModal').modal('hide');
-                $('#confirmModeResponsibilityModal').modal('show');
-            });
-
-            // Tombol tanggung jawab
-            confirmResponsibilityBtn.addEventListener('click', function() {
-                $('#confirmModeResponsibilityModal').modal('hide');
-
-                // apply perubahan mode
-                if (pendingMode) {
-                    hidden.value = pendingMode;
-                    label.textContent = pendingMode === 'printing' ? 'Printing' : 'Polosan';
-                    toggle.checked = pendingMode === 'printing';
-
-                    // 🔥 Tambahkan log untuk debug
-                    console.log('Mode changed to:', pendingMode);
-
-                    pendingMode = null;
-                }
-            });
-
-            // 🔥 Debug log saat page load
-            console.log('Initial mode from Blade:', initialMode);
-            console.log('Hidden input value:', hidden.value);
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
         });
     </script>
 @endpush

@@ -14,7 +14,9 @@ return new class extends Migration
         Schema::create('inventory_items_2', function (Blueprint $table) {
             $table->id();
             $table->foreignId('inventory_id')->constrained('inventories_2')->onDelete('cascade');
-            $table->foreignId('product_id')->constrained('products')->onDelete('set null');
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
             $table->integer('quantity');
             $table->decimal('price', 15, 2)->nullable();
             $table->integer('stock_in')->nullable();

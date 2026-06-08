@@ -124,9 +124,9 @@
                                 <thead>
                                     <tr>
                                         <th>#</th>
-                                        <th>Date</th>
+                                        {{-- <th>Date</th> --}}
                                         <th>Item Name</th>
-                                        <th>Current Stock</th>
+                                        {{-- <th>Current Stock</th> --}}
                                         <th>Opening Stock</th>
                                         <th>Stock In</th>
                                         <th>Assign Today</th>
@@ -172,15 +172,15 @@
                         orderable: false,
                         searchable: false
                     },
-                    {
-                        data: 'snapshot_date'
-                    },
+                    // {
+                    //     data: 'snapshot_date'
+                    // },
                     {
                         data: 'product_name'
                     },
-                    {
-                        data: 'available_quantity'
-                    },
+                    // {
+                    //     data: 'available_quantity'
+                    // },
 
                     {
                         data: 'opening_stock'
@@ -259,9 +259,7 @@
                 data.forEach(function(row) {
                     $c.append(`
                         <div class="report-mobile-card">
-                            <div class="product-name">${row.product_name}</div>
-                            <div class="report-mobile-row"><span class="label">Current Stock</span><span class="value">${row.available_quantity}</span></div>
-                            <div class="report-mobile-row"><span class="label">Date</span><span class="value">${row.snapshot_date}</span></div>
+                            <div class="product-name">${row.product_name}</div>                            
                             <div class="report-mobile-row"><span class="label">Opening Stock</span><span class="value">${row.opening_stock}</span></div>
                             <div class="report-mobile-row"><span class="label">Stock In</span><span class="value">${row.stock_in_today}</span></div>
                             <div class="report-mobile-row"><span class="label">Assign Today</span><span class="value">${row.assign_today}</span></div>

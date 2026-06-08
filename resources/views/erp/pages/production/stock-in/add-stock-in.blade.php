@@ -52,13 +52,13 @@
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
         <div class="row">
             <div class="col-12">
-                <form action="/erp/productions/stock-in/store-grouped/{{ $supplierId }}" method="POST" id="stockInForm"
+                <form action="/erp/inventory/stock-in/store/{{ $stockIn->id }}" method="POST" id="stockInForm"
                     enctype="multipart/form-data">
                     @csrf
                     @method('POST')
                     <div class="card">
                         <div class="card-header">
-                            {{-- <h4 class="card-title">
+                            <h4 class="card-title">
                                 Invoice Number :
                                 <span>
                                     @if ($stockIn->note === 'Sale Returns')
@@ -69,9 +69,7 @@
                                         -
                                     @endif
                                 </span>
-                            </h4> --}}
-                            <h4 class="card-title">{{ $supplier->name }}</h4>
-
+                            </h4>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -82,12 +80,10 @@
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
-                                                {{-- <input type="hidden" name="inventory_id" value="{{ $stockIn->id }}">
+                                                <input type="hidden" name="inventory_id" value="{{ $stockIn->id }}">
                                                 <input type="text" class="form-control" id="invoice_number"
                                                     name="invoice_number"
                                                     value="{{ $stockIn->note === 'Sale Returns' ? $stockIn->order_number : $stockIn->purchase_number }}"
-                                                    readonly> --}}
-                                                <input type="text" class="form-control" value="{{ $invoiceNumbers }}"
                                                     readonly>
                                             </div>
                                         </div>
@@ -110,7 +106,7 @@
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <input type="text" class="form-control" id="waybill_number"
-                                                    name="waybill_number" value="">
+                                                    name="waybill_number" value="{{ $stockIn->waybill_number }}">
                                             </div>
                                         </div>
                                     </div>
@@ -157,24 +153,20 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($mergedItems as $index => $item)
+                                    @foreach ($stockIn->items as $index => $item)
                                         <tr>
                                             <td>{{ $item->product->name ?? '-' }}</td>
-                                            <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                            <td>{{ $item->quantity }}</td>
                                             <td>
-                                                @foreach ($item->item_ids as $itemId)
-                                                    <input type="hidden"
-                                                        name="items[{{ $index }}][inventory_item_ids][]"
-                                                        value="{{ $itemId }}">
-                                                @endforeach
-                                                <input type="hidden" name="items[{{ $index }}][product_id]"
-                                                    value="{{ $item->product_id }}">
+                                                <input type="hidden" name="items[{{ $index }}][inventory_item_id]"
+                                                    value="{{ $item->id }}">
                                                 <input type="text" inputmode="numeric"
-                                                    name="items[{{ $index }}][stock_in]"
-                                                    class="form-control stock-in-input" value="0"
-                                                    data-max="{{ $item->remaining }}" placeholder="Jumlah dikirim">
+                                                    name="items[{{ $index }}][stock_in]" class="form-control"
+                                                    value="0" min="0"
+                                                    max="{{ $item->quantity - $item->stock_in }}"
+                                                    placeholder="Jumlah dikirim">
                                                 <small class="text-muted">Sisa:
-                                                    {{ number_format($item->remaining, 0, ',', '.') }}</small>
+                                                    {{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}</small>
                                             </td>
                                             <td>
                                                 <input type="text" name="items[{{ $index }}][notes]"
@@ -223,8 +215,7 @@
                 if (raw === '') return;
 
                 let value = parseInt(raw) || 0;
-                // const max = parseInt(input.attr('max')) || 0;
-                const max = parseInt(input.data('max')) || 999999;
+                const max = parseInt(input.attr('max')) || 0;
 
                 if (value > max) {
                     value = max;
@@ -281,13 +272,13 @@
                 });
 
                 // 🔹 Validasi Waybill Number
-                // const waybillNumber = $('#waybill_number');
+                const waybillNumber = $('#waybill_number');
                 // if (!waybillNumber.val().trim()) {
                 //     isValid = false;
                 //     showError(waybillNumber[0], 'Waybill number wajib diisi');
                 // }
 
-                // Validasi Waybill Image
+                // 🔹 Validasi Waybill Image
                 const waybillImage = $('#waybill_image');
                 if (!waybillImage[0].files.length) {
                     isValid = false;

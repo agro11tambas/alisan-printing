@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
             PermissionUser::class,
             PermissionSubItemSeeder::class,
             PermissionSubItemUserSeeder::class,
+            ProductionWarehouseSeeder::class,
+            AccountSeeder::class,
             // Tambahkan seeder lain di sini
         ]);
     }

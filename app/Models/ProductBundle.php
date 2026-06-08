@@ -30,6 +30,11 @@ class ProductBundle extends Model
         return $this->hasMany(ProductBundleItem::class, 'bundle_id');
     }
 
+    public function unitConversions()
+    {
+        return $this->hasMany(ProductBundleUnitConversion::class, 'product_bundle_id');
+    }
+
     public function products()
     {
         return $this->hasManyThrough(

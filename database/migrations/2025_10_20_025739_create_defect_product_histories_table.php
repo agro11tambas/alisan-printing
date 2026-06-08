@@ -14,7 +14,9 @@ return new class extends Migration
         Schema::create('defect_product_histories', function (Blueprint $table) {
             $table->id();
             $table->foreignId('defect_product_id')->constrained('defect_products')->onDelete('cascade');
-            $table->foreignId('product_id')->constrained('products')->onDelete('set null');
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
             $table->foreignId('supplier_id')->nullable()->constrained('suppliers')->onDelete('set null');
             $table->integer('quantity')->default(0);
             $table->string('action_type');

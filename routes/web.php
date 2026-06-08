@@ -41,6 +41,7 @@ use App\Http\Controllers\Admin\ProductBundleController;
 use App\Http\Controllers\Admin\ProductionController;
 use App\Http\Controllers\Admin\ProductionStockInController;
 use App\Http\Controllers\Admin\ProductionStockSnapshotController;
+use App\Http\Controllers\Admin\ProductUnitController;
 use App\Http\Controllers\Admin\PurchaseDetailController;
 use App\Http\Controllers\Admin\PurchaseListController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
@@ -103,6 +104,16 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::get('/erp/products/tags/edit-tag/{id}', [ProductTagController::class, 'edit']);
             Route::put('/erp/products/tags/update/{id}', [ProductTagController::class, 'update']);
             Route::delete('/erp/products/tags/delete/{id}', [ProductTagController::class, 'delete']);
+        });
+
+        Route::middleware(['auth', 'subpermission:product-units'])->group(function () {
+            Route::get('/erp/products/units/data', [ProductUnitController::class, 'data']);
+            Route::get('/erp/products/units', [ProductUnitController::class, 'index']);
+            Route::get('/erp/products/units/create', [ProductUnitController::class, 'create']);
+            Route::post('/erp/products/units/store', [ProductUnitController::class, 'store']);
+            Route::get('/erp/products/units/edit-unit/{id}', [ProductUnitController::class, 'edit']);
+            Route::put('/erp/products/units/update/{id}', [ProductUnitController::class, 'update']);
+            Route::delete('/erp/products/units/delete/{id}', [ProductUnitController::class, 'delete']);
         });
 
         Route::middleware(['auth', 'subpermission:product-list'])->group(function () {
@@ -302,6 +313,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::post('/erp/sales/sale-returns/restore/{id}', [SaleReturnController::class, 'restore'])->name('sale-returns.restore');
 
             Route::post('/erp/sales/sale-returns/verify-payment/{groupId}', [SaleReturnController::class, 'verifyPayment'])->name('sale-returns.verify-payment');
+            Route::post('/erp/sales/sale-returns/mark-as-retur/{id}', [SaleReturnController::class, 'markAsRetur']);
         });
     });
 
@@ -389,20 +401,20 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::middleware(['auth', 'subpermission:stock-in-production'])->group(function () {
             Route::get('/erp/productions/stock-in/data', [ProductionController::class, 'dataStockIn']);
             Route::get('/erp/productions/stock-in', [ProductionController::class, 'getStockIn']);
-            // Route::get('/erp/productions/stock-in/add-stock-in/{id}', [ProductionStockInController::class, 'addStockIn']);
-            // Route::post('/erp/productions/stock-in/store/{id}', [ProductionStockInController::class, 'store']);
+            Route::get('/erp/productions/stock-in/add-stock-in/{id}', [ProductionStockInController::class, 'addStockIn']);
+            Route::post('/erp/productions/stock-in/store/{id}', [ProductionStockInController::class, 'store']);
             // Route::get('/erp/productions/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'addStockIn']);
             // Route::post('/erp/productions/stock-in/store-grouped/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'storeGrouped']);
-            Route::get('/erp/productions/stock-in/add-stock-in/{supplier_id}', [ProductionStockInController::class, 'addStockIn']);
-            Route::post('/erp/productions/stock-in/store-grouped/{supplier_id}', [ProductionStockInController::class, 'storeGrouped']);
+            // Route::get('/erp/productions/stock-in/add-stock-in/{supplier_id}', [ProductionStockInController::class, 'addStockIn']);
+            // Route::post('/erp/productions/stock-in/store-grouped/{supplier_id}', [ProductionStockInController::class, 'storeGrouped']);
             Route::get('/erp/productions/stock-in/edit-stock-in/{id}', [ProductionStockInController::class, 'edit']);
             Route::put('/erp/productions/stock-in/update/{id}', [ProductionStockInController::class, 'update']);
-            // Route::get('/erp/productions/stock-in/history/{id}/data', [ProductionStockInController::class, 'dataHistory']);
-            // Route::get('/erp/productions/stock-in/history/{id}', [ProductionStockInController::class, 'getHistory']);
+            Route::get('/erp/productions/stock-in/history/{id}/data', [ProductionStockInController::class, 'dataHistory']);
+            Route::get('/erp/productions/stock-in/history/{id}', [ProductionStockInController::class, 'getHistory']);
             // Route::get('/erp/productions/stock-in/history/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'getHistory']);
             // Route::get('/erp/productions/stock-in/history/{supplier_id}/{year}/{month}/data', [ProductionStockInController::class, 'dataHistory']);
-            Route::get('/erp/productions/stock-in/history/{supplier_id}', [ProductionStockInController::class, 'getHistory']);
-            Route::get('/erp/productions/stock-in/history/{supplier_id}/data', [ProductionStockInController::class, 'dataHistory']);
+            // Route::get('/erp/productions/stock-in/history/{supplier_id}', [ProductionStockInController::class, 'getHistory']);
+            // Route::get('/erp/productions/stock-in/history/{supplier_id}/data', [ProductionStockInController::class, 'dataHistory']);
             Route::post('/erp/productions/stock-in/history/item/{id}/update', [ProductionStockInController::class, 'updateHistoryItem']);
 
             Route::post('/erp/productions/stock-in/verify/{id}', [ProductionStockInController::class, 'verify'])->name('stock-in.verify');
@@ -526,18 +538,18 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::get('/erp/inventory/stock-in/data', [InventoryController::class, 'dataStockIn']);
             Route::get('/erp/inventory/stock-in', [InventoryController::class, 'getStockIn']);
 
-            // Route::get('/erp/inventory/stock-in/add-stock-in/{id}', [HistoryStockInController::class, 'addStockIn']);
-            Route::get('/erp/inventory/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'addStockIn']);
+            Route::get('/erp/inventory/stock-in/add-stock-in/{id}', [HistoryStockInController::class, 'addStockIn']);
+            // Route::get('/erp/inventory/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'addStockIn']);
 
-            // Route::post('/erp/inventory/stock-in/store/{id}', [HistoryStockInController::class, 'store']);
-            Route::post('/erp/inventory/stock-in/store/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'storeGrouped']);
+            Route::post('/erp/inventory/stock-in/store/{id}', [HistoryStockInController::class, 'store']);
+            // Route::post('/erp/inventory/stock-in/store/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'storeGrouped']);
 
             Route::get('/erp/inventory/stock-in/edit-stock-in/{id}', [HistoryStockInController::class, 'edit']);
             Route::put('/erp/inventory/stock-in/update/{id}', [HistoryStockInController::class, 'update']);
-            // Route::get('/erp/inventory/stock-in/history/{id}/data', [HistoryStockInController::class, 'dataHistory']);
-            // Route::get('/erp/inventory/stock-in/history/{id}', [HistoryStockInController::class, 'getHistory']);
-            Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'getHistory']);
-            Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}/data', [HistoryStockInController::class, 'dataHistory']);
+            Route::get('/erp/inventory/stock-in/history/{id}/data', [HistoryStockInController::class, 'dataHistory']);
+            Route::get('/erp/inventory/stock-in/history/{id}', [HistoryStockInController::class, 'getHistory']);
+            // Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'getHistory']);
+            // Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}/data', [HistoryStockInController::class, 'dataHistory']);
 
             Route::post('/erp/inventory/stock-in/history/item/{id}/update', [HistoryStockInController::class, 'updateHistoryItem']);
         });

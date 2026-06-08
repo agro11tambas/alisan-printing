@@ -87,7 +87,7 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(7, 1fr);
             gap: 10px;
         }
 
@@ -398,7 +398,7 @@
                                     </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
-                                            <label class="fw-semibold">Mode & Diskon:</label>
+                                            <label class="fw-semibold">Diskon:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="row align-items-center">
@@ -420,7 +420,7 @@
                                                 </div>
 
                                                 <!-- 🔹 Kolom Mode -->
-                                                <div class="col-md-6 mb-3 mb-md-0">
+                                                {{-- <div class="col-md-6 mb-3 mb-md-0">
                                                     <div class="d-flex flex-column">
                                                         <label class="fw-semibold mb-1">Mode:</label>
                                                         <div class="form-check form-switch">
@@ -434,7 +434,7 @@
                                                         <input type="hidden" id="mode" name="mode"
                                                             value="printing">
                                                     </div>
-                                                </div>
+                                                </div> --}}
                                             </div>
                                         </div>
                                     </div>
@@ -472,6 +472,25 @@
 
                                         <input type="hidden" name="product_type[]" class="product-type"
                                             id="product_type_0">
+
+                                        <div class="form-group">
+                                            <label>Unit</label>
+                                            <select name="product_unit_id[]" class="form-control product-unit">
+                                                <option value="">Pilih unit</option>
+                                            </select>
+
+                                            <input type="hidden" name="unit_conversion_value[]"
+                                                class="unit-conversion-value">
+                                            <input type="hidden" name="unit_name[]" class="unit-name">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Mode</label>
+                                            <select name="mode[]" class="form-control item-mode">
+                                                <option value="printing" selected>Printing</option>
+                                                <option value="polosan">Polosan</option>
+                                            </select>
+                                        </div>
 
                                         <div class="form-group">
                                             <label>Qty</label>
@@ -524,6 +543,25 @@
 
                                         <input type="hidden" name="product_type[]" class="product-type"
                                             id="product_type___index__">
+
+                                        <div class="form-group">
+                                            <label>Unit</label>
+                                            <select name="product_unit_id[]" class="form-control product-unit">
+                                                <option value="">Pilih unit</option>
+                                            </select>
+
+                                            <input type="hidden" name="unit_conversion_value[]"
+                                                class="unit-conversion-value">
+                                            <input type="hidden" name="unit_name[]" class="unit-name">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Mode</label>
+                                            <select name="mode[]" class="form-control item-mode">
+                                                <option value="printing" selected>Printing</option>
+                                                <option value="polosan">Polosan</option>
+                                            </select>
+                                        </div>
 
                                         <div class="form-group">
                                             <label>Qty</label>
@@ -774,6 +812,7 @@
                     .data('categories', item.categories || [])
                     .data('type', item.type)
                     .data('sku', item.sku || '')
+                    .data('units', item.units || [])
                     .appendTo(selectEl);
             });
         }
@@ -983,9 +1022,14 @@
 
         $(document).on('change', 'select[name="product[]"]', function() {
             const row = $(this).closest('.product-item');
+            const selectedOption = $(this).find('option:selected');
 
-            const type = $(this).find('option:selected').data('type') || '';
+            const type = selectedOption.data('type') || '';
+            const units = selectedOption.data('units') || [];
+
             row.find('.product-type').val(type);
+
+            fillProductUnits(row, units);
 
             recalcAllRows();
         });
@@ -1130,7 +1174,7 @@
         }
 
         $(document).on("change input",
-            "#customers, #addresses, select[name='product[]'], input[name='qty[]'], input[name='order_date']",
+            "#customers, #addresses, select[name='product[]'], select[name='mode[]'], input[name='qty[]'], input[name='order_date']",
             function() {
                 if ($(this).hasClass("select2-hidden-accessible")) {
                     $(this).next('.select2').next('.invalid-feedback').remove();
@@ -1140,58 +1184,81 @@
                 }
             });
 
-        document.getElementById('orderForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        // document.getElementById('orderForm').addEventListener('submit', function(e) {
+        //     e.preventDefault();
 
-            let isValid = true;
+        //     let isValid = true;
 
-            this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-            this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+        //     this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        //     this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
 
-            const orderDate = this.querySelector('input[name="order_date"]');
-            if (!orderDate.value.trim()) {
-                isValid = false;
-                showError(orderDate, "Tanggal order wajib diisi");
-            }
+        //     const orderDate = this.querySelector('input[name="order_date"]');
+        //     if (!orderDate.value.trim()) {
+        //         isValid = false;
+        //         showError(orderDate, "Tanggal order wajib diisi");
+        //     }
 
-            const customerSelect = $('#customers');
-            if (!customerSelect.val() || customerSelect.val().length === 0) {
-                isValid = false;
-                showError(customerSelect[0], "Customer wajib dipilih");
-            }
+        //     const customerSelect = $('#customers');
+        //     if (!customerSelect.val() || customerSelect.val().length === 0) {
+        //         isValid = false;
+        //         showError(customerSelect[0], "Customer wajib dipilih");
+        //     }
 
-            const addressSelect = $('#addresses');
-            if (!addressSelect.val() || addressSelect.val().length === 0) {
-                isValid = false;
-                showError(addressSelect[0], "Alamat wajib dipilih");
-            }
+        //     const addressSelect = $('#addresses');
+        //     if (!addressSelect.val() || addressSelect.val().length === 0) {
+        //         isValid = false;
+        //         showError(addressSelect[0], "Alamat wajib dipilih");
+        //     }
 
-            const modeSelect = $('#mode');
-            if (!modeSelect.val() || modeSelect.val().length === 0) {
-                isValid = false;
-                showError(modeSelect[0], "Mode wajib dipilih");
-            }
+        //     // const modeSelect = $('#mode');
+        //     // if (!modeSelect.val() || modeSelect.val().length === 0) {
+        //     //     isValid = false;
+        //     //     showError(modeSelect[0], "Mode wajib dipilih");
+        //     // }
 
-            const rows = this.querySelectorAll('#tab_logic tbody tr');
-            rows.forEach(row => {
-                const product = row.querySelector('select[name="product[]"]');
-                const qty = row.querySelector('input[name="qty[]"]');
-                if (!product.value) {
-                    isValid = false;
-                    showError(product, "Produk wajib dipilih");
-                }
-                if (!qty.value || parseInt(qty.value.replace(/[.,]/g, '')) < 1) {
-                    isValid = false;
-                    showError(qty, "Qty minimal 1");
-                }
-            });
+        //     // const rows = this.querySelectorAll('#tab_logic tbody tr');
+        //     // rows.forEach(row => {
+        //     //     const product = row.querySelector('select[name="product[]"]');
+        //     //     const qty = row.querySelector('input[name="qty[]"]');
+        //     //     if (!product.value) {
+        //     //         isValid = false;
+        //     //         showError(product, "Produk wajib dipilih");
+        //     //     }
+        //     //     if (!qty.value || parseInt(qty.value.replace(/[.,]/g, '')) < 1) {
+        //     //         isValid = false;
+        //     //         showError(qty, "Qty minimal 1");
+        //     //     }
+        //     // });
 
-            $('input[name="qty[]"], #sub_total, #total_discount, #total_amount').each(function() {
-                $(this).val($(this).val().replace(/[.,]/g, ''));
-            });
+        //     $('.product-item').each(function() {
+        //         const product = $(this).find('select[name="product[]"]');
+        //         const qty = $(this).find('input[name="qty[]"]');
+        //         const mode = $(this).find('select[name="mode[]"]');
 
-            if (isValid) this.submit();
-        });
+        //         const cleanQty = qty.val().replace(/[^\d]/g, '');
+
+        //         if (!product.val()) {
+        //             isValid = false;
+        //             showError(product[0], 'Produk wajib dipilih');
+        //         }
+
+        //         if (!mode.val()) {
+        //             isValid = false;
+        //             showError(mode[0], 'Mode wajib dipilih');
+        //         }
+
+        //         if (!cleanQty || parseInt(cleanQty) < 1) {
+        //             isValid = false;
+        //             showError(qty[0], 'Qty minimal 1');
+        //         }
+        //     });
+
+        //     $('input[name="qty[]"], #sub_total, #total_discount, #total_amount').each(function() {
+        //         $(this).val($(this).val().replace(/[.,]/g, ''));
+        //     });
+
+        //     if (isValid) this.submit();
+        // });
 
         $(document).ready(function() {
             $('#customers').on('change', function() {
@@ -1309,20 +1376,50 @@
                 showError(addressSelect[0], 'Alamat wajib dipilih');
             }
 
-            const modeSelect = $('#mode');
-            if (!modeSelect.val()) {
-                isValid = false;
-                showError(modeSelect[0], 'Mode wajib dipilih');
-            }
+            // $('.product-item').each(function() {
+            //     const product = $(this).find('select[name="product[]"]');
+            //     const qty = $(this).find('input[name="qty[]"]');
+            //     const mode = $(this).find('select[name="mode[]"]');
 
-            $('#tab_logic tbody tr').each(function() {
+            //     const cleanQty = qty.val().replace(/[^\d]/g, '');
+
+            //     if (!product.val()) {
+            //         isValid = false;
+            //         showError(product[0], 'Produk wajib dipilih');
+            //     }
+
+            //     if (!mode.val()) {
+            //         isValid = false;
+            //         showError(mode[0], 'Mode wajib dipilih');
+            //     }
+
+            //     if (!cleanQty || parseInt(cleanQty) < 1) {
+            //         isValid = false;
+            //         showError(qty[0], 'Qty minimal 1');
+            //     }
+            // });
+
+            $('.product-item').each(function() {
                 const product = $(this).find('select[name="product[]"]');
+                const unit = $(this).find('select[name="product_unit_id[]"]');
                 const qty = $(this).find('input[name="qty[]"]');
+                const mode = $(this).find('select[name="mode[]"]');
+
                 const cleanQty = qty.val().replace(/[^\d]/g, '');
 
                 if (!product.val()) {
                     isValid = false;
                     showError(product[0], 'Produk wajib dipilih');
+                }
+
+                if (!unit.val()) {
+                    isValid = false;
+                    showError(unit[0], 'Unit wajib dipilih');
+                }
+
+                if (!mode.val()) {
+                    isValid = false;
+                    showError(mode[0], 'Mode wajib dipilih');
                 }
 
                 if (!cleanQty || parseInt(cleanQty) < 1) {
@@ -1337,112 +1434,118 @@
                 $(this).val($(this).val().replace(/[.,]/g, ''));
             });
 
+            $('input[name="unit_conversion_value[]"]').each(function() {
+                $(this).val($(this).val().replace(',', '.'));
+            });
+
             form.submit();
         });
 
-        // document.addEventListener('DOMContentLoaded', function() {
-        //     const toggle = document.getElementById('toggleMode');
-        //     const label = document.getElementById('modeLabel');
-        //     const hidden = document.getElementById('mode');
-        //     const nextModeText = document.getElementById('nextModeText');
-        //     const confirmChangeBtn = document.getElementById('confirmChangeModeBtn');
-        //     const confirmResponsibilityBtn = document.getElementById('confirmModeResponsibilityBtn');
+        function formatRupiahNumber(number) {
+            const value = parseFloat(number || 0);
 
-        //     // default
-        //     label.textContent = 'Printing';
-        //     hidden.value = 'printing';
-        //     let pendingMode = null;
+            return value.toLocaleString('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
+        }
 
-        //     toggle.addEventListener('change', function() {
-        //         const nextMode = toggle.checked ? 'printing' : 'polosan';
-        //         const currentMode = hidden.value;
+        function parseNumber(value) {
+            if (!value) return 0;
 
-        //         // Kalau beda, munculkan konfirmasi modal
-        //         if (nextMode !== currentMode) {
-        //             pendingMode = nextMode;
-        //             nextModeText.textContent = nextMode === 'printing' ? 'Printing' : 'Polosan';
+            return parseFloat(
+                value.toString()
+                .replace(/\./g, '')
+                .replace(',', '.')
+            ) || 0;
+        }
 
-        //             // balikin toggle sementara
-        //             toggle.checked = currentMode === 'printing';
-        //             $('#confirmChangeModeModal').modal('show');
-        //         }
-        //     });
+        function fillProductUnits(row, units) {
+            const unitSelect = row.find('.product-unit');
 
-        //     // Tombol konfirmasi pertama
-        //     confirmChangeBtn.addEventListener('click', function() {
-        //         $('#confirmChangeModeModal').modal('hide');
-        //         $('#confirmModeResponsibilityModal').modal('show');
-        //     });
+            unitSelect.empty();
+            unitSelect.append('<option value="">Pilih unit</option>');
 
-        //     // Tombol tanggung jawab
-        //     confirmResponsibilityBtn.addEventListener('click', function() {
-        //         $('#confirmModeResponsibilityModal').modal('hide');
+            row.find('.unit-conversion-value').val('');
+            row.find('.unit-name').val('');
 
-        //         // apply perubahan mode
-        //         if (pendingMode) {
-        //             hidden.value = pendingMode;
-        //             label.textContent = pendingMode === 'printing' ? 'Printing' : 'Polosan';
-        //             toggle.checked = pendingMode === 'printing';
-        //             pendingMode = null;
-        //         }
-        //     });
-        // });
+            if (!Array.isArray(units) || units.length === 0) {
+                return;
+            }
 
-        $(document).ready(function() {
-
-            let pendingMode = null;
-
-            // default state
-            $('#modeLabel').text('Printing');
-            $('#mode').val('printing');
-            $('#toggleMode').prop('checked', true);
-
-            $('#toggleMode').on('change', function() {
-                const nextMode = this.checked ? 'printing' : 'polosan';
-                const currentMode = $('#mode').val();
-
-                if (nextMode !== currentMode) {
-                    pendingMode = nextMode;
-
-                    $('#nextModeText').text(
-                        nextMode === 'printing' ? 'Printing' : 'Polosan'
-                    );
-
-                    // rollback toggle
-                    $(this).prop('checked', currentMode === 'printing');
-
-                    $('#confirmChangeModeModal').modal('show');
-                }
+            units.forEach(function(unit) {
+                unitSelect.append(`
+            <option value="${unit.id}"
+                data-unit-id="${unit.unit_id}"
+                data-unit-name="${unit.unit_name}"
+                data-conversion-value="${unit.conversion_value}"
+                data-sale-price="${unit.sale_price}">
+                ${unit.unit_name}
+            </option>
+        `);
             });
 
-            $('#confirmChangeModeBtn')
-                .off('click')
-                .on('click', function() {
-                    $('#confirmChangeModeModal').modal('hide');
+            unitSelect.val(units[0].id).trigger('change');
+        }
 
-                    $('#confirmChangeModeModal').one('hidden.bs.modal', function() {
-                        $('#confirmModeResponsibilityModal').modal('show');
-                    });
-                });
+        function updatePriceFromSelectedUnit(row) {
+            const selectedUnit = row.find('.product-unit option:selected');
 
-            $('#confirmModeResponsibilityBtn')
-                .off('click')
-                .on('click', function() {
-                    $('#confirmModeResponsibilityModal').modal('hide');
+            const unitName = selectedUnit.data('unit-name') || '';
+            const conversionValue = selectedUnit.data('conversion-value') || '';
+            const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
 
-                    if (pendingMode) {
-                        $('#mode').val(pendingMode);
-                        $('#modeLabel').text(
-                            pendingMode === 'printing' ? 'Printing' : 'Polosan'
-                        );
-                        $('#toggleMode').prop(
-                            'checked',
-                            pendingMode === 'printing'
-                        );
-                        pendingMode = null;
-                    }
-                });
+            row.find('.unit-name').val(unitName);
+            row.find('.unit-conversion-value').val(conversionValue);
 
+            row.find('.price_before_discount_display').val(formatNumber(salePrice));
+            row.find('.price_before_discount').val(salePrice.toFixed(2));
+
+            recalcAllRows();
+        }
+
+        // function calculateRowTotal($item) {
+        //     const qty = parseNumber($item.find('.qty').val());
+        //     const price = parseNumber($item.find('.price_before_discount').val());
+
+        //     const total = qty * price;
+
+        //     $item.find('.total_before_discount_display').val(formatRupiahNumber(total));
+        //     $item.find('.total_before_discount').val(total);
+
+        //     $item.find('.price_after_discount').val(price);
+        //     $item.find('.total_after_discount').val(total);
+        // }
+
+        // function calculateGrandTotal() {
+        //     let subTotal = 0;
+
+        //     $('.total_before_discount').each(function() {
+        //         subTotal += parseNumber($(this).val());
+        //     });
+
+        //     $('#sub_total').val(subTotal);
+        //     $('#sub_total_display').val(formatRupiahNumber(subTotal));
+
+        //     const totalDiscount = parseNumber($('#total_discount').val());
+
+        //     const grandTotal = subTotal - totalDiscount;
+
+        //     $('#total_amount').val(grandTotal);
+        //     $('#total_amount_display').val(formatRupiahNumber(grandTotal));
+        // }
+
+        $(document).on('change', '.product-unit', function() {
+            const $item = $(this).closest('.product-item');
+
+            updatePriceFromSelectedUnit($item);
         });
+
+        // $(document).on('input', '.qty', function() {
+        //     const $item = $(this).closest('.product-item');
+
+        //     calculateRowTotal($item);
+        //     calculateGrandTotal();
+        // });
     </script>
 @endpush
