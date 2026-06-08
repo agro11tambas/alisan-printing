@@ -65,7 +65,7 @@
                             <div class="row justify-content-between">
                                 <div class="col-lg-4">
                                     @php
-                                        $logoPath = $invoice->logo ? str_replace('public/', '', $invoice->logo) : null;
+                                        $logoPath = $invoice?->logo ? str_replace('public/', '', $invoice->logo) : null;
                                     @endphp
 
                                     @if ($logoPath)
