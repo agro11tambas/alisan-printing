@@ -33,22 +33,14 @@
                     </div>
                 </div>
             </a>
-            {{-- <div class="nxl-navigation-toggle">
+            <div class="nxl-navigation-toggle">
                 <a href="javascript:void(0);" id="menu-mini-button" style="display: none">
                     <i class="feather-align-left"></i>
                 </a>
                 <a href="javascript:void(0);" id="menu-expend-button">
                     <i class="feather-arrow-right"></i>
                 </a>
-            </div> --}}
-
-            <a href="javascript:void(0);" id="menu-mini-button">
-                <i class="feather-align-left"></i>
-            </a>
-
-            <a href="javascript:void(0);" id="menu-expend-button" style="display: none">
-                <i class="feather-arrow-right"></i>
-            </a>
+            </div>
             <div>
                 <h5 class="mb-0 nxl-page-title text-danger">Harap refresh halaman terlebih dahulu sebelum
                     melakukan
