@@ -150,19 +150,21 @@
                                                 {{-- Ready Qty per item (tidak gabung) --}}
                                                 <td>
                                                     <span
-                                                        class="text-primary">{{ number_format($item->ready_qty, 0, ',', '.') }}</span>
+                                                        class="text-primary">{{ number_format($item->ready_qty, 0, ',', '.') }}
+                                                    </span>
                                                     /
                                                     <span>{{ number_format($item->progress_qty, 0, ',', '.') }}</span>
+                                                    {{ $item->unit_name }}
                                                 </td>
 
-                                                <td><span
-                                                        class="text-success">{{ number_format($delivered, 0, ',', '.') }}</span>
+                                                <td><span class="text-success">{{ number_format($delivered, 0, ',', '.') }}
+                                                        {{ $item->unit_name }}</span>
                                                 </td>
-                                                <td><span
-                                                        class="text-warning">{{ number_format($shipping, 0, ',', '.') }}</span>
+                                                <td><span class="text-warning">{{ number_format($shipping, 0, ',', '.') }}
+                                                        {{ $item->unit_name }}</span>
                                                 </td>
-                                                <td><span
-                                                        class="text-danger">{{ number_format($available, 0, ',', '.') }}</span>
+                                                <td><span class="text-danger">{{ number_format($available, 0, ',', '.') }}
+                                                        {{ $item->unit_name }}</span>
                                                 </td>
 
                                                 <td>
@@ -171,6 +173,7 @@
                                                         max="{{ $available }}" value="0">
                                                     <small class="text-muted remaining-info">Remaining:
                                                         {{ number_format($available, 0, ',', '.') }}
+                                                        {{ $item->unit_name }}
                                                     </small>
                                                 </td>
 

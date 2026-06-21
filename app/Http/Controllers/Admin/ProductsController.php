@@ -118,18 +118,21 @@ class ProductsController extends Controller
 
     // public function store(Request $request)
     // {
-    //     // dd($request->all());
     //     $request->validate([
     //         'name' => 'required',
     //         'sku' => 'required|string',
-    //         'price' => 'required',
-    //         // 'stock' => 'required',
-    //         // 'sale_price' => 'nullable',
+    //         'price' => 'required|numeric|min:0',
+    //         'fixed_cost' => 'nullable|numeric|min:0',
     //         'description' => 'nullable',
     //         'short_description' => 'nullable',
     //         'categories' => 'nullable|array',
     //         'tags' => 'nullable|array',
     //         'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+
+    //         'units' => 'nullable|array',
+    //         'units.*.unit_id' => 'nullable|exists:product_units,id',
+    //         'units.*.conversion_value' => 'nullable|numeric|min:0.01',
+    //         'units.*.sale_price' => 'nullable|numeric|min:0',
     //     ]);
 
     //     if (Products::where('sku', $request->sku)->exists()) {
@@ -138,75 +141,129 @@ class ProductsController extends Controller
     //             ->with('error', 'SKU sudah digunakan. Silakan gunakan SKU lain.');
     //     }
 
-    //     $imagePath = null;
+    //     try {
+    //         DB::transaction(function () use ($request) {
+    //             $imagePath = null;
 
-    //     if ($request->hasFile('image')) {
-    //         $image = $request->file('image');
-    //         $filename = time() . '_' . $image->getClientOriginalName();
-    //         $destinationPath = public_path('uploads/products');
+    //             if ($request->hasFile('image')) {
+    //                 $image = $request->file('image');
+    //                 $filename = time() . '_' . $image->getClientOriginalName();
+    //                 $destinationPath = public_path('uploads/products');
 
-    //         // Pastikan foldernya ada
-    //         if (!file_exists($destinationPath)) {
-    //             mkdir($destinationPath, 0755, true);
-    //         }
+    //                 if (!file_exists($destinationPath)) {
+    //                     mkdir($destinationPath, 0755, true);
+    //                 }
 
-    //         $image->move($destinationPath, $filename);
+    //                 $image->move($destinationPath, $filename);
 
-    //         $imagePath = 'uploads/products/' . $filename;
+    //                 $imagePath = 'uploads/products/' . $filename;
+    //             }
+
+    //             $price = $request->filled('price') ? (float) $request->price : 0;
+    //             $fixedCost = $request->filled('fixed_cost') ? (float) $request->fixed_cost : 0;
+
+    //             $product = Products::create([
+    //                 'name' => $request->name,
+    //                 'sku' => $request->sku,
+    //                 'price' => $price,
+    //                 'description' => $request->description,
+    //                 'short_description' => $request->short_description,
+    //                 'image' => $imagePath,
+    //                 'fixed_cost' => $fixedCost,
+    //                 'stock' => 0,
+    //             ]);
+
+    //             $product->categories()->sync($request->categories ?? []);
+    //             $product->tags()->sync($request->tags ?? []);
+
+    //             /*
+    //         |--------------------------------------------------------------------------
+    //         | Product Unit Conversion
+    //         |--------------------------------------------------------------------------
+    //         | Pcs otomatis dibuat sebagai unit dasar.
+    //         | price produk = harga per pcs.
+    //         | fixed_cost = cost per pcs.
+    //         */
+    //             $pcsUnit = ProductUnit::whereRaw('LOWER(name) = ?', ['pcs'])->first();
+
+    //             if (!$pcsUnit) {
+    //                 $pcsUnit = ProductUnit::create([
+    //                     'name' => 'Pcs',
+    //                     'description' => 'Default base unit',
+    //                 ]);
+    //             }
+
+    //             ProductUnitConversion::create([
+    //                 'product_id' => $product->id,
+    //                 'unit_id' => $pcsUnit->id,
+    //                 'conversion_value' => 1,
+    //                 'sale_price' => $price,
+    //                 'purchase_price' => $fixedCost,
+    //             ]);
+
+    //             foreach ($request->units ?? [] as $unit) {
+    //                 $unitId = $unit['unit_id'] ?? null;
+    //                 $conversionValue = $unit['conversion_value'] ?? null;
+    //                 $salePrice = $unit['sale_price'] ?? null;
+
+    //                 // Row kosong dari blade diabaikan.
+    //                 if (empty($unitId) && empty($conversionValue) && empty($salePrice)) {
+    //                     continue;
+    //                 }
+
+    //                 // Jangan simpan Pcs lagi, karena sudah otomatis dibuat di atas.
+    //                 if ((int) $unitId === (int) $pcsUnit->id) {
+    //                     continue;
+    //                 }
+
+    //                 ProductUnitConversion::create([
+    //                     'product_id' => $product->id,
+    //                     'unit_id' => $unitId,
+    //                     'conversion_value' => $conversionValue,
+    //                     'sale_price' => $salePrice ?? 0,
+    //                     'purchase_price' => 0,
+    //                 ]);
+    //             }
+
+    //             ProductionWarehouse::firstOrCreate(
+    //                 ['id' => 2],
+    //                 [
+    //                     'name' => 'Gudang Produksi Utama',
+    //                     'location' => 'Kantor Pusat',
+    //                 ]
+    //             );
+
+    //             $productionWarehouseId = 2;
+
+    //             ProductionStock::create([
+    //                 'production_warehouse_id' => $productionWarehouseId,
+    //                 'product_id' => $product->id,
+    //                 'available_quantity' => 0,
+    //             ]);
+
+    //             $inventoryWarehouse = InventoryWarehouse::firstOrCreate(
+    //                 ['name' => 'Gudang Inventory Utama'],
+    //                 ['location' => 'Kantor Pusat']
+    //             );
+
+    //             InventoryStock::create([
+    //                 'inventory_warehouse_id' => $inventoryWarehouse->id,
+    //                 'product_id' => $product->id,
+    //                 'opening_stock' => 0,
+    //                 'opening_rate' => 0,
+    //                 'inventory_stock' => 0,
+    //                 'incoming_stock' => 0,
+    //                 'stock_after_sales' => 0,
+    //                 'available_quantity' => 0,
+    //             ]);
+    //         });
+
+    //         return redirect('/erp/products')->with('success', 'Produk berhasil ditambahkan.');
+    //     } catch (\Throwable $e) {
+    //         return redirect()->back()
+    //             ->withInput()
+    //             ->with('error', 'Gagal menyimpan produk: ' . $e->getMessage());
     //     }
-
-    //     $price = $request->filled('price') ? $request->price : 0;
-    //     $fixedCost = $request->filled('fixed_cost') ? $request->fixed_cost : 0;
-
-    //     $product = Products::create([
-    //         'name' => $request->name,
-    //         'sku' => $request->sku,
-    //         'price' => $price,
-    //         // 'sale_price' => $request->sale_price,
-    //         'description' => $request->description,
-    //         'short_description' => $request->short_description,
-    //         // 'stock' => $request->stock,
-    //         'image' => $imagePath,
-    //         'fixed_cost' => $fixedCost,
-    //     ]);
-
-    //     // Simpan relasi ke pivot table
-    //     $product->categories()->sync($request->categories);
-    //     $product->tags()->sync($request->tags);
-
-    //     ProductionWarehouse::firstOrCreate(
-    //         ['id' => 2],
-    //         [
-    //             'name' => 'Gudang Produksi Utama',
-    //             'location' => 'Kantor Pusat'
-    //         ]
-    //     );
-
-    //     $productionWarehouseId = 2;
-
-    //     ProductionStock::create([
-    //         'production_warehouse_id' => $productionWarehouseId,
-    //         'product_id' => $product->id,
-    //         'available_quantity' => 0,
-    //     ]);
-
-    //     $inventoryWarehouse = InventoryWarehouse::firstOrCreate(
-    //         ['name' => 'Gudang Inventory Utama'],
-    //         ['location' => 'Kantor Pusat']
-    //     );
-
-    //     InventoryStock::create([
-    //         'inventory_warehouse_id' => $inventoryWarehouse->id,
-    //         'product_id' => $product->id,
-    //         'opening_stock' => 0,
-    //         'opening_rate' => 0,
-    //         'inventory_stock' => 0,
-    //         'incoming_stock' => 0,
-    //         'stock_after_sales' => 0,
-    //         'available_quantity' => 0,
-    //     ]);
-
-    //     return redirect('/erp/products')->with('success', 'Produk berhasil ditambahkan.');
     // }
 
     public function store(Request $request)
@@ -214,8 +271,11 @@ class ProductsController extends Controller
         $request->validate([
             'name' => 'required',
             'sku' => 'required|string',
-            'price' => 'required|numeric|min:0',
-            'fixed_cost' => 'nullable|numeric|min:0',
+            'base_unit_id' => 'required|exists:product_units,id',
+
+            // price product tetap dikirim hidden = 0
+            'price' => 'nullable|numeric|min:0',
+
             'description' => 'nullable',
             'short_description' => 'nullable',
             'categories' => 'nullable|array',
@@ -226,6 +286,8 @@ class ProductsController extends Controller
             'units.*.unit_id' => 'nullable|exists:product_units,id',
             'units.*.conversion_value' => 'nullable|numeric|min:0.01',
             'units.*.sale_price' => 'nullable|numeric|min:0',
+            'units.*.fixed_cost' => 'nullable|numeric|min:0',
+            'units.*.margin' => 'nullable|numeric|min:0',
         ]);
 
         if (Products::where('sku', $request->sku)->exists()) {
@@ -248,73 +310,75 @@ class ProductsController extends Controller
                     }
 
                     $image->move($destinationPath, $filename);
-
                     $imagePath = 'uploads/products/' . $filename;
                 }
-
-                $price = $request->filled('price') ? (float) $request->price : 0;
-                $fixedCost = $request->filled('fixed_cost') ? (float) $request->fixed_cost : 0;
 
                 $product = Products::create([
                     'name' => $request->name,
                     'sku' => $request->sku,
-                    'price' => $price,
+                    'base_unit_id' => $request->base_unit_id,
+
+                    // price product dipaksa 0
+                    'price' => 0,
+                    'fixed_cost' => 0,
+
                     'description' => $request->description,
                     'short_description' => $request->short_description,
                     'image' => $imagePath,
-                    'fixed_cost' => $fixedCost,
                     'stock' => 0,
                 ]);
 
                 $product->categories()->sync($request->categories ?? []);
                 $product->tags()->sync($request->tags ?? []);
 
-                /*
-            |--------------------------------------------------------------------------
-            | Product Unit Conversion
-            |--------------------------------------------------------------------------
-            | Pcs otomatis dibuat sebagai unit dasar.
-            | price produk = harga per pcs.
-            | fixed_cost = cost per pcs.
-            */
-                $pcsUnit = ProductUnit::whereRaw('LOWER(name) = ?', ['pcs'])->first();
-
-                if (!$pcsUnit) {
-                    $pcsUnit = ProductUnit::create([
-                        'name' => 'Pcs',
-                        'description' => 'Default base unit',
-                    ]);
-                }
-
-                ProductUnitConversion::create([
-                    'product_id' => $product->id,
-                    'unit_id' => $pcsUnit->id,
-                    'conversion_value' => 1,
-                    'sale_price' => $price,
-                    'purchase_price' => $fixedCost,
-                ]);
+                $savedUnitIds = [];
 
                 foreach ($request->units ?? [] as $unit) {
                     $unitId = $unit['unit_id'] ?? null;
                     $conversionValue = $unit['conversion_value'] ?? null;
-                    $salePrice = $unit['sale_price'] ?? null;
+                    $salePrice = $unit['sale_price'] ?? 0;
+                    $fixedCost = $unit['fixed_cost'] ?? 0;
+                    $margin = $unit['margin'] ?? 0;
 
-                    // Row kosong dari blade diabaikan.
-                    if (empty($unitId) && empty($conversionValue) && empty($salePrice)) {
+                    if (empty($unitId) && empty($conversionValue) && empty($salePrice) && empty($fixedCost) && empty($margin)) {
                         continue;
                     }
 
-                    // Jangan simpan Pcs lagi, karena sudah otomatis dibuat di atas.
-                    if ((int) $unitId === (int) $pcsUnit->id) {
+                    if (empty($unitId)) {
                         continue;
                     }
+
+                    if ((int) $unitId === (int) $request->base_unit_id) {
+                        $conversionValue = 1;
+                    }
+
+                    if (in_array((int) $unitId, $savedUnitIds, true)) {
+                        continue;
+                    }
+
+                    $savedUnitIds[] = (int) $unitId;
 
                     ProductUnitConversion::create([
                         'product_id' => $product->id,
                         'unit_id' => $unitId,
                         'conversion_value' => $conversionValue,
-                        'sale_price' => $salePrice ?? 0,
+                        'sale_price' => $salePrice,
                         'purchase_price' => 0,
+                        'fixed_cost' => $fixedCost,
+                        'margin' => $margin,
+                    ]);
+                }
+
+                // Pastikan base unit tetap tersimpan walaupun user tidak tambah row base unit
+                if (!in_array((int) $request->base_unit_id, $savedUnitIds, true)) {
+                    ProductUnitConversion::create([
+                        'product_id' => $product->id,
+                        'unit_id' => $request->base_unit_id,
+                        'conversion_value' => 1,
+                        'sale_price' => 0,
+                        'purchase_price' => 0,
+                        'fixed_cost' => 0,
+                        'margin' => 0,
                     ]);
                 }
 
@@ -326,10 +390,8 @@ class ProductsController extends Controller
                     ]
                 );
 
-                $productionWarehouseId = 2;
-
                 ProductionStock::create([
-                    'production_warehouse_id' => $productionWarehouseId,
+                    'production_warehouse_id' => 2,
                     'product_id' => $product->id,
                     'available_quantity' => 0,
                 ]);
@@ -404,85 +466,16 @@ class ProductsController extends Controller
         ));
     }
 
-    // public function update(Request $request, $id)
-    // {
-    //     $request->validate([
-    //         'name' => 'required',
-    //         'sku' => 'required|string',
-    //         'price' => 'required',
-    //         'stock' => 'required',
-    //         'sale_price' => 'nullable',
-    //         'description' => 'nullable',
-    //         'short_description' => 'nullable',
-    //         'categories' => 'required|array',
-    //         'tags' => 'required|array',
-    //         'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-    //     ]);
-
-    //     if (Products::where('sku', $request->sku)->where('id', '!=', $id)->exists()) {
-    //         return redirect()->back()
-    //             ->withInput()
-    //             ->with('error', 'SKU sudah digunakan oleh produk lain. Silakan gunakan SKU lain.');
-    //     }
-
-    //     $product = Products::findOrFail($id);
-    //     $imagePath = $product->image;
-    //     $imageUrl = null;
-
-    //     if ($request->hasFile('image')) {
-    //         $image = $request->file('image');
-    //         $filename = time() . '_' . $image->getClientOriginalName();
-    //         $destinationPath = public_path('uploads/products');
-
-    //         if (!file_exists($destinationPath)) {
-    //             mkdir($destinationPath, 0755, true);
-    //         }
-
-    //         $image->move($destinationPath, $filename);
-
-    //         $imagePath = 'uploads/products/' . $filename;
-    //         $imageUrl = asset($imagePath);
-    //     }
-
-    //     $price = $request->filled('price') ? $request->price : 0;
-    //     $fixedCost = $request->filled('fixed_cost') ? $request->fixed_cost : 0;
-
-    //     $product->update([
-    //         'name' => $request->name,
-    //         'sku' => $request->sku,
-    //         'price' => $price,
-    //         'sale_price' => $request->sale_price,
-    //         'description' => $request->description,
-    //         'short_description' => $request->short_description,
-    //         'stock' => $request->stock,
-    //         'image' => $imagePath,
-    //         'fixed_cost' => $fixedCost,
-    //     ]);
-
-    //     $bundleIds = \App\Models\ProductBundleItem::where('product_id', $id)
-    //         ->pluck('bundle_id')
-    //         ->unique();
-
-    //     foreach ($bundleIds as $bundleId) {
-    //         $total = \App\Models\ProductBundleItem::where('bundle_id', $bundleId)
-    //             ->join('products', 'product_bundle_items.product_id', '=', 'products.id')
-    //             ->sum('products.price');
-
-    //         \App\Models\ProductBundle::where('id', $bundleId)->update(['price' => $total]);
-    //     }
-
-    //     $product->categories()->sync($request->categories);
-    //     $product->tags()->sync($request->tags);
-
-    //     return redirect('/erp/products')->with('success', 'Produk berhasil diperbarui.');
-    // }
     public function update(Request $request, $id)
     {
         $request->validate([
             'name' => 'required',
             'sku' => 'required|string',
-            'price' => 'required|numeric|min:0',
-            'fixed_cost' => 'nullable|numeric|min:0',
+            'base_unit_id' => 'required|exists:product_units,id',
+
+            // Product price tetap hidden / default 0
+            'price' => 'nullable|numeric|min:0',
+
             'sale_price' => 'nullable',
             'description' => 'nullable',
             'short_description' => 'nullable',
@@ -494,6 +487,8 @@ class ProductsController extends Controller
             'units.*.unit_id' => 'nullable|exists:product_units,id',
             'units.*.conversion_value' => 'nullable|numeric|min:0.01',
             'units.*.sale_price' => 'nullable|numeric|min:0',
+            'units.*.fixed_cost' => 'nullable|numeric|min:0',
+            'units.*.margin' => 'nullable|numeric|min:0',
         ]);
 
         if (Products::where('sku', $request->sku)->where('id', '!=', $id)->exists()) {
@@ -518,64 +513,41 @@ class ProductsController extends Controller
                     }
 
                     $image->move($destinationPath, $filename);
-
                     $imagePath = 'uploads/products/' . $filename;
                 }
-
-                $price = $request->filled('price') ? (float) $request->price : 0;
-                $fixedCost = $request->filled('fixed_cost') ? (float) $request->fixed_cost : 0;
 
                 $product->update([
                     'name' => $request->name,
                     'sku' => $request->sku,
-                    'price' => $price,
+                    'base_unit_id' => $request->base_unit_id,
+
+                    // product price/fixed_cost tidak dipakai lagi
+                    'price' => 0,
+                    'fixed_cost' => 0,
+
                     'sale_price' => $request->sale_price,
                     'description' => $request->description,
                     'short_description' => $request->short_description,
                     'image' => $imagePath,
-                    'fixed_cost' => $fixedCost,
                 ]);
 
-                /*
-            |--------------------------------------------------------------------------
-            | Update Product Unit Conversion
-            |--------------------------------------------------------------------------
-            | Pcs otomatis selalu ada.
-            | price produk = harga Pcs.
-            | fixed_cost = cost Pcs.
-            */
-
-                $pcsUnit = ProductUnit::whereRaw('LOWER(name) = ?', ['pcs'])->first();
-
-                if (!$pcsUnit) {
-                    $pcsUnit = ProductUnit::create([
-                        'name' => 'Pcs',
-                        'description' => 'Default base unit',
-                    ]);
-                }
-
-                ProductUnitConversion::updateOrCreate(
-                    [
-                        'product_id' => $product->id,
-                        'unit_id' => $pcsUnit->id,
-                    ],
-                    [
-                        'conversion_value' => 1,
-                        'sale_price' => $price,
-                        'purchase_price' => $fixedCost,
-                    ]
-                );
-
-                $keepUnitIds = [
-                    $pcsUnit->id,
-                ];
+                $keepUnitIds = [];
+                $savedUnitIds = [];
 
                 foreach ($request->units ?? [] as $unit) {
                     $unitId = $unit['unit_id'] ?? null;
                     $conversionValue = $unit['conversion_value'] ?? null;
-                    $salePrice = $unit['sale_price'] ?? null;
+                    $salePrice = $unit['sale_price'] ?? 0;
+                    $fixedCost = $unit['fixed_cost'] ?? 0;
+                    $margin = $unit['margin'] ?? 0;
 
-                    if (empty($unitId) && empty($conversionValue) && empty($salePrice)) {
+                    if (
+                        empty($unitId) &&
+                        empty($conversionValue) &&
+                        empty($salePrice) &&
+                        empty($fixedCost) &&
+                        empty($margin)
+                    ) {
                         continue;
                     }
 
@@ -583,9 +555,16 @@ class ProductsController extends Controller
                         continue;
                     }
 
-                    if ((int) $unitId === (int) $pcsUnit->id) {
+                    if ((int) $unitId === (int) $request->base_unit_id) {
+                        $conversionValue = 1;
+                    }
+
+                    if (in_array((int) $unitId, $savedUnitIds, true)) {
                         continue;
                     }
+
+                    $savedUnitIds[] = (int) $unitId;
+                    $keepUnitIds[] = (int) $unitId;
 
                     ProductUnitConversion::updateOrCreate(
                         [
@@ -596,10 +575,29 @@ class ProductsController extends Controller
                             'conversion_value' => $conversionValue,
                             'sale_price' => $salePrice ?? 0,
                             'purchase_price' => 0,
+                            'fixed_cost' => $fixedCost ?? 0,
+                            'margin' => $margin ?? 0,
+                        ]
+                    );
+                }
+
+                // Pastikan base unit selalu ada
+                if (!in_array((int) $request->base_unit_id, $keepUnitIds, true)) {
+                    ProductUnitConversion::updateOrCreate(
+                        [
+                            'product_id' => $product->id,
+                            'unit_id' => $request->base_unit_id,
+                        ],
+                        [
+                            'conversion_value' => 1,
+                            'sale_price' => 0,
+                            'purchase_price' => 0,
+                            'fixed_cost' => 0,
+                            'margin' => 0,
                         ]
                     );
 
-                    $keepUnitIds[] = (int) $unitId;
+                    $keepUnitIds[] = (int) $request->base_unit_id;
                 }
 
                 ProductUnitConversion::where('product_id', $product->id)

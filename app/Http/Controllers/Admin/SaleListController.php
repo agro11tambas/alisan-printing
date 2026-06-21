@@ -221,7 +221,6 @@ class SaleListController extends Controller
 
                 $paymentStatus .= '</div>';
 
-
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
 
                 $mode = strtolower($order->mode ?? 'printing');
@@ -241,7 +240,8 @@ class SaleListController extends Controller
                     ])
                     ->get()
                     ->map(function ($item) {
-                        $displayQty = $item->qty_base ?? ($item->quantity * ($item->unit_conversion_value ?? 1));
+                        // $displayQty = $item->qty_base ?? ($item->quantity * ($item->unit_conversion_value ?? 1));
+                        $displayQty = $item->quantity;
                         // Ambil deliveryData dan deliveryListItems (sama untuk semua tipe)
                         $deliveryData = $item->order
                             ->deliveryOrders()
@@ -270,7 +270,9 @@ class SaleListController extends Controller
                             return [[
                                 'name'              => e($item->product->name) . ' <span class="badge bg-soft-success text-success">Satuan</span>',
                                 'sku'               => e($item->product->sku),
-                                'qty' => number_format($displayQty, 0, ',', '.'),
+                                'mode'              => $item->mode ?? '-',
+                                'unit_name'         => $item->unit_name ?? '-',
+                                'qty' => number_format($displayQty, 0, ',', '.') . ' ' . $item->unit_name,
                                 'price'             => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
                                 'progress_qty'      => number_format($progressQty, 0, ',', '.'),
                                 'ready_qty'         => number_format($readyQty, 0, ',', '.'),
@@ -313,7 +315,9 @@ class SaleListController extends Controller
                             return [[
                                 'name'              => e($bundleNames) . ' <span class="badge bg-soft-primary text-primary">Bundle</span>',
                                 'sku'               => e($item->productBundle->sku ?? '-'),
-                                'qty' => number_format($displayQty, 0, ',', '.'),
+                                'mode'              => $item->mode ?? '-',
+                                'unit_name'         => $item->unit_name ?? '-',
+                                'qty' => number_format($displayQty, 0, ',', '.') . ' ' . $item->unit_name,
                                 'price'             => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
                                 'progress_qty'      => '-',
                                 'ready_qty'         => '-',
@@ -346,10 +350,7 @@ class SaleListController extends Controller
                     ->flatten(1)
                     ->values();
 
-                // $isCompleted = $items->every(function ($i) {
-                //     return $i['raw_progress_qty'] > 0
-                //         && $i['raw_delivered_qty'] >= $i['raw_progress_qty'];
-                // });
+
 
                 $isCompleted = $items->every(function ($i) {
                     return $i['raw_delivered_qty'] >= ($i['raw_qty'] ?? 0);
@@ -745,11 +746,6 @@ class SaleListController extends Controller
                     })
                     ->flatten(1)
                     ->values();
-
-                // $isCompleted = $items->every(function ($i) {
-                //     return $i['raw_progress_qty'] > 0
-                //         && $i['raw_delivered_qty'] >= $i['raw_progress_qty'];
-                // });
 
                 $isCompleted = $items->every(function ($i) {
                     return $i['raw_delivered_qty'] >= ($i['raw_qty'] ?? 0);
@@ -1350,9 +1346,9 @@ class SaleListController extends Controller
 
                     $inventoryStock->decrement('stock_after_sales', $qtyBase);
 
-                    if ($itemMode === 'polosan') {
-                        $inventoryStock->decrement('inventory_stock', $qtyBase);
-                    }
+                    // if ($itemMode === 'polosan') {
+                    //     $inventoryStock->decrement('inventory_stock', $qtyBase);
+                    // }
                 } elseif ($type === 'bundle') {
                     $bundle = ProductBundle::with('items.product')->findOrFail($productInputId);
 
@@ -1415,59 +1411,60 @@ class SaleListController extends Controller
 
                         $componentInventoryStock->decrement('stock_after_sales', $totalQty);
 
-                        if ($itemMode === 'polosan') {
-                            $componentInventoryStock->decrement('inventory_stock', $totalQty);
-                        }
+                        // if ($itemMode === 'polosan') {
+                        //     $componentInventoryStock->decrement('inventory_stock', $totalQty);
+                        // }
                     }
                 }
             }
 
-            $orderItems = $order->orderItems()->with('productBundle.items.product')->get();
-
-            $hasPrinting = $orderItems->contains(fn($item) => $item->mode === 'printing');
-            $hasPolosan  = $orderItems->contains(fn($item) => $item->mode === 'polosan');
+            $orderItems = $order->orderItems()
+                ->with(['productBundle.items.product'])
+                ->get();
 
             $design = Design::create([
                 'order_id'            => $order->id,
                 'design_number'       => $orderNumber,
                 'date'                => now()->format('Y-m-d'),
-                'status'              => $hasPrinting ? 'Pending' : 'Verified',
+                'status'              => 'Pending',
                 'notes'               => null,
-                'verification_status' => $hasPrinting ? 'pending' : 'approved',
-                'verified_by'         => $hasPrinting ? null : Auth::id(),
-                'verified_at'         => $hasPrinting ? null : now(),
+                'verification_status' => 'pending',
+                'verified_by'         => null,
+                'verified_at'         => null,
             ]);
 
-            $polosanDesignItems = [];
-
             foreach ($orderItems as $orderItem) {
-                // $qty = $orderItem->quantity;
-                $qty = in_array($orderItem->satuan, ['satuan', 'bundle'])
-                    ? ($orderItem->qty_base ?? $orderItem->quantity)
-                    : $orderItem->quantity;
-
-                $verificationStatus = $orderItem->mode === 'printing'
-                    ? 'pending'
-                    : 'approved';
+                $qtyInput = $orderItem->quantity;
 
                 if ($orderItem->satuan === 'satuan') {
-                    $designItem = DesignItem::create([
+                    if (!$orderItem->product_id) {
+                        continue;
+                    }
+
+                    DesignItem::create([
                         'design_id'           => $design->id,
                         'order_item_id'       => $orderItem->id,
                         'product_id'          => $orderItem->product_id,
-                        'quantity'            => $qty,
+                        'quantity'            => $qtyInput,
                         'completed_quantity'  => 0,
+
+                        'product_unit_conversion_id' => $orderItem->product_unit_conversion_id,
+                        'unit_name' => $orderItem->unit_name,
+                        'unit_conversion_value' => $orderItem->unit_conversion_value,
+
                         'design_file'         => null,
                         'preview_image'       => null,
-                        'verification_status' => $verificationStatus,
+                        'verification_status' => 'pending',
                     ]);
 
-                    if ($orderItem->mode === 'polosan') {
-                        $polosanDesignItems[] = $designItem;
-                    }
+                    continue;
                 }
 
                 if ($orderItem->satuan === 'bundle') {
+                    if (!$orderItem->productBundle) {
+                        continue;
+                    }
+
                     foreach ($orderItem->productBundle->items as $bundleItem) {
                         $bundleProduct = $bundleItem->product;
 
@@ -1475,73 +1472,23 @@ class SaleListController extends Controller
                             continue;
                         }
 
-                        $designItem = DesignItem::create([
+                        $componentQty = $qtyInput * ($bundleItem->quantity ?? 1);
+
+                        DesignItem::create([
                             'design_id'           => $design->id,
                             'order_item_id'       => $orderItem->id,
                             'product_id'          => $bundleProduct->id,
-                            'quantity' => $qty * ($bundleItem->quantity ?? 1),
+                            'quantity'            => $componentQty,
                             'completed_quantity'  => 0,
+                            'product_unit_conversion_id' => $orderItem->product_unit_conversion_id,
+                            'unit_name' => $orderItem->unit_name,
+                            'unit_conversion_value' => $orderItem->unit_conversion_value,
+
                             'design_file'         => null,
                             'preview_image'       => null,
-                            'verification_status' => $verificationStatus,
+                            'verification_status' => 'pending',
                         ]);
-
-                        if ($orderItem->mode === 'polosan') {
-                            $polosanDesignItems[] = $designItem;
-                        }
                     }
-                }
-            }
-
-            if ($hasPolosan) {
-                $orderProgress = OrderProgress::create([
-                    'order_id'       => $order->id,
-                    'design_id'      => $design->id,
-                    'date'           => now()->format('Y-m-d'),
-                    'status'         => 'Completed',
-                    'notes'          => null,
-                    'invoice_number' => $order->order_number,
-                ]);
-
-                $progressItems = [];
-
-                foreach ($polosanDesignItems as $designItem) {
-                    $progressItems[] = OrderProgressItem::create([
-                        'order_progress_id'  => $orderProgress->id,
-                        'design_item_id'     => $designItem->id,
-                        'order_item_id'      => $designItem->order_item_id,
-                        'product_id'         => $designItem->product_id,
-                        'quantity'           => $designItem->quantity,
-                        'completed_quantity' => $designItem->quantity,
-                    ]);
-                }
-
-                $deliveryOrder = DeliveryOrder::create([
-                    'order_id'         => $order->id,
-                    'design_id'        => $design->id,
-                    'delivery_number'  => $order->order_number,
-                    'delivery_date'    => now()->format('Y-m-d'),
-                    'note'             => $order->notes ?? '',
-                    'status'           => 'Ongoing',
-                    'customer'         => $order->customer->name,
-                    'shipping_address' => $order->shipping_address,
-                    'google_map_link'  => $order->google_maps,
-                    'created_by'       => Auth::id(),
-                ]);
-
-                foreach ($progressItems as $progressItem) {
-                    DeliveryOrderItem::create([
-                        'delivery_order_id'      => $deliveryOrder->id,
-                        'order_progress_id'      => $orderProgress->id,
-                        'order_item_id'          => $progressItem->order_item_id,
-                        'order_progress_item_id' => $progressItem->id,
-                        'design_item_id'         => $progressItem->design_item_id,
-                        'product_id'             => $progressItem->product_id,
-                        'status'                 => 'Completed',
-                        'progress_qty'           => $progressItem->quantity,
-                        'ready_qty'              => $progressItem->quantity,
-                        'note'                   => null,
-                    ]);
                 }
             }
 
@@ -1800,6 +1747,8 @@ class SaleListController extends Controller
 
             'unit_name' => 'nullable|array',
             'unit_name.*' => 'nullable|string',
+            'order_item_id'   => 'nullable|array',
+            'order_item_id.*' => 'nullable|exists:order_items,id',
         ]);
 
         DB::beginTransaction();
@@ -1828,18 +1777,18 @@ class SaleListController extends Controller
             }
 
             $mapItems = function ($items) {
-                return $items->mapWithKeys(function ($item) {
-                    $key = $item->satuan === 'satuan'
-                        ? 'satuan_' . $item->product_id
-                        : 'bundle_' . $item->product_bundle_id;
+                return $items->values()->mapWithKeys(function ($item, $index) {
+                    $key = 'item_' . ($item->id ?? $index);
 
                     return [$key => [
+                        'id'              => $item->id,
                         'product'         => $item->product_name,
                         'satuan'          => $item->satuan,
                         'mode'            => $item->mode,
                         'product_id'      => $item->product_id,
                         'bundle_id'       => $item->product_bundle_id,
                         'quantity'        => (int) $item->quantity,
+                        'qty_base'        => (float) ($item->qty_base ?? $item->quantity),
                         'price'           => (float) $item->price,
                         'subtotal'        => (float) $item->subtotal,
                         'discount_price'  => (float) $item->discount_price,
@@ -2037,26 +1986,32 @@ class SaleListController extends Controller
                 $isPriceOnlyUpdate = false;
             }
 
-            // 2) CEK perubahan product & qty
-            $existingKeys = $order->orderItems->map(function ($item) {
-                return $item->satuan . '_' . ($item->satuan === 'satuan' ? $item->product_id : $item->product_bundle_id);
-            })->toArray();
-
-            $newKeys = $request->product;
-
-            // jumlah item beda → pasti bukan price only
-            if (count($existingKeys) !== count($newKeys)) {
+            // 2) CEK perubahan product & qty BERDASARKAN order_item_id
+            if (count($order->orderItems) !== count($request->product)) {
                 $isPriceOnlyUpdate = false;
             } else {
-                // cek item satu per satu
                 foreach ($request->product as $i => $newKey) {
-                    if (!in_array($newKey, $existingKeys)) {
+                    $orderItemId = $request->order_item_id[$i] ?? null;
+
+                    if (!$orderItemId) {
                         $isPriceOnlyUpdate = false;
                         break;
                     }
-                    $oldItemQty = $order->orderItems[$i]->quantity;
-                    $newQty     = (int) $request->qty[$i];
-                    if ($newQty !== $oldItemQty) {
+
+                    $oldItem = $order->orderItems->firstWhere('id', (int) $orderItemId);
+
+                    if (!$oldItem) {
+                        $isPriceOnlyUpdate = false;
+                        break;
+                    }
+
+                    $oldKey = $oldItem->satuan === 'satuan'
+                        ? 'satuan_' . $oldItem->product_id
+                        : 'bundle_' . $oldItem->product_bundle_id;
+
+                    $newQty = (int) str_replace('.', '', $request->qty[$i]);
+
+                    if ($oldKey !== $newKey || $newQty !== (int) $oldItem->quantity) {
                         $isPriceOnlyUpdate = false;
                         break;
                     }
@@ -2152,23 +2107,29 @@ class SaleListController extends Controller
             }
 
             // ================== 🔥 CEK PERUBAHAN PRODUK (Bukan Penambahan) ==================
-            $existingProductKeys = $order->orderItems->map(function ($item) {
-                return $item->satuan . '_' . ($item->satuan === 'satuan' ? $item->product_id : $item->product_bundle_id);
-            })->values()->toArray(); // tambahkan values() untuk reindex
-
-            $newProductKeys = $request->product;
-
-            // 🔹 Deteksi PERUBAHAN produk (bukan penambahan)
             $isProductChanged = false;
 
-            // Ambil jumlah item yang sama
-            $minCount = min(count($existingProductKeys), count($newProductKeys));
+            foreach ($request->product as $i => $newProductValue) {
+                $orderItemId = $request->order_item_id[$i] ?? null;
 
-            // Cek apakah ada produk lama yang DIGANTI dengan produk lain (di posisi yang sama)
-            for ($i = 0; $i < $minCount; $i++) {
-                if ($existingProductKeys[$i] !== $newProductKeys[$i]) {
+                if (!$orderItemId) {
+                    continue; // item baru, bukan perubahan produk lama
+                }
+
+                $oldItem = $order->orderItems->firstWhere('id', (int) $orderItemId);
+
+                if (!$oldItem) {
+                    continue;
+                }
+
+                $oldProductValue = $oldItem->satuan === 'satuan'
+                    ? 'satuan_' . $oldItem->product_id
+                    : 'bundle_' . $oldItem->product_bundle_id;
+
+                if ($oldProductValue !== $newProductValue) {
                     $isProductChanged = true;
-                    Log::info("🔄 Product changed at index {$i}: {$existingProductKeys[$i]} → {$newProductKeys[$i]}");
+
+                    Log::info("🔄 Product changed on order_item_id {$orderItemId}: {$oldProductValue} → {$newProductValue}");
                     break;
                 }
             }
@@ -2270,12 +2231,8 @@ class SaleListController extends Controller
             ]);
 
             // ================== SYNC ORDER ITEMS ==================
-            $existingItems = $order->orderItems->keyBy(function ($item) {
-                if ($item->satuan === 'satuan') {
-                    return 'satuan_' . $item->product_id;
-                }
-                return 'bundle_' . $item->product_bundle_id;
-            });
+            $existingItems = $order->orderItems->keyBy('id');
+            $submittedItemIds = [];
 
             // ✅ CEK jika design sudah diverifikasi - PERBAIKAN QUERY
             $designVerified = \App\Models\Design::where('order_id', $order->id)
@@ -2306,6 +2263,28 @@ class SaleListController extends Controller
             $newKeys = [];
             $polosanToPrintingOrderItemIds = [];
 
+            $getDesignItemUnitData = function ($orderItem) {
+                return [
+                    'product_unit_conversion_id' => $orderItem->satuan === 'satuan'
+                        ? $orderItem->product_unit_conversion_id
+                        : $orderItem->product_bundle_unit_conversion_id,
+
+                    'unit_name' => $orderItem->unit_name,
+
+                    'unit_conversion_value' => $orderItem->unit_conversion_value,
+                ];
+            };
+
+            $getDesignItemQuantity = function ($component, $orderItem) {
+                $conversion = (float) ($orderItem->unit_conversion_value ?? 1);
+
+                if ($conversion <= 0) {
+                    $conversion = 1;
+                }
+
+                return (float) $component->qty / $conversion;
+            };
+
             foreach ($request->product as $index => $productValue) {
                 // productValue bisa "satuan_5" atau "bundle_9"
                 [$type, $productId] = explode('_', $productValue);
@@ -2313,17 +2292,42 @@ class SaleListController extends Controller
                 $qty = (int) $request->qty[$index];
                 $itemMode = $request->mode[$index] ?? 'printing';
 
-                $unitConversionId = $request->product_unit_id[$index] ?? null;
+                $unitConversionId = $request->input("product_unit_id.$index");
 
-                if (!is_numeric($unitConversionId)) {
+                if ($unitConversionId === '' || $unitConversionId === 'null' || !is_numeric($unitConversionId)) {
                     $unitConversionId = null;
                 }
 
-                $unitConversionValue = (float) ($request->unit_conversion_value[$index] ?? 1);
-                $unitName = $request->unit_name[$index] ?? 'Pcs';
+                $unitConversionValue = (float) $request->input("unit_conversion_value.$index", 0);
+                $unitName = $request->input("unit_name.$index");
+
+                // fallback ambil dari database kalau form/JS tidak kirim unit
+                if ($unitConversionId) {
+                    if ($type === 'satuan') {
+                        $unit = \App\Models\ProductUnitConversion::find($unitConversionId);
+
+                        if ($unit) {
+                            $unitConversionValue = (float) ($unitConversionValue ?: $unit->conversion_value);
+                            $unitName = $unitName ?: ($unit->unit_name ?? $unit->unit?->name ?? 'Pcs');
+                        }
+                    }
+
+                    if ($type === 'bundle') {
+                        $unit = \App\Models\ProductBundleUnitConversion::find($unitConversionId);
+
+                        if ($unit) {
+                            $unitConversionValue = (float) ($unitConversionValue ?: $unit->conversion_value);
+                            $unitName = $unitName ?: ($unit->unit_name ?? $unit->unit?->name ?? 'Pcs');
+                        }
+                    }
+                }
 
                 if ($unitConversionValue <= 0) {
                     $unitConversionValue = 1;
+                }
+
+                if (!$unitName) {
+                    $unitName = 'Pcs';
                 }
 
                 $qtyBase = $qty * $unitConversionValue;
@@ -2331,10 +2335,16 @@ class SaleListController extends Controller
                 $key = "{$type}_{$productId}";
                 $newKeys[] = $key;
 
+                $orderItemId = $request->order_item_id[$index] ?? null;
+
+                $orderItem = $orderItemId
+                    ? $existingItems->get((int) $orderItemId)
+                    : null;
+
                 // 🔎 CEK COMPLETED QUANTITY — pastikan quantity baru tidak lebih kecil dari completed_quantity
                 // 🔎 CEK PROGRESS (COMPLETED + ACTIVE ASSIGN)
                 if ($type === 'satuan') {
-                    $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $existingItems[$key]->id ?? null)
+                    $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $orderItem?->id)
                         ->where('product_id', $productId)
                         ->first();
 
@@ -2356,7 +2366,7 @@ class SaleListController extends Controller
                     $bundle = \App\Models\ProductBundle::with('items')->find($productId);
                     if ($bundle) {
                         foreach ($bundle->items as $bundleItem) {
-                            $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $existingItems[$key]->id ?? null)
+                            $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $orderItem?->id)
                                 ->where('product_id', $bundleItem->product_id)
                                 ->first();
 
@@ -2383,7 +2393,7 @@ class SaleListController extends Controller
 
                 // 🔎 CEK PROGRESS HISTORY — pastikan qty baru tidak < total change_quantity
                 if ($type === 'satuan') {
-                    $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $existingItems[$key]->id ?? null)
+                    $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $orderItem?->id)
                         ->where('product_id', $productId)
                         ->first();
 
@@ -2400,7 +2410,7 @@ class SaleListController extends Controller
                     $bundle = \App\Models\ProductBundle::with('items')->find($productId);
                     if ($bundle) {
                         foreach ($bundle->items as $bundleItem) {
-                            $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $existingItems[$key]->id ?? null)
+                            $progressItem = \App\Models\OrderProgressItem::where('order_item_id', $orderItem?->id)
                                 ->where('product_id', $bundleItem->product_id)
                                 ->first();
 
@@ -2419,9 +2429,8 @@ class SaleListController extends Controller
                     }
                 }
 
-                if ($existingItems->has($key)) {
-                    // update item lama
-                    $orderItem = $existingItems[$key];
+                if ($orderItem) {
+                    $submittedItemIds[] = (int) $orderItem->id;
                     $oldMode   = $orderItem->mode;
                     // $diffQty   = $qty - $orderItem->quantity;
 
@@ -2664,11 +2673,13 @@ class SaleListController extends Controller
                         \App\Models\OrderProgressItem::where('order_item_id', $orderItem->id)
                             ->delete();
 
+                        $unitData = $getDesignItemUnitData($orderItem);
+
                         \App\Models\DesignItem::where('order_item_id', $orderItem->id)
-                            ->update([
+                            ->update(array_merge([
                                 'verification_status' => 'pending',
                                 'completed_quantity'  => 0,
-                            ]);
+                            ], $unitData));
                     }
 
                     // === HANDLE COMPONENTS ===
@@ -2924,6 +2935,8 @@ class SaleListController extends Controller
                             'total_after_discount' => $request->total_after_discount[$index],
                         ]);
 
+                        $submittedItemIds[] = (int) $orderItem->id;
+
                         // ✅ Buat komponen untuk produk satuan
                         $orderItem->components()->create([
                             'product_id'         => $product->id,
@@ -2972,34 +2985,7 @@ class SaleListController extends Controller
                             'total_after_discount' => $request->total_after_discount[$index],
                         ]);
 
-                        // ✅ Buat komponen untuk setiap item di dalam bundle
-                        // foreach ($bundle->items as $bundleItem) {
-                        //     $componentProduct = $bundleItem->product;
-                        //     if (!$componentProduct) continue;
-
-                        //     $orderItem->components()->create([
-                        //         'product_id'         => $componentProduct->id,
-                        //         'qty'                => $qty,
-                        //         'avg_cost_at_sale'   => $componentProduct->avg_cost ?? 0,
-                        //         'fixed_cost_at_sale' => $componentProduct->fixed_cost ?? 0,
-                        //         'total_cost'         => ($componentProduct->avg_cost ?? 0) * $qty,
-                        //         'total_fixed_cost'   => ($componentProduct->fixed_cost ?? 0) * $qty,
-                        //     ]);
-                        // }
-
-                        // // Kurangi stock untuk setiap item di dalam bundle
-                        // foreach ($bundle->items as $bundleItem) {
-                        //     if (!$bundleItem->product_id) continue;
-
-                        //     $inventoryStock = InventoryStock::firstOrCreate(
-                        //         [
-                        //             'product_id'             => $bundleItem->product_id,
-                        //             'inventory_warehouse_id' => $warehouseId,
-                        //         ],
-                        //         ['stock_after_sales' => 0]
-                        //     );
-                        //     $inventoryStock->decrement('stock_after_sales', $qty);
-                        // }
+                        $submittedItemIds[] = (int) $orderItem->id;
 
                         foreach ($bundle->items as $bundleItem) {
                             $componentProduct = $bundleItem->product;
@@ -3037,70 +3023,8 @@ class SaleListController extends Controller
                 }
             }
 
-            foreach ($existingItems as $key => $item) {
-                if (!in_array($key, $newKeys)) {
-
-                    // if ($item->mode === 'polosan') {
-                    //     if ($item->satuan === 'satuan') {
-                    //         $productionStock = \App\Models\ProductionStock::firstOrCreate(
-                    //             ['product_id' => $item->product_id],
-                    //             ['available_quantity' => 0]
-                    //         );
-
-                    //         $restoreQty = $item->qty_base ?? $item->quantity;
-
-                    //         $productionStock->increment('available_quantity', $restoreQty);
-                    //     } elseif ($item->satuan === 'bundle') {
-                    //         $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
-
-                    //         if ($bundle) {
-                    //             foreach ($bundle->items as $bundleItem) {
-                    //                 $restoreQty = ($item->qty_base ?? $item->quantity) * ($bundleItem->quantity ?? 1);
-
-                    //                 $inventoryStock = InventoryStock::firstOrCreate(
-                    //                     [
-                    //                         'product_id' => $bundleItem->product_id,
-                    //                         'inventory_warehouse_id' => $warehouseId,
-                    //                     ],
-                    //                     ['stock_after_sales' => 0]
-                    //                 );
-
-                    //                 $inventoryStock->increment('stock_after_sales', $restoreQty);
-
-                    //                 if ($item->mode === 'polosan') {
-                    //                     $inventoryStock->increment('inventory_stock', $restoreQty);
-                    //                 }
-                    //             }
-                    //         }
-                    //     }
-                    // }
-
-                    // if ($item->satuan === 'satuan') {
-                    //     $inventoryStock = InventoryStock::firstOrCreate(
-                    //         ['product_id' => $item->product_id, 'inventory_warehouse_id' => $warehouseId],
-                    //         ['stock_after_sales' => 0]
-                    //     );
-
-                    //     // $inventoryStock->increment('stock_after_sales', $item->quantity);
-                    //     $restoreQty = $item->satuan === 'satuan'
-                    //         ? ($item->qty_base ?? $item->quantity)
-                    //         : $item->quantity;
-
-                    //     $inventoryStock->increment('stock_after_sales', $restoreQty);
-                    // } else {
-                    //     $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
-
-                    //     if ($bundle) {
-                    //         foreach ($bundle->items as $bundleItem) {
-                    //             $inventoryStock = InventoryStock::firstOrCreate(
-                    //                 ['product_id' => $bundleItem->product_id, 'inventory_warehouse_id' => $warehouseId],
-                    //                 ['stock_after_sales' => 0]
-                    //             );
-
-                    //             $inventoryStock->increment('stock_after_sales', $item->quantity);
-                    //         }
-                    //     }
-                    // }
+            foreach ($existingItems as $item) {
+                if (!in_array((int) $item->id, $submittedItemIds, true)) {
 
                     if ($item->satuan === 'satuan') {
                         $restoreQty = $item->qty_base ?? $item->quantity;
@@ -3344,27 +3268,30 @@ class SaleListController extends Controller
                     }
 
                     $productId = $component->product_id;
-                    $qty       = $component->qty;
+                    $qty       = $component->qty; // ini tetap qty_base untuk progress/stock
+                    $designQty = $getDesignItemQuantity($component, $orderItem);
                     $key       = "{$component->order_item_id}_{$productId}";
 
                     $newDesignKeys[] = $key;
 
+                    $unitData = $getDesignItemUnitData($orderItem);
+
                     if ($existingDesignItems->has($key)) {
-                        $existingDesignItems[$key]->update([
-                            'quantity'            => $qty,
+                        $existingDesignItems[$key]->update(array_merge([
+                            'quantity'            => $designQty,
                             'verification_status' => 'pending',
-                        ]);
+                        ], $unitData));
                     } else {
-                        DesignItem::create([
+                        DesignItem::create(array_merge([
                             'design_id'           => $design->id,
                             'order_item_id'       => $orderItem->id,
                             'product_id'          => $productId,
-                            'quantity'            => $qty,
+                            'quantity'            => $designQty,
                             'completed_quantity'  => 0,
                             'design_file'         => null,
                             'preview_image'       => null,
                             'verification_status' => 'pending',
-                        ]);
+                        ], $unitData));
                     }
                 }
 
@@ -3520,12 +3447,8 @@ class SaleListController extends Controller
 
                 if ($design) {
                     $design->update([
-                        'date'                => now()->format('Y-m-d'),
-                        'notes'               => $request->notes ?? $design->notes,
-                        'status'              => $printingOrderItems->isNotEmpty() ? $design->status : 'Verified',
-                        'verification_status' => $printingOrderItems->isNotEmpty() ? $design->verification_status : 'approved',
-                        'verified_by'         => $printingOrderItems->isNotEmpty() ? $design->verified_by : ($design->verified_by ?? Auth::id()),
-                        'verified_at'         => $printingOrderItems->isNotEmpty() ? $design->verified_at : ($design->verified_at ?? now()),
+                        'date'  => now()->format('Y-m-d'),
+                        'notes' => $request->notes ?? $design->notes,
                     ]);
                 } else {
                     $design = Design::create([
@@ -3566,29 +3489,32 @@ class SaleListController extends Controller
                     }
 
                     $productId = $component->product_id;
-                    $qty       = $component->qty;
+                    $qty       = $component->qty; // ini qty_base
+                    $designQty = $getDesignItemQuantity($component, $orderItem);
                     $key       = "{$component->order_item_id}_{$productId}";
 
                     $newDesignKeys[] = $key;
 
+                    $unitData = $getDesignItemUnitData($orderItem);
+
                     if ($existingDesignItems->has($key)) {
                         $designItem = $existingDesignItems[$key];
 
-                        $designItem->update([
-                            'quantity'            => $qty,
+                        $designItem->update(array_merge([
+                            'quantity'            => $designQty,
                             'verification_status' => 'approved',
-                        ]);
+                        ], $unitData));
                     } else {
-                        DesignItem::create([
+                        DesignItem::create(array_merge([
                             'design_id'           => $design->id,
                             'order_item_id'       => $orderItem->id,
                             'product_id'          => $productId,
-                            'quantity'            => $qty,
+                            'quantity'            => $designQty,
                             'completed_quantity'  => 0,
                             'design_file'         => null,
                             'preview_image'       => null,
                             'verification_status' => 'approved',
-                        ]);
+                        ], $unitData));
                     }
                 }
 
@@ -3671,82 +3597,82 @@ class SaleListController extends Controller
                     }
                 }
 
-                $deliveryOrder = $order->deliveryOrders()->with('items')->first();
+                // $deliveryOrder = $order->deliveryOrders()->with('items')->first();
 
-                if ($deliveryOrder) {
-                    $deliveryOrder->update([
-                        'delivery_date'    => now()->format('Y-m-d'),
-                        'note'             => $request->notes ?? $deliveryOrder->note,
-                        'status'           => 'Ongoing',
-                        'customer'         => $order->customer?->name ?? $deliveryOrder->customer,
-                        'shipping_address' => $order->shipping_address ?? $deliveryOrder->shipping_address,
-                        'google_map_link'  => $order->google_maps ?? $deliveryOrder->google_map_link,
-                    ]);
-                } else {
-                    $deliveryOrder = DeliveryOrder::create([
-                        'order_id'         => $order->id,
-                        'design_id'        => $design->id,
-                        'delivery_number'  => $order->order_number,
-                        'delivery_date'    => now()->format('Y-m-d'),
-                        'note'             => $request->notes ?? null,
-                        'status'           => 'Ongoing',
-                        'customer'         => $order->customer?->name ?? '-',
-                        'shipping_address' => $order->shipping_address,
-                        'google_map_link'  => $order->google_maps,
-                        'created_by'       => Auth::id(),
-                    ]);
-                }
+                // if ($deliveryOrder) {
+                //     $deliveryOrder->update([
+                //         'delivery_date'    => now()->format('Y-m-d'),
+                //         'note'             => $request->notes ?? $deliveryOrder->note,
+                //         'status'           => 'Ongoing',
+                //         'customer'         => $order->customer?->name ?? $deliveryOrder->customer,
+                //         'shipping_address' => $order->shipping_address ?? $deliveryOrder->shipping_address,
+                //         'google_map_link'  => $order->google_maps ?? $deliveryOrder->google_map_link,
+                //     ]);
+                // } else {
+                //     $deliveryOrder = DeliveryOrder::create([
+                //         'order_id'         => $order->id,
+                //         'design_id'        => $design->id,
+                //         'delivery_number'  => $order->order_number,
+                //         'delivery_date'    => now()->format('Y-m-d'),
+                //         'note'             => $request->notes ?? null,
+                //         'status'           => 'Ongoing',
+                //         'customer'         => $order->customer?->name ?? '-',
+                //         'shipping_address' => $order->shipping_address,
+                //         'google_map_link'  => $order->google_maps,
+                //         'created_by'       => Auth::id(),
+                //     ]);
+                // }
 
-                $deliveryOrder->load('items');
-                $orderProgress->load('items');
+                // $deliveryOrder->load('items');
+                // $orderProgress->load('items');
 
-                $existingDoItems = $deliveryOrder->items
-                    ->filter(fn($item) => $item->orderItem?->mode === 'polosan')
-                    ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
+                // $existingDoItems = $deliveryOrder->items
+                //     ->filter(fn($item) => $item->orderItem?->mode === 'polosan')
+                //     ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
 
-                $newDoKeys = [];
+                // $newDoKeys = [];
 
-                foreach ($orderProgress->items as $progressItem) {
-                    if ($progressItem->orderItem?->mode !== 'polosan') {
-                        continue;
-                    }
+                // foreach ($orderProgress->items as $progressItem) {
+                //     if ($progressItem->orderItem?->mode !== 'polosan') {
+                //         continue;
+                //     }
 
-                    $key = $progressItem->order_item_id . '_' . $progressItem->product_id;
-                    $newDoKeys[] = $key;
+                //     $key = $progressItem->order_item_id . '_' . $progressItem->product_id;
+                //     $newDoKeys[] = $key;
 
-                    if ($existingDoItems->has($key)) {
-                        $existingDoItems[$key]->update([
-                            'order_progress_id'      => $orderProgress->id,
-                            'order_progress_item_id' => $progressItem->id,
-                            'design_item_id'         => $progressItem->design_item_id,
-                            'status'                 => 'Completed',
-                            'progress_qty'           => $progressItem->quantity,
-                            'ready_qty'              => $progressItem->quantity,
-                            'shipped_qty'            => $existingDoItems[$key]->shipped_qty ?? 0,
-                            'note'                   => null,
-                        ]);
-                    } else {
-                        DeliveryOrderItem::create([
-                            'delivery_order_id'      => $deliveryOrder->id,
-                            'order_progress_id'      => $orderProgress->id,
-                            'order_item_id'          => $progressItem->order_item_id,
-                            'order_progress_item_id' => $progressItem->id,
-                            'design_item_id'         => $progressItem->design_item_id,
-                            'product_id'             => $progressItem->product_id,
-                            'status'                 => 'Completed',
-                            'progress_qty'           => $progressItem->quantity,
-                            'ready_qty'              => $progressItem->quantity,
-                            'shipped_qty'            => 0,
-                            'note'                   => null,
-                        ]);
-                    }
-                }
+                //     if ($existingDoItems->has($key)) {
+                //         $existingDoItems[$key]->update([
+                //             'order_progress_id'      => $orderProgress->id,
+                //             'order_progress_item_id' => $progressItem->id,
+                //             'design_item_id'         => $progressItem->design_item_id,
+                //             'status'                 => 'Completed',
+                //             'progress_qty'           => $progressItem->quantity,
+                //             'ready_qty'              => $progressItem->quantity,
+                //             'shipped_qty'            => $existingDoItems[$key]->shipped_qty ?? 0,
+                //             'note'                   => null,
+                //         ]);
+                //     } else {
+                //         DeliveryOrderItem::create([
+                //             'delivery_order_id'      => $deliveryOrder->id,
+                //             'order_progress_id'      => $orderProgress->id,
+                //             'order_item_id'          => $progressItem->order_item_id,
+                //             'order_progress_item_id' => $progressItem->id,
+                //             'design_item_id'         => $progressItem->design_item_id,
+                //             'product_id'             => $progressItem->product_id,
+                //             'status'                 => 'Completed',
+                //             'progress_qty'           => $progressItem->quantity,
+                //             'ready_qty'              => $progressItem->quantity,
+                //             'shipped_qty'            => 0,
+                //             'note'                   => null,
+                //         ]);
+                //     }
+                // }
 
-                foreach ($existingDoItems as $key => $doItem) {
-                    if (!in_array($key, $newDoKeys)) {
-                        $doItem->delete();
-                    }
-                }
+                // foreach ($existingDoItems as $key => $doItem) {
+                //     if (!in_array($key, $newDoKeys)) {
+                //         $doItem->delete();
+                //     }
+                // }
             }
 
             // ================== HANDLE ACCOUNT TRANSACTIONS ==================

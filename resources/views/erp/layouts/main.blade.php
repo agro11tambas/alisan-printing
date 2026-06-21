@@ -941,9 +941,7 @@
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             // Default langsung minimize
-            // document.documentElement.classList.add("minimenu");
-
-            document.documentElement.classList.remove("minimenu");
+            document.documentElement.classList.add("minimenu");
 
             const nav = document.querySelector(".nxl-navigation .navbar-content");
             if (!nav) return;

@@ -188,8 +188,8 @@
         }
 
         /* .sale-tabs {
-                                                                                                                                                                                                                                                                                                                                                                                                        display: none !important;
-                                                                                                                                                                                                                                                                                                                                                                                                    } */
+                                                                                                                                                                                                                                                                                                                                                                                                            display: none !important;
+                                                                                                                                                                                                                                                                                                                                                                                                        } */
 
         .sale-mobile-action {
             display: none;
@@ -834,6 +834,8 @@
                         <th>SKU</th>
                         <th>Qty</th>
                         <th class="text-end">Price</th>
+                        <th class="text-end">Mode</th>    
+                        <th class="text-end">Unit</th>                    
                         <th class="text-end">Progress</th>
                         <th class="text-end">Delivered</th>
                         <th class="text-end">On Delivery</th>
@@ -872,6 +874,8 @@
                 <td>${p.sku}</td>
                 <td>${p.qty}</td>
                 <td class="text-end">${p.price}</td>
+                <td class="text-end">${p.mode}</td>
+                <td class="text-end">${p.unit_name}</td>
                 <td>${progressCell}</td>
                 <td>${deliveredCell}</td>
                 <td>${onDeliveryCell}</td>

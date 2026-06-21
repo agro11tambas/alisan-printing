@@ -1,5 +1,29 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        /* Pindah lightbox ke kiri */
+        #lightbox {
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
+            padding-left: 20px;
+            padding-top: 20px;
+        }
+
+        .lb-outerContainer {
+            margin: 0 !important;
+        }
+
+        /* Hapus blur backdrop */
+        #lightboxOverlay {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            /* tetap gelap tapi tanpa blur */
+        }
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -30,6 +54,8 @@
             <div class="col-xxl-8 col-xl-6">
                 <div class="card">
                     <div class="card-header">
+                        <h5>{{ $supplier->name }}</h5>
+                        <br>
                         <h5 class="card-title">Products</h5>
                     </div>
                     <div class="card-body px-0">
@@ -44,7 +70,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($stockIn->items as $item)
+                                    {{-- @foreach ($stockIn->items as $item)
                                         <tr>
                                             <td>{{ $item->product->name ?? '-' }}</td>
                                             <td><span
@@ -58,6 +84,14 @@
                                                     {{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}
                                                 </span>
                                             </td>
+                                        </tr>
+                                    @endforeach --}}
+                                    @foreach ($mergedItems as $item)
+                                        <tr>
+                                            <td>{{ $item->product->name ?? '-' }}</td>
+                                            <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                            <td>{{ number_format($item->stock_in, 0, ',', '.') }}</td>
+                                            <td>{{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -73,7 +107,7 @@
                     </div>
                     <div class="card-body task-info">
                         <div class="task-info-list">
-                            <div class="row align-items-center mb-3 task-list-row">
+                            {{-- <div class="row align-items-center mb-3 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-star me-2"></i>
                                     <span class="fw-semibold">
@@ -107,7 +141,29 @@
                                     <span
                                         class="border-bottom border-bottom-dashed border-gray-5">{{ date('d M Y', strtotime($stockIn->date)) }}</span>
                                 </div>
+                            </div> --}}
+                            <div class="row align-items-center mb-3 task-list-row">
+                                <div class="col-6">
+                                    <i class="feather-star me-2"></i>
+                                    <span class="fw-semibold">Supplier Name:</span>
+                                </div>
+                                <div class="col-6 d-flex">
+                                    <span class="border-bottom border-bottom-dashed border-gray-5">
+                                        {{ $supplier->name ?? '-' }}
+                                    </span>
+                                </div>
                             </div>
+                            {{-- <div class="row align-items-center mb-3 task-list-row">
+                                <div class="col-6">
+                                    <i class="feather-calendar me-2"></i>
+                                    <span class="fw-semibold">Period:</span>
+                                </div>
+                                <div class="col-6 d-flex">
+                                    <span class="border-bottom border-bottom-dashed border-gray-5">
+                                        {{ $monthLabel }}
+                                    </span>
+                                </div>
+                            </div> --}}
                         </div>
                     </div>
                 </div>
@@ -118,7 +174,7 @@
                         <h5 class="card-title">History</h5>
                     </div>
                     <div class="card-body p-0">
-                        <div class="p-4">
+                        <div class="p-4 row g-3 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <div class="row g-3">
                                     <div class="col-md-6">
@@ -133,6 +189,16 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-lg-4 ms-auto justify-content-end">
+                                <div class="col-md-6 ms-auto">
+                                    <label for="filter_verified" class="fw-semibold fs-12">Status</label>
+                                    <select id="filter_verified" class="form-select"
+                                        style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                        <option value="unverified">Unpaid</option>
+                                        <option value="verified">Paid</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         <div class="table-responsive">
                             <table id="stockInHistoryTable" class="table table-hover">
@@ -145,6 +211,7 @@
                                         <th>Waybill Number</th>
                                         <th>Waybill Image</th>
                                         <th>Histories</th>
+                                        {{-- <th>Mark As Paid</th> --}}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -197,6 +264,25 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="verifyModal" tabindex="-1" aria-labelledby="verifyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="verifyModalLabel">Mark As Paid</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <i class="ri-checkbox-circle-line fs-1 text-primary mb-2"></i>
+                    <p class="mb-0">Yakin ingin menandai stock in ini sebagai dibayar?</p>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Tidak</button>
+                    <button type="button" class="btn btn-primary" id="btnConfirmVerify">Ya, Mark As Paid</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
@@ -208,10 +294,11 @@
                 searching: false,
                 lengthChange: false,
                 ajax: {
-                    url: "{{ url('/erp/productions/stock-in/history/' . $stockIn->id . '/data') }}",
+                    url: "{{ url('/erp/productions/stock-in/history/' . $supplierId . '/data') }}",
                     data: function(d) {
                         d.start_date = $('#start_date').val();
                         d.end_date = $('#end_date').val();
+                        d.verified = $('#filter_verified').val();
                     },
                 },
                 columns: [{
@@ -244,10 +331,16 @@
                         data: 'stock_in',
                         name: 'stock_in'
                     },
+                    // {
+                    //     data: 'verified',
+                    //     name: 'verified',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
                 ]
             });
 
-            $('#start_date, #end_date').on('change', function() {
+            $('#start_date, #end_date, #filter_verified').on('change', function() {
                 dataTable.ajax.reload();
             });
 
@@ -302,6 +395,61 @@
                     }
                 });
             });
+
+            // $(document).on('click', '.btn-verify', function() {
+            //     const id = $(this).data('id');
+            //     console.log('ID:', id);
+
+            //     $.ajax({
+            //         url: `/erp/productions/stock-in/verify/${id}`,
+            //         method: 'POST',
+            //         data: {
+            //             _token: '{{ csrf_token() }}'
+            //         },
+            //         success: function(res) {
+            //             console.log('SUCCESS', res);
+            //         },
+            //         error: function(xhr) {
+            //             console.log('ERROR', xhr.status, xhr.responseText);
+            //         }
+            //     });
+            // });
+
+            let verifyId = null;
+
+            $(document).on('click', '.btn-verify', function() {
+                verifyId = $(this).data('id');
+                $('#verifyModal').modal('show');
+            });
+
+            $('#btnConfirmVerify').on('click', function() {
+                $.ajax({
+                    url: `/erp/productions/stock-in/verify/${verifyId}`,
+                    method: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function(res) {
+                        $('#verifyModal').modal('hide');
+                        dataTable.ajax.reload(null, false);
+                    },
+                    error: function(xhr) {
+                        console.log('ERROR', xhr.status, xhr.responseText);
+                    }
+                });
+            });
+        });
+
+        // Setelah lightbox2 loaded
+        $(document).on('click', '[data-lightbox]', function() {
+            setTimeout(function() {
+                var lb = $('#lightbox');
+                lb.css({
+                    'justify-content': 'flex-start',
+                    'align-items': 'flex-start',
+                    'padding': '20px 0 0 20px'
+                });
+            }, 50);
         });
     </script>
 @endpush

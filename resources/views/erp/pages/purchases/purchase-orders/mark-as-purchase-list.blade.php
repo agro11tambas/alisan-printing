@@ -171,6 +171,7 @@
                                                 <tr class="single-item">
                                                     <th class="text-center wd-50">#</th>
                                                     <th class="text-center wd-450">Product</th>
+                                                    <th class="text-center wd-200">Unit</th>
                                                     <th class="text-center wd-150">Qty</th>
                                                     <th class="text-center wd-150">Price</th>
                                                     <th class="text-center wd-150">Freight</th>
@@ -197,6 +198,32 @@
                                                                     </option>
                                                                 @endforeach
                                                             </select>
+                                                        </td>
+                                                        <td>
+                                                            <select class="form-control select-unit"
+                                                                name="product_unit_id[]">
+                                                                <option value="" data-name="Pcs"
+                                                                    data-conversion="1"
+                                                                    {{ !$item->product_unit_conversion_id ? 'selected' : '' }}>
+                                                                    Default Unit
+                                                                </option>
+
+                                                                @foreach ($item->purchaseProduct?->unitConversions ?? [] as $conversion)
+                                                                    <option value="{{ $conversion->id }}"
+                                                                        data-name="{{ $conversion->unit->name ?? 'Pcs' }}"
+                                                                        data-conversion="{{ $conversion->conversion_value ?? 1 }}"
+                                                                        {{ $item->product_unit_conversion_id == $conversion->id ? 'selected' : '' }}>
+                                                                        {{ $conversion->unit->name ?? 'Pcs' }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
+
+                                                            <input type="hidden" name="unit_name[]" class="unit-name"
+                                                                value="{{ $item->unit_name ?? 'Pcs' }}">
+
+                                                            <input type="hidden" name="unit_conversion_value[]"
+                                                                class="unit-conversion-value"
+                                                                value="{{ $item->unit_conversion_value ?? 1 }}">
                                                         </td>
                                                         <td><input type="text" inputmode="numeric" name="qty[]"
                                                                 class="form-control qty" value="{{ $item->quantity }}">
@@ -303,7 +330,61 @@
 @endsection
 
 @push('scripts')
+    @php
+        $productUnitsJson = $products->mapWithKeys(function ($product) {
+            return [
+                $product->id => $product->unitConversions
+                    ->map(function ($conversion) {
+                        return [
+                            'id' => $conversion->id,
+                            'unit_name' => optional($conversion->unit)->name ?? 'Pcs',
+                            'conversion_value' => $conversion->conversion_value ?? 1,
+                        ];
+                    })
+                    ->values(),
+            ];
+        });
+    @endphp
     <script>
+        const productUnits = @json($productUnitsJson);
+
+        function loadProductUnits(row) {
+            const productId = row.find('.select-product').val();
+            const unitSelect = row.find('.select-unit');
+            const unitName = row.find('.unit-name');
+            const unitConversionValue = row.find('.unit-conversion-value');
+
+            unitSelect.empty();
+
+            unitSelect.append(`
+                <option value="" data-name="Pcs" data-conversion="1" selected>
+                    Default Unit
+                </option>
+            `);
+
+            if (productId && productUnits[productId]) {
+                productUnits[productId].forEach(unit => {
+                    unitSelect.append(`
+                <option value="${unit.id}"
+                    data-name="${unit.unit_name}"
+                    data-conversion="${unit.conversion_value}">
+                    ${unit.unit_name}
+                </option>
+            `);
+                });
+            }
+
+            unitName.val('Pcs');
+            unitConversionValue.val(1);
+        }
+
+        function syncSelectedUnit(row) {
+            const selected = row.find('.select-unit option:selected');
+
+            row.find('.unit-name').val(selected.data('name') || 'Pcs');
+            row.find('.unit-conversion-value').val(selected.data('conversion') || 1);
+        }
+
         function formatRibuan(value) {
             if (value === null || value === undefined || value === '') return '';
 
@@ -361,7 +442,7 @@
 
             $('#tab_logic tbody tr').each(function() {
                 const row = $(this);
-
+                syncSelectedUnit(row);
                 // ✅ Qty harus dianggap bilangan bulat (hapus titik)
                 const qtyVal = row.find('.qty').val().toString().replace(/\./g, '');
                 const qty = parseFloat(qtyVal) || 0;
@@ -414,6 +495,14 @@
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
+            $('#tab_logic tbody tr').each(function() {
+                syncSelectedUnit($(this));
+            });
+
+            $(document).on('change', '.select-unit', function() {
+                syncSelectedUnit($(this).closest('tr'));
+            });
+
             // Format awal
             $('.qty, .price, .freight').each(function() {
                 let val = $(this).val();
@@ -436,6 +525,7 @@
             // Auto price dari data attribute
             $('#tab_logic tbody tr').each(function() {
                 const row = $(this);
+                syncSelectedUnit(row);
                 const selected = row.find('.select-product option:selected');
                 if (selected.val()) {
                     const lastPrice = parseFloat(selected.data('price')) || 0;
@@ -472,6 +562,7 @@
             /* ==================== INPUT HANDLER ==================== */
             $(document).on('change', '.select-product', function() {
                 const row = $(this).closest('tr');
+                loadProductUnits(row);
                 const selectedOption = $(this).find('option:selected');
                 const productId = selectedOption.val();
 
@@ -706,82 +797,6 @@
                 }
             });
 
-        // $('#purchaseForm').on('submit', function(e) {
-        //     let isValid = true;
-        //     $(this).find('.is-invalid').removeClass('is-invalid');
-        //     $(this).find('.invalid-feedback').remove();
-
-        //     const purchaseNumber = $('#purchase_number');
-        //     if (!purchaseNumber.val().trim()) {
-        //         isValid = false;
-        //         showError(purchaseNumber[0], 'Nomor invoice wajib diisi');
-        //     }
-
-        //     const purchaseDate = $('#purchase_date');
-        //     if (!purchaseDate.val().trim()) {
-        //         isValid = false;
-        //         showError(purchaseDate[0], 'Tanggal pembelian wajib diisi');
-        //     }
-
-        //     const supplier = $('#suppliers');
-        //     if (!supplier.val()) {
-        //         isValid = false;
-        //         showError(supplier[0], 'Supplier wajib dipilih');
-        //     }
-
-        //     const editNote = document.getElementById('edit_note');
-        //     if (editNote && !editNote.value.trim()) {
-        //         isValid = false;
-        //         showError(editNote, 'Catatan edit wajib diisi');
-        //     }
-
-        //     const transactionType = $('#transaction_type');
-        //     if (!transactionType.val()) {
-        //         isValid = false;
-        //         showError(transactionType[0], 'Tipe transaksi wajib dipilih');
-        //     }
-
-        //     $('#tab_logic tbody tr').each(function() {
-        //         const product = $(this).find('select[name="product[]"]');
-        //         const qty = $(this).find('input[name="qty[]"]');
-        //         const price = $(this).find('input[name="price[]"]');
-        //         const freight = $(this).find('input[name="freight[]"]');
-
-        //         if (!product.val()) {
-        //             isValid = false;
-        //             showError(product[0], 'Produk wajib dipilih');
-        //         }
-        //         if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
-        //             isValid = false;
-        //             showError(qty[0], 'Qty harus lebih dari 0');
-        //         }
-        //         if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
-        //             isValid = false;
-        //             showError(price[0], 'Harga harus lebih dari 0');
-        //         }
-
-        //         // Freight boleh 0, tapi tidak boleh kosong
-        //         const freightVal = freight.val().trim();
-        //         if (freightVal === '' || freightVal === null) {
-        //             freight.val('0');
-        //         } else {
-        //             const freightNum = unformatRibuan(freightVal);
-        //             if (isNaN(freightNum) || freightNum < 0) {
-        //                 isValid = false;
-        //                 showError(freight[0], 'Freight harus angka valid (≥ 0)');
-        //             }
-        //         }
-        //     });
-
-        //     if (!isValid) {
-        //         e.preventDefault();
-        //         const firstError = $(this).find('.is-invalid, .select2 + .invalid-feedback').first();
-        //         if (firstError.length) $('html, body').animate({
-        //             scrollTop: firstError.offset().top - 100
-        //         }, 300);
-        //     }
-        // });
-
         $('#purchaseForm').on('submit', function(e) {
             let isValid = true;
             const form = $(this);
@@ -825,6 +840,7 @@
             // 🔹 Validasi setiap baris produk
             $('#tab_logic tbody tr').each(function() {
                 const row = $(this);
+                syncSelectedUnit(row);
                 const product = row.find('select[name="product[]"]');
                 const qty = row.find('input[name="qty[]"]');
                 const price = row.find('input[name="price[]"]');
@@ -872,6 +888,8 @@
 
                 return; // stop di sini
             }
+
+            let ok = true;
 
             $('.qty, .price, .freight, .total').each(function() {
                 const val = $(this).val();

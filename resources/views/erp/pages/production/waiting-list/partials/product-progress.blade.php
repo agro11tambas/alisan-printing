@@ -40,6 +40,7 @@
                     <td>
                         <span class="fw-bold text-success">{{ number_format($totalCompleted, 0, ',', '.') }}</span> /
                         <span class="fw-bold text-primary">{{ number_format($item->quantity, 0, ',', '.') }}</span>
+                        {{ $item->unit_name }}
                     </td>
                     <td>
                         <span class="fw-bold text-danger">{{ number_format($activeAssign, 0, ',', '.') }}</span>

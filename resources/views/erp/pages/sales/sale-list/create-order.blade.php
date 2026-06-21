@@ -785,11 +785,14 @@
         const allProducts = [
             ...products.map(p => ({
                 ...p,
-                type: 'satuan'
+                type: 'satuan',
+                units: p.units || p.product_units || p.unit_conversions || []
             })),
+
             ...bundles.map(b => ({
                 ...b,
-                type: 'bundle'
+                type: 'bundle',
+                units: b.units || b.product_units || b.unit_conversions || b.bundle_units || []
             })),
         ];
 
@@ -802,11 +805,15 @@
 
         function populateProducts(selectEl) {
             $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
+
             allProducts.forEach(item => {
+                const optionValue = `${item.type}_${item.id}`;
+
                 $('<option>', {
-                        value: item.id,
+                        value: optionValue,
                         text: `[${item.sku || '-'}] ${item.name}`,
                     })
+                    .data('real-id', item.id)
                     .data('price', item.price)
                     .data('discounts', item.discounts || [])
                     .data('categories', item.categories || [])
@@ -1020,14 +1027,25 @@
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
 
-        $(document).on('change', 'select[name="product[]"]', function() {
+        $(document).on('change select2:select', 'select[name="product[]"]', function() {
             const row = $(this).closest('.product-item');
             const selectedOption = $(this).find('option:selected');
 
             const type = selectedOption.data('type') || '';
-            const units = selectedOption.data('units') || [];
+            const selectedId = String(selectedOption.data('real-id') || '');
 
             row.find('.product-type').val(type);
+
+            const selectedItem = allProducts.find(item => {
+                return item.type === type && String(item.id) === selectedId;
+            });
+
+            const units = selectedItem?.units || [];
+
+            console.log('TYPE:', type);
+            console.log('ID:', selectedId);
+            console.log('ITEM:', selectedItem);
+            console.log('UNITS:', units);
 
             fillProductUnits(row, units);
 
@@ -1438,6 +1456,21 @@
                 $(this).val($(this).val().replace(',', '.'));
             });
 
+            $('select[name="product[]"]').each(function() {
+                const selectedOption = $(this).find('option:selected');
+                const realId = selectedOption.data('real-id');
+
+                if (realId) {
+                    $('<input>')
+                        .attr('type', 'hidden')
+                        .attr('name', 'product[]')
+                        .val(realId)
+                        .appendTo('#orderForm');
+
+                    $(this).prop('disabled', true);
+                }
+            });
+
             form.submit();
         });
 
@@ -1470,22 +1503,45 @@
             row.find('.unit-name').val('');
 
             if (!Array.isArray(units) || units.length === 0) {
+                console.log('UNIT KOSONG:', units);
                 return;
             }
 
             units.forEach(function(unit) {
+                const id = unit.id || unit.product_unit_conversion_id || unit.product_bundle_unit_conversion_id;
+                const unitId = unit.unit_id || unit.product_unit_id || '';
+                const unitName =
+                    unit.unit_name ||
+                    unit.name ||
+                    unit.unit?.name ||
+                    unit.product_unit?.name ||
+                    unit.productUnit?.name ||
+                    'PCS';
+
+                const conversionValue =
+                    unit.conversion_value ||
+                    unit.value ||
+                    unit.conversion ||
+                    1;
+
+                const salePrice =
+                    unit.sale_price ||
+                    unit.price ||
+                    unit.selling_price ||
+                    0;
+
                 unitSelect.append(`
-            <option value="${unit.id}"
-                data-unit-id="${unit.unit_id}"
-                data-unit-name="${unit.unit_name}"
-                data-conversion-value="${unit.conversion_value}"
-                data-sale-price="${unit.sale_price}">
-                ${unit.unit_name}
+            <option value="${id}"
+                data-unit-id="${unitId}"
+                data-unit-name="${unitName}"
+                data-conversion-value="${conversionValue}"
+                data-sale-price="${salePrice}">
+                ${unitName}
             </option>
         `);
             });
 
-            unitSelect.val(units[0].id).trigger('change');
+            unitSelect.val(unitSelect.find('option:eq(1)').val()).trigger('change');
         }
 
         function updatePriceFromSelectedUnit(row) {

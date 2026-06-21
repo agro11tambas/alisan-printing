@@ -9,18 +9,20 @@
         </thead>
         <tbody>
             @foreach ($order->orderItems as $item)
-            <tr>
-                <td>
-                    <span class="fw-bold text-dark">@if($item->product)
-                        {{ $item->product->name }}
-                        @elseif($item->productBundle)
-                        {{ $item->productBundle->name }}
-                        @endif
-                    </span>
-                </td>
-                <td><span class="fw-bold text-success">{{ $item->completed_quantity }}</span>/<span class="fw-bold text-primary">{{ number_format($item->quantity) }}</span></td>
-                <td><span class="fw-bold text-danger">{{ $item->stock_out }}</span></td>
-            </tr>
+                <tr>
+                    <td>
+                        <span class="fw-bold text-dark">
+                            @if ($item->product)
+                                {{ $item->product->name }}
+                            @elseif($item->productBundle)
+                                {{ $item->productBundle->name }}
+                            @endif
+                        </span>
+                    </td>
+                    <td><span class="fw-bold text-success">{{ $item->completed_quantity }}</span>/<span
+                            class="fw-bold text-primary">{{ number_format($item->quantity) }}</span></td>
+                    <td><span class="fw-bold text-danger">{{ $item->stock_out }}</span></td>
+                </tr>
             @endforeach
         </tbody>
     </table>

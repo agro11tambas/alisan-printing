@@ -33,17 +33,10 @@ class DesignController extends Controller
         $designs = Design::with([
             'order.customer',
             'order.customerAddress',
-            'items' => function ($query) {
-                $query->whereHas('orderItem', function ($q) {
-                    $q->where('mode', 'printing');
-                });
-            },
             'items.product',
             'items.orderItem',
         ])
-            ->whereHas('items.orderItem', function ($q) {
-                $q->where('mode', 'printing');
-            })
+            ->whereHas('items')
             ->orderBy('created_at', 'desc');
 
         // ✅ Filter tanggal
@@ -256,9 +249,32 @@ class DesignController extends Controller
     // public function verify(Request $request, $id)
     // {
     //     DB::beginTransaction();
+
     //     try {
-    //         $design = Design::with(['order', 'items.product'])->findOrFail($id);
+    //         $design = Design::with([
+    //             'order.customer',
+    //             'items.product',
+    //             'items.orderItem',
+    //         ])->findOrFail($id);
+
     //         $order = $design->order;
+
+    //         $printingItems = $design->items->filter(function ($designItem) {
+    //             return $designItem->orderItem?->mode === 'printing';
+    //         });
+
+    //         if ($printingItems->isEmpty()) {
+    //             DB::rollBack();
+
+    //             if ($request->ajax()) {
+    //                 return response()->json([
+    //                     'success' => false,
+    //                     'message' => 'Tidak ada item printing yang perlu diverifikasi.'
+    //                 ], 422);
+    //             }
+
+    //             return redirect()->back()->with('error', 'Tidak ada item printing yang perlu diverifikasi.');
+    //         }
 
     //         $design->update([
     //             'verification_status' => 'approved',
@@ -267,68 +283,84 @@ class DesignController extends Controller
     //             'verified_at'         => now(),
     //         ]);
 
+    //         foreach ($printingItems as $designItem) {
+    //             $designItem->update([
+    //                 'verification_status' => 'approved',
+    //             ]);
+    //         }
+
     //         $orderProgress = OrderProgress::create([
     //             'order_id'       => $order->id,
-    //             'design_id'     => $design->id,
+    //             'design_id'      => $design->id,
     //             'date'           => now()->format('Y-m-d'),
     //             'status'         => 'Pending',
     //             'notes'          => null,
     //             'invoice_number' => $order->order_number,
     //         ]);
 
-    //         foreach ($design->items as $designItem) {
+    //         foreach ($printingItems as $designItem) {
     //             OrderProgressItem::create([
-    //                 'order_progress_id'  => $orderProgress->id,
-    //                 'design_item_id'     => $designItem->id,
-    //                 'order_item_id'      => $designItem->order_item_id,
-    //                 'product_id'         => $designItem->product_id,
-    //                 'quantity'           => $designItem->quantity,
-    //                 'completed_quantity' => 0,
+    //                 'order_progress_id'          => $orderProgress->id,
+    //                 'design_item_id'             => $designItem->id,
+    //                 'order_item_id'              => $designItem->order_item_id,
+    //                 'product_id'                 => $designItem->product_id,
+
+    //                 'product_unit_conversion_id' => $designItem->product_unit_conversion_id,
+    //                 'unit_name'                  => $designItem->unit_name,
+    //                 'unit_conversion_value'      => $designItem->unit_conversion_value,
+
+    //                 'quantity'                   => $designItem->quantity,
+    //                 'completed_quantity'         => 0,
     //             ]);
 
-    //             // 🔹 Increment pending waiting list di ProductionStock
     //             $productionStock = \App\Models\ProductionStock::firstOrCreate(
     //                 [
     //                     'product_id' => $designItem->product_id,
-    //                     'production_warehouse_id' => 2, // sesuaikan jika perlu
+    //                     'production_warehouse_id' => 2,
     //                 ],
     //                 [
-    //                     'opening_stock' => 0,
-    //                     'available_quantity' => 0,
+    //                     'opening_stock'          => 0,
+    //                     'available_quantity'    => 0,
     //                     'finished_product_stock' => 0,
     //                     'canceled_product_stock' => 0,
-    //                     'pending_waiting_list' => 0,
+    //                     'pending_waiting_list'   => 0,
     //                 ]
     //             );
 
-    //             $productionStock->increment('pending_waiting_list', $designItem->quantity);
+    //             $qtyBase = $designItem->quantity * ($designItem->unit_conversion_value ?? 1);
+
+    //             $productionStock->increment('pending_waiting_list', $qtyBase);
     //         }
 
-    //         $deliveryOrder = DeliveryOrder::create([
-    //             'order_id'        => $order->id,
-    //             'design_id'      => $design->id,
-    //             'delivery_number' => $order->order_number,
-    //             'delivery_date'   => now()->format('Y-m-d'),
-    //             'note'            => $design->notes ?? '',
-    //             'status'          => 'Ongoing',
-    //             'customer'       => $order->customer->name,
-    //             'shipping_address' => $order->shipping_address,
-    //             'google_map_link'  => $order->google_maps,
-    //             'created_by'      => Auth::id(),
-    //         ]);
+    //         $deliveryOrder = DeliveryOrder::firstOrCreate(
+    //             [
+    //                 'order_id'   => $order->id,
+    //                 'design_id'  => $design->id,
+    //             ],
+    //             [
+    //                 'delivery_number'   => $order->order_number,
+    //                 'delivery_date'     => now()->format('Y-m-d'),
+    //                 'note'              => $design->notes ?? '',
+    //                 'status'            => 'Ongoing',
+    //                 'customer'          => $order->customer->name,
+    //                 'shipping_address'  => $order->shipping_address,
+    //                 'google_map_link'   => $order->google_maps,
+    //                 'created_by'        => Auth::id(),
+    //             ]
+    //         );
 
     //         foreach ($orderProgress->items as $progressItem) {
     //             DeliveryOrderItem::create([
-    //                 'delivery_order_id'     => $deliveryOrder->id,
-    //                 'order_progress_id'     => $orderProgress->id,
-    //                 'order_item_id'         => $progressItem->order_item_id,
-    //                 'order_progress_item_id' => $progressItem->id,
-    //                 'design_item_id'        => $progressItem->design_item_id,
-    //                 'product_id'            => $progressItem->product_id,
-    //                 'status'                => $orderProgress->status, // Pending
-    //                 'progress_qty'          => $progressItem->quantity,
-    //                 'ready_qty'             => 0,
-    //                 'note'                  => null,
+    //                 'delivery_order_id'       => $deliveryOrder->id,
+    //                 'order_progress_id'       => $orderProgress->id,
+    //                 'order_item_id'           => $progressItem->order_item_id,
+    //                 'order_progress_item_id'  => $progressItem->id,
+    //                 'design_item_id'          => $progressItem->design_item_id,
+    //                 'product_id'              => $progressItem->product_id,
+    //                 'status'                  => $orderProgress->status,
+    //                 'progress_qty'            => $progressItem->quantity,
+    //                 'ready_qty'               => 0,
+    //                 'note'                    => null,
     //             ]);
     //         }
 
@@ -344,7 +376,9 @@ class DesignController extends Controller
     //         return redirect()->back()->with('success', 'Design verified successfully.');
     //     } catch (\Exception $e) {
     //         DB::rollBack();
+
     //         Log::error('Error verifying design: ' . $e->getMessage());
+
     //         if ($request->ajax()) {
     //             return response()->json([
     //                 'success' => false,
@@ -369,22 +403,31 @@ class DesignController extends Controller
 
             $order = $design->order;
 
-            $printingItems = $design->items->filter(function ($designItem) {
-                return $designItem->orderItem?->mode === 'printing';
+            // AMBIL PRINTING + POLOSAN
+            $verifyItems = $design->items->filter(function ($designItem) {
+                return in_array($designItem->orderItem?->mode, ['printing', 'polosan']);
             });
 
-            if ($printingItems->isEmpty()) {
+            if ($verifyItems->isEmpty()) {
                 DB::rollBack();
 
                 if ($request->ajax()) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Tidak ada item printing yang perlu diverifikasi.'
+                        'message' => 'Tidak ada item yang perlu diverifikasi.'
                     ], 422);
                 }
 
-                return redirect()->back()->with('error', 'Tidak ada item printing yang perlu diverifikasi.');
+                return redirect()->back()->with('error', 'Tidak ada item yang perlu diverifikasi.');
             }
+
+            $hasPrinting = $verifyItems->contains(function ($designItem) {
+                return $designItem->orderItem?->mode === 'printing';
+            });
+
+            $hasPolosan = $verifyItems->contains(function ($designItem) {
+                return $designItem->orderItem?->mode === 'polosan';
+            });
 
             $design->update([
                 'verification_status' => 'approved',
@@ -393,7 +436,7 @@ class DesignController extends Controller
                 'verified_at'         => now(),
             ]);
 
-            foreach ($printingItems as $designItem) {
+            foreach ($verifyItems as $designItem) {
                 $designItem->update([
                     'verification_status' => 'approved',
                 ]);
@@ -403,36 +446,55 @@ class DesignController extends Controller
                 'order_id'       => $order->id,
                 'design_id'      => $design->id,
                 'date'           => now()->format('Y-m-d'),
-                'status'         => 'Pending',
+
+                // Kalau semua polosan, progress langsung completed.
+                // Kalau ada printing, tetap pending.
+                'status'         => $hasPrinting ? 'Pending' : 'Completed',
+
                 'notes'          => null,
                 'invoice_number' => $order->order_number,
             ]);
 
-            foreach ($printingItems as $designItem) {
-                OrderProgressItem::create([
-                    'order_progress_id'  => $orderProgress->id,
-                    'design_item_id'     => $designItem->id,
-                    'order_item_id'      => $designItem->order_item_id,
-                    'product_id'         => $designItem->product_id,
-                    'quantity'           => $designItem->quantity,
-                    'completed_quantity' => 0,
+            foreach ($verifyItems as $designItem) {
+                $isPolosan = $designItem->orderItem?->mode === 'polosan';
+                $isPrinting = $designItem->orderItem?->mode === 'printing';
+
+                $progressItem = OrderProgressItem::create([
+                    'order_progress_id'          => $orderProgress->id,
+                    'design_item_id'             => $designItem->id,
+                    'order_item_id'              => $designItem->order_item_id,
+                    'product_id'                 => $designItem->product_id,
+
+                    'product_unit_conversion_id' => $designItem->product_unit_conversion_id,
+                    'unit_name'                  => $designItem->unit_name,
+                    'unit_conversion_value'      => $designItem->unit_conversion_value,
+
+                    'quantity'                   => $designItem->quantity,
+
+                    // Polosan langsung completed, printing belum
+                    'completed_quantity'         => $isPolosan ? $designItem->quantity : 0,
                 ]);
 
-                $productionStock = \App\Models\ProductionStock::firstOrCreate(
-                    [
-                        'product_id' => $designItem->product_id,
-                        'production_warehouse_id' => 2,
-                    ],
-                    [
-                        'opening_stock'          => 0,
-                        'available_quantity'    => 0,
-                        'finished_product_stock' => 0,
-                        'canceled_product_stock' => 0,
-                        'pending_waiting_list'   => 0,
-                    ]
-                );
+                // PRINTING SAJA yang masuk pending_waiting_list produksi
+                if ($isPrinting) {
+                    $productionStock = \App\Models\ProductionStock::firstOrCreate(
+                        [
+                            'product_id' => $designItem->product_id,
+                            'production_warehouse_id' => 2,
+                        ],
+                        [
+                            'opening_stock'          => 0,
+                            'available_quantity'    => 0,
+                            'finished_product_stock' => 0,
+                            'canceled_product_stock' => 0,
+                            'pending_waiting_list'   => 0,
+                        ]
+                    );
 
-                $productionStock->increment('pending_waiting_list', $designItem->quantity);
+                    $qtyBase = $designItem->quantity * ($designItem->unit_conversion_value ?? 1);
+
+                    $productionStock->increment('pending_waiting_list', $qtyBase);
+                }
             }
 
             $deliveryOrder = DeliveryOrder::firstOrCreate(
@@ -445,14 +507,18 @@ class DesignController extends Controller
                     'delivery_date'     => now()->format('Y-m-d'),
                     'note'              => $design->notes ?? '',
                     'status'            => 'Ongoing',
-                    'customer'          => $order->customer->name,
+                    'customer'          => $order->customer?->name ?? '-',
                     'shipping_address'  => $order->shipping_address,
                     'google_map_link'   => $order->google_maps,
                     'created_by'        => Auth::id(),
                 ]
             );
 
+            $orderProgress->load('items.orderItem');
+
             foreach ($orderProgress->items as $progressItem) {
+                $isPolosan = $progressItem->orderItem?->mode === 'polosan';
+
                 DeliveryOrderItem::create([
                     'delivery_order_id'       => $deliveryOrder->id,
                     'order_progress_id'       => $orderProgress->id,
@@ -460,10 +526,22 @@ class DesignController extends Controller
                     'order_progress_item_id'  => $progressItem->id,
                     'design_item_id'          => $progressItem->design_item_id,
                     'product_id'              => $progressItem->product_id,
-                    'status'                  => $orderProgress->status,
+
+                    // Polosan langsung completed, printing pending
+                    'status'                  => $isPolosan ? 'Completed' : 'Pending',
+
                     'progress_qty'            => $progressItem->quantity,
-                    'ready_qty'               => 0,
+
+                    // Polosan langsung ready, printing belum ready
+                    'ready_qty'               => $isPolosan ? $progressItem->quantity : 0,
+
+                    'shipped_qty'             => 0,
                     'note'                    => null,
+
+                    // Kalau kolom unit sudah ada di delivery_order_items
+                    'product_unit_conversion_id' => $progressItem->product_unit_conversion_id,
+                    'unit_name'                  => $progressItem->unit_name,
+                    'unit_conversion_value'      => $progressItem->unit_conversion_value,
                 ]);
             }
 

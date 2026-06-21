@@ -14,7 +14,7 @@
                     <td class="fw-semibold text-dark">
                         {{ $item->product->name ?? '-' }}
                     </td>
-                    <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                    <td>{{ number_format($item->quantity, 0, ',', '.') }} {{ $item->unit_name ?? '-' }}</td>
                     <td>
                         @php
                             $images = json_decode($item->preview_image ?? '[]', true);

@@ -22,6 +22,7 @@ class Products extends Model
         'description',
         'price',
         'sku',
+        'base_unit_id',
         'stock',
         'image',
         'gallery',
@@ -48,6 +49,11 @@ class Products extends Model
     public function categories()
     {
         return $this->belongsToMany(ProductCategory::class, 'product_category_product', 'product_id', 'category_id')->with('discounts');
+    }
+
+    public function baseUnit()
+    {
+        return $this->belongsTo(ProductUnit::class, 'base_unit_id');
     }
 
     public function unitConversions()

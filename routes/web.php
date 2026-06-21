@@ -4,11 +4,9 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\DeliveredController;
 use App\Http\Controllers\Admin\ExpenseController;
 use App\Http\Controllers\Admin\HistoryProgressOrderController;
 use App\Http\Controllers\Admin\InvoiceController;
-use App\Http\Controllers\Admin\OrderDetailController;
 use App\Http\Controllers\Admin\ProductCategoriesController;
 use App\Http\Controllers\Admin\ProductTagController;
 use App\Http\Controllers\Admin\ProductsController;
@@ -33,7 +31,6 @@ use App\Http\Controllers\Admin\HistoryStockInController;
 use App\Http\Controllers\Admin\HistoryStockOutController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\MaterialRequestController;
-use App\Http\Controllers\Admin\OpeningStockProductionController;
 use App\Http\Controllers\Admin\OpeningStockRateController;
 use App\Http\Controllers\Admin\OperatorController;
 use App\Http\Controllers\Admin\OrderProgressAssignController;
@@ -46,7 +43,6 @@ use App\Http\Controllers\Admin\PurchaseDetailController;
 use App\Http\Controllers\Admin\PurchaseListController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
 use App\Http\Controllers\Admin\WelcomeController;
-use App\Http\Controllers\Admin\PurchaseProductController;
 use App\Http\Controllers\Admin\PurchaseReturnController;
 use App\Http\Controllers\Admin\RejectProductController;
 use App\Http\Controllers\Admin\RejectProductHistoryController;
@@ -61,14 +57,8 @@ use App\Http\Controllers\Admin\StockRequestController;
 use App\Http\Controllers\AuthController;
 
 use App\Http\Controllers\UserController;
-use App\Http\Middleware\CheckRole;
-use App\Http\Middleware\isLogin;
-use App\Models\CanceledProduct;
-use App\Models\DefectProduct;
 use App\Services\InvoiceNumberService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rules\Can;
 
 Route::get('/', function () {
     return redirect('/erp/welcome');
@@ -78,15 +68,15 @@ Route::get('/login', [AuthController::class, 'loginView'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
 
-Route::middleware(['auth', 'check.session'])->group(function () {
+Route::middleware(['web.auth', 'check.session'])->group(function () {
     Route::get('/erp/welcome', [WelcomeController::class, 'index']);
-    Route::middleware(['auth', 'permission:dashboard'])->group(function () {
+    Route::middleware(['web.auth', 'permission:dashboard'])->group(function () {
         Route::get('/erp/dashboard', [DashboardController::class, 'getDashboard'])->name('dashboard');
         Route::get('/erp/dashboard/summary', [DashboardController::class, 'summary'])->name('dashboard.summary');
     });
 
-    Route::middleware(['auth', 'permission:products'])->group(function () {
-        Route::middleware(['auth', 'subpermission:product-categories'])->group(function () {
+    Route::middleware(['web.auth', 'permission:products'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:product-categories'])->group(function () {
             Route::get('/erp/products/categories/data', [ProductCategoriesController::class, 'data']);
             Route::get('/erp/products/categories', [ProductCategoriesController::class, 'index']);
             Route::get('/erp/products/categories/create-category', [ProductCategoriesController::class, 'create']);
@@ -96,7 +86,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::delete('/erp/products/categories/delete/{id}', [ProductCategoriesController::class, 'delete']);
         });
 
-        Route::middleware(['auth', 'subpermission:product-tags'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:product-tags'])->group(function () {
             Route::get('/erp/products/tags/data', [ProductTagController::class, 'data']);
             Route::get('/erp/products/tags', [ProductTagController::class, 'index']);
             Route::get('/erp/products/tags/create-tag', [ProductTagController::class, 'create']);
@@ -106,7 +96,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::delete('/erp/products/tags/delete/{id}', [ProductTagController::class, 'delete']);
         });
 
-        Route::middleware(['auth', 'subpermission:product-units'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:product-units'])->group(function () {
             Route::get('/erp/products/units/data', [ProductUnitController::class, 'data']);
             Route::get('/erp/products/units', [ProductUnitController::class, 'index']);
             Route::get('/erp/products/units/create', [ProductUnitController::class, 'create']);
@@ -116,7 +106,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::delete('/erp/products/units/delete/{id}', [ProductUnitController::class, 'delete']);
         });
 
-        Route::middleware(['auth', 'subpermission:product-list'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:product-list'])->group(function () {
             Route::get('/erp/products/data', [ProductsController::class, 'data']);
             Route::get('/erp/products', [ProductsController::class, 'index']);
             Route::get('/erp/products/create-product', [ProductsController::class, 'create']);
@@ -128,7 +118,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::get('/erp/products/{id}/combinations', [ProductsController::class, 'getCombinations']);
         });
 
-        Route::middleware(['auth', 'subpermission:product-bundles'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:product-bundles'])->group(function () {
             Route::get('/erp/products/product-bundles/data', [ProductBundleController::class, 'dataProductBundles']);
             Route::get('/erp/products/product-bundles', [ProductBundleController::class, 'getProductBundles']);
             Route::get('/erp/products/product-bundles/create-product-bundle', [ProductBundleController::class, 'create']);
@@ -140,8 +130,8 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         });
     });
 
-    Route::middleware(['auth', 'permission:adjustment'])->group(function () {
-        Route::middleware(['auth', 'subpermission:canceled'])->group(function () {
+    Route::middleware(['web.auth', 'permission:adjustment'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:canceled'])->group(function () {
             Route::get('/erp/adjustment-products/canceled-products', [CanceledProductController::class, 'getCanceledProducts']);
             Route::get('/erp/adjustment-products/canceled-products/data', [CanceledProductController::class, 'dataCanceledProducts']);
             Route::post('/erp/adjustment-products/canceled-products/return-to-warehouse/{id}', [CanceledProductController::class, 'returnToWarehouse']);
@@ -151,7 +141,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::get('/erp/adjustment-products/canceled-products/history/{id}/data', [CanceledProductController::class, 'dataCanceledProductHistory']);
         });
 
-        Route::middleware(['auth', 'subpermission:defect'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:defect'])->group(function () {
             Route::get('/erp/adjustment-products/defect-products', [DefectProductController::class, 'getDefectProducts']);
             Route::get('/erp/adjustment-products/defect-products/data', [DefectProductController::class, 'dataDefectProducts']);
             Route::get('/erp/adjustment-products/defect-products/detail-defect-products/{id}', [DefectProductController::class, 'detailDefectProducts'])->name('erp.defect-products.details');
@@ -162,7 +152,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::get('/erp/adjustment-products/defect-products/history/data/{id}', [DefectProductHistoryController::class, 'dataHistory']);
         });
 
-        Route::middleware(['auth', 'subpermission:reject'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:reject'])->group(function () {
             Route::get('/erp/adjustment-products/reject-products', [RejectProductController::class, 'getRejectProducts']);
             Route::get('/erp/adjustment-products/reject-products/data', [RejectProductController::class, 'dataRejectProducts']);
             Route::get('/erp/adjustment-products/reject-products/detail-reject-products/{id}', [RejectProductController::class, 'detailRejectProducts'])->name('erp.reject-products.details');
@@ -173,7 +163,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         });
     });
 
-    Route::middleware(['auth', 'permission:discounts'])->group(function () {
+    Route::middleware(['web.auth', 'permission:discounts'])->group(function () {
         Route::get('/erp/discounts/data', [DiscountController::class, 'dataDiscount']);
         Route::get('/erp/discounts', [DiscountController::class, 'getDiscount']);
         Route::get('/erp/discounts/create-discount', [DiscountController::class, 'create']);
@@ -183,16 +173,8 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::delete('/erp/discounts/delete/{id}', [DiscountController::class, 'delete']);
     });
 
-    Route::middleware(['auth', 'permission:inventory'])->group(function () {
-        Route::middleware(['auth', 'subpermission:opening-stock-rate'])->group(function () {
-            // Route::get('/erp/opening-stock-rate/data', [OpeningStockRateController::class, 'dataOpeningStockRate']);
-            // Route::get('/erp/opening-stock-rate', [OpeningStockRateController::class, 'getOpeningStockRate']);
-            // Route::get('/erp/opening-stock-rate/create-opening-stock-rate', [OpeningStockRateController::class, 'create']);
-            // Route::post('/erp/opening-stock-rate/store', [OpeningStockRateController::class, 'store']);
-            // Route::get('/erp/opening-stock-rate/edit-opening-stock-rate', [OpeningStockRateController::class, 'edit']);
-            // Route::put('/erp/opening-stock-rate/update', [OpeningStockRateController::class, 'update']);
-            // Route::delete('/erp/opening-stock-rate/delete/{id}', [OpeningStockRateController::class, 'delete']);
-
+    Route::middleware(['web.auth', 'permission:inventory'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:opening-stock-rate'])->group(function () {
             Route::get('/erp/opening-stock', [OpeningStockRateController::class, 'index'])
                 ->name('erp.opening-stock.index');
             Route::get('/erp/opening-stock/data', [OpeningStockRateController::class, 'dataOpeningStockOverview'])
@@ -205,13 +187,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
                 ->name('erp.opening-stock.update');
         });
 
-        // Route::middleware(['auth', 'subpermission:opening-stock-production'])->group(function () {
-        //     Route::get('/erp/productions/opening-stock', [OpeningStockProductionController::class, 'getOpeningStockProduction']);
-        //     Route::get('/erp/productions/opening-stock/edit-opening-stock', [OpeningStockProductionController::class, 'edit']);
-        //     Route::put('/erp/productions/opening-stock/update', [OpeningStockProductionController::class, 'update']);
-        // });
-
-        Route::middleware(['auth', 'subpermission:stock-opname'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:stock-opname'])->group(function () {
             Route::get('/erp/inventory/stock-opname', [StockOpnameController::class, 'getStockOpname']);
             Route::get('/erp/inventory/stock-opname/data', [StockOpnameController::class, 'dataStockOpname']);
             Route::get('/erp/inventory/stock-opname/create-stock-opname', [StockOpnameController::class, 'create']);
@@ -221,7 +197,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::delete('/erp/inventory/stock-opname/delete/{id}', [StockOpnameController::class, 'delete']);
         });
 
-        Route::middleware(['auth', 'subpermission:stock-opname-production'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:stock-opname-production'])->group(function () {
             Route::get('/erp/productions/stock-opname', [StockOpnameProductionController::class, 'getStockOpnameProduction']);
             Route::get('/erp/productions/stock-opname/data', [StockOpnameProductionController::class, 'dataStockOpnameProduction']);
             Route::get('/erp/productions/stock-opname/create-stock-opname', [StockOpnameProductionController::class, 'create']);
@@ -231,14 +207,14 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::delete('/erp/productions/stock-opname/delete/{id}', [StockOpnameProductionController::class, 'delete']);
         });
 
-        Route::middleware(['auth', 'subpermission:inventory-report-items'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:inventory-report-items'])->group(function () {
             Route::get('/erp/report-items', [ReportItemsProductionAndWarehouseController::class, 'getCombinedReportItems']);
             Route::get('/erp/report-items/data', [ReportItemsProductionAndWarehouseController::class, 'dataCombinedReportItems']);
         });
     });
 
-    Route::middleware(['auth', 'permission:sales'])->group(function () {
-        Route::middleware(['auth', 'subpermission:sale-orders'])->group(function () {
+    Route::middleware(['web.auth', 'permission:sales'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:sale-orders'])->group(function () {
             Route::get('/erp/sales/sale-orders/data', [SaleOrderController::class, 'dataSaleOrder']);
             Route::get('/erp/sales/sale-orders', [SaleOrderController::class, 'getSaleOrder']);
             Route::get('/erp/sales/sale-orders/create-order', [SaleOrderController::class, 'create']);
@@ -256,7 +232,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             });
         });
 
-        Route::middleware(['auth', 'subpermission:sale-list'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:sale-list'])->group(function () {
             Route::get('/erp/sales/sale-list/data', [SaleListController::class, 'dataSaleList']);
             Route::get('/erp/sales/sale-list', [SaleListController::class, 'getSaleList']);
             Route::get('/erp/sales/sale-list/create-order', [SaleListController::class, 'create']);
@@ -282,13 +258,13 @@ Route::middleware(['auth', 'check.session'])->group(function () {
 
             Route::post('/erp/sales/sale-list/force-delete/{id}', [SaleListController::class, 'forceDeleteOwner'])
                 ->name('sales.sale-list.forceDeleteOwner')
-                ->middleware('auth');
+                ->middleware('web.auth');
 
             Route::post('/erp/invoice/convert-to-image', [SaleListController::class, 'convertToImage'])->name('invoice.convert');
             Route::get('/invoices/{filename}', [SaleListController::class, 'showInvoice'])->name('invoice.show');
         });
 
-        Route::middleware(['auth', 'subpermission:sale-returns'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:sale-returns'])->group(function () {
             Route::get('/erp/sales/sale-returns/data', [SaleReturnController::class, 'dataSaleReturns']);
             Route::get('/erp/sales/sale-returns', [SaleReturnController::class, 'getSaleReturns']);
             Route::get('/erp/sales/sale-returns/create-sale-return/{id}', [SaleReturnController::class, 'create']);
@@ -317,7 +293,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         });
     });
 
-    Route::middleware(['auth', 'permission:design'])->group(function () {
+    Route::middleware(['web.auth', 'permission:design'])->group(function () {
         Route::get('/erp/design', [DesignController::class, 'getDesign'])->name('design');
         Route::get('/erp/design/data', [DesignController::class, 'dataDesign']);
         Route::post('/erp/design-items/{id}/upload', [DesignItemController::class, 'upload'])->name('design-items.upload');
@@ -325,8 +301,8 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::post('/erp/design/{id}/unverify', [DesignController::class, 'unverify'])->name('design.unverify');
     });
 
-    Route::middleware(['auth', 'permission:production'])->group(function () {
-        Route::middleware(['auth', 'subpermission:waiting-list'])->group(function () {
+    Route::middleware(['web.auth', 'permission:production'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:waiting-list'])->group(function () {
             Route::get('/erp/productions/waiting-list/data', [WaitingListController::class, 'dataWaitingList']);
             Route::get('/erp/productions/waiting-list', [WaitingListController::class, 'getWaitingList']);
             // Route::get('/erp/complete-list/data', [WaitingListController::class, 'dataCompleteList']);
@@ -347,7 +323,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::post('/erp/productions/waiting-list/request-stocks/{id}', [StockRequestController::class, 'store']);
         });
 
-        Route::middleware(['auth', 'subpermission:assign-list'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:assign-list'])->group(function () {
             Route::get('/erp/productions/assign-list/edit-assign/{batch_id}', [OrderProgressAssignController::class, 'edit']);
             Route::put('/erp/productions/assign-list/assign/update/{batch_id}', [OrderProgressAssignController::class, 'update']);
 
@@ -362,7 +338,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::get('/erp/productions/waiting-list/assign-list/summary', [OrderProgressAssignController::class, 'AssignSummary']);
         });
 
-        Route::middleware(['auth', 'subpermission:request-stocks'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:request-stocks'])->group(function () {
             Route::get('/erp/productions/material-request/data', [MaterialRequestController::class, 'dataMaterialRequest']);
             Route::get('/erp/productions/material-request', [MaterialRequestController::class, 'getMaterialRequest']);
             Route::get('/erp/productions/material-request/create', [MaterialRequestController::class, 'create']);
@@ -384,7 +360,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::post('/erp/productions/stock-request/restore/{id}', [MaterialRequestController::class, 'restore'])->name('request-stocks.restore');
         });
 
-        Route::middleware(['auth', 'subpermission:report-items'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:report-items'])->group(function () {
             Route::get('/erp/productions/report-items', [ReportItemsProductionController::class, 'getReportItems']);
             Route::get('/erp/productions/report-items/data', [ReportItemsProductionController::class, 'dataReportItems']);
 
@@ -392,56 +368,37 @@ Route::middleware(['auth', 'check.session'])->group(function () {
                 ->name('erp.defect-product.store-production');
         });
 
-        Route::middleware(['auth', 'subpermission:snapshot-report'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:snapshot-report'])->group(function () {
             Route::get('/erp/productions/snapshot-report', [ProductionStockSnapshotController::class, 'getSnapshotReport']);
             Route::get('/erp/productions/snapshot-report/data', [ProductionStockSnapshotController::class, 'dataSnapshotReport']);
         });
 
         // Stock in
-        Route::middleware(['auth', 'subpermission:stock-in-production'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:stock-in-production'])->group(function () {
             Route::get('/erp/productions/stock-in/data', [ProductionController::class, 'dataStockIn']);
             Route::get('/erp/productions/stock-in', [ProductionController::class, 'getStockIn']);
-            Route::get('/erp/productions/stock-in/add-stock-in/{id}', [ProductionStockInController::class, 'addStockIn']);
-            Route::post('/erp/productions/stock-in/store/{id}', [ProductionStockInController::class, 'store']);
-            // Route::get('/erp/productions/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'addStockIn']);
-            // Route::post('/erp/productions/stock-in/store-grouped/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'storeGrouped']);
-            // Route::get('/erp/productions/stock-in/add-stock-in/{supplier_id}', [ProductionStockInController::class, 'addStockIn']);
-            // Route::post('/erp/productions/stock-in/store-grouped/{supplier_id}', [ProductionStockInController::class, 'storeGrouped']);
-            Route::get('/erp/productions/stock-in/edit-stock-in/{id}', [ProductionStockInController::class, 'edit']);
-            Route::put('/erp/productions/stock-in/update/{id}', [ProductionStockInController::class, 'update']);
-            Route::get('/erp/productions/stock-in/history/{id}/data', [ProductionStockInController::class, 'dataHistory']);
-            Route::get('/erp/productions/stock-in/history/{id}', [ProductionStockInController::class, 'getHistory']);
-            // Route::get('/erp/productions/stock-in/history/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'getHistory']);
-            // Route::get('/erp/productions/stock-in/history/{supplier_id}/{year}/{month}/data', [ProductionStockInController::class, 'dataHistory']);
-            // Route::get('/erp/productions/stock-in/history/{supplier_id}', [ProductionStockInController::class, 'getHistory']);
-            // Route::get('/erp/productions/stock-in/history/{supplier_id}/data', [ProductionStockInController::class, 'dataHistory']);
+            // Route::get('/erp/productions/stock-in/add-stock-in/{id}', [ProductionStockInController::class, 'addStockIn']);
+            // Route::post('/erp/productions/stock-in/store/{id}', [ProductionStockInController::class, 'store']);
+            Route::get('/erp/productions/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'addStockIn']);
+            Route::post('/erp/productions/stock-in/store-grouped/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'storeGrouped']);
+            Route::get('/erp/productions/stock-in/add-stock-in/{supplier_id}', [ProductionStockInController::class, 'addStockIn']);
+            Route::post('/erp/productions/stock-in/store-grouped/{supplier_id}', [ProductionStockInController::class, 'storeGrouped']);
+            // Route::get('/erp/productions/stock-in/edit-stock-in/{id}', [ProductionStockInController::class, 'edit']);
+            // Route::put('/erp/productions/stock-in/update/{id}', [ProductionStockInController::class, 'update']);
+            // Route::get('/erp/productions/stock-in/history/{id}/data', [ProductionStockInController::class, 'dataHistory']);
+            // Route::get('/erp/productions/stock-in/history/{id}', [ProductionStockInController::class, 'getHistory']);
+            Route::get('/erp/productions/stock-in/history/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'getHistory']);
+            Route::get('/erp/productions/stock-in/history/{supplier_id}/{year}/{month}/data', [ProductionStockInController::class, 'dataHistory']);
+            Route::get('/erp/productions/stock-in/history/{supplier_id}', [ProductionStockInController::class, 'getHistory']);
+            Route::get('/erp/productions/stock-in/history/{supplier_id}/data', [ProductionStockInController::class, 'dataHistory']);
             Route::post('/erp/productions/stock-in/history/item/{id}/update', [ProductionStockInController::class, 'updateHistoryItem']);
 
             Route::post('/erp/productions/stock-in/verify/{id}', [ProductionStockInController::class, 'verify'])->name('stock-in.verify');
         });
-
-        // Route::middleware(['auth', 'subpermission:canceled-products'])->group(function () {
-        //     Route::get('/erp/productions/canceled-products', [CanceledProductController::class, 'getCanceledProducts']);
-        //     Route::get('/erp/productions/canceled-products/data', [CanceledProductController::class, 'dataCanceledProducts']);
-        //     Route::post('/erp/productions/canceled-products/return-to-warehouse/{id}', [CanceledProductController::class, 'returnToWarehouse']);
-
-        //     Route::get('/erp/productions/canceled-products/detail/{id}', [CanceledProductController::class, 'detailCanceledProducts']);
-        //     Route::get('/erp/productions/canceled-products/detail/{id}/data', [CanceledProductController::class, 'dataDetailCanceledProducts']);
-
-        //     Route::get('/erp/productions/canceled-products/history/{id}', [CanceledProductController::class, 'getCanceledProductHistory']);
-        //     Route::get('/erp/productions/canceled-products/history/{id}/data', [CanceledProductController::class, 'dataCanceledProductHistory']);
-        // });
-
-        // Route::get('/erp/productions/waiting-list/history-order/{id}', [HistoryProgressOrderController::class, 'getOrderHistory']);
-        // Route::get('/erp/productions/waiting-list/history-order/{id}/data', [HistoryProgressOrderController::class, 'dataOrderHistory']);
-
-        // Route::get('/erp/productions/waiting-list/detail-order/{id}', [OrderDetailController::class, 'getOrderDetail']);
-        // Route::get('/erp/invoice-order/{id}', [InvoiceController::class, 'getInvoice']);
-        // Route::get('/erp/invoice-png/{id}', [InvoiceController::class, 'downloadInvoicePNG']);
     });
 
-    Route::middleware(['auth', 'permission:delivery'])->group(function () {
-        Route::middleware(['auth', 'subpermission:delivery-orders'])->group(function () {
+    Route::middleware(['web.auth', 'permission:delivery'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:delivery-orders'])->group(function () {
             Route::get('/erp/deliveries/delivery-orders/data', [DeliveryOrderController::class, 'dataDeliveryOrders']);
             Route::get('/erp/deliveries/delivery-orders', [DeliveryOrderController::class, 'getDeliveryOrders']);
             Route::get('/erp/deliveries/delivery-list/generate-number/{doId}', [DeliveryOrderController::class, 'generateNumber']);
@@ -455,7 +412,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::post('/erp/deliveries/delivery-orders/update-history/{id}', [DeliveryOrderController::class, 'updateDeliveryHistory']);
         });
 
-        Route::middleware(['auth', 'subpermission:delivery-list'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:delivery-list'])->group(function () {
             Route::get('/erp/deliveries/delivery-list/data', [DeliveryListController::class, 'dataDeliveryList']);
             Route::get('/erp/deliveries/delivery-list', [DeliveryListController::class, 'getDeliveryList']);
             Route::get('/erp/deliveries/delivery-list/print-waybill/{id}', [DeliveryListController::class, 'printWaybill']);
@@ -470,8 +427,8 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         });
     });
 
-    Route::middleware(['auth', 'permission:purchases'])->group(function () {
-        Route::middleware(['auth', 'subpermission:purchase-orders'])->group(function () {
+    Route::middleware(['web.auth', 'permission:purchases'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:purchase-orders'])->group(function () {
             Route::get('/erp/purchases/purchase-orders/detail-purchase/{id}', [PurchaseDetailController::class, 'getPurchaseOrderDetail']);
             Route::get('/erp/purchases/purchase-orders/data', [PurchaseOrderController::class, 'dataPurchaseOrders']);
             Route::get('/erp/purchases/purchase-orders', [PurchaseOrderController::class, 'getPurchaseOrders']);
@@ -484,7 +441,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::put('/erp/purchases/purchase-orders/mark-as-purchase-list/update/{id}', [PurchaseOrderController::class, 'updatePurchaseList'])->name('purchase-orders.update-purchase-list');
         });
 
-        Route::middleware(['auth', 'subpermission:purchase-list'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:purchase-list'])->group(function () {
             Route::get('/erp/purchases/check-number', [PurchaseListController::class, 'checkNumber'])->name('purchases.check-number');
             Route::get('/erp/purchases/get-latest-price/{productId}', [PurchaseListController::class, 'getLatestPrice']);
             Route::get('/erp/purchases/purchase-list/detail-purchase/{id}', [PurchaseDetailController::class, 'getPurchaseListDetail']);
@@ -508,10 +465,10 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::post('/erp/purchases/purchase-list/verify-payment/{groupId}', [PurchaseListController::class, 'verifyPayment'])->name('purchase-list.verify-payment');
             Route::post('/erp/purchases/purchase-list/force-delete/{id}', [PurchaseListController::class, 'forceDeleteOwner'])
                 ->name('purchases.purchase-list.forceDeleteOwner')
-                ->middleware('auth');
+                ->middleware('web.auth');
         });
 
-        Route::middleware(['auth', 'subpermission:purchase-returns'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:purchase-returns'])->group(function () {
             Route::get('/erp/purchases/purchase-returns/detail-purchase/{id}', [PurchaseDetailController::class, 'getPurchaseReturnDetail']);
             Route::get('/erp/purchases/purchase-returns/data', [PurchaseReturnController::class, 'dataPurchaseReturns']);
             Route::get('/erp/purchases/purchase-returns', [PurchaseReturnController::class, 'getPurchaseReturns']);
@@ -533,28 +490,28 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         });
     });
 
-    Route::middleware(['auth', 'permission:warehouse'])->group(function () {
-        Route::middleware(['auth', 'subpermission:stock-in'])->group(function () {
+    Route::middleware(['web.auth', 'permission:warehouse'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:stock-in'])->group(function () {
             Route::get('/erp/inventory/stock-in/data', [InventoryController::class, 'dataStockIn']);
             Route::get('/erp/inventory/stock-in', [InventoryController::class, 'getStockIn']);
 
-            Route::get('/erp/inventory/stock-in/add-stock-in/{id}', [HistoryStockInController::class, 'addStockIn']);
-            // Route::get('/erp/inventory/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'addStockIn']);
+            // Route::get('/erp/inventory/stock-in/add-stock-in/{id}', [HistoryStockInController::class, 'addStockIn']);
+            Route::get('/erp/inventory/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'addStockIn']);
 
-            Route::post('/erp/inventory/stock-in/store/{id}', [HistoryStockInController::class, 'store']);
-            // Route::post('/erp/inventory/stock-in/store/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'storeGrouped']);
+            // Route::post('/erp/inventory/stock-in/store/{id}', [HistoryStockInController::class, 'store']);
+            Route::post('/erp/inventory/stock-in/store/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'storeGrouped']);
 
-            Route::get('/erp/inventory/stock-in/edit-stock-in/{id}', [HistoryStockInController::class, 'edit']);
-            Route::put('/erp/inventory/stock-in/update/{id}', [HistoryStockInController::class, 'update']);
-            Route::get('/erp/inventory/stock-in/history/{id}/data', [HistoryStockInController::class, 'dataHistory']);
-            Route::get('/erp/inventory/stock-in/history/{id}', [HistoryStockInController::class, 'getHistory']);
-            // Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'getHistory']);
-            // Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}/data', [HistoryStockInController::class, 'dataHistory']);
+            // Route::get('/erp/inventory/stock-in/edit-stock-in/{id}', [HistoryStockInController::class, 'edit']);
+            // Route::put('/erp/inventory/stock-in/update/{id}', [HistoryStockInController::class, 'update']);
+            // Route::get('/erp/inventory/stock-in/history/{id}/data', [HistoryStockInController::class, 'dataHistory']);
+            // Route::get('/erp/inventory/stock-in/history/{id}', [HistoryStockInController::class, 'getHistory']);
+            Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'getHistory']);
+            Route::get('/erp/inventory/stock-in/history/{supplier_id}/{year}/{month}/data', [HistoryStockInController::class, 'dataHistory']);
 
             Route::post('/erp/inventory/stock-in/history/item/{id}/update', [HistoryStockInController::class, 'updateHistoryItem']);
         });
 
-        Route::middleware(['auth', 'subpermission:stock-out'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:stock-out'])->group(function () {
             Route::get('/erp/inventory/stock-out/data', [InventoryController::class, 'dataStockOut']);
             Route::get('/erp/inventory/stock-out', [InventoryController::class, 'getStockOut']);
             Route::get('/erp/inventory/stock-out/add-stock-out/{id}', [HistoryStockOutController::class, 'addStockOut']);
@@ -566,7 +523,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::delete('/erp/inventory/stock-out/delete/{id}', [HistoryStockOutController::class, 'delete']);
         });
 
-        Route::middleware(['auth', 'subpermission:warehouse-report-items'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:warehouse-report-items'])->group(function () {
             Route::get('/erp/inventory/report-items/data', [InventoryController::class, 'dataReportItems']);
             Route::get('/erp/inventory/report-items', [InventoryController::class, 'getReportItems']);
 
@@ -575,7 +532,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         });
     });
 
-    Route::middleware(['auth', 'permission:expenses'])->group(function () {
+    Route::middleware(['web.auth', 'permission:expenses'])->group(function () {
         Route::get('/erp/expenses/data', [ExpenseController::class, 'dataExpense']);
         Route::get('/erp/expenses', [ExpenseController::class, 'index']);
         Route::get('/erp/expenses/create-expense', [ExpenseController::class, 'create']);
@@ -585,7 +542,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::delete('/erp/expenses/delete/{id}', [ExpenseController::class, 'delete']);
     });
 
-    Route::middleware(['auth', 'permission:capital-transaction'])->group(function () {
+    Route::middleware(['web.auth', 'permission:capital-transaction'])->group(function () {
         Route::get('/erp/capital-transactions/data', [CapitalTransactionController::class, 'dataCapitalTransaction']);
         Route::get('/erp/capital-transactions', [CapitalTransactionController::class, 'index']);
 
@@ -596,8 +553,8 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::delete('/erp/capital-transactions/delete/{id}', [CapitalTransactionController::class, 'delete']);
     });
 
-    Route::middleware(['auth', 'permission:accounts'])->group(function () {
-        Route::middleware(['auth', 'subpermission:manage-opening-balance'])->group(function () {
+    Route::middleware(['web.auth', 'permission:accounts'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:manage-opening-balance'])->group(function () {
             Route::get('/erp/accounts/opening-balance/data', [OpeningBalanceController::class, 'dataOpeningBalance']);
             Route::get('/erp/accounts/opening-balance', [OpeningBalanceController::class, 'getOpeningBalance']);
             Route::get('/erp/accounts/opening-balance/create-opening-balance', [OpeningBalanceController::class, 'create']);
@@ -607,7 +564,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::delete('/erp/accounts/opening-balance/delete/{id}', [OpeningBalanceController::class, 'delete']);
         });
 
-        Route::middleware(['auth', 'subpermission:manage-accounts'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:manage-accounts'])->group(function () {
             Route::get('/erp/accounts', [AccountController::class, 'getAccount']);
             Route::get('/erp/accounts/data', [AccountController::class, 'dataAccount']);
             Route::get('/erp/accounts/create-account', [AccountController::class, 'create']);
@@ -619,43 +576,43 @@ Route::middleware(['auth', 'check.session'])->group(function () {
             Route::post('/erp/accounts/remove-default/{id}', [AccountController::class, 'removeDefault']);
         });
 
-        Route::middleware(['auth', 'subpermission:account-expense'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:account-expense'])->group(function () {
             Route::get('/erp/accounts/expense/data', [AccountListController::class, 'dataExpense']);
             Route::get('/erp/accounts/expense', [AccountListController::class, 'getExpense']);
         });
 
-        Route::middleware(['auth', 'subpermission:account-customer-deposit'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:account-customer-deposit'])->group(function () {
             Route::get('/erp/accounts/customer-deposit/data', [AccountListController::class, 'dataCustomerDeposit']);
             Route::get('/erp/accounts/customer-deposit', [AccountListController::class, 'getCustomerDeposit']);
         });
 
-        Route::middleware(['auth', 'subpermission:account-bank'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:account-bank'])->group(function () {
             Route::get('/erp/accounts/bank/data', [AccountListController::class, 'dataBank']);
             Route::get('/erp/accounts/bank', [AccountListController::class, 'getBank']);
         });
 
-        Route::middleware(['auth', 'subpermission:account-cash'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:account-cash'])->group(function () {
             Route::get('/erp/accounts/cash/data', [AccountListController::class, 'dataCash']);
             Route::get('/erp/accounts/cash', [AccountListController::class, 'getCash']);
         });
 
-        Route::middleware(['auth', 'subpermission:account-sale'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:account-sale'])->group(function () {
             Route::get('/erp/accounts/sale/data', [AccountListController::class, 'dataSale']);
             Route::get('/erp/accounts/sale', [AccountListController::class, 'getSale']);
         });
 
-        Route::middleware(['auth', 'subpermission:account-purchase'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:account-purchase'])->group(function () {
             Route::get('/erp/accounts/purchase/data', [AccountListController::class, 'dataPurchase']);
             Route::get('/erp/accounts/purchase', [AccountListController::class, 'getPurchase']);
         });
 
-        Route::middleware(['auth', 'subpermission:account-capital'])->group(function () {
+        Route::middleware(['web.auth', 'subpermission:account-capital'])->group(function () {
             Route::get('/erp/accounts/capital/data', [AccountListController::class, 'dataCapital']);
             Route::get('/erp/accounts/capital', [AccountListController::class, 'getCapital']);
         });
     });
 
-    Route::middleware(['auth', 'permission:financial-report'])->group(function () {
+    Route::middleware(['web.auth', 'permission:financial-report'])->group(function () {
         Route::get('/erp/financial-report/profit-loss', [FinancialStatementController::class, 'profitLoss']);
         Route::get('/erp/financial-report/profit-loss/summary', [FinancialStatementController::class, 'profitLossSummary']);
 
@@ -663,7 +620,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::get('/erp/financial-report/profit-loss/daily/data', [FinancialStatementController::class, 'profitLossDaily']);
     });
 
-    Route::middleware(['auth', 'permission:shop-manager'])->group(function () {
+    Route::middleware(['web.auth', 'permission:shop-manager'])->group(function () {
         Route::get('/erp/shop-manager/users/data', [UserController::class, 'dataUsers']);
         Route::get('/erp/shop-manager/users', [UserController::class, 'getUsers']);
 
@@ -674,7 +631,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::put('/erp/shop-manager/update/{id}', [UserController::class, 'update']);
     });
 
-    Route::middleware(['auth', 'permission:operator'])->group(function () {
+    Route::middleware(['web.auth', 'permission:operator'])->group(function () {
         Route::get('/erp/shop-manager/operators/data', [OperatorController::class, 'dataOperators']);
         Route::get('/erp/shop-manager/operators', [OperatorController::class, 'getOperators']);
         Route::get('/erp/shop-manager/operators/create-operator', [OperatorController::class, 'create']);
@@ -686,7 +643,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::get('/erp/shop-manager/operators/detail/{id}/data', [OperatorController::class, 'dataShow']);
     });
 
-    Route::middleware(['auth', 'permission:customer'])->group(function () {
+    Route::middleware(['web.auth', 'permission:customer'])->group(function () {
         Route::get('/erp/customers/data', [CustomerController::class, 'data']);
         Route::get('/erp/customers', [CustomerController::class, 'index']);
         Route::get('/erp/customers/create-customer', [CustomerController::class, 'create']);
@@ -699,7 +656,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::post('/erp/customers/{customer}/deposit', [CustomerController::class, 'updateDeposit']);
     });
 
-    Route::middleware(['auth', 'permission:supplier'])->group(function () {
+    Route::middleware(['web.auth', 'permission:supplier'])->group(function () {
         Route::get('/erp/suppliers/data', [SupplierController::class, 'data']);
         Route::get('/erp/suppliers', [SupplierController::class, 'index']);
         Route::get('/erp/suppliers/create-supplier', [SupplierController::class, 'create']);
@@ -710,7 +667,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::put('/erp/suppliers/delete/{id}', [SupplierController::class, 'delete']);
     });
 
-    Route::middleware(['auth', 'permission:invoice'])->group(function () {
+    Route::middleware(['web.auth', 'permission:invoice'])->group(function () {
         Route::get('/erp/invoices/data', [InvoiceController::class, 'dataInvoice']);
         Route::get('/erp/invoices', [InvoiceController::class, 'index']);
         Route::get('/erp/invoices/create-invoice', [InvoiceController::class, 'create']);
@@ -720,7 +677,7 @@ Route::middleware(['auth', 'check.session'])->group(function () {
         Route::delete('/erp/invoices/delete/{id}', [InvoiceController::class, 'delete']);
     });
 
-    Route::middleware(['auth', 'permission:settings'])->group(function () {
+    Route::middleware(['web.auth', 'permission:settings'])->group(function () {
         Route::get('/erp/settings',              [SettingController::class, 'index'])->name('settings.index');
         Route::post('/erp/settings/toggle/{key}', [SettingController::class, 'toggle'])->name('settings.toggle');
     });

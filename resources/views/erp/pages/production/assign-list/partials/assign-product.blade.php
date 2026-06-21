@@ -50,6 +50,7 @@
                     </td>
                     <td><span
                             class="fw-bold text-success">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span>
+                        {{ $assign->progressItem?->unit_name }}
                         {{-- /<span class="fw-bold text-primary">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span> --}}
                     </td>
                     {{-- <td><span class="fw-bold text-danger">{{ number_format($assign->defect_quantity, 0, ',', '.') }}</span></td>

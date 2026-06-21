@@ -158,6 +158,7 @@
                                         <tr class="text-center">
                                             <th class="wd-50">#</th>
                                             <th class="wd-450">Product</th>
+                                            <th class="wd-200">Unit</th>
                                             <th class="wd-150">Qty</th>
                                             <th class="wd-100">Action</th>
                                         </tr>
@@ -180,6 +181,30 @@
                                                             </option>
                                                         @endforeach
                                                     </select>
+                                                </td>
+                                                <td>
+                                                    <select class="form-control select-unit" name="product_unit_id[]">
+                                                        <option value="" data-name="Pcs" data-conversion="1"
+                                                            {{ !$item->product_unit_conversion_id ? 'selected' : '' }}>
+                                                            Default Unit
+                                                        </option>
+
+                                                        @foreach ($item->purchaseProduct?->unitConversions ?? [] as $conversion)
+                                                            <option value="{{ $conversion->id }}"
+                                                                data-name="{{ $conversion->unit->name ?? 'Pcs' }}"
+                                                                data-conversion="{{ $conversion->conversion_value ?? 1 }}"
+                                                                {{ $item->product_unit_conversion_id == $conversion->id ? 'selected' : '' }}>
+                                                                {{ $conversion->unit->name ?? 'Pcs' }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+
+                                                    <input type="hidden" name="unit_name[]" class="unit-name"
+                                                        value="{{ $item->unit_name ?? 'Pcs' }}">
+
+                                                    <input type="hidden" name="unit_conversion_value[]"
+                                                        class="unit-conversion-value"
+                                                        value="{{ $item->unit_conversion_value ?? 1 }}">
                                                 </td>
                                                 <td>
                                                     <input type="text" inputmode="numeric" name="qty[]"
@@ -208,6 +233,19 @@
                                                             </option>
                                                         @endforeach
                                                     </select>
+                                                </td>
+                                                <td>
+                                                    <select class="form-control select-unit" name="product_unit_id[]">
+                                                        <option value="" data-name="Pcs" data-conversion="1"
+                                                            selected>
+                                                            Default Unit
+                                                        </option>
+                                                    </select>
+
+                                                    <input type="hidden" name="unit_name[]" class="unit-name"
+                                                        value="Pcs">
+                                                    <input type="hidden" name="unit_conversion_value[]"
+                                                        class="unit-conversion-value" value="1">
                                                 </td>
                                                 <td>
                                                     <input type="text" inputmode="numeric" name="qty[]"
@@ -253,6 +291,16 @@
         </select>
     </td>
     <td>
+        <select class="form-control select-unit" name="product_unit_id[]">
+            <option value="" data-name="Pcs" data-conversion="1" selected>
+                Default Unit
+            </option>
+        </select>
+
+        <input type="hidden" name="unit_name[]" class="unit-name" value="Pcs">
+        <input type="hidden" name="unit_conversion_value[]" class="unit-conversion-value" value="1">
+    </td>
+    <td>
         <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0">
     </td>
     <td class="text-center">
@@ -264,7 +312,61 @@
     </td>
 </tr>
 </script>
+    @php
+        $productUnitsJson = $products->mapWithKeys(function ($product) {
+            return [
+                $product->id => $product->unitConversions
+                    ->map(function ($conversion) {
+                        return [
+                            'id' => $conversion->id,
+                            'unit_name' => optional($conversion->unit)->name ?? 'Pcs',
+                            'conversion_value' => $conversion->conversion_value ?? 1,
+                        ];
+                    })
+                    ->values(),
+            ];
+        });
+    @endphp
     <script>
+        const productUnits = @json($productUnitsJson);
+
+        function loadProductUnits($row) {
+            const productId = $row.find('.select-product').val();
+            const $unitSelect = $row.find('.select-unit');
+            const $unitName = $row.find('.unit-name');
+            const $unitConversionValue = $row.find('.unit-conversion-value');
+
+            $unitSelect.empty();
+
+            $unitSelect.append(`
+                <option value="" data-name="Pcs" data-conversion="1" selected>
+                    Default Unit
+                </option>
+            `);
+
+            if (productId && productUnits[productId]) {
+                productUnits[productId].forEach(unit => {
+                    $unitSelect.append(`
+                <option value="${unit.id}"
+                    data-name="${unit.unit_name}"
+                    data-conversion="${unit.conversion_value}">
+                    ${unit.unit_name}
+                </option>
+            `);
+                });
+            }
+
+            $unitName.val('Pcs');
+            $unitConversionValue.val(1);
+        }
+
+        function syncSelectedUnit($row) {
+            const selected = $row.find('.select-unit option:selected');
+
+            $row.find('.unit-name').val(selected.data('name') || 'Pcs');
+            $row.find('.unit-conversion-value').val(selected.data('conversion') || 1);
+        }
+
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih opsi',
@@ -296,6 +398,20 @@
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
+
+            $('#tab_logic tbody tr').each(function() {
+                syncSelectedUnit($(this));
+            });
+
+            $(document).on('change', '.select-product', function() {
+                const $row = $(this).closest('tr');
+                loadProductUnits($row);
+            });
+
+            $(document).on('change', '.select-unit', function() {
+                const $row = $(this).closest('tr');
+                syncSelectedUnit($row);
+            });
 
             // Format angka qty
             $(document).on('input', '.qty', function() {
@@ -350,14 +466,19 @@
                 }
 
                 $('#tab_logic tbody tr').each(function() {
-                    const product = $(this).find('select[name="product[]"]');
-                    const qty = $(this).find('input[name="qty[]"]');
+                    const $row = $(this);
+
+                    const product = $row.find('select[name="product[]"]');
+                    const qty = $row.find('input[name="qty[]"]');
                     const qtyValue = unformatRibuan(qty.val());
+
+                    syncSelectedUnit($row);
 
                     if (!product.val()) {
                         isValid = false;
                         product.addClass('is-invalid');
                     }
+
                     if (!qty.val().trim() || qtyValue <= 0) {
                         isValid = false;
                         qty.addClass('is-invalid');
@@ -372,10 +493,10 @@
             });
         });
 
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
-        });
+        // $(document).on('select2:open', () => {
+        //     setTimeout(() => {
+        //         document.querySelector('.select2-container--open .select2-search__field')?.focus();
+        //     }, 50);
+        // });
     </script>
 @endpush

@@ -10,12 +10,14 @@
         </thead>
         <tbody>
             @foreach ($inventory->items as $item)
-            <tr>
-                <td><span class="fw-bold text-dark">{{ $item->product->name }}</span></td>
-                <td><span class="fw-bold text-primary">{{ number_format($item->quantity, 0, ',', '.') }}</span></td>
-                <td><span class="fw-bold text-success">{{ number_format($item->stock_in, 0, ',', '.') }}</span></td>
-                <td><span class="fw-bold text-danger">{{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}</span></td>
-            </tr>
+                <tr>
+                    <td><span class="fw-bold text-dark">{{ $item->product->name }}</span></td>
+                    <td><span class="fw-bold text-primary">{{ number_format($item->quantity, 0, ',', '.') }}</span></td>
+                    <td><span class="fw-bold text-success">{{ number_format($item->stock_in, 0, ',', '.') }}</span></td>
+                    <td><span
+                            class="fw-bold text-danger">{{ number_format($item->quantity - $item->stock_in, 0, ',', '.') }}</span>
+                    </td>
+                </tr>
             @endforeach
         </tbody>
     </table>

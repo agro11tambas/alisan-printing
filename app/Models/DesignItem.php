@@ -22,6 +22,9 @@ class DesignItem extends Model
         'verified_by',
         'verified_at',
         'note',
+        'product_unit_conversion_id',
+        'unit_name',
+        'unit_conversion_value',
     ];
 
     protected $casts = [

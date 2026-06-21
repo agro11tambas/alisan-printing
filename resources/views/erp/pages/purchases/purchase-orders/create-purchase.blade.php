@@ -170,6 +170,7 @@
                                                 <tr class="single-item">
                                                     <th class="text-center wd-50">#</th>
                                                     <th class="text-center wd-450">Product</th>
+                                                    <th class="text-center wd-200">Unit</th>
                                                     <th class="text-center wd-150">Qty</th>
                                                     <th class="text-center wd-100">Action</th>
                                                 </tr>
@@ -188,6 +189,17 @@
                                                                 </option>
                                                             @endforeach
                                                         </select>
+                                                    </td>
+                                                    <td>
+                                                        <select class="form-control select-unit" name="product_unit_id[]"
+                                                            id="product_unit_0">
+                                                            <option value="" selected>Default Unit</option>
+                                                        </select>
+
+                                                        <input type="hidden" name="unit_name[]" class="unit-name"
+                                                            value="Pcs">
+                                                        <input type="hidden" name="unit_conversion_value[]"
+                                                            class="unit-conversion-value" value="1">
                                                     </td>
                                                     <td>
                                                         <input type="text" inputmode="numeric" name="qty[]"
@@ -231,9 +243,9 @@
     <script type="text/template" id="row-template-po">
 <tr>
     <td>__INDEX__</td>
+
     <td>
-        <select class="form-control select-product"
-            name="product[]">
+        <select class="form-control select-product" name="product[]">
             <option value="" disabled selected hidden>Pilih produk</option>
             @foreach ($products as $product)
                 <option value="{{ $product->id }}">
@@ -242,9 +254,20 @@
             @endforeach
         </select>
     </td>
+
+    <td>
+        <select class="form-control select-unit" name="product_unit_id[]">
+            <option value="" data-name="Pcs" data-conversion="1" selected>Default Unit</option>
+        </select>
+
+        <input type="hidden" name="unit_name[]" class="unit-name" value="Pcs">
+        <input type="hidden" name="unit_conversion_value[]" class="unit-conversion-value" value="1">
+    </td>
+
     <td>
         <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0">
     </td>
+
     <td class="text-center">
         <div class="d-flex justify-content-center">
             <button type="button" class="btn btn-danger delete-row">
@@ -254,8 +277,25 @@
     </td>
 </tr>
 </script>
+    @php
+        $productUnitsJson = $products->mapWithKeys(function ($product) {
+            return [
+                $product->id => $product->unitConversions
+                    ->map(function ($conversion) {
+                        return [
+                            'id' => $conversion->id,
+                            'unit_name' => optional($conversion->unit)->name ?? 'Pcs',
+                            'conversion_value' => $conversion->conversion_value ?? 1,
+                        ];
+                    })
+                    ->values(),
+            ];
+        });
+    @endphp
 
     <script>
+        const productUnits = @json($productUnitsJson);
+
         function initSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih opsi',
@@ -280,6 +320,7 @@
 
         function showError(el, message) {
             const $el = $(el);
+
             if ($el.hasClass('select2-hidden-accessible')) {
                 const $container = $el.siblings('.select2');
                 $container.next('.invalid-feedback').remove();
@@ -288,8 +329,10 @@
                 $container.after(feedback);
             } else {
                 $el.addClass('is-invalid');
+
                 let $container = $el.closest('.input-group');
                 if ($container.length === 0) $container = $el.parent();
+
                 $container.find('.invalid-feedback').remove();
 
                 const feedback = $('<div class="invalid-feedback d-block"></div>').text(message);
@@ -297,27 +340,63 @@
             }
         }
 
-        $(document).on("change input",
-            "#purchase_date, #suppliers, select[name='product[]'], input[name='qty[]']",
-            function() {
-                if ($(this).hasClass("select2-hidden-accessible")) {
-                    $(this).siblings('.select2').next('.invalid-feedback').remove();
-                } else {
-                    this.classList.remove("is-invalid");
-                    $(this).siblings(".invalid-feedback").remove();
-                }
-            }
-        );
+        function loadProductUnits($row) {
+            const productId = $row.find('.select-product').val();
+            const $unitSelect = $row.find('.select-unit');
+            const $unitName = $row.find('.unit-name');
+            const $unitConversionValue = $row.find('.unit-conversion-value');
 
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
-        });
+            $unitSelect.empty();
+
+            $unitSelect.append(`
+        <option value="" data-name="Pcs" data-conversion="1" selected>
+            Default Unit
+        </option>
+    `);
+
+            if (productId && productUnits[productId]) {
+                productUnits[productId].forEach(unit => {
+                    $unitSelect.append(`
+                <option value="${unit.id}"
+                    data-name="${unit.unit_name}"
+                    data-conversion="${unit.conversion_value}">
+                    ${unit.unit_name}
+                </option>
+            `);
+                });
+            }
+
+            $unitName.val('Pcs');
+            $unitConversionValue.val(1);
+        }
+
+        function syncSelectedUnit($row) {
+            const selected = $row.find('.select-unit option:selected');
+
+            $row.find('.unit-name').val(selected.data('name') || 'Pcs');
+            $row.find('.unit-conversion-value').val(selected.data('conversion') || 1);
+        }
 
         $(document).ready(function() {
             initSelect2('.select-product');
             initSelect2('#suppliers');
+
+            $(document).on('select2:open', () => {
+                setTimeout(() => {
+                    document.querySelector('.select2-container--open .select2-search__field')
+                        ?.focus();
+                }, 50);
+            });
+
+            $(document).on('change', '.select-product', function() {
+                const $row = $(this).closest('tr');
+                loadProductUnits($row);
+            });
+
+            $(document).on('change', '.select-unit', function() {
+                const $row = $(this).closest('tr');
+                syncSelectedUnit($row);
+            });
 
             $(document).on('input', '.qty', function() {
                 const val = $(this).val().replace(/\D/g, '');
@@ -338,21 +417,29 @@
                 }
             });
 
+            $(document).on("change input",
+                "#purchase_date, #suppliers, select[name='product[]'], select[name='product_unit_id[]'], input[name='qty[]']",
+                function() {
+                    if ($(this).hasClass("select2-hidden-accessible")) {
+                        $(this).siblings('.select2').next('.invalid-feedback').remove();
+                    } else {
+                        this.classList.remove("is-invalid");
+                        $(this).siblings(".invalid-feedback").remove();
+                    }
+                }
+            );
+
             $('#add_row').on('click', function() {
                 const $tbody = $('#tab_logic tbody');
                 const newIndex = $tbody.find('tr').length + 1;
 
-                // ambil template
                 let template = $('#row-template-po').html();
                 template = template.replace('__INDEX__', newIndex);
 
-                // convert jadi element
                 const $newRow = $(template);
 
-                // append row baru
                 $tbody.append($newRow);
 
-                // init select2 di row baru
                 initSelect2($newRow.find('.select-product'));
             });
 
@@ -381,14 +468,18 @@
                 }
 
                 $('#tab_logic tbody tr').each(function() {
-                    const product = $(this).find('select[name="product[]"]');
-                    const qty = $(this).find('input[name="qty[]"]');
+                    const $row = $(this);
+                    const product = $row.find('select[name="product[]"]');
+                    const qty = $row.find('input[name="qty[]"]');
                     const qtyValue = unformatRibuan(qty.val());
+
+                    syncSelectedUnit($row);
 
                     if (!product.val()) {
                         isValid = false;
                         showError(product[0], 'Produk wajib dipilih');
                     }
+
                     if (!qty.val().trim() || qtyValue <= 0) {
                         isValid = false;
                         showError(qty[0], 'Qty wajib diisi');
@@ -403,12 +494,6 @@
                     e.preventDefault();
                 }
             });
-        });
-
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
         });
     </script>
 @endpush

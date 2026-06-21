@@ -177,38 +177,29 @@
                                     </div>
                                 </div>
                             </div>
+                            <input type="hidden" id="price" name="price" value="0">
                             <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
-                                    <label for="price" class="fw-semibold">Price</label>
+                                    <label for="base_unit_id" class="fw-semibold">Base Unit</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="price" name="price"
-                                            value="{{ old('price', number_format($product->price ?? 0, 2, ',', '.')) }}"
-                                            placeholder="0">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row mb-3 align-items-center">
-                                <div class="col-lg-2">
-                                    <label for="fixed_cost" class="fw-semibold">Fixed Cost</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="fixed_cost" name="fixed_cost"
-                                            value="{{ old('fixed_cost', number_format($product->fixed_cost ?? 0, 2, ',', '.')) }}"
-                                            placeholder="0">
-                                    </div>
+                                    <select class="form-control" id="base_unit_id" name="base_unit_id">
+                                        <option value="">Choose Base Unit</option>
+                                        @foreach ($productUnits as $unit)
+                                            <option value="{{ $unit->id }}"
+                                                {{ old('base_unit_id', $product->base_unit_id) == $unit->id ? 'selected' : '' }}>
+                                                {{ $unit->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
                                 </div>
                             </div>
                             @php
-                                $pcsUnitId = optional($pcsUnit)->id;
+                                $existingUnitConversions = old('units')
+                                    ? collect(old('units'))
+                                    : $product->unitConversions->values();
 
-                                $existingUnitConversions = $product->unitConversions
-                                    ->filter(function ($conversion) use ($pcsUnitId) {
-                                        return (int) $conversion->unit_id !== (int) $pcsUnitId;
-                                    })
-                                    ->values();
+                                $unitRowIndex = max($existingUnitConversions->count(), 1);
                             @endphp
 
                             <div class="row mb-3 align-items-start">
@@ -221,28 +212,60 @@
                                         <table class="table table-bordered align-middle" id="productUnitTable">
                                             <thead>
                                                 <tr>
-                                                    <th style="width: 30%">Unit</th>
-                                                    <th style="width: 25%">Conversion to Pcs</th>
-                                                    <th style="width: 30%">Sale Price</th>
-                                                    <th style="width: 10%">Action</th>
+                                                    <th style="width: 18%">Unit</th>
+                                                    <th style="width: 18%">Conversion to Base Unit</th>
+                                                    <th style="width: 18%">Fixed Cost</th>
+                                                    <th style="width: 18%">Margin</th>
+                                                    <th style="width: 20%">Sale Price</th>
+                                                    <th style="width: 8%">Action</th>
                                                 </tr>
                                             </thead>
 
                                             <tbody id="productUnitBody">
                                                 @forelse ($existingUnitConversions as $index => $conversion)
+                                                    @php
+                                                        $unitId = old(
+                                                            "units.$index.unit_id",
+                                                            is_array($conversion)
+                                                                ? $conversion['unit_id'] ?? null
+                                                                : $conversion->unit_id,
+                                                        );
+                                                        $conversionValue = old(
+                                                            "units.$index.conversion_value",
+                                                            is_array($conversion)
+                                                                ? $conversion['conversion_value'] ?? null
+                                                                : $conversion->conversion_value,
+                                                        );
+                                                        $fixedCost = old(
+                                                            "units.$index.fixed_cost",
+                                                            is_array($conversion)
+                                                                ? $conversion['fixed_cost'] ?? 0
+                                                                : $conversion->fixed_cost ?? 0,
+                                                        );
+                                                        $margin = old(
+                                                            "units.$index.margin",
+                                                            is_array($conversion)
+                                                                ? $conversion['margin'] ?? 0
+                                                                : $conversion->margin ?? 0,
+                                                        );
+                                                        $salePrice = old(
+                                                            "units.$index.sale_price",
+                                                            is_array($conversion)
+                                                                ? $conversion['sale_price'] ?? 0
+                                                                : $conversion->sale_price ?? 0,
+                                                        );
+                                                    @endphp
+
                                                     <tr>
                                                         <td>
                                                             <select name="units[{{ $index }}][unit_id]"
                                                                 class="form-control unit-select">
                                                                 <option value="">Choose Unit</option>
-
                                                                 @foreach ($productUnits as $unit)
-                                                                    @if (strtolower($unit->name) !== 'pcs')
-                                                                        <option value="{{ $unit->id }}"
-                                                                            {{ (int) $conversion->unit_id === (int) $unit->id ? 'selected' : '' }}>
-                                                                            {{ $unit->name }}
-                                                                        </option>
-                                                                    @endif
+                                                                    <option value="{{ $unit->id }}"
+                                                                        {{ (int) $unitId === (int) $unit->id ? 'selected' : '' }}>
+                                                                        {{ $unit->name }}
+                                                                    </option>
                                                                 @endforeach
                                                             </select>
                                                         </td>
@@ -251,15 +274,31 @@
                                                             <input type="text"
                                                                 name="units[{{ $index }}][conversion_value]"
                                                                 class="form-control conversion-input"
-                                                                value="{{ old('units.' . $index . '.conversion_value', rtrim(rtrim(number_format($conversion->conversion_value ?? 0, 2, '.', ''), '0'), '.')) }}"
+                                                                value="{{ rtrim(rtrim(number_format((float) $conversionValue, 2, '.', ''), '0'), '.') }}"
                                                                 placeholder="Contoh: 1000">
                                                         </td>
 
                                                         <td>
                                                             <input type="text"
-                                                                name="units[{{ $index }}][sale_price]"
+                                                                name="units[{{ $index }}][fixed_cost]"
                                                                 class="form-control unit-money-field"
-                                                                value="{{ old('units.' . $index . '.sale_price', number_format($conversion->sale_price ?? 0, 2, ',', '.')) }}"
+                                                                value="{{ number_format((float) $fixedCost, 2, ',', '.') }}"
+                                                                placeholder="0">
+                                                        </td>
+
+                                                        <td>
+                                                            <input type="text"
+                                                                name="units[{{ $index }}][margin]"
+                                                                class="form-control unit-money-field"
+                                                                value="{{ number_format((float) $margin, 2, ',', '.') }}"
+                                                                placeholder="0">
+                                                        </td>
+
+                                                        <td>
+                                                            <input type="text"
+                                                                name="units[{{ $index }}][sale_price]"
+                                                                class="form-control unit-money-field sale-price-input"
+                                                                value="{{ number_format((float) $salePrice, 2, ',', '.') }}"
                                                                 placeholder="0">
                                                         </td>
 
@@ -276,12 +315,9 @@
                                                             <select name="units[0][unit_id]"
                                                                 class="form-control unit-select">
                                                                 <option value="">Choose Unit</option>
-
                                                                 @foreach ($productUnits as $unit)
-                                                                    @if (strtolower($unit->name) !== 'pcs')
-                                                                        <option value="{{ $unit->id }}">
-                                                                            {{ $unit->name }}</option>
-                                                                    @endif
+                                                                    <option value="{{ $unit->id }}">
+                                                                        {{ $unit->name }}</option>
                                                                 @endforeach
                                                             </select>
                                                         </td>
@@ -293,8 +329,19 @@
                                                         </td>
 
                                                         <td>
-                                                            <input type="text" name="units[0][sale_price]"
+                                                            <input type="text" name="units[0][fixed_cost]"
                                                                 class="form-control unit-money-field" placeholder="0">
+                                                        </td>
+
+                                                        <td>
+                                                            <input type="text" name="units[0][margin]"
+                                                                class="form-control unit-money-field" placeholder="0">
+                                                        </td>
+
+                                                        <td>
+                                                            <input type="text" name="units[0][sale_price]"
+                                                                class="form-control unit-money-field sale-price-input"
+                                                                placeholder="0">
                                                         </td>
 
                                                         <td class="text-center">
@@ -339,243 +386,6 @@
     </div>
 @endsection
 
-{{-- @push('scripts')
-    <script>
-        // ========== FUNGSI ERROR (GLOBAL SCOPE) ==========
-        function showError(element, message) {
-            // Cari parent col-lg-10 untuk naruh error di bawah field
-            const parent = element.closest('.col-lg-10');
-
-            // Hapus error lama jika ada
-            parent.find('.error-message').remove();
-            element.addClass('is-invalid');
-
-            // Untuk select2
-            if (element.hasClass('select2-hidden-accessible')) {
-                element.next('.select2').find('.select2-selection').addClass('is-invalid');
-            }
-
-            // Tambah pesan error di bawah input-group
-            const errorDiv = $('<div class="error-message text-danger small mt-1"></div>').text(message);
-            parent.append(errorDiv);
-        }
-
-        function removeError(element) {
-            // Cari parent col-lg-10 untuk hapus error
-            const parent = element.closest('.col-lg-10');
-            parent.find('.error-message').remove();
-            element.removeClass('is-invalid');
-
-            // Untuk select2
-            if (element.hasClass('select2-hidden-accessible')) {
-                element.next('.select2').find('.select2-selection').removeClass('is-invalid');
-            }
-        }
-
-        document.addEventListener("DOMContentLoaded", () => {
-            const form = document.getElementById('productForm');
-
-            // ========== IMAGE PREVIEW ==========
-            const imageInput = document.getElementById('image');
-            if (imageInput) {
-                imageInput.addEventListener('change', function(event) {
-                    const file = event.target.files[0];
-                    const preview = document.getElementById('preview-image');
-                    const previewContainer = document.getElementById('new-image-container');
-                    const oldImageContainer = document.getElementById('old-image-container');
-
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            preview.src = e.target.result;
-                            previewContainer.style.display = 'block';
-                            if (oldImageContainer) oldImageContainer.style.display = 'none';
-                        };
-                        reader.readAsDataURL(file);
-                    } else {
-                        previewContainer.style.display = 'none';
-                        if (oldImageContainer) oldImageContainer.style.display = 'block';
-                    }
-                });
-            }
-
-            // ========== FORMAT INPUT PRICE & FIXED COST ==========
-            ['price', 'fixed_cost'].forEach(id => {
-                const input = document.getElementById(id);
-                if (!input) return;
-
-                // ✅ Format awal saat halaman dimuat (smart decimal: hapus ,00)
-                if (input.value) {
-                    let raw = input.value.toString().replace(/\./g, '').replace(',', '.');
-                    let num = parseFloat(raw);
-                    if (!isNaN(num)) {
-                        // Smart format: 123.00 → 123 | 123.45 → 123,45
-                        if (num % 1 === 0) {
-                            // Bilangan bulat
-                            input.value = num.toLocaleString('id-ID', {
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0
-                            });
-                        } else {
-                            // Ada desimal
-                            input.value = num.toLocaleString('id-ID', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            });
-                        }
-                        input.dataset.raw = num;
-                    }
-                }
-
-                // ✅ Event focus: kosongkan jika value = 0
-                input.addEventListener('focus', function() {
-                    if (this.value === '0') {
-                        this.value = '';
-                        this.dataset.wasZero = 'true';
-                    }
-                });
-
-                // ✅ Event blur: kembalikan ke 0 jika kosong
-                input.addEventListener('blur', function() {
-                    if (this.value.trim() === '' && this.dataset.wasZero === 'true') {
-                        this.value = '0';
-                    }
-                    delete this.dataset.wasZero;
-                });
-
-                // ✅ Event input: format angka
-                input.addEventListener('input', function() {
-                    let val = this.value.replace(/[^\d,]/g, '');
-                    const parts = val.split(',');
-
-                    let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
-                    if (parts.length > 1) {
-                        let decimalPart = parts[1].substring(0, 2); // max 2 digit
-                        val = `${integerPart},${decimalPart}`;
-                    } else {
-                        val = integerPart;
-                    }
-
-                    this.value = val;
-                    this.dataset.raw = val;
-
-                    removeError($(this));
-                });
-            });
-
-            // ========== AUTO REMOVE ERROR SAAT INPUT ==========
-            ['name', 'sku', 'price', 'fixed_cost'].forEach(id => {
-                const input = $('#' + id);
-                if (input.length) {
-                    input.on('input', function() {
-                        removeError($(this));
-                    });
-                }
-            });
-
-            // Untuk select (stock)
-            $('#stock').on('change', function() {
-                removeError($(this));
-            });
-
-            // Untuk select2 (categories & tags)
-            $('#categories, #tags').on('change', function() {
-                removeError($(this));
-            });
-
-            // ========== VALIDASI SUBMIT (KONSISTEN DENGAN REQUEST STOCK) ==========
-            $('#productForm').on('submit', function(e) {
-                e.preventDefault();
-
-                let isValid = true;
-
-                // Hapus semua error sebelumnya
-                $('.error-message').remove();
-                $('.is-invalid').removeClass('is-invalid');
-
-                // Validasi Name
-                const nameInput = $('input[name="name"]');
-                if (!nameInput.val() || nameInput.val().trim() === '') {
-                    showError(nameInput, 'Nama Produk wajib diisi');
-                    isValid = false;
-                }
-
-                // Validasi SKU
-                const skuInput = $('input[name="sku"]');
-                if (!skuInput.val() || skuInput.val().trim() === '') {
-                    showError(skuInput, 'SKU wajib diisi');
-                    isValid = false;
-                }
-
-                // Validasi Stock
-                const stockSelect = $('select[name="stock"]');
-                if (!stockSelect.val() || stockSelect.val().trim() === '') {
-                    showError(stockSelect, 'Stock wajib dipilih');
-                    isValid = false;
-                }
-
-                // Validasi Price
-                const priceInput = $('input[name="price"]');
-                if (!priceInput.val() || priceInput.val().trim() === '') {
-                    showError(priceInput, 'Price wajib diisi');
-                    isValid = false;
-                }
-
-                // Validasi Fixed Cost
-                const fixedCostInput = $('input[name="fixed_cost"]');
-                if (!fixedCostInput.val() || fixedCostInput.val().trim() === '') {
-                    showError(fixedCostInput, 'Fixed Cost wajib diisi');
-                    isValid = false;
-                }
-
-                // Validasi Categories
-                const categoriesSelect = $('#categories');
-                if (!categoriesSelect.val() || categoriesSelect.val().length === 0) {
-                    showError(categoriesSelect, 'Minimal satu kategori harus dipilih');
-                    isValid = false;
-                }
-
-                // Validasi Tags
-                const tagsSelect = $('#tags');
-                if (!tagsSelect.val() || tagsSelect.val().length === 0) {
-                    showError(tagsSelect, 'Minimal satu tag harus dipilih');
-                    isValid = false;
-                }
-
-                // Jika valid, format angka dan submit
-                if (isValid) {
-                    ['price', 'fixed_cost'].forEach(id => {
-                        const input = document.getElementById(id);
-                        if (!input) return;
-
-                        let raw = input.dataset.raw || input.value;
-
-                        // Hapus spasi, titik ribuan, ubah koma jadi titik
-                        raw = raw.toString().replace(/\s/g, '');
-                        raw = raw.replace(/\.(?=\d{3}(,|$))/g, '');
-                        raw = raw.replace(',', '.');
-
-                        if (raw === '' || isNaN(parseFloat(raw))) raw = '0';
-
-                        input.value = raw;
-                    });
-
-                    this.submit();
-                } else {
-                    // Scroll ke error pertama
-                    const firstError = $('.is-invalid').first();
-                    if (firstError.length) {
-                        $('html, body').animate({
-                            scrollTop: firstError.offset().top - 100
-                        }, 300);
-                    }
-                }
-            });
-        });
-    </script>
-@endpush --}}
-
 @push('scripts')
     <script>
         function showError(element, message) {
@@ -615,9 +425,17 @@
             let unitRowIndex = $('#productUnitBody tr').length;
 
             function normalizeMoneyValue(value) {
-                let raw = value.toString().replace(/\s/g, '');
-                raw = raw.replace(/\.(?=\d{3}(,|$))/g, '');
-                raw = raw.replace(',', '.');
+                if (!value) return '0';
+
+                let raw = value.toString().trim();
+
+                if (raw.includes(',') && raw.includes('.')) {
+                    raw = raw.replace(/\./g, '').replace(',', '.');
+                } else if (raw.includes('.') && /^\d{1,3}(\.\d{3})+$/.test(raw)) {
+                    raw = raw.replace(/\./g, '');
+                } else {
+                    raw = raw.replace(',', '.');
+                }
 
                 if (raw === '' || isNaN(parseFloat(raw))) {
                     return '0';
@@ -694,16 +512,12 @@
             }
 
             function bindAllMoneyFields() {
-                ['price', 'fixed_cost'].forEach(id => {
-                    const input = document.getElementById(id);
-                    if (!input) return;
-
-                    bindMoneyInput(input);
-                });
-
-                document.querySelectorAll('.unit-money-field').forEach(input => {
-                    bindMoneyInput(input);
-                });
+                document
+                    .querySelectorAll(
+                        'input[name*="[fixed_cost]"], input[name*="[margin]"], input[name*="[sale_price]"]')
+                    .forEach(input => {
+                        bindMoneyInput(input);
+                    });
             }
 
             function bindConversionFields() {
@@ -721,8 +535,28 @@
                 });
             }
 
+            function syncBaseUnitConversion() {
+                const baseUnitId = $('#base_unit_id').val();
+
+                $('.unit-select').each(function() {
+                    const row = $(this).closest('tr');
+                    const conversionInput = row.find('.conversion-input');
+
+                    if ($(this).val() === baseUnitId && baseUnitId !== '') {
+                        conversionInput.val('1');
+                        conversionInput.prop('readonly', true);
+                    } else {
+                        conversionInput.prop('readonly', false);
+                    }
+                });
+            }
+
+            $('#base_unit_id').on('change', syncBaseUnitConversion);
+            $(document).on('change', '.unit-select', syncBaseUnitConversion);
+
             bindAllMoneyFields();
             bindConversionFields();
+            syncBaseUnitConversion();
 
             const imageInput = document.getElementById('image');
             if (imageInput) {
@@ -781,9 +615,7 @@
                         <select name="units[${unitRowIndex}][unit_id]" class="form-control unit-select">
                             <option value="">Choose Unit</option>
                             @foreach ($productUnits as $unit)
-                                @if (strtolower($unit->name) !== 'pcs')
-                                    <option value="{{ $unit->id }}">{{ $unit->name }}</option>
-                                @endif
+                                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
                             @endforeach
                         </select>
                     </td>
@@ -792,8 +624,16 @@
                             class="form-control conversion-input" placeholder="Contoh: 1000">
                     </td>
                     <td>
-                        <input type="text" name="units[${unitRowIndex}][sale_price]"
+                        <input type="text" name="units[${unitRowIndex}][fixed_cost]"
                             class="form-control unit-money-field" placeholder="0">
+                    </td>
+                    <td>
+                        <input type="text" name="units[${unitRowIndex}][margin]"
+                            class="form-control unit-money-field" placeholder="0">
+                    </td>
+                    <td>
+                        <input type="text" name="units[${unitRowIndex}][sale_price]"
+                            class="form-control unit-money-field sale-price-input" placeholder="0">
                     </td>
                     <td class="text-center">
                         <button type="button" class="btn btn-danger btn-sm btn-remove-unit">
@@ -807,6 +647,7 @@
 
                 bindAllMoneyFields();
                 bindConversionFields();
+                syncBaseUnitConversion();
             });
 
             document.addEventListener('click', function(e) {
@@ -837,15 +678,9 @@
                     isValid = false;
                 }
 
-                const priceInput = $('input[name="price"]');
-                if (!priceInput.val() || priceInput.val().trim() === '') {
-                    showError(priceInput, 'Price wajib diisi');
-                    isValid = false;
-                }
-
-                const fixedCostInput = $('input[name="fixed_cost"]');
-                if (!fixedCostInput.val() || fixedCostInput.val().trim() === '') {
-                    showError(fixedCostInput, 'Fixed Cost wajib diisi');
+                const baseUnitSelect = $('#base_unit_id');
+                if (!baseUnitSelect.val()) {
+                    showError(baseUnitSelect, 'Base Unit wajib dipilih');
                     isValid = false;
                 }
 
@@ -912,7 +747,7 @@
                 }
 
                 if (isValid) {
-                    ['price', 'fixed_cost'].forEach(id => {
+                    ['price'].forEach(id => {
                         const input = document.getElementById(id);
                         if (!input) return;
 

@@ -35,9 +35,17 @@ class OrderItem extends Model
 
     protected $casts = [
         'deleted_at' => 'datetime',
-        'quantity' => 'decimal:2',
-        'unit_conversion_value' => 'decimal:2',
-        'qty_base' => 'decimal:2',
+
+        'quantity' => 'integer',
+        'completed_quantity' => 'integer',
+
+        'price' => 'integer',
+        'subtotal' => 'integer',
+        'discount_price' => 'integer',
+        'total_after_discount' => 'integer',
+
+        'qty_base' => 'integer',
+        'unit_conversion_value' => 'float',
     ];
 
     public function order(): BelongsTo
@@ -109,7 +117,7 @@ class OrderItem extends Model
                 // ✅ Force delete semua relasi anak
                 $orderItem->components()->get()->each->forceDelete();
                 $orderItem->designItems()->get()->each->forceDelete();
-                $orderItem->deliveryItems()->get()->each->forceDelete();
+                // $orderItem->deliveryItems()->get()->each->forceDelete();
                 $orderItem->inventoryItems()->get()->each->forceDelete();
                 // $orderItem->orderProgress()->get()->each->forceDelete();                
 
@@ -118,7 +126,7 @@ class OrderItem extends Model
                 // 💤 Soft delete semua relasi anak
                 $orderItem->components()->get()->each->delete();
                 $orderItem->designItems()->get()->each->delete();
-                $orderItem->deliveryItems()->get()->each->delete();
+                // $orderItem->deliveryItems()->get()->each->delete();
                 $orderItem->inventoryItems()->get()->each->delete();
                 // $orderItem->orderProgress()->get()->each->delete();
             }
@@ -128,7 +136,7 @@ class OrderItem extends Model
             // ♻️ Restore semua anak yang ikut soft delete
             $orderItem->components()->get()->each->restore();
             $orderItem->designItems()->get()->each->restore();
-            $orderItem->deliveryItems()->get()->each->restore();
+            // $orderItem->deliveryItems()->get()->each->restore();
             $orderItem->inventoryItems()->get()->each->restore();
             // $orderItem->orderProgress()->get()->each->restore();
         });

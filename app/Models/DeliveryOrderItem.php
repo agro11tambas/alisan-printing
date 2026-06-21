@@ -26,6 +26,9 @@ class DeliveryOrderItem extends Model
         'ready_qty',
         'shipped_qty',
         'note',
+        'product_unit_conversion_id',
+        'unit_name',
+        'unit_conversion_value',
     ];
 
     protected $casts = [

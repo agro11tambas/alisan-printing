@@ -12,6 +12,16 @@ class ProductUnitConversion extends Model
         'conversion_value',
         'sale_price',
         'purchase_price',
+        'fixed_cost',
+        'margin',
+    ];
+
+    protected $casts = [
+        'conversion_value' => 'decimal:2',
+        'sale_price' => 'decimal:2',
+        'purchase_price' => 'decimal:2',
+        'fixed_cost' => 'decimal:2',
+        'margin' => 'decimal:2',
     ];
 
     public function product()

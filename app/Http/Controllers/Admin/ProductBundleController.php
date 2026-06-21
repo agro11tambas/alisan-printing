@@ -119,10 +119,10 @@ class ProductBundleController extends Controller
             'products' => 'required|array|min:2',
             'products.*' => 'required|exists:products,id',
 
-            'units' => 'required|array|min:1',
-            'units.*.unit_id' => 'required|exists:product_units,id',
-            'units.*.conversion_value' => 'required|numeric|min:0.01',
-            'units.*.sale_price' => 'required|numeric|min:0',
+            'units' => 'nullable|array',
+            'units.*.unit_id' => 'nullable|exists:product_units,id',
+            'units.*.conversion_value' => 'nullable|numeric|min:0.01',
+            'units.*.sale_price' => 'nullable|numeric|min:0',
         ], [
             'products.min' => 'Minimal pilih 2 produk untuk membuat bundle.',
             'units.required' => 'Minimal satu product unit wajib diisi.',
@@ -177,19 +177,53 @@ class ProductBundleController extends Controller
                     ProductBundleItem::create([
                         'bundle_id'  => $bundle->id,
                         'product_id' => $productId,
-
-                        // Karena bundle kamu cuma gabungan produk,
-                        // setiap produk dianggap 1 komponen.
-                        'quantity' => 1,
+                        'quantity'   => 1,
                     ]);
                 }
 
-                foreach ($request->units as $unit) {
+                /*
+    |--------------------------------------------------------------------------
+    | Product Bundle Unit Conversion
+    |--------------------------------------------------------------------------
+    | Pcs otomatis dibuat sebagai unit dasar.
+    | price bundle = harga per pcs.
+    */
+                $pcsUnit = ProductUnit::whereRaw('LOWER(name) = ?', ['pcs'])->first();
+
+                if (!$pcsUnit) {
+                    $pcsUnit = ProductUnit::create([
+                        'name' => 'Pcs',
+                        'description' => 'Default base unit',
+                    ]);
+                }
+
+                ProductBundleUnitConversion::create([
+                    'product_bundle_id' => $bundle->id,
+                    'unit_id' => $pcsUnit->id,
+                    'conversion_value' => 1,
+                    'sale_price' => $request->price,
+                ]);
+
+                foreach ($request->units ?? [] as $unit) {
+                    $unitId = $unit['unit_id'] ?? null;
+                    $conversionValue = $unit['conversion_value'] ?? null;
+                    $salePrice = $unit['sale_price'] ?? null;
+
+                    // Row kosong dari blade diabaikan.
+                    if (empty($unitId) && empty($conversionValue) && empty($salePrice)) {
+                        continue;
+                    }
+
+                    // Jangan simpan Pcs lagi, karena sudah otomatis dibuat di atas.
+                    if ((int) $unitId === (int) $pcsUnit->id) {
+                        continue;
+                    }
+
                     ProductBundleUnitConversion::create([
                         'product_bundle_id' => $bundle->id,
-                        'unit_id' => $unit['unit_id'],
-                        'conversion_value' => $unit['conversion_value'],
-                        'sale_price' => $unit['sale_price'],
+                        'unit_id' => $unitId,
+                        'conversion_value' => $conversionValue,
+                        'sale_price' => $salePrice ?? 0,
                     ]);
                 }
             });
@@ -234,17 +268,13 @@ class ProductBundleController extends Controller
             'products' => 'required|array|min:2',
             'products.*' => 'required|exists:products,id',
 
-            'units' => 'required|array|min:1',
-            'units.*.unit_id' => 'required|exists:product_units,id',
-            'units.*.conversion_value' => 'required|numeric|min:0.01',
-            'units.*.sale_price' => 'required|numeric|min:0',
+            'units' => 'nullable|array',
+            'units.*.unit_id' => 'nullable|exists:product_units,id',
+            'units.*.conversion_value' => 'nullable|numeric|min:0.01',
+            'units.*.sale_price' => 'nullable|numeric|min:0',
         ], [
             'products.min' => 'Minimal pilih 2 produk untuk membuat bundle.',
-            'units.required' => 'Minimal satu product unit wajib diisi.',
-            'units.*.unit_id.required' => 'Unit wajib dipilih.',
-            'units.*.conversion_value.required' => 'Conversion wajib diisi.',
             'units.*.conversion_value.min' => 'Conversion wajib lebih dari 0.',
-            'units.*.sale_price.required' => 'Harga unit wajib diisi.',
         ]);
 
         $bundleSku = ProductBundle::where('sku', $request->sku)
@@ -272,7 +302,7 @@ class ProductBundleController extends Controller
                 ->with('error', 'Minimal pilih 2 produk berbeda untuk membuat bundle.');
         }
 
-        $selectedUnits = collect($request->units)
+        $selectedUnits = collect($request->units ?? [])
             ->pluck('unit_id')
             ->filter()
             ->values();
@@ -301,14 +331,51 @@ class ProductBundleController extends Controller
                     ]);
                 }
 
+                /*
+            |--------------------------------------------------------------------------
+            | Product Bundle Unit Conversion
+            |--------------------------------------------------------------------------
+            | PCS otomatis dibuat sebagai unit dasar.
+            | price bundle = harga per pcs.
+            */
+                $pcsUnit = ProductUnit::whereRaw('LOWER(name) = ?', ['pcs'])->first();
+
+                if (!$pcsUnit) {
+                    $pcsUnit = ProductUnit::create([
+                        'name' => 'Pcs',
+                        'description' => 'Default base unit',
+                    ]);
+                }
+
                 ProductBundleUnitConversion::where('product_bundle_id', $bundle->id)->delete();
 
-                foreach ($request->units as $unit) {
+                ProductBundleUnitConversion::create([
+                    'product_bundle_id' => $bundle->id,
+                    'unit_id' => $pcsUnit->id,
+                    'conversion_value' => 1,
+                    'sale_price' => $request->price,
+                ]);
+
+                foreach ($request->units ?? [] as $unit) {
+                    $unitId = $unit['unit_id'] ?? null;
+                    $conversionValue = $unit['conversion_value'] ?? null;
+                    $salePrice = $unit['sale_price'] ?? null;
+
+                    // Row kosong dari blade diabaikan.
+                    if (empty($unitId) && empty($conversionValue) && empty($salePrice)) {
+                        continue;
+                    }
+
+                    // Jangan simpan PCS lagi, karena sudah otomatis dibuat di atas.
+                    if ((int) $unitId === (int) $pcsUnit->id) {
+                        continue;
+                    }
+
                     ProductBundleUnitConversion::create([
                         'product_bundle_id' => $bundle->id,
-                        'unit_id' => $unit['unit_id'],
-                        'conversion_value' => $unit['conversion_value'],
-                        'sale_price' => $unit['sale_price'],
+                        'unit_id' => $unitId,
+                        'conversion_value' => $conversionValue,
+                        'sale_price' => $salePrice ?? 0,
                     ]);
                 }
             });

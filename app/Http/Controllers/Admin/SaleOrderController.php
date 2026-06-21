@@ -440,14 +440,19 @@ class SaleOrderController extends Controller
                 $qty  = (float) $request->qty[$index];
                 $itemMode = $request->mode[$index] ?? 'printing';
 
-                $unitConversionId = $request->product_unit_id[$index] ?? null;
+                if ($type === 'bundle') {
+                    $unitConversionId = $request->input("product_bundle_unit_conversion_id.$index")
+                        ?? $request->input("product_unit_id.$index");
+                } else {
+                    $unitConversionId = $request->input("product_unit_id.$index");
+                }
 
-                if (!is_numeric($unitConversionId)) {
+                if ($unitConversionId === '' || $unitConversionId === 'null' || !is_numeric($unitConversionId)) {
                     $unitConversionId = null;
                 }
 
-                $unitConversionValue = (float) ($request->unit_conversion_value[$index] ?? 1);
-                $unitName = $request->unit_name[$index] ?? 'Pcs';
+                $unitConversionValue = (float) $request->input("unit_conversion_value.$index", 1);
+                $unitName = $request->input("unit_name.$index", 'Pcs');
 
                 if ($unitConversionValue <= 0) {
                     $unitConversionValue = 1;
@@ -1291,30 +1296,45 @@ class SaleOrderController extends Controller
                 ]);
 
                 foreach ($orderItems as $orderItem) {
-                    $qty = $orderItem->quantity;
+                    $qtyInput = $orderItem->quantity;
 
-                    $verificationStatus = $orderItem->mode === 'printing'
-                        ? 'pending'
-                        : 'approved';
+                    $unitData = [
+                        'product_unit_conversion_id' => $orderItem->satuan === 'satuan'
+                            ? $orderItem->product_unit_conversion_id
+                            : $orderItem->product_bundle_unit_conversion_id,
+
+                        'unit_name' => $orderItem->unit_name,
+
+                        'unit_conversion_value' => $orderItem->unit_conversion_value,
+                    ];
 
                     if ($orderItem->satuan === 'satuan') {
-                        $designItem = DesignItem::create([
+                        if (!$orderItem->product_id) {
+                            continue;
+                        }
+
+                        DesignItem::create(array_merge([
                             'design_id'           => $design->id,
                             'order_item_id'       => $orderItem->id,
                             'product_id'          => $orderItem->product_id,
-                            'quantity'            => $qty,
+
+                            // INI QTY INPUT, BUKAN QTY_BASE
+                            'quantity'            => $qtyInput,
+
                             'completed_quantity'  => 0,
                             'design_file'         => null,
                             'preview_image'       => null,
-                            'verification_status' => $verificationStatus,
-                        ]);
+                            'verification_status' => 'pending',
+                        ], $unitData));
 
-                        if ($orderItem->mode === 'polosan') {
-                            $polosanDesignItems[] = $designItem;
-                        }
+                        continue;
                     }
 
                     if ($orderItem->satuan === 'bundle') {
+                        if (!$orderItem->productBundle) {
+                            continue;
+                        }
+
                         foreach ($orderItem->productBundle->items as $bundleItem) {
                             $bundleProduct = $bundleItem->product;
 
@@ -1322,20 +1342,21 @@ class SaleOrderController extends Controller
                                 continue;
                             }
 
-                            $designItem = DesignItem::create([
+                            // INI TETAP PAKAI QTY INPUT, BUKAN QTY_BASE
+                            $componentQty = $qtyInput * ($bundleItem->quantity ?? 1);
+
+                            DesignItem::create(array_merge([
                                 'design_id'           => $design->id,
                                 'order_item_id'       => $orderItem->id,
                                 'product_id'          => $bundleProduct->id,
-                                'quantity'            => $qty,
+
+                                'quantity'            => $componentQty,
+
                                 'completed_quantity'  => 0,
                                 'design_file'         => null,
                                 'preview_image'       => null,
-                                'verification_status' => $verificationStatus,
-                            ]);
-
-                            if ($orderItem->mode === 'polosan') {
-                                $polosanDesignItems[] = $designItem;
-                            }
+                                'verification_status' => 'pending',
+                            ], $unitData));
                         }
                     }
                 }

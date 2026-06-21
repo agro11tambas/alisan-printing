@@ -13,6 +13,8 @@
                 @php
                     $readyQty = $item->ready_qty ?? 0;
 
+                    $unit = $item->unit_name ?? '';
+
                     // 🔹 completed_quantity hanya kalau ada design_item_id
                     $completedQty = $item->order_progress_id ? optional($item->orderProgressItem)->quantity ?? 0 : 0;
 
@@ -38,13 +40,17 @@
                             @if ($completedQty > 0)
                                 / {{ number_format($completedQty, 0, ',', '.') }}
                             @endif
+
+                            {{ $unit }}
                         </span>
                     </td>
                     <td>
-                        <span class="fw-bold text-success">{{ number_format($finishedQty, 0, ',', '.') }}</span>
+                        <span class="fw-bold text-success">{{ number_format($finishedQty, 0, ',', '.') }}
+                            {{ $unit }}</span>
                     </td>
                     <td>
-                        <span class="fw-bold text-warning">{{ number_format($notFinishedQty, 0, ',', '.') }}</span>
+                        <span class="fw-bold text-warning">{{ number_format($notFinishedQty, 0, ',', '.') }}
+                            {{ $unit }}</span>
                     </td>
                 </tr>
             @endforeach

@@ -9,19 +9,20 @@
         </thead>
         <tbody>
             @foreach ($dl->items as $item)
-            <tr>
-                <td>
-                    <span class="fw-bold text-primary">
-                        {{ $item->product?->name ?? '-' }}
-                    </span>
-                </td>
-                <!-- <td>
+                <tr>
+                    <td>
+                        <span class="fw-bold text-primary">
+                            {{ $item->product?->name ?? '-' }}
+                        </span>
+                    </td>
+                    <!-- <td>
                     <span>{{ $item->deliveryOrderItem?->quantity ?? 0 }}</span>
                 </td> -->
-                <td>
-                    <span class="fw-bold text-success">{{ number_format($item->shipped_quantity, 0, ',', '.') }}</span>
-                </td>
-            </tr>
+                    <td>
+                        <span class="fw-bold text-success">{{ number_format($item->shipped_quantity, 0, ',', '.') }}
+                            {{ $item->deliveryOrderItem?->unit_name }}</span>
+                    </td>
+                </tr>
             @endforeach
         </tbody>
     </table>

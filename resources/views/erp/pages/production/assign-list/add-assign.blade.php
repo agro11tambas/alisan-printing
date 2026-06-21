@@ -214,6 +214,7 @@
                                                         {{ number_format($item->completed_quantity, 0, ',', '.') }}
                                                         /
                                                         {{ number_format($item->quantity, 0, ',', '.') }}
+                                                        {{ $item->unit_name }}
                                                     </div>
                                                 </td>
 
@@ -225,6 +226,7 @@
                                                     <div class="fw-semibold text-primary mt-1">
                                                         Available:
                                                         {{ number_format($item->available_quantity, 0, ',', '.') }}
+                                                        {{ $item->unit_name }}
                                                     </div>
                                                     <div class="fw-semibold text-danger">
                                                         Assigning: {{ number_format($item->active_assign, 0, ',', '.') }}

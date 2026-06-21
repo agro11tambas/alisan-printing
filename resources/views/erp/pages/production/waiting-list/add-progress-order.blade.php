@@ -107,6 +107,7 @@
                                             <td>
                                                 <span class="fw-bold text-success">{{ $item->completed_quantity }}</span> /
                                                 <span class="fw-bold text-primary">{{ $item->quantity }}</span>
+                                                {{ $item->unit_name }}
                                             </td>
                                             <td><span
                                                     class="fw-bold text-danger">{{ $item->product->productionStocks->available_quantity }}</span>

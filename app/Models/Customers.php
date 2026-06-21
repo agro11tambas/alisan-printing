@@ -39,4 +39,9 @@ class Customers extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function accounts()
+    {
+        return $this->hasMany(CustomerAccount::class, 'customer_id');
+    }
 }

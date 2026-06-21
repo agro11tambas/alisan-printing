@@ -20,6 +20,10 @@ class PurchaseItem extends Model
     protected $fillable = [
         'purchase_id',
         'product_id',
+        'product_unit_conversion_id',
+        'unit_name',
+        'unit_conversion_value',
+        'qty_base',
         'inventory_warehouse_id',
         'production_warehouse_id',
         'status',
@@ -34,6 +38,9 @@ class PurchaseItem extends Model
 
     protected $casts = [
         'deleted_at' => 'datetime',
+        'quantity' => 'integer',
+        'qty_base' => 'integer',
+        'unit_conversion_value' => 'float',
     ];
 
     public function purchaseProduct(): BelongsTo
@@ -64,5 +71,10 @@ class PurchaseItem extends Model
     public function inventoryReturnItems()
     {
         return $this->hasMany(InventoryItem::class, 'purchase_return_item_id');
+    }
+
+    public function productUnitConversion(): BelongsTo
+    {
+        return $this->belongsTo(ProductUnitConversion::class, 'product_unit_conversion_id');
     }
 }

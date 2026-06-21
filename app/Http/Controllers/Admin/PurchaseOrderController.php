@@ -166,10 +166,16 @@ class PurchaseOrderController extends Controller
 
     public function create()
     {
-        $products = Products::orderBy('name', 'asc')->get();
+        $products = Products::with('unitConversions.unit')
+            ->orderBy('name', 'asc')
+            ->get();
+
         $suppliers = Supplier::orderBy('name', 'asc')->get();
 
-        return view('erp.pages.purchases.purchase-orders.create-purchase', compact('products', 'suppliers'));
+        return view('erp.pages.purchases.purchase-orders.create-purchase', compact(
+            'products',
+            'suppliers'
+        ));
     }
 
     public function checkNumber(Request $request)
@@ -194,6 +200,14 @@ class PurchaseOrderController extends Controller
             'product.*'     => 'exists:products,id',
             'qty'           => 'required|array',
             'qty.*'         => 'numeric|min:1',
+
+            'product_unit_id' => 'nullable|array',
+            'product_unit_id.*' => 'nullable',
+            'unit_conversion_value' => 'nullable|array',
+            'unit_conversion_value.*' => 'nullable|numeric|min:0.01',
+            'unit_name' => 'nullable|array',
+            'unit_name.*' => 'nullable|string',
+
             'stock_destination' => 'required|in:warehouse,production',
         ]);
 
@@ -202,16 +216,12 @@ class PurchaseOrderController extends Controller
         try {
             $purchaseNumber = PurchaseNumberService::generate($request->purchase_date);
 
-            $status = 'Purchase Orders';
-            $paymentStatus = 'Pending';
-
-            // === Simpan Purchase ===
             $purchase = Purchase::create([
                 'purchase_number' => $purchaseNumber,
                 'purchase_date'   => $request->purchase_date,
                 'supplier_id'     => $request->suppliers,
-                'status'          => $status,
-                'payment_status'  => $paymentStatus,
+                'status'          => 'Purchase Orders',
+                'payment_status'  => 'Pending',
                 'sub_total'       => 0,
                 'total_amount'    => 0,
                 'tax_percent'     => 0,
@@ -220,45 +230,84 @@ class PurchaseOrderController extends Controller
                 'total_amount_freight' => 0,
                 'paid_amount'     => 0,
                 'remaining_amount' => 0,
-                'stock_destination'        => $request->stock_destination,
+                'stock_destination' => $request->stock_destination,
             ]);
 
-            // === Simpan Item Purchase ===
             foreach ($request->product as $index => $productId) {
-                $qty = $request->qty[$index];
+                $qty = (float) $request->qty[$index];
                 $product = Products::findOrFail($productId);
 
+                $unitConversionId = $request->product_unit_id[$index] ?? null;
+
+                if (!is_numeric($unitConversionId)) {
+                    $unitConversionId = null;
+                }
+
+                $unitConversionValue = (float) ($request->unit_conversion_value[$index] ?? 1);
+                $unitName = $request->unit_name[$index] ?? 'Pcs';
+
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
+
+                $qtyBase = $qty * $unitConversionValue;
+
                 PurchaseItem::create([
-                    'purchase_id'            => $purchase->id,
-                    'product_id'             => $productId,
-                    'inventory_warehouse_id' => $request->inventory_warehouse_id,
-                    'product_name'           => $product->name,
-                    'quantity'               => $qty,
-                    'price'                  => 0,
-                    'freight'                => 0,
-                    'subtotal'               => 0,
+                    'purchase_id' => $purchase->id,
+                    'product_id'  => $productId,
+
+                    'product_unit_conversion_id' => $unitConversionId,
+                    'unit_name'                  => $unitName,
+                    'unit_conversion_value'      => $unitConversionValue,
+                    'qty_base'                   => $qtyBase,
+
+                    'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
+                        ? $request->inventory_warehouse_id
+                        : null,
+
+                    'production_warehouse_id' => $request->stock_destination === 'production'
+                        ? $request->production_warehouse_id
+                        : null,
+
+                    'product_name' => $product->name,
+                    'quantity'     => $qty,
+                    'price'        => 0,
+                    'freight'      => 0,
+                    'subtotal'     => 0,
                 ]);
             }
 
             DB::commit();
-            return redirect('/erp/purchases/purchase-orders')->with('success', 'Purchase order created successfully');
+
+            return redirect('/erp/purchases/purchase-orders')
+                ->with('success', 'Purchase order created successfully');
         } catch (\Exception $e) {
             DB::rollBack();
+
             Log::error('Purchase store failed', [
                 'message' => $e->getMessage(),
                 'line'    => $e->getLine(),
                 'file'    => $e->getFile(),
             ]);
-            return redirect()->back()->with('error', 'Purchase order failed to create: ' . $e->getMessage());
+
+            return redirect()->back()
+                ->with('error', 'Purchase order failed to create: ' . $e->getMessage());
         }
     }
 
     public function edit($id)
     {
-        $purchase = Purchase::with('purchaseItems.purchaseProduct')->findOrFail($id);
+        $purchase = Purchase::with([
+            'purchaseItems.purchaseProduct',
+            'purchaseItems.productUnitConversion',
+        ])->findOrFail($id);
 
-        $products = Products::all();
-        $suppliers = Supplier::all();
+        $products = Products::with('unitConversions.unit')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        $suppliers = Supplier::orderBy('name', 'asc')->get();
+
         return view('erp.pages.purchases.purchase-orders.edit-purchase', compact(
             'purchase',
             'products',
@@ -289,6 +338,12 @@ class PurchaseOrderController extends Controller
             // 'total_amount_freight'   => 'required|numeric|min:0',
             // 'total_amount'           => 'required|numeric|min:0',
             'stock_destination' => 'required|in:warehouse,production',
+            'product_unit_id' => 'nullable|array',
+            'product_unit_id.*' => 'nullable',
+            'unit_conversion_value' => 'nullable|array',
+            'unit_conversion_value.*' => 'nullable|numeric|min:0.01',
+            'unit_name' => 'nullable|array',
+            'unit_name.*' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -357,6 +412,21 @@ class PurchaseOrderController extends Controller
                 $freight = $request->freight[$index] ?? 0;
                 $total   = $request->total[$index] ?? 0;
 
+                $unitConversionId = $request->product_unit_id[$index] ?? null;
+
+                if (!is_numeric($unitConversionId)) {
+                    $unitConversionId = null;
+                }
+
+                $unitConversionValue = (float) ($request->unit_conversion_value[$index] ?? 1);
+                $unitName = $request->unit_name[$index] ?? 'Pcs';
+
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
+
+                $qtyBase = (float) $qty * $unitConversionValue;
+
                 $product = Products::findOrFail($productId);
 
                 $item = PurchaseItem::updateOrCreate(
@@ -365,13 +435,25 @@ class PurchaseOrderController extends Controller
                         'product_id'  => $productId,
                     ],
                     [
-                        'inventory_warehouse_id' => $request->inventory_warehouse_id,
-                        'product_name'           => $product->name,
-                        'quantity'               => $qty,
-                        'price'                  => $price,
-                        'freight'                => $freight,
-                        'subtotal'               => $total,
-                        'deleted_at'             => null,
+                        'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
+                            ? $request->inventory_warehouse_id
+                            : null,
+
+                        'production_warehouse_id' => $request->stock_destination === 'production'
+                            ? $request->production_warehouse_id
+                            : null,
+
+                        'product_unit_conversion_id' => $unitConversionId,
+                        'unit_name'                  => $unitName,
+                        'unit_conversion_value'      => $unitConversionValue,
+                        'qty_base'                   => $qtyBase,
+
+                        'product_name' => $product->name,
+                        'quantity'     => $qty,
+                        'price'        => $price,
+                        'freight'      => $freight,
+                        'subtotal'     => $total,
+                        'deleted_at'   => null,
                     ]
                 );
 
@@ -403,10 +485,10 @@ class PurchaseOrderController extends Controller
                     InventoryItem::create([
                         'inventory_id'       => $inventory->id,
                         'product_id'         => $item->product_id,
-                        'quantity'           => $item->quantity,
+                        'quantity'           => $item->qty_base,
                         'price'              => $item->price,
                         'stock_in'           => 0,
-                        'remaining_stock_in' => $item->quantity,
+                        'remaining_stock_in' => $item->qty_base,
                         'stock_out'          => 0,
                     ]);
                 }
@@ -477,7 +559,23 @@ class PurchaseOrderController extends Controller
 
     public function markAsPurchaseList($id)
     {
-        $purchase = Purchase::with(['supplier', 'purchaseItems.purchaseProduct'])->findOrFail($id);
+        $purchase = Purchase::with([
+            'supplier',
+            'purchaseItems.purchaseProduct',
+            'purchaseItems.productUnitConversion',
+        ])->findOrFail($id);
+
+        $products = Products::with('unitConversions.unit')
+            ->orderBy('name', 'asc')
+            ->addSelect([
+                'last_price' => DB::table('purchase_items as pi')
+                    ->select('pi.price')
+                    ->whereColumn('pi.product_id', 'products.id')
+                    ->where('pi.price', '>', 0)
+                    ->orderByDesc('pi.id')
+                    ->limit(1)
+            ])
+            ->get();
 
         // Ambil semua supplier (kalau ingin dropdown tetap aktif)
         $suppliers = Supplier::all();
@@ -526,6 +624,12 @@ class PurchaseOrderController extends Controller
             'total_amount_freight'  => 'required|numeric|min:0',
             'total_amount'          => 'required|numeric|min:0',
             'stock_destination'     => 'required|in:warehouse,production',
+            'product_unit_id' => 'nullable|array',
+            'product_unit_id.*' => 'nullable',
+            'unit_conversion_value' => 'nullable|array',
+            'unit_conversion_value.*' => 'nullable|numeric|min:0.01',
+            'unit_name' => 'nullable|array',
+            'unit_name.*' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -573,7 +677,8 @@ class PurchaseOrderController extends Controller
                         ->where('inventory_warehouse_id', $oldItem->inventory_warehouse_id)
                         ->first();
                     if ($oldStock) {
-                        $oldStock->decrement('incoming_stock', $oldItem->quantity);
+                        $oldQtyBase = $oldItem->qty_base ?? ($oldItem->quantity * ($oldItem->unit_conversion_value ?? 1));
+                        $oldStock->decrement('incoming_stock', $oldQtyBase);
                     }
                 }
 
@@ -582,7 +687,8 @@ class PurchaseOrderController extends Controller
                         ->where('production_warehouse_id', $oldItem->production_warehouse_id)
                         ->first();
                     if ($oldStock) {
-                        $oldStock->decrement('incoming_stock', $oldItem->quantity);
+                        $oldQtyBase = $oldItem->qty_base ?? ($oldItem->quantity * ($oldItem->unit_conversion_value ?? 1));
+                        $oldStock->decrement('incoming_stock', $oldQtyBase);
                     }
                 }
             }
@@ -643,31 +749,55 @@ class PurchaseOrderController extends Controller
                 $freight = $request->freight[$index];
                 $total   = $request->total[$index];
 
+                $unitConversionId = $request->product_unit_id[$index] ?? null;
+
+                if (!is_numeric($unitConversionId)) {
+                    $unitConversionId = null;
+                }
+
+                $unitConversionValue = (float) ($request->unit_conversion_value[$index] ?? 1);
+                $unitName = $request->unit_name[$index] ?? 'Pcs';
+
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
+
+                $qtyBase = (float) $qty * $unitConversionValue;
+
                 // ✅ Hitung price_after_tax & final_price
                 $taxPercent = $request->tax_percent ?? 0;
                 $priceAfterTax = $price + ($price * $taxPercent / 100);
                 $finalPrice = $priceAfterTax + $freight;
 
-                $item = $purchase->purchaseItems[$index] ?? new PurchaseItem(['purchase_id' => $purchase->id]);
-                $item->fill([
-                    'product_id'              => $productId,
-                    // 'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
-                    'inventory_warehouse_id' => $purchase->stock_destination === 'warehouse'
-                        ? ($request->inventory_warehouse_id ?? 1)
-                        : null,
+                $item = PurchaseItem::updateOrCreate(
+                    [
+                        'purchase_id' => $purchase->id,
+                        'product_id'  => $productId,
+                    ],
+                    [
+                        'inventory_warehouse_id' => $purchase->stock_destination === 'warehouse'
+                            ? ($request->inventory_warehouse_id ?? 1)
+                            : null,
 
-                    'production_warehouse_id' => $purchase->stock_destination === 'production'
-                        ? ($request->production_warehouse_id ?? 2)
-                        : null,
-                    'status'                  => 'Purchase Account',
-                    'quantity'                => $qty,
-                    'price'                   => $price,
-                    'price_after_tax'         => $priceAfterTax,
-                    'freight'                 => $freight,
-                    'final_price'             => $finalPrice,
-                    'subtotal'                => $total,
-                ]);
-                $item->save();
+                        'production_warehouse_id' => $purchase->stock_destination === 'production'
+                            ? ($request->production_warehouse_id ?? 2)
+                            : null,
+
+                        'product_unit_conversion_id' => $unitConversionId,
+                        'unit_name'                  => $unitName,
+                        'unit_conversion_value'      => $unitConversionValue,
+                        'qty_base'                   => $qtyBase,
+
+                        'status'          => 'Purchase Account',
+                        'quantity'        => $qty,
+                        'price'           => $price,
+                        'price_after_tax' => $priceAfterTax,
+                        'freight'         => $freight,
+                        'final_price'     => $finalPrice,
+                        'subtotal'        => $total,
+                        'deleted_at'      => null,
+                    ]
+                );
 
                 // // === Update atau buat Inventory ===
                 // $inventory = Inventory::firstOrCreate(
@@ -711,10 +841,10 @@ class PurchaseOrderController extends Controller
                     'production_warehouse_id' => $purchase->stock_destination === 'production'
                         ? ($request->production_warehouse_id ?? 2)
                         : null,
-                    'quantity'                => $qty,
+                    'quantity'                => $qtyBase,
                     'price'                   => $price,
                     'stock_in'                => 0,
-                    'remaining_stock_in'      => $qty,
+                    'remaining_stock_in' => $qtyBase,
                     'stock_out'               => 0,
                 ]);
                 $inventoryItem->save();
@@ -727,7 +857,7 @@ class PurchaseOrderController extends Controller
                 //     ['incoming_stock' => 0]
                 // );
 
-                // $inventoryStock->increment('incoming_stock', $qty);
+                // $inventoryStock->increment('incoming_stock', $qtyBase);
 
                 // 🧩 UPDATE INCOMING STOCK SESUAI DESTINATION
                 if ($purchase->stock_destination === 'warehouse') {
@@ -739,7 +869,7 @@ class PurchaseOrderController extends Controller
                         ['incoming_stock' => 0]
                     );
 
-                    $inventoryStock->increment('incoming_stock', $qty);
+                    $inventoryStock->increment('incoming_stock', $qtyBase);
                 }
 
                 if ($purchase->stock_destination === 'production') {
@@ -751,7 +881,7 @@ class PurchaseOrderController extends Controller
                         ['incoming_stock' => 0]
                     );
 
-                    $productionStock->increment('incoming_stock', $qty);
+                    $productionStock->increment('incoming_stock', $qtyBase);
                 }
             }
 

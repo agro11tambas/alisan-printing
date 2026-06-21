@@ -219,6 +219,7 @@
                                                 <tr class="single-item">
                                                     <th class="text-center wd-50">#</th>
                                                     <th class="text-center wd-450">Product</th>
+                                                    <th class="text-center wd-150">Unit</th>
                                                     <th class="text-center wd-150">Qty</th>
                                                     <th class="text-center wd-150">Price</th>
                                                     <th class="text-center wd-150">Freight</th>
@@ -247,6 +248,16 @@
                                                                 </option>
                                                             @endforeach
                                                         </select>
+                                                    </td>
+                                                    <td>
+                                                        <select name="product_unit_id[]"
+                                                            class="form-control product-unit">
+                                                            <option value="">Pilih unit</option>
+                                                        </select>
+
+                                                        <input type="hidden" name="unit_conversion_value[]"
+                                                            class="unit-conversion-value">
+                                                        <input type="hidden" name="unit_name[]" class="unit-name">
                                                     </td>
                                                     <td><input type="text" inputmode="numeric" name="qty[]"
                                                             class="form-control qty" id="qty_0" placeholder="Qty"
@@ -284,6 +295,14 @@
                 </option>
             @endforeach
         </select>
+    </td>
+    <td>
+        <select name="product_unit_id[]" class="form-control product-unit">
+            <option value="">Pilih unit</option>
+        </select>
+
+        <input type="hidden" name="unit_conversion_value[]" class="unit-conversion-value">
+        <input type="hidden" name="unit_name[]" class="unit-name">
     </td>
 
     <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0"></td>
@@ -408,6 +427,7 @@
 
 @push('scripts')
     <script type="text/template" id="row-template">
+        
 <tr>
     <td>__INDEX__</td>
     <td>
@@ -421,6 +441,14 @@
                 </option>
             @endforeach
         </select>
+    </td>
+    <td>
+        <select class="form-control product-unit" name="product_unit_id[]">
+            <option value="">Pilih Unit</option>
+        </select>
+
+        <input type="hidden" class="unit-name" name="unit_name[]">
+        <input type="hidden" class="unit-conversion-value" name="unit_conversion_value[]">
     </td>
 
     <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0"></td>
@@ -444,6 +472,8 @@
 </tr>
 </script>
     <script>
+        const productsData = @json($productsJson);
+
         function formatRibuan(value) {
             if (value === null || value === undefined || value === '') return '';
 
@@ -496,6 +526,40 @@
 
             calc_total();
         }
+
+        function fillProductUnits(row, units) {
+            const unitSelect = row.find('.product-unit');
+
+            unitSelect.empty().append('<option value="">Pilih unit</option>');
+
+            row.find('.unit-conversion-value').val('');
+            row.find('.unit-name').val('');
+
+            if (!Array.isArray(units) || units.length === 0) return;
+
+            units.forEach(function(unit) {
+                const unitName = unit.unit_name || unit.name || 'PCS';
+                const conversionValue = unit.conversion_value || 1;
+
+                unitSelect.append(`
+            <option value="${unit.id}"
+                data-unit-name="${unitName}"
+                data-conversion-value="${conversionValue}">
+                ${unitName}
+            </option>
+        `);
+            });
+
+            unitSelect.val(unitSelect.find('option:eq(1)').val()).trigger('change');
+        }
+
+        $(document).on('change', '.product-unit', function() {
+            const row = $(this).closest('tr');
+            const selected = $(this).find('option:selected');
+
+            row.find('.unit-name').val(selected.data('unit-name') || '');
+            row.find('.unit-conversion-value').val(selected.data('conversion-value') || 1);
+        });
 
         // 4️⃣ Update fungsi calc_total untuk handle freight = 0
         function calc_total() {
@@ -624,12 +688,17 @@
                 const row = $(this).closest('tr');
                 const selectedOption = $(this).find('option:selected');
 
+                const productId = String($(this).val());
+                const selectedProduct = productsData.find(p => String(p.id) === productId);
+                const units = selectedProduct?.units || [];
+
                 const lastPrice = parseFloat(selectedOption.data('price')) || 0;
                 const lastFreight = parseFloat(selectedOption.data('freight')) || 0;
 
                 row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
                 row.find('.freight').val(formatRibuan(lastFreight.toFixed(2)));
 
+                fillProductUnits(row, units);
                 updateRowTotal(row);
             });
 
@@ -822,6 +891,7 @@
                 const row = $(this);
                 const product = row.find('select[name="product[]"]');
                 const qty = row.find('input[name="qty[]"]');
+                const unit = row.find('select[name="product_unit_id[]"]');
                 const price = row.find('input[name="price[]"]');
                 const freight = row.find('input[name="freight[]"]');
 
@@ -838,6 +908,11 @@
                 if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
                     isValid = false;
                     showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
+                }
+
+                if (!unit.val()) {
+                    isValid = false;
+                    showError(unit[0], 'Unit wajib dipilih');
                 }
 
                 const freightVal = freight.val().trim();

@@ -451,9 +451,42 @@ class PurchaseListController extends Controller
         ]);
     }
 
+    // public function create()
+    // {
+    //     $products = Products::orderBy('name', 'asc')
+    //         ->addSelect([
+    //             'last_price' => DB::table('purchase_items as pi')
+    //                 ->select('pi.price')
+    //                 ->whereColumn('pi.product_id', 'products.id')
+    //                 ->where('pi.price', '>', 0)
+    //                 ->orderByDesc('pi.id')
+    //                 ->limit(1),
+
+    //             'last_freight' => DB::table('purchase_items as pi')
+    //                 ->select('pi.freight')
+    //                 ->whereColumn('pi.product_id', 'products.id')
+    //                 ->where('pi.freight', '>', 0)
+    //                 ->orderByDesc('pi.id')
+    //                 ->limit(1),
+    //         ])
+    //         ->get();
+
+    //     // $products = Products::orderBy('name', 'asc')->get();
+    //     $suppliers = Supplier::orderBy('name', 'asc')->get();
+
+    //     $transactionTypes = Account::where('name', 'Purchase')->get();
+    //     $cashAccounts = Account::where('name', 'Cash')->get();
+    //     $bankAccounts = Account::where('name', 'Bank')->get();
+
+    //     return view('erp.pages.purchases.purchase-list.create-purchase', compact('products', 'suppliers', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
+    // }
+
     public function create()
     {
-        $products = Products::orderBy('name', 'asc')
+        $products = Products::with([
+            'unitConversions.unit',
+        ])
+            ->orderBy('name', 'asc')
             ->addSelect([
                 'last_price' => DB::table('purchase_items as pi')
                     ->select('pi.price')
@@ -471,14 +504,41 @@ class PurchaseListController extends Controller
             ])
             ->get();
 
-        // $products = Products::orderBy('name', 'asc')->get();
+        $productsJson = $products->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'sku'  => $product->sku,
+                'price' => $product->price,
+                'last_price' => $product->last_price,
+                'last_freight' => $product->last_freight,
+
+                'units' => $product->unitConversions->map(function ($conversion) {
+                    return [
+                        'id' => $conversion->id,
+                        'unit_id' => $conversion->unit_id,
+                        'unit_name' => optional($conversion->unit)->name,
+                        'conversion_value' => $conversion->conversion_value,
+                        'sale_price' => $conversion->sale_price,
+                    ];
+                })->values()->toArray(),
+            ];
+        })->toArray();
+
         $suppliers = Supplier::orderBy('name', 'asc')->get();
 
         $transactionTypes = Account::where('name', 'Purchase')->get();
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        return view('erp.pages.purchases.purchase-list.create-purchase', compact('products', 'suppliers', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
+        return view('erp.pages.purchases.purchase-list.create-purchase', compact(
+            'products',
+            'productsJson',
+            'suppliers',
+            'transactionTypes',
+            'cashAccounts',
+            'bankAccounts'
+        ));
     }
 
     public function checkNumber(Request $request)
@@ -515,6 +575,12 @@ class PurchaseListController extends Controller
             'total_amount_freight'  => 'required|numeric|min:0',
             'total_amount'          => 'required|numeric|min:0',
             'stock_destination' => 'required|in:warehouse,production',
+            'product_unit_id' => 'nullable|array',
+            'product_unit_id.*' => 'nullable',
+            'unit_conversion_value' => 'nullable|array',
+            'unit_conversion_value.*' => 'nullable|numeric|min:0.01',
+            'unit_name' => 'nullable|array',
+            'unit_name.*' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -579,7 +645,22 @@ class PurchaseListController extends Controller
             };
 
             foreach ($request->product as $index => $productId) {
-                $qty     = $request->qty[$index];
+                $qty = (float) $request->qty[$index];
+
+                $unitConversionId = $request->product_unit_id[$index] ?? null;
+
+                if (!is_numeric($unitConversionId)) {
+                    $unitConversionId = null;
+                }
+
+                $unitConversionValue = (float) ($request->unit_conversion_value[$index] ?? 1);
+                $unitName = $request->unit_name[$index] ?? 'Pcs';
+
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
+
+                $qtyBase = $qty * $unitConversionValue;
                 $price   = $request->price[$index];
                 $freight = $request->freight[$index];
                 $total   = $request->total[$index];
@@ -591,22 +672,14 @@ class PurchaseListController extends Controller
 
                 $product = Products::findOrFail($productId);
 
-                // $purchaseItem = PurchaseItem::create([
-                //     'purchase_id'              => $purchase->id,
-                //     'product_id'               => $productId,
-                //     'inventory_warehouse_id'   => $request->inventory_warehouse_id ?? 1,
-                //     'status'                   => 'Purchase Account',
-                //     'quantity'                 => $qty,
-                //     'price'                    => $price,
-                //     'price_after_tax'          => $priceAfterTax,
-                //     'freight'                  => $freight,
-                //     'final_price'              => $finalPrice,
-                //     'subtotal'                 => $total,
-                // ]);
-
                 $purchaseItem = PurchaseItem::create([
                     'purchase_id' => $purchase->id,
                     'product_id'  => $productId,
+
+                    'product_unit_conversion_id' => $unitConversionId,
+                    'unit_name'                  => $unitName,
+                    'unit_conversion_value'      => $unitConversionValue,
+                    'qty_base'                   => $qtyBase,
 
                     'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
                         ? ($request->inventory_warehouse_id ?? 1)
@@ -637,18 +710,6 @@ class PurchaseListController extends Controller
                         ]
                     );
 
-                    // InventoryItem::create([
-                    //     'inventory_id'            => $inventory->id,
-                    //     'purchase_item_id'        => $purchaseItem->id,
-                    //     'product_id'              => $productId,
-                    //     'inventory_warehouse_id'  => $request->inventory_warehouse_id ?? 1,
-                    //     'quantity'                => $qty,
-                    //     'price'                   => $finalPrice,
-                    //     'stock_in'                => 0,
-                    //     'remaining_stock_in'      => $qty,
-                    //     'stock_out'               => 0,
-                    // ]);
-
                     InventoryItem::create([
                         'inventory_id'     => $inventory->id,
                         'purchase_item_id' => $purchaseItem->id,
@@ -662,10 +723,10 @@ class PurchaseListController extends Controller
                             ? ($request->production_warehouse_id ?? 2)
                             : null,
 
-                        'quantity'           => $qty,
+                        'quantity'           => $qtyBase,
                         'price'              => $finalPrice,
                         'stock_in'           => 0,
-                        'remaining_stock_in' => $qty,
+                        'remaining_stock_in' => $qtyBase,
                         'stock_out'          => 0,
                     ]);
 
@@ -679,7 +740,7 @@ class PurchaseListController extends Controller
                             ['incoming_stock' => 0]
                         );
 
-                        $inventoryStock->increment('incoming_stock', $qty);
+                        $inventoryStock->increment('incoming_stock', $qtyBase);
                     }
 
                     if ($request->stock_destination === 'production') {
@@ -724,9 +785,49 @@ class PurchaseListController extends Controller
         }
     }
 
+    // public function edit($id)
+    // {
+    //     $purchase = Purchase::with('purchaseItems.purchaseProduct')->findOrFail($id);
+
+    //     // 🔹 Tentukan default due_date_option berdasarkan nilai due_date
+    //     $dueDateOption = 'none';
+    //     $customDueDate = null;
+
+    //     if ($purchase->due_date) {
+    //         $purchaseDate = \Carbon\Carbon::parse($purchase->purchase_date)->startOfDay();
+    //         $due = \Carbon\Carbon::parse($purchase->due_date)->startOfDay();
+
+    //         if ($due->equalTo($purchaseDate)) {
+    //             $dueDateOption = 'today';
+    //         } elseif ($due->equalTo($purchaseDate->copy()->addWeek())) {
+    //             $dueDateOption = '1_week';
+    //         } elseif ($due->equalTo($purchaseDate->copy()->addMonth())) {
+    //             $dueDateOption = '1_month';
+    //         } elseif ($due->equalTo($purchaseDate->copy()->addMonths(3))) {
+    //             $dueDateOption = '3_months';
+    //         } else {
+    //             $dueDateOption = 'custom';
+    //             $customDueDate = $due->toDateString();
+    //         }
+    //     }
+
+    //     $products = Products::all();
+    //     $suppliers = Supplier::all();
+
+    //     return view('erp.pages.purchases.purchase-list.edit-purchase', compact(
+    //         'purchase',
+    //         'products',
+    //         'suppliers',
+    //         'dueDateOption',
+    //         'customDueDate'
+    //     ));
+    // }
+
     public function edit($id)
     {
-        $purchase = Purchase::with('purchaseItems.purchaseProduct')->findOrFail($id);
+        $purchase = Purchase::with([
+            'purchaseItems.purchaseProduct.unitConversions.unit',
+        ])->findOrFail($id);
 
         // 🔹 Tentukan default due_date_option berdasarkan nilai due_date
         $dueDateOption = 'none';
@@ -750,12 +851,53 @@ class PurchaseListController extends Controller
             }
         }
 
-        $products = Products::all();
-        $suppliers = Supplier::all();
+        $products = Products::with([
+            'unitConversions.unit',
+        ])
+            ->orderBy('name', 'asc')
+            ->addSelect([
+                'last_price' => DB::table('purchase_items as pi')
+                    ->select('pi.price')
+                    ->whereColumn('pi.product_id', 'products.id')
+                    ->where('pi.price', '>', 0)
+                    ->orderByDesc('pi.id')
+                    ->limit(1),
+
+                'last_freight' => DB::table('purchase_items as pi')
+                    ->select('pi.freight')
+                    ->whereColumn('pi.product_id', 'products.id')
+                    ->where('pi.freight', '>', 0)
+                    ->orderByDesc('pi.id')
+                    ->limit(1),
+            ])
+            ->get();
+
+        $productsJson = $products->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'sku'  => $product->sku,
+                'price' => $product->price,
+                'last_price' => $product->last_price,
+                'last_freight' => $product->last_freight,
+                'units' => $product->unitConversions->map(function ($conversion) {
+                    return [
+                        'id' => $conversion->id,
+                        'unit_id' => $conversion->unit_id,
+                        'unit_name' => optional($conversion->unit)->name,
+                        'conversion_value' => $conversion->conversion_value,
+                        'sale_price' => $conversion->sale_price,
+                    ];
+                })->values()->toArray(),
+            ];
+        })->toArray();
+
+        $suppliers = Supplier::orderBy('name', 'asc')->get();
 
         return view('erp.pages.purchases.purchase-list.edit-purchase', compact(
             'purchase',
             'products',
+            'productsJson',
             'suppliers',
             'dueDateOption',
             'customDueDate'
@@ -792,6 +934,13 @@ class PurchaseListController extends Controller
             'image'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'edit_note'       => 'required|string|max:500',
             'stock_destination' => 'required|in:warehouse,production',
+
+            'product_unit_id' => 'nullable|array',
+            'product_unit_id.*' => 'nullable',
+            'unit_conversion_value' => 'nullable|array',
+            'unit_conversion_value.*' => 'nullable|numeric|min:0.01',
+            'unit_name' => 'nullable|array',
+            'unit_name.*' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -894,6 +1043,22 @@ class PurchaseListController extends Controller
 
             foreach ($request->input('product', []) as $index => $productId) {
                 $qty     = $request->qty[$index] ?? 0;
+
+                $unitConversionId = $request->product_unit_id[$index] ?? null;
+
+                if (!is_numeric($unitConversionId)) {
+                    $unitConversionId = null;
+                }
+
+                $unitConversionValue = (float) ($request->unit_conversion_value[$index] ?? 1);
+                $unitName = $request->unit_name[$index] ?? 'Pcs';
+
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
+
+                $qtyBase = $qty * $unitConversionValue;
+
                 $price   = $request->price[$index] ?? 0;
                 $freight = $request->freight[$index] ?? 0;
                 $total   = $request->total[$index] ?? 0;
@@ -914,11 +1079,11 @@ class PurchaseListController extends Controller
                 if ($existingItem) {
                     $invItem = \App\Models\InventoryItem::where('purchase_item_id', $existingItem->id)->first();
 
-                    if ($invItem && $qty < $invItem->stock_in) {
+                    if ($invItem && $qtyBase < $invItem->stock_in) {
                         DB::rollBack();
                         return back()->with(
                             'error',
-                            "Gagal mengupdate purchase {$purchase->purchase_number}: Quantity untuk produk {$product->name} (" . number_format($qty) . ") tidak boleh lebih kecil dari jumlah stock in (" . number_format($invItem->stock_in) . ")."
+                            "Quantity untuk produk {$product->name} (" . number_format($qtyBase) . ") tidak boleh lebih kecil dari jumlah stock in (" . number_format($invItem->stock_in) . ")."
                         );
                     }
                 }
@@ -926,7 +1091,7 @@ class PurchaseListController extends Controller
                 $oldQty = 0;
                 if ($existingItems->has($productId)) {
                     $item = $existingItems[$productId];
-                    $oldQty = $item->quantity;
+                    $oldQty = $item->qty_base ?? ($item->quantity * ($item->unit_conversion_value ?? 1));
 
                     $item->update([
                         'inventory_warehouse_id'  => $stockDestination === 'warehouse' ? ($request->inventory_warehouse_id ?? 1) : null,
@@ -937,6 +1102,10 @@ class PurchaseListController extends Controller
                         'freight'         => $freight,
                         'final_price'     => $finalPrice,
                         'subtotal'        => $total,
+                        'product_unit_conversion_id' => $unitConversionId,
+                        'unit_name'                  => $unitName,
+                        'unit_conversion_value'      => $unitConversionValue,
+                        'qty_base'                   => $qtyBase,
                     ]);
                 } else {
                     $oldQty = 0;
@@ -960,6 +1129,11 @@ class PurchaseListController extends Controller
                         'freight'         => $freight,
                         'final_price'     => $finalPrice,
                         'subtotal'        => $total,
+
+                        'product_unit_conversion_id' => $unitConversionId,
+                        'unit_name'                  => $unitName,
+                        'unit_conversion_value'      => $unitConversionValue,
+                        'qty_base'                   => $qtyBase,
                     ]);
                 }
 
@@ -991,17 +1165,17 @@ class PurchaseListController extends Controller
                     $invItem->fill([
                         'inventory_warehouse_id'  => $invWarehouseId,
                         'production_warehouse_id' => $prodWarehouseId,
-                        'quantity'               => $qty,
+                        'quantity' => $qtyBase,
                         'price'                  => $price,
-                        'remaining_stock_in'     => $qty,
+                        'remaining_stock_in' => $qtyBase,
                     ]);
                 } else {
                     $invItem->fill([
                         'inventory_warehouse_id'  => $invWarehouseId,
                         'production_warehouse_id' => $prodWarehouseId,
-                        'quantity'               => $qty,
+                        'quantity' => $qtyBase,
                         'price'                  => $finalPrice,
-                        'remaining_stock_in'     => $qty,
+                        'remaining_stock_in' => $qtyBase,
                         'stock_in'               => 0,
                         'stock_out'              => 0,
                     ]);
@@ -1019,7 +1193,7 @@ class PurchaseListController extends Controller
                         ['incoming_stock' => 0]
                     );
 
-                    $difference = $qty - $oldQty;
+                    $difference = $qtyBase - $oldQty;
                     $invStock->increment('incoming_stock', $difference);
                 }
 
@@ -1032,12 +1206,12 @@ class PurchaseListController extends Controller
                         ['incoming_stock' => 0]
                     );
 
-                    $difference = $qty - $oldQty;
+                    $difference = $qtyBase - $oldQty;
                     $prodStock->increment('incoming_stock', $difference);
                 }
 
 
-                // $difference = $qty - $oldQty;
+                // $difference = $qtyBase - $oldQty;
                 // $invStock->increment('incoming_stock', $difference);
             }
 
@@ -1047,7 +1221,7 @@ class PurchaseListController extends Controller
                     InventoryItem::where('purchase_item_id', $item->id)->delete();
                     $invStock = InventoryStock::where('product_id', $pid)->first();
                     if ($invStock) {
-                        $totalPurchasedQty = PurchaseItem::where('product_id', $pid)->sum('quantity');
+                        $totalPurchasedQty = PurchaseItem::where('product_id', $pid)->sum('qty_base');
                         $invStock->update(['incoming_stock' => $totalPurchasedQty]);
                     }
 
@@ -1063,7 +1237,7 @@ class PurchaseListController extends Controller
                                     fn($q) =>
                                     $q->where('stock_destination', 'production')
                                 )
-                                ->sum('quantity');
+                                ->sum('qty_base');
 
                             $prodStock->update([
                                 'incoming_stock' => $totalPurchasedQty
