@@ -65,8 +65,9 @@
                             <div class="row justify-content-between">
                                 <div class="col-lg-4">
                                     @php
-                                        $logoPath = $invoice?->logo ? asset($invoice->logo) : null;
+                                        $logoPath = $invoice->logo ? str_replace('public/', '', $invoice->logo) : null;
                                     @endphp
+
                                     @if ($logoPath)
                                         <img src="{{ asset($logoPath) }}" alt="Logo"
                                             style="max-height: 50px; max-width: 200px; object-fit: contain;">
@@ -234,58 +235,48 @@
 
             document.body.appendChild(clone);
 
+            // Render ke canvas
             const canvas = await html2canvas(clone, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: '#ffffff'
+                scale: 2
             });
-
             document.body.removeChild(clone);
 
             return canvas.toDataURL('image/png');
         }
 
         document.getElementById('shareInvoiceBtn').addEventListener('click', async function() {
-            const dataUrl = await captureInvoice();
-            const response = await fetch(dataUrl);
-            const blob = await response.blob();
+                        const dataUrl = await captureInvoice();
+                        const response = await fetch(dataUrl);
+                        const blob = await response.blob();
+                        const file = new File([blob], 'invoice.png', {
+                            type: 'image/png'
+                        });
 
-            const file = new File([blob], 'invoice.png', {
-                type: 'image/png'
-            });
+                        const shareText = `Halo {{ $order->customer->name }}, berikut invoice pembelian Anda.`;
 
-            const shareText = `Halo {{ $order->customer->name }}, berikut invoice pembelian Anda.`;
+                        if (navigator.canShare && navigator.canShare({
+                                files: [file]
+                            })) {
+                            navigator.share({
+                                    files: [file],
+                                    title: 'Invoice',
+                                    text: shareText
+                                }
+                                else {
+                                    alert('Browser tidak mendukung share langsung. Gambar akan di-download.');
+                                    const link = document.createElement('a');
+                                    link.href = dataUrl;
+                                    link.download = 'invoice.png';
+                                    link.click();
+                                }
+                            });
 
-            if (navigator.canShare && navigator.canShare({
-                    files: [file]
-                })) {
-                await navigator.share({
-                    files: [file],
-                    title: 'Invoice',
-                    text: shareText
-                });
-            } else {
-                alert('Browser tidak mendukung share langsung. Gambar akan di-download.');
-
-                const link = document.createElement('a');
-                link.href = dataUrl;
-                link.download = 'invoice.png';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        });
-
-        document.getElementById('downloadInvoiceBtn').addEventListener('click', async function() {
-            const dataUrl = await captureInvoice();
-
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = 'invoice-{{ $order->order_number }}.png';
-
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        });
+                        document.getElementById('downloadInvoiceBtn').addEventListener('click', async function() {
+                            const dataUrl = await captureInvoice();
+                            const link = document.createElement('a');
+                            link.href = dataUrl;
+                            link.download = 'invoice-{{ $order->order_number }}.png';
+                            link.click();
+                        });
     </script>
 @endpush

@@ -4171,6 +4171,10 @@ class SaleListController extends Controller
             $inventoryWarehouseId  = $request->inventory_warehouse_id  ?? 1;
             $productionWarehouseId = $request->production_warehouse_id ?? 2;
 
+            $hasProgressHistory = OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
+                $q->where('order_id', $order->id);
+            })->exists();
+
             /**
              * 1️⃣ Hitung quantity balik ke 0 dan implementasikan ke semua stok
              */
@@ -4235,27 +4239,6 @@ class SaleListController extends Controller
                     $inventoryStock->stock_after_sales += $qty;
                     $inventoryStock->save();
 
-                    // ===============================================
-                    // 3) Kalau order ini BELUM menyentuh PRODUKSI → SKIP PRODUKSI
-                    //    (tapi INVENTORY SUDAH dibalikin di atas)
-                    // ===============================================
-                    // if (
-                    //     !$hasVerifiedDesign &&
-                    //     (float) $assignedQty <= 0 &&
-                    //     (float) $producedQty <= 0 &&
-                    //     (float) $shippedQty  <= 0
-                    // ) {
-                    //     Log::warning('SKIP rollback PRODUCTION SATUAN — order ini belum menyentuh produksi', [
-                    //         'order_id'   => $order->id,
-                    //         'product_id' => $item->product_id,
-                    //         'qty'        => $qty,
-                    //     ]);
-
-                    //     // tandai sudah diproses supaya bundle gak ganggu
-                    //     $processedProducts[] = $item->product_id;
-                    //     continue;
-                    // }
-
                     $skipProduction = (
                         !$hasVerifiedDesign &&
                         $assignedQty <= 0 &&
@@ -4297,7 +4280,7 @@ class SaleListController extends Controller
                             $ps->pending_waiting_list -= $qty;
 
                             // 2) Ada assign → balikin ke available
-                            if ($assignedQty > 0) {
+                            if ($hasProgressHistory && $assignedQty > 0) {
                                 $ps->available_quantity += $assignedQty;
                             }
 
@@ -4434,24 +4417,6 @@ class SaleListController extends Controller
                         ->where('product_id', $bundleItem->product_id)
                         ->sum('shipped_qty');
 
-                    // 🔥 SKIP PRODUKSI kalau order bundle BELUM menyentuh produksi
-                    // if (
-                    //     !$hasVerifiedDesign &&
-                    //     (float) $assignedQty <= 0 &&
-                    //     (float) $producedQty <= 0 &&
-                    //     (float) $shippedQty <= 0
-                    // ) {
-                    //     Log::warning("SKIP rollback PRODUCTION BUNDLE — order belum menyentuh produksi", [
-                    //         'order_id' => $order->id,
-                    //         'component_id' => $bundleItem->product_id,
-                    //         'componentQty' => $componentQty,
-                    //     ]);
-
-                    //     // tandai sudah diproses, biar bundle lain atau satuan tidak ulang rollback
-                    //     $processedProducts[] = $bundleItem->product_id;
-                    //     continue;
-                    // }
-
                     $skipProduction = (
                         !$hasVerifiedDesign &&
                         $assignedQty <= 0 &&
@@ -4495,7 +4460,7 @@ class SaleListController extends Controller
                             $ps->pending_waiting_list -= $componentQty;
 
                             // 2) Assigned rollback
-                            if ($assignedQty > 0) {
+                            if ($hasProgressHistory && $assignedQty > 0) {
                                 $ps->available_quantity += $assignedQty;
                             }
 

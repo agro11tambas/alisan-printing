@@ -166,25 +166,6 @@ class SaleReturnController extends Controller
                 </div>
             ';
 
-                // 🔸 Payment status badge + verified icon
-                // $paymentStatus = strtolower($return->payment_status);
-                // $badgeClass = match ($paymentStatus) {
-                //     'refunded', 'paid' => 'bg-soft-success text-success',
-                //     'over refunded'    => 'bg-soft-primary text-primary',
-                //     'unpaid'           => 'bg-soft-danger text-danger',
-                //     'partially paid'   => 'bg-soft-warning text-warning',
-                //     'customer deposit' => 'bg-soft-primary text-primary',
-                //     default             => 'bg-soft-warning text-warning',
-                // };
-
-                // $verifiedIcon = '';
-                // if ($return->verified) {
-                //     $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
-                // }
-
-                // $badge = '<div class="badge ' . $badgeClass . '">' . ucfirst($paymentStatus) . '</div>' . $verifiedIcon;
-
-                // 🔸 Order Payment Status
                 $orderPaymentStatus = strtolower($return->saleOrder?->payment_status ?? '-');
 
                 $orderBadgeClass = match ($orderPaymentStatus) {

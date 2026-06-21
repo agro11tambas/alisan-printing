@@ -2,7 +2,7 @@
     <ul class="dropdown-menu show static-action-menu">
         <div class="action-grid">
             <div class="action-col">
-                {{-- <li>
+                <li>
                     <button type="button" class="dropdown-item btn-share-invoice" data-id="{{ $order->id }}"
                         data-url="{{ url('/erp/sales/sale-list/invoice/' . $order->id) }}"
                         data-phone="{{ $order->customer->phone }}" data-business="{{ $order->business_name }}"
@@ -11,7 +11,7 @@
                         <i class="feather feather-share-2 me-3"></i>
                         <span>Share ke WA</span>
                     </button>
-                </li> --}}
+                </li>
                 <li>
                     <button type="button" class="dropdown-item btn-share-invoice-image" data-id="{{ $order->id }}"
                         data-url="{{ url('/erp/sales/sale-list/invoice-image/' . $order->id) }}"

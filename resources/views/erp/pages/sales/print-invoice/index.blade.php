@@ -29,13 +29,14 @@
             margin: 0 !important;
             padding: 0 !important;
         }
-    </style>    
+    </style>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 </head>
+
 <body>
     <div class="main-content container-lg">
         <div class="row">
@@ -45,7 +46,8 @@
                         <div class="px-4 pt-4">
                             <div class="d-sm-flex justify-content-between">
                                 <div>
-                                    <div class="fs-24 fw-bolder font-montserrat-alt text-uppercase text-primary">Alisan</div>
+                                    <div class="fs-24 fw-bolder font-montserrat-alt text-uppercase text-primary">Alisan
+                                    </div>
                                     <address class="text-muted">
                                         Jl. abcde asdkasdas
                                     </address>
@@ -58,7 +60,8 @@
                                     </div>
                                     <div>
                                         <span class="fw-bold text-dark">Date:</span>
-                                        <span class="text-muted">{{ date('d M Y', strtotime($order->created_at)) }}</span>
+                                        <span
+                                            class="text-muted">{{ date('d M Y', strtotime($order->created_at)) }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -80,7 +83,8 @@
                                     <div class="text-muted lh-lg">
                                         <div>
                                             <span class="text-muted">Total Due:</span>
-                                            <span class="fw-bold text-dark">Rp. {{ number_format($order->grand_total, 0, ',', '.') }}</span>
+                                            <span class="fw-bold text-dark">Rp.
+                                                {{ number_format($order->grand_total, 0, ',', '.') }}</span>
                                         </div>
                                         <div>
                                             <span class="text-muted">Payout Status:</span>
@@ -107,27 +111,31 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($order->orderItems as $item)
-                                    <tr>
-                                        <td>{{ $item->product->name }}</td>
-                                        <td>Rp. {{ number_format($item->product->price, 0, ',', '.') }}</td>
-                                        <td>{{ $item->quantity }}</td>
-                                        <td class="text-end">Rp. {{ number_format($item->subtotal, 0, ',', '.') }}</td>
-                                    </tr>
+                                        <tr>
+                                            <td>{{ $item->product->name }}</td>
+                                            <td>Rp. {{ number_format($item->product->price, 0, ',', '.') }}</td>
+                                            <td>{{ $item->quantity }}</td>
+                                            <td class="text-end">Rp. {{ number_format($item->subtotal, 0, ',', '.') }}
+                                            </td>
+                                        </tr>
                                     @endforeach
                                     <tr>
                                         <td colspan="2" class="border-0"></td>
                                         <td class="fw-semibold text-dark text-lg-end border-0 text-end">Sub Total</td>
-                                        <td class="fw-bold text-dark border-0 text-end">Rp. {{ number_format($order->total_amount, 0, ',', '.') }}</td>
+                                        <td class="fw-bold text-dark border-0 text-end">Rp.
+                                            {{ number_format($order->total_amount, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr>
                                         <td colspan="2" class="border-0"></td>
                                         <td class="fw-semibold text-dark text-lg-end border-0 text-end">Discount</td>
-                                        <td class="fw-bold text-danger border-0 text-end">- Rp. {{ number_format($order->discount, 0, ',', '.') }}</td>
+                                        <td class="fw-bold text-danger border-0 text-end">- Rp.
+                                            {{ number_format($order->discount, 0, ',', '.') }}</td>
                                     </tr>
                                     <tr>
                                         <td colspan="2" class="border-0"></td>
                                         <td class="fw-semibold text-dark text-lg-end border-0 text-end">Grand Total</td>
-                                        <td class="fw-bold text-success border-0 text-end">Rp. {{ number_format($order->grand_total, 0, ',', '.') }}</td>
+                                        <td class="fw-bold text-success border-0 text-end">Rp.
+                                            {{ number_format($order->grand_total, 0, ',', '.') }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -135,11 +143,12 @@
                         <hr class="border-dashed mt-0">
                         <div class="px-4 pt-4 d-sm-flex align-items-center justify-content-between">
                             <div class="d-flex mb-5 mb-sm-0">
-                                
+
                             </div>
                             <div class="text-end">
                                 <h6 class="fs-13 fw-bold mt-2">Owner</h6>
-                                <p class="fs-11 fw-semibold text-muted">{{ date('d M Y, H:i', strtotime($order->created_at)) }}</p>
+                                <p class="fs-11 fw-semibold text-muted">
+                                    {{ date('d M Y, H:i', strtotime($order->created_at)) }}</p>
                             </div>
                         </div>
                     </div>
