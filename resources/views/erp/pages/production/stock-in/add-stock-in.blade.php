@@ -151,16 +151,47 @@
                                 <thead>
                                     <tr>
                                         <th>Product</th>
-                                        <th>Quantity</th>
+                                        <th>Total Qty</th>
                                         <th>Stock In</th>
+                                        <th>Remaining</th>
+                                        <th>Add Stock In</th>
                                         <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach ($mergedItems as $index => $item)
+                                        @php
+                                            $conv = $item->unit_conversion_value ?? 1;
+                                            $unit = $item->unit_name ?? 'Pcs';
+                                        @endphp
                                         <tr>
                                             <td>{{ $item->product->name ?? '-' }}</td>
-                                            <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                            <td>
+                                                {{ number_format($item->quantity, 0, ',', '.') }} {{ $unit }}
+                                                @if ($conv > 1)
+                                                    <small
+                                                        class="text-muted">({{ number_format($item->qty_base, 0, ',', '.') }}
+                                                        Pcs)</small>
+                                                @endif
+                                            </td>
+                                            <td class="text-success">
+                                                {{ number_format($item->stock_in / $conv, 0, ',', '.') }}
+                                                {{ $unit }}
+                                                @if ($conv > 1)
+                                                    <small
+                                                        class="text-muted">({{ number_format($item->stock_in, 0, ',', '.') }}
+                                                        Pcs)</small>
+                                                @endif
+                                            </td>
+                                            <td class="text-danger">
+                                                {{ number_format($item->remaining / $conv, 0, ',', '.') }}
+                                                {{ $unit }}
+                                                @if ($conv > 1)
+                                                    <small
+                                                        class="text-muted">({{ number_format($item->remaining, 0, ',', '.') }}
+                                                        Pcs)</small>
+                                                @endif
+                                            </td>
                                             <td>
                                                 @foreach ($item->item_ids as $itemId)
                                                     <input type="hidden"
@@ -169,12 +200,21 @@
                                                 @endforeach
                                                 <input type="hidden" name="items[{{ $index }}][product_id]"
                                                     value="{{ $item->product_id }}">
+                                                <input type="hidden"
+                                                    name="items[{{ $index }}][unit_conversion_value]"
+                                                    value="{{ $conv }}">
                                                 <input type="text" inputmode="numeric"
                                                     name="items[{{ $index }}][stock_in]"
                                                     class="form-control stock-in-input" value="0"
-                                                    data-max="{{ $item->remaining }}" placeholder="Jumlah dikirim">
-                                                <small class="text-muted">Sisa:
-                                                    {{ number_format($item->remaining, 0, ',', '.') }}</small>
+                                                    data-max="{{ $item->remaining / $conv }}"
+                                                    placeholder="Jumlah ({{ $unit }})">
+                                                <small class="text-muted">
+                                                    Sisa: {{ number_format($item->remaining / $conv, 0, ',', '.') }}
+                                                    {{ $unit }}
+                                                    @if ($conv > 1)
+                                                        = {{ number_format($item->remaining, 0, ',', '.') }} Pcs
+                                                    @endif
+                                                </small>
                                             </td>
                                             <td>
                                                 <input type="text" name="items[{{ $index }}][notes]"

@@ -44,13 +44,17 @@ class ProductionStockInController extends Controller
         $mergedItems = $groupedInventories->flatMap(fn($inv) => $inv->items)
             ->groupBy('product_id')
             ->map(function ($productItems) {
+                $first = $productItems->first();
                 return (object)[
-                    'product'    => $productItems->first()->product,
-                    'product_id' => $productItems->first()->product_id,
-                    'quantity'   => $productItems->sum('quantity'),
-                    'stock_in'   => $productItems->sum('stock_in'),
-                    'remaining'  => $productItems->sum('quantity') - $productItems->sum('stock_in'),
-                    'item_ids'   => $productItems->pluck('id')->toArray(),
+                    'product'               => $first->product,
+                    'product_id'            => $first->product_id,
+                    'unit_name'             => $first->unit_name ?? 'Pcs',
+                    'unit_conversion_value' => $first->unit_conversion_value ?? 1,
+                    'quantity'              => $productItems->sum('quantity'),
+                    'qty_base'              => $productItems->sum('qty_base'),
+                    'stock_in'              => $productItems->sum('stock_in'),
+                    'remaining'             => $productItems->sum('qty_base') - $productItems->sum('stock_in'),
+                    'item_ids'              => $productItems->pluck('id')->toArray(),
                 ];
             })->values();
 
@@ -225,6 +229,7 @@ class ProductionStockInController extends Controller
             'items.*.inventory_item_ids'   => 'required|array',
             'items.*.inventory_item_ids.*' => 'exists:inventory_items_2,id',
             'items.*.stock_in'             => 'required|integer|min:0',
+            'items.*.unit_conversion_value' => 'required|numeric|min:1',
         ]);
 
         DB::beginTransaction();
@@ -245,7 +250,10 @@ class ProductionStockInController extends Controller
             }
 
             foreach ($request->items as $itemData) {
-                $addQty = (int) $itemData['stock_in'];
+                $conv    = (float) ($itemData['unit_conversion_value'] ?? 1);
+                $addQty  = (int) $itemData['stock_in'];       // input user (kotak)
+                $addBase = (int) round($addQty * $conv);       // pcs
+
                 if ($addQty <= 0) continue;
 
                 // FIFO: terlama duluan berdasarkan purchase_date
@@ -256,12 +264,12 @@ class ProductionStockInController extends Controller
                     ->select('inventory_items_2.*')
                     ->get();
 
-                $remaining = $addQty;
+                $remaining = $addBase; // ← base unit
 
                 foreach ($inventoryItems as $inventoryItem) {
                     if ($remaining <= 0) break;
 
-                    $canAdd = $inventoryItem->quantity - $inventoryItem->stock_in;
+                    $canAdd = $inventoryItem->qty_base - $inventoryItem->stock_in; // pcs
                     if ($canAdd <= 0) continue;
 
                     $toAdd = min($remaining, $canAdd);

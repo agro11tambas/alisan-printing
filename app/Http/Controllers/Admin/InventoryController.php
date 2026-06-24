@@ -184,9 +184,12 @@ class InventoryController extends Controller
                     ->map(function ($productItems) {
                         $first = $productItems->first();
                         return (object)[
-                            'product'  => $first->product,
-                            'quantity' => $productItems->sum('quantity'),
-                            'stock_in' => $productItems->sum('stock_in'),
+                            'product'               => $first->product,
+                            'unit_name'             => $first->unit_name ?? 'Pcs',
+                            'unit_conversion_value' => $first->unit_conversion_value ?? 1,
+                            'quantity'              => $productItems->sum('quantity'),
+                            'qty_base'              => $productItems->sum('qty_base'),
+                            'stock_in'              => $productItems->sum('stock_in'),
                         ];
                     })->values();
 
@@ -197,7 +200,8 @@ class InventoryController extends Controller
                     ['inventory' => $fakeInventory]
                 )->render();
 
-                $isCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->quantity);
+                $isCompleted      = $mergedItems->every(fn($i) => $i->stock_in >= $i->qty_base);
+
                 $completeIcon = $isCompleted ? '<i class="fa fa-check-circle text-success ms-1"></i>' : '';
 
                 // $actionHtml = $items->map(function ($inventory) {
@@ -210,7 +214,7 @@ class InventoryController extends Controller
 
                 $year  = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->year;
                 $month = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->month;
-                $isGroupCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->quantity);
+                $isGroupCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->qty_base);
 
                 $actionHtml = view(
                     'erp.pages.inventory.stock-in.partials.action-button-stock-in',

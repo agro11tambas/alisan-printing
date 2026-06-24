@@ -242,12 +242,12 @@ class PurchaseListController extends Controller
                     return [
                         'name' => $item->purchaseProduct->name ?? '-',
                         'sku' => $item->purchaseProduct->sku ?? '-',
-                        'qty' => number_format($item->quantity, 0, ',', '.'),
+                        'qty' => number_format($item->quantity, 0, ',', '.') . ' ' . $item->unit_name,
                         'stock_in' => number_format($stockIn, 0, ',', '.'), // jika perlu ditampilkan
-                        'price' => number_format($priceWithTax, 2, ',', '.'),
-                        'freight' => number_format($freight, 2, ',', '.'),
-                        'total_price' => number_format($priceWithTax + $freight, 2, ',', '.'),
-                        'total' => number_format($total, 2, ',', '.'),
+                        'price' => number_format($priceWithTax, 0, ',', '.'),
+                        'freight' => number_format($freight, 0, ',', '.'),
+                        'total_price' => number_format($priceWithTax + $freight, 0, ',', '.'),
+                        'total' => number_format($total, 0, ',', '.'),
                     ];
                 })->toArray();
 
@@ -723,7 +723,11 @@ class PurchaseListController extends Controller
                             ? ($request->production_warehouse_id ?? 2)
                             : null,
 
-                        'quantity'           => $qtyBase,
+                        'unit_name'             => $unitName,
+                        'unit_conversion_value' => $unitConversionValue,
+                        'qty_base'              => $qtyBase,
+
+                        'quantity'           => $qty,
                         'price'              => $finalPrice,
                         'stock_in'           => 0,
                         'remaining_stock_in' => $qtyBase,

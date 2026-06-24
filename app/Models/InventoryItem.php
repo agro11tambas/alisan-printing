@@ -32,10 +32,16 @@ class InventoryItem extends Model
         'stock_out',
         'stock_out_request',
         'stock_out_production',
+        'unit_name',
+        'unit_conversion_value',
+        'qty_base',
     ];
 
     protected $casts = [
         'deleted_at' => 'datetime',
+        'quantity' => 'integer',
+        'qty_base' => 'integer',
+        'unit_conversion_value' => 'float',
     ];
 
     public function inventory()

@@ -315,9 +315,12 @@ class ProductionController extends Controller
                     ->map(function ($productItems) {
                         $first = $productItems->first();
                         return (object)[
-                            'product'  => $first->product,
-                            'quantity' => $productItems->sum('quantity'),
-                            'stock_in' => $productItems->sum('stock_in'),
+                            'product'               => $first->product,
+                            'unit_name'             => $first->unit_name ?? 'Pcs',
+                            'unit_conversion_value' => $first->unit_conversion_value ?? 1,
+                            'quantity'              => $productItems->sum('quantity'),
+                            'qty_base'              => $productItems->sum('qty_base'),
+                            'stock_in'              => $productItems->sum('stock_in'),
                         ];
                     })->values();
 
@@ -328,7 +331,7 @@ class ProductionController extends Controller
                     ['inventory' => $fakeInventory]
                 )->render();
 
-                $isGroupCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->quantity);
+                $isGroupCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->qty_base); // ← qty_base
                 $completeIcon     = $isGroupCompleted ? '<i class="fa fa-check-circle text-success ms-1"></i>' : '';
 
                 $supplierId = $first->purchase?->supplier?->id;
