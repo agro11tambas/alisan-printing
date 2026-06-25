@@ -1085,6 +1085,7 @@ class SaleListController extends Controller
                 'sku'  => $product->sku,
                 'price' => $product->price,
                 'sale_price' => $product->sale_price,
+                'base_unit_id' => $product->base_unit_id,
                 'discounts' => $product->discounts->toArray(),
                 'categories' => $product->categories->map(function ($cat) {
                     return [
@@ -1139,6 +1140,7 @@ class SaleListController extends Controller
                 'name' => $bundleName ?: $bundle->name, // fallback ke nama asli kalau kosong
                 'sku'  => $bundle->sku,
                 'price' => $bundle->price,
+                'base_unit_id' => $bundle->base_unit_id,
                 'discounts' => $bundleDiscounts,
                 'categories' => $bundleCategories,
                 'units' => $bundle->unitConversions->map(function ($conversion) {

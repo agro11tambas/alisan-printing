@@ -111,6 +111,23 @@
                                 </div>
                             </div>
 
+                            <div class="row mb-3 align-items-center">
+                                <div class="col-lg-2">
+                                    <label for="base_unit_id" class="fw-semibold">Base Unit</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <select class="form-control" id="base_unit_id" name="base_unit_id">
+                                        <option value="">Choose Base Unit</option>
+                                        @foreach ($productUnits as $unit)
+                                            <option value="{{ $unit->id }}"
+                                                {{ old('base_unit_id') == $unit->id ? 'selected' : '' }}>
+                                                {{ $unit->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
                             {{-- <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="price" class="fw-semibold">Price</label>

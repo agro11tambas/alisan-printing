@@ -124,6 +124,7 @@ class ProductBundleController extends Controller
             'sku'      => 'required|string|max:255',
             'products' => 'required|array|min:2',
             'products.*' => 'required|exists:products,id',
+            'base_unit_id' => 'required|exists:product_units,id',
 
             'units' => 'nullable|array',
             'units.*.unit_id' => 'nullable|exists:product_units,id',
@@ -175,6 +176,7 @@ class ProductBundleController extends Controller
                     'name'  => trim($request->name) . ' (BUNDLE)',
                     'sku'   => $request->sku,
                     'price' => 0,
+                    'base_unit_id' => $request->base_unit_id,
                 ]);
 
                 foreach ($selectedProducts as $productId) {
@@ -336,6 +338,7 @@ class ProductBundleController extends Controller
                     'name'  => trim($request->name),
                     'sku'   => $request->sku,
                     'price' => 0,
+                    'base_unit_id' => $request->base_unit_id,
                 ]);
 
                 ProductBundleItem::where('bundle_id', $bundle->id)->delete();

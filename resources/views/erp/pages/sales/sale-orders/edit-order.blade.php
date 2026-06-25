@@ -532,20 +532,6 @@
                                             </div>
 
                                             <div class="form-group">
-                                                <label>Mode</label>
-                                                <select name="mode[]" class="form-control item-mode">
-                                                    <option value="printing"
-                                                        {{ ($item->mode ?? 'printing') === 'printing' ? 'selected' : '' }}>
-                                                        Printing
-                                                    </option>
-                                                    <option value="polosan"
-                                                        {{ ($item->mode ?? 'printing') === 'polosan' ? 'selected' : '' }}>
-                                                        Polosan
-                                                    </option>
-                                                </select>
-                                            </div>
-
-                                            <div class="form-group">
                                                 <label>Qty</label>
                                                 <input type="text" name="qty[]" class="form-control qty"
                                                     inputmode="numeric"
@@ -559,6 +545,20 @@
                                                 <input type="hidden" name="price_before_discount[]"
                                                     class="price_before_discount"
                                                     value="{{ number_format($item->price, 2, '.', '') }}">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Mode</label>
+                                                <select name="mode[]" class="form-control item-mode">
+                                                    <option value="printing"
+                                                        {{ ($item->mode ?? 'printing') === 'printing' ? 'selected' : '' }}>
+                                                        Printing
+                                                    </option>
+                                                    <option value="polosan"
+                                                        {{ ($item->mode ?? 'printing') === 'polosan' ? 'selected' : '' }}>
+                                                        Polosan
+                                                    </option>
+                                                </select>
                                             </div>
 
                                             <div class="form-group">
@@ -614,14 +614,6 @@
                                         </div>
 
                                         <div class="form-group">
-                                            <label>Mode</label>
-                                            <select name="mode[]" class="form-control item-mode">
-                                                <option value="printing" selected>Printing</option>
-                                                <option value="polosan">Polosan</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
                                             <label>Qty</label>
                                             <input type="text" name="qty[]" class="form-control qty"
                                                 inputmode="numeric" value="1">
@@ -633,6 +625,14 @@
                                                 value="0">
                                             <input type="hidden" name="price_before_discount[]"
                                                 class="price_before_discount" value="0">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Mode</label>
+                                            <select name="mode[]" class="form-control item-mode">
+                                                <option value="printing" selected>Printing</option>
+                                                <option value="polosan">Polosan</option>
+                                            </select>
                                         </div>
 
                                         <div class="form-group">

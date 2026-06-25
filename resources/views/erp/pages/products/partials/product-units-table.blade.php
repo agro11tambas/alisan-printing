@@ -16,7 +16,7 @@
                         {{ $unit->unit->name ?? '-' }}
                     </td>
                     <td>
-                        {{ rtrim(rtrim(number_format((float) $unit->ratio_value, 0, ',', '.'), '0'), ',') }}
+                        {{ number_format((int) $unit->ratio_value, 0, ',', '.') }}
                     </td>
                     <td>
                         Rp {{ number_format((float) $unit->fixed_cost, 0, ',', '.') }}

@@ -485,14 +485,6 @@
                                         </div>
 
                                         <div class="form-group">
-                                            <label>Mode</label>
-                                            <select name="mode[]" class="form-control item-mode">
-                                                <option value="printing" selected>Printing</option>
-                                                <option value="polosan">Polosan</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
                                             <label>Qty</label>
                                             <input type="text" inputmode="numeric" name="qty[]"
                                                 class="form-control qty" placeholder="Quantity">
@@ -504,6 +496,14 @@
                                                 class="form-control price_before_discount_display" placeholder="Price">
                                             <input type="hidden" name="price_before_discount[]"
                                                 class="price_before_discount">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Mode</label>
+                                            <select name="mode[]" class="form-control item-mode">
+                                                <option value="printing" selected>Printing</option>
+                                                <option value="polosan">Polosan</option>
+                                            </select>
                                         </div>
 
                                         <div class="form-group">
@@ -556,14 +556,6 @@
                                         </div>
 
                                         <div class="form-group">
-                                            <label>Mode</label>
-                                            <select name="mode[]" class="form-control item-mode">
-                                                <option value="printing" selected>Printing</option>
-                                                <option value="polosan">Polosan</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
                                             <label>Qty</label>
                                             <input type="text" inputmode="numeric" name="qty[]"
                                                 class="form-control qty">
@@ -575,6 +567,14 @@
                                                 class="form-control price_before_discount_display">
                                             <input type="hidden" name="price_before_discount[]"
                                                 class="price_before_discount">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Mode</label>
+                                            <select name="mode[]" class="form-control item-mode">
+                                                <option value="printing" selected>Printing</option>
+                                                <option value="polosan">Polosan</option>
+                                            </select>
                                         </div>
 
                                         <div class="form-group">
@@ -1040,7 +1040,13 @@
                 return item.type === type && String(item.id) === selectedId;
             });
 
-            const units = selectedItem?.units || [];
+            let units = selectedItem?.units || [];
+
+            if (type === 'satuan') {
+                units = units.filter(unit =>
+                    String(unit.unit_id) === String(selectedItem.base_unit_id)
+                );
+            }
 
             console.log('TYPE:', type);
             console.log('ID:', selectedId);

@@ -446,14 +446,6 @@
                                         </div>
 
                                         <div class="form-group">
-                                            <label>Mode</label>
-                                            <select name="mode[]" class="form-control item-mode">
-                                                <option value="printing" selected>Printing</option>
-                                                <option value="polosan">Polosan</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
                                             <label>Qty</label>
                                             <input type="text" inputmode="numeric" name="qty[]"
                                                 class="form-control qty">
@@ -465,6 +457,14 @@
                                                 class="form-control price_before_discount_display">
                                             <input type="hidden" name="price_before_discount[]"
                                                 class="price_before_discount">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Mode</label>
+                                            <select name="mode[]" class="form-control item-mode">
+                                                <option value="printing" selected>Printing</option>
+                                                <option value="polosan">Polosan</option>
+                                            </select>
                                         </div>
 
                                         <div class="form-group">
@@ -517,14 +517,6 @@
                                         </div>
 
                                         <div class="form-group">
-                                            <label>Mode</label>
-                                            <select name="mode[]" class="form-control item-mode">
-                                                <option value="printing" selected>Printing</option>
-                                                <option value="polosan">Polosan</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
                                             <label>Qty</label>
                                             <input type="text" inputmode="numeric" name="qty[]"
                                                 class="form-control qty">
@@ -536,6 +528,14 @@
                                                 class="form-control price_before_discount_display">
                                             <input type="hidden" name="price_before_discount[]"
                                                 class="price_before_discount">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Mode</label>
+                                            <select name="mode[]" class="form-control item-mode">
+                                                <option value="printing" selected>Printing</option>
+                                                <option value="polosan">Polosan</option>
+                                            </select>
                                         </div>
 
                                         <div class="form-group">
@@ -986,12 +986,25 @@
             const selectedOption = $(this).find('option:selected');
 
             const type = selectedOption.data('type') || '';
-            const units = selectedOption.data('units') || [];
+            let units = selectedOption.data('units') || [];
             const price = parseFloat(selectedOption.data('price') || 0);
+
+            const selectedValue = selectedOption.val();
+            const selectedId = String(selectedValue).replace(type + '_', '');
+
+            const selectedItem = allProducts.find(item =>
+                item.type === type && String(item.id) === selectedId
+            );
+
+            if (selectedItem?.base_unit_id) {
+                units = units.filter(unit =>
+                    String(unit.unit_id) === String(selectedItem.base_unit_id)
+                );
+            }
 
             row.find('.product-type').val(type);
 
-            fillProductUnits(row, units, price, type === 'bundle');
+            fillProductUnits(row, units, price, false);
 
             recalcAllRows();
         });

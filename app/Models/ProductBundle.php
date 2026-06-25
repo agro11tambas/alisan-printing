@@ -18,6 +18,7 @@ class ProductBundle extends Model
         'sku',
         'price',
         'sale_price',
+        'base_unit_id',
         'description',
     ];
 
@@ -33,6 +34,11 @@ class ProductBundle extends Model
     public function unitConversions()
     {
         return $this->hasMany(ProductBundleUnitConversion::class, 'product_bundle_id');
+    }
+
+    public function baseUnit()
+    {
+        return $this->belongsTo(ProductUnit::class, 'base_unit_id');
     }
 
     public function products()

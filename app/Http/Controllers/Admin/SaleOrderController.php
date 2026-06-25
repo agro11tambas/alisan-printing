@@ -253,6 +253,7 @@ class SaleOrderController extends Controller
                 'price' => $product->price,
                 'sale_price' => $product->sale_price,
                 'discounts' => $product->discounts->toArray(),
+                'base_unit_id' => $product->base_unit_id,
                 'categories' => $product->categories->map(function ($cat) {
                     return [
                         'id' => $cat->id,
@@ -309,6 +310,7 @@ class SaleOrderController extends Controller
                 'price' => $bundle->price,
                 'discounts' => $bundleDiscounts,
                 'categories' => $bundleCategories,
+                'base_unit_id' => $bundle->base_unit_id,
                 'units' => $bundle->unitConversions->map(function ($conversion) {
                     return [
                         'id' => $conversion->id,

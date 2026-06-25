@@ -523,9 +523,39 @@
             //     calculateSalePrice(row);
             // });
 
-            $(document).on('input', '.conversion-input, input[name*="[fixed_cost]"], input[name*="[margin]"]',
+            // $(document).on('input', '.conversion-input, input[name*="[fixed_cost]"], input[name*="[margin]"]',
+            //     function() {
+            //         calculateUnitPrices();
+            //     });
+
+            $(document).on('input', '.conversion-input', function() {
+                calculateUnitPrices();
+            });
+
+            $(document).on('input',
+                'input[name*="[fixed_cost]"], input[name*="[margin]"], input[name*="[sale_price]"]',
                 function() {
-                    calculateUnitPrices();
+                    const row = $(this).closest('tr');
+
+                    const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+                    const marginInput = row.find('input[name*="[margin]"]');
+                    const salePriceInput = row.find('input[name*="[sale_price]"]');
+
+                    const fixedCost = parseFloat(normalizeMoneyValue(fixedCostInput.val())) || 0;
+                    const margin = parseFloat(normalizeMoneyValue(marginInput.val())) || 0;
+                    const salePrice = parseFloat(normalizeMoneyValue(salePriceInput.val())) || 0;
+
+                    if ($(this).is(salePriceInput)) {
+                        const newMargin = salePrice - fixedCost;
+
+                        marginInput.val(formatMoneyID(newMargin));
+                        marginInput[0].dataset.raw = newMargin.toString();
+                    } else {
+                        const newSalePrice = fixedCost + margin;
+
+                        salePriceInput.val(formatMoneyID(newSalePrice));
+                        salePriceInput[0].dataset.raw = newSalePrice.toString();
+                    }
                 });
 
             const imageInput = document.getElementById('image');
