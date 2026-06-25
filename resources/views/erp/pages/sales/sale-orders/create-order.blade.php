@@ -996,15 +996,15 @@
                 item.type === type && String(item.id) === selectedId
             );
 
-            if (selectedItem?.base_unit_id) {
-                units = units.filter(unit =>
-                    String(unit.unit_id) === String(selectedItem.base_unit_id)
-                );
-            }
+            // if (selectedItem?.base_unit_id) {
+            //     units = units.filter(unit =>
+            //         String(unit.unit_id) === String(selectedItem.base_unit_id)
+            //     );
+            // }
 
             row.find('.product-type').val(type);
 
-            fillProductUnits(row, units, price, false);
+            fillProductUnits(row, units, price, false, selectedItem?.base_unit_id);
 
             recalcAllRows();
         });
@@ -1435,7 +1435,7 @@
             ) || 0;
         }
 
-        function fillProductUnits(row, units, defaultPrice = 0, forceDefaultPcs = false) {
+        function fillProductUnits(row, units, defaultPrice = 0, forceDefaultPcs = false, baseUnitId = null) {
             const unitSelect = row.find('.product-unit');
 
             unitSelect.empty();
@@ -1478,14 +1478,13 @@
                 });
             }
 
-            if (forceDefaultPcs) {
-                unitSelect.val('default_pcs').trigger('change');
-            } else {
-                const firstUnitValue = unitSelect.find('option:eq(1)').val();
+            const baseOption = unitSelect.find(`option[data-unit-id="${baseUnitId}"]`).val();
+            const firstUnitValue = unitSelect.find('option:eq(1)').val();
 
-                if (firstUnitValue) {
-                    unitSelect.val(firstUnitValue).trigger('change');
-                }
+            if (forceDefaultPcs) {
+                unitSelect.val(baseOption || 'default_pcs').trigger('change');
+            } else if (baseOption || firstUnitValue) {
+                unitSelect.val(baseOption || firstUnitValue).trigger('change');
             }
         }
 

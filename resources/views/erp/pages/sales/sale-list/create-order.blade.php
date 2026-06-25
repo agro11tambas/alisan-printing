@@ -1042,18 +1042,18 @@
 
             let units = selectedItem?.units || [];
 
-            if (type === 'satuan') {
-                units = units.filter(unit =>
-                    String(unit.unit_id) === String(selectedItem.base_unit_id)
-                );
-            }
+            // if (type === 'satuan') {
+            //    units = units.filter(unit =>
+            //        String(unit.unit_id) === String(selectedItem.base_unit_id)
+            //    );
+            // }
 
             console.log('TYPE:', type);
             console.log('ID:', selectedId);
             console.log('ITEM:', selectedItem);
             console.log('UNITS:', units);
 
-            fillProductUnits(row, units);
+            fillProductUnits(row, units, selectedItem?.base_unit_id);
 
             recalcAllRows();
         });
@@ -1499,7 +1499,7 @@
             ) || 0;
         }
 
-        function fillProductUnits(row, units) {
+        function fillProductUnits(row, units, baseUnitId = null) {
             const unitSelect = row.find('.product-unit');
 
             unitSelect.empty();
@@ -1547,7 +1547,10 @@
         `);
             });
 
-            unitSelect.val(unitSelect.find('option:eq(1)').val()).trigger('change');
+            const baseOption = unitSelect.find(`option[data-unit-id="${baseUnitId}"]`).val();
+            const firstOption = unitSelect.find('option:eq(1)').val();
+
+            unitSelect.val(baseOption || firstOption).trigger('change');
         }
 
         function updatePriceFromSelectedUnit(row) {
