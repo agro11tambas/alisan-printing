@@ -11,6 +11,7 @@ class ProductBundleUnitConversion extends Model
         'unit_id',
         'conversion_value',
         'sale_price',
+        'ratio_value',
     ];
 
     public function bundle()

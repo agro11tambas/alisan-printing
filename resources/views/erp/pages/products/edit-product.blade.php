@@ -213,7 +213,8 @@
                                             <thead>
                                                 <tr>
                                                     <th style="width: 18%">Unit</th>
-                                                    <th style="width: 18%">Conversion to Base Unit</th>
+                                                    {{-- <th style="width: 18%">Conversion to Base Unit</th> --}}
+                                                    <th style="width: 18%">Rasio</th>
                                                     <th style="width: 18%">Fixed Cost</th>
                                                     <th style="width: 18%">Margin</th>
                                                     <th style="width: 20%">Sale Price</th>
@@ -233,8 +234,8 @@
                                                         $conversionValue = old(
                                                             "units.$index.conversion_value",
                                                             is_array($conversion)
-                                                                ? $conversion['conversion_value'] ?? null
-                                                                : $conversion->conversion_value,
+                                                                ? $conversion['ratio_value'] ?? null
+                                                                : $conversion->ratio_value,
                                                         );
                                                         $fixedCost = old(
                                                             "units.$index.fixed_cost",
@@ -361,9 +362,13 @@
                                         Add Unit
                                     </button>
 
-                                    <small class="text-muted d-block mt-2">
+                                    {{-- <small class="text-muted d-block mt-2">
                                         Pcs otomatis dihitung sebagai 1. Di sini cukup isi unit tambahan seperti Dus, Pack,
                                         Roll, dll.
+                                    </small> --}}
+                                    <small class="text-muted d-block mt-2">
+                                        Isi rasio perbandingan antar unit. Contoh: DUS=1, PACK=10, PCS=1000 (artinya 1 DUS =
+                                        10 PACK = 1000 PCS).
                                     </small>
                                 </div>
                             </div>
@@ -442,6 +447,102 @@
                 }
 
                 return raw;
+            }
+
+            function formatMoneyID(num) {
+                if (num % 1 === 0) {
+                    return num.toLocaleString('id-ID', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    });
+                }
+
+                return num.toLocaleString('id-ID', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+
+            // function calculateSalePrice(row) {
+            //     const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+            //     const marginInput = row.find('input[name*="[margin]"]');
+            //     const salePriceInput = row.find('input[name*="[sale_price]"]');
+
+            //     const fixedCost = parseFloat(normalizeMoneyValue(fixedCostInput.val())) || 0;
+            //     const margin = parseFloat(normalizeMoneyValue(marginInput.val())) || 0;
+
+            //     const salePrice = fixedCost + margin;
+
+            //     salePriceInput.val(formatMoneyID(salePrice));
+            //     salePriceInput[0].dataset.raw = salePrice.toString();
+
+            //     removeError(salePriceInput);
+            // }
+
+            function getBaseRatioOneRow() {
+                let baseRow = null;
+
+                $('#productUnitBody tr').each(function() {
+                    const ratioInput = $(this).find('.conversion-input');
+                    const ratio = parseFloat(ratioInput.val().replace(',', '.')) || 0;
+
+                    if (ratio === 1) {
+                        baseRow = $(this);
+                        return false;
+                    }
+                });
+
+                return baseRow;
+            }
+
+            function calculateUnitPrices() {
+                const baseRow = getBaseRatioOneRow();
+
+                if (!baseRow) return;
+
+                const baseFixedCostInput = baseRow.find('input[name*="[fixed_cost]"]');
+                const baseMarginInput = baseRow.find('input[name*="[margin]"]');
+
+                const baseFixedCost = parseFloat(normalizeMoneyValue(baseFixedCostInput.val())) || 0;
+                const baseMargin = parseFloat(normalizeMoneyValue(baseMarginInput.val())) || 0;
+
+                $('#productUnitBody tr').each(function() {
+                    const row = $(this);
+
+                    const ratioInput = row.find('.conversion-input');
+                    const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+                    const marginInput = row.find('input[name*="[margin]"]');
+                    const salePriceInput = row.find('input[name*="[sale_price]"]');
+
+                    const ratio = parseFloat(ratioInput.val().replace(',', '.')) || 0;
+                    if (ratio <= 0) return;
+
+                    let fixedCost;
+                    let margin;
+
+                    if (ratio === 1) {
+                        fixedCost = baseFixedCost;
+                        margin = baseMargin;
+                    } else {
+                        fixedCost = baseFixedCost / ratio;
+                        margin = baseMargin / ratio;
+                    }
+
+                    const salePrice = fixedCost + margin;
+
+                    fixedCostInput.val(formatMoneyID(fixedCost));
+                    fixedCostInput[0].dataset.raw = fixedCost.toString();
+
+                    marginInput.val(formatMoneyID(margin));
+                    marginInput[0].dataset.raw = margin.toString();
+
+                    salePriceInput.val(formatMoneyID(salePrice));
+                    salePriceInput[0].dataset.raw = salePrice.toString();
+
+                    removeError(fixedCostInput);
+                    removeError(marginInput);
+                    removeError(salePriceInput);
+                });
             }
 
             function formatInitialMoney(input) {
@@ -542,11 +643,14 @@
                     const row = $(this).closest('tr');
                     const conversionInput = row.find('.conversion-input');
 
+                    // if ($(this).val() === baseUnitId && baseUnitId !== '') {
+                    //     conversionInput.val('1');
+                    //     conversionInput.prop('readonly', true);
+                    // } else {
+                    //     conversionInput.prop('readonly', false);
+                    // }
                     if ($(this).val() === baseUnitId && baseUnitId !== '') {
-                        conversionInput.val('1');
-                        conversionInput.prop('readonly', true);
-                    } else {
-                        conversionInput.prop('readonly', false);
+                        removeError(conversionInput);
                     }
                 });
             }
@@ -557,6 +661,7 @@
             bindAllMoneyFields();
             bindConversionFields();
             syncBaseUnitConversion();
+            calculateUnitPrices();
 
             const imageInput = document.getElementById('image');
             if (imageInput) {
@@ -588,6 +693,16 @@
                     }
                 });
             }
+
+            // $(document).on('input', 'input[name*="[fixed_cost]"], input[name*="[margin]"]', function() {
+            //     const row = $(this).closest('tr');
+            //     calculateSalePrice(row);
+            // });
+
+            $(document).on('input', '.conversion-input, input[name*="[fixed_cost]"], input[name*="[margin]"]',
+                function() {
+                    calculateUnitPrices();
+                });
 
             ['name', 'sku', 'price', 'fixed_cost'].forEach(id => {
                 const input = $('#' + id);
@@ -648,6 +763,7 @@
                 bindAllMoneyFields();
                 bindConversionFields();
                 syncBaseUnitConversion();
+                calculateUnitPrices();
             });
 
             document.addEventListener('click', function(e) {

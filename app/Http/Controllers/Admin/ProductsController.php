@@ -43,7 +43,12 @@ class ProductsController extends Controller
         $start = (int) $request->input('start', 0);
 
         // ✅ Tambahkan inventoryStock ke eager loading biar gak N+1 query
-        $products = Products::with(['categories', 'tags', 'inventoryStock'])
+        $products = Products::with([
+            'categories',
+            'tags',
+            'inventoryStock',
+            'unitConversions.unit',
+        ])
             ->orderBy('name', 'asc');
 
         // ✅ Filter berdasarkan nama atau SKU
@@ -100,6 +105,10 @@ class ProductsController extends Controller
                     'sku' => e($product->sku),
                     'avg_cost' => 'Rp ' . number_format(optional($product->inventoryStock)->avg_cost ?? 0, 2, ',', '.'),
                     'fixed_cost' => 'Rp ' . number_format($product->fixed_cost, 2, ',', '.'),
+                    'product_units' => view(
+                        'erp.pages.products.partials.product-units-table',
+                        compact('product')
+                    )->render(),
                     'action' => view('erp.pages.products.partials.action-button', compact('product'))->render(),
                 ];
             }),
@@ -333,6 +342,15 @@ class ProductsController extends Controller
 
                 $savedUnitIds = [];
 
+                // Ambil qty dari row base unit (PCS)
+                $baseQty = 1;
+                foreach ($request->units ?? [] as $unit) {
+                    if (!empty($unit['unit_id']) && (int)$unit['unit_id'] === (int)$request->base_unit_id) {
+                        $baseQty = (float)($unit['conversion_value'] ?? 1);
+                        break;
+                    }
+                }
+
                 foreach ($request->units ?? [] as $unit) {
                     $unitId = $unit['unit_id'] ?? null;
                     $conversionValue = $unit['conversion_value'] ?? null;
@@ -348,8 +366,15 @@ class ProductsController extends Controller
                         continue;
                     }
 
-                    if ((int) $unitId === (int) $request->base_unit_id) {
+                    // if ((int) $unitId === (int) $request->base_unit_id) {
+                    //     $conversionValue = 1;
+                    // }
+
+                    if ((int)$unitId === (int)$request->base_unit_id) {
                         $conversionValue = 1;
+                    } else {
+                        $qty = (float)($unit['conversion_value'] ?? 1);
+                        $conversionValue = $qty > 0 ? $baseQty / $qty : 1;
                     }
 
                     if (in_array((int) $unitId, $savedUnitIds, true)) {
@@ -362,6 +387,7 @@ class ProductsController extends Controller
                         'product_id' => $product->id,
                         'unit_id' => $unitId,
                         'conversion_value' => $conversionValue,
+                        'ratio_value' => $unit['conversion_value'],
                         'sale_price' => $salePrice,
                         'purchase_price' => 0,
                         'fixed_cost' => $fixedCost,
@@ -375,6 +401,7 @@ class ProductsController extends Controller
                         'product_id' => $product->id,
                         'unit_id' => $request->base_unit_id,
                         'conversion_value' => 1,
+                        'ratio_value' => 1,
                         'sale_price' => 0,
                         'purchase_price' => 0,
                         'fixed_cost' => 0,
@@ -534,6 +561,14 @@ class ProductsController extends Controller
                 $keepUnitIds = [];
                 $savedUnitIds = [];
 
+                $baseQty = 1;
+                foreach ($request->units ?? [] as $unit) {
+                    if (!empty($unit['unit_id']) && (int)$unit['unit_id'] === (int)$request->base_unit_id) {
+                        $baseQty = (float)($unit['conversion_value'] ?? 1);
+                        break;
+                    }
+                }
+
                 foreach ($request->units ?? [] as $unit) {
                     $unitId = $unit['unit_id'] ?? null;
                     $conversionValue = $unit['conversion_value'] ?? null;
@@ -555,8 +590,15 @@ class ProductsController extends Controller
                         continue;
                     }
 
-                    if ((int) $unitId === (int) $request->base_unit_id) {
+                    // if ((int) $unitId === (int) $request->base_unit_id) {
+                    //     $conversionValue = 1;
+                    // }
+
+                    if ((int)$unitId === (int)$request->base_unit_id) {
                         $conversionValue = 1;
+                    } else {
+                        $qty = (float)($unit['conversion_value'] ?? 1);
+                        $conversionValue = $qty > 0 ? $baseQty / $qty : 1;
                     }
 
                     if (in_array((int) $unitId, $savedUnitIds, true)) {
@@ -573,6 +615,7 @@ class ProductsController extends Controller
                         ],
                         [
                             'conversion_value' => $conversionValue,
+                            'ratio_value' => $unit['conversion_value'],
                             'sale_price' => $salePrice ?? 0,
                             'purchase_price' => 0,
                             'fixed_cost' => $fixedCost ?? 0,
@@ -590,6 +633,7 @@ class ProductsController extends Controller
                         ],
                         [
                             'conversion_value' => 1,
+                            'ratio_value' => null,
                             'sale_price' => 0,
                             'purchase_price' => 0,
                             'fixed_cost' => 0,

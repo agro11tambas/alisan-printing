@@ -63,7 +63,7 @@
                                                                     data-name="{{ $product->name }}"
                                                                     {{ $product->id == $item->product_id ? 'selected' : '' }}>
                                                                     {{ $product->name }} - {{ $product->sku }}
-                                                                    (Rp{{ number_format($product->price) }})
+                                                                    {{-- (Rp{{ number_format($product->price) }}) --}}
                                                                 </option>
                                                             @endforeach
                                                         </select>
@@ -108,7 +108,7 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3 align-items-center">
+                            {{-- <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="price" class="fw-semibold">Price</label>
                                 </div>
@@ -118,7 +118,7 @@
                                         value="{{ old('price', number_format($bundle->price, 2, ',', '.')) }}"
                                         placeholder="Price">
                                 </div>
-                            </div>
+                            </div> --}}
 
                             <div class="row mb-3 align-items-start">
                                 <div class="col-lg-2">
@@ -158,7 +158,7 @@
                                                             <input type="text"
                                                                 name="units[{{ $unitIndex }}][conversion_value]"
                                                                 class="form-control conversion-input" inputmode="decimal"
-                                                                value="{{ old('units.' . $unitIndex . '.conversion_value', rtrim(rtrim(number_format($conversion->conversion_value ?? 1, 2, '.', ''), '0'), '.')) }}"
+                                                                value="{{ old('units.' . $unitIndex . '.conversion_value', rtrim(rtrim(number_format($conversion->ratio_value ?? ($conversion->conversion_value ?? 1), 2, '.', ''), '0'), '.')) }}"
                                                                 placeholder="Contoh: 1 / 10 / 100">
                                                         </td>
 
@@ -197,11 +197,11 @@
                                                                 value="1" placeholder="Contoh: 1 / 10 / 100">
                                                         </td>
 
-                                                        <td>
+                                                        {{-- <td>
                                                             <input type="text" name="units[0][sale_price]"
                                                                 class="form-control unit-money-field" inputmode="numeric"
                                                                 placeholder="0">
-                                                        </td>
+                                                        </td> --}}
 
                                                         <td class="text-center">
                                                             <button type="button"
@@ -271,7 +271,7 @@
                             <option value="" disabled selected hidden>Pilih produk</option>
                             @foreach ($products as $product)
                                 <option value="{{ $product->id }}" data-name="{{ $product->name }}">
-                                    {{ $product->name }} - {{ $product->sku }} (Rp{{ number_format($product->price) }})
+                                    {{ $product->name }} - {{ $product->sku }}
                                 </option>
                             @endforeach
                         </select>
@@ -409,10 +409,10 @@
                     showError($('#sku')[0], 'SKU wajib diisi');
                 }
 
-                if (!$('#price').val().trim()) {
-                    isValid = false;
-                    showError($('#price')[0], 'Harga wajib diisi');
-                }
+                // if (!$('#price').val().trim()) {
+                //     isValid = false;
+                //     showError($('#price')[0], 'Harga wajib diisi');
+                // }
 
                 let selectedUnits = [];
 

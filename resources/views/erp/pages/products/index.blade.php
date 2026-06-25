@@ -139,10 +139,11 @@
                                         <th>Name</th>
                                         <th>Categories</th>
                                         <th>Merek</th>
-                                        <th>Price</th>
+                                        {{-- <th>Price</th> --}}
                                         <th>SKU</th>
+                                        <th>Product Units</th>
                                         <th>Avg Cost</th>
-                                        <th>Fixed Cost</th>
+                                        {{-- <th>Fixed Cost</th> --}}
                                         <!-- <th class="text-end">Actions</th> -->
                                     </tr>
                                 </thead>
@@ -223,18 +224,23 @@
                     {
                         data: 'tags'
                     },
-                    {
-                        data: 'price'
-                    },
+                    // {
+                    //     data: 'price'
+                    // },
                     {
                         data: 'sku'
                     },
                     {
-                        data: 'avg_cost'
+                        data: 'product_units',
+                        orderable: false,
+                        searchable: false
                     },
                     {
-                        data: 'fixed_cost'
-                    }
+                        data: 'avg_cost'
+                    },
+                    // {
+                    //     data: 'fixed_cost'
+                    // }
                 ]
             });
 

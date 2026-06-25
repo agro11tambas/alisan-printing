@@ -197,7 +197,9 @@
                                             <thead>
                                                 <tr>
                                                     <th style="width: 20%">Unit</th>
-                                                    <th style="width: 18%">Conversion to Base Unit</th>
+                                                    {{-- <th style="width: 18%">Conversion to Base Unit</th>
+                                                     --}}
+                                                    <th style="width: 18%">Rasio</th>
                                                     <th style="width: 18%">Fixed Cost</th>
                                                     <th style="width: 18%">Margin</th>
                                                     <th style="width: 18%">Sale Price</th>
@@ -249,9 +251,13 @@
                                         Add Unit
                                     </button>
 
-                                    <small class="text-muted d-block mt-2">
+                                    {{-- <small class="text-muted d-block mt-2">
                                         Pcs otomatis dihitung sebagai 1. Di sini cukup isi unit tambahan seperti Dus, Pack,
                                         Roll, dll.
+                                    </small> --}}
+                                    <small class="text-muted d-block mt-2">
+                                        Isi rasio perbandingan antar unit. Contoh: DUS=1, PACK=10, PCS=1000 (artinya 1 DUS =
+                                        10 PACK = 1000 PCS).
                                     </small>
                                 </div>
                             </div>
@@ -407,18 +413,75 @@
                 });
             }
 
-            function calculateSalePrice(row) {
-                const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
-                const marginInput = row.find('input[name*="[margin]"]');
-                const salePriceInput = row.find('input[name*="[sale_price]"]');
+            // function calculateSalePrice(row) {
+            //     const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+            //     const marginInput = row.find('input[name*="[margin]"]');
+            //     const salePriceInput = row.find('input[name*="[sale_price]"]');
 
-                const fixedCost = parseMoneyValue(fixedCostInput.val());
-                const margin = parseMoneyValue(marginInput.val());
+            //     const fixedCost = parseMoneyValue(fixedCostInput.val());
+            //     const margin = parseMoneyValue(marginInput.val());
 
-                const salePrice = fixedCost + margin;
+            //     const salePrice = fixedCost + margin;
 
-                salePriceInput.val(formatRupiahValue(salePrice));
-                salePriceInput[0].dataset.raw = salePrice;
+            //     salePriceInput.val(formatRupiahValue(salePrice));
+            //     salePriceInput[0].dataset.raw = salePrice;
+            // }
+
+            function getBaseRatioOneRow() {
+                let baseRow = null;
+
+                $('#productUnitBody tr').each(function() {
+                    const ratioInput = $(this).find('.conversion-input');
+                    const ratio = parseFloat(ratioInput.val().replace(',', '.')) || 0;
+
+                    if (ratio === 1) {
+                        baseRow = $(this);
+                        return false;
+                    }
+                });
+
+                return baseRow;
+            }
+
+            function calculateUnitPrices() {
+                const baseRow = getBaseRatioOneRow();
+
+                if (!baseRow) return;
+
+                const baseFixedCostInput = baseRow.find('input[name*="[fixed_cost]"]');
+                const baseMarginInput = baseRow.find('input[name*="[margin]"]');
+
+                const baseFixedCost = parseMoneyValue(baseFixedCostInput.val());
+                const baseMargin = parseMoneyValue(baseMarginInput.val());
+
+                $('#productUnitBody tr').each(function() {
+                    const row = $(this);
+
+                    const ratioInput = row.find('.conversion-input');
+                    const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+                    const marginInput = row.find('input[name*="[margin]"]');
+                    const salePriceInput = row.find('input[name*="[sale_price]"]');
+
+                    const ratio = parseFloat(ratioInput.val().replace(',', '.')) || 0;
+                    if (ratio <= 0) return;
+
+                    const fixedCost = ratio === 1 ? baseFixedCost : baseFixedCost / ratio;
+                    const margin = ratio === 1 ? baseMargin : baseMargin / ratio;
+                    const salePrice = fixedCost + margin;
+
+                    fixedCostInput.val(formatRupiahValue(fixedCost));
+                    fixedCostInput[0].dataset.raw = fixedCost.toString();
+
+                    marginInput.val(formatRupiahValue(margin));
+                    marginInput[0].dataset.raw = margin.toString();
+
+                    salePriceInput.val(formatRupiahValue(salePrice));
+                    salePriceInput[0].dataset.raw = salePrice.toString();
+
+                    removeError(fixedCostInput);
+                    removeError(marginInput);
+                    removeError(salePriceInput);
+                });
             }
 
             function syncBaseUnitConversion() {
@@ -428,12 +491,15 @@
                     const row = $(this).closest('tr');
                     const conversionInput = row.find('.conversion-input');
 
+                    // if ($(this).val() === baseUnitId && baseUnitId !== '') {
+                    //     conversionInput.val('1');
+                    //     conversionInput.prop('readonly', true);
+                    //     removeError(conversionInput);
+                    // } else {
+                    //     conversionInput.prop('readonly', false);
+                    // }
                     if ($(this).val() === baseUnitId && baseUnitId !== '') {
-                        conversionInput.val('1');
-                        conversionInput.prop('readonly', true);
                         removeError(conversionInput);
-                    } else {
-                        conversionInput.prop('readonly', false);
                     }
                 });
             }
@@ -441,6 +507,7 @@
             bindAllMoneyFields();
             bindConversionFields();
             syncBaseUnitConversion();
+            calculateUnitPrices();
 
             $('#base_unit_id').on('change', function() {
                 removeError($(this));
@@ -451,10 +518,15 @@
                 syncBaseUnitConversion();
             });
 
-            $(document).on('input', 'input[name*="[fixed_cost]"], input[name*="[margin]"]', function() {
-                const row = $(this).closest('tr');
-                calculateSalePrice(row);
-            });
+            // $(document).on('input', 'input[name*="[fixed_cost]"], input[name*="[margin]"]', function() {
+            //     const row = $(this).closest('tr');
+            //     calculateSalePrice(row);
+            // });
+
+            $(document).on('input', '.conversion-input, input[name*="[fixed_cost]"], input[name*="[margin]"]',
+                function() {
+                    calculateUnitPrices();
+                });
 
             const imageInput = document.getElementById('image');
             if (imageInput) {
@@ -547,6 +619,7 @@
                 bindAllMoneyFields();
                 bindConversionFields();
                 syncBaseUnitConversion();
+                calculateUnitPrices();
             });
 
             document.addEventListener('click', function(e) {

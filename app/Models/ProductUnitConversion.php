@@ -10,6 +10,7 @@ class ProductUnitConversion extends Model
         'product_id',
         'unit_id',
         'conversion_value',
+        'ratio_value',
         'sale_price',
         'purchase_price',
         'fixed_cost',

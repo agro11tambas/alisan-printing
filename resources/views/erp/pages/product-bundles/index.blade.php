@@ -115,7 +115,8 @@
                                     <tr>
                                         <th class="wd-30">No</th>
                                         <th>Name</th>
-                                        <th>Price</th>
+                                        {{-- <th>Price</th> --}}
+                                        <th>Bundle Units</th>
                                         <th>SKU</th>
                                     </tr>
                                 </thead>
@@ -191,8 +192,13 @@
                     },
                     // { data: 'categories' },
                     // { data: 'tags' },
+                    // {
+                    //     data: 'price'
+                    // },
                     {
-                        data: 'price'
+                        data: 'bundle_units',
+                        orderable: false,
+                        searchable: false
                     },
                     {
                         data: 'sku'

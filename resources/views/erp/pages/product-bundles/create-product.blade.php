@@ -69,7 +69,6 @@
                                                             <option value="{{ $product->id }}"
                                                                 data-name="{{ $product->name }}">
                                                                 {{ $product->name }} - {{ $product->sku }}
-                                                                (Rp{{ number_format($product->price) }})
                                                             </option>
                                                         @endforeach
                                                     </select>
@@ -112,7 +111,7 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3 align-items-center">
+                            {{-- <div class="row mb-3 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="price" class="fw-semibold">Price</label>
                                 </div>
@@ -120,7 +119,7 @@
                                     <input type="text" inputmode="numeric" class="form-control" id="price"
                                         name="price" value="{{ old('price') }}" placeholder="Price">
                                 </div>
-                            </div>
+                            </div> --}}
 
                             <div class="row mb-3 align-items-start">
                                 <div class="col-lg-2">
@@ -155,7 +154,7 @@
                                                     <td>
                                                         <input type="text" name="units[0][conversion_value]"
                                                             class="form-control conversion-input" inputmode="decimal"
-                                                            value="1" placeholder="Contoh: 1 / 10 / 100">
+                                                            placeholder="Contoh: 1 / 10 / 100">
                                                     </td>
 
                                                     <td>
@@ -227,7 +226,7 @@
                         <option value="" disabled selected hidden>Pilih produk</option>
                         @foreach ($products as $product)
                             <option value="{{ $product->id }}" data-name="{{ $product->name }}">
-                                {{ $product->name }} - {{ $product->sku }} (Rp{{ number_format($product->price) }})
+                                {{ $product->name }} - {{ $product->sku }}
                             </option>
                         @endforeach
                     </select>
@@ -392,7 +391,7 @@
 
                 $('.conversion-input').each(function() {
                     const raw = $(this).val().replace(',', '.');
-                    $(this).val(raw || '1');
+                    $(this).val(raw);
                 });
             });
 
