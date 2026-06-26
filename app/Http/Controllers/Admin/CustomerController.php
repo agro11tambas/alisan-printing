@@ -8,6 +8,7 @@ use App\Models\CustomerAddresses;
 
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use App\Models\CustomerAccount;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Yajra\DataTables\Facades\DataTables;
@@ -55,9 +56,16 @@ class CustomerController extends Controller
             ->make(true);
     }
 
+    // public function create()
+    // {
+    //     return view('erp.pages.customers.create-customer');
+    // }
+
     public function create()
     {
-        return view('erp.pages.customers.create-customer');
+        $customerAccounts = CustomerAccount::orderBy('name', 'asc')->get();
+
+        return view('erp.pages.customers.create-customer', compact('customerAccounts'));
     }
 
     public function detail($id)
@@ -67,34 +75,108 @@ class CustomerController extends Controller
         return view('erp.pages.customers.detail-customer', compact('customer'));
     }
 
+    // public function store(Request $request)
+    // {
+    //     $request->validate([
+    //         'name' => 'required|string',
+    //         'phone' => 'required|string',
+    //         'addresses' => 'array|required',
+    //         'addresses.*.business_name' => 'nullable|string',
+    //         'addresses.*.address' => 'required|string',
+    //         'addresses.*.google_maps' => 'required|string',
+    //     ]);
+
+    //     try {
+    //         $hasDuplicate = Customers::where('phone', $request->phone)->exists();
+
+    //         if ($hasDuplicate) {
+    //             DB::rollBack();
+    //             $msg = 'Nomor telepon sudah terdaftar. Gunakan nomor lain.';
+    //             return back()->with('error', $msg);
+    //         }
+
+    //         // Buat customer
+    //         $customer = Customers::create([
+    //             'name' => $request->name,
+    //             'phone' => $request->phone,
+    //             'user_id' => Auth::id(),
+    //         ]);
+
+    //         // Simpan setiap alamat
+    //         foreach ($request->addresses as $addr) {
+    //             $customer->addresses()->create([
+    //                 'business_name' => $addr['business_name'] ?? null,
+    //                 'address' => $addr['address'],
+    //                 'google_maps' => $addr['google_maps'],
+    //             ]);
+    //         }
+
+    //         return redirect('/erp/customers')->with('success', 'Customer berhasil ditambahkan');
+    //     } catch (\Exception $e) {
+    //         return redirect()->back()->with('error', 'Gagal menambahkan customer: ' . $e->getMessage());
+    //     }
+    // }
+
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string',
-            'phone' => 'required|string',
-            'addresses' => 'array|required',
+
+            'existing_account_ids' => 'nullable|array',
+            'existing_account_ids.*' => 'exists:customer_accounts,id',
+
+            'accounts' => 'nullable|array',
+            'accounts.*.name' => 'nullable|string',
+            'accounts.*.whatsapp_number' => 'nullable|string|distinct',
+
+            'addresses' => 'required|array|min:1',
             'addresses.*.business_name' => 'nullable|string',
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
         ]);
 
+        DB::beginTransaction();
+
         try {
-            $hasDuplicate = Customers::where('phone', $request->phone)->exists();
-
-            if ($hasDuplicate) {
-                DB::rollBack();
-                $msg = 'Nomor telepon sudah terdaftar. Gunakan nomor lain.';
-                return back()->with('error', $msg);
-            }
-
-            // Buat customer
             $customer = Customers::create([
                 'name' => $request->name,
-                'phone' => $request->phone,
                 'user_id' => Auth::id(),
             ]);
 
-            // Simpan setiap alamat
+            // Attach account existing
+            if ($request->filled('existing_account_ids')) {
+                $customer->accounts()->syncWithoutDetaching($request->existing_account_ids);
+            }
+
+            // Create account baru
+            foreach ($request->accounts ?? [] as $accountInput) {
+                $phone = $accountInput['whatsapp_number'] ?? null;
+
+                if (! $phone) {
+                    continue;
+                }
+
+                $existingAccount = CustomerAccount::where('whatsapp_number', $phone)->first();
+
+                if ($existingAccount) {
+                    DB::rollBack();
+
+                    return back()
+                        ->withInput()
+                        ->with('error', 'Nomor ' . $phone . ' sudah terdaftar. Silakan pilih dari Account Existing.');
+                }
+
+                $account = CustomerAccount::create([
+                    'name' => $accountInput['name'] ?? $request->name,
+                    'whatsapp_number' => $phone,
+                    'password' => bcrypt($phone),
+                    'auth_provider' => 'phone',
+                    'is_active' => true,
+                ]);
+
+                $customer->accounts()->attach($account->id);
+            }
+
             foreach ($request->addresses as $addr) {
                 $customer->addresses()->create([
                     'business_name' => $addr['business_name'] ?? null,
@@ -103,59 +185,157 @@ class CustomerController extends Controller
                 ]);
             }
 
-            return redirect('/erp/customers')->with('success', 'Customer berhasil ditambahkan');
+            DB::commit();
+
+            return redirect('/erp/customers')->with('success', 'Outlet berhasil ditambahkan');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal menambahkan customer: ' . $e->getMessage());
+            DB::rollBack();
+
+            return back()
+                ->withInput()
+                ->with('error', 'Gagal menambahkan outlet: ' . $e->getMessage());
         }
     }
 
+    // public function edit($id)
+    // {
+    //     $customer = Customers::with('addresses')->findOrFail($id);
+
+    //     return view('erp.pages.customers.edit-customer', compact('customer'));
+    // }
+
     public function edit($id)
     {
-        $customer = Customers::with('addresses')->findOrFail($id);
+        $customer = Customers::with(['addresses', 'accounts'])->findOrFail($id);
 
-        return view('erp.pages.customers.edit-customer', compact('customer'));
+        $customerAccounts = CustomerAccount::orderBy('name', 'asc')->get();
+
+        return view('erp.pages.customers.edit-customer', compact('customer', 'customerAccounts'));
     }
+
+    // public function update(Request $request, $id)
+    // {
+    //     $customer = Customers::findOrFail($id);
+
+    //     $request->validate([
+    //         'name' => 'required|string',
+    //         'phone' => 'required|string',
+    //         'addresses' => 'array|required',
+    //         'addresses.*.business_name' => 'nullable|string',
+    //         'addresses.*.address' => 'required|string',
+    //         'addresses.*.google_maps' => 'required|string',
+    //     ]);
+
+    //     $hasDuplicate = Customers::where('phone', $request->phone)
+    //         ->where('id', '!=', $customer->id)
+    //         ->exists();
+
+    //     if ($hasDuplicate) {
+    //         return back()->with('error', 'Nomor telepon sudah terdaftar. Gunakan nomor lain.');
+    //     }
+
+    //     // Update data customer
+    //     $customer->update([
+    //         'name' => $request->name,
+    //         'phone' => $request->phone,
+    //     ]);
+
+    //     // Hapus semua alamat lama
+    //     $customer->addresses()->delete();
+
+    //     // Simpan ulang alamat baru
+    //     foreach ($request->addresses as $addr) {
+    //         $customer->addresses()->create([
+    //             'business_name' => $addr['business_name'] ?? null,
+    //             'address' => $addr['address'],
+    //             'google_maps' => $addr['google_maps'],
+    //         ]);
+    //     }
+
+    //     return redirect('/erp/customers')->with('success', 'Customer berhasil diperbarui.');
+    // }
 
     public function update(Request $request, $id)
     {
-        $customer = Customers::findOrFail($id);
+        $customer = Customers::with('accounts')->findOrFail($id);
 
         $request->validate([
             'name' => 'required|string',
-            'phone' => 'required|string',
-            'addresses' => 'array|required',
+
+            'existing_account_ids' => 'nullable|array',
+            'existing_account_ids.*' => 'exists:customer_accounts,id',
+
+            'accounts' => 'nullable|array',
+            'accounts.*.name' => 'nullable|string',
+            'accounts.*.whatsapp_number' => 'nullable|string|distinct',
+
+            'addresses' => 'required|array|min:1',
             'addresses.*.business_name' => 'nullable|string',
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
         ]);
 
-        $hasDuplicate = Customers::where('phone', $request->phone)
-            ->where('id', '!=', $customer->id)
-            ->exists();
+        DB::beginTransaction();
 
-        if ($hasDuplicate) {
-            return back()->with('error', 'Nomor telepon sudah terdaftar. Gunakan nomor lain.');
-        }
-
-        // Update data customer
-        $customer->update([
-            'name' => $request->name,
-            'phone' => $request->phone,
-        ]);
-
-        // Hapus semua alamat lama
-        $customer->addresses()->delete();
-
-        // Simpan ulang alamat baru
-        foreach ($request->addresses as $addr) {
-            $customer->addresses()->create([
-                'business_name' => $addr['business_name'] ?? null,
-                'address' => $addr['address'],
-                'google_maps' => $addr['google_maps'],
+        try {
+            $customer->update([
+                'name' => $request->name,
             ]);
-        }
 
-        return redirect('/erp/customers')->with('success', 'Customer berhasil diperbarui.');
+            $accountIds = $request->existing_account_ids ?? [];
+
+            foreach ($request->accounts ?? [] as $accountInput) {
+                $phone = $accountInput['whatsapp_number'] ?? null;
+
+                if (! $phone) {
+                    continue;
+                }
+
+                $existingAccount = CustomerAccount::where('whatsapp_number', $phone)->first();
+
+                if ($existingAccount) {
+                    DB::rollBack();
+
+                    return back()
+                        ->withInput()
+                        ->with('error', 'Nomor ' . $phone . ' sudah terdaftar. Silakan pilih dari Account Existing.');
+                }
+
+                $account = CustomerAccount::create([
+                    'name' => $accountInput['name'] ?? $request->name,
+                    'whatsapp_number' => $phone,
+                    'password' => bcrypt($phone),
+                    'auth_provider' => 'phone',
+                    'is_active' => true,
+                ]);
+
+                $accountIds[] = $account->id;
+            }
+
+            // Replace akses account outlet ini
+            $customer->accounts()->sync($accountIds);
+
+            // Replace alamat
+            $customer->addresses()->delete();
+
+            foreach ($request->addresses as $addr) {
+                $customer->addresses()->create([
+                    'business_name' => $addr['business_name'] ?? null,
+                    'address' => $addr['address'],
+                    'google_maps' => $addr['google_maps'],
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect('/erp/customers')->with('success', 'Outlet berhasil diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()
+                ->withInput()
+                ->with('error', 'Gagal memperbarui outlet: ' . $e->getMessage());
+        }
     }
 
     public function delete($id)

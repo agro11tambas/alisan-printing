@@ -904,6 +904,7 @@
 
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
+            const itemMode = row.find('select[name="mode[]"]').val();
 
             // 🔹 Ambil harga dari hidden input (hasil edit user)
             let basePrice = row.find('input.price_before_discount').val();
@@ -939,6 +940,10 @@
                 });
 
                 allDiscounts.forEach(discount => {
+                    if (discount.mode && discount.mode !== itemMode) {
+                        return;
+                    }
+
                     let eligible = false;
 
                     if (discount.apply_on === 'Product') {
@@ -1060,6 +1065,10 @@
 
         // $(document).on('input', 'input[name="qty[]"]', recalcAllRows);
         $(document).on('input', 'input[name="qty[]"]', function() {
+            recalcAllRows();
+        });
+
+        $(document).on('change', 'select[name="mode[]"]', function() {
             recalcAllRows();
         });
 

@@ -37,211 +37,118 @@
                         @csrf
                         @method('PUT')
                         <div class="card-body">
+                            @php
+                                $selectedItems = $bundle->items->values();
+                                $primaryItem = $selectedItems->first();
+                                $secondaryItems = $selectedItems->slice(1)->values();
+                            @endphp
 
-                            <div class="row mb-3">
-                                <div class="col-lg-12">
-                                    <label class="fw-semibold mb-2">Pilih Produk untuk Bundle:</label>
-
-                                    <table class="table table-bordered align-middle" id="productTable">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th width="50">#</th>
-                                                <th>Produk</th>
-                                                <th width="100" class="text-center">Aksi</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="productBody">
-                                            @foreach ($bundle->items as $index => $item)
-                                                <tr>
-                                                    <td>{{ $loop->iteration }}</td>
-                                                    <td>
-                                                        <select class="form-select product-select" name="products[]"
-                                                            data-select2-selector="tag">
-                                                            <option value="" disabled hidden>Pilih produk</option>
-                                                            @foreach ($products as $product)
-                                                                <option value="{{ $product->id }}"
-                                                                    data-name="{{ $product->name }}"
-                                                                    {{ $product->id == $item->product_id ? 'selected' : '' }}>
-                                                                    {{ $product->name }} - {{ $product->sku }}
-                                                                    {{-- (Rp{{ number_format($product->price) }}) --}}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                    </td>
-                                                    <td class="text-center">
-                                                        <button type="button" class="btn btn-danger btn-sm removeRow">
-                                                            <i class="feather-trash-2"></i>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-
-                                    <button type="button" class="btn btn-outline-primary" id="addRowBtn">
-                                        <i class="feather-plus"></i> Tambah Produk
-                                    </button>
-
-                                    <small class="text-muted d-block mt-2">
-                                        Pilih minimal dua produk untuk membuat bundle
-                                    </small>
-                                </div>
-                            </div>
-
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-3 align-items-start">
                                 <div class="col-lg-2">
-                                    <label for="name" class="fw-semibold">Name:</label>
+                                    <label class="fw-semibold">Product Primary</label>
                                 </div>
-                                <div class="col-lg-10 mb-0">
-                                    <input type="text" class="form-control" id="name" name="name"
-                                        value="{{ old('name', $bundle->name) }}" readonly>
-                                </div>
-                            </div>
-
-                            <div class="row mb-3 align-items-center">
-                                <div class="col-lg-2">
-                                    <label for="sku" class="fw-semibold">SKU</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <input type="text" class="form-control" id="sku" name="sku"
-                                        value="{{ old('sku', $bundle->sku) }}" placeholder="SKU">
-                                </div>
-                            </div>
-
-                            <div class="row mb-3 align-items-center">
-                                <div class="col-lg-2">
-                                    <label for="base_unit_id" class="fw-semibold">Base Unit</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <select class="form-control" id="base_unit_id" name="base_unit_id">
-                                        <option value="">Choose Base Unit</option>
-                                        @foreach ($productUnits as $unit)
-                                            <option value="{{ $unit->id }}"
-                                                {{ old('base_unit_id', $bundle->base_unit_id) == $unit->id ? 'selected' : '' }}>
-                                                {{ $unit->name }}
+                                <div class="col-lg-10">
+                                    <select class="form-select product-select" id="primary_product_id"
+                                        name="primary_product_id" data-select2-selector="tag">
+                                        <option value="">Pilih primary product</option>
+                                        @foreach ($products as $product)
+                                            <option value="{{ $product->id }}" data-name="{{ $product->name }}"
+                                                data-sku="{{ $product->sku }}"
+                                                {{ old('primary_product_id', $primaryItem?->product_id) == $product->id ? 'selected' : '' }}>
+                                                {{ $product->name }} - {{ $product->sku }}
                                             </option>
                                         @endforeach
                                     </select>
                                 </div>
                             </div>
 
-                            {{-- <div class="row mb-3 align-items-center">
-                                <div class="col-lg-2">
-                                    <label for="price" class="fw-semibold">Price</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <input type="text" inputmode="decimal" class="form-control" id="price"
-                                        name="price"
-                                        value="{{ old('price', number_format($bundle->price, 2, ',', '.')) }}"
-                                        placeholder="Price">
-                                </div>
-                            </div> --}}
-
                             <div class="row mb-3 align-items-start">
                                 <div class="col-lg-2">
-                                    <label class="fw-semibold">Product Units</label>
+                                    <label class="fw-semibold">Product Secondary</label>
                                 </div>
 
-                                <div class="col-lg-10 mb-0">
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered align-middle" id="bundleUnitTable">
-                                            <thead class="table-light">
+                                <div class="col-lg-10">
+                                    <table class="table table-bordered align-middle" id="secondaryProductTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="50">#</th>
+                                                <th>Secondary Product</th>
+                                                <th width="100" class="text-center">Aksi</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody id="secondaryProductBody">
+                                            @forelse ($secondaryItems as $index => $item)
                                                 <tr>
-                                                    <th style="width: 30%">Unit</th>
-                                                    <th style="width: 25%">Conversion</th>
-                                                    <th style="width: 30%">Sale Price</th>
-                                                    <th style="width: 10%" class="text-center">Aksi</th>
+                                                    <td>{{ $index + 1 }}</td>
+                                                    <td>
+                                                        <select class="form-select secondary-product-select"
+                                                            name="secondary_product_ids[]" data-select2-selector="tag">
+                                                            <option value="" disabled hidden>Pilih secondary product
+                                                            </option>
+                                                            @foreach ($products as $product)
+                                                                <option value="{{ $product->id }}"
+                                                                    data-name="{{ $product->name }}"
+                                                                    data-sku="{{ $product->sku }}"
+                                                                    {{ $product->id == $item->product_id ? 'selected' : '' }}>
+                                                                    {{ $product->name }} - {{ $product->sku }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <button type="button"
+                                                            class="btn btn-danger btn-sm removeSecondaryRow">
+                                                            <i class="feather-trash-2"></i>
+                                                        </button>
+                                                    </td>
                                                 </tr>
-                                            </thead>
+                                            @empty
+                                                <tr>
+                                                    <td>1</td>
+                                                    <td>
+                                                        <select class="form-select secondary-product-select"
+                                                            name="secondary_product_ids[]" data-select2-selector="tag">
+                                                            <option value="" disabled selected hidden>Pilih secondary
+                                                                product</option>
+                                                            @foreach ($products as $product)
+                                                                <option value="{{ $product->id }}"
+                                                                    data-name="{{ $product->name }}"
+                                                                    data-sku="{{ $product->sku }}">
+                                                                    {{ $product->name }} - {{ $product->sku }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <button type="button"
+                                                            class="btn btn-danger btn-sm removeSecondaryRow">
+                                                            <i class="feather-trash-2"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
 
-                                            <tbody id="bundleUnitBody">
-                                                @forelse ($bundle->unitConversions as $unitIndex => $conversion)
-                                                    <tr>
-                                                        <td>
-                                                            <select name="units[{{ $unitIndex }}][unit_id]"
-                                                                class="form-control bundle-unit-select">
-                                                                <option value="">Pilih unit</option>
+                                    <div class="row mt-3">
+                                        <div class="col-lg-6">
+                                            <label class="fw-semibold">Preview Name</label>
+                                            <textarea class="form-control" id="preview_name" rows="4" readonly></textarea>
+                                        </div>
 
-                                                                @foreach ($productUnits as $unit)
-                                                                    <option value="{{ $unit->id }}"
-                                                                        {{ (int) $conversion->unit_id === (int) $unit->id ? 'selected' : '' }}>
-                                                                        {{ $unit->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-
-                                                        <td>
-                                                            <input type="text"
-                                                                name="units[{{ $unitIndex }}][conversion_value]"
-                                                                class="form-control conversion-input" inputmode="decimal"
-                                                                value="{{ old('units.' . $unitIndex . '.conversion_value', rtrim(rtrim(number_format($conversion->ratio_value ?? ($conversion->conversion_value ?? 1), 2, '.', ''), '0'), '.')) }}"
-                                                                placeholder="Contoh: 1 / 10 / 100">
-                                                        </td>
-
-                                                        <td>
-                                                            <input type="text"
-                                                                name="units[{{ $unitIndex }}][sale_price]"
-                                                                class="form-control unit-money-field" inputmode="numeric"
-                                                                value="{{ old('units.' . $unitIndex . '.sale_price', number_format($conversion->sale_price ?? 0, 0, ',', '.')) }}"
-                                                                placeholder="0">
-                                                        </td>
-
-                                                        <td class="text-center">
-                                                            <button type="button"
-                                                                class="btn btn-danger btn-sm removeUnitRow">
-                                                                <i class="feather-trash-2"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                @empty
-                                                    <tr>
-                                                        <td>
-                                                            <select name="units[0][unit_id]"
-                                                                class="form-control bundle-unit-select">
-                                                                <option value="">Pilih unit</option>
-
-                                                                @foreach ($productUnits as $unit)
-                                                                    <option value="{{ $unit->id }}">
-                                                                        {{ $unit->name }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-
-                                                        <td>
-                                                            <input type="text" name="units[0][conversion_value]"
-                                                                class="form-control conversion-input" inputmode="decimal"
-                                                                value="1" placeholder="Contoh: 1 / 10 / 100">
-                                                        </td>
-
-                                                        {{-- <td>
-                                                            <input type="text" name="units[0][sale_price]"
-                                                                class="form-control unit-money-field" inputmode="numeric"
-                                                                placeholder="0">
-                                                        </td> --}}
-
-                                                        <td class="text-center">
-                                                            <button type="button"
-                                                                class="btn btn-danger btn-sm removeUnitRow">
-                                                                <i class="feather-trash-2"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                @endforelse
-                                            </tbody>
-                                        </table>
+                                        <div class="col-lg-6">
+                                            <label class="fw-semibold">Preview SKU</label>
+                                            <textarea class="form-control" id="preview_sku" rows="4" readonly></textarea>
+                                        </div>
                                     </div>
 
-                                    <button type="button" class="btn btn-outline-primary btn-sm" id="addUnitRowBtn">
-                                        <i class="feather-plus"></i> Tambah Unit
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-3"
+                                        id="addSecondaryRowBtn">
+                                        <i class="feather-plus"></i> Tambah Secondary
                                     </button>
-
-                                    <small class="text-muted d-block mt-2">
-                                        Contoh: Paket = 1, Dus = 10. Jika jual 2 Dus, sistem membaca 20 bundle.
-                                    </small>
                                 </div>
                             </div>
-
                         </div>
                     </form>
                 </div>
@@ -252,19 +159,15 @@
 
 @push('scripts')
     <script>
-        $.fn.dataTable = function() {
-            return this;
-        };
-
         $(document).ready(function() {
-            let rowIndex = $('#productBody tr').length;
-            let unitRowIndex = $('#bundleUnitBody tr').length;
+            let secondaryRowIndex = $('#secondaryProductBody tr').length;
 
             function initSelect2(el) {
                 $(el).select2({
                     placeholder: 'Pilih produk',
                     width: '100%',
                     dropdownParent: $('#productBundleForm'),
+                    minimumResultsForSearch: 0,
                     matcher: function(params, data) {
                         if ($.trim(params.term) === '') return data;
                         if (data.text.toLowerCase().includes(params.term.toLowerCase())) return data;
@@ -273,236 +176,10 @@
                 });
             }
 
-            initSelect2($('.product-select'));
-            updateBundleName();
-            refreshDropdownOptions();
+            initSelect2($('#primary_product_id'));
+            initSelect2($('.secondary-product-select'));
 
-            // ✅ Tambah produk
-            $('#addRowBtn').on('click', function() {
-                rowIndex++;
-                const newRow = `
-                <tr>
-                    <td>${rowIndex}</td>
-                    <td>
-                        <select class="form-select product-select" name="products[]">
-                            <option value="" disabled selected hidden>Pilih produk</option>
-                            @foreach ($products as $product)
-                                <option value="{{ $product->id }}" data-name="{{ $product->name }}">
-                                    {{ $product->name }} - {{ $product->sku }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-danger btn-sm removeRow">
-                            <i class="feather-trash-2"></i>
-                        </button>
-                    </td>
-                </tr>`;
-                $('#productBody').append(newRow);
-                initSelect2($('#productBody tr:last .product-select'));
-                refreshDropdownOptions();
-            });
-
-            // 🗑 Hapus baris
-            $(document).on('click', '.removeRow', function() {
-                $(this).closest('tr').remove();
-                updateRowNumbers();
-                updateBundleName();
-                refreshDropdownOptions();
-            });
-
-            // 🔁 Ubah produk
-            $(document).on('change', '.product-select', function() {
-                updateBundleName();
-                refreshDropdownOptions();
-            });
-
-            function updateRowNumbers() {
-                $('#productBody tr').each(function(index) {
-                    $(this).find('td:first').text(index + 1);
-                });
-            }
-
-            // 🧩 Update nama bundle otomatis
-            function updateBundleName() {
-                let names = [];
-                $('.product-select').each(function() {
-                    const selected = $(this).find('option:selected').data('name');
-                    if (selected) names.push(selected);
-                });
-                $('#name').val(names.join(' + '));
-            }
-
-            // 🧩 Hilangkan produk yang sudah dipilih dari dropdown lain
-            function refreshDropdownOptions() {
-                const selectedProducts = $('.product-select').map(function() {
-                    return $(this).val();
-                }).get().filter(Boolean);
-
-                $('.product-select').each(function() {
-                    const currentSelect = $(this);
-                    const currentValue = currentSelect.val();
-
-                    currentSelect.find('option').each(function() {
-                        const val = $(this).attr('value');
-                        if (!val) return;
-                        if (selectedProducts.includes(val) && val !== currentValue) {
-                            $(this).remove();
-                        } else {
-                            const exists = currentSelect.find('option[value="' + val + '"]').length;
-                            if (!exists && (val === currentValue || !selectedProducts.includes(
-                                    val))) {
-                                const original = $(`#productTable option[value="${val}"]:first`)
-                                    .clone();
-                                if (original.length) {
-                                    currentSelect.append(original);
-                                }
-                            }
-                        }
-                    });
-
-                    currentSelect.trigger('change.select2');
-                });
-            }
-
-            function formatRibuan(value) {
-                if (value === null || value === undefined || value === '') return '';
-
-                // hapus semua selain angka & koma/titik
-                value = value.toString().replace(/[^0-9.,]/g, '');
-
-                // ubah titik jadi koma kalau user ketik titik
-                if (value.includes('.')) value = value.replace('.', ',');
-
-                // pisahkan bagian integer & desimal
-                let [intPart, decPart] = value.split(',');
-
-                // format bagian ribuan
-                intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-
-                // kalau desimal ada dan bukan "00", tampilkan
-                if (decPart && decPart !== '00') {
-                    return `${intPart},${decPart}`;
-                } else {
-                    return intPart; // hilangkan ,00
-                }
-            }
-
-            function unformatRibuan(value) {
-                if (!value) return 0;
-                return value.toString().replace(/\./g, '').replace(',', '.');
-            }
-
-            $('#price').on('input', function() {
-                let val = $(this).val();
-                val = val.replace(/[^0-9,]/g, '');
-                $(this).val(formatRibuan(val));
-            });
-
-            $('#productBundleForm').on('submit', function(e) {
-                const val = $('#price').val();
-                const enValue = unformatRibuan(val);
-                $('#price').val(enValue);
-
-                let productCount = $('.product-select').filter(function() {
-                    return $(this).val() !== null && $(this).val() !== '';
-                }).length;
-
-                $('.is-invalid').removeClass('is-invalid');
-                $('.invalid-feedback').remove();
-
-                let isValid = true;
-
-                if (productCount < 2) {
-                    isValid = false;
-                    $('#productTable').after(
-                        '<div class="invalid-feedback d-block">Minimal pilih 2 produk untuk membuat bundle.</div>'
-                    );
-                }
-
-                if (!$('#sku').val().trim()) {
-                    isValid = false;
-                    showError($('#sku')[0], 'SKU wajib diisi');
-                }
-
-                // if (!$('#price').val().trim()) {
-                //     isValid = false;
-                //     showError($('#price')[0], 'Harga wajib diisi');
-                // }
-
-                let selectedUnits = [];
-
-                $('#bundleUnitBody tr').each(function() {
-                    const unitSelect = $(this).find('.bundle-unit-select');
-                    const conversionInput = $(this).find('.conversion-input');
-                    const salePriceInput = $(this).find('.unit-money-field');
-
-                    const unitId = unitSelect.val();
-                    const conversion = conversionInput.val();
-                    const salePrice = salePriceInput.val();
-
-                    const rowEmpty =
-                        (!unitId || unitId === '') &&
-                        (!conversion || conversion.trim() === '') &&
-                        (!salePrice || salePrice.trim() === '');
-
-                    if (rowEmpty) {
-                        return;
-                    }
-
-                    if (!unitId) {
-                        isValid = false;
-                        showError(unitSelect[0], 'Unit wajib dipilih');
-                    }
-
-                    if (!conversion || parseFloat(conversion) <= 0) {
-                        isValid = false;
-                        showError(conversionInput[0], 'Conversion wajib lebih dari 0');
-                    }
-
-                    if (!salePrice || salePrice.trim() === '') {
-                        isValid = false;
-                        showError(salePriceInput[0], 'Sale price wajib diisi');
-                    }
-
-                    if (unitId) {
-                        if (selectedUnits.includes(unitId)) {
-                            isValid = false;
-                            showError(unitSelect[0], 'Unit tidak boleh duplikat');
-                        }
-
-                        selectedUnits.push(unitId);
-                    }
-                });
-
-                if (!isValid) {
-                    e.preventDefault();
-                    return false;
-                }
-
-                $('.unit-money-field').each(function() {
-                    const raw = $(this).val().replace(/\./g, '').replace(',', '.');
-                    $(this).val(raw || '0');
-                });
-
-                $('.conversion-input').each(function() {
-                    const raw = $(this).val().replace(',', '.');
-                    $(this).val(raw || '1');
-                });
-
-                return true;
-            });
-
-            function showError(input, message) {
-                input.classList.add('is-invalid');
-                const parent = input.closest('div');
-                if (!parent) return;
-                const feedback = document.createElement('div');
-                feedback.className = 'invalid-feedback d-block';
-                feedback.textContent = message;
-                parent.appendChild(feedback);
-            }
+            updatePreviewBundle();
 
             $(document).on('select2:open', () => {
                 setTimeout(() => {
@@ -511,67 +188,141 @@
                 }, 50);
             });
 
-            $('#addUnitRowBtn').on('click', function() {
-                const row = `
-        <tr>
-            <td>
-                <select name="units[${unitRowIndex}][unit_id]" class="form-control bundle-unit-select">
-                    <option value="">Pilih unit</option>
-                    @foreach ($productUnits as $unit)
-                        <option value="{{ $unit->id }}">{{ $unit->name }}</option>
-                    @endforeach
-                </select>
-            </td>
-
-            <td>
-                <input type="text"
-                    name="units[${unitRowIndex}][conversion_value]"
-                    class="form-control conversion-input"
-                    inputmode="decimal"
-                    placeholder="Contoh: 1 / 10 / 100">
-            </td>
-
-            <td>
-                <input type="text"
-                    name="units[${unitRowIndex}][sale_price]"
-                    class="form-control unit-money-field"
-                    inputmode="numeric"
-                    placeholder="0">
-            </td>
-
-            <td class="text-center">
-                <button type="button" class="btn btn-danger btn-sm removeUnitRow">
-                    <i class="feather-trash-2"></i>
-                </button>
-            </td>
-        </tr>
-    `;
-
-                $('#bundleUnitBody').append(row);
-                unitRowIndex++;
+            $(document).on('change', '#primary_product_id, .secondary-product-select', function() {
+                updatePreviewBundle();
             });
 
-            $(document).on('click', '.removeUnitRow', function() {
-                $(this).closest('tr').remove();
-            });
+            function updatePreviewBundle() {
+                const primaryOption = $('#primary_product_id option:selected');
 
-            $(document).on('input', '.conversion-input', function() {
-                let val = $(this).val().replace(/[^0-9.,]/g, '');
-                val = val.replace(',', '.');
+                const primaryName = primaryOption.data('name');
+                const primarySku = primaryOption.data('sku');
 
-                $(this).val(val);
-            });
+                let names = [];
+                let skus = [];
 
-            $(document).on('input', '.unit-money-field', function() {
-                let raw = $(this).val().replace(/\D/g, '');
-
-                if (!raw) {
-                    $(this).val('');
+                if (!$('#primary_product_id').val()) {
+                    $('#preview_name').val('');
+                    $('#preview_sku').val('');
                     return;
                 }
 
-                $(this).val(raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.'));
+                $('.secondary-product-select').each(function() {
+                    const secondaryOption = $(this).find('option:selected');
+
+                    if (!$(this).val()) return;
+
+                    const secondaryName = secondaryOption.data('name');
+                    const secondarySku = secondaryOption.data('sku');
+
+                    names.push(primaryName + ' + ' + secondaryName);
+                    skus.push(primarySku + secondarySku);
+                });
+
+                $('#preview_name').val(names.join('\n'));
+                $('#preview_sku').val(skus.join('\n'));
+            }
+
+            $('#addSecondaryRowBtn').on('click', function() {
+                secondaryRowIndex++;
+
+                const row = `
+                <tr>
+                    <td>${secondaryRowIndex}</td>
+                    <td>
+                        <select class="form-select secondary-product-select"
+                            name="secondary_product_ids[]"
+                            data-select2-selector="tag">
+                            <option value="" disabled selected hidden>Pilih secondary product</option>
+                            @foreach ($products as $product)
+                                <option value="{{ $product->id }}"
+                                    data-name="{{ $product->name }}"
+                                    data-sku="{{ $product->sku }}">
+                                    {{ $product->name }} - {{ $product->sku }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-danger btn-sm removeSecondaryRow">
+                            <i class="feather-trash-2"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+
+                $('#secondaryProductBody').append(row);
+                initSelect2($('#secondaryProductBody tr:last .secondary-product-select'));
+                updatePreviewBundle();
             });
+
+            $(document).on('click', '.removeSecondaryRow', function() {
+                $(this).closest('tr').remove();
+                updateSecondaryRowNumbers();
+                updatePreviewBundle();
+            });
+
+            function updateSecondaryRowNumbers() {
+                $('#secondaryProductBody tr').each(function(index) {
+                    $(this).find('td:first').text(index + 1);
+                });
+            }
+
+            $('#productBundleForm').on('submit', function(e) {
+                $('.is-invalid').removeClass('is-invalid');
+                $('.invalid-feedback').remove();
+
+                let isValid = true;
+
+                const primaryId = $('#primary_product_id').val();
+
+                const secondaryIds = $('.secondary-product-select').map(function() {
+                    return $(this).val();
+                }).get().filter(Boolean);
+
+                if (!primaryId) {
+                    isValid = false;
+                    showError($('#primary_product_id')[0], 'Primary product wajib dipilih');
+                }
+
+                if (secondaryIds.length < 1) {
+                    isValid = false;
+                    $('#secondaryProductTable').after(
+                        `<div class="invalid-feedback d-block">Minimal pilih 1 secondary product.</div>`
+                    );
+                }
+
+                if (secondaryIds.includes(primaryId)) {
+                    isValid = false;
+                    $('#secondaryProductTable').after(
+                        `<div class="invalid-feedback d-block">Secondary tidak boleh sama dengan primary.</div>`
+                    );
+                }
+
+                if (secondaryIds.length !== [...new Set(secondaryIds)].length) {
+                    isValid = false;
+                    $('#secondaryProductTable').after(
+                        `<div class="invalid-feedback d-block">Secondary product tidak boleh duplikat.</div>`
+                    );
+                }
+
+                if (!isValid) {
+                    e.preventDefault();
+                }
+            });
+
+            function showError(input, message) {
+                input.classList.add('is-invalid');
+
+                const parent = input.closest('.col-lg-10') || input.parentElement;
+                if (!parent) return;
+
+                const feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback d-block';
+                feedback.textContent = message;
+
+                parent.appendChild(feedback);
+            }
         });
     </script>
 @endpush
