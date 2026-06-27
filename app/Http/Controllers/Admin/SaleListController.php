@@ -356,13 +356,16 @@ class SaleListController extends Controller
                     return $i['raw_delivered_qty'] >= ($i['raw_qty'] ?? 0);
                 });
 
-                $businessName = e($order->customerAddress->business_name ?? '-');
+                // $businessName = e($order->customerAddress->business_name ?? '-');
 
                 $completeIcon = $isCompleted
                     ? ' <i class="fa fa-check-circle text-success ms-1"></i>'
                     : '';
 
                 $businessName = $order->customerAddress->business_name ?? null;
+                $customer = $order->customer->name ?? null;
+                $customerAccount = $order->customerAccount->name ?? null;
+                $customerAccountNumber = $order->customerAccount->whatsapp_number ?? null;
 
                 $orderMonthStart = Carbon::parse($order->order_date)->startOfMonth();
                 $orderMonthEnd   = Carbon::parse($order->order_date)->endOfMonth();
@@ -397,30 +400,38 @@ class SaleListController extends Controller
                             <div class="d-flex align-items-center fw-semibold">
                                 ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
 
-                                ' . $businessName . '
+                                ' . $customer . '
 
                                 <span class="ms-1 text-primary fw-bold">
                                     ' . $sequenceLabel . '
                                 </span>
                             </div>
 
-                        <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
+                        <div>
+                            <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
+                        </div>
+                        <small class="text-muted">' . $businessName . '</small>
 
                         </div>
                     ',
                     'customer_mobile' => '
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
 
-                            <div class="d-flex align-items-center fw-semibold">
+                            <div class="d-flex fw-semibold">
                                 ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
 
-                                <small class="text-muted">' . $businessName . '</small>
+                                <div>
+                                    <small class="text-muted">' . $customer . '</small>
+                                    <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
+                                    <small class="text-muted">' . $businessName . '</small>
+                                </div>
 
-                                <small class="ms-1 text-primary fw-bold">
-                                    ' . $sequenceLabel . '
-                                </small>
+                                <div style="width:50px;">
+                                    <small class="ms-1 text-primary fw-bold">
+                                        ' . $sequenceLabel . '
+                                    </small>
+                                </div>
                             </div>                        
-
                         </div>
                     ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
@@ -792,30 +803,36 @@ class SaleListController extends Controller
                             <div class="d-flex align-items-center fw-semibold">
                                 ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
 
-                                ' . $businessName . '
+                                ' . $customer . '
 
                                 <span class="ms-1 text-primary fw-bold">
                                     ' . $sequenceLabel . '
                                 </span>
                             </div>
 
-                        <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
+                        <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
+                        <small class="text-muted">' . $businessName . '</small>
 
                         </div>
                     ',
                     'customer_mobile' => '
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
 
-                            <div class="d-flex align-items-center fw-semibold">
+                            <div class="d-flex fw-semibold">
                                 ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
 
-                                <small class="text-muted">' . $businessName . '</small>
+                                <div>
+                                    <small class="text-muted">' . $customer . '</small>
+                                    <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
+                                    <small class="text-muted">' . $businessName . '</small>
+                                </div>
 
-                                <small class="ms-1 text-primary fw-bold">
-                                    ' . $sequenceLabel . '
-                                </small>
+                                <div style="width:50px;">
+                                    <small class="ms-1 text-primary fw-bold">
+                                        ' . $sequenceLabel . '
+                                    </small>
+                                </div>
                             </div>                        
-
                         </div>
                     ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
@@ -1073,8 +1090,12 @@ class SaleListController extends Controller
             ->get();
 
         $productBundles = ProductBundle::with([
-            'items.product.categories.discounts',
-            'items.product.discounts',
+            'primaryItem.product.categories.discounts',
+            'primaryItem.product.discounts',
+
+            'secondaryItems.product.categories.discounts',
+            'secondaryItems.product.discounts',
+
             'unitConversions.unit',
         ])->orderBy('name', 'asc')->get();
 
@@ -1137,12 +1158,25 @@ class SaleListController extends Controller
 
             return [
                 'id' => $bundle->id,
-                'name' => $bundleName ?: $bundle->name, // fallback ke nama asli kalau kosong
+                'name' => $bundleName ?: $bundle->name,
                 'sku'  => $bundle->sku,
                 'price' => $bundle->price,
                 'base_unit_id' => $bundle->base_unit_id,
                 'discounts' => $bundleDiscounts,
                 'categories' => $bundleCategories,
+
+                'primary_item' => $bundle->primaryItem ? [
+                    'product_id' => $bundle->primaryItem->product_id,
+                    'product' => $bundle->primaryItem->product,
+                ] : null,
+
+                'secondary_items' => $bundle->secondaryItems->map(function ($item) {
+                    return [
+                        'product_id' => $item->product_id,
+                        'product' => $item->product,
+                    ];
+                })->values()->toArray(),
+
                 'units' => $bundle->unitConversions->map(function ($conversion) {
                     return [
                         'id' => $conversion->id,
@@ -1158,7 +1192,7 @@ class SaleListController extends Controller
         // $customers = Customers::with('addresses')->get();
         $user = Auth::user();
 
-        $customers = Customers::with('addresses')
+        $customers = Customers::with(['addresses', 'accounts'])
             ->when($user->role === 'Sales', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
@@ -1188,6 +1222,7 @@ class SaleListController extends Controller
             'due_date_option'      => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
             'custom_due_date'      => 'nullable|date',
             'customer_id'          => 'required|exists:customers,id',
+            'customer_account_id'  => 'required|exists:customer_accounts,id',
             'customer_address_id'  => 'required|exists:customer_addresses,id',
             'notes'                => 'nullable|string',
             'product_type'         => 'required|array',
@@ -1256,6 +1291,7 @@ class SaleListController extends Controller
             $order = Order::create([
                 'user_id'            => Auth::id(),
                 'customer_id'        => $request->customer_id,
+                'customer_account_id' => $request->customer_account_id,
                 'customer_address_id' => $request->customer_address_id,
                 'order_number'     => $orderNumber,
                 'order_date'       => $request->order_date,
@@ -1593,6 +1629,7 @@ class SaleListController extends Controller
             'orderItems.product.unitConversions.unit',
             'orderItems.productBundle.unitConversions.unit',
             'customer.addresses',
+            'customer.accounts',
             'customerAddress',
         ])->findOrFail($id);
 
@@ -1608,6 +1645,10 @@ class SaleListController extends Controller
         $productBundles = ProductBundle::with([
             'items.product.categories.discounts',
             'items.product.discounts',
+
+            'primaryItem.product',
+            'secondaryItems.product',
+
             'unitConversions.unit',
         ])->orderBy('name', 'asc')->get();
 
@@ -1669,8 +1710,22 @@ class SaleListController extends Controller
                 'name' => $bundleName ?: $bundle->name,
                 'sku'  => $bundle->sku,
                 'price' => $bundle->price,
+                'base_unit_id' => $bundle->base_unit_id,
                 'discounts' => $bundleDiscounts,
                 'categories' => $bundleCategories,
+
+                'primary_item' => $bundle->primaryItem ? [
+                    'product_id' => $bundle->primaryItem->product_id,
+                    'product' => $bundle->primaryItem->product,
+                ] : null,
+
+                'secondary_items' => $bundle->secondaryItems->map(function ($item) {
+                    return [
+                        'product_id' => $item->product_id,
+                        'product' => $item->product,
+                    ];
+                })->values()->toArray(),
+
                 'units' => $bundle->unitConversions->map(function ($conversion) {
                     return [
                         'id' => $conversion->id,
@@ -1685,7 +1740,7 @@ class SaleListController extends Controller
 
         $user = Auth::user();
 
-        $customers = Customers::with('addresses')
+        $customers = Customers::with(['addresses', 'accounts'])
             ->when($user->role === 'Sales', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
@@ -1718,6 +1773,7 @@ class SaleListController extends Controller
             'due_date_option'         => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
             'custom_due_date'         => 'nullable|date',
             'customer_id' => 'required|exists:customers,id',
+            'customer_account_id' => 'required|exists:customer_accounts,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
             'notes'                   => 'nullable|string',
             'product_type'            => 'required|array',
@@ -1804,6 +1860,7 @@ class SaleListController extends Controller
             // pilih field header yang mau kamu track (boleh tambah/kurang)
             $orderFieldsToTrack = [
                 'customer_id',
+                'customer_account_id',
                 'customer_address_id',
                 'order_number',
                 'order_date',
@@ -1856,6 +1913,7 @@ class SaleListController extends Controller
             $onlyHeaderChanged = (
                 $request->order_date !== $order->order_date
                 || $request->customer_id != $order->customer_id
+                || $request->customer_account_id != $order->customer_account_id
                 || $request->customer_address_id != $order->customer_address_id
             )
                 && (
@@ -1908,6 +1966,7 @@ class SaleListController extends Controller
                     'order_date'          => $request->order_date,
                     'due_date'            => $dueDate,
                     'customer_id'         => $request->customer_id,
+                    'customer_account_id'  => $request->customer_account_id,
                     'customer_address_id' => $request->customer_address_id,
                     'business_name'       => $addressModel?->business_name,
                     'shipping_address'    => $addressModel?->address,
@@ -1924,6 +1983,10 @@ class SaleListController extends Controller
                         'fields' => [
                             'order_date'          => ['old' => $oldOrderData['order_date'] ?? null,          'new' => $request->order_date],
                             'customer_id'         => ['old' => $oldOrderData['customer_id'] ?? null,         'new' => $request->customer_id],
+                            'customer_account_id' => [
+                                'old' => $oldOrderData['customer_account_id'] ?? null,
+                                'new' => $request->customer_account_id
+                            ],
                             'customer_address_id' => ['old' => $oldOrderData['customer_address_id'] ?? null, 'new' => $request->customer_address_id],
                         ],
                     ],
@@ -2077,6 +2140,7 @@ class SaleListController extends Controller
                     'order_date'          => $request->order_date,
                     'due_date'            => $dueDate,
                     'customer_id'         => $request->customer_id,
+                    'customer_account_id'  => $request->customer_account_id,
                     'customer_address_id' => $request->customer_address_id,
                     'business_name'       => $addressModel?->business_name,
                     'shipping_address'    => $addressModel?->address,
@@ -2214,6 +2278,7 @@ class SaleListController extends Controller
             // ================== UPDATE ORDER HEADER ==================
             $order->update([
                 'customer_id' => $request->customer_id,
+                'customer_account_id'  => $request->customer_account_id,
                 'customer_address_id' => $request->customer_address_id,
                 'order_date'       => $request->order_date,
                 'due_date'         => $dueDate,

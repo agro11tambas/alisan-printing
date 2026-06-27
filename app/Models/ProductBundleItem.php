@@ -16,12 +16,13 @@ class ProductBundleItem extends Model
         'product_id',
         'bundle_id',
         'quantity',
+        'role',
     ];
 
     protected $casts = [
         'deleted_at' => 'datetime',
     ];
-    
+
     public function product()
     {
         return $this->belongsTo(Products::class, 'product_id', 'id')->withTrashed();

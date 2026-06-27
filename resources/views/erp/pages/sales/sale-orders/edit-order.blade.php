@@ -298,6 +298,30 @@
                                     </div>
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
+                                            <label for="customer_accounts" class="fw-semibold">Customer Account:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <select class="form-select form-control max-select"
+                                                    data-select2-selector="tag" id="customer_accounts"
+                                                    name="customer_account_id">
+                                                    <option disabled hidden>Pilih customer account</option>
+
+                                                    @if ($order->customer)
+                                                        @foreach ($order->customer->accounts as $account)
+                                                            <option value="{{ $account->id }}"
+                                                                {{ $order->customer_account_id == $account->id ? 'selected' : '' }}>
+                                                                {{ $account->name ?? '-' }} -
+                                                                {{ $account->whatsapp_number ?? ($account->email ?? '-') }}
+                                                            </option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
                                             <label for="addresses" class="fw-semibold">Address:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -326,28 +350,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    {{-- <div class="row mb-3 align-items-center">
-                                        <div class="col-lg-2">
-                                            <label for="mode" class="fw-semibold">Mode:</label>
-                                        </div>
-                                        <div class="col-lg-10 mb-0">
-                                            <div class="input-group">
-                                                <select class="form-select" id="mode" name="mode" required
-                                                    data-select2-selector="tag">
-                                                    <option disabled {{ !isset($order) ? 'selected' : '' }} hidden>Pilih
-                                                        mode</option>
-                                                    <option value="printing"
-                                                        {{ isset($order) && $order->mode === 'printing' ? 'selected' : '' }}>
-                                                        Printing
-                                                    </option>
-                                                    <option value="polosan"
-                                                        {{ isset($order) && $order->mode === 'polosan' ? 'selected' : '' }}>
-                                                        Polosan
-                                                    </option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
@@ -358,23 +360,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    {{-- <div class="row mb-3 align-items-center">
-                                        <div class="col-lg-2">
-                                            <label class="fw-semibold">Diskon:</label>
-                                        </div>
-                                        <div class="col-lg-10 mb-0">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="toggleDiscount"
-                                                    name="discount_active" {{ $order->discount_active ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="toggleDiscount">
-                                                    {{ $order->discount_active ? 'Aktifkan Diskon' : 'Diskon Nonaktif' }}
-                                                </label>
-                                            </div>
-                                            <input type="hidden" id="discount_active_hidden"
-                                                name="discount_active_hidden"
-                                                value="{{ $order->discount_active ? 1 : 0 }}">
-                                        </div>
-                                    </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label class="fw-semibold">Mode & Diskon:</label>
@@ -399,29 +384,6 @@
                                                             value="{{ $order->discount_active ? 1 : 0 }}">
                                                     </div>
                                                 </div>
-
-                                                <!-- 🔹 Kolom Mode -->
-                                                {{-- <div class="col-md-6">
-                                                    <div class="d-flex flex-column">
-                                                        <label class="fw-semibold mb-1">Mode:</label>
-                                                        @php
-                                                            $isPrinting =
-                                                                !isset($order) ||
-                                                                (isset($order) && $order->mode === 'printing');
-                                                        @endphp
-                                                        <div class="form-check form-switch">
-                                                            <input class="form-check-input" type="checkbox"
-                                                                id="toggleMode" name="mode_toggle"
-                                                                {{ $isPrinting ? 'checked' : '' }}>
-                                                            <label class="form-check-label fw-semibold" for="toggleMode"
-                                                                id="modeLabel">
-                                                                {{ $isPrinting ? 'Printing' : 'Polosan' }}
-                                                            </label>
-                                                        </div>
-                                                        <input type="hidden" id="mode" name="mode"
-                                                            value="{{ $isPrinting ? 'printing' : 'polosan' }}">
-                                                    </div>
-                                                </div> --}}
                                             </div>
                                         </div>
                                     </div>
@@ -467,8 +429,7 @@
                                                             {{ $prod->name }}
                                                         </option>
                                                     @endforeach
-
-                                                    @foreach ($productBundles as $bundle)
+                                                    {{-- @foreach ($productBundles as $bundle)
                                                         <option value="bundle_{{ $bundle->id }}"
                                                             {{ $item->satuan === 'bundle' && $item->product_bundle_id == $bundle->id ? 'selected' : '' }}
                                                             data-price="{{ $bundle->price }}"
@@ -477,8 +438,36 @@
                                                             data-type="bundle">
                                                             {{ $bundle->name }} (Bundle)
                                                         </option>
-                                                    @endforeach
+                                                    @endforeach --}}
                                                 </select>
+                                                @php
+                                                    $isBundle = $item->satuan === 'bundle';
+                                                    $secondaryProductId = null;
+
+                                                    if ($isBundle && $item->productBundle) {
+                                                        $secondaryProductId = optional(
+                                                            $item->productBundle->secondaryItems->first(),
+                                                        )->product_id;
+                                                    }
+                                                @endphp
+
+                                                <div class="form-group product-col-span-2">
+                                                    <div class="form-check mt-2">
+                                                        <input class="form-check-input add-bundle-check" type="checkbox"
+                                                            value="1" {{ $isBundle ? 'checked' : '' }}>
+                                                        <label class="form-check-label fw-semibold">Add Bundle</label>
+                                                    </div>
+
+                                                    <div class="bundle-wrapper mt-2 {{ $isBundle ? '' : 'd-none' }}">
+                                                        <label>Product Bundle</label>
+                                                        <select class="form-control bundle-secondary-product"
+                                                            name="bundle_secondary_product_id[]"
+                                                            data-selected-bundle-id="{{ $item->product_bundle_id }}"
+                                                            data-selected-secondary-id="{{ $secondaryProductId }}">
+                                                            <option value="">Pilih product secondary</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <input type="hidden" name="product_type[]" class="product-type"
@@ -486,7 +475,8 @@
 
                                             <div class="form-group product-unit-wrapper">
                                                 <label>Unit</label>
-                                                <select name="product_unit_id[]" class="form-control product-unit">
+                                                <select name="product_unit_id[]" class="form-control product-unit"
+                                                    data-selected-unit-id="{{ $item->satuan === 'satuan' ? $item->product_unit_conversion_id : $item->product_bundle_unit_conversion_id }}">
                                                     <option value="">Pilih unit</option>
 
                                                     @if ($item->satuan === 'satuan' && $item->product)
@@ -501,24 +491,15 @@
                                                             </option>
                                                         @endforeach
                                                     @elseif ($item->satuan === 'bundle' && $item->productBundle)
-                                                        <option value="default_pcs" data-unit-id="" data-unit-name="Pcs"
-                                                            data-conversion-value="1"
-                                                            data-sale-price="{{ $item->productBundle->price ?? $item->price }}"
-                                                            {{ empty($item->product_bundle_unit_conversion_id) && ($item->unit_name ?? 'Pcs') === 'Pcs' ? 'selected' : '' }}>
-                                                            Pcs
-                                                        </option>
-
                                                         @foreach ($item->productBundle->unitConversions as $conversion)
-                                                            @if (strtolower(optional($conversion->unit)->name ?? '') !== 'pcs')
-                                                                <option value="{{ $conversion->id }}"
-                                                                    data-unit-id="{{ $conversion->unit_id }}"
-                                                                    data-unit-name="{{ optional($conversion->unit)->name }}"
-                                                                    data-conversion-value="{{ $conversion->conversion_value }}"
-                                                                    data-sale-price="{{ $conversion->sale_price }}"
-                                                                    {{ (int) $item->product_bundle_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
-                                                                    {{ optional($conversion->unit)->name }}
-                                                                </option>
-                                                            @endif
+                                                            <option value="{{ $conversion->id }}"
+                                                                data-unit-id="{{ $conversion->unit_id }}"
+                                                                data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                                data-conversion-value="{{ $conversion->conversion_value }}"
+                                                                data-sale-price="{{ $conversion->sale_price }}"
+                                                                {{ (int) $item->product_bundle_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
+                                                                {{ optional($conversion->unit)->name }}
+                                                            </option>
                                                         @endforeach
                                                     @endif
                                                 </select>
@@ -598,6 +579,21 @@
                                                 data-select2-selector="status">
                                                 <option value="" disabled selected hidden>Pilih produk</option>
                                             </select>
+                                            <div class="form-group product-col-span-2">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input add-bundle-check" type="checkbox"
+                                                        value="1">
+                                                    <label class="form-check-label fw-semibold">Add Bundle</label>
+                                                </div>
+
+                                                <div class="bundle-wrapper mt-2 d-none">
+                                                    <label>Product Bundle</label>
+                                                    <select class="form-control bundle-secondary-product"
+                                                        name="bundle_secondary_product_id[]">
+                                                        <option value="">Pilih product secondary</option>
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <input type="hidden" name="product_type[]" class="product-type">
@@ -852,34 +848,17 @@
             return text.length > max ? text.slice(0, max) + '...' : text;
         }
 
-        function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0, forceDefaultPcs = false) {
+        function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0) {
             const unitSelect = row.find('.product-unit');
 
-            unitSelect.empty();
-            unitSelect.append('<option value="">Pilih unit</option>');
+            unitSelect.empty().append('<option value="">Pilih unit</option>');
 
             row.find('.unit-conversion-value').val('1');
             row.find('.unit-name').val('Pcs');
 
-            if (forceDefaultPcs) {
-                unitSelect.append(`
-            <option value="default_pcs"
-                data-unit-id=""
-                data-unit-name="Pcs"
-                data-conversion-value="1"
-                data-sale-price="${defaultPrice}">
-                Pcs
-            </option>
-        `);
-            }
-
             if (Array.isArray(units) && units.length > 0) {
                 units.forEach(function(unit) {
                     const unitName = unit.unit_name || 'Pcs';
-
-                    if (forceDefaultPcs && unitName.toLowerCase() === 'pcs') {
-                        return;
-                    }
 
                     unitSelect.append(`
                 <option value="${unit.id}"
@@ -895,9 +874,9 @@
 
             if (selectedUnitId) {
                 unitSelect.val(String(selectedUnitId));
-            } else if (forceDefaultPcs) {
-                unitSelect.val('default_pcs');
-            } else {
+            }
+
+            if (!unitSelect.val()) {
                 unitSelect.val(unitSelect.find('option:eq(1)').val());
             }
 
@@ -949,7 +928,9 @@
                     [selectedType, selectedId] = selectedVal.split('_');
                 }
 
-                const selectedUnitId = row.find('.product-unit').val();
+                const selectedUnitId =
+                    row.find('.product-unit').data('selected-unit-id') ||
+                    row.find('.product-unit').val();
 
                 populateProducts(select[0], selectedId, selectedType);
 
@@ -963,8 +944,27 @@
 
                 const defaultPrice = parseFloat(selectedOption.data('price') || 0);
 
-                if (type === 'satuan' || type === 'bundle') {
-                    fillProductUnits(row, units, selectedUnitId, defaultPrice, type === 'bundle');
+                if (row.find('.add-bundle-check').is(':checked')) {
+                    const selectedBundleId = row.find('.bundle-secondary-product').data(
+                        'selected-bundle-id');
+                    const bundle = bundles.find(b => String(b.id) === String(selectedBundleId));
+
+                    if (bundle && bundle.primary_item) {
+                        const primaryProductId = bundle.primary_item.product_id;
+
+                        populateProducts(select[0], primaryProductId, 'satuan');
+                        select.val('satuan_' + primaryProductId).trigger('change.select2');
+
+                        row.find('.bundle-wrapper').removeClass('d-none');
+                        populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId);
+
+                        row.find('.product-type').val('bundle');
+
+                        fillProductUnits(row, bundle.units || [], selectedUnitId, parseFloat(bundle.price ||
+                            0));
+                    }
+                } else if (type === 'satuan') {
+                    fillProductUnits(row, units, selectedUnitId, defaultPrice);
                 } else {
                     row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
                     row.find('.unit-conversion-value').val('1');
@@ -991,19 +991,48 @@
             }),
         ); ?>;
 
+        const customerAccounts = <?php echo json_encode(
+            $customers->mapWithKeys(function ($customer) {
+                return [
+                    $customer->id => $customer->accounts->map(function ($account) {
+                        return [
+                            'id' => $account->id,
+                            'name' => $account->name,
+                            'email' => $account->email,
+                            'whatsapp_number' => $account->whatsapp_number,
+                        ];
+                    }),
+                ];
+            }),
+        ); ?>;
+
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
 
-        const allProducts = [
-            ...products.map(p => ({
-                ...p,
-                type: 'satuan'
-            })),
-            ...bundles.map(b => ({
-                ...b,
-                type: 'bundle'
-            })),
-        ];
+        // const allProducts = [
+        //     ...products.map(p => ({
+        //         ...p,
+        //         type: 'satuan'
+        //     })),
+        //     ...bundles.map(b => ({
+        //         ...b,
+        //         type: 'bundle'
+        //     })),
+        // ];
+        const allProducts = products.map(p => ({
+            ...p,
+            type: 'satuan'
+        }));
+
+        function findSelectedProductData(selectedValue) {
+            if (!selectedValue) return null;
+
+            const [type, id] = selectedValue.split('_');
+
+            return allProducts.find(item => {
+                return item.type === type && String(item.id) === String(id);
+            }) || null;
+        }
 
         // Populate dropdown produk
         function populateProducts(selectEl, selectedId = null, selectedType = null) {
@@ -1025,6 +1054,41 @@
                 }
 
                 $(selectEl).append(option);
+            });
+        }
+
+        function populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId = null) {
+            const select = row.find('.bundle-secondary-product');
+
+            select.empty().append('<option value="">Pilih product secondary</option>');
+
+            bundles.forEach(bundle => {
+                const primaryItem = bundle.primary_item;
+
+                if (!primaryItem) return;
+
+                if (String(primaryItem.product_id) !== String(primaryProductId)) {
+                    return;
+                }
+
+                const secondaryItems = bundle.secondary_items || [];
+
+                secondaryItems.forEach(item => {
+                    const product = item.product;
+                    if (!product) return;
+
+                    const option = $(`
+                <option value="${product.id}" data-bundle-id="${bundle.id}">
+                    [${product.sku || '-'}] ${product.name}
+                </option>
+            `);
+
+                    if (selectedBundleId && String(selectedBundleId) === String(bundle.id)) {
+                        option.prop('selected', true);
+                    }
+
+                    select.append(option);
+                });
             });
         }
 
@@ -1284,6 +1348,67 @@
             $(document).on('input', '.qty, .price_before_discount_display', recalcAllRows);
         });
 
+        $(document).on('change', '.add-bundle-check', function() {
+            const row = $(this).closest('.product-item');
+            const productSelect = row.find('select[name="product[]"]');
+            const selectedVal = productSelect.val();
+
+            if (this.checked) {
+                if (!selectedVal) {
+                    $(this).prop('checked', false);
+                    showError(productSelect, 'Pilih product dulu');
+                    return;
+                }
+
+                const primaryProductId = selectedVal.split('_')[1];
+
+                row.find('.product-type').val('bundle');
+                row.find('.bundle-wrapper').removeClass('d-none');
+
+                populateSecondaryBundleProducts(row, primaryProductId);
+
+                row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+                row.find('.unit-conversion-value').val('1');
+                row.find('.unit-name').val('Pcs');
+
+            } else {
+                row.find('.product-type').val('satuan');
+                row.find('.bundle-wrapper').addClass('d-none');
+                row.find('.bundle-secondary-product').val('');
+
+                const selectedData = findSelectedProductData(productSelect.val());
+
+                if (selectedData) {
+                    fillProductUnits(
+                        row,
+                        selectedData.units || [],
+                        null,
+                        parseFloat(selectedData.price || 0)
+                    );
+                } else {
+                    row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+                    row.find('.unit-conversion-value').val('1');
+                    row.find('.unit-name').val('Pcs');
+                }
+
+                recalcAllRows();
+            }
+        });
+
+        $(document).on('change', '.bundle-secondary-product', function() {
+            const row = $(this).closest('.product-item');
+            const bundleId = $(this).find('option:selected').data('bundle-id');
+
+            const bundle = bundles.find(b => String(b.id) === String(bundleId));
+            if (!bundle) return;
+
+            row.find('.product-type').val('bundle');
+
+            fillProductUnits(row, bundle.units || [], null, parseFloat(bundle.price || 0));
+
+            recalcAllRows();
+        });
+
         $(document).on('change', '.product-unit', function() {
             const row = $(this).closest('.product-item');
 
@@ -1294,11 +1419,14 @@
             const initialCustomerId = $('#customers').val();
             if (initialCustomerId) {
                 updateAddresses(initialCustomerId);
+                updateCustomerAccounts(initialCustomerId);
             }
 
             $('#customers').on('change', function() {
                 const customerId = $(this).val();
+
                 updateAddresses(customerId);
+                updateCustomerAccounts(customerId);
             });
 
             $('#addresses').on('change', function() {
@@ -1322,6 +1450,24 @@
                 });
 
                 updateGoogleMapsLink();
+            }
+
+            function updateCustomerAccounts(customerId) {
+                const accounts = customerAccounts[customerId] || [];
+                const $accountSelect = $('#customer_accounts');
+                const selectedAccountId = "{{ $order->customer_account_id ?? '' }}";
+
+                $accountSelect.empty().append('<option disabled hidden>Pilih customer account</option>');
+
+                accounts.forEach(function(account) {
+                    const isSelected = account.id == selectedAccountId;
+
+                    $accountSelect.append(`
+                        <option value="${account.id}" ${isSelected ? 'selected' : ''}>
+                            ${account.name ?? '-'} - ${account.whatsapp_number ?? account.email ?? '-'}
+                        </option>
+                    `);
+                });
             }
 
             function updateGoogleMapsLink() {
@@ -1349,7 +1495,7 @@
         }
 
         $(document).on("change input",
-            "#customers, #addresses, #edit_note, select[name='mode[]'], select[name='product[]'], select[name='product_unit_id[]'], input[name='qty[]']",
+            "#customers, #customer_accounts, #addresses, #edit_note, select[name='mode[]'], select[name='product[]'], select[name='product_unit_id[]'], input[name='qty[]']",
             function() {
                 $(this).removeClass("is-invalid");
                 $(this).next(".invalid-feedback").remove();
@@ -1360,6 +1506,11 @@
 
             if (!$("#customers").val()) {
                 showError($("#customers"), "Customer wajib dipilih");
+                valid = false;
+            }
+
+            if (!$("#customer_accounts").val()) {
+                showError($("#customer_accounts"), "Customer account wajib dipilih");
                 valid = false;
             }
 
@@ -1526,6 +1677,34 @@
             $('input.price_before_discount').each(function() {
                 if ($(this).val() === '' || isNaN($(this).val())) {
                     $(this).val(0);
+                }
+            });
+
+            $('select[name="product[]"]').each(function() {
+                const row = $(this).closest('.product-item');
+                const isBundle = row.find('.add-bundle-check').is(':checked');
+
+                let finalProductValue = null;
+
+                if (isBundle) {
+                    const bundleId = row.find('.bundle-secondary-product option:selected').data(
+                        'bundle-id');
+                    row.find('.product-type').val('bundle');
+                    finalProductValue = 'bundle_' + bundleId;
+                } else {
+                    const productId = $(this).val()?.split('_')[1];
+                    row.find('.product-type').val('satuan');
+                    finalProductValue = 'satuan_' + productId;
+                }
+
+                if (finalProductValue) {
+                    $('<input>')
+                        .attr('type', 'hidden')
+                        .attr('name', 'product[]')
+                        .val(finalProductValue)
+                        .appendTo('#orderForm');
+
+                    $(this).prop('disabled', true);
                 }
             });
         });

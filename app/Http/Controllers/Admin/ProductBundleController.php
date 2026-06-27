@@ -26,57 +26,80 @@ class ProductBundleController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $bundles = ProductBundle::with([
+        $query = ProductBundle::with([
             'items.product',
             'unitConversions.unit',
         ]);
 
-        // 🔍 Filter pencarian
         if ($request->filled('search_type') && $request->filled('search_keyword')) {
             $searchType = $request->search_type;
             $keyword = $request->search_keyword;
 
             if ($searchType === 'name') {
-                $bundles->where('name', 'like', '%' . $keyword . '%');
+                $query->where('name', 'like', '%' . $keyword . '%');
             } elseif ($searchType === 'sku') {
-                $bundles->where('sku', 'like', '%' . $keyword . '%');
+                $query->where('sku', 'like', '%' . $keyword . '%');
             }
         }
 
-        $bundles->orderBy('name', 'asc');
+        $bundles = $query->orderBy('name', 'asc')->get();
 
-        // 🔹 Hindari query count dua kali
-        $totalQuery = clone $bundles;
-        $totalData = $totalQuery->count();
+        $grouped = $bundles->groupBy(function ($bundle) {
+            return $bundle->items
+                ->where('role', 'primary')
+                ->first()
+                ?->product_id ?? 'unknown';
+        });
 
-        // 🔹 Ambil data sesuai offset dan limit
-        $data = $bundles->skip($start)->take($length)->get();
+        $totalData = $grouped->count();
 
-        // 🔹 Return JSON versi lazy-load
+        $pagedGroups = $grouped->slice($start, $length);
+
         return response()->json([
-            'data' => $data->values()->map(function ($bundle, $index) use ($start) {
-                $productNames = $bundle->items->map(function ($item) {
-                    return $item->product->name ?? '-';
-                })->implode(' + ');
+            'data' => $pagedGroups->values()->map(function ($group, $index) use ($start) {
+                $firstBundle = $group->first();
 
-                $productBadges = $bundle->items->map(function ($item) {
-                    return '<span class="badge bg-soft-primary text-primary">'
-                        . e($item->product->name)
-                        . ' (' . e($item->quantity) . ')</span>';
-                })->implode(' ');
+                $primaryProduct = $firstBundle->items
+                    ->where('role', 'primary')
+                    ->first()
+                    ?->product;
+
+                $secondaryBundles = $group->map(function ($bundle) {
+                    $secondaryProduct = $bundle->items
+                        ->where('role', 'secondary')
+                        ->first()
+                        ?->product;
+
+                    // return [
+                    //     'secondary_name' => $secondaryProduct?->name ?? '-',
+                    //     'sku' => $bundle->sku,
+                    //     'bundle_units' => view(
+                    //         'erp.pages.product-bundles.partials.bundle-units-table',
+                    //         compact('bundle')
+                    //     )->render(),
+                    //     'action' => view(
+                    //         'erp.pages.product-bundles.partials.action-button',
+                    //         compact('bundle')
+                    //     )->render(),
+                    // ];
+                    return [
+                        'id' => $bundle->id,
+                        'secondary_name' => $secondaryProduct?->name ?? '-',
+                        'sku' => $bundle->sku,
+                        'bundle_units' => view(
+                            'erp.pages.product-bundles.partials.bundle-units-table',
+                            compact('bundle')
+                        )->render(),
+                    ];
+                })->values();
 
                 return [
-                    'DT_RowIndex' => $start + $index + 1, // ✅ FIXED
-                    'id' => $bundle->id,
-                    'name' => $productNames ?: '-',
-                    'sku' => e($bundle->sku),
-                    'price' => 'Rp ' . number_format($bundle->price, 0, ',', '.'),
-                    'products' => $productBadges,
-                    'bundle_units' => view(
-                        'erp.pages.product-bundles.partials.bundle-units-table',
-                        compact('bundle')
+                    'DT_RowIndex' => $start + $index + 1,
+                    'primary_product' => $primaryProduct?->name ?? '-',
+                    'secondary_products' => view(
+                        'erp.pages.product-bundles.partials.secondary-products-table',
+                        compact('secondaryBundles')
                     )->render(),
-                    'action' => view('erp.pages.product-bundles.partials.action-button', compact('bundle'))->render(),
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
@@ -106,14 +129,37 @@ class ProductBundleController extends Controller
         return response()->json($products);
     }
 
+    // public function create()
+    // {
+    //     $products = Products::orderBy('name', 'asc')->get();
+    //     $productUnits = ProductUnit::orderBy('name', 'asc')->get();
+
+    //     return view('erp.pages.product-bundles.create-product', compact(
+    //         'products',
+    //         'productUnits'
+    //     ));
+    // }
+
     public function create()
     {
         $products = Products::orderBy('name', 'asc')->get();
         $productUnits = ProductUnit::orderBy('name', 'asc')->get();
 
+        $existingBundles = ProductBundle::with('items')
+            ->get()
+            ->map(function ($bundle) {
+                return [
+                    'primary' => $bundle->items->where('role', 'primary')->first()?->product_id,
+                    'secondary' => $bundle->items->where('role', 'secondary')->first()?->product_id,
+                ];
+            })
+            ->filter(fn($item) => $item['primary'] && $item['secondary'])
+            ->values();
+
         return view('erp.pages.product-bundles.create-product', compact(
             'products',
-            'productUnits'
+            'productUnits',
+            'existingBundles'
         ));
     }
 
@@ -317,12 +363,14 @@ class ProductBundleController extends Controller
                         'bundle_id' => $bundle->id,
                         'product_id' => $primary->id,
                         'quantity' => 1,
+                        'role' => 'primary',
                     ]);
 
                     ProductBundleItem::create([
                         'bundle_id' => $bundle->id,
                         'product_id' => $secondary->id,
                         'quantity' => 1,
+                        'role' => 'secondary',
                     ]);
 
                     $primaryUnits = $primary->unitConversions->keyBy('unit_id');
@@ -368,23 +416,80 @@ class ProductBundleController extends Controller
         }
     }
 
+    // public function edit($id)
+    // {
+    //     $bundle = ProductBundle::with([
+    //         'items.product',
+    //         'unitConversions.unit',
+    //     ])->findOrFail($id);
+
+    //     $products = Products::orderBy('name', 'asc')->get();
+    //     $productUnits = ProductUnit::orderBy('name', 'asc')->get();
+
+    //     $selectedProducts = $bundle->items->pluck('product_id')->toArray();
+
+    //     return view('erp.pages.product-bundles.edit-product', compact(
+    //         'bundle',
+    //         'products',
+    //         'productUnits',
+    //         'selectedProducts'
+    //     ));
+    // }
+
+    // public function edit($id)
+    // {
+    //     $bundle = ProductBundle::with([
+    //         'items.product',
+    //         'unitConversions.unit',
+    //     ])->findOrFail($id);
+
+    //     $products = Products::orderBy('name', 'asc')->get();
+    //     $productUnits = ProductUnit::orderBy('name', 'asc')->get();
+
+    //     $primaryItem = $bundle->items->where('role', 'primary')->first();
+    //     $secondaryItems = $bundle->items->where('role', 'secondary')->values();
+
+    //     return view('erp.pages.product-bundles.edit-product', compact(
+    //         'bundle',
+    //         'products',
+    //         'productUnits',
+    //         'primaryItem',
+    //         'secondaryItems'
+    //     ));
+    // }
+
     public function edit($id)
     {
         $bundle = ProductBundle::with([
-            'items',
+            'items.product',
             'unitConversions.unit',
         ])->findOrFail($id);
 
         $products = Products::orderBy('name', 'asc')->get();
         $productUnits = ProductUnit::orderBy('name', 'asc')->get();
 
-        $selectedProducts = $bundle->items->pluck('product_id')->toArray();
+        $primaryItem = $bundle->items->where('role', 'primary')->first();
+        $secondaryItems = $bundle->items->where('role', 'secondary')->values();
+
+        $existingBundles = ProductBundle::with('items')
+            ->where('id', '!=', $bundle->id)
+            ->get()
+            ->map(function ($bundle) {
+                return [
+                    'primary' => $bundle->items->where('role', 'primary')->first()?->product_id,
+                    'secondary' => $bundle->items->where('role', 'secondary')->first()?->product_id,
+                ];
+            })
+            ->filter(fn($item) => $item['primary'] && $item['secondary'])
+            ->values();
 
         return view('erp.pages.product-bundles.edit-product', compact(
             'bundle',
             'products',
             'productUnits',
-            'selectedProducts'
+            'primaryItem',
+            'secondaryItems',
+            'existingBundles'
         ));
     }
 
@@ -605,12 +710,14 @@ class ProductBundleController extends Controller
                     'bundle_id' => $bundle->id,
                     'product_id' => $primary->id,
                     'quantity' => 1,
+                    'role' => 'primary',
                 ]);
 
                 ProductBundleItem::create([
                     'bundle_id' => $bundle->id,
                     'product_id' => $secondary->id,
                     'quantity' => 1,
+                    'role' => 'secondary',
                 ]);
 
                 ProductBundleUnitConversion::where('product_bundle_id', $bundle->id)->delete();

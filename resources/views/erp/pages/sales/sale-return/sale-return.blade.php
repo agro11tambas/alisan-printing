@@ -197,6 +197,7 @@
                                                 placeholder="Search..." />
                                             <select id="search_payment_status" class="form-control search-input d-none"
                                                 style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                                <option value="-">-</option>
                                                 <option value="Refunded">Refunded</option>
                                                 <option value="Unpaid">Unpaid</option>
                                                 <option value="Customer Deposit">Customer Deposit</option>
@@ -229,7 +230,8 @@
                                                 <th>Total Amount</th>
                                                 <th>Refund Amount</th>
                                                 {{-- <th>Remaining Amount</th> --}}
-                                                <th>Payment Status</th>
+                                                <th>Payment Status (Sale)</th>
+                                                <th>Return Status</th>
                                                 <th>Note</th>
                                             </tr>
                                         </thead>
@@ -556,71 +558,6 @@
         </div>
     </div>
 
-    {{-- <div class="modal fade-scale" id="modalReturnToWarehouse" tabindex="-1"
-        aria-labelledby="modalReturnToWarehouseLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 class="d-flex flex-column mb-0">
-                        <span class="fs-18 fw-bold mb-1">Return to Warehouse</span>
-                        <small class="text-muted">Sale Return: <span id="modal-order-number">-</span></small>
-                    </h2>
-                    <a href="javascript:void(0)" class="avatar-text avatar-md bg-soft-danger close-icon"
-                        data-bs-dismiss="modal">
-                        <i class="feather-x text-danger"></i>
-                    </a>
-                </div>
-                <form method="POST" id="formReturnToWarehouse">
-                    @csrf
-                    <input type="hidden" name="sale_return_id" id="sale_return_id">
-
-                    <div class="modal-body">
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label for="return_date" class="fw-semibold">Date:</label>
-                                <input type="date" id="return_date" name="return_date" class="form-control"
-                                    value="{{ date('Y-m-d') }}">
-                                <small class="text-danger d-none" id="error_return_date"></small>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-hover" id="tableReturnProducts">
-                                <thead class="bg-light">
-                                    <tr>
-                                        <th>Product Name</th>
-                                        <th>SKU</th>
-                                        <th width="15%" class="text-center">Available Qty</th>
-                                        <th width="20%">Return Qty</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="productListBody">
-                                    <tr>
-                                        <td colspan="4" class="text-center">
-                                            <div class="spinner-border text-primary" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="modal-footer d-flex justify-content-between">
-                        <div>
-                            <p class="m-0">Total Return Qty:</p>
-                            <h5 class="fw-semibold text-primary" id="total_return_qty">0</h5>
-                        </div>
-                        <button type="submit" class="btn btn-primary" id="btnSubmitReturn">
-                            <i class="feather-package me-2"></i>Return to Warehouse
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div> --}}
-
     <div class="modal fade-scale" id="modalReturnToWarehouse" tabindex="-1"
         aria-labelledby="modalReturnToWarehouseLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
@@ -720,6 +657,42 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalMarkAsRetur" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" id="formMarkAsRetur" action="">
+                @csrf
+
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-white">
+                        <h5 class="modal-title text-white">Mark as Retur</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <input type="hidden" id="retur_sale_return_id" name="sale_return_id">
+
+                        <p class="mb-2">
+                            Yakin ingin mengubah payment status sale return ini menjadi <strong>Retur</strong>?
+                        </p>
+
+                        <div class="alert alert-warning mb-0">
+                            <div class="fw-semibold">Sale Return:</div>
+                            <div id="retur_order_number">-</div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">
+                            Batal
+                        </button>
+                        <button type="submit" class="btn btn-warning btn-md text-white">
+                            Ya, Mark as Retur
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
@@ -812,7 +785,10 @@
                     //     data: 'remaining_amount'
                     // },
                     {
-                        data: 'payment_status'
+                        data: 'order_payment_status'
+                    },
+                    {
+                        data: 'return_payment_status'
                     },
                     {
                         data: 'note'
@@ -1766,6 +1742,73 @@
                 $('#modal-order-number').text('-');
             });
 
+            // ========= MARK AS RETUR =========
+            $(document).on('click', '.btn-mark-retur', function(e) {
+                e.preventDefault();
+
+                const button = $(this);
+                const saleReturnId = button.data('id');
+                const orderNumber = button.data('order-number') || '-';
+                const url = button.data('url');
+
+                $('#retur_sale_return_id').val(saleReturnId);
+                $('#retur_order_number').text(orderNumber);
+                $('#formMarkAsRetur').attr('action', url);
+
+                $('#modalMarkAsRetur').modal('show');
+            });
+
+            $('#formMarkAsRetur').on('submit', function(e) {
+                e.preventDefault();
+
+                const form = $(this);
+                const url = form.attr('action');
+                const formData = new FormData(this);
+
+                Swal.fire({
+                    title: 'Processing...',
+                    text: 'Mengubah payment status menjadi Retur',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function(response) {
+                        Swal.close();
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: response.message ??
+                                'Payment status berhasil diubah menjadi Retur.',
+                            timer: 1200,
+                            showConfirmButton: false
+                        });
+
+                        $('#modalMarkAsRetur').modal('hide');
+                        form[0].reset();
+
+                        reloadActiveTab();
+                    },
+                    error: function(xhr) {
+                        Swal.close();
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal!',
+                            text: xhr.responseJSON?.message ??
+                                'Gagal mengubah payment status menjadi Retur.'
+                        });
+                    }
+                });
+            });
         });
 
         document.addEventListener('DOMContentLoaded', function() {

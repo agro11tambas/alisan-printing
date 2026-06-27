@@ -18,6 +18,7 @@ class SaleReturn extends Model
         'status_edited',
         'sale_order_id',
         'customer_id',
+        'customer_account_id',
         'customer_address_id',
         'order_number',
         'return_date',
@@ -93,6 +94,11 @@ class SaleReturn extends Model
         return \App\Models\CanceledProduct::where('sale_return_id', $this->id)
             ->where('completed_quantity', '>', 0)
             ->exists();
+    }
+
+    public function customerAccount()
+    {
+        return $this->belongsTo(CustomerAccount::class, 'customer_account_id')->withTrashed();
     }
 
     // public function hasStockIn(): bool

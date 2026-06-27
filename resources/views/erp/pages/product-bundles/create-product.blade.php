@@ -131,6 +131,8 @@
 
 @push('scripts')
     <script>
+        const existingBundles = @json($existingBundles);
+
         $(document).ready(function() {
             let secondaryRowIndex = 1;
 
@@ -148,8 +150,87 @@
                 });
             }
 
+            const productOptionsHtml = `
+                @foreach ($products as $product)
+                    <option value="{{ $product->id }}">
+                        {{ $product->name }} - {{ $product->sku }}
+                    </option>
+                @endforeach
+            `;
+
+            function refreshSecondaryOptions() {
+                const primaryId = $('#primary_product_id').val();
+
+                const selectedSecondaryIds = $('.secondary-product-select').map(function() {
+                    return $(this).val();
+                }).get().filter(Boolean);
+
+                $('.secondary-product-select').each(function() {
+                    const currentSelect = $(this);
+                    const currentValue = currentSelect.val();
+
+                    currentSelect.empty();
+
+                    currentSelect.append(`
+            <option value="" disabled selected hidden>Pilih secondary product</option>
+        `);
+
+                    const tempOptions = $('<select>' + productOptionsHtml + '</select>').find('option');
+
+                    tempOptions.each(function() {
+                        const optionValue = $(this).val();
+
+                        let shouldRemove = false;
+
+                        if (optionValue == primaryId) {
+                            shouldRemove = true;
+                        }
+
+                        if (selectedSecondaryIds.includes(optionValue) && optionValue !=
+                            currentValue) {
+                            shouldRemove = true;
+                        }
+
+                        if (!shouldRemove) {
+                            shouldRemove = existingBundles.some(bundle =>
+                                bundle.primary == primaryId &&
+                                bundle.secondary == optionValue
+                            );
+                        }
+
+                        if (!shouldRemove) {
+                            currentSelect.append($(this).clone());
+                        }
+                    });
+
+                    currentSelect.val(currentValue);
+
+                    if (!currentSelect.find(`option[value="${currentValue}"]`).length) {
+                        currentSelect.val('');
+                    }
+
+                    currentSelect.trigger('change.select2');
+                });
+            }
+
+            function toggleSecondaryState() {
+                const hasPrimary = !!$('#primary_product_id').val();
+
+                $('.secondary-product-select').prop('disabled', !hasPrimary);
+
+                $('#addSecondaryRowBtn').prop('disabled', !hasPrimary);
+
+                if (!hasPrimary) {
+                    $('.secondary-product-select').val(null).trigger('change');
+                    $('#preview_name').val('');
+                    $('#preview_sku').val('');
+                }
+            }
+
             initSelect2($('#primary_product_id'));
             initSelect2($('.secondary-product-select'));
+            toggleSecondaryState();
+            refreshSecondaryOptions();
 
             $(document).on('select2:open', () => {
                 setTimeout(() => {
@@ -158,7 +239,14 @@
                 }, 50);
             });
 
-            $(document).on('change', '#primary_product_id, .secondary-product-select', function() {
+            $(document).on('change', '#primary_product_id', function() {
+                toggleSecondaryState();
+                refreshSecondaryOptions();
+                updatePreviewBundle();
+            });
+
+            $(document).on('change', '.secondary-product-select', function() {
+                refreshSecondaryOptions();
                 updatePreviewBundle();
             });
 
@@ -221,6 +309,9 @@
 
                 $('#secondaryProductBody').append(row);
                 initSelect2($('#secondaryProductBody tr:last .secondary-product-select'));
+                $('#secondaryProductBody tr:last .secondary-product-select')
+                    .prop('disabled', !$('#primary_product_id').val());
+                refreshSecondaryOptions();
                 updatePreviewBundle();
 
             });
@@ -229,6 +320,7 @@
                 $(this).closest('tr').remove();
                 updateSecondaryRowNumbers();
                 updatePreviewBundle();
+                refreshSecondaryOptions();
             });
 
             function updateSecondaryRowNumbers() {

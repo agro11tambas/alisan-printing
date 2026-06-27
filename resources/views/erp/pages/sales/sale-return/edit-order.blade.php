@@ -148,6 +148,28 @@
                                     </div>
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
+                                            <label for="customer_account_select" class="fw-semibold">Customer
+                                                Account:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <select class="form-select form-control max-select" id="customer_account_select"
+                                                data-select2-selector="tag" name="customer_account_id">
+                                                <option value="" disabled hidden>Pilih customer account</option>
+
+                                                @if ($saleReturn->customer && $saleReturn->customer->accounts)
+                                                    @foreach ($saleReturn->customer->accounts as $account)
+                                                        <option value="{{ $account->id }}"
+                                                            {{ $saleReturn->customer_account_id == $account->id ? 'selected' : '' }}>
+                                                            {{ $account->name ?? '-' }} -
+                                                            {{ $account->whatsapp_number ?? '-' }}
+                                                        </option>
+                                                    @endforeach
+                                                @endif
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
                                             <label for="addresses" class="fw-semibold">Address:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -323,6 +345,20 @@
             }),
         ); ?>;
 
+        const customerAccounts = <?php echo json_encode(
+            $customers->mapWithKeys(function ($customer) {
+                return [
+                    $customer->id => $customer->accounts->map(function ($account) {
+                        return [
+                            'id' => $account->id,
+                            'name' => $account->name,
+                            'whatsapp_number' => $account->whatsapp_number,
+                        ];
+                    }),
+                ];
+            }),
+        ); ?>;
+
         function formatNumber(num) {
             return new Intl.NumberFormat('id-ID', {
                 minimumFractionDigits: 0,
@@ -377,11 +413,16 @@
                 updateRowTotal(row);
             });
 
-            const initialCustomerId = $('#customers').val();
-            if (initialCustomerId) updateAddresses(initialCustomerId);
+            const initialCustomerId = $('#customer_id').val();
 
-            $('#customers').on('change', function() {
+            if (initialCustomerId) {
+                updateAddresses(initialCustomerId);
+                updateCustomerAccounts(initialCustomerId);
+            }
+
+            $('#customer_id').on('change', function() {
                 updateAddresses($(this).val());
+                updateCustomerAccounts($(this).val());
             });
 
             $('#addresses').on('change', updateGoogleMapsLink);
@@ -403,6 +444,26 @@
                 });
 
                 updateGoogleMapsLink();
+            }
+
+            function updateCustomerAccounts(customerId) {
+                const accounts = customerAccounts[customerId] || [];
+                const $accountSelect = $('#customer_account_select');
+                const selectedAccountId = "{{ $saleReturn->customer_account_id ?? '' }}";
+
+                $accountSelect.empty().append('<option value="" disabled hidden>Pilih customer account</option>');
+
+                accounts.forEach(function(account) {
+                    const isSelected = account.id == selectedAccountId;
+
+                    $accountSelect.append(`
+                        <option value="${account.id}" ${isSelected ? 'selected' : ''}>
+                            ${(account.name ?? '-')} - ${(account.whatsapp_number ?? '-')}
+                        </option>
+                    `);
+                });
+
+                $accountSelect.trigger('change');
             }
 
             function updateGoogleMapsLink() {
@@ -443,15 +504,6 @@
                 container.appendChild(feedback);
             }
         }
-
-        // $(document).on("change input", "#return_type", function() {
-        //     if ($(this).hasClass("select2-hidden-accessible")) {
-        //         $(this).next('.select2').next('.invalid-feedback').remove();
-        //     } else {
-        //         this.classList.remove("is-invalid");
-        //         $(this).siblings(".invalid-feedback").remove();
-        //     }
-        // });
 
         $('#orderForm').on('submit', function(e) {
             let isValid = true;
@@ -578,29 +630,6 @@
             row.find('.price_display').val(formatNumber(price));
             updateRowTotal(row);
         });
-
-        // $(document).on('input', '.qty', function() {
-        //     const row = $(this).closest('tr');
-        //     const max = parseFloat($(this).attr('max')) || Infinity;
-        //     let raw = $(this).val().replace(/\D/g, '');
-
-        //     if (!raw) {
-        //         $(this).val('');
-        //         updateRowTotal(row);
-        //         return;
-        //     }
-
-        //     let formatted = new Intl.NumberFormat('id-ID').format(raw);
-        //     let numeric = parseFloat(raw);
-
-        //     if (numeric > max) {
-        //         numeric = max;
-        //         formatted = new Intl.NumberFormat('id-ID').format(max);
-        //     }
-
-        //     $(this).val(formatted);
-        //     updateRowTotal(row);
-        // });
 
         // === Harga bisa diubah hanya oleh Owner ===
         let priceEditTimeout;

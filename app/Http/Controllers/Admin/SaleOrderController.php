@@ -184,23 +184,39 @@ class SaleOrderController extends Controller
                 };
                 $statusBadge = '<div class="badge ' . $badgeClass . '">' . ucfirst($status) . '</div>';
 
+                $businessName = $order->customerAddress->business_name ?? null;
+                $customer = $order->customer->name ?? null;
+                $customerAccount = $order->customerAccount->name ?? null;
+                $customerAccountNumber = $order->customerAccount->whatsapp_number ?? null;
+
                 return [
                     'id' => $order->id,
                     'order_number' => $orderNumber,
                     'order_date' => $date,
                     'customer' => '
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
-                            <div class="fw-semibold">' . e($order->customerAddress->business_name ?? '-') . '</div>
-                            <small class="text-muted">' . e($order->customer->name ?? '-') . '</small>
+
+                            <div class="d-flex align-items-center fw-semibold">                            
+                                ' . $customer . '                                
+                            </div>
+
+                        <div>
+                            <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
+                        </div>
+                        <small class="text-muted">' . $businessName . '</small>
+
                         </div>
                     ',
                     'customer_mobile' => '
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
-                            <div class="d-flex align-items-center fw-semibold">                                
 
-                                <small class="text-muted">' . e($order->customerAddress->business_name ?? '-') . '</small>
+                            <div class="d-flex fw-semibold">                               
+                                <div>
+                                    <small class="text-muted">' . $customer . '</small>
+                                    <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
+                                    <small class="text-muted">' . $businessName . '</small>
+                                </div>
                             </div>                        
-
                         </div>
                     ',
                     'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
@@ -235,6 +251,10 @@ class SaleOrderController extends Controller
         $productBundles = ProductBundle::with([
             'items.product.categories.discounts',
             'items.product.discounts',
+
+            'primaryItem.product',
+            'secondaryItems.product',
+
             'unitConversions.unit',
         ])->orderBy('name', 'asc')->get();
 
@@ -305,12 +325,25 @@ class SaleOrderController extends Controller
 
             return [
                 'id' => $bundle->id,
-                'name' => $bundleName ?: $bundle->name, // fallback ke nama asli kalau kosong
+                'name' => $bundleName ?: $bundle->name,
                 'sku'  => $bundle->sku,
                 'price' => $bundle->price,
                 'discounts' => $bundleDiscounts,
                 'categories' => $bundleCategories,
                 'base_unit_id' => $bundle->base_unit_id,
+
+                'primary_item' => $bundle->primaryItem ? [
+                    'product_id' => $bundle->primaryItem->product_id,
+                    'product' => $bundle->primaryItem->product,
+                ] : null,
+
+                'secondary_items' => $bundle->secondaryItems->map(function ($item) {
+                    return [
+                        'product_id' => $item->product_id,
+                        'product' => $item->product,
+                    ];
+                })->values()->toArray(),
+
                 'units' => $bundle->unitConversions->map(function ($conversion) {
                     return [
                         'id' => $conversion->id,
@@ -327,7 +360,7 @@ class SaleOrderController extends Controller
         // $customers = Customers::with('addresses')->get();
         $user = Auth::user();
 
-        $customers = Customers::with('addresses')
+        $customers = Customers::with(['addresses', 'accounts'])
             ->when($user->role === 'Sales', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
@@ -355,11 +388,8 @@ class SaleOrderController extends Controller
     {
         $request->validate([
             'order_date'            => 'required|date_format:Y-m-d\TH:i',
-            // 'customers'             => 'required|array',
-            // 'customers.*'           => 'exists:customers,id',
-            // 'addresses'             => 'required|array',
-            // 'addresses.*'           => 'exists:customer_addresses,id',
             'customer_id'          => 'required|exists:customers,id',
+            'customer_account_id' => 'required|exists:customer_accounts,id',
             'customer_address_id'  => 'required|exists:customer_addresses,id',
             'notes'                 => 'nullable|string',
             'product'               => 'required|array',
@@ -408,6 +438,7 @@ class SaleOrderController extends Controller
             $order = Order::create([
                 'user_id'            => Auth::id(),
                 'customer_id'      => $request->customer_id,
+                'customer_account_id' => $request->customer_account_id,
                 'customer_address_id' => $request->customer_address_id,
                 'order_number'     => $orderNumber,
                 'order_date'       => $request->order_date,
@@ -591,6 +622,7 @@ class SaleOrderController extends Controller
             'orderItems.product.unitConversions.unit',
             'orderItems.productBundle.unitConversions.unit',
             'customer.addresses',
+            'customer.accounts',
             'customerAddress',
         ])->findOrFail($id);
 
@@ -620,6 +652,10 @@ class SaleOrderController extends Controller
         $productBundles = ProductBundle::with([
             'items.product.categories.discounts',
             'items.product.discounts',
+
+            'primaryItem.product',
+            'secondaryItems.product',
+
             'unitConversions.unit',
         ])->orderBy('name', 'asc')->get();
 
@@ -642,7 +678,7 @@ class SaleOrderController extends Controller
 
         $user = Auth::user();
 
-        $customers = Customers::with('addresses')
+        $customers = Customers::with(['addresses', 'accounts'])
             ->when($user->role === 'Sales', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
@@ -657,6 +693,7 @@ class SaleOrderController extends Controller
                 'sku'  => $product->sku,
                 'price' => $product->price,
                 'sale_price' => $product->sale_price,
+                'base_unit_id' => $product->base_unit_id,
                 'discounts' => $product->discounts->toArray(),
                 'categories' => $product->categories->map(function ($cat) {
                     return [
@@ -713,6 +750,7 @@ class SaleOrderController extends Controller
                 'sku'  => $bundle->sku,
                 'price' => $bundle->price,
                 'discounts' => $bundleDiscounts,
+                'base_unit_id' => $bundle->base_unit_id,
                 'categories' => $bundleCategories,
                 'units' => $bundle->unitConversions->map(function ($conversion) {
                     return [
@@ -721,6 +759,17 @@ class SaleOrderController extends Controller
                         'unit_name' => optional($conversion->unit)->name,
                         'conversion_value' => $conversion->conversion_value,
                         'sale_price' => $conversion->sale_price,
+                    ];
+                })->values()->toArray(),
+                'primary_item' => $bundle->primaryItem ? [
+                    'product_id' => $bundle->primaryItem->product_id,
+                    'product' => $bundle->primaryItem->product,
+                ] : null,
+
+                'secondary_items' => $bundle->secondaryItems->map(function ($item) {
+                    return [
+                        'product_id' => $item->product_id,
+                        'product' => $item->product,
                     ];
                 })->values()->toArray(),
             ];
@@ -743,6 +792,7 @@ class SaleOrderController extends Controller
         $request->validate([
             'order_date'              => 'required|date_format:Y-m-d\TH:i',
             'customer_id' => 'required|exists:customers,id',
+            'customer_account_id' => 'required|exists:customer_accounts,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
             'notes'                   => 'nullable|string',
             'product'                 => 'required|array',
@@ -801,6 +851,7 @@ class SaleOrderController extends Controller
 
             $order->update([
                 'customer_id'      => $request->customer_id,
+                'customer_account_id' => $request->customer_account_id,
                 'customer_address_id' => $request->customer_address_id,
                 'order_date'       => $request->order_date,
                 'status'           => $status,

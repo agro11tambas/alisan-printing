@@ -343,6 +343,30 @@
                                     </div>
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
+                                            <label for="customer_accounts" class="fw-semibold">Customer Account:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <select class="form-select form-control max-select"
+                                                    data-select2-selector="tag" id="customer_accounts"
+                                                    name="customer_account_id">
+                                                    <option disabled hidden>Pilih customer account</option>
+
+                                                    @if ($order->customer)
+                                                        @foreach ($order->customer->accounts as $account)
+                                                            <option value="{{ $account->id }}"
+                                                                {{ $order->customer_account_id == $account->id ? 'selected' : '' }}>
+                                                                {{ $account->name ?? '-' }} -
+                                                                {{ $account->whatsapp_number ?? ($account->email ?? '-') }}
+                                                            </option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
                                             <label for="addresses" class="fw-semibold">Address:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -487,7 +511,7 @@
                                                         </option>
                                                     @endforeach
 
-                                                    @foreach ($productBundles as $bundle)
+                                                    {{-- @foreach ($productBundles as $bundle)
                                                         <option value="bundle_{{ $bundle->id }}"
                                                             {{ $item->satuan === 'bundle' && $item->product_bundle_id == $bundle->id ? 'selected' : '' }}
                                                             data-price="{{ $bundle->price }}"
@@ -496,8 +520,41 @@
                                                             data-type="bundle">
                                                             {{ $bundle->name }} (Bundle)
                                                         </option>
-                                                    @endforeach
+                                                    @endforeach --}}
                                                 </select>
+                                                @php
+                                                    $isBundle = $item->satuan === 'bundle';
+                                                    $primaryProductId = null;
+                                                    $secondaryProductId = null;
+
+                                                    if ($isBundle && $item->productBundle) {
+                                                        $primaryProductId = optional($item->productBundle->primaryItem)
+                                                            ->product_id;
+                                                        $secondaryProductId = optional(
+                                                            $item->productBundle->secondaryItems->first(),
+                                                        )->product_id;
+                                                    }
+                                                @endphp
+
+                                                <div class="form-group product-col-span-2">
+                                                    <div class="form-check mt-2">
+                                                        <input class="form-check-input add-bundle-check" type="checkbox"
+                                                            value="1" {{ $isBundle ? 'checked' : '' }}>
+                                                        <label class="form-check-label fw-semibold">
+                                                            Add Bundle
+                                                        </label>
+                                                    </div>
+
+                                                    <div class="bundle-wrapper mt-2 {{ $isBundle ? '' : 'd-none' }}">
+                                                        <label>Product Bundle</label>
+                                                        <select class="form-control bundle-secondary-product"
+                                                            name="bundle_secondary_product_id[]"
+                                                            data-selected-bundle-id="{{ $item->product_bundle_id }}"
+                                                            data-selected-secondary-id="{{ $secondaryProductId }}">
+                                                            <option value="">Pilih product secondary</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <input type="hidden" name="product_type[]" class="product-type"
@@ -610,6 +667,23 @@
                                                 data-select2-selector="status">
                                                 <option value="" disabled selected hidden>Pilih produk</option>
                                             </select>
+                                            <div class="form-group product-col-span-2">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input add-bundle-check" type="checkbox"
+                                                        value="1">
+                                                    <label class="form-check-label fw-semibold">
+                                                        Add Bundle
+                                                    </label>
+                                                </div>
+
+                                                <div class="bundle-wrapper mt-2 d-none">
+                                                    <label>Product Bundle</label>
+                                                    <select class="form-control bundle-secondary-product"
+                                                        name="bundle_secondary_product_id[]">
+                                                        <option value="">Pilih product secondary</option>
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <input type="hidden" name="product_type[]" class="product-type">
@@ -855,6 +929,23 @@
             ];
         })
         ->toArray();
+
+    $customerAccountsData = $customers
+        ->mapWithKeys(function ($customer) {
+            return [
+                $customer->id => $customer->accounts
+                    ->map(function ($account) {
+                        return [
+                            'id' => $account->id,
+                            'name' => $account->name,
+                            'email' => $account->email,
+                            'whatsapp_number' => $account->whatsapp_number,
+                        ];
+                    })
+                    ->values(),
+            ];
+        })
+        ->toArray();
 @endphp
 
 @push('scripts')
@@ -865,20 +956,26 @@
         let pendingToggleOff = false;
 
         const customerAddresses = @json($customerAddressesData);
+        const customerAccounts = @json($customerAccountsData);
 
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
 
-        const allProducts = [
-            ...products.map(p => ({
-                ...p,
-                type: 'satuan'
-            })),
-            ...bundles.map(b => ({
-                ...b,
-                type: 'bundle'
-            })),
-        ];
+        // const allProducts = [
+        //     ...products.map(p => ({
+        //         ...p,
+        //         type: 'satuan'
+        //     })),
+        //     ...bundles.map(b => ({po
+        //         ...b,
+        //         type: 'bundle'
+        //     })),
+        // ];
+
+        const allProducts = products.map(p => ({
+            ...p,
+            type: 'satuan'
+        }));
 
         function truncateText(text, max = 45) {
             if (!text) return '';
@@ -945,7 +1042,42 @@
             });
         }
 
-        function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0, forceDefaultPcs = false) {
+        function populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId = null) {
+            const select = row.find('.bundle-secondary-product');
+
+            select.empty().append('<option value="">Pilih product secondary</option>');
+
+            bundles.forEach(bundle => {
+                const primaryItem = bundle.primary_item;
+
+                if (!primaryItem) return;
+
+                if (String(primaryItem.product_id) !== String(primaryProductId)) {
+                    return;
+                }
+
+                const secondaryItems = bundle.secondary_items || [];
+
+                secondaryItems.forEach(item => {
+                    const product = item.product;
+                    if (!product) return;
+
+                    const option = $(`
+                <option value="${product.id}" data-bundle-id="${bundle.id}">
+                    [${product.sku || '-'}] ${product.name}
+                </option>
+            `);
+
+                    if (selectedBundleId && String(selectedBundleId) === String(bundle.id)) {
+                        option.prop('selected', true);
+                    }
+
+                    select.append(option);
+                });
+            });
+        }
+
+        function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0) {
             const unitSelect = row.find('.product-unit');
             const unitWrapper = row.find('.product-unit-wrapper');
 
@@ -956,26 +1088,9 @@
 
             unitWrapper.show();
 
-            if (forceDefaultPcs) {
-                unitSelect.append(`
-            <option value="default_pcs"
-                data-unit-id=""
-                data-unit-name="Pcs"
-                data-conversion-value="1"
-                data-sale-price="${defaultPrice}">
-                Pcs
-            </option>
-        `);
-            }
-
             if (Array.isArray(units) && units.length > 0) {
                 units.forEach(function(unit) {
                     const unitName = unit.unit_name || 'Pcs';
-
-                    // kalau data DB juga punya Pcs, jangan dobel
-                    if (forceDefaultPcs && unitName.toLowerCase() === 'pcs') {
-                        return;
-                    }
 
                     unitSelect.append(`
                 <option value="${unit.id}"
@@ -991,9 +1106,9 @@
 
             if (selectedUnitId) {
                 unitSelect.val(String(selectedUnitId));
-            } else if (forceDefaultPcs) {
-                unitSelect.val('default_pcs');
-            } else {
+            }
+
+            if (!unitSelect.val()) {
                 unitSelect.val(unitSelect.find('option:eq(1)').val());
             }
 
@@ -1152,6 +1267,24 @@
             updateGoogleMapsLink();
         }
 
+        function updateCustomerAccounts(customerId) {
+            const accounts = customerAccounts[customerId] || [];
+            const accountSelect = $('#customer_accounts');
+            const selectedAccountId = "{{ $order->customer_account_id ?? '' }}";
+
+            accountSelect.empty().append('<option disabled hidden>Pilih customer account</option>');
+
+            accounts.forEach(function(account) {
+                const isSelected = String(account.id) === String(selectedAccountId);
+
+                accountSelect.append(`
+            <option value="${account.id}" ${isSelected ? 'selected' : ''}>
+                ${account.name ?? '-'} - ${account.whatsapp_number ?? account.email ?? '-'}
+            </option>
+        `);
+            });
+        }
+
         function updateGoogleMapsLink() {
             const selectedOption = $('#addresses').find('option:selected');
             const mapUrl = selectedOption.data('map');
@@ -1268,21 +1401,49 @@
 
                 select.select2(select2ProductConfig());
 
-                const selectedData = findSelectedProductData(select.val());
+                const isBundleChecked = row.find('.add-bundle-check').is(':checked');
 
-                const type = selectedData ? selectedData.type : selectedType;
-                const units = selectedData ? (selectedData.units || []) : [];
-                const defaultPrice = selectedData ? parseFloat(selectedData.price || 0) : 0;
+                if (isBundleChecked) {
+                    const selectedBundleId = row.find('.bundle-secondary-product').data(
+                        'selected-bundle-id');
+                    const bundle = bundles.find(b => String(b.id) === String(selectedBundleId));
 
-                row.find('.product-type').val(type);
+                    if (bundle && bundle.primary_item) {
+                        const primaryProductId = bundle.primary_item.product_id;
 
-                if (type === 'satuan' || type === 'bundle') {
-                    fillProductUnits(row, units, selectedUnitId, defaultPrice, type === 'bundle');
+                        populateProducts(select[0], primaryProductId, 'satuan');
+
+                        select.val('satuan_' + primaryProductId).trigger('change.select2');
+
+                        row.find('.bundle-wrapper').removeClass('d-none');
+                        populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId);
+
+                        row.find('.product-type').val('bundle');
+
+                        fillProductUnits(
+                            row,
+                            bundle.units || [],
+                            selectedUnitId,
+                            parseFloat(bundle.price || 0)
+                        );
+                    }
                 } else {
-                    row.find('.product-unit-wrapper').hide();
-                    row.find('.product-unit').val('');
-                    row.find('.unit-conversion-value').val('1');
-                    row.find('.unit-name').val('');
+                    const selectedData = findSelectedProductData(select.val());
+
+                    const type = selectedData ? selectedData.type : selectedType;
+                    const units = selectedData ? (selectedData.units || []) : [];
+                    const defaultPrice = selectedData ? parseFloat(selectedData.price || 0) : 0;
+
+                    row.find('.product-type').val(type);
+
+                    if (type === 'satuan') {
+                        fillProductUnits(row, units, selectedUnitId, defaultPrice, false);
+                    } else {
+                        row.find('.product-unit-wrapper').hide();
+                        row.find('.product-unit').val('');
+                        row.find('.unit-conversion-value').val('1');
+                        row.find('.unit-name').val('');
+                    }
                 }
             });
 
@@ -1290,6 +1451,7 @@
 
             if (initialCustomerId) {
                 updateAddresses(initialCustomerId);
+                updateCustomerAccounts(initialCustomerId);
             }
 
             initDueDate();
@@ -1298,6 +1460,21 @@
 
         $(document).on('change', '.select-product', function() {
             const row = $(this).closest('.product-item');
+
+            if (row.find('.add-bundle-check').is(':checked')) {
+                const selectedVal = $(this).val();
+
+                if (selectedVal) {
+                    const primaryProductId = selectedVal.split('_')[1];
+
+                    row.find('.bundle-wrapper').removeClass('d-none');
+                    populateSecondaryBundleProducts(row, primaryProductId);
+                    row.find('.product-type').val('bundle');
+                }
+
+                return;
+            }
+
             const selectedData = findSelectedProductData($(this).val());
 
             const type = selectedData ? selectedData.type : '';
@@ -1306,8 +1483,8 @@
 
             row.find('.product-type').val(type);
 
-            if (type === 'satuan' || type === 'bundle') {
-                fillProductUnits(row, units, null, price, type === 'bundle');
+            if (type === 'satuan') {
+                fillProductUnits(row, units, null, price, false);
             } else {
                 row.find('.product-unit-wrapper').hide();
                 row.find('.product-unit').val('');
@@ -1432,7 +1609,10 @@
         });
 
         $('#customers').on('change', function() {
-            updateAddresses($(this).val());
+            const customerId = $(this).val();
+
+            updateAddresses(customerId);
+            updateCustomerAccounts(customerId);
         });
 
         $('#addresses').on('change', function() {
@@ -1440,18 +1620,84 @@
         });
 
         $(document).on('change input',
-            "#customers, #addresses, #edit_note, select[name='mode[]'], select[name='product[]'], select[name='product_unit_id[]'], input[name='qty[]']",
+            "#customers, #customer_accounts, #addresses, #edit_note, select[name='mode[]'], select[name='product[]'], select[name='product_unit_id[]'], input[name='qty[]']",
             function() {
                 $(this).removeClass('is-invalid');
                 $(this).next('.invalid-feedback').remove();
             }
         );
 
+        $(document).on('change', '.add-bundle-check', function() {
+            const row = $(this).closest('.product-item');
+            const productSelect = row.find('select[name="product[]"]');
+            const selectedVal = productSelect.val();
+
+            if (this.checked) {
+                if (!selectedVal) {
+                    $(this).prop('checked', false);
+                    showError(productSelect, 'Pilih product dulu');
+                    return;
+                }
+
+                const primaryProductId = selectedVal.split('_')[1];
+
+                row.find('.product-type').val('bundle');
+                row.find('.bundle-wrapper').removeClass('d-none');
+
+                populateSecondaryBundleProducts(row, primaryProductId);
+
+                row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+                row.find('.unit-conversion-value').val('1');
+                row.find('.unit-name').val('Pcs');
+
+            } else {
+                row.find('.product-type').val('satuan');
+                row.find('.bundle-wrapper').addClass('d-none');
+                row.find('.bundle-secondary-product').val('');
+
+                const selectedData = findSelectedProductData(productSelect.val());
+
+                if (selectedData) {
+                    fillProductUnits(
+                        row,
+                        selectedData.units || [],
+                        null,
+                        parseFloat(selectedData.price || 0)
+                    );
+                } else {
+                    row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+                    row.find('.unit-conversion-value').val('1');
+                    row.find('.unit-name').val('Pcs');
+                }
+
+                recalcAllRows();
+            }
+        });
+
+        $(document).on('change', '.bundle-secondary-product', function() {
+            const row = $(this).closest('.product-item');
+            const bundleId = $(this).find('option:selected').data('bundle-id');
+
+            const bundle = bundles.find(b => String(b.id) === String(bundleId));
+            if (!bundle) return;
+
+            row.find('.product-type').val('bundle');
+
+            fillProductUnits(row, bundle.units || [], null, parseFloat(bundle.price || 0));
+
+            recalcAllRows();
+        });
+
         $('#orderForm').on('submit', function(e) {
             let valid = true;
 
             if (!$('#customers').val()) {
                 showError($('#customers'), 'Customer wajib dipilih');
+                valid = false;
+            }
+
+            if (!$('#customer_accounts').val()) {
+                showError($('#customer_accounts'), 'Customer account wajib dipilih');
                 valid = false;
             }
 
@@ -1512,6 +1758,34 @@
             $('input.price_before_discount').each(function() {
                 if ($(this).val() === '' || isNaN($(this).val())) {
                     $(this).val(0);
+                }
+            });
+
+            $('select[name="product[]"]').each(function() {
+                const row = $(this).closest('.product-item');
+                const isBundle = row.find('.add-bundle-check').is(':checked');
+
+                let finalProductId = null;
+
+                if (isBundle) {
+                    finalProductId = row.find('.bundle-secondary-product option:selected').data(
+                        'bundle-id');
+                    row.find('.product-type').val('bundle');
+                } else {
+                    finalProductId = $(this).val()?.split('_')[1];
+                    row.find('.product-type').val('satuan');
+                }
+
+                if (finalProductId) {
+                    const finalType = row.find('.product-type').val();
+
+                    $('<input>')
+                        .attr('type', 'hidden')
+                        .attr('name', 'product[]')
+                        .val(finalType + '_' + finalProductId)
+                        .appendTo('#orderForm');
+
+                    $(this).prop('disabled', true);
                 }
             });
 

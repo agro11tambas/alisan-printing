@@ -163,6 +163,31 @@
                                     </div>
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
+                                            <label for="customer_account_select" class="fw-semibold">Customer
+                                                Account:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <select class="form-select form-control max-select"
+                                                    data-select2-selector="tag" id="customer_account_select"
+                                                    name="customer_account_id">
+                                                    <option value="" disabled hidden>Pilih customer account</option>
+
+                                                    @if ($order->customer && $order->customer->accounts)
+                                                        @foreach ($order->customer->accounts as $account)
+                                                            <option value="{{ $account->id }}"
+                                                                {{ ($order->customer_account_id ?? null) == $account->id ? 'selected' : '' }}>
+                                                                {{ $account->name ?? '-' }} -
+                                                                {{ $account->whatsapp_number ?? '-' }}
+                                                            </option>
+                                                        @endforeach
+                                                    @endif
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
                                             <label for="addresses" class="fw-semibold">Address:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -368,6 +393,20 @@
             }),
         ); ?>;
 
+        const customerAccounts = <?php echo json_encode(
+            $customers->mapWithKeys(function ($customer) {
+                return [
+                    $customer->id => $customer->accounts->map(function ($account) {
+                        return [
+                            'id' => $account->id,
+                            'name' => $account->name,
+                            'whatsapp_number' => $account->whatsapp_number,
+                        ];
+                    }),
+                ];
+            }),
+        ); ?>;
+
         function formatNumber(num) {
             return new Intl.NumberFormat('id-ID', {
                 minimumFractionDigits: 0,
@@ -422,11 +461,15 @@
                 updateRowTotal(row);
             });
 
-            const initialCustomerId = $('#customers').val();
-            if (initialCustomerId) updateAddresses(initialCustomerId);
+            const initialCustomerId = $('#customer_id').val();
+            if (initialCustomerId) {
+                updateAddresses(initialCustomerId);
+                updateCustomerAccounts(initialCustomerId);
+            }
 
-            $('#customers').on('change', function() {
+            $('#customer_id').on('change', function() {
                 updateAddresses($(this).val());
+                updateCustomerAccounts($(this).val());
             });
 
             $('#addresses').on('change', updateGoogleMapsLink);
@@ -448,6 +491,26 @@
                 });
 
                 updateGoogleMapsLink();
+            }
+
+            function updateCustomerAccounts(customerId) {
+                const accounts = customerAccounts[customerId] || [];
+                const $accountSelect = $('#customer_account_select');
+                const selectedAccountId = "{{ $order->customer_account_id ?? '' }}";
+
+                $accountSelect.empty().append('<option value="" disabled hidden>Pilih customer account</option>');
+
+                accounts.forEach(function(account) {
+                    const isSelected = account.id == selectedAccountId;
+
+                    $accountSelect.append(`
+                        <option value="${account.id}" ${isSelected ? 'selected' : ''}>
+                            ${(account.name ?? '-')} - ${(account.whatsapp_number ?? '-')}
+                        </option>
+                    `);
+                });
+
+                $accountSelect.trigger('change');
             }
 
             function updateGoogleMapsLink() {

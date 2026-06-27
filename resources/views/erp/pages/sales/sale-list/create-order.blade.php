@@ -326,6 +326,19 @@
                                     </div>
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
+                                            <label for="customer_accounts" class="fw-semibold">Customer Account:</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            <div class="input-group">
+                                                <select class="form-select max-select" data-select2-selector="tag"
+                                                    id="customer_accounts" name="customer_account_id" required>
+                                                    <option disabled selected hidden>Pilih customer account</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3 align-items-center">
+                                        <div class="col-lg-2">
                                             <label for="addresses" class="fw-semibold">Address:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
@@ -338,38 +351,7 @@
                                             <div id="google-maps-link" class="mt-2"></div>
                                         </div>
                                     </div>
-                                    {{-- <div class="row mb-3 align-items-center">
-                                        <div class="col-lg-2">
-                                            <label for="transaction_type" class="fw-semibold">Sale:</label>
-                                        </div>
-                                        <div class="col-lg-10 mb-0">
-                                            <div class="input-group">
-                                                <select class="form-select form-control max-select"
-                                                    data-select2-selector="tag" id="transaction_type"
-                                                    name="transaction_type">
-                                                    <option value="11" data-bg="bg-success">Sale Account</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div> --}}
                                     <input type="hidden" id="transaction_type" name="transaction_type" value="11">
-                                    {{-- <div class="row mb-3 align-items-center">
-                                        <div class="col-lg-2">
-                                            <label class="fw-semibold">Mode:</label>
-                                        </div>
-                                        <div class="col-lg-10 mb-0">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="toggleMode"
-                                                    name="mode_toggle" checked>
-                                                <label class="form-check-label fw-semibold" for="toggleMode"
-                                                    id="modeLabel">
-                                                    Printing
-                                                </label>
-                                            </div>
-                                            <!-- hidden input yang dikirim ke backend -->
-                                            <input type="hidden" id="mode" name="mode" value="printing">
-                                        </div>
-                                    </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
@@ -381,21 +363,6 @@
                                             </div>
                                         </div>
                                     </div>
-                                    {{-- <div class="row mb-3 align-items-center">
-                                        <div class="col-lg-2">
-                                            <label class="fw-semibold">Diskon:</label>
-                                        </div>
-                                        <div class="col-lg-10 mb-0">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" id="toggleDiscount"
-                                                    name="discount_active" checked>
-                                                <label class="form-check-label" for="toggleDiscount">Aktifkan
-                                                    Diskon</label>
-                                            </div>
-                                            <input type="hidden" id="discount_active_hidden"
-                                                name="discount_active_hidden" value="1">
-                                        </div>
-                                    </div> --}}
                                     <div class="row mb-3 align-items-center">
                                         <div class="col-lg-2">
                                             <label class="fw-semibold">Diskon:</label>
@@ -418,23 +385,6 @@
                                                             name="discount_active_hidden" value="1">
                                                     </div>
                                                 </div>
-
-                                                <!-- 🔹 Kolom Mode -->
-                                                {{-- <div class="col-md-6 mb-3 mb-md-0">
-                                                    <div class="d-flex flex-column">
-                                                        <label class="fw-semibold mb-1">Mode:</label>
-                                                        <div class="form-check form-switch">
-                                                            <input class="form-check-input" type="checkbox"
-                                                                id="toggleMode" name="mode_toggle" checked>
-                                                            <label class="form-check-label fw-semibold" for="toggleMode"
-                                                                id="modeLabel">
-                                                                Printing
-                                                            </label>
-                                                        </div>
-                                                        <input type="hidden" id="mode" name="mode"
-                                                            value="printing">
-                                                    </div>
-                                                </div> --}}
                                             </div>
                                         </div>
                                     </div>
@@ -468,6 +418,23 @@
                                                 name="product[]" id="product_0">
                                                 <option value="" disabled selected hidden>Pilih produk</option>
                                             </select>
+                                            <div class="form-group product-col-span-2">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input add-bundle-check" type="checkbox"
+                                                        value="1">
+                                                    <label class="form-check-label fw-semibold">
+                                                        Add Bundle
+                                                    </label>
+                                                </div>
+
+                                                <div class="bundle-wrapper mt-2 d-none">
+                                                    <label>Product Bundle</label>
+                                                    <select class="form-control bundle-secondary-product"
+                                                        name="bundle_secondary_product_id[]">
+                                                        <option value="">Pilih product bundle</option>
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <input type="hidden" name="product_type[]" class="product-type"
@@ -539,7 +506,25 @@
                                                 name="product[]" id="product___index__">
                                                 <option value="" disabled selected hidden>Pilih produk</option>
                                             </select>
+                                            <div class="form-group product-col-span-2">
+                                                <div class="form-check mt-2">
+                                                    <input class="form-check-input add-bundle-check" type="checkbox"
+                                                        value="1">
+                                                    <label class="form-check-label fw-semibold">
+                                                        Add Bundle
+                                                    </label>
+                                                </div>
+
+                                                <div class="bundle-wrapper mt-2 d-none">
+                                                    <label>Product Bundle</label>
+                                                    <select class="form-control bundle-secondary-product"
+                                                        name="bundle_secondary_product_id[]">
+                                                        <option value="">Pilih product bundle</option>
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
+
 
                                         <input type="hidden" name="product_type[]" class="product-type"
                                             id="product_type___index__">
@@ -779,22 +764,43 @@
             }),
         ); ?>;
 
+        const customerAccounts = <?php echo json_encode(
+            $customers->mapWithKeys(function ($customer) {
+                return [
+                    $customer->id => $customer->accounts->map(function ($account) {
+                        return [
+                            'id' => $account->id,
+                            'name' => $account->name,
+                            'email' => $account->email,
+                            'whatsapp_number' => $account->whatsapp_number,
+                        ];
+                    }),
+                ];
+            }),
+        ); ?>;
+
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
 
-        const allProducts = [
-            ...products.map(p => ({
-                ...p,
-                type: 'satuan',
-                units: p.units || p.product_units || p.unit_conversions || []
-            })),
+        // const allProducts = [
+        //     ...products.map(p => ({
+        //         ...p,
+        //         type: 'satuan',
+        //         units: p.units || p.product_units || p.unit_conversions || []
+        //     })),
 
-            ...bundles.map(b => ({
-                ...b,
-                type: 'bundle',
-                units: b.units || b.product_units || b.unit_conversions || b.bundle_units || []
-            })),
-        ];
+        //     ...bundles.map(b => ({
+        //         ...b,
+        //         type: 'bundle',
+        //         units: b.units || b.product_units || b.unit_conversions || b.bundle_units || []
+        //     })),
+        // ];
+
+        const allProducts = products.map(p => ({
+            ...p,
+            type: 'satuan',
+            units: p.units || p.product_units || p.unit_conversions || []
+        }));
 
         function formatNumber(num) {
             return new Intl.NumberFormat('id-ID', {
@@ -821,6 +827,35 @@
                     .data('sku', item.sku || '')
                     .data('units', item.units || [])
                     .appendTo(selectEl);
+            });
+        }
+
+        function populateSecondaryBundleProducts(row, primaryProductId) {
+            const select = row.find('.bundle-secondary-product');
+
+            select.empty().append('<option value="">Pilih product secondary</option>');
+
+            bundles.forEach(bundle => {
+                const primaryItem = bundle.primary_item;
+
+                if (!primaryItem) return;
+
+                if (String(primaryItem.product_id) !== String(primaryProductId)) {
+                    return;
+                }
+
+                const secondaryItems = bundle.secondary_items || [];
+
+                secondaryItems.forEach(item => {
+                    const product = item.product;
+                    if (!product) return;
+
+                    select.append(`
+                <option value="${product.id}" data-bundle-id="${bundle.id}">
+                    [${product.sku || '-'}] ${product.name}
+                </option>
+            `);
+                });
             });
         }
 
@@ -1032,6 +1067,31 @@
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
 
+        // $(document).on('change select2:select', 'select[name="product[]"]', function() {
+        //     const row = $(this).closest('.product-item');
+        //     const selectedOption = $(this).find('option:selected');
+
+        //     const type = selectedOption.data('type') || '';
+        //     const selectedId = String(selectedOption.data('real-id') || '');
+
+        //     row.find('.product-type').val(type);
+
+        //     const selectedItem = allProducts.find(item => {
+        //         return item.type === type && String(item.id) === selectedId;
+        //     });
+
+        //     let units = selectedItem?.units || [];
+
+        //     console.log('TYPE:', type);
+        //     console.log('ID:', selectedId);
+        //     console.log('ITEM:', selectedItem);
+        //     console.log('UNITS:', units);
+
+        //     fillProductUnits(row, units, selectedItem?.base_unit_id);
+
+        //     recalcAllRows();
+        // });
+
         $(document).on('change select2:select', 'select[name="product[]"]', function() {
             const row = $(this).closest('.product-item');
             const selectedOption = $(this).find('option:selected');
@@ -1047,18 +1107,11 @@
 
             let units = selectedItem?.units || [];
 
-            // if (type === 'satuan') {
-            //    units = units.filter(unit =>
-            //        String(unit.unit_id) === String(selectedItem.base_unit_id)
-            //    );
-            // }
-
-            console.log('TYPE:', type);
-            console.log('ID:', selectedId);
-            console.log('ITEM:', selectedItem);
-            console.log('UNITS:', units);
-
             fillProductUnits(row, units, selectedItem?.base_unit_id);
+
+            row.find('.add-bundle-check').prop('checked', false);
+            row.find('.bundle-wrapper').addClass('d-none');
+            row.find('.bundle-secondary-product').empty().append('<option value="">Pilih product bundle</option>');
 
             recalcAllRows();
         });
@@ -1072,17 +1125,67 @@
             recalcAllRows();
         });
 
-        // function initSelect2(el) {
-        //     $(el).select2({
-        //         placeholder: 'Pilih produk',
-        //         width: '100%',
-        //         matcher: (params, data) => {
-        //             if ($.trim(params.term) === '') return data;
-        //             return data.text.toLowerCase().includes(params.term.toLowerCase()) ? data : null;
-        //         }
-        //     });
-        //     if ($(el).children('option').length === 1) populateProducts(el);
-        // }
+        $(document).on('change', '.add-bundle-check', function() {
+            const row = $(this).closest('.product-item');
+            const productSelect = row.find('select[name="product[]"]');
+            const selectedVal = productSelect.val();
+
+            if (this.checked) {
+                if (!selectedVal) {
+                    $(this).prop('checked', false);
+                    showError(productSelect, 'Pilih product dulu');
+                    return;
+                }
+
+                const primaryProductId = selectedVal.split('_')[1];
+
+                row.find('.product-type').val('bundle');
+                row.find('.bundle-wrapper').removeClass('d-none');
+
+                populateSecondaryBundleProducts(row, primaryProductId);
+
+                row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+                row.find('.unit-conversion-value').val('1');
+                row.find('.unit-name').val('Pcs');
+
+            } else {
+                row.find('.product-type').val('satuan');
+                row.find('.bundle-wrapper').addClass('d-none');
+                row.find('.bundle-secondary-product').val('');
+
+                const selectedData = findSelectedProductData(productSelect.val());
+
+                if (selectedData) {
+                    fillProductUnits(
+                        row,
+                        selectedData.units || [],
+                        null,
+                        parseFloat(selectedData.price || 0)
+                    );
+                } else {
+                    row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+                    row.find('.unit-conversion-value').val('1');
+                    row.find('.unit-name').val('Pcs');
+                }
+
+                recalcAllRows();
+            }
+        });
+
+        $(document).on('change', '.bundle-secondary-product', function() {
+            const row = $(this).closest('.product-item');
+            const bundleId = $(this).find('option:selected').data('bundle-id');
+
+            const bundle = bundles.find(b => String(b.id) === String(bundleId));
+
+            if (!bundle) return;
+
+            row.find('.product-type').val('bundle');
+
+            fillProductUnits(row, bundle.units || [], bundle.base_unit_id);
+
+            recalcAllRows();
+        });
 
         function isMobile() {
             return window.matchMedia('(max-width: 768px)').matches;
@@ -1207,7 +1310,7 @@
         }
 
         $(document).on("change input",
-            "#customers, #addresses, select[name='product[]'], select[name='mode[]'], input[name='qty[]'], input[name='order_date']",
+            "#customers, #customer_accounts, #addresses, select[name='product[]'], select[name='mode[]'], input[name='qty[]'], input[name='order_date']",
             function() {
                 if ($(this).hasClass("select2-hidden-accessible")) {
                     $(this).next('.select2').next('.invalid-feedback').remove();
@@ -1217,92 +1320,34 @@
                 }
             });
 
-        // document.getElementById('orderForm').addEventListener('submit', function(e) {
-        //     e.preventDefault();
-
-        //     let isValid = true;
-
-        //     this.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-        //     this.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-
-        //     const orderDate = this.querySelector('input[name="order_date"]');
-        //     if (!orderDate.value.trim()) {
-        //         isValid = false;
-        //         showError(orderDate, "Tanggal order wajib diisi");
-        //     }
-
-        //     const customerSelect = $('#customers');
-        //     if (!customerSelect.val() || customerSelect.val().length === 0) {
-        //         isValid = false;
-        //         showError(customerSelect[0], "Customer wajib dipilih");
-        //     }
-
-        //     const addressSelect = $('#addresses');
-        //     if (!addressSelect.val() || addressSelect.val().length === 0) {
-        //         isValid = false;
-        //         showError(addressSelect[0], "Alamat wajib dipilih");
-        //     }
-
-        //     // const modeSelect = $('#mode');
-        //     // if (!modeSelect.val() || modeSelect.val().length === 0) {
-        //     //     isValid = false;
-        //     //     showError(modeSelect[0], "Mode wajib dipilih");
-        //     // }
-
-        //     // const rows = this.querySelectorAll('#tab_logic tbody tr');
-        //     // rows.forEach(row => {
-        //     //     const product = row.querySelector('select[name="product[]"]');
-        //     //     const qty = row.querySelector('input[name="qty[]"]');
-        //     //     if (!product.value) {
-        //     //         isValid = false;
-        //     //         showError(product, "Produk wajib dipilih");
-        //     //     }
-        //     //     if (!qty.value || parseInt(qty.value.replace(/[.,]/g, '')) < 1) {
-        //     //         isValid = false;
-        //     //         showError(qty, "Qty minimal 1");
-        //     //     }
-        //     // });
-
-        //     $('.product-item').each(function() {
-        //         const product = $(this).find('select[name="product[]"]');
-        //         const qty = $(this).find('input[name="qty[]"]');
-        //         const mode = $(this).find('select[name="mode[]"]');
-
-        //         const cleanQty = qty.val().replace(/[^\d]/g, '');
-
-        //         if (!product.val()) {
-        //             isValid = false;
-        //             showError(product[0], 'Produk wajib dipilih');
-        //         }
-
-        //         if (!mode.val()) {
-        //             isValid = false;
-        //             showError(mode[0], 'Mode wajib dipilih');
-        //         }
-
-        //         if (!cleanQty || parseInt(cleanQty) < 1) {
-        //             isValid = false;
-        //             showError(qty[0], 'Qty minimal 1');
-        //         }
-        //     });
-
-        //     $('input[name="qty[]"], #sub_total, #total_discount, #total_amount').each(function() {
-        //         $(this).val($(this).val().replace(/[.,]/g, ''));
-        //     });
-
-        //     if (isValid) this.submit();
-        // });
-
         $(document).ready(function() {
             $('#customers').on('change', function() {
                 const customerId = $(this).val();
+
+                // Address
                 const addresses = customerAddresses[customerId] || [];
                 $('#addresses').empty().append('<option disabled selected hidden>Pilih alamat</option>');
-                addresses.forEach((address, i) => {
+
+                addresses.forEach((address) => {
                     $('#addresses').append(
                         `<option value="${address.id}" data-map="${address.google_maps}">
-                            ${address.business_name ?? 'None'} - ${address.address}
-                        </option>`
+                ${address.business_name ?? 'None'} - ${address.address}
+            </option>`
+                    );
+                });
+
+                $('#google-maps-link').empty();
+
+                // Customer Account
+                const accounts = customerAccounts[customerId] || [];
+                $('#customer_accounts').empty().append(
+                    '<option disabled selected hidden>Pilih customer account</option>');
+
+                accounts.forEach((account) => {
+                    $('#customer_accounts').append(
+                        `<option value="${account.id}">
+                ${account.name ?? '-'} - ${account.whatsapp_number ?? account.email ?? '-'}
+            </option>`
                     );
                 });
             });
@@ -1403,6 +1448,12 @@
                 showError(customerSelect[0], 'Customer wajib dipilih');
             }
 
+            const customerAccountSelect = $('#customer_accounts');
+            if (!customerAccountSelect.val()) {
+                isValid = false;
+                showError(customerAccountSelect[0], 'Customer account wajib dipilih');
+            }
+
             const addressSelect = $('#addresses');
             if (!addressSelect.val()) {
                 isValid = false;
@@ -1472,14 +1523,25 @@
             });
 
             $('select[name="product[]"]').each(function() {
-                const selectedOption = $(this).find('option:selected');
-                const realId = selectedOption.data('real-id');
+                const row = $(this).closest('.product-item');
+                const isBundle = row.find('.add-bundle-check').is(':checked');
 
-                if (realId) {
+                let finalProductId = null;
+
+                if (isBundle) {
+                    finalProductId = row.find('.bundle-secondary-product option:selected').data(
+                        'bundle-id');
+                    row.find('.product-type').val('bundle');
+                } else {
+                    finalProductId = $(this).find('option:selected').data('real-id');
+                    row.find('.product-type').val('satuan');
+                }
+
+                if (finalProductId) {
                     $('<input>')
                         .attr('type', 'hidden')
                         .attr('name', 'product[]')
-                        .val(realId)
+                        .val(finalProductId)
                         .appendTo('#orderForm');
 
                     $(this).prop('disabled', true);

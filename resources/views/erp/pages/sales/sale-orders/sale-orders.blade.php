@@ -5,21 +5,32 @@
         @media (max-width: 768px) {
 
             #saleOrderTable td.desktop-only,
-            #saleOrderTable th.desktop-only {
+            #saleOrderTable th.desktop-only,
+            #editedOrderTable td.desktop-only,
+            #editedOrderTable th.desktop-only {
                 display: none !important;
             }
         }
 
-        #saleOrderTable {
+        #saleOrderTable,
+        #editedOrderTable {
             width: 100% !important;
             min-width: 0;
         }
 
-        #saleOrderTable td.action-cell {
+        #saleOrderTable td.action-cell,
+        #editedOrderTable td.action-cell {
             display: none;
         }
 
-        #saleOrderTable_wrapper .dataTables_scrollBody {
+        #saleOrderTable_wrapper .dataTables_scrollBody,
+        #editedOrderTable_wrapper .dataTables_scrollBody {
+            background-image: none !important;
+            height: 60vh !important;
+            overflow-y: auto !important;
+        }
+
+        #deletedOrderTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
             height: 60vh !important;
             overflow-y: auto !important;
@@ -29,27 +40,95 @@
             scroll-behavior: smooth;
         }
 
-        #saleOrderTable tbody tr {
+        #saleOrderTable tbody tr,
+        #editedOrderTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
 
+        table.dataTable td.customer-cell {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            max-width: 200px;
+        }
+
+        .static-action-menu {
+            padding: 12px;
+            min-width: 850px;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px 20px;
+        }
+
+        .action-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .action-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #6c757d;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 7px;
+            padding-bottom: 4px;
+        }
+
+        .dropdown-item {
+            font-size: 13px;
+            padding: 6px 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .preview-list {
+            display: block;
+        }
+
+        .preview-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            width: 100%;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            object-fit: cover;
+        }
+
+        .preview-item input.note-input {
+            width: 100%;
+        }
 
         /* Hide desktop table on mobile */
         @media (max-width: 767px) {
 
             #saleOrderTable_wrapper,
-            #editedSaleOrderTable_wrapper,
-            #deletedSaleOrderTable_wrapper {
+            #editedOrderTable_wrapper,
+            #deletedOrderTable_wrapper {
+                display: none !important;
+            }
+
+            .sale-tabs {
                 display: none !important;
             }
         }
 
         .sale-mobile-card {
-            border-radius: 10px;
+            border-radius: 0px;
             padding: 12px 14px;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
             overflow: visible !important;
             position: relative;
+            border-bottom: 1px solid #e5e9ef;
         }
 
         .sale-mobile-card.active {
@@ -100,7 +179,7 @@
         .sale-amount {
             display: flex;
             justify-content: space-between;
-            margin-top: 8px;
+            margin-top: 4px;
             font-size: 13px;
         }
 
@@ -108,9 +187,6 @@
             color: #9ca3af;
         }
 
-        .sale-tabs {
-            display: none !important;
-        }
 
         .sale-mobile-action {
             display: none;
@@ -132,6 +208,24 @@
             width: 100%;
             min-width: unset !important;
             transform: none !important;
+        }
+
+        .sale-mobile-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .sale-info-left {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sale-info-right {
+            flex: 0 0 auto;
+            text-align: right;
         }
     </style>
 @endpush
@@ -776,29 +870,25 @@
                         <div class="sale-mobile-card" data-id="${row.id}">
                             <div class="sale-mobile-main">
                                 <div class="sale-mobile-header">
-                                    <div class="sale-invoice">${row.order_number}</div>                                    
+                                    <div class="sale-invoice">${row.order_number}</div>
                                     <span class="sale-status">${row.payment_status}</span>
                                 </div>
 
-                                <div class="sale-customer">${row.customer_mobile}</div>
-
-                                <div class="sale-amount">
-                                    <div>
-                                        <span>Due</span><br>
-                                        ${row.remaining_amount ?? row.grand_total}
-                                    </div>
-                                    <div class="text-end">
-                                        <span>Out Of</span><br>
-                                        ${row.grand_total}
-                                    </div>
+                                <div class="sale-customer-mobile">
+                                    ${row.customer_mobile}
                                 </div>
-                            </div>
 
-                            <!-- ACTION -->
+                                <div class="sale-mobile-info">
+                                    <div class="sale-info-left">        
+                                        <div class="sale-grand">${row.grand_total}</div>
+                                    </div>            
+                                </div>
+                            </div>  
+
                             <div class="sale-mobile-action">
                                 ${row.action_mobile}
                             </div>
-                        </div>
+                        </div>                                          
                     `);
                 });
             }

@@ -113,11 +113,9 @@
                             <table class="table table-hover bg-transparent" id="productBundleTable">
                                 <thead>
                                     <tr>
-                                        <th class="wd-30">No</th>
-                                        <th>Name</th>
-                                        {{-- <th>Price</th> --}}
-                                        <th>Bundle Units</th>
-                                        <th>SKU</th>
+                                        <th class="wd-10">No</th>
+                                        <th class="wd-30">Primary Product</th>
+                                        <th class="wd-50">Secondary Products</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -186,24 +184,14 @@
                         orderable: false,
                         searchable: false
                     },
-                    // { data: 'image' },
                     {
-                        data: 'name'
+                        data: 'primary_product'
                     },
-                    // { data: 'categories' },
-                    // { data: 'tags' },
-                    // {
-                    //     data: 'price'
-                    // },
                     {
-                        data: 'bundle_units',
+                        data: 'secondary_products',
                         orderable: false,
                         searchable: false
-                    },
-                    {
-                        data: 'sku'
-                    },
-                    // { data: 'action' }
+                    }
                 ]
             });
 
@@ -263,53 +251,53 @@
                 loadMoreData();
             });
 
-            $('#productBundleTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return;
-                let $tr = $(this);
-                let row = dataTable.row($tr);
+            // $('#productBundleTable tbody').on('click', 'tr', function(e) {
+            //     if ($(e.target).closest('td.dt-control').length) return;
+            //     let $tr = $(this);
+            //     let row = dataTable.row($tr);
 
-                $('#productBundleTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+            //     $('#productBundleTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
-                if ($tr.hasClass('action-shown')) {
-                    $tr.removeClass('action-shown');
-                } else {
-                    let actionHtml = row.data().action;
-                    let colCount = $tr.find('td').length;
-                    let $actionRow = $(`
-                <tr class="action-row">
-                    <td colspan="${colCount}">
-                        <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                        </div>
-                    </td>
-                </tr>
-            `);
-                    $tr.after($actionRow);
-                    $tr.addClass('action-shown');
-                }
-            });
+            //     if ($tr.hasClass('action-shown')) {
+            //         $tr.removeClass('action-shown');
+            //     } else {
+            //         let actionHtml = row.data().action;
+            //         let colCount = $tr.find('td').length;
+            //         let $actionRow = $(`
+        //     <tr class="action-row">
+        //         <td colspan="${colCount}">
+        //             <div class="d-flex justify-content-center">
+        //                 ${actionHtml}
+        //             </div>
+        //         </td>
+        //     </tr>
+        // `);
+            //         $tr.after($actionRow);
+            //         $tr.addClass('action-shown');
+            //     }
+            // });
 
-            $(document).on('click', function(e) {
-                if ($(e.target).closest('#productBundleTable').length) return;
-                $('#productBundleTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-            });
+            // $(document).on('click', function(e) {
+            //     if ($(e.target).closest('#productBundleTable').length) return;
+            //     $('#productBundleTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+            // });
 
-            $(document).on('click', function(e) {
-                if (!$(e.target).closest('#productBundleTable tbody tr, #productBundleTableMobile tbody tr')
-                    .length) {
-                    $('#productBundleTable tbody tr.shown, #productBundleTableMobile tbody tr.shown').each(
-                        function() {
-                            var tr = $(this);
-                            var table = tr.closest('table').attr('id') === 'productBundleTable' ?
-                                dataTable : dataTableMobile;
-                            var row = table.row(tr);
-                            if (row.child.isShown()) {
-                                row.child.hide();
-                                tr.removeClass('shown');
-                            }
-                        });
-                }
-            });
+            // $(document).on('click', function(e) {
+            //     if (!$(e.target).closest('#productBundleTable tbody tr, #productBundleTableMobile tbody tr')
+            //         .length) {
+            //         $('#productBundleTable tbody tr.shown, #productBundleTableMobile tbody tr.shown').each(
+            //             function() {
+            //                 var tr = $(this);
+            //                 var table = tr.closest('table').attr('id') === 'productBundleTable' ?
+            //                     dataTable : dataTableMobile;
+            //                 var row = table.row(tr);
+            //                 if (row.child.isShown()) {
+            //                     row.child.hide();
+            //                     tr.removeClass('shown');
+            //                 }
+            //             });
+            //     }
+            // });
 
         });
 

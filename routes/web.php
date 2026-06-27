@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\AccountListController;
 use App\Http\Controllers\Admin\CanceledProductController;
 use App\Http\Controllers\Admin\CapitalTransactionController;
+use App\Http\Controllers\Admin\CustomerAccountController;
 use App\Http\Controllers\Admin\DefectProductController;
 use App\Http\Controllers\Admin\DefectProductHistoryController;
 use App\Http\Controllers\Admin\DeliveryListController;
@@ -654,6 +655,15 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::put('/erp/customers/delete/{id}', [CustomerController::class, 'delete']);
 
         Route::post('/erp/customers/{customer}/deposit', [CustomerController::class, 'updateDeposit']);
+
+
+        Route::get('/erp/customer-accounts', [CustomerAccountController::class, 'index']);
+        Route::get('/erp/customer-accounts/data', [CustomerAccountController::class, 'data']);
+        Route::get('/erp/customer-accounts/create', [CustomerAccountController::class, 'create']);
+        Route::post('/erp/customer-accounts/store', [CustomerAccountController::class, 'store']);
+        Route::get('/erp/customer-accounts/edit/{id}', [CustomerAccountController::class, 'edit']);
+        Route::put('/erp/customer-accounts/update/{id}', [CustomerAccountController::class, 'update']);
+        Route::put('/erp/customer-accounts/delete/{id}', [CustomerAccountController::class, 'delete']);
     });
 
     Route::middleware(['web.auth', 'permission:supplier'])->group(function () {

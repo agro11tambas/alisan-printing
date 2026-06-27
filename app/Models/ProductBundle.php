@@ -41,6 +41,18 @@ class ProductBundle extends Model
         return $this->belongsTo(ProductUnit::class, 'base_unit_id');
     }
 
+    public function primaryItem()
+    {
+        return $this->hasOne(ProductBundleItem::class, 'bundle_id')
+            ->where('role', 'primary');
+    }
+
+    public function secondaryItems()
+    {
+        return $this->hasMany(ProductBundleItem::class, 'bundle_id')
+            ->where('role', 'secondary');
+    }
+
     public function products()
     {
         return $this->hasManyThrough(

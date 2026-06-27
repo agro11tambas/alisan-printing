@@ -157,7 +157,7 @@
                                                     <input type="text" class="form-control"
                                                         name="addresses[0][business_name]"
                                                         value="{{ old('addresses.0.business_name') }}"
-                                                        placeholder="Business Name">
+                                                        placeholder="Branch Name">
                                                 </div>
                                             </div>
                                             <div class="col-lg-5">
@@ -263,7 +263,7 @@
             <div class="col-lg-3">
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-briefcase"></i></div>
-                    <input type="text" class="form-control" name="addresses[${addressIndex}][business_name]" placeholder="Business Name">
+                    <input type="text" class="form-control" name="addresses[${addressIndex}][business_name]" placeholder="Branch Name">
                 </div>
             </div>
             <div class="col-lg-5">

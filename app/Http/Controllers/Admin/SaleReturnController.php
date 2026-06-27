@@ -166,6 +166,25 @@ class SaleReturnController extends Controller
                 </div>
             ';
 
+                // 🔸 Payment status badge + verified icon
+                // $paymentStatus = strtolower($return->payment_status);
+                // $badgeClass = match ($paymentStatus) {
+                //     'refunded', 'paid' => 'bg-soft-success text-success',
+                //     'over refunded'    => 'bg-soft-primary text-primary',
+                //     'unpaid'           => 'bg-soft-danger text-danger',
+                //     'partially paid'   => 'bg-soft-warning text-warning',
+                //     'customer deposit' => 'bg-soft-primary text-primary',
+                //     default             => 'bg-soft-warning text-warning',
+                // };
+
+                // $verifiedIcon = '';
+                // if ($return->verified) {
+                //     $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
+                // }
+
+                // $badge = '<div class="badge ' . $badgeClass . '">' . ucfirst($paymentStatus) . '</div>' . $verifiedIcon;
+
+                // 🔸 Order Payment Status
                 $orderPaymentStatus = strtolower($return->saleOrder?->payment_status ?? '-');
 
                 $orderBadgeClass = match ($orderPaymentStatus) {
@@ -230,8 +249,11 @@ class SaleReturnController extends Controller
                     'return_date' => $date,
                     'customer' => '
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
-                            <div class="fw-semibold">' . e($return->customerAddress->business_name ?? '-') . '</div>
-                            <small class="text-muted">' . e($return->customer->name ?? '-') . '</small>
+                            <div class="fw-semibold">' . e($return->customer->name ?? '-') . '</div>
+                            <div>
+                                <small class="text-muted">' . e($return->customerAccount->name ?? '-') . '</small>
+                            </div>
+                            <small class="text-muted">' . e($return->customerAddress->business_name ?? '-') . '</small>
                         </div>
                     ',
                     // 'total_amount' => 'Rp ' . number_format($return->total_amount, 0, ',', '.'),
@@ -381,17 +403,9 @@ class SaleReturnController extends Controller
                     ->value('total_return');
 
                 // 🔹 Remaining qty = shipped - returned
-                $remainingQty = max(0, $totalShipped - $returnedQty);
+                $item->remaining_qty = max(0, $totalShipped - $returnedQty);
 
-                $expandedItems->push((object) [
-                    'id'            => $item->id,
-                    'order_id'      => $item->order_id,
-                    'product_id'    => $item->product_id,
-                    'product'       => $item->product,
-                    'quantity'      => $item->quantity,
-                    'remaining_qty' => $remainingQty,
-                    'price'         => $item->product->price ?? 0,
-                ]);
+                $expandedItems->push($item);
             } elseif ($item->product_bundle_id) {
                 foreach ($item->productBundle->items as $bundleItem) {
                     // 🔹 Hitung total sudah dikirim (shipped)
@@ -441,6 +455,7 @@ class SaleReturnController extends Controller
             'order_number'      => 'required|string',
             'sale_order_id'     => 'required|exists:orders,id',
             'customer_id'           => 'required|exists:customers,id',
+            'customer_account_id' => 'nullable|exists:customer_accounts,id',
             'customer_address_id'   => 'required|exists:customer_addresses,id',
             'return_date'       => 'required|date_format:Y-m-d\TH:i',
             'order_item_ids'    => 'required|array',
@@ -474,6 +489,7 @@ class SaleReturnController extends Controller
             $saleReturn = SaleReturn::create([
                 'sale_order_id'     => $order->id,
                 'customer_id'          => $request->customer_id,
+                'customer_account_id' => $request->customer_account_id,
                 'customer_address_id'  => $request->customer_address_id,
                 'order_number'      => $request->order_number,
                 'return_date'       => $request->return_date,
@@ -696,7 +712,9 @@ class SaleReturnController extends Controller
             'items.orderItem.product',
             'items.orderItem.productBundle.items.product',
             'customer.addresses',
+            'customer.accounts',
             'customerAddress',
+            'customerAccount',
         ])->findOrFail($id);
 
         $order = $saleReturn->saleOrder()
@@ -756,7 +774,7 @@ class SaleReturnController extends Controller
 
         $products     = Products::with(['categories', 'discounts', 'categories.discounts'])
             ->orderBy('name', 'asc')->get();
-        $customers    = Customers::with('addresses')->orderBy('name', 'asc')->get();
+        $customers    = Customers::with(['addresses', 'accounts'])->orderBy('name', 'asc')->get();
         $cashAccounts = Account::where('name', 'Cash')->orderBy('name', 'asc')->get();
         $bankAccounts = Account::where('name', 'Bank')->orderBy('name', 'asc')->get();
         $discount     = Discount::first();
@@ -780,6 +798,7 @@ class SaleReturnController extends Controller
             'order_number'      => 'required|string',
             'sale_order_id'     => 'required|exists:orders,id',
             'customer_id'         => 'required|exists:customers,id',
+            'customer_account_id' => 'nullable|exists:customer_accounts,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
             'return_date'       => 'required|date_format:Y-m-d\TH:i',
             'order_item_ids'    => 'required|array',
@@ -839,12 +858,14 @@ class SaleReturnController extends Controller
             $remainingAmount = $grandTotal - $paidAmount;
             $status = 'Sale Returns';
             $account = 'Sale Return';
-            $paymentStatus = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $grandTotal) ? 'Partially Paid' : 'Refunded');
+            // $paymentStatus = ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $grandTotal) ? 'Partially Paid' : 'Refunded');
+            $paymentStatus = '-';
 
             // === SNAPSHOT LAMA ===
             $oldHeader = Arr::only($saleReturn->toArray(), [
                 'order_number',
                 'customer_id',
+                'customer_account_id',
                 'customer_address_id',
                 'return_date',
                 'payment_status',
@@ -872,10 +893,11 @@ class SaleReturnController extends Controller
             $saleReturn->update([
                 'sale_order_id'     => $order->id,
                 'customer_id'          => $request->customer_id,
+                'customer_account_id'    => $request->customer_account_id,
                 'customer_address_id'  => $request->customer_address_id,
                 'order_number'      => $request->order_number,
                 'return_date'       => $request->return_date,
-                'payment_status'    => $paymentStatus,
+                'payment_status' => $saleReturn->payment_status,
                 'status'            => $status,
                 'account'           => $account,
                 'total_amount'      => $grandTotal,

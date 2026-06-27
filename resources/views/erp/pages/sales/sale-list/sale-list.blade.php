@@ -187,9 +187,6 @@
             color: #9ca3af;
         }
 
-        /* .sale-tabs {
-                                                                                                                                                                                                                                                                                                                                                                                                            display: none !important;
-                                                                                                                                                                                                                                                                                                                                                                                                        } */
 
         .sale-mobile-action {
             display: none;
@@ -211,6 +208,24 @@
             width: 100%;
             min-width: unset !important;
             transform: none !important;
+        }
+
+        .sale-mobile-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .sale-info-left {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sale-info-right {
+            flex: 0 0 auto;
+            text-align: right;
         }
     </style>
 @endpush
@@ -357,7 +372,7 @@
                                         <thead>
                                             <tr>
                                                 <th style="width:3%;"></th>
-                                                <th style="width:12%;">Invoice Number</th>
+                                                <th style="width:18%;">Invoice Number</th>
                                                 <th style="width:18%;">Customer</th>
                                                 <th style="width:10%;">Grand Total</th>
                                                 <th style="width:10%;">Paid Amount</th>
@@ -2165,29 +2180,33 @@
 
                 slicedData.forEach(row => {
                     container.append(`
-            <div class="sale-mobile-card" data-id="${row.id}">
-                <div class="sale-mobile-main">
-                    <div class="sale-mobile-header">
-                        <div class="sale-invoice">${row.order_number}</div>                                    
-                        <span class="sale-status">${row.payment_status}</span>
-                    </div>
+                        <div class="sale-mobile-card" data-id="${row.id}">
+                            <div class="sale-mobile-main">
+                                <div class="sale-mobile-header">
+                                    <div class="sale-invoice">${row.order_number}</div>
+                                    <span class="sale-status">${row.payment_status}</span>
+                                </div>
 
-                    <div class="sale-amount align-items-end">
-                        <div>
-                            <div class="sale-customer">${row.customer_mobile}</div>
-                            ${row.grand_total}
-                        </div>
-                        <div class="text-end"> 
-                            ${row.paid_amount}
-                        </div>
-                    </div>
-                </div>
+                                <div class="sale-customer-mobile">
+                                    ${row.customer_mobile}
+                                </div>
 
-                <div class="sale-mobile-action">
-                    ${row.action_mobile}
-                </div>
-            </div>
-        `);
+                                <div class="sale-mobile-info">
+                                    <div class="sale-info-left">        
+                                        <div class="sale-grand">${row.grand_total}</div>
+                                    </div>
+
+                                    <div class="sale-info-right">
+                                        <div class="sale-paid">${row.paid_amount}</div>        
+                                    </div>
+                                </div>
+                            </div>  
+
+                            <div class="sale-mobile-action">
+                                ${row.action_mobile}
+                            </div>
+                        </div>                                          
+                    `);
                 });
             }
 
@@ -2225,24 +2244,6 @@
             });
 
         });
-
-        // Modal handlers
-        // document.addEventListener('DOMContentLoaded', function() {
-        //     const modal = document.getElementById('modalDeleteOrder');
-        //     const form = document.getElementById('formDeleteOrder');
-        //     const nameHolder = document.getElementById('OrderName');
-
-        //     modal.addEventListener('show.bs.modal', function(event) {
-        //         const button = event.relatedTarget;
-        //         const id = button.getAttribute('data-id');
-        //         const name = button.getAttribute('data-name');
-        //         const url = button.getAttribute('data-url');
-
-        //         form.action = url;
-        //         form.dataset.id = id;
-        //         nameHolder.textContent = name;
-        //     });
-        // });
 
         document.addEventListener('click', function(e) {
             const btn = e.target.closest('.btn-delete');

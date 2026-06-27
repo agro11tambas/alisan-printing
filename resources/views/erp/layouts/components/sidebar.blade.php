@@ -443,6 +443,12 @@
                                         <span>Customers</span>
                                     </a>
                                 </li>
+                                <li class="nxl-item">
+                                    <a href="/erp/customer-accounts"
+                                        class="nxl-link {{ request()->is('erp/customers-accounts*') ? 'active' : '' }}">
+                                        <span>Customer Accounts</span>
+                                    </a>
+                                </li>
                             @endif
 
                             @if (Auth::user()->hasPermission('supplier'))

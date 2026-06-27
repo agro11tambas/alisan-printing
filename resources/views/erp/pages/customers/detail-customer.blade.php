@@ -57,17 +57,55 @@
                         <div class="col-lg-10"><strong class="text-black">{{ $customer->name }}</strong></div>
                     </div>
                     <div class="row mb-4">
-                        <div class="col-lg-2 fw-medium">Phone Number</div>
-                        <div class="col-lg-10"><strong class="text-black">{{ $customer->phone }}</strong></div>
+                        <div class="col-lg-2 fw-medium">Customer Account</div>
+
+                        <div class="col-lg-10">
+                            @forelse ($customer->accounts as $account)
+                                <div class="border rounded-3 p-3 mb-2 bg-light">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="avatar-text avatar-md bg-primary text-white rounded-circle">
+                                            <i class="feather-user"></i>
+                                        </div>
+
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold text-dark">
+                                                {{ $account->name ?? '-' }}
+                                            </div>
+
+                                            <div class="text-muted small">
+                                                <i class="feather-phone me-1"></i>
+                                                {{ $account->whatsapp_number ?? '-' }}
+                                            </div>
+
+                                            @if (!empty($account->email))
+                                                <div class="text-muted small">
+                                                    <i class="feather-mail me-1"></i>
+                                                    {{ $account->email }}
+                                                </div>
+                                            @endif
+                                        </div>
+
+                                        <span class="badge bg-soft-success text-success">
+                                            Account {{ $loop->iteration }}
+                                        </span>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="border rounded-3 p-4 text-center bg-light">
+                                    <i class="feather-user-x fs-4 text-muted"></i>
+                                    <div class="mt-2 text-muted">Belum ada customer account</div>
+                                </div>
+                            @endforelse
+                        </div>
                     </div>
                     <div class="border-top pt-4">
                         @foreach ($customer->addresses as $index => $address)
                             <div class="row mb-3">
-                                <div class="col-lg-2 fw-medium">Business {{ $index + 1 }}</div>
+                                <div class="col-lg-2 fw-medium">Branch {{ $index + 1 }}</div>
                                 <div class="row col-lg-4">
                                     <div class="col-lg-4">
                                         <div class="d-flex flex-column">
-                                            <span>Business Name</span>
+                                            <span>Branch Name</span>
                                             <strong class="text-black fs-6">{{ $address->business_name }}</strong>
                                         </div>
                                     </div>

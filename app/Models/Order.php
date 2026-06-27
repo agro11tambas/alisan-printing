@@ -15,6 +15,7 @@ class Order extends Model
     protected $fillable = [
         'status_edited',
         'customer_id',
+        'customer_account_id',
         'customer_address_id',
         'order_number',
         'order_date',
@@ -115,6 +116,11 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function customerAccount()
+    {
+        return $this->belongsTo(CustomerAccount::class, 'customer_account_id');
     }
 
     // public function updatePaymentStatus()
