@@ -1,4 +1,4 @@
-<div class="dropdown">
+{{-- <div class="dropdown">
     <ul class="dropdown-menu show static-action-menu">
         <li>
             <a class="dropdown-item" href="/erp/products/product-bundles/edit-product-bundle/{{ $bundle->id }}">
@@ -17,6 +17,17 @@
                 <i class="feather feather-trash-2 me-3"></i>
                 <span>Delete</span>
             </button>
+        </li>
+    </ul>
+</div> --}}
+
+<div class="dropdown">
+    <ul class="dropdown-menu show static-action-menu">
+        <li>
+            <a class="dropdown-item" href="/erp/products/product-bundles/add-more-product/{{ $primaryProductId }}">
+                <i class="feather feather-plus me-3"></i>
+                <span>Add More Product</span>
+            </a>
         </li>
     </ul>
 </div>

@@ -3,7 +3,6 @@
         <thead>
             <tr>
                 <th>Secondary Product</th>
-                <th>SKU</th>
                 <th>Bundle Units</th>
                 <th width="120" class="text-center">Aksi</th>
             </tr>
@@ -14,10 +13,9 @@
                 <tr>
                     <td class="fw-semibold text-dark">
                         {{ $item['secondary_name'] }}
-                    </td>
-
-                    <td>
-                        {{ $item['sku'] }}
+                        <div>
+                            <small class="text-muted">{{ $item['sku'] }}</small>
+                        </div>
                     </td>
 
                     <td>

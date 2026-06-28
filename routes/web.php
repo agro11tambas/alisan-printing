@@ -128,6 +128,15 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::put('/erp/products/product-bundles/update/{id}', [ProductBundleController::class, 'update']);
             Route::delete('/erp/products/product-bundles/delete/{id}', [ProductBundleController::class, 'delete']);
             Route::get('/search-products', [ProductBundleController::class, 'search']);
+
+            Route::get(
+                '/erp/products/product-bundles/add-more-product/{primaryProductId}',
+                [ProductBundleController::class, 'addMoreProduct']
+            );
+            Route::post(
+                '/erp/products/product-bundles/store-more-product/{primaryProductId}',
+                [ProductBundleController::class, 'storeMoreProduct']
+            );
         });
     });
 

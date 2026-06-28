@@ -100,12 +100,19 @@ class ProductBundleController extends Controller
                         'erp.pages.product-bundles.partials.secondary-products-table',
                         compact('secondaryBundles')
                     )->render(),
+
+                    'action' => view(
+                        'erp.pages.product-bundles.partials.action-button',
+                        [
+                            'bundle' => $firstBundle,
+                            'primaryProductId' => $primaryProduct?->id,
+                        ]
+                    )->render(),
                 ];
             }),
             'has_more' => $totalData > ($start + $length),
         ]);
     }
-
 
     public function search(Request $request)
     {
@@ -458,6 +465,41 @@ class ProductBundleController extends Controller
     //     ));
     // }
 
+    // public function edit($id)
+    // {
+    //     $bundle = ProductBundle::with([
+    //         'items.product',
+    //         'unitConversions.unit',
+    //     ])->findOrFail($id);
+
+    //     $products = Products::orderBy('name', 'asc')->get();
+    //     $productUnits = ProductUnit::orderBy('name', 'asc')->get();
+
+    //     $primaryItem = $bundle->items->where('role', 'primary')->first();
+    //     $secondaryItems = $bundle->items->where('role', 'secondary')->values();
+
+    //     $existingBundles = ProductBundle::with('items')
+    //         ->where('id', '!=', $bundle->id)
+    //         ->get()
+    //         ->map(function ($bundle) {
+    //             return [
+    //                 'primary' => $bundle->items->where('role', 'primary')->first()?->product_id,
+    //                 'secondary' => $bundle->items->where('role', 'secondary')->first()?->product_id,
+    //             ];
+    //         })
+    //         ->filter(fn($item) => $item['primary'] && $item['secondary'])
+    //         ->values();
+
+    //     return view('erp.pages.product-bundles.edit-product', compact(
+    //         'bundle',
+    //         'products',
+    //         'productUnits',
+    //         'primaryItem',
+    //         'secondaryItems',
+    //         'existingBundles'
+    //     ));
+    // }
+
     public function edit($id)
     {
         $bundle = ProductBundle::with([
@@ -465,14 +507,35 @@ class ProductBundleController extends Controller
             'unitConversions.unit',
         ])->findOrFail($id);
 
+        $primaryItem = $bundle->items
+            ->where('role', 'primary')
+            ->first();
+
+        abort_if(!$primaryItem, 404);
+
+        $primaryProductId = $primaryItem->product_id;
+
+        $connectedBundles = ProductBundle::with([
+            'items.product',
+            'unitConversions.unit',
+        ])
+            ->whereHas('items', function ($q) use ($primaryProductId) {
+                $q->where('role', 'primary')
+                    ->where('product_id', $primaryProductId);
+            })
+            ->get();
+
         $products = Products::orderBy('name', 'asc')->get();
         $productUnits = ProductUnit::orderBy('name', 'asc')->get();
 
-        $primaryItem = $bundle->items->where('role', 'primary')->first();
-        $secondaryItems = $bundle->items->where('role', 'secondary')->values();
+        $secondaryItems = $connectedBundles
+            ->flatMap(function ($bundle) {
+                return $bundle->items->where('role', 'secondary');
+            })
+            ->values();
 
         $existingBundles = ProductBundle::with('items')
-            ->where('id', '!=', $bundle->id)
+            ->whereNotIn('id', $connectedBundles->pluck('id'))
             ->get()
             ->map(function ($bundle) {
                 return [
@@ -485,6 +548,7 @@ class ProductBundleController extends Controller
 
         return view('erp.pages.product-bundles.edit-product', compact(
             'bundle',
+            'connectedBundles',
             'products',
             'productUnits',
             'primaryItem',
@@ -787,5 +851,187 @@ class ProductBundleController extends Controller
         $bundle->delete();
 
         return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dihapus!');
+    }
+
+    public function addMoreProduct($primaryProductId)
+    {
+        $connectedBundles = ProductBundle::with([
+            'items.product',
+            'unitConversions.unit',
+        ])
+            ->whereHas('items', function ($q) use ($primaryProductId) {
+                $q->where('role', 'primary')
+                    ->where('product_id', $primaryProductId);
+            })
+            ->get();
+
+        abort_if($connectedBundles->isEmpty(), 404);
+
+        $bundle = $connectedBundles->first();
+
+        $primaryItem = $bundle->items
+            ->where('role', 'primary')
+            ->first();
+
+        $secondaryItems = $connectedBundles
+            ->flatMap(function ($bundle) {
+                return $bundle->items->where('role', 'secondary');
+            })
+            ->values();
+
+        $products = Products::orderBy('name', 'asc')->get();
+        $productUnits = ProductUnit::orderBy('name', 'asc')->get();
+
+        $existingBundles = ProductBundle::with('items')
+            ->whereNotIn('id', $connectedBundles->pluck('id'))
+            ->get()
+            ->map(function ($bundle) {
+                return [
+                    'primary' => $bundle->items->where('role', 'primary')->first()?->product_id,
+                    'secondary' => $bundle->items->where('role', 'secondary')->first()?->product_id,
+                ];
+            })
+            ->filter(fn($item) => $item['primary'] && $item['secondary'])
+            ->values();
+
+        return view('erp.pages.product-bundles.add-more-products', compact(
+            'bundle',
+            'connectedBundles',
+            'products',
+            'productUnits',
+            'primaryItem',
+            'secondaryItems',
+            'existingBundles'
+        ));
+    }
+
+    public function storeMoreProduct(Request $request, $primaryProductId)
+    {
+        $request->validate([
+            'secondary_product_ids' => 'required|array|min:1',
+            'secondary_product_ids.*' => 'required|exists:products,id',
+        ], [
+            'secondary_product_ids.required' => 'Minimal pilih 1 secondary product.',
+            'secondary_product_ids.min' => 'Minimal pilih 1 secondary product.',
+        ]);
+
+        $secondaryIds = collect($request->secondary_product_ids)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($secondaryIds->contains($primaryProductId)) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Secondary tidak boleh sama dengan primary.');
+        }
+
+        try {
+            DB::transaction(function () use ($primaryProductId, $secondaryIds) {
+                $primary = Products::with(['unitConversions', 'baseUnit'])
+                    ->findOrFail($primaryProductId);
+
+                foreach ($secondaryIds as $secondaryId) {
+                    $secondary = Products::with(['unitConversions', 'baseUnit'])
+                        ->findOrFail($secondaryId);
+
+                    $alreadyConnected = ProductBundle::whereHas('items', function ($q) use ($primaryProductId) {
+                        $q->where('role', 'primary')
+                            ->where('product_id', $primaryProductId);
+                    })
+                        ->whereHas('items', function ($q) use ($secondaryId) {
+                            $q->where('role', 'secondary')
+                                ->where('product_id', $secondaryId);
+                        })
+                        ->exists();
+
+                    if ($alreadyConnected) {
+                        continue;
+                    }
+
+                    $bundleName = trim($primary->name . ' + ' . $secondary->name) . ' (BUNDLE)';
+                    $bundleSku = trim($primary->sku . $secondary->sku);
+
+                    $existsBundleSku = ProductBundle::where('sku', $bundleSku)->first();
+                    $existsProductSku = Products::where('sku', $bundleSku)->first();
+
+                    if ($existsBundleSku || $existsProductSku) {
+                        $existingName = $existsBundleSku?->name ?? $existsProductSku?->name ?? '-';
+
+                        throw new \Exception('SKU ' . $bundleSku . ' sudah digunakan dengan nama ' . $existingName);
+                    }
+
+                    $baseUnitId = null;
+
+                    if (
+                        !empty($primary->base_unit_id) &&
+                        !empty($secondary->base_unit_id) &&
+                        (int) $primary->base_unit_id === (int) $secondary->base_unit_id
+                    ) {
+                        $baseUnitId = $primary->base_unit_id;
+                    }
+
+                    $bundle = ProductBundle::create([
+                        'name' => $bundleName,
+                        'sku' => $bundleSku,
+                        'price' => 0,
+                        'base_unit_id' => $baseUnitId,
+                    ]);
+
+                    ProductBundleItem::create([
+                        'bundle_id' => $bundle->id,
+                        'product_id' => $primary->id,
+                        'quantity' => 1,
+                        'role' => 'primary',
+                    ]);
+
+                    ProductBundleItem::create([
+                        'bundle_id' => $bundle->id,
+                        'product_id' => $secondary->id,
+                        'quantity' => 1,
+                        'role' => 'secondary',
+                    ]);
+
+                    $primaryUnits = $primary->unitConversions->keyBy('unit_id');
+                    $secondaryUnits = $secondary->unitConversions->keyBy('unit_id');
+
+                    foreach ($primaryUnits as $unitId => $primaryUnit) {
+                        $secondaryUnit = $secondaryUnits->get($unitId);
+
+                        $primarySalePrice = (float) ($primaryUnit->sale_price ?? 0);
+                        $secondarySalePrice = $secondaryUnit ? (float) ($secondaryUnit->sale_price ?? 0) : 0;
+
+                        ProductBundleUnitConversion::create([
+                            'product_bundle_id' => $bundle->id,
+                            'unit_id' => $unitId,
+                            'conversion_value' => $primaryUnit->conversion_value ?? 1,
+                            'ratio_value' => $primaryUnit->ratio_value ?? $primaryUnit->conversion_value ?? 1,
+                            'sale_price' => $primarySalePrice + $secondarySalePrice,
+                        ]);
+                    }
+
+                    foreach ($secondaryUnits as $unitId => $secondaryUnit) {
+                        if ($primaryUnits->has($unitId)) {
+                            continue;
+                        }
+
+                        ProductBundleUnitConversion::create([
+                            'product_bundle_id' => $bundle->id,
+                            'unit_id' => $unitId,
+                            'conversion_value' => $secondaryUnit->conversion_value ?? 1,
+                            'ratio_value' => $secondaryUnit->ratio_value ?? $secondaryUnit->conversion_value ?? 1,
+                            'sale_price' => $secondaryUnit->sale_price ?? 0,
+                        ]);
+                    }
+                }
+            });
+
+            return redirect('/erp/products/product-bundles')
+                ->with('success', 'Product Bundle berhasil diperbarui!');
+        } catch (\Throwable $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Gagal memperbarui Product Bundle: ' . $e->getMessage());
+        }
     }
 }

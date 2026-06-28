@@ -732,6 +732,8 @@
                         salePriceInput.val(formatMoneyID(newSalePrice));
                         salePriceInput[0].dataset.raw = newSalePrice.toString();
                     }
+
+                    calculateUnitPrices();
                 });
 
             ['name', 'sku', 'price', 'fixed_cost'].forEach(id => {

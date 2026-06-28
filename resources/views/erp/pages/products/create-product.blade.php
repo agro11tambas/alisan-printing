@@ -541,21 +541,23 @@
                     const marginInput = row.find('input[name*="[margin]"]');
                     const salePriceInput = row.find('input[name*="[sale_price]"]');
 
-                    const fixedCost = parseFloat(normalizeMoneyValue(fixedCostInput.val())) || 0;
-                    const margin = parseFloat(normalizeMoneyValue(marginInput.val())) || 0;
-                    const salePrice = parseFloat(normalizeMoneyValue(salePriceInput.val())) || 0;
+                    const fixedCost = parseMoneyValue(fixedCostInput.val());
+                    const margin = parseMoneyValue(marginInput.val());
+                    const salePrice = parseMoneyValue(salePriceInput.val());
 
                     if ($(this).is(salePriceInput)) {
                         const newMargin = salePrice - fixedCost;
 
-                        marginInput.val(formatMoneyID(newMargin));
+                        marginInput.val(formatRupiahValue(newMargin));
                         marginInput[0].dataset.raw = newMargin.toString();
                     } else {
                         const newSalePrice = fixedCost + margin;
 
-                        salePriceInput.val(formatMoneyID(newSalePrice));
+                        salePriceInput.val(formatRupiahValue(newSalePrice));
                         salePriceInput[0].dataset.raw = newSalePrice.toString();
                     }
+
+                    calculateUnitPrices();
                 });
 
             const imageInput = document.getElementById('image');

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\InventoryStock;
 use App\Models\InventoryWarehouse;
 use App\Models\ProductBundle;
+use App\Models\ProductBundleItem;
+use App\Models\ProductBundleUnitConversion;
 use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Http;
@@ -493,6 +495,91 @@ class ProductsController extends Controller
         ));
     }
 
+    private function refreshBundlesByProduct($productId)
+    {
+        $bundleIds = ProductBundleItem::where('product_id', $productId)
+            ->pluck('bundle_id')
+            ->unique();
+
+        foreach ($bundleIds as $bundleId) {
+            $bundle = ProductBundle::with([
+                'items.product.unitConversions',
+                'items.product.baseUnit',
+            ])->find($bundleId);
+
+            if (!$bundle) {
+                continue;
+            }
+
+            $primaryItem = $bundle->items->where('role', 'primary')->first();
+            $secondaryItem = $bundle->items->where('role', 'secondary')->first();
+
+            if (!$primaryItem || !$secondaryItem) {
+                continue;
+            }
+
+            $primary = $primaryItem->product;
+            $secondary = $secondaryItem->product;
+
+            if (!$primary || !$secondary) {
+                continue;
+            }
+
+            $baseUnitId = null;
+
+            if (
+                !empty($primary->base_unit_id) &&
+                !empty($secondary->base_unit_id) &&
+                (int) $primary->base_unit_id === (int) $secondary->base_unit_id
+            ) {
+                $baseUnitId = $primary->base_unit_id;
+            }
+
+            $primaryUnits = $primary->unitConversions->keyBy('unit_id');
+            $secondaryUnits = $secondary->unitConversions->keyBy('unit_id');
+
+            ProductBundleUnitConversion::where('product_bundle_id', $bundle->id)->delete();
+
+            foreach ($primaryUnits as $unitId => $primaryUnit) {
+                $secondaryUnit = $secondaryUnits->get($unitId);
+
+                $primarySalePrice = (float) ($primaryUnit->sale_price ?? 0);
+                $secondarySalePrice = $secondaryUnit ? (float) ($secondaryUnit->sale_price ?? 0) : 0;
+
+                ProductBundleUnitConversion::create([
+                    'product_bundle_id' => $bundle->id,
+                    'unit_id' => $unitId,
+                    'conversion_value' => $primaryUnit->conversion_value ?? 1,
+                    'ratio_value' => $primaryUnit->ratio_value ?? $primaryUnit->conversion_value ?? 1,
+                    'sale_price' => $primarySalePrice + $secondarySalePrice,
+                ]);
+            }
+
+            foreach ($secondaryUnits as $unitId => $secondaryUnit) {
+                if ($primaryUnits->has($unitId)) {
+                    continue;
+                }
+
+                ProductBundleUnitConversion::create([
+                    'product_bundle_id' => $bundle->id,
+                    'unit_id' => $unitId,
+                    'conversion_value' => $secondaryUnit->conversion_value ?? 1,
+                    'ratio_value' => $secondaryUnit->ratio_value ?? $secondaryUnit->conversion_value ?? 1,
+                    'sale_price' => $secondaryUnit->sale_price ?? 0,
+                ]);
+            }
+
+            $bundlePrice = ProductBundleUnitConversion::where('product_bundle_id', $bundle->id)
+                ->orderBy('id', 'asc')
+                ->value('sale_price') ?? 0;
+
+            $bundle->update([
+                'price' => $bundlePrice,
+                'base_unit_id' => $baseUnitId,
+            ]);
+        }
+    }
+
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -648,19 +735,21 @@ class ProductsController extends Controller
                     ->whereNotIn('unit_id', $keepUnitIds)
                     ->delete();
 
-                $bundleIds = \App\Models\ProductBundleItem::where('product_id', $id)
-                    ->pluck('bundle_id')
-                    ->unique();
+                // $bundleIds = \App\Models\ProductBundleItem::where('product_id', $id)
+                //     ->pluck('bundle_id')
+                //     ->unique();
 
-                foreach ($bundleIds as $bundleId) {
-                    $total = \App\Models\ProductBundleItem::where('bundle_id', $bundleId)
-                        ->join('products', 'product_bundle_items.product_id', '=', 'products.id')
-                        ->sum('products.price');
+                // foreach ($bundleIds as $bundleId) {
+                //     $total = \App\Models\ProductBundleItem::where('bundle_id', $bundleId)
+                //         ->join('products', 'product_bundle_items.product_id', '=', 'products.id')
+                //         ->sum('products.price');
 
-                    \App\Models\ProductBundle::where('id', $bundleId)->update([
-                        'price' => $total,
-                    ]);
-                }
+                //     \App\Models\ProductBundle::where('id', $bundleId)->update([
+                //         'price' => $total,
+                //     ]);
+                // }
+
+                $this->refreshBundlesByProduct($product->id);
 
                 $product->categories()->sync($request->categories ?? []);
                 $product->tags()->sync($request->tags ?? []);
