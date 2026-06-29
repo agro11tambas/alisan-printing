@@ -3,7 +3,7 @@
         <thead>
             <tr>
                 <th>Unit</th>
-                <th>Rasio</th>
+                {{-- <th>Rasio</th> --}}
                 <th>Fixed Cost</th>
                 <th>Margin</th>
                 <th>Sale Price</th>
@@ -15,9 +15,9 @@
                     <td class="fw-semibold text-dark">
                         {{ $unit->unit->name ?? '-' }}
                     </td>
-                    <td>
+                    {{-- <td>
                         {{ number_format((int) $unit->ratio_value, 0, ',', '.') }}
-                    </td>
+                    </td> --}}
                     <td>
                         Rp {{ number_format((float) $unit->fixed_cost, 0, ',', '.') }}
                     </td>

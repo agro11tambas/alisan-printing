@@ -495,16 +495,63 @@
                 return baseRow;
             }
 
+            // function calculateUnitPrices() {
+            //     const baseRow = getBaseRatioOneRow();
+
+            //     if (!baseRow) return;
+
+            //     const baseFixedCostInput = baseRow.find('input[name*="[fixed_cost]"]');
+            //     const baseMarginInput = baseRow.find('input[name*="[margin]"]');
+
+            //     const baseFixedCost = parseFloat(normalizeMoneyValue(baseFixedCostInput.val())) || 0;
+            //     const baseMargin = parseFloat(normalizeMoneyValue(baseMarginInput.val())) || 0;
+
+            //     $('#productUnitBody tr').each(function() {
+            //         const row = $(this);
+
+            //         const ratioInput = row.find('.conversion-input');
+            //         const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+            //         const marginInput = row.find('input[name*="[margin]"]');
+            //         const salePriceInput = row.find('input[name*="[sale_price]"]');
+
+            //         const ratio = parseFloat(ratioInput.val().replace(',', '.')) || 0;
+            //         if (ratio <= 0) return;
+
+            //         let fixedCost;
+            //         let margin;
+
+            //         if (ratio === 1) {
+            //             fixedCost = baseFixedCost;
+            //             margin = baseMargin;
+            //         } else {
+            //             fixedCost = baseFixedCost / ratio;
+            //             margin = baseMargin / ratio;
+            //         }
+
+            //         const salePrice = fixedCost + margin;
+
+            //         fixedCostInput.val(formatMoneyID(fixedCost));
+            //         fixedCostInput[0].dataset.raw = fixedCost.toString();
+
+            //         marginInput.val(formatMoneyID(margin));
+            //         marginInput[0].dataset.raw = margin.toString();
+
+            //         salePriceInput.val(formatMoneyID(salePrice));
+            //         salePriceInput[0].dataset.raw = salePrice.toString();
+
+            //         removeError(fixedCostInput);
+            //         removeError(marginInput);
+            //         removeError(salePriceInput);
+            //     });
+            // }
+
             function calculateUnitPrices() {
                 const baseRow = getBaseRatioOneRow();
 
                 if (!baseRow) return;
 
                 const baseFixedCostInput = baseRow.find('input[name*="[fixed_cost]"]');
-                const baseMarginInput = baseRow.find('input[name*="[margin]"]');
-
                 const baseFixedCost = parseFloat(normalizeMoneyValue(baseFixedCostInput.val())) || 0;
-                const baseMargin = parseFloat(normalizeMoneyValue(baseMarginInput.val())) || 0;
 
                 $('#productUnitBody tr').each(function() {
                     const row = $(this);
@@ -517,30 +564,17 @@
                     const ratio = parseFloat(ratioInput.val().replace(',', '.')) || 0;
                     if (ratio <= 0) return;
 
-                    let fixedCost;
-                    let margin;
-
-                    if (ratio === 1) {
-                        fixedCost = baseFixedCost;
-                        margin = baseMargin;
-                    } else {
-                        fixedCost = baseFixedCost / ratio;
-                        margin = baseMargin / ratio;
-                    }
-
+                    const fixedCost = ratio === 1 ? baseFixedCost : baseFixedCost / ratio;
+                    const margin = parseFloat(normalizeMoneyValue(marginInput.val())) || 0;
                     const salePrice = fixedCost + margin;
 
                     fixedCostInput.val(formatMoneyID(fixedCost));
                     fixedCostInput[0].dataset.raw = fixedCost.toString();
 
-                    marginInput.val(formatMoneyID(margin));
-                    marginInput[0].dataset.raw = margin.toString();
-
                     salePriceInput.val(formatMoneyID(salePrice));
                     salePriceInput[0].dataset.raw = salePrice.toString();
 
                     removeError(fixedCostInput);
-                    removeError(marginInput);
                     removeError(salePriceInput);
                 });
             }
@@ -708,33 +742,73 @@
                 calculateUnitPrices();
             });
 
-            $(document).on('input',
-                'input[name*="[fixed_cost]"], input[name*="[margin]"], input[name*="[sale_price]"]',
-                function() {
-                    const row = $(this).closest('tr');
+            // $(document).on('input',
+            //     'input[name*="[fixed_cost]"], input[name*="[margin]"], input[name*="[sale_price]"]',
+            //     function() {
+            //         const row = $(this).closest('tr');
 
-                    const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
-                    const marginInput = row.find('input[name*="[margin]"]');
-                    const salePriceInput = row.find('input[name*="[sale_price]"]');
+            //         const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+            //         const marginInput = row.find('input[name*="[margin]"]');
+            //         const salePriceInput = row.find('input[name*="[sale_price]"]');
 
-                    const fixedCost = parseFloat(normalizeMoneyValue(fixedCostInput.val())) || 0;
-                    const margin = parseFloat(normalizeMoneyValue(marginInput.val())) || 0;
-                    const salePrice = parseFloat(normalizeMoneyValue(salePriceInput.val())) || 0;
+            //         const fixedCost = parseFloat(normalizeMoneyValue(fixedCostInput.val())) || 0;
+            //         const margin = parseFloat(normalizeMoneyValue(marginInput.val())) || 0;
+            //         const salePrice = parseFloat(normalizeMoneyValue(salePriceInput.val())) || 0;
 
-                    if ($(this).is(salePriceInput)) {
-                        const newMargin = salePrice - fixedCost;
+            //         if ($(this).is(salePriceInput)) {
+            //             const newMargin = salePrice - fixedCost;
 
-                        marginInput.val(formatMoneyID(newMargin));
-                        marginInput[0].dataset.raw = newMargin.toString();
-                    } else {
-                        const newSalePrice = fixedCost + margin;
+            //             marginInput.val(formatMoneyID(newMargin));
+            //             marginInput[0].dataset.raw = newMargin.toString();
+            //         } else {
+            //             const newSalePrice = fixedCost + margin;
 
-                        salePriceInput.val(formatMoneyID(newSalePrice));
-                        salePriceInput[0].dataset.raw = newSalePrice.toString();
-                    }
+            //             salePriceInput.val(formatMoneyID(newSalePrice));
+            //             salePriceInput[0].dataset.raw = newSalePrice.toString();
+            //         }
 
-                    calculateUnitPrices();
-                });
+            //         calculateUnitPrices();
+            //     });
+
+            $(document).on('input', 'input[name*="[fixed_cost]"]', function() {
+                const row = $(this).closest('tr');
+
+                const marginInput = row.find('input[name*="[margin]"]');
+                const salePriceInput = row.find('input[name*="[sale_price]"]');
+
+                const fixedCost = parseFloat(normalizeMoneyValue($(this).val())) || 0;
+                const margin = parseFloat(normalizeMoneyValue(marginInput.val())) || 0;
+                const salePrice = fixedCost + margin;
+
+                salePriceInput.val(formatMoneyID(salePrice));
+                salePriceInput[0].dataset.raw = salePrice.toString();
+
+                calculateUnitPrices();
+
+                removeError($(this));
+                removeError(salePriceInput);
+            });
+
+            $(document).on('input', 'input[name*="[margin]"]', function() {
+                const row = $(this).closest('tr');
+
+                const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+                const salePriceInput = row.find('input[name*="[sale_price]"]');
+
+                const fixedCost = parseFloat(normalizeMoneyValue(fixedCostInput.val())) || 0;
+                const margin = parseFloat(normalizeMoneyValue($(this).val())) || 0;
+                const salePrice = fixedCost + margin;
+
+                salePriceInput.val(formatMoneyID(salePrice));
+                salePriceInput[0].dataset.raw = salePrice.toString();
+
+                removeError($(this));
+                removeError(salePriceInput);
+            });
+
+            $(document).on('input', 'input[name*="[sale_price]"]', function() {
+                removeError($(this));
+            });
 
             ['name', 'sku', 'price', 'fixed_cost'].forEach(id => {
                 const input = $('#' + id);
