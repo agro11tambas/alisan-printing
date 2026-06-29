@@ -94,12 +94,74 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns:
+                minmax(380px, 4fr) 100px 130px 130px 130px 130px 52px;
             gap: 10px;
+            align-items: start;
+        }
+
+        .product-bundle-inline {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .product-bundle-inline:has(.bundle-wrapper:not(.d-none)) {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .product-delete-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-delete-col label {
+            height: 32px;
+            margin-bottom: 6px;
+        }
+
+        .product-delete-col .delete-row {
+            height: 44px;
+            width: 44px;
+            padding: 0;
+        }
+
+        .product-label-row {
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
         }
 
         .product-col-span-2 {
-            grid-column: span 2;
+            grid-column: span 1;
+        }
+
+        .bundle-toggle {
+            margin: 0;
+        }
+
+        .bundle-toggle input {
+            display: none;
+        }
+
+        .bundle-toggle span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 32px;
+            padding: 0 12px;
+            border-radius: 8px;
+            background: #0d6efd;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .bundle-toggle input:checked+span {
+            background: #198754;
         }
 
         /* MOBILE */
@@ -403,17 +465,24 @@
                             <!-- PRODUCT LIST -->
                             <div id="product_list">
                                 @foreach ($order->orderItems as $index => $item)
-                                    <div class="product-item" data-index="{{ $index }}">
-                                        <div class="product-item-header">
-                                            <span class="product-number">#{{ $index + 1 }}</span>
-                                            <button type="button" class="btn btn-sm btn-danger delete-row">
-                                                <i class="feather-trash"></i>
-                                            </button>
-                                        </div>
+                                    @php
+                                        $isBundle = $item->satuan === 'bundle';
 
+                                        $primaryProductId = null;
+                                        $secondaryProductId = null;
+
+                                        if ($isBundle && $item->productBundle) {
+                                            $primaryProductId = optional($item->productBundle->primaryItem)->product_id;
+                                            $secondaryProductId = optional(
+                                                $item->productBundle->secondaryItems->first(),
+                                            )->product_id;
+                                        }
+                                    @endphp
+
+                                    <div class="product-item" data-index="{{ $index }}">
                                         <div class="product-grid">
 
-                                            <div class="form-group product-col-span-2">
+                                            {{-- <div class="form-group product-col-span-2">
                                                 <label>Product</label>
                                                 <select class="form-select select-product" name="product[]"
                                                     data-select2-selector="status">
@@ -428,17 +497,7 @@
                                                             data-type="satuan">
                                                             {{ $prod->name }}
                                                         </option>
-                                                    @endforeach
-                                                    {{-- @foreach ($productBundles as $bundle)
-                                                        <option value="bundle_{{ $bundle->id }}"
-                                                            {{ $item->satuan === 'bundle' && $item->product_bundle_id == $bundle->id ? 'selected' : '' }}
-                                                            data-price="{{ $bundle->price }}"
-                                                            data-discounts='@json($bundle->discounts ?? [])'
-                                                            data-categories='@json($bundle->categories ?? [])'
-                                                            data-type="bundle">
-                                                            {{ $bundle->name }} (Bundle)
-                                                        </option>
-                                                    @endforeach --}}
+                                                    @endforeach                                                    
                                                 </select>
                                                 @php
                                                     $isBundle = $item->satuan === 'bundle';
@@ -465,6 +524,48 @@
                                                             data-selected-bundle-id="{{ $item->product_bundle_id }}"
                                                             data-selected-secondary-id="{{ $secondaryProductId }}">
                                                             <option value="">Pilih product secondary</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div> --}}
+
+                                            <div class="form-group product-col-span-2">
+                                                <div class="product-label-row">
+                                                    <label>Product</label>
+
+                                                    <label class="bundle-toggle">
+                                                        <input type="checkbox" class="add-bundle-check" value="1"
+                                                            {{ $isBundle ? 'checked' : '' }}>
+                                                        <span>
+                                                            <i class="feather-package"></i>
+                                                            Bundle
+                                                        </span>
+                                                    </label>
+                                                </div>
+
+                                                <div class="product-bundle-inline">
+                                                    <select class="form-control select-product"
+                                                        data-select2-selector="tag" name="product[]">
+                                                        <option value="" disabled hidden>Pilih produk</option>
+
+                                                        @foreach ($products as $prod)
+                                                            <option value="satuan_{{ $prod->id }}"
+                                                                {{ !$isBundle && $item->product_id == $prod->id ? 'selected' : '' }}
+                                                                data-price="{{ $prod->price }}"
+                                                                data-discounts='@json($prod->discounts ?? [])'
+                                                                data-categories='@json($prod->categories ?? [])'
+                                                                data-type="satuan" data-sku="{{ $prod->sku ?? '' }}">
+                                                                [{{ $prod->sku ?? '-' }}] {{ $prod->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+
+                                                    <div class="bundle-wrapper {{ $isBundle ? '' : 'd-none' }}">
+                                                        <select class="form-control bundle-secondary-product"
+                                                            name="bundle_secondary_product_id[]"
+                                                            data-selected-bundle-id="{{ $item->product_bundle_id }}"
+                                                            data-selected-secondary-id="{{ $secondaryProductId }}">
+                                                            <option value="">Pilih product bundle</option>
                                                         </select>
                                                     </div>
                                                 </div>
@@ -552,6 +653,13 @@
                                                     value="{{ number_format($item->price * $item->quantity, 2, '.', '') }}">
                                             </div>
 
+                                            <div class="product-delete-col">
+                                                <label>&nbsp;</label>
+                                                <button type="button" class="btn btn-danger delete-row">
+                                                    <i class="feather-trash"></i>
+                                                </button>
+                                            </div>
+
                                             <input type="hidden" name="price_after_discount[]"
                                                 class="price_after_discount" value="{{ $item->price_after_discount }}">
 
@@ -564,16 +672,9 @@
 
                             <template id="product_item_template">
                                 <div class="product-item" data-index="__index__">
-                                    <div class="product-item-header">
-                                        <span class="product-number">#__number__</span>
-                                        <button type="button" class="btn btn-sm btn-danger delete-row">
-                                            <i class="feather-trash"></i>
-                                        </button>
-                                    </div>
-
                                     <div class="product-grid">
 
-                                        <div class="form-group product-col-span-2">
+                                        {{-- <div class="form-group product-col-span-2">
                                             <label>Product</label>
                                             <select class="form-select select-product" name="product[]"
                                                 data-select2-selector="status">
@@ -591,6 +692,34 @@
                                                     <select class="form-control bundle-secondary-product"
                                                         name="bundle_secondary_product_id[]">
                                                         <option value="">Pilih product secondary</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div> --}}
+
+                                        <div class="form-group product-col-span-2">
+                                            <div class="product-label-row">
+                                                <label>Product</label>
+
+                                                <label class="bundle-toggle">
+                                                    <input type="checkbox" class="add-bundle-check" value="1">
+                                                    <span>
+                                                        <i class="feather-package"></i>
+                                                        Bundle
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            <div class="product-bundle-inline">
+                                                <select class="form-control select-product" data-select2-selector="tag"
+                                                    name="product[]">
+                                                    <option value="" disabled selected hidden>Pilih produk</option>
+                                                </select>
+
+                                                <div class="bundle-wrapper d-none">
+                                                    <select class="form-control bundle-secondary-product"
+                                                        name="bundle_secondary_product_id[]">
+                                                        <option value="">Pilih product bundle</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -637,6 +766,13 @@
                                                 readonly value="0">
                                             <input type="hidden" name="total_before_discount[]"
                                                 class="total_before_discount" value="0">
+                                        </div>
+
+                                        <div class="product-delete-col">
+                                            <label>&nbsp;</label>
+                                            <button type="button" class="btn btn-danger delete-row">
+                                                <i class="feather-trash"></i>
+                                            </button>
                                         </div>
 
                                         <input type="hidden" name="price_after_discount[]" class="price_after_discount"
@@ -816,6 +952,42 @@
     </div>
 @endpush
 
+@php
+    $customerAddressesData = $customers
+        ->mapWithKeys(function ($customer) {
+            return [
+                $customer->id => $customer->addresses
+                    ->map(function ($address) {
+                        return [
+                            'id' => $address->id,
+                            'address' => $address->address,
+                            'google_maps' => $address->google_maps,
+                            'business_name' => $address->business_name,
+                        ];
+                    })
+                    ->values(),
+            ];
+        })
+        ->toArray();
+
+    $customerAccountsData = $customers
+        ->mapWithKeys(function ($customer) {
+            return [
+                $customer->id => $customer->accounts
+                    ->map(function ($account) {
+                        return [
+                            'id' => $account->id,
+                            'name' => $account->name,
+                            'email' => $account->email,
+                            'whatsapp_number' => $account->whatsapp_number,
+                        ];
+                    })
+                    ->values(),
+            ];
+        })
+        ->toArray();
+@endphp
+
 @push('scripts')
     <script>
         const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
@@ -823,188 +995,8 @@
         let discountEnabled = {{ $order->discount_active ? 'true' : 'false' }};
         let pendingToggleOff = false;
 
-        function select2ProductConfig() {
-            return {
-                placeholder: 'Pilih produk',
-                width: '100%',
-
-                // dropdown: FULL TEXT
-                templateResult: function(data) {
-                    return data.text;
-                },
-
-                // selected: mobile truncate, desktop full
-                templateSelection: function(data) {
-                    if (window.innerWidth <= 576) {
-                        return truncateText(data.text, 45);
-                    }
-                    return data.text;
-                }
-            };
-        }
-
-        function truncateText(text, max = 45) {
-            if (!text) return '';
-            return text.length > max ? text.slice(0, max) + '...' : text;
-        }
-
-        function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0) {
-            const unitSelect = row.find('.product-unit');
-
-            unitSelect.empty().append('<option value="">Pilih unit</option>');
-
-            row.find('.unit-conversion-value').val('1');
-            row.find('.unit-name').val('Pcs');
-
-            if (Array.isArray(units) && units.length > 0) {
-                units.forEach(function(unit) {
-                    const unitName = unit.unit_name || 'Pcs';
-
-                    unitSelect.append(`
-                <option value="${unit.id}"
-                    data-unit-id="${unit.unit_id}"
-                    data-unit-name="${unitName}"
-                    data-conversion-value="${unit.conversion_value || 1}"
-                    data-sale-price="${unit.sale_price || defaultPrice}">
-                    ${unitName}
-                </option>
-            `);
-                });
-            }
-
-            if (selectedUnitId) {
-                unitSelect.val(String(selectedUnitId));
-            }
-
-            if (!unitSelect.val()) {
-                unitSelect.val(unitSelect.find('option:eq(1)').val());
-            }
-
-            unitSelect.trigger('change');
-        }
-
-        function updatePriceFromSelectedUnit(row) {
-            const selectedUnit = row.find('.product-unit option:selected');
-
-            if (!selectedUnit.val()) {
-                return;
-            }
-
-            const unitName = selectedUnit.data('unit-name') || 'Pcs';
-            const conversionValue = selectedUnit.data('conversion-value') || 1;
-            const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
-
-            row.find('.unit-name').val(unitName);
-            row.find('.unit-conversion-value').val(conversionValue);
-
-            row.find('.price_before_discount').val(salePrice.toFixed(2));
-            row.find('.price_before_discount_display').val(formatNumber(salePrice));
-
-            recalcAllRows();
-        }
-
-        // 🔥 Inisialisasi label dan hidden input sesuai kondisi awal
-        $(document).ready(function() {
-            const label = $('#toggleDiscount').next('label');
-            if (discountEnabled) {
-                $('#toggleDiscount').prop('checked', true);
-                $('#discount_active_hidden').val(1);
-                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
-            } else {
-                $('#toggleDiscount').prop('checked', false);
-                $('#discount_active_hidden').val(0);
-                label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
-            }
-
-            $('.product-item').each(function() {
-                const row = $(this);
-                const select = row.find('.select-product');
-
-                const selectedVal = select.val();
-                let selectedType = null;
-                let selectedId = null;
-
-                if (selectedVal) {
-                    [selectedType, selectedId] = selectedVal.split('_');
-                }
-
-                const selectedUnitId =
-                    row.find('.product-unit').data('selected-unit-id') ||
-                    row.find('.product-unit').val();
-
-                populateProducts(select[0], selectedId, selectedType);
-
-                select.select2(select2ProductConfig());
-
-                const selectedOption = select.find('option:selected');
-                const type = selectedOption.data('type') || selectedType;
-                const units = selectedOption.data('units') || [];
-
-                row.find('.product-type').val(type);
-
-                const defaultPrice = parseFloat(selectedOption.data('price') || 0);
-
-                if (row.find('.add-bundle-check').is(':checked')) {
-                    const selectedBundleId = row.find('.bundle-secondary-product').data(
-                        'selected-bundle-id');
-                    const bundle = bundles.find(b => String(b.id) === String(selectedBundleId));
-
-                    if (bundle && bundle.primary_item) {
-                        const primaryProductId = bundle.primary_item.product_id;
-
-                        populateProducts(select[0], primaryProductId, 'satuan');
-                        select.val('satuan_' + primaryProductId).trigger('change.select2');
-
-                        row.find('.bundle-wrapper').removeClass('d-none');
-                        populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId);
-
-                        row.find('.product-type').val('bundle');
-
-                        fillProductUnits(row, bundle.units || [], selectedUnitId, parseFloat(bundle.price ||
-                            0));
-                    }
-                } else if (type === 'satuan') {
-                    fillProductUnits(row, units, selectedUnitId, defaultPrice);
-                } else {
-                    row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-                    row.find('.unit-conversion-value').val('1');
-                    row.find('.unit-name').val('Pcs');
-                }
-            });
-
-
-            recalcAllRows(); // ✅ hitung ulang setelah semuanya siap
-        });
-
-        const customerAddresses = <?php echo json_encode(
-            $customers->mapWithKeys(function ($customer) {
-                return [
-                    $customer->id => $customer->addresses->map(function ($address) {
-                        return [
-                            'id' => $address->id,
-                            'address' => $address->address,
-                            'google_maps' => $address->google_maps,
-                            'business_name' => $address->business_name,
-                        ];
-                    }),
-                ];
-            }),
-        ); ?>;
-
-        const customerAccounts = <?php echo json_encode(
-            $customers->mapWithKeys(function ($customer) {
-                return [
-                    $customer->id => $customer->accounts->map(function ($account) {
-                        return [
-                            'id' => $account->id,
-                            'name' => $account->name,
-                            'email' => $account->email,
-                            'whatsapp_number' => $account->whatsapp_number,
-                        ];
-                    }),
-                ];
-            }),
-        ); ?>;
+        const customerAddresses = @json($customerAddressesData);
+        const customerAccounts = @json($customerAccountsData);
 
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
@@ -1014,18 +1006,49 @@
         //         ...p,
         //         type: 'satuan'
         //     })),
-        //     ...bundles.map(b => ({
+        //     ...bundles.map(b => ({po
         //         ...b,
         //         type: 'bundle'
         //     })),
         // ];
+
+        // const allProducts = products.map(p => ({
+        //     ...p,
+        //     type: 'satuan'
+        // }));
+
         const allProducts = products.map(p => ({
             ...p,
-            type: 'satuan'
+            type: 'satuan',
+            units: p.units || p.product_units || p.unit_conversions || []
         }));
 
+        function truncateText(text, max = 45) {
+            if (!text) return '';
+            return text.length > max ? text.slice(0, max) + '...' : text;
+        }
+
+        function select2ProductConfig() {
+            return {
+                placeholder: 'Pilih produk',
+                width: '100%',
+                templateResult: function(data) {
+                    return data.text;
+                },
+                templateSelection: function(data) {
+                    if (window.innerWidth <= 576) {
+                        return truncateText(data.text, 45);
+                    }
+
+                    return data.text;
+                }
+            };
+        }
+
         function findSelectedProductData(selectedValue) {
-            if (!selectedValue) return null;
+            if (!selectedValue) {
+                return null;
+            }
 
             const [type, id] = selectedValue.split('_');
 
@@ -1034,26 +1057,36 @@
             }) || null;
         }
 
-        // Populate dropdown produk
+        function formatNumber(num) {
+            return new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(num || 0);
+        }
+
         function populateProducts(selectEl, selectedId = null, selectedType = null) {
-            $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
+            const select = $(selectEl);
+
+            select.empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
 
             allProducts.forEach(item => {
                 const option = $('<option>', {
                         value: item.type + '_' + item.id,
                         text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? ' (Bundle)' : '')
                     })
+                    .data('real-id', item.id)
                     .data('price', item.price)
                     .data('discounts', item.discounts || [])
                     .data('categories', item.categories || [])
                     .data('type', item.type)
-                    .data('units', item.units || []);
+                    .data('units', item.units || [])
+                    .data('base-unit-id', item.base_unit_id);
 
-                if (selectedId && selectedType === item.type && selectedId == item.id) {
+                if (selectedId && selectedType === item.type && String(selectedId) === String(item.id)) {
                     option.prop('selected', true);
                 }
 
-                $(selectEl).append(option);
+                select.append(option);
             });
         }
 
@@ -1092,62 +1125,135 @@
             });
         }
 
-        function formatNumber(num) {
-            return new Intl.NumberFormat('id-ID', {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(num);
+        // function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0) {
+        //     const unitSelect = row.find('.product-unit');
+        //     const unitWrapper = row.find('.product-unit-wrapper');
+
+        //     unitSelect.empty().append('<option value="">Pilih unit</option>');
+
+        //     row.find('.unit-conversion-value').val('1');
+        //     row.find('.unit-name').val('Pcs');
+
+        //     unitWrapper.show();
+
+        //     if (Array.isArray(units) && units.length > 0) {
+        //         units.forEach(function(unit) {
+        //             const unitName = unit.unit_name || 'Pcs';
+
+        //             unitSelect.append(`
+    //         <option value="${unit.id}"
+    //             data-unit-id="${unit.unit_id}"
+    //             data-unit-name="${unitName}"
+    //             data-conversion-value="${unit.conversion_value || 1}"
+    //             data-sale-price="${unit.sale_price || defaultPrice}">
+    //             ${unitName}
+    //         </option>
+    //     `);
+        //         });
+        //     }
+
+        //     if (selectedUnitId) {
+        //         unitSelect.val(String(selectedUnitId));
+        //     }
+
+        //     if (!unitSelect.val()) {
+        //         unitSelect.val(unitSelect.find('option:eq(1)').val());
+        //     }
+
+        //     unitSelect.trigger('change');
+        // }
+
+        function fillProductUnits(row, units, baseUnitId = null) {
+            const unitSelect = row.find('.product-unit');
+
+            unitSelect.empty();
+            unitSelect.append('<option value="">Pilih unit</option>');
+
+            row.find('.unit-conversion-value').val('');
+            row.find('.unit-name').val('');
+
+            if (!Array.isArray(units) || units.length === 0) {
+                return;
+            }
+
+            units.forEach(function(unit) {
+                const id = unit.id || unit.product_unit_conversion_id || unit.product_bundle_unit_conversion_id;
+                const unitId = unit.unit_id || unit.product_unit_id || '';
+                const unitName =
+                    unit.unit_name ||
+                    unit.name ||
+                    unit.unit?.name ||
+                    unit.product_unit?.name ||
+                    unit.productUnit?.name ||
+                    'PCS';
+
+                const conversionValue =
+                    unit.conversion_value ||
+                    unit.value ||
+                    unit.conversion ||
+                    1;
+
+                const salePrice =
+                    unit.sale_price ||
+                    unit.price ||
+                    unit.selling_price ||
+                    0;
+
+                unitSelect.append(`
+            <option value="${id}"
+                data-unit-id="${unitId}"
+                data-unit-name="${unitName}"
+                data-conversion-value="${conversionValue}"
+                data-sale-price="${salePrice}">
+                ${unitName}
+            </option>
+        `);
+            });
+
+            const baseOption = unitSelect.find(`option[data-unit-id="${baseUnitId}"]`).val();
+            const firstOption = unitSelect.find('option:eq(1)').val();
+
+            unitSelect.val(baseOption || firstOption).trigger('change');
+
+            // let baseOption = null;
+
+            // unitSelect.find('option').each(function() {
+            //     if (String($(this).data('unit-id')) === String(baseUnitId)) {
+            //         baseOption = $(this).val();
+            //         return false;
+            //     }
+            // });
+
+            // const firstOption = unitSelect.find('option:eq(1)').val();
+
+            // unitSelect.val(baseOption || firstOption).trigger('change');
         }
 
-        $(document).on('change', '#toggleDiscount', function() {
-            const isChecked = $(this).is(':checked');
-            const label = $(this).next('label');
+        function updatePriceFromSelectedUnit(row) {
+            const selectedUnit = row.find('.product-unit option:selected');
 
-            if (!isChecked) {
-                pendingToggleOff = true;
-                $('#confirmDisableDiscountModal').modal('show');
-                $(this).prop('checked', true);
-            } else {
-                discountEnabled = true;
-                $('#discount_active_hidden').val(1);
-                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
-                recalcAllRows();
+            if (!selectedUnit.val()) {
+                return;
             }
-        });
 
-        $('#confirmDisableDiscountBtn').on('click', function() {
-            $('#confirmDisableDiscountModal').modal('hide');
-            if (pendingToggleOff) $('#confirmResponsibilityModal').modal('show');
-        });
+            const unitName = selectedUnit.data('unit-name') || 'Pcs';
+            const conversionValue = selectedUnit.data('conversion-value') || 1;
+            const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
 
-        $('#confirmResponsibilityBtn').on('click', function() {
-            $('#confirmResponsibilityModal').modal('hide');
-            discountEnabled = false;
-            $('#toggleDiscount').prop('checked', false);
-            $('#discount_active_hidden').val(0);
-            const label = $('#toggleDiscount').next('label');
-            label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+            row.find('.unit-name').val(unitName);
+            row.find('.unit-conversion-value').val(conversionValue);
+
+            row.find('.price_before_discount').val(salePrice.toFixed(2));
+            row.find('.price_before_discount_display').val(formatNumber(salePrice));
+
             recalcAllRows();
-            pendingToggleOff = false;
-        });
+        }
 
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
 
-            // 🔥 ambil nilai input manual dari HIDDEN
-            // let manualPrice = row.find('input.price_before_discount').val();
-            // manualPrice = manualPrice === "" ? null : parseFloat(manualPrice);
-
-            // // 🔥 base price logic BARU:
-            // // - kalau user sudah input (termasuk 0), pakai input user
-            // // - kalau belum pernah input, pakai harga product
-            // let basePrice = (manualPrice !== null && !isNaN(manualPrice)) ?
-            //     manualPrice :
-            //     (parseFloat(selectedOption.data('price')) || 0);
-
             let manualPriceRaw = row.find('input.price_before_discount').val();
 
-            // 🔥 anggap "0" sebagai BELUM DISET
             let manualPrice = (manualPriceRaw === '' || manualPriceRaw === '0') ?
                 null :
                 parseFloat(manualPriceRaw);
@@ -1156,10 +1262,8 @@
                 manualPrice :
                 (parseFloat(selectedOption.data('price')) || 0);
 
-
             const discounts = selectedOption.data('discounts') || [];
             const categories = selectedOption.data('categories') || [];
-
             const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
 
             const priceBeforeDiscount = basePrice;
@@ -1168,9 +1272,7 @@
             let finalPrice = priceBeforeDiscount;
             let allDiscounts = discountEnabled ? [...discounts] : [];
 
-            // 🔥 hanya hitung diskon kalau diskon aktif DAN harga tidak 0
             if (discountEnabled && priceBeforeDiscount > 0) {
-
                 categories.forEach(cat => {
                     if (cat.discounts) {
                         allDiscounts = allDiscounts.concat(cat.discounts);
@@ -1181,35 +1283,17 @@
                     let eligible = false;
 
                     if (discount.apply_on === 'Product') {
-                        if (discount.minimum_based_on === 'Quantity of Items' &&
-                            qty >= discount.minimum_qty_or_amount) {
-                            eligible = true;
-                        } else if (discount.minimum_based_on === 'Purchase Amount' &&
-                            totalBeforeDiscount >= discount.minimum_qty_or_amount) {
+                        if (
+                            discount.minimum_based_on === 'Quantity of Items' &&
+                            qty >= discount.minimum_qty_or_amount
+                        ) {
                             eligible = true;
                         }
-                    } else if (discount.apply_on === 'Category') {
-                        let totalQtyCategory = 0;
-                        let totalAmountCategory = 0;
 
-                        $('select[name="product[]"]').each(function(i, el) {
-                            const opt = $(el).find('option:selected');
-                            const cats = opt.data('categories') || [];
-                            const price = parseFloat(opt.data('price')) || 0;
-                            const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
-                                '')) || 0;
-
-                            if (cats.some(c => c.id === discount.category_id)) {
-                                totalQtyCategory += qtyVal;
-                                totalAmountCategory += price * qtyVal;
-                            }
-                        });
-
-                        if (discount.minimum_based_on === 'Quantity of Items' &&
-                            totalQtyCategory >= discount.minimum_qty_or_amount) {
-                            eligible = true;
-                        } else if (discount.minimum_based_on === 'Purchase Amount' &&
-                            totalAmountCategory >= discount.minimum_qty_or_amount) {
+                        if (
+                            discount.minimum_based_on === 'Purchase Amount' &&
+                            totalBeforeDiscount >= discount.minimum_qty_or_amount
+                        ) {
                             eligible = true;
                         }
                     }
@@ -1226,30 +1310,23 @@
 
             const totalAfterDiscount = finalPrice * qty;
 
-            // simpan hidden
             row.find('input.price_before_discount').val(priceBeforeDiscount.toFixed(2));
             row.find('input.total_before_discount').val(totalBeforeDiscount.toFixed(2));
             row.find('input.price_after_discount').val(finalPrice.toFixed(2));
             row.find('input.total_after_discount').val(totalAfterDiscount.toFixed(2));
 
-            // update tampilan (display)
             if (!row.find('.price_before_discount_display').is(':focus')) {
                 row.find('.price_before_discount_display').val(formatNumber(priceBeforeDiscount));
             }
+
             row.find('.total_before_discount_display').val(formatNumber(totalBeforeDiscount));
         }
-
-        // function recalcAllRows() {
-        //     $('tr[id^="addr"]').each(function() {
-        //         calculateRow($(this));
-        //     });
-        //     calcTotalSummary();
-        // }
 
         function recalcAllRows() {
             $('.product-item').each(function() {
                 calculateRow($(this));
             });
+
             calcTotalSummary();
         }
 
@@ -1257,310 +1334,97 @@
             let subTotal = 0;
             let totalAfterDiscount = 0;
 
-            $(".total_before_discount").each(function() {
+            $('.total_before_discount').each(function() {
                 subTotal += parseFloat($(this).val()) || 0;
             });
 
-            $(".total_after_discount").each(function() {
+            $('.total_after_discount').each(function() {
                 totalAfterDiscount += parseFloat($(this).val()) || 0;
             });
 
             const totalDiscount = subTotal - totalAfterDiscount;
 
-            $("#sub_total").val(subTotal.toFixed(2));
-            $("#total_discount").val(totalDiscount.toFixed(2));
-            $("#total_amount").val(totalAfterDiscount.toFixed(2));
+            $('#sub_total').val(subTotal.toFixed(2));
+            $('#total_discount').val(totalDiscount.toFixed(2));
+            $('#total_amount').val(totalAfterDiscount.toFixed(2));
 
-            $("#sub_total_display").val(formatNumber(subTotal));
-            $("#total_discount_display").val(formatNumber(totalDiscount));
-            $("#total_amount_display").val(formatNumber(totalAfterDiscount));
+            $('#sub_total_display').val(formatNumber(subTotal));
+            $('#total_discount_display').val(formatNumber(totalDiscount));
+            $('#total_amount_display').val(formatNumber(totalAfterDiscount));
         }
-
-        function updateRowTypeAndPrice(row) {
-            const selectedOption = row.find('select[name="product[]"] option:selected');
-            if (!selectedOption.length) return;
-            const type = selectedOption.data('type') || '';
-            row.find('.product-type').val(type);
-            calculateRow(row);
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // initSelect2();
-            recalcAllRows();
-
-            let rowCount = document.querySelectorAll('#tab_logic tbody tr').length;
-
-            $('#add_row').on('click', function() {
-                const index = $('.product-item').length;
-
-                const html = document.getElementById('product_item_template')
-                    .innerHTML
-                    .replace(/__index__/g, index)
-                    .replace(/__number__/g, index + 1);
-
-                const wrapper = document.createElement('div');
-                wrapper.innerHTML = html;
-
-                const item = wrapper.firstElementChild;
-                $('#product_list').append(item);
-
-                populateProducts(item.querySelector('.select-product'));
-                $(item).find('.select-product').select2(select2ProductConfig());
-
-                recalcAllRows();
-            });
-
-            $(document).on('click', '.delete-row', function() {
-                $(this).closest('.product-item').remove();
-
-                $('.product-item').each(function(i) {
-                    $(this).attr('data-index', i);
-                    $(this).find('.product-number').text('#' + (i + 1));
-                });
-
-                recalcAllRows();
-            });
-
-            $(document).on('change', '.select-product', function() {
-                const row = $(this).closest('.product-item');
-                const selected = $(this).find(':selected');
-
-                const type = selected.data('type') || '';
-                const price = parseFloat(selected.data('price')) || 0;
-                const units = selected.data('units') || [];
-
-                row.find('.product-type').val(type);
-
-                if (type === 'satuan' || type === 'bundle') {
-                    fillProductUnits(row, units, null, price, type === 'bundle');
-                } else {
-                    row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-                    row.find('.unit-conversion-value').val('1');
-                    row.find('.unit-name').val('Pcs');
-
-                    row.find('.price_before_discount').val(price.toFixed(2));
-                    row.find('.price_before_discount_display').val(formatNumber(price));
-
-                    recalcAllRows();
-                }
-            });
-
-            $(document).on('input', '.qty, .price_before_discount_display', recalcAllRows);
-        });
-
-        $(document).on('change', '.add-bundle-check', function() {
-            const row = $(this).closest('.product-item');
-            const productSelect = row.find('select[name="product[]"]');
-            const selectedVal = productSelect.val();
-
-            if (this.checked) {
-                if (!selectedVal) {
-                    $(this).prop('checked', false);
-                    showError(productSelect, 'Pilih product dulu');
-                    return;
-                }
-
-                const primaryProductId = selectedVal.split('_')[1];
-
-                row.find('.product-type').val('bundle');
-                row.find('.bundle-wrapper').removeClass('d-none');
-
-                populateSecondaryBundleProducts(row, primaryProductId);
-
-                row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-                row.find('.unit-conversion-value').val('1');
-                row.find('.unit-name').val('Pcs');
-
-            } else {
-                row.find('.product-type').val('satuan');
-                row.find('.bundle-wrapper').addClass('d-none');
-                row.find('.bundle-secondary-product').val('');
-
-                const selectedData = findSelectedProductData(productSelect.val());
-
-                if (selectedData) {
-                    fillProductUnits(
-                        row,
-                        selectedData.units || [],
-                        null,
-                        parseFloat(selectedData.price || 0)
-                    );
-                } else {
-                    row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-                    row.find('.unit-conversion-value').val('1');
-                    row.find('.unit-name').val('Pcs');
-                }
-
-                recalcAllRows();
-            }
-        });
-
-        $(document).on('change', '.bundle-secondary-product', function() {
-            const row = $(this).closest('.product-item');
-            const bundleId = $(this).find('option:selected').data('bundle-id');
-
-            const bundle = bundles.find(b => String(b.id) === String(bundleId));
-            if (!bundle) return;
-
-            row.find('.product-type').val('bundle');
-
-            fillProductUnits(row, bundle.units || [], null, parseFloat(bundle.price || 0));
-
-            recalcAllRows();
-        });
-
-        $(document).on('change', '.product-unit', function() {
-            const row = $(this).closest('.product-item');
-
-            updatePriceFromSelectedUnit(row);
-        });
-
-        $(document).ready(function() {
-            const initialCustomerId = $('#customers').val();
-            if (initialCustomerId) {
-                updateAddresses(initialCustomerId);
-                updateCustomerAccounts(initialCustomerId);
-            }
-
-            $('#customers').on('change', function() {
-                const customerId = $(this).val();
-
-                updateAddresses(customerId);
-                updateCustomerAccounts(customerId);
-            });
-
-            $('#addresses').on('change', function() {
-                updateGoogleMapsLink();
-            });
-
-            function updateAddresses(customerId) {
-                const addresses = customerAddresses[customerId] || [];
-                const $addressSelect = $('#addresses');
-                const selectedAddressId = "{{ $order->customer_address_id ?? '' }}";
-
-                $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
-
-                addresses.forEach(function(address, index) {
-                    const isSelected = address.id == selectedAddressId;
-                    $addressSelect.append(
-                        `<option value="${address.id}" data-map="${address.google_maps}" ${isSelected ? 'selected' : ''}>
-                            ${address.business_name ?? 'None'} - ${address.address}
-                        </option>`
-                    );
-                });
-
-                updateGoogleMapsLink();
-            }
-
-            function updateCustomerAccounts(customerId) {
-                const accounts = customerAccounts[customerId] || [];
-                const $accountSelect = $('#customer_accounts');
-                const selectedAccountId = "{{ $order->customer_account_id ?? '' }}";
-
-                $accountSelect.empty().append('<option disabled hidden>Pilih customer account</option>');
-
-                accounts.forEach(function(account) {
-                    const isSelected = account.id == selectedAccountId;
-
-                    $accountSelect.append(`
-                        <option value="${account.id}" ${isSelected ? 'selected' : ''}>
-                            ${account.name ?? '-'} - ${account.whatsapp_number ?? account.email ?? '-'}
-                        </option>
-                    `);
-                });
-            }
-
-            function updateGoogleMapsLink() {
-                const selectedOption = $('#addresses').find('option:selected');
-                const mapUrl = selectedOption.data('map');
-
-                if (mapUrl) {
-                    $('#google-maps-link').html(`
-                    <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
-                        Lihat di Google Maps
-                    </a>
-                `);
-                } else {
-                    $('#google-maps-link').empty();
-                }
-            }
-        });
 
         function showError(element, message) {
-            $(element).next(".invalid-feedback").remove();
-
+            $(element).next('.invalid-feedback').remove();
             $(element).after(`<div class="invalid-feedback">${message}</div>`);
-
-            $(element).addClass("is-invalid");
+            $(element).addClass('is-invalid');
         }
 
-        $(document).on("change input",
-            "#customers, #customer_accounts, #addresses, #edit_note, select[name='mode[]'], select[name='product[]'], select[name='product_unit_id[]'], input[name='qty[]']",
-            function() {
-                $(this).removeClass("is-invalid");
-                $(this).next(".invalid-feedback").remove();
+        function updateAddresses(customerId) {
+            const addresses = customerAddresses[customerId] || [];
+            const addressSelect = $('#addresses');
+            const selectedAddressId = "{{ $order->customer_address_id ?? '' }}";
+
+            addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
+
+            addresses.forEach(function(address) {
+                const isSelected = String(address.id) === String(selectedAddressId);
+
+                addressSelect.append(`
+                <option value="${address.id}"
+                    data-map="${address.google_maps || ''}"
+                    ${isSelected ? 'selected' : ''}>
+                    ${address.business_name ?? 'None'} - ${address.address}
+                </option>
+            `);
             });
 
-        $("form").on("submit", function(e) {
-            let valid = true;
+            updateGoogleMapsLink();
+        }
 
-            if (!$("#customers").val()) {
-                showError($("#customers"), "Customer wajib dipilih");
-                valid = false;
-            }
+        function updateCustomerAccounts(customerId) {
+            const accounts = customerAccounts[customerId] || [];
+            const accountSelect = $('#customer_accounts');
+            const selectedAccountId = "{{ $order->customer_account_id ?? '' }}";
 
-            if (!$("#customer_accounts").val()) {
-                showError($("#customer_accounts"), "Customer account wajib dipilih");
-                valid = false;
-            }
+            accountSelect.empty().append('<option disabled hidden>Pilih customer account</option>');
 
-            if (!$("#addresses").val()) {
-                showError($("#addresses"), "Alamat wajib dipilih");
-                valid = false;
-            }
+            accounts.forEach(function(account) {
+                const isSelected = String(account.id) === String(selectedAccountId);
 
-            $(".product-item").each(function() {
-                const product = $(this).find('select[name="product[]"]');
-                const unit = $(this).find('select[name="product_unit_id[]"]');
-                const mode = $(this).find('select[name="mode[]"]');
-                const qty = $(this).find('input[name="qty[]"]');
-                const type = $(this).find('.product-type').val();
-
-                const cleanQty = qty.val().replace(/[^\d]/g, '');
-
-                if (!product.val()) {
-                    showError(product, "Produk wajib dipilih");
-                    valid = false;
-                }
-
-                if ((type === 'satuan' || type === 'bundle') && !unit.val()) {
-                    showError(unit, "Unit wajib dipilih");
-                    valid = false;
-                }
-
-                if (!mode.val()) {
-                    showError(mode, "Mode wajib dipilih");
-                    valid = false;
-                }
-
-                if (!cleanQty || parseInt(cleanQty) < 1) {
-                    showError(qty, "Qty minimal 1");
-                    valid = false;
-                }
+                accountSelect.append(`
+            <option value="${account.id}" ${isSelected ? 'selected' : ''}>
+                ${account.name ?? '-'} - ${account.whatsapp_number ?? account.email ?? '-'}
+            </option>
+        `);
             });
+        }
 
-            if (!valid) {
-                e.preventDefault();
+        function updateGoogleMapsLink() {
+            const selectedOption = $('#addresses').find('option:selected');
+            const mapUrl = selectedOption.data('map');
+
+            if (mapUrl) {
+                $('#google-maps-link').html(`
+                <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                    Lihat di Google Maps
+                </a>
+            `);
+            } else {
+                $('#google-maps-link').empty();
             }
-        });
+        }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        function initDueDate() {
             const optionEl = document.getElementById('due_date_option');
             const dateInput = document.getElementById('custom_due_date');
 
+            if (!optionEl || !dateInput) {
+                return;
+            }
+
             const savedDate = dateInput.value ? new Date(dateInput.value) : null;
             const today = new Date();
-            let defaultOption = 'custom';
+            let defaultOption = 'none';
 
             if (savedDate) {
                 const diffDays = Math.floor((savedDate - today) / (1000 * 60 * 60 * 24));
@@ -1576,8 +1440,6 @@
                 } else {
                     defaultOption = 'custom';
                 }
-            } else {
-                defaultOption = 'none';
             }
 
             optionEl.value = defaultOption;
@@ -1602,48 +1464,234 @@
                     newDate.setMonth(newDate.getMonth() + 3);
                     dateInput.readOnly = true;
                 } else if (val === 'custom') {
-                    newDate = null;
                     dateInput.readOnly = false;
+                    return;
                 } else {
-                    newDate = null;
                     dateInput.readOnly = true;
-                    dateInput.value = "";
+                    dateInput.value = '';
+                    return;
                 }
 
-                if (newDate) {
-                    const yyyy = newDate.getFullYear();
-                    const mm = String(newDate.getMonth() + 1).padStart(2, '0');
-                    const dd = String(newDate.getDate()).padStart(2, '0');
-                    dateInput.value = `${yyyy}-${mm}-${dd}`;
-                }
+                const yyyy = newDate.getFullYear();
+                const mm = String(newDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(newDate.getDate()).padStart(2, '0');
+
+                dateInput.value = `${yyyy}-${mm}-${dd}`;
             }
 
             optionEl.addEventListener('change', updateDueDate);
 
             updateDueDate();
+        }
+
+        $(document).ready(function() {
+            const label = $('#toggleDiscount').next('label');
+
+            if (discountEnabled) {
+                $('#toggleDiscount').prop('checked', true);
+                $('#discount_active_hidden').val(1);
+                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
+            } else {
+                $('#toggleDiscount').prop('checked', false);
+                $('#discount_active_hidden').val(0);
+                label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+            }
+
+            $('.product-item').each(function() {
+                const row = $(this);
+                const select = row.find('.select-product');
+
+                const selectedVal = select.val();
+                let selectedType = null;
+                let selectedId = null;
+
+                if (selectedVal) {
+                    [selectedType, selectedId] = selectedVal.split('_');
+                }
+
+                const selectedUnitId = row.find('.product-unit').val();
+
+                populateProducts(select[0], selectedId, selectedType);
+
+                select.select2(select2ProductConfig());
+
+                const isBundleChecked = row.find('.add-bundle-check').is(':checked');
+
+                if (isBundleChecked) {
+                    const selectedBundleId = row.find('.bundle-secondary-product').data(
+                        'selected-bundle-id');
+                    const bundle = bundles.find(b => String(b.id) === String(selectedBundleId));
+
+                    if (bundle && bundle.primary_item) {
+                        const primaryProductId = bundle.primary_item.product_id;
+
+                        populateProducts(select[0], primaryProductId, 'satuan');
+
+                        select.val('satuan_' + primaryProductId).trigger('change.select2');
+
+                        row.find('.bundle-wrapper').removeClass('d-none');
+                        populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId);
+
+                        row.find('.product-type').val('bundle');
+
+                        // fillProductUnits(
+                        //     row,
+                        //     bundle.units || [],
+                        //     selectedUnitId,
+                        //     parseFloat(bundle.price || 0)
+                        // );
+                        row.find('.product-unit').trigger('change');
+                    }
+                } else {
+                    const selectedData = findSelectedProductData(select.val());
+
+                    const type = selectedData ? selectedData.type : selectedType;
+                    const units = selectedData ? (selectedData.units || []) : [];
+                    const defaultPrice = selectedData ? parseFloat(selectedData.price || 0) : 0;
+
+                    row.find('.product-type').val(type);
+
+                    if (type === 'satuan') {
+                        // fillProductUnits(row, units, selectedUnitId, defaultPrice, false);
+                        row.find('.product-unit').trigger('change');
+                    } else {
+                        row.find('.product-unit-wrapper').hide();
+                        row.find('.product-unit').val('');
+                        row.find('.unit-conversion-value').val('1');
+                        row.find('.unit-name').val('');
+                    }
+                }
+            });
+
+            const initialCustomerId = $('#customers').val();
+
+            if (initialCustomerId) {
+                updateAddresses(initialCustomerId);
+                updateCustomerAccounts(initialCustomerId);
+            }
+
+            initDueDate();
+            recalcAllRows();
         });
 
-        $(document).on('select2:open', () => {
-            setTimeout(() => {
-                document.querySelector('.select2-container--open .select2-search__field')?.focus();
-            }, 50);
+        // $(document).on('change', '.select-product', function() {
+        //     const row = $(this).closest('.product-item');
+
+        //     if (row.find('.add-bundle-check').is(':checked')) {
+        //         const selectedVal = $(this).val();
+
+        //         if (selectedVal) {
+        //             const primaryProductId = selectedVal.split('_')[1];
+
+        //             row.find('.bundle-wrapper').removeClass('d-none');
+        //             populateSecondaryBundleProducts(row, primaryProductId);
+        //             row.find('.product-type').val('bundle');
+        //         }
+
+        //         return;
+        //     }
+
+        //     const selectedData = findSelectedProductData($(this).val());
+
+        //     const type = selectedData ? selectedData.type : '';
+        //     const price = selectedData ? parseFloat(selectedData.price || 0) : 0;
+        //     const units = selectedData ? (selectedData.units || []) : [];
+
+        //     row.find('.product-type').val(type);
+
+        //     if (type === 'satuan') {
+        //         fillProductUnits(row, units, null, price, false);
+        //     } else {
+        //         row.find('.product-unit-wrapper').hide();
+        //         row.find('.product-unit').val('');
+        //         row.find('.unit-conversion-value').val('1');
+        //         row.find('.unit-name').val('');
+
+        //         row.find('.price_before_discount').val(price.toFixed(2));
+        //         row.find('.price_before_discount_display').val(formatNumber(price));
+
+        //         recalcAllRows();
+        //     }
+        // });
+
+        // $(document).on('change', '.select-product', function() {
+        //     const row = $(this).closest('.product-item');
+
+        //     const selectedData = findSelectedProductData($(this).val());
+        //     if (!selectedData) return;
+
+        //     row.find('.product-type').val(
+        //         row.find('.add-bundle-check').is(':checked') ? 'bundle' : 'satuan'
+        //     );
+
+        //     fillProductUnits(
+        //         row,
+        //         selectedData.units || [],
+        //         selectedData.base_unit_id
+        //     );
+
+        //     if (row.find('.add-bundle-check').is(':checked')) {
+        //         const primaryProductId = $(this).val().split('_')[1];
+        //         row.find('.bundle-wrapper').removeClass('d-none');
+        //         populateSecondaryBundleProducts(row, primaryProductId);
+        //     } else {
+        //         row.find('.bundle-wrapper').addClass('d-none');
+        //         row.find('.bundle-secondary-product').val('');
+        //     }
+
+        //     recalcAllRows();
+        // });
+
+        $(document).on('change select2:select', 'select[name="product[]"]', function() {
+            const row = $(this).closest('.product-item');
+            const selectedOption = $(this).find('option:selected');
+
+            const type = selectedOption.data('type') || '';
+            const selectedId = String(selectedOption.data('real-id') || '');
+
+            row.find('.product-type').val(type);
+
+            const selectedItem = allProducts.find(item => {
+                return item.type === type && String(item.id) === selectedId;
+            });
+
+            let units = selectedItem?.units || [];
+
+            fillProductUnits(row, units, selectedItem?.base_unit_id);
+
+            row.find('.add-bundle-check').prop('checked', false);
+            row.find('.bundle-wrapper').addClass('d-none');
+            row.find('.bundle-secondary-product').empty().append('<option value="">Pilih product bundle</option>');
+
+            recalcAllRows();
         });
 
-        // === Harga bisa diubah hanya oleh Owner ===
+        $(document).on('change', '.product-unit', function() {
+            const row = $(this).closest('.product-item');
+            updatePriceFromSelectedUnit(row);
+        });
+
+        $(document).on('input', '.qty', function() {
+            let rawValue = $(this).val().replace(/\D/g, '');
+            $(this).val(new Intl.NumberFormat('id-ID').format(rawValue));
+            recalcAllRows();
+        });
+
         let priceInputTimeout;
-        $(document).on('input', '.price_before_discount_display', function() {
-            // if (!isOwner) return; // hanya Owner yang bisa ubah harga
 
-            // const row = $(this).closest('tr');
+        $(document).on('input', '.price_before_discount_display', function() {
             const row = $(this).closest('.product-item');
 
             let rawValue = $(this).val().replace(/\D/g, '');
-            if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
 
-            const formatted = new Intl.NumberFormat('id-ID').format(rawValue);
-            $(this).val(formatted);
+            if (rawValue.length > 12) {
+                rawValue = rawValue.substring(0, 12);
+            }
+
+            $(this).val(new Intl.NumberFormat('id-ID').format(rawValue));
 
             clearTimeout(priceInputTimeout);
+
             priceInputTimeout = setTimeout(() => {
                 const parsed = parseFloat(rawValue) || 0;
                 row.find('input.price_before_discount').val(parsed.toFixed(2));
@@ -1656,15 +1704,262 @@
             $(this).val(new Intl.NumberFormat('id-ID').format(val));
         });
 
-        $(document).on('input', 'input[name="qty[]"]', function(e) {
-            let rawValue = $(this).val().replace(/\D/g, '');
+        $(document).on('click', '#add_row', function() {
+            const index = $('.product-item').length;
 
-            let formatted = new Intl.NumberFormat('id-ID').format(rawValue);
+            const html = document.getElementById('product_item_template')
+                .innerHTML
+                .replace(/__index__/g, index)
+                .replace(/__number__/g, index + 1);
 
-            $(this).val(formatted);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+
+            const item = wrapper.firstElementChild;
+
+            $('#product_list').append(item);
+
+            populateProducts(item.querySelector('.select-product'));
+            $(item).find('.select-product').select2(select2ProductConfig());
+
+            recalcAllRows();
         });
 
-        $('#orderForm').on('submit', function() {
+        $(document).on('click', '.delete-row', function() {
+            $(this).closest('.product-item').remove();
+
+            $('.product-item').each(function(i) {
+                $(this).attr('data-index', i);
+                $(this).find('.product-number').text('#' + (i + 1));
+            });
+
+            recalcAllRows();
+        });
+
+        $(document).on('change', '#toggleDiscount', function() {
+            const isChecked = $(this).is(':checked');
+            const label = $(this).next('label');
+
+            if (!isChecked) {
+                pendingToggleOff = true;
+                $('#confirmDisableDiscountModal').modal('show');
+                $(this).prop('checked', true);
+            } else {
+                discountEnabled = true;
+                $('#discount_active_hidden').val(1);
+                label.text('Diskon Aktif').removeClass('text-danger').addClass('text-success');
+                recalcAllRows();
+            }
+        });
+
+        $('#confirmDisableDiscountBtn').on('click', function() {
+            $('#confirmDisableDiscountModal').modal('hide');
+
+            if (pendingToggleOff) {
+                $('#confirmResponsibilityModal').modal('show');
+            }
+        });
+
+        $('#confirmResponsibilityBtn').on('click', function() {
+            $('#confirmResponsibilityModal').modal('hide');
+
+            discountEnabled = false;
+            $('#toggleDiscount').prop('checked', false);
+            $('#discount_active_hidden').val(0);
+
+            const label = $('#toggleDiscount').next('label');
+
+            label.text('Diskon Nonaktif').removeClass('text-success').addClass('text-danger');
+
+            recalcAllRows();
+
+            pendingToggleOff = false;
+        });
+
+        $('#customers').on('change', function() {
+            const customerId = $(this).val();
+
+            updateAddresses(customerId);
+            updateCustomerAccounts(customerId);
+        });
+
+        $('#addresses').on('change', function() {
+            updateGoogleMapsLink();
+        });
+
+        $(document).on('change input',
+            "#customers, #customer_accounts, #addresses, select[name='mode[]'], select[name='product[]'], select[name='product_unit_id[]'], input[name='qty[]']",
+            function() {
+                $(this).removeClass('is-invalid');
+                $(this).next('.invalid-feedback').remove();
+            }
+        );
+
+        // $(document).on('change', '.add-bundle-check', function() {
+        //     const row = $(this).closest('.product-item');
+        //     const productSelect = row.find('select[name="product[]"]');
+        //     const selectedVal = productSelect.val();
+
+        //     if (this.checked) {
+        //         if (!selectedVal) {
+        //             $(this).prop('checked', false);
+        //             showError(productSelect, 'Pilih product dulu');
+        //             return;
+        //         }
+
+        //         const primaryProductId = selectedVal.split('_')[1];
+
+        //         row.find('.product-type').val('bundle');
+        //         row.find('.bundle-wrapper').removeClass('d-none');
+
+        //         populateSecondaryBundleProducts(row, primaryProductId);
+
+        //         row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+        //         row.find('.unit-conversion-value').val('1');
+        //         row.find('.unit-name').val('Pcs');
+
+        //     } else {
+        //         row.find('.product-type').val('satuan');
+        //         row.find('.bundle-wrapper').addClass('d-none');
+        //         row.find('.bundle-secondary-product').val('');
+
+        //         const selectedData = findSelectedProductData(productSelect.val());
+
+        //         if (selectedData) {
+        //             fillProductUnits(
+        //                 row,
+        //                 selectedData.units || [],
+        //                 null,
+        //                 parseFloat(selectedData.price || 0)
+        //             );
+        //         } else {
+        //             row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+        //             row.find('.unit-conversion-value').val('1');
+        //             row.find('.unit-name').val('Pcs');
+        //         }
+
+        //         recalcAllRows();
+        //     }
+        // });
+
+        $(document).on('change', '.add-bundle-check', function() {
+            const row = $(this).closest('.product-item');
+            const productSelect = row.find('select[name="product[]"]');
+            const selectedVal = productSelect.val();
+
+            if (this.checked) {
+                if (!selectedVal) {
+                    $(this).prop('checked', false);
+                    showError(productSelect, 'Pilih product dulu');
+                    return;
+                }
+
+                const primaryProductId = selectedVal.split('_')[1];
+
+                row.find('.product-type').val('bundle');
+                row.find('.bundle-wrapper').removeClass('d-none');
+
+                populateSecondaryBundleProducts(row, primaryProductId);
+
+                const selectedData = findSelectedProductData(selectedVal);
+                if (selectedData) {
+                    fillProductUnits(row, selectedData.units || [], selectedData.base_unit_id);
+                }
+            } else {
+                row.find('.product-type').val('satuan');
+                row.find('.bundle-wrapper').addClass('d-none');
+                row.find('.bundle-secondary-product').val('');
+
+                const selectedData = findSelectedProductData(selectedVal);
+                if (selectedData) {
+                    fillProductUnits(row, selectedData.units || [], selectedData.base_unit_id);
+                }
+            }
+
+            recalcAllRows();
+        });
+
+        // $(document).on('change', '.bundle-secondary-product', function() {
+        //     const row = $(this).closest('.product-item');
+        //     const bundleId = $(this).find('option:selected').data('bundle-id');
+
+        //     const bundle = bundles.find(b => String(b.id) === String(bundleId));
+        //     if (!bundle) return;
+
+        //     row.find('.product-type').val('bundle');
+
+        //     fillProductUnits(row, bundle.units || [], null, parseFloat(bundle.price || 0));
+
+        //     recalcAllRows();
+        // });
+
+        $(document).on('change', '.bundle-secondary-product', function() {
+            const row = $(this).closest('.product-item');
+            const bundleId = $(this).find('option:selected').data('bundle-id');
+
+            const bundle = bundles.find(b => String(b.id) === String(bundleId));
+            if (!bundle) return;
+
+            row.find('.product-type').val('bundle');
+
+            fillProductUnits(row, bundle.units || [], bundle.base_unit_id);
+
+            recalcAllRows();
+        });
+
+        $('#orderForm').on('submit', function(e) {
+            let valid = true;
+
+            if (!$('#customers').val()) {
+                showError($('#customers'), 'Customer wajib dipilih');
+                valid = false;
+            }
+
+            if (!$('#customer_accounts').val()) {
+                showError($('#customer_accounts'), 'Customer account wajib dipilih');
+                valid = false;
+            }
+
+            if (!$('#addresses').val()) {
+                showError($('#addresses'), 'Alamat wajib dipilih');
+                valid = false;
+            }
+
+            $('.product-item').each(function() {
+                const product = $(this).find('select[name="product[]"]');
+                const mode = $(this).find('select[name="mode[]"]');
+                const qty = $(this).find('input[name="qty[]"]');
+                const type = $(this).find('.product-type').val();
+                const unit = $(this).find('select[name="product_unit_id[]"]');
+
+                const cleanQty = qty.val().replace(/[^\d]/g, '');
+
+                if (!product.val()) {
+                    showError(product, 'Produk wajib dipilih');
+                    valid = false;
+                }
+
+                if ((type === 'satuan' || type === 'bundle') && !unit.val()) {
+                    showError(unit, 'Unit wajib dipilih');
+                    valid = false;
+                }
+
+                if (!mode.val()) {
+                    showError(mode, 'Mode wajib dipilih');
+                    valid = false;
+                }
+
+                if (!cleanQty || parseInt(cleanQty) < 1) {
+                    showError(qty, 'Qty minimal 1');
+                    valid = false;
+                }
+            });
+
+            if (!valid) {
+                e.preventDefault();
+                return false;
+            }
+
             $('input[name="qty[]"]').each(function() {
                 $(this).val($(this).val().replace(/\./g, ''));
             });
@@ -1684,89 +1979,37 @@
                 const row = $(this).closest('.product-item');
                 const isBundle = row.find('.add-bundle-check').is(':checked');
 
-                let finalProductValue = null;
+                let finalProductId = null;
 
                 if (isBundle) {
-                    const bundleId = row.find('.bundle-secondary-product option:selected').data(
+                    finalProductId = row.find('.bundle-secondary-product option:selected').data(
                         'bundle-id');
                     row.find('.product-type').val('bundle');
-                    finalProductValue = 'bundle_' + bundleId;
                 } else {
-                    const productId = $(this).val()?.split('_')[1];
+                    finalProductId = $(this).val()?.split('_')[1];
                     row.find('.product-type').val('satuan');
-                    finalProductValue = 'satuan_' + productId;
                 }
 
-                if (finalProductValue) {
+                if (finalProductId) {
+                    const finalType = row.find('.product-type').val();
+
                     $('<input>')
                         .attr('type', 'hidden')
                         .attr('name', 'product[]')
-                        .val(finalProductValue)
+                        .val(finalType + '_' + finalProductId)
                         .appendTo('#orderForm');
 
                     $(this).prop('disabled', true);
                 }
             });
+
+            return true;
         });
 
-        // document.addEventListener('DOMContentLoaded', function() {
-        //     const toggle = document.getElementById('toggleMode');
-        //     const label = document.getElementById('modeLabel');
-        //     const hidden = document.getElementById('mode');
-        //     const nextModeText = document.getElementById('nextModeText');
-        //     const confirmChangeBtn = document.getElementById('confirmChangeModeBtn');
-        //     const confirmResponsibilityBtn = document.getElementById('confirmModeResponsibilityBtn');
-
-        //     // 🔥 FIX: Ambil nilai dari hidden input yang udah di-set Blade
-        //     const initialMode = hidden.value; // Ambil dari Blade, bukan hardcode!
-
-        //     // Set label sesuai nilai awal
-        //     label.textContent = initialMode === 'printing' ? 'Printing' : 'Polosan';
-        //     toggle.checked = initialMode === 'printing';
-
-        //     let pendingMode = null;
-
-        //     toggle.addEventListener('change', function() {
-        //         const nextMode = toggle.checked ? 'printing' : 'polosan';
-        //         const currentMode = hidden.value;
-
-        //         // Kalau beda, munculkan konfirmasi modal
-        //         if (nextMode !== currentMode) {
-        //             pendingMode = nextMode;
-        //             nextModeText.textContent = nextMode === 'printing' ? 'Printing' : 'Polosan';
-
-        //             // balikin toggle sementara
-        //             toggle.checked = currentMode === 'printing';
-        //             $('#confirmChangeModeModal').modal('show');
-        //         }
-        //     });
-
-        //     // Tombol konfirmasi pertama
-        //     confirmChangeBtn.addEventListener('click', function() {
-        //         $('#confirmChangeModeModal').modal('hide');
-        //         $('#confirmModeResponsibilityModal').modal('show');
-        //     });
-
-        //     // Tombol tanggung jawab
-        //     confirmResponsibilityBtn.addEventListener('click', function() {
-        //         $('#confirmModeResponsibilityModal').modal('hide');
-
-        //         // apply perubahan mode
-        //         if (pendingMode) {
-        //             hidden.value = pendingMode;
-        //             label.textContent = pendingMode === 'printing' ? 'Printing' : 'Polosan';
-        //             toggle.checked = pendingMode === 'printing';
-
-        //             // 🔥 Tambahkan log untuk debug
-        //             console.log('Mode changed to:', pendingMode);
-
-        //             pendingMode = null;
-        //         }
-        //     });
-
-        //     // 🔥 Debug log saat page load
-        //     console.log('Initial mode from Blade:', initialMode);
-        //     console.log('Hidden input value:', hidden.value);
-        // });
+        $(document).on('select2:open', () => {
+            setTimeout(() => {
+                document.querySelector('.select2-container--open .select2-search__field')?.focus();
+            }, 50);
+        });
     </script>
 @endpush

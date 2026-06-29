@@ -11,21 +11,37 @@
         </thead>
         <tbody>
             @forelse ($bundle->unitConversions as $unit)
+                @php
+                    $fixedCost = $bundle->items->sum(function ($item) use ($unit) {
+                        $productUnit = $item->product?->unitConversions?->firstWhere('unit_id', $unit->unit_id);
+
+                        return (float) ($productUnit?->fixed_cost ?? 0) * (float) ($item->quantity ?? 1);
+                    });
+
+                    $margin = $bundle->items->sum(function ($item) use ($unit) {
+                        $productUnit = $item->product?->unitConversions?->firstWhere('unit_id', $unit->unit_id);
+
+                        return (float) ($productUnit?->margin ?? 0) * (float) ($item->quantity ?? 1);
+                    });
+
+                    $salePrice = $fixedCost + $margin;
+                @endphp
+
                 <tr>
                     <td class="fw-semibold text-dark">
                         {{ $unit->unit->name ?? '-' }}
                     </td>
-                    {{-- <td>
-                        {{ number_format((int) $unit->ratio_value, 0, ',', '.') }}
-                    </td> --}}
+
                     <td>
-                        Rp {{ number_format((float) $unit->fixed_cost, 0, ',', '.') }}
+                        Rp {{ number_format($fixedCost, 0, ',', '.') }}
                     </td>
+
                     <td>
-                        Rp {{ number_format((float) $unit->margin, 0, ',', '.') }}
+                        Rp {{ number_format($margin, 0, ',', '.') }}
                     </td>
+
                     <td class="fw-semibold text-success">
-                        Rp {{ number_format((float) $unit->sale_price, 0, ',', '.') }}
+                        Rp {{ number_format($salePrice, 0, ',', '.') }}
                     </td>
                 </tr>
             @empty

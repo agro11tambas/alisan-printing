@@ -92,14 +92,100 @@
             font-weight: 600;
         }
 
+        /* .product-grid {
+                                                                                                                    display: grid;
+                                                                                                                    grid-template-columns: repeat(7, 1fr);
+                                                                                                                    gap: 10px;
+                                                                                                                }
+
+                                                                                                                .product-col-span-2 {
+                                                                                                                    grid-column: span 2;
+                                                                                                                } */
+
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns:
+                minmax(380px, 4fr) 100px 130px 130px 130px 130px 52px;
             gap: 10px;
+            align-items: start;
+        }
+
+        .product-bundle-inline {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .product-bundle-inline:has(.bundle-wrapper:not(.d-none)) {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .product-delete-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-delete-col label {
+            height: 32px;
+            margin-bottom: 6px;
+        }
+
+        .product-delete-col .delete-row {
+            height: 44px;
+            width: 44px;
+            padding: 0;
+        }
+
+        .product-grid .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-grid .form-group>label,
+        .product-label-row {
+            height: 32px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .product-label-row {
+            justify-content: space-between;
+        }
+
+        .product-grid .form-control,
+        .product-grid .select2-container--default .select2-selection--single {
+            height: 44px !important;
         }
 
         .product-col-span-2 {
-            grid-column: span 2;
+            grid-column: span 1;
+        }
+
+        .bundle-toggle {
+            margin: 0;
+        }
+
+        .bundle-toggle input {
+            display: none;
+        }
+
+        .bundle-toggle span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 32px;
+            padding: 0 12px;
+            border-radius: 8px;
+            background: #0d6efd;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .bundle-toggle input:checked+span {
+            background: #198754;
         }
 
         /* MOBILE */
@@ -484,17 +570,24 @@
                             <!-- PRODUCT LIST -->
                             <div id="product_list">
                                 @foreach ($order->orderItems as $index => $item)
+                                    @php
+                                        $isBundle = $item->satuan === 'bundle';
+
+                                        $primaryProductId = null;
+                                        $secondaryProductId = null;
+
+                                        if ($isBundle && $item->productBundle) {
+                                            $primaryProductId = optional($item->productBundle->primaryItem)->product_id;
+                                            $secondaryProductId = optional(
+                                                $item->productBundle->secondaryItems->first(),
+                                            )->product_id;
+                                        }
+                                    @endphp
                                     <div class="product-item" data-index="{{ $index }}">
-                                        <div class="product-item-header">
-                                            <span class="product-number">#{{ $index + 1 }}</span>
-                                            <button type="button" class="btn btn-sm btn-danger delete-row">
-                                                <i class="feather-trash"></i>
-                                            </button>
-                                        </div>
 
                                         <div class="product-grid">
 
-                                            <div class="form-group product-col-span-2">
+                                            {{-- <div class="form-group product-col-span-2">
                                                 <label>Product</label>
                                                 <select class="form-select select-product" name="product[]"
                                                     data-select2-selector="status">
@@ -511,16 +604,6 @@
                                                         </option>
                                                     @endforeach
 
-                                                    {{-- @foreach ($productBundles as $bundle)
-                                                        <option value="bundle_{{ $bundle->id }}"
-                                                            {{ $item->satuan === 'bundle' && $item->product_bundle_id == $bundle->id ? 'selected' : '' }}
-                                                            data-price="{{ $bundle->price }}"
-                                                            data-discounts='@json($bundle->discounts ?? [])'
-                                                            data-categories='@json($bundle->categories ?? [])'
-                                                            data-type="bundle">
-                                                            {{ $bundle->name }} (Bundle)
-                                                        </option>
-                                                    @endforeach --}}
                                                 </select>
                                                 @php
                                                     $isBundle = $item->satuan === 'bundle';
@@ -552,6 +635,48 @@
                                                             data-selected-bundle-id="{{ $item->product_bundle_id }}"
                                                             data-selected-secondary-id="{{ $secondaryProductId }}">
                                                             <option value="">Pilih product secondary</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div> --}}
+
+                                            <div class="form-group product-col-span-2">
+                                                <div class="product-label-row">
+                                                    <label>Product</label>
+
+                                                    <label class="bundle-toggle">
+                                                        <input type="checkbox" class="add-bundle-check" value="1"
+                                                            {{ $isBundle ? 'checked' : '' }}>
+                                                        <span>
+                                                            <i class="feather-package"></i>
+                                                            Bundle
+                                                        </span>
+                                                    </label>
+                                                </div>
+
+                                                <div class="product-bundle-inline">
+                                                    <select class="form-control select-product"
+                                                        data-select2-selector="tag" name="product[]">
+                                                        <option value="" disabled hidden>Pilih produk</option>
+
+                                                        @foreach ($products as $prod)
+                                                            <option value="satuan_{{ $prod->id }}"
+                                                                {{ !$isBundle && $item->product_id == $prod->id ? 'selected' : '' }}
+                                                                data-price="{{ $prod->price }}"
+                                                                data-discounts='@json($prod->discounts ?? [])'
+                                                                data-categories='@json($prod->categories ?? [])'
+                                                                data-type="satuan" data-sku="{{ $prod->sku ?? '' }}">
+                                                                [{{ $prod->sku ?? '-' }}] {{ $prod->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+
+                                                    <div class="bundle-wrapper {{ $isBundle ? '' : 'd-none' }}">
+                                                        <select class="form-control bundle-secondary-product"
+                                                            name="bundle_secondary_product_id[]"
+                                                            data-selected-bundle-id="{{ $item->product_bundle_id }}"
+                                                            data-selected-secondary-id="{{ $secondaryProductId }}">
+                                                            <option value="">Pilih product bundle</option>
                                                         </select>
                                                     </div>
                                                 </div>
@@ -640,6 +765,13 @@
                                                     value="{{ number_format($item->price * $item->quantity, 2, '.', '') }}">
                                             </div>
 
+                                            <div class="product-delete-col">
+                                                <label>&nbsp;</label>
+                                                <button type="button" class="btn btn-danger delete-row">
+                                                    <i class="feather-trash"></i>
+                                                </button>
+                                            </div>
+
                                             <input type="hidden" name="price_after_discount[]"
                                                 class="price_after_discount" value="{{ $item->price_after_discount }}">
 
@@ -652,16 +784,9 @@
 
                             <template id="product_item_template">
                                 <div class="product-item" data-index="__index__">
-                                    <div class="product-item-header">
-                                        <span class="product-number">#__number__</span>
-                                        <button type="button" class="btn btn-sm btn-danger delete-row">
-                                            <i class="feather-trash"></i>
-                                        </button>
-                                    </div>
-
                                     <div class="product-grid">
 
-                                        <div class="form-group product-col-span-2">
+                                        {{-- <div class="form-group product-col-span-2">
                                             <label>Product</label>
                                             <select class="form-select select-product" name="product[]"
                                                 data-select2-selector="status">
@@ -681,6 +806,34 @@
                                                     <select class="form-control bundle-secondary-product"
                                                         name="bundle_secondary_product_id[]">
                                                         <option value="">Pilih product secondary</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div> --}}
+
+                                        <div class="form-group product-col-span-2">
+                                            <div class="product-label-row">
+                                                <label>Product</label>
+
+                                                <label class="bundle-toggle">
+                                                    <input type="checkbox" class="add-bundle-check" value="1">
+                                                    <span>
+                                                        <i class="feather-package"></i>
+                                                        Bundle
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            <div class="product-bundle-inline">
+                                                <select class="form-control select-product" data-select2-selector="tag"
+                                                    name="product[]">
+                                                    <option value="" disabled selected hidden>Pilih produk</option>
+                                                </select>
+
+                                                <div class="bundle-wrapper d-none">
+                                                    <select class="form-control bundle-secondary-product"
+                                                        name="bundle_secondary_product_id[]">
+                                                        <option value="">Pilih product bundle</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -733,6 +886,13 @@
                                                 readonly value="0">
                                             <input type="hidden" name="total_before_discount[]"
                                                 class="total_before_discount" value="0">
+                                        </div>
+
+                                        <div class="product-delete-col">
+                                            <label>&nbsp;</label>
+                                            <button type="button" class="btn btn-danger delete-row">
+                                                <i class="feather-trash"></i>
+                                            </button>
                                         </div>
 
                                         <input type="hidden" name="price_after_discount[]" class="price_after_discount"
@@ -972,9 +1132,15 @@
         //     })),
         // ];
 
+        // const allProducts = products.map(p => ({
+        //     ...p,
+        //     type: 'satuan'
+        // }));
+
         const allProducts = products.map(p => ({
             ...p,
-            type: 'satuan'
+            type: 'satuan',
+            units: p.units || p.product_units || p.unit_conversions || []
         }));
 
         function truncateText(text, max = 45) {
@@ -1028,11 +1194,13 @@
                         value: item.type + '_' + item.id,
                         text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? ' (Bundle)' : '')
                     })
+                    .data('real-id', item.id)
                     .data('price', item.price)
                     .data('discounts', item.discounts || [])
                     .data('categories', item.categories || [])
                     .data('type', item.type)
-                    .data('units', item.units || []);
+                    .data('units', item.units || [])
+                    .data('base-unit-id', item.base_unit_id);
 
                 if (selectedId && selectedType === item.type && String(selectedId) === String(item.id)) {
                     option.prop('selected', true);
@@ -1077,42 +1245,108 @@
             });
         }
 
-        function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0) {
+        // function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0) {
+        //     const unitSelect = row.find('.product-unit');
+        //     const unitWrapper = row.find('.product-unit-wrapper');
+
+        //     unitSelect.empty().append('<option value="">Pilih unit</option>');
+
+        //     row.find('.unit-conversion-value').val('1');
+        //     row.find('.unit-name').val('Pcs');
+
+        //     unitWrapper.show();
+
+        //     if (Array.isArray(units) && units.length > 0) {
+        //         units.forEach(function(unit) {
+        //             const unitName = unit.unit_name || 'Pcs';
+
+        //             unitSelect.append(`
+    //         <option value="${unit.id}"
+    //             data-unit-id="${unit.unit_id}"
+    //             data-unit-name="${unitName}"
+    //             data-conversion-value="${unit.conversion_value || 1}"
+    //             data-sale-price="${unit.sale_price || defaultPrice}">
+    //             ${unitName}
+    //         </option>
+    //     `);
+        //         });
+        //     }
+
+        //     if (selectedUnitId) {
+        //         unitSelect.val(String(selectedUnitId));
+        //     }
+
+        //     if (!unitSelect.val()) {
+        //         unitSelect.val(unitSelect.find('option:eq(1)').val());
+        //     }
+
+        //     unitSelect.trigger('change');
+        // }
+
+        function fillProductUnits(row, units, baseUnitId = null) {
             const unitSelect = row.find('.product-unit');
-            const unitWrapper = row.find('.product-unit-wrapper');
 
-            unitSelect.empty().append('<option value="">Pilih unit</option>');
+            unitSelect.empty();
+            unitSelect.append('<option value="">Pilih unit</option>');
 
-            row.find('.unit-conversion-value').val('1');
-            row.find('.unit-name').val('Pcs');
+            row.find('.unit-conversion-value').val('');
+            row.find('.unit-name').val('');
 
-            unitWrapper.show();
-
-            if (Array.isArray(units) && units.length > 0) {
-                units.forEach(function(unit) {
-                    const unitName = unit.unit_name || 'Pcs';
-
-                    unitSelect.append(`
-                <option value="${unit.id}"
-                    data-unit-id="${unit.unit_id}"
-                    data-unit-name="${unitName}"
-                    data-conversion-value="${unit.conversion_value || 1}"
-                    data-sale-price="${unit.sale_price || defaultPrice}">
-                    ${unitName}
-                </option>
-            `);
-                });
+            if (!Array.isArray(units) || units.length === 0) {
+                return;
             }
 
-            if (selectedUnitId) {
-                unitSelect.val(String(selectedUnitId));
-            }
+            units.forEach(function(unit) {
+                const id = unit.id || unit.product_unit_conversion_id || unit.product_bundle_unit_conversion_id;
+                const unitId = unit.unit_id || unit.product_unit_id || '';
+                const unitName =
+                    unit.unit_name ||
+                    unit.name ||
+                    unit.unit?.name ||
+                    unit.product_unit?.name ||
+                    unit.productUnit?.name ||
+                    'PCS';
 
-            if (!unitSelect.val()) {
-                unitSelect.val(unitSelect.find('option:eq(1)').val());
-            }
+                const conversionValue =
+                    unit.conversion_value ||
+                    unit.value ||
+                    unit.conversion ||
+                    1;
 
-            unitSelect.trigger('change');
+                const salePrice =
+                    unit.sale_price ||
+                    unit.price ||
+                    unit.selling_price ||
+                    0;
+
+                unitSelect.append(`
+            <option value="${id}"
+                data-unit-id="${unitId}"
+                data-unit-name="${unitName}"
+                data-conversion-value="${conversionValue}"
+                data-sale-price="${salePrice}">
+                ${unitName}
+            </option>
+        `);
+            });
+
+            const baseOption = unitSelect.find(`option[data-unit-id="${baseUnitId}"]`).val();
+            const firstOption = unitSelect.find('option:eq(1)').val();
+
+            unitSelect.val(baseOption || firstOption).trigger('change');
+
+            // let baseOption = null;
+
+            // unitSelect.find('option').each(function() {
+            //     if (String($(this).data('unit-id')) === String(baseUnitId)) {
+            //         baseOption = $(this).val();
+            //         return false;
+            //     }
+            // });
+
+            // const firstOption = unitSelect.find('option:eq(1)').val();
+
+            // unitSelect.val(baseOption || firstOption).trigger('change');
         }
 
         function updatePriceFromSelectedUnit(row) {
@@ -1420,12 +1654,13 @@
 
                         row.find('.product-type').val('bundle');
 
-                        fillProductUnits(
-                            row,
-                            bundle.units || [],
-                            selectedUnitId,
-                            parseFloat(bundle.price || 0)
-                        );
+                        // fillProductUnits(
+                        //     row,
+                        //     bundle.units || [],
+                        //     selectedUnitId,
+                        //     parseFloat(bundle.price || 0)
+                        // );
+                        row.find('.product-unit').trigger('change');
                     }
                 } else {
                     const selectedData = findSelectedProductData(select.val());
@@ -1437,7 +1672,8 @@
                     row.find('.product-type').val(type);
 
                     if (type === 'satuan') {
-                        fillProductUnits(row, units, selectedUnitId, defaultPrice, false);
+                        // fillProductUnits(row, units, selectedUnitId, defaultPrice, false);
+                        row.find('.product-unit').trigger('change');
                     } else {
                         row.find('.product-unit-wrapper').hide();
                         row.find('.product-unit').val('');
@@ -1458,44 +1694,96 @@
             recalcAllRows();
         });
 
-        $(document).on('change', '.select-product', function() {
+        // $(document).on('change', '.select-product', function() {
+        //     const row = $(this).closest('.product-item');
+
+        //     if (row.find('.add-bundle-check').is(':checked')) {
+        //         const selectedVal = $(this).val();
+
+        //         if (selectedVal) {
+        //             const primaryProductId = selectedVal.split('_')[1];
+
+        //             row.find('.bundle-wrapper').removeClass('d-none');
+        //             populateSecondaryBundleProducts(row, primaryProductId);
+        //             row.find('.product-type').val('bundle');
+        //         }
+
+        //         return;
+        //     }
+
+        //     const selectedData = findSelectedProductData($(this).val());
+
+        //     const type = selectedData ? selectedData.type : '';
+        //     const price = selectedData ? parseFloat(selectedData.price || 0) : 0;
+        //     const units = selectedData ? (selectedData.units || []) : [];
+
+        //     row.find('.product-type').val(type);
+
+        //     if (type === 'satuan') {
+        //         fillProductUnits(row, units, null, price, false);
+        //     } else {
+        //         row.find('.product-unit-wrapper').hide();
+        //         row.find('.product-unit').val('');
+        //         row.find('.unit-conversion-value').val('1');
+        //         row.find('.unit-name').val('');
+
+        //         row.find('.price_before_discount').val(price.toFixed(2));
+        //         row.find('.price_before_discount_display').val(formatNumber(price));
+
+        //         recalcAllRows();
+        //     }
+        // });
+
+        // $(document).on('change', '.select-product', function() {
+        //     const row = $(this).closest('.product-item');
+
+        //     const selectedData = findSelectedProductData($(this).val());
+        //     if (!selectedData) return;
+
+        //     row.find('.product-type').val(
+        //         row.find('.add-bundle-check').is(':checked') ? 'bundle' : 'satuan'
+        //     );
+
+        //     fillProductUnits(
+        //         row,
+        //         selectedData.units || [],
+        //         selectedData.base_unit_id
+        //     );
+
+        //     if (row.find('.add-bundle-check').is(':checked')) {
+        //         const primaryProductId = $(this).val().split('_')[1];
+        //         row.find('.bundle-wrapper').removeClass('d-none');
+        //         populateSecondaryBundleProducts(row, primaryProductId);
+        //     } else {
+        //         row.find('.bundle-wrapper').addClass('d-none');
+        //         row.find('.bundle-secondary-product').val('');
+        //     }
+
+        //     recalcAllRows();
+        // });
+
+        $(document).on('change select2:select', 'select[name="product[]"]', function() {
             const row = $(this).closest('.product-item');
+            const selectedOption = $(this).find('option:selected');
 
-            if (row.find('.add-bundle-check').is(':checked')) {
-                const selectedVal = $(this).val();
-
-                if (selectedVal) {
-                    const primaryProductId = selectedVal.split('_')[1];
-
-                    row.find('.bundle-wrapper').removeClass('d-none');
-                    populateSecondaryBundleProducts(row, primaryProductId);
-                    row.find('.product-type').val('bundle');
-                }
-
-                return;
-            }
-
-            const selectedData = findSelectedProductData($(this).val());
-
-            const type = selectedData ? selectedData.type : '';
-            const price = selectedData ? parseFloat(selectedData.price || 0) : 0;
-            const units = selectedData ? (selectedData.units || []) : [];
+            const type = selectedOption.data('type') || '';
+            const selectedId = String(selectedOption.data('real-id') || '');
 
             row.find('.product-type').val(type);
 
-            if (type === 'satuan') {
-                fillProductUnits(row, units, null, price, false);
-            } else {
-                row.find('.product-unit-wrapper').hide();
-                row.find('.product-unit').val('');
-                row.find('.unit-conversion-value').val('1');
-                row.find('.unit-name').val('');
+            const selectedItem = allProducts.find(item => {
+                return item.type === type && String(item.id) === selectedId;
+            });
 
-                row.find('.price_before_discount').val(price.toFixed(2));
-                row.find('.price_before_discount_display').val(formatNumber(price));
+            let units = selectedItem?.units || [];
 
-                recalcAllRows();
-            }
+            fillProductUnits(row, units, selectedItem?.base_unit_id);
+
+            row.find('.add-bundle-check').prop('checked', false);
+            row.find('.bundle-wrapper').addClass('d-none');
+            row.find('.bundle-secondary-product').empty().append('<option value="">Pilih product bundle</option>');
+
+            recalcAllRows();
         });
 
         $(document).on('change', '.product-unit', function() {
@@ -1627,6 +1915,53 @@
             }
         );
 
+        // $(document).on('change', '.add-bundle-check', function() {
+        //     const row = $(this).closest('.product-item');
+        //     const productSelect = row.find('select[name="product[]"]');
+        //     const selectedVal = productSelect.val();
+
+        //     if (this.checked) {
+        //         if (!selectedVal) {
+        //             $(this).prop('checked', false);
+        //             showError(productSelect, 'Pilih product dulu');
+        //             return;
+        //         }
+
+        //         const primaryProductId = selectedVal.split('_')[1];
+
+        //         row.find('.product-type').val('bundle');
+        //         row.find('.bundle-wrapper').removeClass('d-none');
+
+        //         populateSecondaryBundleProducts(row, primaryProductId);
+
+        //         row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+        //         row.find('.unit-conversion-value').val('1');
+        //         row.find('.unit-name').val('Pcs');
+
+        //     } else {
+        //         row.find('.product-type').val('satuan');
+        //         row.find('.bundle-wrapper').addClass('d-none');
+        //         row.find('.bundle-secondary-product').val('');
+
+        //         const selectedData = findSelectedProductData(productSelect.val());
+
+        //         if (selectedData) {
+        //             fillProductUnits(
+        //                 row,
+        //                 selectedData.units || [],
+        //                 null,
+        //                 parseFloat(selectedData.price || 0)
+        //             );
+        //         } else {
+        //             row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
+        //             row.find('.unit-conversion-value').val('1');
+        //             row.find('.unit-name').val('Pcs');
+        //         }
+
+        //         recalcAllRows();
+        //     }
+        // });
+
         $(document).on('change', '.add-bundle-check', function() {
             const row = $(this).closest('.product-item');
             const productSelect = row.find('select[name="product[]"]');
@@ -1646,33 +1981,37 @@
 
                 populateSecondaryBundleProducts(row, primaryProductId);
 
-                row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-                row.find('.unit-conversion-value').val('1');
-                row.find('.unit-name').val('Pcs');
-
+                const selectedData = findSelectedProductData(selectedVal);
+                if (selectedData) {
+                    fillProductUnits(row, selectedData.units || [], selectedData.base_unit_id);
+                }
             } else {
                 row.find('.product-type').val('satuan');
                 row.find('.bundle-wrapper').addClass('d-none');
                 row.find('.bundle-secondary-product').val('');
 
-                const selectedData = findSelectedProductData(productSelect.val());
-
+                const selectedData = findSelectedProductData(selectedVal);
                 if (selectedData) {
-                    fillProductUnits(
-                        row,
-                        selectedData.units || [],
-                        null,
-                        parseFloat(selectedData.price || 0)
-                    );
-                } else {
-                    row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-                    row.find('.unit-conversion-value').val('1');
-                    row.find('.unit-name').val('Pcs');
+                    fillProductUnits(row, selectedData.units || [], selectedData.base_unit_id);
                 }
-
-                recalcAllRows();
             }
+
+            recalcAllRows();
         });
+
+        // $(document).on('change', '.bundle-secondary-product', function() {
+        //     const row = $(this).closest('.product-item');
+        //     const bundleId = $(this).find('option:selected').data('bundle-id');
+
+        //     const bundle = bundles.find(b => String(b.id) === String(bundleId));
+        //     if (!bundle) return;
+
+        //     row.find('.product-type').val('bundle');
+
+        //     fillProductUnits(row, bundle.units || [], null, parseFloat(bundle.price || 0));
+
+        //     recalcAllRows();
+        // });
 
         $(document).on('change', '.bundle-secondary-product', function() {
             const row = $(this).closest('.product-item');
@@ -1683,7 +2022,7 @@
 
             row.find('.product-type').val('bundle');
 
-            fillProductUnits(row, bundle.units || [], null, parseFloat(bundle.price || 0));
+            fillProductUnits(row, bundle.units || [], bundle.base_unit_id);
 
             recalcAllRows();
         });

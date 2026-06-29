@@ -69,36 +69,33 @@ class ProductBundleController extends Controller
                         ->where('role', 'secondary')
                         ->first()
                         ?->product;
-
-                    // return [
-                    //     'secondary_name' => $secondaryProduct?->name ?? '-',
-                    //     'sku' => $bundle->sku,
-                    //     'bundle_units' => view(
-                    //         'erp.pages.product-bundles.partials.bundle-units-table',
-                    //         compact('bundle')
-                    //     )->render(),
-                    //     'action' => view(
-                    //         'erp.pages.product-bundles.partials.action-button',
-                    //         compact('bundle')
-                    //     )->render(),
-                    // ];
                     return [
                         'id' => $bundle->id,
                         'secondary_name' => $secondaryProduct?->name ?? '-',
                         'sku' => $bundle->sku,
-                        'bundle_units' => view(
-                            'erp.pages.product-bundles.partials.bundle-units-table',
-                            compact('bundle')
-                        )->render(),
+                        'bundle' => $bundle,
+                        // 'bundle_units' => view(
+                        //     'erp.pages.product-bundles.partials.bundle-units-table',
+                        //     compact('bundle')
+                        // )->render(),
                     ];
                 })->values();
 
                 return [
                     'DT_RowIndex' => $start + $index + 1,
-                    'primary_product' => $primaryProduct?->name ?? '-',
+                    'primary_product' => $primaryProduct
+                        ? '<span class="fw-bold text-primary">' . e($primaryProduct->name) . '</span>'
+                        : '-',
+                    // 'secondary_products' => view(
+                    //     'erp.pages.product-bundles.partials.secondary-products-table',
+                    //     compact('secondaryBundles')
+                    // )->render(),
                     'secondary_products' => view(
                         'erp.pages.product-bundles.partials.secondary-products-table',
-                        compact('secondaryBundles')
+                        [
+                            'secondaryBundles' => $secondaryBundles,
+                            'bundle' => $firstBundle,
+                        ]
                     )->render(),
 
                     'action' => view(
@@ -141,15 +138,34 @@ class ProductBundleController extends Controller
     //     $products = Products::orderBy('name', 'asc')->get();
     //     $productUnits = ProductUnit::orderBy('name', 'asc')->get();
 
+    //     $existingBundles = ProductBundle::with('items')
+    //         ->get()
+    //         ->map(function ($bundle) {
+    //             return [
+    //                 'primary' => $bundle->items->where('role', 'primary')->first()?->product_id,
+    //                 'secondary' => $bundle->items->where('role', 'secondary')->first()?->product_id,
+    //             ];
+    //         })
+    //         ->filter(fn($item) => $item['primary'] && $item['secondary'])
+    //         ->values();
+
     //     return view('erp.pages.product-bundles.create-product', compact(
     //         'products',
-    //         'productUnits'
+    //         'productUnits',
+    //         'existingBundles'
     //     ));
     // }
 
     public function create()
     {
-        $products = Products::orderBy('name', 'asc')->get();
+        $usedPrimaryProductIds = ProductBundleItem::where('role', 'primary')
+            ->pluck('product_id')
+            ->toArray();
+
+        $products = Products::whereNotIn('id', $usedPrimaryProductIds)
+            ->orderBy('name', 'asc')
+            ->get();
+
         $productUnits = ProductUnit::orderBy('name', 'asc')->get();
 
         $existingBundles = ProductBundle::with('items')

@@ -87,12 +87,62 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns:
+                minmax(380px, 4fr) 100px 130px 130px 130px 130px 52px;
             gap: 10px;
+            align-items: start;
+        }
+
+        .product-bundle-inline {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .product-bundle-inline:has(.bundle-wrapper:not(.d-none)) {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .product-delete-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-delete-col label {
+            height: 32px;
+            margin-bottom: 6px;
+        }
+
+        .product-delete-col .delete-row {
+            height: 44px;
+            width: 44px;
+            padding: 0;
+        }
+
+        .product-grid .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-grid .form-group>label,
+        .product-label-row {
+            height: 32px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .product-label-row {
+            justify-content: space-between;
+        }
+
+        .product-grid .form-control,
+        .product-grid .select2-container--default .select2-selection--single {
+            height: 44px !important;
         }
 
         .product-col-span-2 {
-            grid-column: span 2;
+            grid-column: span 1;
         }
 
         /* MOBILE */
@@ -198,6 +248,71 @@
             .product-grid .form-group:nth-of-type(4) label {
                 display: none !important;
             }
+        }
+
+        .product-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+
+        .bundle-toggle input {
+            display: none;
+        }
+
+        .bundle-toggle span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+
+            padding: 7px 14px;
+            border-radius: 8px;
+
+            background: #0d6efd;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+
+            cursor: pointer;
+            transition: .2s;
+        }
+
+        .bundle-toggle span:hover {
+            background: #0b5ed7;
+        }
+
+        .bundle-toggle input:checked+span {
+            background: #198754;
+        }
+
+        .bundle-toggle input:checked+span i {
+            transform: rotate(180deg);
+        }
+
+        .bundle-toggle {
+            margin: 0;
+        }
+
+        .bundle-toggle input {
+            display: none;
+        }
+
+        .bundle-toggle span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 32px;
+            padding: 0 12px;
+            border-radius: 8px;
+            background: #0d6efd;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .bundle-toggle input:checked+span {
+            background: #198754;
         }
     </style>
 @endpush
@@ -403,32 +518,58 @@
                             <div id="product_list">
 
                                 <div class="product-item" data-index="0">
-                                    <div class="product-item-header">
+                                    {{-- <div class="product-item-header">
                                         <span class="product-number">#1</span>
-                                        <button type="button" class="btn btn-danger delete-row">
-                                            <i class="feather-trash"></i>
-                                        </button>
-                                    </div>
+                                    </div> --}}
 
                                     <div class="product-grid">
+                                        {{-- <div class="form-group product-col-span-2">
+                                            <div class="product-label-row">
+                                                <label>Product</label>
 
-                                        <div class="form-group product-col-span-2">
-                                            <label>Product</label>
+                                                <label class="bundle-toggle">
+                                                    <input type="checkbox" class="add-bundle-check" value="1">
+                                                    <span>
+                                                        <i class="feather-package"></i>
+                                                        Bundle
+                                                    </span>
+                                                </label>
+                                            </div>
+
                                             <select class="form-control select-product" data-select2-selector="tag"
                                                 name="product[]" id="product_0">
                                                 <option value="" disabled selected hidden>Pilih produk</option>
                                             </select>
-                                            <div class="form-group product-col-span-2">
-                                                <div class="form-check mt-2">
-                                                    <input class="form-check-input add-bundle-check" type="checkbox"
-                                                        value="1">
-                                                    <label class="form-check-label fw-semibold">
-                                                        Add Bundle
-                                                    </label>
-                                                </div>
 
-                                                <div class="bundle-wrapper mt-2 d-none">
-                                                    <label>Product Bundle</label>
+                                            <div class="bundle-wrapper mt-2 d-none">
+                                                <label>Product Bundle</label>
+                                                <select class="form-control bundle-secondary-product"
+                                                    name="bundle_secondary_product_id[]">
+                                                    <option value="">Pilih product bundle</option>
+                                                </select>
+                                            </div>
+                                        </div> --}}
+
+                                        <div class="form-group product-col-span-2">
+                                            <div class="product-label-row">
+                                                <label>Product</label>
+
+                                                <label class="bundle-toggle">
+                                                    <input type="checkbox" class="add-bundle-check" value="1">
+                                                    <span>
+                                                        <i class="feather-package"></i>
+                                                        Bundle
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            <div class="product-bundle-inline">
+                                                <select class="form-control select-product" data-select2-selector="tag"
+                                                    name="product[]" id="product_0">
+                                                    <option value="" disabled selected hidden>Pilih produk</option>
+                                                </select>
+
+                                                <div class="bundle-wrapper d-none">
                                                     <select class="form-control bundle-secondary-product"
                                                         name="bundle_secondary_product_id[]">
                                                         <option value="">Pilih product bundle</option>
@@ -481,6 +622,13 @@
                                                 class="total_before_discount">
                                         </div>
 
+                                        <div class="product-delete-col">
+                                            <label>&nbsp;</label>
+                                            <button type="button" class="btn btn-danger delete-row">
+                                                <i class="feather-trash"></i>
+                                            </button>
+                                        </div>
+
                                         <input type="hidden" name="price_after_discount[]" class="price_after_discount">
                                         <input type="hidden" name="total_after_discount[]" class="total_after_discount">
 
@@ -491,32 +639,59 @@
 
                             <template id="product_item_template">
                                 <div class="product-item" data-index="__index__">
-                                    <div class="product-item-header">
-                                        <span class="product-number">#__number__</span>
-                                        <button type="button" class="btn btn-sm btn-danger delete-row">
-                                            <i class="feather-trash"></i>
-                                        </button>
-                                    </div>
+                                    {{-- <div class="product-item-header">
+                                        <span class="product-number">#__number__</span>        
+                                    </div> --}}
 
                                     <div class="product-grid">
 
-                                        <div class="form-group product-col-span-2">
-                                            <label>Product</label>
+                                        {{-- <div class="form-group product-col-span-2">
+                                            <div class="product-label-row">
+                                                <label>Product</label>
+
+                                                <label class="bundle-toggle">
+                                                    <input type="checkbox" class="add-bundle-check" value="1">
+                                                    <span>
+                                                        <i class="feather-package"></i>
+                                                        Bundle
+                                                    </span>
+                                                </label>
+                                            </div>
+
                                             <select class="form-control select-product" data-select2-selector="tag"
-                                                name="product[]" id="product___index__">
+                                                name="product[]" id="product_0">
                                                 <option value="" disabled selected hidden>Pilih produk</option>
                                             </select>
-                                            <div class="form-group product-col-span-2">
-                                                <div class="form-check mt-2">
-                                                    <input class="form-check-input add-bundle-check" type="checkbox"
-                                                        value="1">
-                                                    <label class="form-check-label fw-semibold">
-                                                        Add Bundle
-                                                    </label>
-                                                </div>
 
-                                                <div class="bundle-wrapper mt-2 d-none">
-                                                    <label>Product Bundle</label>
+                                            <div class="bundle-wrapper mt-2 d-none">
+                                                <label>Product Bundle</label>
+                                                <select class="form-control bundle-secondary-product"
+                                                    name="bundle_secondary_product_id[]">
+                                                    <option value="">Pilih product bundle</option>
+                                                </select>
+                                            </div>
+                                        </div> --}}
+
+                                        <div class="form-group product-col-span-2">
+                                            <div class="product-label-row">
+                                                <label>Product</label>
+
+                                                <label class="bundle-toggle">
+                                                    <input type="checkbox" class="add-bundle-check" value="1">
+                                                    <span>
+                                                        <i class="feather-package"></i>
+                                                        Bundle
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            <div class="product-bundle-inline">
+                                                <select class="form-control select-product" data-select2-selector="tag"
+                                                    name="product[]" id="product_0">
+                                                    <option value="" disabled selected hidden>Pilih produk</option>
+                                                </select>
+
+                                                <div class="bundle-wrapper d-none">
                                                     <select class="form-control bundle-secondary-product"
                                                         name="bundle_secondary_product_id[]">
                                                         <option value="">Pilih product bundle</option>
@@ -524,7 +699,6 @@
                                                 </div>
                                             </div>
                                         </div>
-
 
                                         <input type="hidden" name="product_type[]" class="product-type"
                                             id="product_type___index__">
@@ -568,6 +742,13 @@
                                                 readonly>
                                             <input type="hidden" name="total_before_discount[]"
                                                 class="total_before_discount">
+                                        </div>
+
+                                        <div class="product-delete-col">
+                                            <label>&nbsp;</label>
+                                            <button type="button" class="btn btn-danger delete-row">
+                                                <i class="feather-trash"></i>
+                                            </button>
                                         </div>
 
                                         <input type="hidden" name="price_after_discount[]" class="price_after_discount">
@@ -1067,31 +1248,6 @@
             $("#total_amount_display").val(formatNumber(totalAfterDiscount));
         }
 
-        // $(document).on('change select2:select', 'select[name="product[]"]', function() {
-        //     const row = $(this).closest('.product-item');
-        //     const selectedOption = $(this).find('option:selected');
-
-        //     const type = selectedOption.data('type') || '';
-        //     const selectedId = String(selectedOption.data('real-id') || '');
-
-        //     row.find('.product-type').val(type);
-
-        //     const selectedItem = allProducts.find(item => {
-        //         return item.type === type && String(item.id) === selectedId;
-        //     });
-
-        //     let units = selectedItem?.units || [];
-
-        //     console.log('TYPE:', type);
-        //     console.log('ID:', selectedId);
-        //     console.log('ITEM:', selectedItem);
-        //     console.log('UNITS:', units);
-
-        //     fillProductUnits(row, units, selectedItem?.base_unit_id);
-
-        //     recalcAllRows();
-        // });
-
         $(document).on('change select2:select', 'select[name="product[]"]', function() {
             const row = $(this).closest('.product-item');
             const selectedOption = $(this).find('option:selected');
@@ -1460,29 +1616,6 @@
                 showError(addressSelect[0], 'Alamat wajib dipilih');
             }
 
-            // $('.product-item').each(function() {
-            //     const product = $(this).find('select[name="product[]"]');
-            //     const qty = $(this).find('input[name="qty[]"]');
-            //     const mode = $(this).find('select[name="mode[]"]');
-
-            //     const cleanQty = qty.val().replace(/[^\d]/g, '');
-
-            //     if (!product.val()) {
-            //         isValid = false;
-            //         showError(product[0], 'Produk wajib dipilih');
-            //     }
-
-            //     if (!mode.val()) {
-            //         isValid = false;
-            //         showError(mode[0], 'Mode wajib dipilih');
-            //     }
-
-            //     if (!cleanQty || parseInt(cleanQty) < 1) {
-            //         isValid = false;
-            //         showError(qty[0], 'Qty minimal 1');
-            //     }
-            // });
-
             $('.product-item').each(function() {
                 const product = $(this).find('select[name="product[]"]');
                 const unit = $(this).find('select[name="product_unit_id[]"]');
@@ -1640,48 +1773,12 @@
             recalcAllRows();
         }
 
-        // function calculateRowTotal($item) {
-        //     const qty = parseNumber($item.find('.qty').val());
-        //     const price = parseNumber($item.find('.price_before_discount').val());
 
-        //     const total = qty * price;
-
-        //     $item.find('.total_before_discount_display').val(formatRupiahNumber(total));
-        //     $item.find('.total_before_discount').val(total);
-
-        //     $item.find('.price_after_discount').val(price);
-        //     $item.find('.total_after_discount').val(total);
-        // }
-
-        // function calculateGrandTotal() {
-        //     let subTotal = 0;
-
-        //     $('.total_before_discount').each(function() {
-        //         subTotal += parseNumber($(this).val());
-        //     });
-
-        //     $('#sub_total').val(subTotal);
-        //     $('#sub_total_display').val(formatRupiahNumber(subTotal));
-
-        //     const totalDiscount = parseNumber($('#total_discount').val());
-
-        //     const grandTotal = subTotal - totalDiscount;
-
-        //     $('#total_amount').val(grandTotal);
-        //     $('#total_amount_display').val(formatRupiahNumber(grandTotal));
-        // }
 
         $(document).on('change', '.product-unit', function() {
             const $item = $(this).closest('.product-item');
 
             updatePriceFromSelectedUnit($item);
         });
-
-        // $(document).on('input', '.qty', function() {
-        //     const $item = $(this).closest('.product-item');
-
-        //     calculateRowTotal($item);
-        //     calculateGrandTotal();
-        // });
     </script>
 @endpush
