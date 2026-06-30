@@ -236,18 +236,18 @@ class ProductionStockInController extends Controller
         try {
             $waybillImagePath = null;
             if ($request->hasFile('waybill_image')) {
-                $image    = $request->file('waybill_image');
-                $filename = time() . '_' . $image->getClientOriginalName();
-                // $image->move(public_path('uploads/waybill_image'), $filename);
-                // $waybillImagePath = 'uploads/waybill_image/' . $filename;
+                $image = $request->file('waybill_image');
 
-                $uploadPath = public_path('uploads/waybill_image');
+                $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+
+                $uploadPath = base_path('public/uploads/waybill_image');
 
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
 
                 $image->move($uploadPath, $filename);
+
                 $waybillImagePath = 'uploads/waybill_image/' . $filename;
             }
 

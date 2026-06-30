@@ -247,24 +247,39 @@
 
                 reader.onload = function(e) {
                     img.onload = function() {
-                        const isPortrait = img.height > img.width;
+                        const targetRatio = 16 / 9;
+                        const imgRatio = img.width / img.height;
+
+                        let cropWidth = img.width;
+                        let cropHeight = img.height;
+                        let cropX = 0;
+                        let cropY = 0;
+
+                        if (imgRatio > targetRatio) {
+                            cropWidth = img.height * targetRatio;
+                            cropX = (img.width - cropWidth) / 2;
+                        } else {
+                            cropHeight = img.width / targetRatio;
+                            cropY = (img.height - cropHeight) / 2;
+                        }
 
                         const canvas = document.createElement('canvas');
+                        canvas.width = 1280;
+                        canvas.height = 720;
+
                         const ctx = canvas.getContext('2d');
 
-                        if (isPortrait) {
-                            canvas.width = img.height;
-                            canvas.height = img.width;
-
-                            ctx.translate(canvas.width / 2, canvas.height / 2);
-                            ctx.rotate(-90 * Math.PI / 180);
-                            ctx.drawImage(img, -img.width / 2, -img.height / 2);
-                        } else {
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-
-                            ctx.drawImage(img, 0, 0);
-                        }
+                        ctx.drawImage(
+                            img,
+                            cropX,
+                            cropY,
+                            cropWidth,
+                            cropHeight,
+                            0,
+                            0,
+                            canvas.width,
+                            canvas.height
+                        );
 
                         canvas.toBlob(function(blob) {
                             const newFile = new File([blob], file.name.replace(/\.[^/.]+$/,
