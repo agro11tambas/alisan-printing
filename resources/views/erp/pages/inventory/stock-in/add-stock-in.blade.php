@@ -335,10 +335,57 @@
         $(document).ready(function() {
 
             $('#waybill_image').on('change', function() {
-                const [file] = this.files;
-                if (file) {
-                    $('#preview-image').attr('src', URL.createObjectURL(file)).show();
-                }
+                const input = this;
+                const file = input.files[0];
+
+                if (!file || !file.type.startsWith('image/')) return;
+
+                const img = new Image();
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    img.onload = function() {
+                        const isPortrait = img.height > img.width;
+
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+
+                        if (isPortrait) {
+                            canvas.width = img.height;
+                            canvas.height = img.width;
+
+                            ctx.translate(canvas.width / 2, canvas.height / 2);
+                            ctx.rotate(90 * Math.PI / 180);
+                            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+                        } else {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+
+                            ctx.drawImage(img, 0, 0);
+                        }
+
+                        canvas.toBlob(function(blob) {
+                            const newFile = new File([blob], file.name.replace(/\.[^/.]+$/,
+                                '') + '.jpg', {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+
+                            const dataTransfer = new DataTransfer();
+                            dataTransfer.items.add(newFile);
+                            input.files = dataTransfer.files;
+
+                            $('#preview-image')
+                                .attr('src', URL.createObjectURL(newFile))
+                                .show();
+
+                        }, 'image/jpeg', 0.9);
+                    };
+
+                    img.src = e.target.result;
+                };
+
+                reader.readAsDataURL(file);
             });
 
             $(document).on('focus', 'input[name^="items"][name$="[stock_in]"]', function() {
