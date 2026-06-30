@@ -355,7 +355,7 @@
                             canvas.height = img.width;
 
                             ctx.translate(canvas.width / 2, canvas.height / 2);
-                            ctx.rotate(90 * Math.PI / 180);
+                            ctx.rotate(-90 * Math.PI / 180);
                             ctx.drawImage(img, -img.width / 2, -img.height / 2);
                         } else {
                             canvas.width = img.width;
