@@ -1429,31 +1429,6 @@
                     return null;
                 },
 
-                // templateResult: function(data) {
-                //     if (!data.element) return data.text;
-
-                //     const name = data.text.replace(/^\[.*?\]\s*/, '');
-                //     const sku = $(data.element).data('sku');
-
-                //     if (isMobile()) {
-                //         return name;
-                //     }
-
-                //     return data.text;
-                // },
-
-                // templateSelection: function(data) {
-                //     if (!data.element) return data.text;
-
-                //     const name = data.text.replace(/^\[.*?\]\s*/, '');
-
-                //     if (isMobile()) {
-                //         return name;
-                //     }
-
-                //     return data.text;
-                // }
-
                 templateResult: function(data) {
                     if (!data.element) return data.text;
 
@@ -1471,14 +1446,8 @@
                 templateSelection: function(data) {
                     if (!data.element) return data.text;
 
-                    const name = data.text;
-                    const sku = $(data.element).data('sku') || '-';
-
                     return $(`
-                        <div class="product-option-selected">
-                            <div class="product-option-name">${name}</div>
-                            <small class="product-option-sku">[${sku}]</small>
-                        </div>
+                        <span>${data.text}</span>
                     `);
                 }
             });
