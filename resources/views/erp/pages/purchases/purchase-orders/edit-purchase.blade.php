@@ -192,7 +192,7 @@
                                                         @foreach ($item->purchaseProduct?->unitConversions ?? [] as $conversion)
                                                             <option value="{{ $conversion->id }}"
                                                                 data-name="{{ $conversion->unit->name ?? 'Pcs' }}"
-                                                                data-conversion="{{ $conversion->conversion_value ?? 1 }}"
+                                                                data-ratio="{{ $conversion->ratio_value ?? 1 }}"
                                                                 {{ $item->product_unit_conversion_id == $conversion->id ? 'selected' : '' }}>
                                                                 {{ $conversion->unit->name ?? 'Pcs' }}
                                                             </option>
@@ -320,7 +320,7 @@
                         return [
                             'id' => $conversion->id,
                             'unit_name' => optional($conversion->unit)->name ?? 'Pcs',
-                            'conversion_value' => $conversion->conversion_value ?? 1,
+                            'ratio_value' => $conversion->ratio_value ?? 1,
                         ];
                     })
                     ->values(),
@@ -338,33 +338,45 @@
 
             $unitSelect.empty();
 
-            $unitSelect.append(`
-                <option value="" data-name="Pcs" data-conversion="1" selected>
-                    Default Unit
-                </option>
-            `);
-
             if (productId && productUnits[productId]) {
                 productUnits[productId].forEach(unit => {
                     $unitSelect.append(`
                 <option value="${unit.id}"
                     data-name="${unit.unit_name}"
-                    data-conversion="${unit.conversion_value}">
+                    data-ratio="${unit.ratio_value}">
                     ${unit.unit_name}
                 </option>
             `);
                 });
-            }
 
-            $unitName.val('Pcs');
-            $unitConversionValue.val(1);
+                const $baseUnit = $unitSelect.find('option').filter(function() {
+                    return Number($(this).data('ratio')) === 1;
+                });
+
+                if ($baseUnit.length) {
+                    $unitSelect.val($baseUnit.val());
+                } else {
+                    $unitSelect.prop('selectedIndex', 0);
+                }
+
+                syncSelectedUnit($row);
+            } else {
+                $unitSelect.append(`
+            <option value="" data-name="Pcs" data-ratio="1" selected>
+                Default Unit
+            </option>
+        `);
+
+                $unitName.val('Pcs');
+                $unitConversionValue.val(1);
+            }
         }
 
         function syncSelectedUnit($row) {
             const selected = $row.find('.select-unit option:selected');
 
             $row.find('.unit-name').val(selected.data('name') || 'Pcs');
-            $row.find('.unit-conversion-value').val(selected.data('conversion') || 1);
+            $row.find('.unit-conversion-value').val(selected.data('ratio') || 1);
         }
 
         function initSelect2(el) {
