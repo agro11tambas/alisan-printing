@@ -90,7 +90,8 @@
                                         data-select2-selector="tag">
                                         <option value="">Pilih account existing</option>
                                         @foreach ($customerAccounts as $account)
-                                            <option value="{{ $account->id }}">
+                                            <option value="{{ $account->id }}" data-name="{{ $account->name ?? '-' }}"
+                                                data-whatsapp="{{ $account->whatsapp_number ?? '-' }}">
                                                 {{ $account->name ?? '-' }} - {{ $account->whatsapp_number }}
                                             </option>
                                         @endforeach
@@ -102,20 +103,43 @@
 
                                     <div id="selectedAccountList" class="mt-3">
                                         @foreach ($customer->accounts as $account)
-                                            <div
-                                                class="selected-account-item d-flex align-items-center justify-content-between border rounded p-2 mb-2">
-                                                <div>
-                                                    <i class="feather-user me-1"></i>
-                                                    <span>{{ $account->name ?? '-' }} -
-                                                        {{ $account->whatsapp_number }}</span>
+                                            <div class="selected-account-item border rounded p-2 mb-2">
+                                                <div class="row align-items-center">
+                                                    <div class="col-lg-5">
+                                                        <div class="input-group">
+                                                            <div class="input-group-text"><i class="feather-user"></i></div>
+                                                            <input type="text" class="form-control selected-account-name"
+                                                                name="existing_accounts[{{ $account->id }}][name]"
+                                                                value="{{ $account->name ?? '-' }}" disabled>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-lg-5">
+                                                        <div class="input-group">
+                                                            <div class="input-group-text"><i class="feather-phone"></i>
+                                                            </div>
+                                                            <input type="text"
+                                                                class="form-control selected-account-whatsapp"
+                                                                name="existing_accounts[{{ $account->id }}][whatsapp_number]"
+                                                                value="{{ $account->whatsapp_number ?? '-' }}" disabled>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-lg-2 d-flex gap-1">
+                                                        <button type="button"
+                                                            class="btn btn-warning btn-sm btn-edit-selected-account">
+                                                            <i class="feather-edit"></i>
+                                                        </button>
+
+                                                        <button type="button"
+                                                            class="btn btn-danger btn-sm btn-remove-selected-account">
+                                                            <i class="feather-x"></i>
+                                                        </button>
+                                                    </div>
+
                                                     <input type="hidden" name="existing_account_ids[]"
                                                         value="{{ $account->id }}">
                                                 </div>
-
-                                                <button type="button"
-                                                    class="btn btn-danger btn-sm btn-remove-selected-account">
-                                                    <i class="feather-x"></i>
-                                                </button>
                                             </div>
                                         @endforeach
                                     </div>
@@ -149,7 +173,7 @@
                                             </div>
 
                                             <div class="col-lg-2 d-flex">
-                                                <button type="button" class="btn btn-danger btn-remove-account d-none">
+                                                <button type="button" class="btn btn-danger btn-remove-account">
                                                     <i class="feather-x"></i> Remove
                                                 </button>
                                             </div>
@@ -435,16 +459,8 @@
             let accountIndex = 1;
 
             function updateRemoveAccountButtons() {
-                const allItems = document.querySelectorAll('#accounts .account-item');
-
-                allItems.forEach((item, idx) => {
-                    const removeBtn = item.querySelector('.btn-remove-account');
-
-                    if (idx === 0) {
-                        removeBtn.classList.add('d-none');
-                    } else {
-                        removeBtn.classList.remove('d-none');
-                    }
+                document.querySelectorAll('#accounts .btn-remove-account').forEach(btn => {
+                    btn.classList.remove('d-none');
                 });
             }
 
@@ -556,19 +572,49 @@
                     return;
                 }
 
-                const item = `
-                    <div class="selected-account-item d-flex align-items-center justify-content-between border rounded p-2 mb-2">
-                        <div>
-                            <i class="feather-user me-1"></i>
-                            <span>${accountText}</span>
-                            <input type="hidden" name="existing_account_ids[]" value="${accountId}">
-                        </div>
+                const selectedOption = $('#existing_account_picker option:selected');
+                const accountName = selectedOption.data('name') ?? '-';
+                const accountWhatsapp = selectedOption.data('whatsapp') ?? '-';
 
-                        <button type="button" class="btn btn-danger btn-sm btn-remove-selected-account">
-                            <i class="feather-x"></i>
-                        </button>
-                    </div>
-                `;
+                const item = `
+    <div class="selected-account-item border rounded p-2 mb-2">
+        <div class="row align-items-center">
+            <div class="col-lg-5">
+                <div class="input-group">
+                    <div class="input-group-text"><i class="feather-user"></i></div>
+                    <input type="text"
+                        class="form-control selected-account-name"
+                        name="existing_accounts[${accountId}][name]"
+                        value="${accountName}"
+                        disabled>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="input-group">
+                    <div class="input-group-text"><i class="feather-phone"></i></div>
+                    <input type="text"
+                        class="form-control selected-account-whatsapp"
+                        name="existing_accounts[${accountId}][whatsapp_number]"
+                        value="${accountWhatsapp}"
+                        disabled>
+                </div>
+            </div>
+
+            <div class="col-lg-2 d-flex gap-1">
+                <button type="button" class="btn btn-warning btn-sm btn-edit-selected-account">
+                    <i class="feather-edit"></i>
+                </button>
+
+                <button type="button" class="btn btn-danger btn-sm btn-remove-selected-account">
+                    <i class="feather-x"></i>
+                </button>
+            </div>
+
+            <input type="hidden" name="existing_account_ids[]" value="${accountId}">
+        </div>
+    </div>
+`;
 
                 $('#selectedAccountList').append(item);
 
@@ -577,6 +623,32 @@
 
             $('#selectedAccountList').on('click', '.btn-remove-selected-account', function() {
                 $(this).closest('.selected-account-item').remove();
+            });
+
+            $('#selectedAccountList').on('click', '.btn-edit-selected-account', function() {
+                const item = $(this).closest('.selected-account-item');
+
+                const nameInput = item.find('.selected-account-name');
+                const whatsappInput = item.find('.selected-account-whatsapp');
+
+                const isDisabled = nameInput.prop('disabled');
+
+                nameInput.prop('disabled', !isDisabled);
+                whatsappInput.prop('disabled', !isDisabled);
+
+                if (isDisabled) {
+                    $(this)
+                        .removeClass('btn-warning')
+                        .addClass('btn-success')
+                        .html('<i class="feather-check"></i>');
+
+                    nameInput.focus();
+                } else {
+                    $(this)
+                        .removeClass('btn-success')
+                        .addClass('btn-warning')
+                        .html('<i class="feather-edit"></i>');
+                }
             });
 
             $(document).on('select2:open', () => {

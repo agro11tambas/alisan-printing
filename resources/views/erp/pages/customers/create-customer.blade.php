@@ -132,7 +132,7 @@
                                             </div>
 
                                             <div class="col-lg-2 d-flex">
-                                                <button type="button" class="btn btn-danger btn-remove-account d-none">
+                                                <button type="button" class="btn btn-danger btn-remove-account">
                                                     <i class="feather-x"></i> Remove
                                                 </button>
                                             </div>
@@ -406,16 +406,8 @@
         let accountIndex = 1;
 
         function updateRemoveAccountButtons() {
-            const allItems = document.querySelectorAll('#accounts .account-item');
-
-            allItems.forEach((item, idx) => {
-                const removeBtn = item.querySelector('.btn-remove-account');
-
-                if (idx === 0) {
-                    removeBtn.classList.add('d-none');
-                } else {
-                    removeBtn.classList.remove('d-none');
-                }
+            document.querySelectorAll('#accounts .btn-remove-account').forEach(btn => {
+                btn.classList.remove('d-none');
             });
         }
 
