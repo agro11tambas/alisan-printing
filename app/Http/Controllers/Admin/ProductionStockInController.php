@@ -516,8 +516,21 @@ class ProductionStockInController extends Controller
                 if ($row->waybill_image) {
                     $imageUrl = asset($row->waybill_image);
                     return '<a href="' . $imageUrl . '" data-lightbox="waybill-' . $row->id . '">
-                    <img src="' . $imageUrl . '" alt="Waybill Image" class="img-fluid" style="max-width: 60px;">
-                </a>';
+                        <div style="
+                            width: 90px;
+                            aspect-ratio: 16 / 9;
+                            overflow: hidden;
+                            border-radius: 6px;
+                            background: #f5f5f5;
+                        ">
+                            <img src="' . $imageUrl . '" alt="Waybill Image" style="
+                                width: 100%;
+                                height: 100%;
+                                object-fit: cover;
+                                display: block;
+                            ">
+                        </div>
+                    </a>';
                 }
                 return '-';
             })

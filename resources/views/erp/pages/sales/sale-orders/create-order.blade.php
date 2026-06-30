@@ -66,9 +66,9 @@
         }
 
         .product-item {
-            border: 1px solid #e5e7eb;
+            /* border: 1px solid #e5e7eb; */
             border-radius: 12px;
-            padding: 14px;
+            /* padding: 14px; */
             margin-bottom: 12px;
             /* background: #fff; */
         }
@@ -94,12 +94,18 @@
 
         .product-bundle-inline {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: auto 1fr;
             gap: 8px;
+            align-items: center;
         }
 
         .product-bundle-inline:has(.bundle-wrapper:not(.d-none)) {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: auto 1fr 1fr;
+        }
+
+        .bundle-toggle {
+            margin: 0 !important;
+            white-space: nowrap;
         }
 
         .product-delete-col {
@@ -314,6 +320,29 @@
         .bundle-toggle input:checked+span {
             background: #198754;
         }
+
+        .product-grid-header {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .product-item .form-group>label,
+        .product-delete-col>label {
+            display: none !important;
+        }
+
+        .product-option-name,
+        .product-option-selected .product-option-name {
+            font-weight: 500;
+            line-height: 1.2;
+        }
+
+        .product-option-sku {
+            font-size: 11px;
+            color: #6c757d;
+            line-height: 1.1;
+        }
     </style>
 @endpush
 
@@ -486,264 +515,263 @@
                         </div>
                     </div>
 
-                    <div class="card stretch stretch-full">
-                        <div class="card-body">
+                    {{-- <div class="card stretch stretch-full">
+                    </div> --}}
+                    <div class="mt-3">
 
-                            <div class="mb-4">
-                                <h5 class="fw-bold">Add Products:</h5>
-                            </div>
+                        <div class="mb-4">
+                            <h5 class="fw-bold">Add Products:</h5>
+                        </div>
 
-                            <!-- PRODUCT LIST -->
-                            <div id="product_list">
+                        <div class="product-grid product-grid-header mb-2">
+                            <div class="product-col-span-2">Product</div>
+                            <div>Unit</div>
+                            <div>Qty</div>
+                            <div>Price</div>
+                            <div>Mode</div>
+                            <div>Total</div>
+                            <div></div>
+                        </div>
 
-                                <div class="product-item" data-index="0">
-                                    <div class="product-grid">
+                        <!-- PRODUCT LIST -->
+                        <div id="product_list">
 
-                                        {{-- <div class="form-group product-col-span-2">
+                            <div class="product-item" data-index="0">
+                                <div class="product-grid">
+                                    <div class="form-group product-col-span-2">
+                                        {{-- <div class="product-label-row">
                                             <label>Product</label>
+
+                                            <label class="bundle-toggle">
+                                                <input type="checkbox" class="add-bundle-check" value="1">
+                                                <span>
+                                                    <i class="feather-package"></i>
+                                                    Bundle
+                                                </span>
+                                            </label>
+                                        </div> --}}
+
+                                        <div class="product-bundle-inline">
+                                            <label class="bundle-toggle">
+                                                <input type="checkbox" class="add-bundle-check" value="1">
+                                                <span>
+                                                    <i class="feather-package"></i>
+                                                    Bundle
+                                                </span>
+                                            </label>
+
                                             <select class="form-control select-product" data-select2-selector="tag"
                                                 name="product[]" id="product_0">
                                                 <option value="" disabled selected hidden>Pilih produk</option>
                                             </select>
-                                            <div class="form-group product-col-span-2">
-                                                <div class="form-check mt-2">
-                                                    <input class="form-check-input add-bundle-check" type="checkbox"
-                                                        value="1">
-                                                    <label class="form-check-label fw-semibold">
-                                                        Add Bundle
-                                                    </label>
-                                                </div>
 
-                                                <div class="bundle-wrapper mt-2 d-none">
-                                                    <label>Product Bundle</label>
-                                                    <select class="form-control bundle-secondary-product"
-                                                        name="bundle_secondary_product_id[]">
-                                                        <option value="">Pilih product secondary</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div> --}}
-
-                                        <div class="form-group product-col-span-2">
-                                            <div class="product-label-row">
-                                                <label>Product</label>
-
-                                                <label class="bundle-toggle">
-                                                    <input type="checkbox" class="add-bundle-check" value="1">
-                                                    <span>
-                                                        <i class="feather-package"></i>
-                                                        Bundle
-                                                    </span>
-                                                </label>
-                                            </div>
-
-                                            <div class="product-bundle-inline">
-                                                <select class="form-control select-product" data-select2-selector="tag"
-                                                    name="product[]" id="product_0">
-                                                    <option value="" disabled selected hidden>Pilih produk</option>
+                                            <div class="bundle-wrapper d-none">
+                                                <select class="form-control bundle-secondary-product"
+                                                    data-select2-selector="tag" name="bundle_secondary_product_id[]">
+                                                    <option value="">Pilih product bundle</option>
                                                 </select>
-
-                                                <div class="bundle-wrapper d-none">
-                                                    <select class="form-control bundle-secondary-product"
-                                                        name="bundle_secondary_product_id[]">
-                                                        <option value="">Pilih product bundle</option>
-                                                    </select>
-                                                </div>
                                             </div>
                                         </div>
-
-                                        <input type="hidden" name="product_type[]" class="product-type"
-                                            id="product_type_0">
-
-                                        <div class="form-group product-unit-wrapper">
-                                            <label>Unit</label>
-                                            <select name="product_unit_id[]" class="form-control product-unit">
-                                                <option value="">Pilih unit</option>
-                                            </select>
-
-                                            <input type="hidden" name="unit_conversion_value[]"
-                                                class="unit-conversion-value" value="1">
-                                            <input type="hidden" name="unit_name[]" class="unit-name" value="">
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Qty</label>
-                                            <input type="text" inputmode="numeric" name="qty[]"
-                                                class="form-control qty">
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Price</label>
-                                            <input type="text" inputmode="numeric"
-                                                class="form-control price_before_discount_display">
-                                            <input type="hidden" name="price_before_discount[]"
-                                                class="price_before_discount">
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Mode</label>
-                                            <select name="mode[]" class="form-control item-mode">
-                                                <option value="printing" selected>Printing</option>
-                                                <option value="polosan">Polosan</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Total</label>
-                                            <input type="text" class="form-control total_before_discount_display"
-                                                readonly>
-                                            <input type="hidden" name="total_before_discount[]"
-                                                class="total_before_discount">
-                                        </div>
-
-                                        <div class="product-delete-col">
-                                            <label>&nbsp;</label>
-                                            <button type="button" class="btn btn-danger delete-row">
-                                                <i class="feather-trash"></i>
-                                            </button>
-                                        </div>
-
-                                        <input type="hidden" name="price_after_discount[]" class="price_after_discount">
-                                        <input type="hidden" name="total_after_discount[]" class="total_after_discount">
-
                                     </div>
-                                </div>
 
-                            </div>
+                                    <input type="hidden" name="product_type[]" class="product-type"
+                                        id="product_type_0">
 
-                            <template id="product_item_template">
-                                <div class="product-item" data-index="__index__">
-                                    <div class="product-grid">
-                                        <div class="form-group product-col-span-2">
-                                            <div class="product-label-row">
-                                                <label>Product</label>
+                                    <div class="form-group product-unit-wrapper">
+                                        <label>Unit</label>
+                                        <select name="product_unit_id[]" class="form-control product-unit">
+                                            <option value="">Pilih unit</option>
+                                        </select>
 
-                                                <label class="bundle-toggle">
-                                                    <input type="checkbox" class="add-bundle-check" value="1">
-                                                    <span>
-                                                        <i class="feather-package"></i>
-                                                        Bundle
-                                                    </span>
-                                                </label>
-                                            </div>
-
-                                            <div class="product-bundle-inline">
-                                                <select class="form-control select-product" data-select2-selector="tag"
-                                                    name="product[]" id="product_0">
-                                                    <option value="" disabled selected hidden>Pilih produk</option>
-                                                </select>
-
-                                                <div class="bundle-wrapper d-none">
-                                                    <select class="form-control bundle-secondary-product"
-                                                        name="bundle_secondary_product_id[]">
-                                                        <option value="">Pilih product bundle</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <input type="hidden" name="product_type[]" class="product-type"
-                                            id="product_type___index__">
-
-                                        <div class="form-group product-unit-wrapper">
-                                            <label>Unit</label>
-                                            <select name="product_unit_id[]" class="form-control product-unit">
-                                                <option value="">Pilih unit</option>
-                                            </select>
-
-                                            <input type="hidden" name="unit_conversion_value[]"
-                                                class="unit-conversion-value" value="1">
-                                            <input type="hidden" name="unit_name[]" class="unit-name" value="">
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Qty</label>
-                                            <input type="text" inputmode="numeric" name="qty[]"
-                                                class="form-control qty">
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Price</label>
-                                            <input type="text" inputmode="numeric"
-                                                class="form-control price_before_discount_display">
-                                            <input type="hidden" name="price_before_discount[]"
-                                                class="price_before_discount">
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Mode</label>
-                                            <select name="mode[]" class="form-control item-mode">
-                                                <option value="printing" selected>Printing</option>
-                                                <option value="polosan">Polosan</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Total</label>
-                                            <input type="text" class="form-control total_before_discount_display"
-                                                readonly>
-                                            <input type="hidden" name="total_before_discount[]"
-                                                class="total_before_discount">
-                                        </div>
-
-                                        <div class="product-delete-col">
-                                            <label>&nbsp;</label>
-                                            <button type="button" class="btn btn-danger delete-row">
-                                                <i class="feather-trash"></i>
-                                            </button>
-                                        </div>
-
-                                        <input type="hidden" name="price_after_discount[]" class="price_after_discount">
-                                        <input type="hidden" name="total_after_discount[]" class="total_after_discount">
-
+                                        <input type="hidden" name="unit_conversion_value[]"
+                                            class="unit-conversion-value" value="1">
+                                        <input type="hidden" name="unit_name[]" class="unit-name" value="">
                                     </div>
-                                </div>
-                            </template>
 
-                            <!-- ADD BUTTON -->
-                            <div class="d-flex justify-content-end mt-3">
-                                <button type="button" id="add_row" class="btn btn-primary">
-                                    Add Item
-                                </button>
-                            </div>
+                                    <div class="form-group">
+                                        <label>Qty</label>
+                                        <input type="text" inputmode="numeric" name="qty[]"
+                                            class="form-control qty">
+                                    </div>
 
-                            <!-- GRAND TOTAL -->
-                            <div class="row justify-content-end mt-4">
-                                <div class="col-lg-4">
-                                    <h5 class="fw-bold mb-3">Grand Total:</h5>
+                                    <div class="form-group">
+                                        <label>Price</label>
+                                        <input type="text" inputmode="numeric"
+                                            class="form-control price_before_discount_display">
+                                        <input type="hidden" name="price_before_discount[]"
+                                            class="price_before_discount">
+                                    </div>
 
-                                    <table class="table table-bordered" id="tab_logic_total">
-                                        <tbody>
-                                            <tr>
-                                                <th>Sub Total</th>
-                                                <td>
-                                                    <input type="text" id="sub_total_display" class="form-control"
-                                                        readonly>
-                                                    <input type="hidden" name="sub_total" id="sub_total">
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th>Total Discount</th>
-                                                <td>
-                                                    <input type="text" id="total_discount_display"
-                                                        class="form-control text-danger" readonly>
-                                                    <input type="hidden" name="total_discount" id="total_discount">
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th class="bg-gray-100">Grand Total</th>
-                                                <td>
-                                                    <input type="text" id="total_amount_display"
-                                                        class="form-control fw-bold text-success bg-gray-100" readonly>
-                                                    <input type="hidden" name="total_amount" id="total_amount">
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                                    <div class="form-group">
+                                        <label>Mode</label>
+                                        <select name="mode[]" class="form-control item-mode">
+                                            <option value="printing" selected>Printing</option>
+                                            <option value="polosan">Polosan</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Total</label>
+                                        <input type="text" class="form-control total_before_discount_display" readonly>
+                                        <input type="hidden" name="total_before_discount[]"
+                                            class="total_before_discount">
+                                    </div>
+
+                                    <div class="product-delete-col">
+                                        <label>&nbsp;</label>
+                                        <button type="button" class="btn btn-danger delete-row">
+                                            <i class="feather-trash"></i>
+                                        </button>
+                                    </div>
+
+                                    <input type="hidden" name="price_after_discount[]" class="price_after_discount">
+                                    <input type="hidden" name="total_after_discount[]" class="total_after_discount">
+
                                 </div>
                             </div>
 
                         </div>
+
+                        <template id="product_item_template">
+                            <div class="product-item" data-index="__index__">
+                                <div class="product-grid">
+                                    <div class="form-group product-col-span-2">
+                                        {{-- <div class="product-label-row">
+                                            <label>Product</label>
+
+                                            <label class="bundle-toggle">
+                                                <input type="checkbox" class="add-bundle-check" value="1">
+                                                <span>
+                                                    <i class="feather-package"></i>
+                                                    Bundle
+                                                </span>
+                                            </label>
+                                        </div> --}}
+
+                                        <div class="product-bundle-inline">
+                                            <label class="bundle-toggle">
+                                                <input type="checkbox" class="add-bundle-check" value="1">
+                                                <span>
+                                                    <i class="feather-package"></i>
+                                                    Bundle
+                                                </span>
+                                            </label>
+
+                                            <select class="form-control select-product" data-select2-selector="tag"
+                                                name="product[]" id="product___index__">
+                                                <option value="" disabled selected hidden>Pilih produk</option>
+                                            </select>
+
+                                            <div class="bundle-wrapper d-none">
+                                                <select class="form-control bundle-secondary-product"
+                                                    id="bundle_secondary_product___index__" data-select2-selector="tag"
+                                                    name="bundle_secondary_product_id[]">
+                                                    <option value="">Pilih product bundle</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <input type="hidden" name="product_type[]" class="product-type"
+                                        id="product_type___index__">
+
+                                    <div class="form-group product-unit-wrapper">
+                                        <label>Unit</label>
+                                        <select name="product_unit_id[]" class="form-control product-unit">
+                                            <option value="">Pilih unit</option>
+                                        </select>
+
+                                        <input type="hidden" name="unit_conversion_value[]"
+                                            class="unit-conversion-value" value="1">
+                                        <input type="hidden" name="unit_name[]" class="unit-name" value="">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Qty</label>
+                                        <input type="text" inputmode="numeric" name="qty[]"
+                                            class="form-control qty">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Price</label>
+                                        <input type="text" inputmode="numeric"
+                                            class="form-control price_before_discount_display">
+                                        <input type="hidden" name="price_before_discount[]"
+                                            class="price_before_discount">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Mode</label>
+                                        <select name="mode[]" class="form-control item-mode">
+                                            <option value="printing" selected>Printing</option>
+                                            <option value="polosan">Polosan</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Total</label>
+                                        <input type="text" class="form-control total_before_discount_display" readonly>
+                                        <input type="hidden" name="total_before_discount[]"
+                                            class="total_before_discount">
+                                    </div>
+
+                                    <div class="product-delete-col">
+                                        <label>&nbsp;</label>
+                                        <button type="button" class="btn btn-danger delete-row">
+                                            <i class="feather-trash"></i>
+                                        </button>
+                                    </div>
+
+                                    <input type="hidden" name="price_after_discount[]" class="price_after_discount">
+                                    <input type="hidden" name="total_after_discount[]" class="total_after_discount">
+
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- ADD BUTTON -->
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="button" id="add_row" class="btn btn-primary">
+                                Add Item
+                            </button>
+                        </div>
+
+                        <!-- GRAND TOTAL -->
+                        <div class="row justify-content-end mt-4">
+                            <div class="col-lg-4">
+                                <h5 class="fw-bold mb-3">Grand Total:</h5>
+
+                                <table class="table table-bordered" id="tab_logic_total">
+                                    <tbody>
+                                        <tr>
+                                            <th>Sub Total</th>
+                                            <td>
+                                                <input type="text" id="sub_total_display" class="form-control"
+                                                    readonly>
+                                                <input type="hidden" name="sub_total" id="sub_total">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Total Discount</th>
+                                            <td>
+                                                <input type="text" id="total_discount_display"
+                                                    class="form-control text-danger" readonly>
+                                                <input type="hidden" name="total_discount" id="total_discount">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th class="bg-gray-100">Grand Total</th>
+                                            <td>
+                                                <input type="text" id="total_amount_display"
+                                                    class="form-control fw-bold text-success bg-gray-100" readonly>
+                                                <input type="hidden" name="total_amount" id="total_amount">
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                     </div>
                 </form>
             </div>
@@ -917,7 +945,8 @@
 
         const allProducts = products.map(p => ({
             ...p,
-            type: 'satuan'
+            type: 'satuan',
+            units: p.units || p.product_units || p.unit_conversions || []
         }));
 
         function formatNumber(num) {
@@ -933,8 +962,11 @@
             allProducts.forEach(item => {
                 $('<option>', {
                         value: item.type + '_' + item.id,
-                        text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? ' (Bundle)' : ''),
+                        // text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? ' (Bundle)' : ''),
+                        text: item.name,
                     })
+                    .data('real-id', item.id)
+                    .data('base-unit-id', item.base_unit_id)
                     .data('price', item.price)
                     .data('discounts', item.discounts || [])
                     .data('categories', item.categories || [])
@@ -966,12 +998,16 @@
                     if (!product) return;
 
                     select.append(`
-                <option value="${product.id}" data-bundle-id="${bundle.id}">
-                    [${product.sku || '-'}] ${product.name}
-                </option>
-            `);
+                        <option value="${product.id}"
+                            data-bundle-id="${bundle.id}"
+                            data-sku="${product.sku || '-'}">
+                                ${product.name}
+                        </option>
+                    `);
                 });
             });
+
+            initProductSelect2(select);
         }
 
         // ✅ Format otomatis titik ribuan + update hidden input untuk perhitungan
@@ -1275,7 +1311,7 @@
             return window.matchMedia('(max-width: 768px)').matches;
         }
 
-        function initSelect2(el) {
+        function initProductSelect2(el) {
             $(el).select2({
                 placeholder: 'Pilih produk',
                 width: '100%',
@@ -1296,42 +1332,71 @@
                     return null;
                 },
 
-                /* 📱 Tampilan list dropdown */
+                // templateResult: function(data) {
+                //     if (!data.element) return data.text;
+
+                //     const name = data.text.replace(/^\[.*?\]\s*/, '');
+                //     const sku = $(data.element).data('sku');
+
+                //     if (isMobile()) {
+                //         return name;
+                //     }
+
+                //     return data.text;
+                // },
+
+                // templateSelection: function(data) {
+                //     if (!data.element) return data.text;
+
+                //     const name = data.text.replace(/^\[.*?\]\s*/, '');
+
+                //     if (isMobile()) {
+                //         return name;
+                //     }
+
+                //     return data.text;
+                // }
+
                 templateResult: function(data) {
                     if (!data.element) return data.text;
 
-                    const name = data.text.replace(/^\[.*?\]\s*/, '');
-                    const sku = $(data.element).data('sku');
+                    const name = data.text;
+                    const sku = $(data.element).data('sku') || '-';
 
-                    if (isMobile()) {
-                        return name; // MOBILE → tanpa SKU
-                    }
-
-                    return data.text; // DESKTOP → pakai SKU
+                    return $(`
+                        <div class="product-option">
+                            <div class="product-option-name">${name}</div>
+                            <small class="product-option-sku">[${sku}]</small>
+                        </div>
+                    `);
                 },
 
-                /* 📱 Tampilan selected value */
                 templateSelection: function(data) {
                     if (!data.element) return data.text;
 
-                    const name = data.text.replace(/^\[.*?\]\s*/, '');
+                    const name = data.text;
+                    const sku = $(data.element).data('sku') || '-';
 
-                    if (isMobile()) {
-                        return name;
-                    }
-
-                    return data.text;
+                    return $(`
+                        <div class="product-option-selected">
+                            <div class="product-option-name">${name}</div>
+                            <small class="product-option-sku">[${sku}]</small>
+                        </div>
+                    `);
                 }
             });
 
-            if ($(el).children('option').length === 1) populateProducts(el);
+            // if ($(el).children('option').length === 1) populateProducts(el);
         }
 
 
         document.addEventListener('DOMContentLoaded', function() {
             let rowCount = 1;
 
-            document.querySelectorAll('select.select-product').forEach(el => initSelect2(el));
+            document.querySelectorAll('select.select-product').forEach(el => {
+                populateProducts(el);
+                initProductSelect2(el);
+            });
 
             document.getElementById('add_row').addEventListener('click', function() {
 
@@ -1351,7 +1416,10 @@
                 list.appendChild(item);
 
                 // init select2 SETELAH masuk DOM
-                initSelect2(item.querySelector('.select-product'));
+                const productSelect = item.querySelector('.select-product');
+
+                populateProducts(productSelect);
+                initProductSelect2(productSelect);
             });
 
             document.addEventListener('click', function(e) {

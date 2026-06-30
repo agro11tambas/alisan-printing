@@ -42,6 +42,42 @@
         #notes::placeholder {
             font-size: 16px;
         }
+
+        .product-item {
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: minmax(380px, 4fr) 130px 130px 130px 130px;
+            gap: 10px;
+            align-items: start;
+        }
+
+        .product-grid-header {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .product-col-span-2 {
+            grid-column: span 1;
+        }
+
+        .product-grid .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-grid .form-group>label {
+            display: none !important;
+        }
+
+        .product-grid .form-control,
+        .product-grid .select2-container--default .select2-selection--single {
+            height: 44px !important;
+        }
     </style>
 @endpush
 
@@ -223,104 +259,106 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card stretch stretch-full">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <h5 class="fw-bold mb-4">Add Products:</h5>
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered overflow-hidden" id="tab_logic">
-                                            <thead>
-                                                <tr class="single-item">
-                                                    <th class="text-center wd-50">#</th>
-                                                    <th class="text-center wd-450">Product</th>
-                                                    <th class="text-center wd-150">Canceled Qty</th>
-                                                    <th class="text-center wd-150">Defect Qty</th>
-                                                    <th class="text-center wd-150">Price</th>
-                                                    <th class="text-center wd-150">Total</th>
+                    <div class="mt-3">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <h5 class="fw-bold mb-4">Add Products:</h5>
+                                <div class="product-grid product-grid-header mb-2">
+                                    <div class="product-col-span-2">Product</div>
+                                    <div>Canceled Qty</div>
+                                    <div>Defect Qty</div>
+                                    <div>Price</div>
+                                    <div>Total</div>
+                                </div>
+
+                                <div id="product_list">
+                                    @foreach ($remainingItems as $index => $item)
+                                        <div class="product-item" data-index="{{ $index }}"
+                                            data-oid="{{ $item->order_item_id }}">
+                                            <div class="product-grid">
+                                                <input type="hidden" name="order_item_ids[]"
+                                                    value="{{ $item->order_item_id }}">
+
+                                                <div class="form-group product-col-span-2">
+                                                    <label>Product</label>
+                                                    <select class="form-control select-product" name="product_id[]">
+                                                        <option value="" disabled hidden>Pilih produk</option>
+                                                        @foreach ($products as $product)
+                                                            <option value="{{ $product->id }}"
+                                                                data-price="{{ $item->price }}"
+                                                                {{ $product->id == $item->product_id ? 'selected' : '' }}>
+                                                                [{{ $product->sku }}] {{ $product->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Canceled Qty</label>
+                                                    <input type="text" inputmode="numeric" name="canceled_quantity[]"
+                                                        class="form-control canceled_quantity"
+                                                        value="{{ number_format($item->canceled_quantity, 0, ',', '.') }}">
+                                                    <small class="text-muted">
+                                                        Sisa max: {{ number_format($item->remaining_qty ?? 0) }}
+                                                    </small>
+                                                    <div class="invalid-feedback text-danger small"></div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Defect Qty</label>
+                                                    <input type="text" inputmode="numeric" name="defect_quantity[]"
+                                                        class="form-control defect_quantity"
+                                                        value="{{ number_format($item->defect_quantity, 0, ',', '.') }}">
+                                                    <div class="invalid-feedback text-danger small"></div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Price</label>
+                                                    <input type="text" inputmode="numeric"
+                                                        class="price_display form-control"
+                                                        value="{{ number_format($item->price) }}">
+                                                    <input type="hidden" name="price[]" class="price"
+                                                        value="{{ $item->price }}">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Total</label>
+                                                    <input type="text" class="total_display form-control" readonly
+                                                        value="{{ number_format($item->total) }}">
+                                                    <input type="hidden" name="total[]" class="total"
+                                                        value="{{ $item->total }}">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="col-lg-12 mt-4">
+                                <div class="row justify-content-end">
+                                    <div class="col-lg-4">
+                                        <table class="table table-bordered">
+                                            <tbody>
+                                                <tr>
+                                                    <td><input type="hidden" name="sub_total" id="sub_total"
+                                                            class="form-control" readonly></td>
                                                 </tr>
-                                            </thead>
-                                            <tbody id="tab_logic_body">
-                                                @foreach ($remainingItems as $index => $item)
-                                                    <tr id="addr{{ $index }}"
-                                                        data-oid="{{ $item->order_item_id }}">
-                                                        <td>{{ $index + 1 }}</td>
-                                                        <td>
-                                                            <input type="hidden" name="order_item_ids[]"
-                                                                value="{{ $item->order_item_id }}">
-                                                            <select class="form-control select-product"
-                                                                name="product_id[]">
-                                                                <option value="" disabled hidden>Pilih produk
-                                                                </option>
-                                                                @foreach ($products as $product)
-                                                                    <option value="{{ $product->id }}"
-                                                                        data-price="{{ $item->price }}"
-                                                                        {{ $product->id == $item->product_id ? 'selected' : '' }}>
-                                                                        [{{ $product->sku }}] {{ $product->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" inputmode="numeric"
-                                                                name="canceled_quantity[]"
-                                                                class="form-control canceled_quantity"
-                                                                value="{{ number_format($item->canceled_quantity, 0, ',', '.') }}">
-                                                            <small class="text-muted">Sisa max:
-                                                                {{ number_format($item->remaining_qty ?? 0) }}</small>
-                                                            <div class="invalid-feedback text-danger small"></div>
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" inputmode="numeric"
-                                                                name="defect_quantity[]"
-                                                                class="form-control defect_quantity"
-                                                                value="{{ number_format($item->defect_quantity, 0, ',', '.') }}">
-                                                            <div class="invalid-feedback text-danger small"></div>
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" inputmode="numeric"
-                                                                class="price_display form-control"
-                                                                value="{{ number_format($item->price) }}">
-                                                            <input type="hidden" name="price[]" class="price"
-                                                                value="{{ $item->price }}">
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" class="total_display form-control"
-                                                                readonly value="{{ number_format($item->total) }}">
-                                                            <input type="hidden" name="total[]" class="total"
-                                                                value="{{ $item->total }}">
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
+                                                <tr>
+                                                    <th class="bg-gray-100">Grand Total</th>
+                                                    <td class="bg-gray-100">
+                                                        <input type="text" id="total_amount_display"
+                                                            class="form-control fw-700 text-dark" readonly>
+                                                        <input type="hidden" name="total_amount" id="total_amount">
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
-                                    </div>
-                                </div>
-                                <div class="col-lg-12 mt-4">
-                                    <div class="row justify-content-end">
-                                        <div class="col-lg-4">
-                                            <table class="table table-bordered">
-                                                <tbody>
-                                                    <tr>
-                                                        <td><input type="hidden" name="sub_total" id="sub_total"
-                                                                class="form-control" readonly></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <th class="bg-gray-100">Grand Total</th>
-                                                        <td class="bg-gray-100">
-                                                            <input type="text" id="total_amount_display"
-                                                                class="form-control fw-700 text-dark" readonly>
-                                                            <input type="hidden" name="total_amount" id="total_amount">
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    {{-- <div class="card stretch stretch-full">
+                    </div> --}}
                 </form>
             </div>
         </div>
@@ -403,7 +441,7 @@
                 width: '100%'
             });
 
-            $('#tab_logic_body tr').each(function() {
+            $('.product-item').each(function() {
                 const row = $(this);
                 const sel = row.find('select[name="product_id[]"]');
                 const price = parseFloat(sel.find('option:selected').data('price')) || 0;
@@ -521,7 +559,7 @@
             }
 
             // 🔹 Validasi baris produk
-            $('#tab_logic_body tr').each(function() {
+            $('.product-item').each(function() {
                 const row = $(this);
                 const canceledInput = row.find('.canceled_quantity');
                 const defectInput = row.find('.defect_quantity');
@@ -575,11 +613,9 @@
                 // hapus semua yang lama biar gak dobel
                 $('input[name="order_item_ids[]"]').remove();
 
-                $('#tab_logic_body tr').each(function() {
+                $('.product-item').each(function() {
                     const oid = $(this).data('oid');
                     if (oid) {
-                        // ⛔️ JANGAN append ke <td>
-                        // ✅ Tambah langsung ke form biar dijamin terkirim
                         $('<input>', {
                             type: 'hidden',
                             name: 'order_item_ids[]',
@@ -623,7 +659,7 @@
 
 
         $(document).on('change', 'select[name="product_id[]"]', function() {
-            const row = $(this).closest('tr');
+            const row = $(this).closest('.product-item');
             const price = parseFloat($(this).find('option:selected').data('price')) || 0;
 
             row.find('.price').val(price.toFixed(0));
@@ -636,7 +672,7 @@
         $(document).on('input', '.price_display', function() {
             if (!isOwner) return; // Non-owner gak bisa ubah harga
 
-            const row = $(this).closest('tr');
+            const row = $(this).closest('.product-item');
             let rawValue = $(this).val().replace(/\D/g, '');
             if (rawValue.length > 12) rawValue = rawValue.substring(0, 12);
 
@@ -664,7 +700,7 @@
         // });
 
         $(document).on('input', '.price', function() {
-            updateRowTotal($(this).closest('tr'));
+            updateRowTotal($(this).closest('.product-item'));
         });
 
         $(document).on('select2:open', () => {
@@ -674,7 +710,7 @@
         });
 
         $(document).on('input', '.canceled_quantity, .defect_quantity', function() {
-            const row = $(this).closest('tr');
+            const row = $(this).closest('.product-item');
 
             // ambil nilai dari 2 kolom quantity
             let canceled = parseInt(row.find('.canceled_quantity').val().replace(/\D/g, '') || 0);

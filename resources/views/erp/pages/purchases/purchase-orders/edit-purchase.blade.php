@@ -34,6 +34,49 @@
             height: 42px !important;
             right: 10px !important;
         }
+
+        .product-item {
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: minmax(420px, 4fr) 180px 150px 52px;
+            gap: 10px;
+            align-items: start;
+        }
+
+        .product-grid-header {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .product-col-span-2 {
+            grid-column: span 1;
+        }
+
+        .product-grid .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-grid .form-group>label,
+        .product-delete-col>label {
+            display: none !important;
+        }
+
+        .product-grid .form-control,
+        .product-grid .select2-container--default .select2-selection--single {
+            height: 44px !important;
+        }
+
+        .product-delete-col .delete-row {
+            height: 44px;
+            width: 44px;
+            padding: 0;
+        }
     </style>
 @endpush
 
@@ -151,118 +194,171 @@
                             <div class="mb-4">
                                 <h5 class="fw-bold">Products:</h5>
                             </div>
-                            <div class="table-responsive">
-                                <input type="hidden" name="inventory_warehouse_id" value="1">
-                                <table class="table table-bordered" id="tab_logic">
-                                    <thead>
-                                        <tr class="text-center">
-                                            <th class="wd-50">#</th>
-                                            <th class="wd-450">Product</th>
-                                            <th class="wd-200">Unit</th>
-                                            <th class="wd-150">Qty</th>
-                                            <th class="wd-100">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse ($purchase->purchaseItems as $index => $item)
-                                            <tr id="addr{{ $index }}">
-                                                <td>{{ $index + 1 }}</td>
-                                                <input type="hidden" name="purchase_item_ids[]"
-                                                    value="{{ $item->id }}">
-                                                <td>
-                                                    <select class="form-control select-product" name="product[]">
-                                                        <option value="" disabled
-                                                            {{ !$item->product_id ? 'selected hidden' : '' }}>Pilih produk
-                                                        </option>
-                                                        @foreach ($products as $product)
-                                                            <option value="{{ $product->id }}"
-                                                                {{ $item->product_id == $product->id ? 'selected' : '' }}>
-                                                                [{{ $product->sku }}] {{ $product->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </td>
-                                                <td>
-                                                    <select class="form-control select-unit" name="product_unit_id[]">
-                                                        <option value="" data-name="Pcs" data-conversion="1"
-                                                            {{ !$item->product_unit_conversion_id ? 'selected' : '' }}>
-                                                            Default Unit
-                                                        </option>
+                            <input type="hidden" name="inventory_warehouse_id" value="1">
 
-                                                        @foreach ($item->purchaseProduct?->unitConversions ?? [] as $conversion)
-                                                            <option value="{{ $conversion->id }}"
-                                                                data-name="{{ $conversion->unit->name ?? 'Pcs' }}"
-                                                                data-ratio="{{ $conversion->ratio_value ?? 1 }}"
-                                                                {{ $item->product_unit_conversion_id == $conversion->id ? 'selected' : '' }}>
-                                                                {{ $conversion->unit->name ?? 'Pcs' }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-
-                                                    <input type="hidden" name="unit_name[]" class="unit-name"
-                                                        value="{{ $item->unit_name ?? 'Pcs' }}">
-
-                                                    <input type="hidden" name="unit_conversion_value[]"
-                                                        class="unit-conversion-value"
-                                                        value="{{ $item->unit_conversion_value ?? 1 }}">
-                                                </td>
-                                                <td>
-                                                    <input type="text" inputmode="numeric" name="qty[]"
-                                                        class="form-control qty"
-                                                        value="{{ number_format($item->quantity ?? 0, 0, ',', '.') }}">
-                                                </td>
-                                                <td class="text-center">
-                                                    <div class="d-flex justify-content-center">
-                                                        <button type="button" class="btn btn-danger delete-row">
-                                                            <i class="feather-trash-2"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr id="addr0">
-                                                <td>1</td>
-                                                <input type="hidden" name="purchase_item_ids[]" value="">
-                                                <td>
-                                                    <select class="form-control select-product" name="product[]">
-                                                        <option value="" disabled selected hidden>Pilih produk
-                                                        </option>
-                                                        @foreach ($products as $product)
-                                                            <option value="{{ $product->id }}">
-                                                                [{{ $product->sku }}] {{ $product->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                </td>
-                                                <td>
-                                                    <select class="form-control select-unit" name="product_unit_id[]">
-                                                        <option value="" data-name="Pcs" data-conversion="1"
-                                                            selected>
-                                                            Default Unit
-                                                        </option>
-                                                    </select>
-
-                                                    <input type="hidden" name="unit_name[]" class="unit-name"
-                                                        value="Pcs">
-                                                    <input type="hidden" name="unit_conversion_value[]"
-                                                        class="unit-conversion-value" value="1">
-                                                </td>
-                                                <td>
-                                                    <input type="text" inputmode="numeric" name="qty[]"
-                                                        class="form-control qty" placeholder="Qty">
-                                                </td>
-                                                <td class="text-center">
-                                                    <div class="d-flex justify-content-center">
-                                                        <button type="button" class="btn btn-danger delete-row">
-                                                            <i class="feather-trash-2"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
+                            <div class="product-grid product-grid-header mb-2">
+                                <div class="product-col-span-2">Product</div>
+                                <div>Unit</div>
+                                <div>Qty</div>
+                                <div></div>
                             </div>
+
+                            <div id="product_list">
+                                @forelse ($purchase->purchaseItems as $index => $item)
+                                    <div class="product-item" data-index="{{ $index }}">
+                                        <div class="product-grid">
+                                            <input type="hidden" name="purchase_item_ids[]" value="{{ $item->id }}">
+
+                                            <div class="form-group product-col-span-2">
+                                                <label>Product</label>
+                                                <select class="form-control select-product" name="product[]">
+                                                    <option value="" disabled
+                                                        {{ !$item->product_id ? 'selected hidden' : '' }}>
+                                                        Pilih produk
+                                                    </option>
+                                                    @foreach ($products as $product)
+                                                        <option value="{{ $product->id }}"
+                                                            {{ $item->product_id == $product->id ? 'selected' : '' }}>
+                                                            [{{ $product->sku }}] {{ $product->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Unit</label>
+                                                <select class="form-control select-unit" name="product_unit_id[]">
+                                                    <option value="" data-name="Pcs" data-ratio="1"
+                                                        {{ !$item->product_unit_conversion_id ? 'selected' : '' }}>
+                                                        Default Unit
+                                                    </option>
+
+                                                    @foreach ($item->purchaseProduct?->unitConversions ?? [] as $conversion)
+                                                        <option value="{{ $conversion->id }}"
+                                                            data-name="{{ $conversion->unit->name ?? 'Pcs' }}"
+                                                            data-ratio="{{ $conversion->ratio_value ?? 1 }}"
+                                                            {{ $item->product_unit_conversion_id == $conversion->id ? 'selected' : '' }}>
+                                                            {{ $conversion->unit->name ?? 'Pcs' }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+
+                                                <input type="hidden" name="unit_name[]" class="unit-name"
+                                                    value="{{ $item->unit_name ?? 'Pcs' }}">
+                                                <input type="hidden" name="unit_conversion_value[]"
+                                                    class="unit-conversion-value"
+                                                    value="{{ $item->unit_conversion_value ?? 1 }}">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Qty</label>
+                                                <input type="text" inputmode="numeric" name="qty[]"
+                                                    class="form-control qty"
+                                                    value="{{ number_format($item->quantity ?? 0, 0, ',', '.') }}">
+                                            </div>
+
+                                            <div class="product-delete-col">
+                                                <label>&nbsp;</label>
+                                                <button type="button" class="btn btn-danger delete-row">
+                                                    <i class="feather-trash-2"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div class="product-item" data-index="0">
+                                        <div class="product-grid">
+                                            <input type="hidden" name="purchase_item_ids[]" value="">
+
+                                            <div class="form-group product-col-span-2">
+                                                <label>Product</label>
+                                                <select class="form-control select-product" name="product[]">
+                                                    <option value="" disabled selected hidden>Pilih produk</option>
+                                                    @foreach ($products as $product)
+                                                        <option value="{{ $product->id }}">
+                                                            [{{ $product->sku }}] {{ $product->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Unit</label>
+                                                <select class="form-control select-unit" name="product_unit_id[]">
+                                                    <option value="" data-name="Pcs" data-ratio="1" selected>
+                                                        Default Unit
+                                                    </option>
+                                                </select>
+
+                                                <input type="hidden" name="unit_name[]" class="unit-name"
+                                                    value="Pcs">
+                                                <input type="hidden" name="unit_conversion_value[]"
+                                                    class="unit-conversion-value" value="1">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Qty</label>
+                                                <input type="text" inputmode="numeric" name="qty[]"
+                                                    class="form-control qty" value="0">
+                                            </div>
+
+                                            <div class="product-delete-col">
+                                                <label>&nbsp;</label>
+                                                <button type="button" class="btn btn-danger delete-row">
+                                                    <i class="feather-trash-2"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforelse
+                            </div>
+
+                            <template id="product_item_template">
+                                <div class="product-item" data-index="__index__">
+                                    <div class="product-grid">
+                                        <input type="hidden" name="purchase_item_ids[]" value="">
+
+                                        <div class="form-group product-col-span-2">
+                                            <label>Product</label>
+                                            <select class="form-control select-product" name="product[]">
+                                                <option value="" disabled selected hidden>Pilih produk</option>
+                                                @foreach ($products as $product)
+                                                    <option value="{{ $product->id }}">
+                                                        [{{ $product->sku }}] {{ $product->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Unit</label>
+                                            <select class="form-control select-unit" name="product_unit_id[]">
+                                                <option value="" data-name="Pcs" data-ratio="1" selected>
+                                                    Default Unit
+                                                </option>
+                                            </select>
+
+                                            <input type="hidden" name="unit_name[]" class="unit-name" value="Pcs">
+                                            <input type="hidden" name="unit_conversion_value[]"
+                                                class="unit-conversion-value" value="1">
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Qty</label>
+                                            <input type="text" inputmode="numeric" name="qty[]"
+                                                class="form-control qty" value="0">
+                                        </div>
+
+                                        <div class="product-delete-col">
+                                            <label>&nbsp;</label>
+                                            <button type="button" class="btn btn-danger delete-row">
+                                                <i class="feather-trash-2"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
                             <div class="d-flex justify-content-end mt-3">
                                 <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
                             </div>
@@ -276,42 +372,6 @@
 @endsection
 
 @push('scripts')
-    <script type="text/template" id="row-template-po">
-<tr>
-    <td>__INDEX__</td>
-    <td>
-        <select class="form-control select-product"
-            name="product[]">
-            <option value="" disabled selected hidden>Pilih produk</option>
-            @foreach ($products as $product)
-                <option value="{{ $product->id }}">
-                    [{{ $product->sku }}] {{ $product->name }}
-                </option>
-            @endforeach
-        </select>
-    </td>
-    <td>
-        <select class="form-control select-unit" name="product_unit_id[]">
-            <option value="" data-name="Pcs" data-conversion="1" selected>
-                Default Unit
-            </option>
-        </select>
-
-        <input type="hidden" name="unit_name[]" class="unit-name" value="Pcs">
-        <input type="hidden" name="unit_conversion_value[]" class="unit-conversion-value" value="1">
-    </td>
-    <td>
-        <input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0">
-    </td>
-    <td class="text-center">
-        <div class="d-flex justify-content-center">
-            <button type="button" class="btn btn-danger delete-row">
-                <i class="feather-trash-2"></i>
-            </button>
-        </div>
-    </td>
-</tr>
-</script>
     @php
         $productUnitsJson = $products->mapWithKeys(function ($product) {
             return [
@@ -411,17 +471,17 @@
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
-            $('#tab_logic tbody tr').each(function() {
+            $('.product-item').each(function() {
                 syncSelectedUnit($(this));
             });
 
             $(document).on('change', '.select-product', function() {
-                const $row = $(this).closest('tr');
+                const $row = $(this).closest('.product-item');
                 loadProductUnits($row);
             });
 
             $(document).on('change', '.select-unit', function() {
-                const $row = $(this).closest('tr');
+                const $row = $(this).closest('.product-item');
                 syncSelectedUnit($row);
             });
 
@@ -432,29 +492,22 @@
             });
 
             $('#add_row').on('click', function() {
-                const $tbody = $('#tab_logic tbody');
-                const newIndex = $tbody.find('tr').length + 1;
+                const list = $('#product_list');
+                const index = list.find('.product-item').length;
 
-                // Ambil template yang BENAR
-                let template = $('#row-template-po').html();
+                let template = $('#product_item_template').html();
+                template = template.replace(/__index__/g, index);
 
-                // Replace index
-                template = template.replace('__INDEX__', newIndex);
-
-                // Convert template ke element
                 const $newRow = $(template);
+                list.append($newRow);
 
-                // Append ke tabel
-                $tbody.append($newRow);
-
-                // Init select2 di baris baru
                 initSelect2($newRow.find('.select-product'));
             });
 
             // Delete row
             $(document).on('click', '.delete-row', function() {
-                if ($('#tab_logic tbody tr').length > 1) {
-                    $(this).closest('tr').remove();
+                if ($('.product-item').length > 1) {
+                    $(this).closest('.product-item').remove();
                 }
             });
 
@@ -477,7 +530,7 @@
                     supplier.addClass('is-invalid');
                 }
 
-                $('#tab_logic tbody tr').each(function() {
+                $('.product-item').each(function() {
                     const $row = $(this);
 
                     const product = $row.find('select[name="product[]"]');

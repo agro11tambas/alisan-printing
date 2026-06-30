@@ -34,6 +34,75 @@
             height: 42px !important;
             right: 10px !important;
         }
+
+
+        .product-item {
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: minmax(380px, 4fr) 130px 130px 130px 130px 130px 52px;
+            gap: 10px;
+            align-items: start;
+        }
+
+        .product-grid-header {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .product-col-span-2 {
+            grid-column: span 1;
+        }
+
+        .product-grid .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-grid .form-group>label,
+        .product-delete-col>label {
+            display: none !important;
+        }
+
+        .product-grid .form-control,
+        .product-grid .select2-container--default .select2-selection--single {
+            height: 44px !important;
+        }
+
+        .product-delete-col .delete-row {
+            height: 44px;
+            width: 44px;
+            padding: 0;
+        }
+
+        @media (max-width: 768px) {
+            .card-body {
+                padding: 6px !important;
+            }
+
+            .product-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 6px;
+            }
+
+            .product-col-span-2 {
+                grid-column: span 3;
+            }
+
+            .product-grid .form-control {
+                font-size: 14px !important;
+                height: 36px !important;
+                padding: 4px 8px !important;
+            }
+
+            .product-grid-header {
+                display: none;
+            }
+        }
     </style>
 @endpush
 
@@ -240,229 +309,310 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card stretch stretch-full">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <div class="mb-4">
-                                        <h5 class="fw-bold">Add Products:</h5>
-                                    </div>
-                                    <div class="table-responsive">
-                                        <input type="hidden" name="inventory_warehouse_id" id="inventory_warehouse_id"
-                                            value="1">
-                                        <table class="table table-bordered overflow-hidden" id="tab_logic">
-                                            <thead>
-                                                <tr class="single-item">
-                                                    <th class="text-center wd-50">#</th>
-                                                    <th class="text-center wd-450">Product</th>
-                                                    <th class="text-center wd-150">Unit</th>
-                                                    <th class="text-center wd-150">Qty</th>
-                                                    <th class="text-center wd-150">Price</th>
-                                                    <th class="text-center wd-150">Freight</th>
-                                                    <th class="text-center wd-150">Total</th>
-                                                    <th class="text-center wd-100">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @forelse ($purchase->purchaseItems ?? [0] as $index => $item)
-                                                    <tr id="addr{{ $index }}">
-                                                        <td>{{ $index + 1 }}</td>
-                                                        <input type="hidden" name="purchase_item_ids[]"
-                                                            value="{{ $item->id }}">
-                                                        <td>
-                                                            <select class="form-control select-product"
-                                                                data-select2-selector="status" name="product[]"
-                                                                id="product_{{ $index }}">
-                                                                <option value="" disabled
-                                                                    {{ !isset($item->product_id) ? 'selected hidden' : '' }}>
-                                                                    Pilih produk</option>
-                                                                @foreach ($products as $product)
-                                                                    <option value="{{ $product->id }}"
-                                                                        data-price="{{ number_format($item->price ?? 0, 5, '.', '') }}"
-                                                                        {{ isset($item->product_id) && $product->id == $item->product_id ? 'selected' : '' }}>
-                                                                        [{{ $product->sku }}] {{ $product->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <select name="product_unit_id[]"
-                                                                class="form-control product-unit">
-                                                                <option value="">Pilih unit</option>
-                                                                @foreach ($item->purchaseProduct?->unitConversions ?? [] as $conversion)
-                                                                    <option value="{{ $conversion->id }}"
-                                                                        data-unit-name="{{ optional($conversion->unit)->name }}"
-                                                                        data-conversion-value="{{ $conversion->conversion_value }}"
-                                                                        {{ $item->product_unit_conversion_id == $conversion->id ? 'selected' : '' }}>
-                                                                        {{ optional($conversion->unit)->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-
-                                                            <input type="hidden" name="unit_conversion_value[]"
-                                                                class="unit-conversion-value"
-                                                                value="{{ $item->unit_conversion_value ?? 1 }}">
-
-                                                            <input type="hidden" name="unit_name[]" class="unit-name"
-                                                                value="{{ $item->unit_name }}">
-                                                        </td>
-                                                        <td><input type="text" inputmode="numeric" name="qty[]"
-                                                                class="form-control qty" min="1"
-                                                                value="{{ number_format($item->quantity ?? 0, 0, ',', '.') }}">
-                                                        </td>
-                                                        <td><input type="text" inputmode="numeric" name="price[]"
-                                                                class="form-control price"
-                                                                value="{{ number_format($item->price ?? 0, 5, ',', '.') }}">
-                                                        </td>
-                                                        <td><input type="text" inputmode="numeric" name="freight[]"
-                                                                class="form-control freight"
-                                                                value="{{ number_format($item->freight ?? 0, 5, ',', '.') }}">
-                                                        </td>
-                                                        <td>
-                                                            <input type="hidden" name="total[]"
-                                                                class="form-control total">
-                                                            <input type="text" class="form-control total_display"
-                                                                readonly>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <button type="button" class="btn btn-danger delete-row">
-                                                                <i class="feather-trash-2"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                @empty
-                                                    <tr id="addr0">
-                                                        <td>1</td>
-                                                        <input type="hidden" name="purchase_item_ids[]" value="">
-                                                        <td>
-                                                            <select class="form-control select-product"
-                                                                data-select2-selector="status" name="product[]"
-                                                                id="product_0">
-                                                                <option value="" disabled selected hidden>Pilih
-                                                                    produk</option>
-                                                                @foreach ($products as $product)
-                                                                    <option value="{{ $product->id }}"
-                                                                        data-price="{{ $product->price }}">
-                                                                        [{{ $product->sku }}] {{ $product->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
-                                                        <td>
-                                                            <select name="product_unit_id[]"
-                                                                class="form-control product-unit">
-                                                                <option value="">Pilih unit</option>
-                                                            </select>
-
-                                                            <input type="hidden" name="unit_conversion_value[]"
-                                                                class="unit-conversion-value">
-                                                            <input type="hidden" name="unit_name[]" class="unit-name">
-                                                        </td>
-                                                        <td><input type="number" name="qty[]" class="form-control qty"
-                                                                min="1"></td>
-                                                        <td><input type="number" name="price[]"
-                                                                class="form-control price" value=""></td>
-                                                        <td><input type="number" name="freight[]"
-                                                                class="form-control freight" value=""></td>
-                                                        <td>
-                                                            <input type="hidden" name="total[]"
-                                                                class="form-control total">
-                                                            <input type="text" class="form-control total_display"
-                                                                readonly>
-                                                        </td>
-                                                        <td class="text-center">
-                                                            <div class="d-flex justify-content-center">
-                                                                <button type="button" class="btn btn-danger delete-row">
-                                                                    <i class="feather-trash-2"></i>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                @endforelse
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <div class="d-flex justify-content-end mt-3">
-                                        <button type="button" id="add_row" class="btn btn-md btn-primary">Add
-                                            Items</button>
-                                    </div>
+                    <div class="mt-3">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="mb-4">
+                                    <h5 class="fw-bold">Add Products:</h5>
+                                </div>
+                                <div class="product-grid product-grid-header mb-2">
+                                    <div class="product-col-span-2">Product</div>
+                                    <div>Unit</div>
+                                    <div>Qty</div>
+                                    <div>Price</div>
+                                    <div>Freight</div>
+                                    <div>Total</div>
+                                    <div></div>
                                 </div>
 
-                                <div class="col-lg-12">
-                                    <div class="row justify-content-end">
-                                        <div class="col-lg-4 mt-3">
-                                            <div class="mb-4">
-                                                <h5 class="fw-bold">Grand Total:</h5>
-                                            </div>
-                                            <div class="table-responsive">
-                                                <table class="table table-bordered" id="tab_logic_total">
-                                                    <tbody>
-                                                        <tr class="single-item">
-                                                            <th class="fs-10 text-dark text-uppercase">Total Produk</th>
-                                                            <td class="">
-                                                                <input type="hidden" name="total_amount_product"
-                                                                    id="total_amount_product">
-                                                                <input type="text" id="total_amount_product_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                            </td>
-                                                        </tr>
-                                                        <tr class="single-item">
-                                                            <th class="fs-10 text-dark text-uppercase">Total Freight</th>
-                                                            <td class="">
-                                                                <input type="hidden" name="total_amount_freight"
-                                                                    id="total_amount_freight">
-                                                                <input type="text" id="total_amount_freight_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                            </td>
-                                                        </tr>
-                                                        <tr class="single-item">
-                                                            <th class="fs-10 text-dark text-uppercase">Sub Total</th>
-                                                            <td class="">
-                                                                <input type="hidden" name="sub_total" id="sub_total">
-                                                                <input type="text" id="sub_total_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                            </td>
-                                                        </tr>
+                                <div id="product_list">
+                                    @forelse ($purchase->purchaseItems ?? [] as $index => $item)
+                                        <div class="product-item" data-index="{{ $index }}">
+                                            <div class="product-grid">
+                                                <input type="hidden" name="purchase_item_ids[]"
+                                                    value="{{ $item->id }}">
 
-                                                        <tr class="single-item">
-                                                            <th class="fs-10 text-dark text-uppercase">Tax (%)</th>
-                                                            <td><input type="number"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    id="tax_percent" name="tax_percent"
-                                                                    value="{{ $purchase->tax_percent }}"></td>
-                                                        </tr>
-                                                        <tr class="single-item">
-                                                            <th class="fs-10 text-dark text-uppercase">Tax Amount</th>
-                                                            <td>
-                                                                <input type="hidden" name="tax_amount" id="tax_amount">
-                                                                <input type="text" id="tax_amount_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                            </td>
-                                                        </tr>
-                                                        <tr class="bg-gray-100 single-item">
-                                                            <th class="fs-10 text-dark text-uppercase">Grand Total</th>
-                                                            <td>
-                                                                <input type="hidden" name="total_amount"
-                                                                    id="total_amount">
-                                                                <input type="text" id="total_amount_display"
-                                                                    class="form-control border-0 bg-transparent p-0 fw-bold"
-                                                                    readonly>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                                <div class="form-group product-col-span-2">
+                                                    <label>Product</label>
+                                                    <select class="form-control select-product"
+                                                        data-select2-selector="status" name="product[]"
+                                                        id="product_{{ $index }}">
+                                                        <option value="" disabled>Pilih produk</option>
+                                                        @foreach ($products as $product)
+                                                            <option value="{{ $product->id }}"
+                                                                data-price="{{ $product->last_price ?? ($item->price ?? 0) }}"
+                                                                data-freight="{{ $product->last_freight ?? ($item->freight ?? 0) }}"
+                                                                {{ $product->id == $item->product_id ? 'selected' : '' }}>
+                                                                [{{ $product->sku }}] {{ $product->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
 
+                                                <div class="form-group">
+                                                    <label>Unit</label>
+                                                    <select name="product_unit_id[]" class="form-control product-unit">
+                                                        <option value="">Pilih unit</option>
+                                                        @foreach ($item->purchaseProduct?->unitConversions ?? [] as $conversion)
+                                                            <option value="{{ $conversion->id }}"
+                                                                data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                                data-conversion-value="{{ $conversion->conversion_value }}"
+                                                                {{ $item->product_unit_conversion_id == $conversion->id ? 'selected' : '' }}>
+                                                                {{ optional($conversion->unit)->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+
+                                                    <input type="hidden" name="unit_conversion_value[]"
+                                                        class="unit-conversion-value"
+                                                        value="{{ $item->unit_conversion_value ?? 1 }}">
+                                                    <input type="hidden" name="unit_name[]" class="unit-name"
+                                                        value="{{ $item->unit_name }}">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Qty</label>
+                                                    <input type="text" inputmode="numeric" name="qty[]"
+                                                        class="form-control qty"
+                                                        value="{{ number_format($item->quantity ?? 0, 0, ',', '.') }}">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Price</label>
+                                                    <input type="text" inputmode="numeric" name="price[]"
+                                                        class="form-control price"
+                                                        value="{{ number_format($item->price ?? 0, 5, ',', '.') }}">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Freight</label>
+                                                    <input type="text" inputmode="numeric" name="freight[]"
+                                                        class="form-control freight"
+                                                        value="{{ number_format($item->freight ?? 0, 5, ',', '.') }}">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Total</label>
+                                                    <input type="hidden" name="total[]" class="form-control total">
+                                                    <input type="text" class="form-control total_display" readonly>
+                                                </div>
+
+                                                <div class="product-delete-col">
+                                                    <label>&nbsp;</label>
+                                                    <button type="button" class="btn btn-danger delete-row">
+                                                        <i class="feather-trash-2"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
+                                    @empty
+                                        <div class="product-item" data-index="0">
+                                            <div class="product-grid">
+                                                <input type="hidden" name="purchase_item_ids[]" value="">
+
+                                                <div class="form-group product-col-span-2">
+                                                    <label>Product</label>
+                                                    <select class="form-control select-product"
+                                                        data-select2-selector="status" name="product[]" id="product_0">
+                                                        <option value="" disabled selected hidden>Pilih produk
+                                                        </option>
+                                                        @foreach ($products as $product)
+                                                            <option value="{{ $product->id }}"
+                                                                data-price="{{ $product->last_price ?? 0 }}"
+                                                                data-freight="{{ $product->last_freight ?? 0 }}">
+                                                                [{{ $product->sku }}] {{ $product->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Unit</label>
+                                                    <select name="product_unit_id[]" class="form-control product-unit">
+                                                        <option value="">Pilih unit</option>
+                                                    </select>
+                                                    <input type="hidden" name="unit_conversion_value[]"
+                                                        class="unit-conversion-value">
+                                                    <input type="hidden" name="unit_name[]" class="unit-name">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Qty</label>
+                                                    <input type="text" inputmode="numeric" name="qty[]"
+                                                        class="form-control qty" value="0">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Price</label>
+                                                    <input type="text" inputmode="numeric" name="price[]"
+                                                        class="form-control price" value="0">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Freight</label>
+                                                    <input type="text" inputmode="numeric" name="freight[]"
+                                                        class="form-control freight" value="0">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Total</label>
+                                                    <input type="hidden" name="total[]" class="form-control total">
+                                                    <input type="text" class="form-control total_display" readonly>
+                                                </div>
+
+                                                <div class="product-delete-col">
+                                                    <label>&nbsp;</label>
+                                                    <button type="button" class="btn btn-danger delete-row">
+                                                        <i class="feather-trash-2"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforelse
+                                </div>
+
+                                <template id="product_item_template">
+                                    <div class="product-item" data-index="__index__">
+                                        <div class="product-grid">
+                                            <input type="hidden" name="purchase_item_ids[]" value="">
+
+                                            <div class="form-group product-col-span-2">
+                                                <label>Product</label>
+                                                <select class="form-control select-product" data-select2-selector="status"
+                                                    name="product[]">
+                                                    <option value="" disabled selected hidden>Pilih produk
+                                                    </option>
+                                                    @foreach ($products as $product)
+                                                        <option value="{{ $product->id }}"
+                                                            data-price="{{ $product->last_price ?? 0 }}"
+                                                            data-freight="{{ $product->last_freight ?? 0 }}">
+                                                            [{{ $product->sku }}] {{ $product->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Unit</label>
+                                                <select name="product_unit_id[]" class="form-control product-unit">
+                                                    <option value="">Pilih unit</option>
+                                                </select>
+                                                <input type="hidden" name="unit_conversion_value[]"
+                                                    class="unit-conversion-value">
+                                                <input type="hidden" name="unit_name[]" class="unit-name">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Qty</label>
+                                                <input type="text" inputmode="numeric" name="qty[]"
+                                                    class="form-control qty" value="0">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Price</label>
+                                                <input type="text" inputmode="numeric" name="price[]"
+                                                    class="form-control price" value="0">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Freight</label>
+                                                <input type="text" inputmode="numeric" name="freight[]"
+                                                    class="form-control freight" value="0">
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label>Total</label>
+                                                <input type="hidden" name="total[]" class="form-control total">
+                                                <input type="text" class="form-control total_display" readonly>
+                                            </div>
+
+                                            <div class="product-delete-col">
+                                                <label>&nbsp;</label>
+                                                <button type="button" class="btn btn-danger delete-row">
+                                                    <i class="feather-trash-2"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <div class="d-flex justify-content-end mt-3">
+                                    <button type="button" id="add_row" class="btn btn-md btn-primary">Add
+                                        Items</button>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-12">
+                                <div class="row justify-content-end">
+                                    <div class="col-lg-4 mt-3">
+                                        <div class="mb-4">
+                                            <h5 class="fw-bold">Grand Total:</h5>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered" id="tab_logic_total">
+                                                <tbody>
+                                                    <tr class="single-item">
+                                                        <th class="fs-10 text-dark text-uppercase">Total Produk</th>
+                                                        <td class="">
+                                                            <input type="hidden" name="total_amount_product"
+                                                                id="total_amount_product">
+                                                            <input type="text" id="total_amount_product_display"
+                                                                class="form-control border-0 bg-transparent p-0" readonly>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="single-item">
+                                                        <th class="fs-10 text-dark text-uppercase">Total Freight</th>
+                                                        <td class="">
+                                                            <input type="hidden" name="total_amount_freight"
+                                                                id="total_amount_freight">
+                                                            <input type="text" id="total_amount_freight_display"
+                                                                class="form-control border-0 bg-transparent p-0" readonly>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="single-item">
+                                                        <th class="fs-10 text-dark text-uppercase">Sub Total</th>
+                                                        <td class="">
+                                                            <input type="hidden" name="sub_total" id="sub_total">
+                                                            <input type="text" id="sub_total_display"
+                                                                class="form-control border-0 bg-transparent p-0" readonly>
+                                                        </td>
+                                                    </tr>
+
+                                                    <tr class="single-item">
+                                                        <th class="fs-10 text-dark text-uppercase">Tax (%)</th>
+                                                        <td><input type="number"
+                                                                class="form-control border-0 bg-transparent p-0"
+                                                                id="tax_percent" name="tax_percent"
+                                                                value="{{ $purchase->tax_percent }}"></td>
+                                                    </tr>
+                                                    <tr class="single-item">
+                                                        <th class="fs-10 text-dark text-uppercase">Tax Amount</th>
+                                                        <td>
+                                                            <input type="hidden" name="tax_amount" id="tax_amount">
+                                                            <input type="text" id="tax_amount_display"
+                                                                class="form-control border-0 bg-transparent p-0" readonly>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="bg-gray-100 single-item">
+                                                        <th class="fs-10 text-dark text-uppercase">Grand Total</th>
+                                                        <td>
+                                                            <input type="hidden" name="total_amount" id="total_amount">
+                                                            <input type="text" id="total_amount_display"
+                                                                class="form-control border-0 bg-transparent p-0 fw-bold"
+                                                                readonly>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    {{-- <div class="card stretch stretch-full">
+                    </div> --}}
                 </form>
             </div>
         </div>
@@ -470,50 +620,6 @@
 @endsection
 
 @push('scripts')
-    <script type="text/template" id="row-template">
-<tr>
-    <td>__INDEX__</td>
-    <td>
-        <select class="form-control select-product"
-            data-select2-selector="status"
-            name="product[]">
-            <option value="" disabled selected hidden>Pilih produk</option>
-            @foreach ($products as $product)
-                <option value="{{ $product->id }}" data-price="{{ $product->last_price ?? 0 }}">
-                    [{{ $product->sku }}] {{ $product->name }}
-                </option>
-            @endforeach
-        </select>
-    </td>
-    <td>
-    <select name="product_unit_id[]" class="form-control product-unit">
-        <option value="">Pilih unit</option>
-    </select>
-
-    <input type="hidden" name="unit_conversion_value[]" class="unit-conversion-value">
-    <input type="hidden" name="unit_name[]" class="unit-name">
-</td>
-
-    <td><input type="text" inputmode="numeric" name="qty[]" class="form-control qty" value="0"></td>
-
-    <td><input type="text" inputmode="numeric" name="price[]" class="form-control price" value="0"></td>
-
-    <td><input type="text" inputmode="numeric" name="freight[]" class="form-control freight" value="0"></td>
-
-    <td>
-        <input type="hidden" name="total[]" class="form-control total">
-        <input type="text" class="form-control total_display" readonly>
-    </td>
-
-    <td class="text-center">
-        <div class="d-flex justify-content-center">
-            <button type="button" class="btn btn-danger delete-row">
-                <i class="feather-trash-2"></i>
-            </button>
-        </div>
-    </td>
-</tr>
-</script>
     <script>
         const productsData = @json($productsJson);
 
@@ -603,7 +709,7 @@
         }
 
         $(document).on('change', '.product-unit', function() {
-            const row = $(this).closest('tr');
+            const row = $(this).closest('.product-item');
             const selected = $(this).find('option:selected');
 
             row.find('.unit-name').val(selected.data('unit-name') || '');
@@ -615,8 +721,9 @@
             let subtotalProduct = 0,
                 subtotalFreight = 0;
 
-            $('#tab_logic tbody tr').each(function() {
+            $('.product-item').each(function() {
                 const row = $(this);
+
                 const qty = parseFloat(unformatRibuan(row.find('.qty').val())) || 0;
                 const price = parseFloat(unformatRibuan(row.find('.price').val())) || 0;
                 const freight = parseFloat(unformatRibuan(row.find('.freight').val())) || 0;
@@ -624,21 +731,18 @@
                 subtotalProduct += qty * price;
                 subtotalFreight += qty * freight;
 
-                // Kosongkan jika 0 untuk tampilan (opsional, hapus jika mau tetap tampil 0)
-                if (price === 0) row.find('.price').val('0');
-                // ✅ Freight tetap tampilkan 0 jika memang 0
-                if (freight === 0) row.find('.freight').val('0');
-
                 const totalRow = qty * (price + freight);
-                row.find('.total').val(totalRow > 0 ? formatRibuan(totalRow.toFixed(2)) : '');
+
+                row.find('.total').val(totalRow > 0 ? totalRow.toFixed(2) : '');
+                row.find('.total_display').val(totalRow > 0 ? formatRibuan(totalRow.toFixed(2)) : '');
             });
 
             const taxPercent = parseFloat(unformatRibuan($("#tax_percent").val())) || 0;
             const taxAmount = (subtotalProduct * taxPercent) / 100;
 
             const totalProduct = subtotalProduct + taxAmount;
-            const grandTotal = totalProduct + subtotalFreight;
             const subTotal = subtotalProduct + subtotalFreight;
+            const grandTotal = totalProduct + subtotalFreight;
 
             $("#total_amount_product").val(totalProduct.toFixed(2));
             $("#total_amount_freight").val(subtotalFreight.toFixed(2));
@@ -678,46 +782,43 @@
                 }
             });
 
-            $('#tab_logic tbody tr').each(function() {
-                const row = $(this);
-                const selected = row.find('.select-product option:selected');
-                if (selected.val()) {
-                    const lastPrice = parseFloat(selected.data('price')) || 0;
-                    row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
-                    updateRowTotal(row);
-                }
+            // $('.product-item').each(function() {
+            //     const row = $(this);
+            //     const selected = row.find('.select-product option:selected');
+            //     if (selected.val()) {
+            //         const lastPrice = parseFloat(selected.data('price')) || 0;
+            //         row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
+            //         updateRowTotal(row);
+            //     }
+            // });
+            $('.product-item').each(function() {
+                updateRowTotal($(this));
             });
+
             calc_total();
 
             $('#add_row').on('click', function() {
-                const $tbody = $('#tab_logic tbody');
-                const newIndex = $tbody.find('tr').length + 1;
+                const list = $('#product_list');
+                const index = list.find('.product-item').length;
 
-                // Ambil template asli
-                let template = $('#row-template').html();
+                let template = $('#product_item_template').html();
+                template = template.replace(/__index__/g, index);
 
-                // Ganti placeholder index
-                template = template.replace('__INDEX__', newIndex);
-
-                // Convert ke jQuery object
                 const $newRow = $(template);
+                list.append($newRow);
 
-                // Append row
-                $tbody.append($newRow);
-
-                // Init select2 di baris baru
                 initSelect2($newRow.find('.select-product'));
             });
 
             $(document).on('click', '.delete-row', function() {
-                if ($('#tab_logic tbody tr').length > 1) {
-                    $(this).closest('tr').remove();
+                if ($('.product-item').length > 1) {
+                    $(this).closest('.product-item').remove();
                     calc_total();
                 }
             });
 
             $(document).on('change', '.select-product', function() {
-                const row = $(this).closest('tr');
+                const row = $(this).closest('.product-item');
                 const selectedOption = $(this).find('option:selected');
 
                 const productId = String($(this).val());
@@ -742,7 +843,7 @@
                     $(this).val('');
                 }
 
-                updateRowTotal($(this).closest('tr'));
+                updateRowTotal($(this).closest('.product-item'));
             });
 
             $(document).on('input', '.price', function() {
@@ -752,7 +853,7 @@
                 // ✅ maksimal 5 angka di belakang koma
                 val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 5)}` : integerPart;
                 $(this).val(val);
-                updateRowTotal($(this).closest('tr'));
+                updateRowTotal($(this).closest('.product-item'));
             });
 
             // ✅ Handler untuk FREIGHT sudah ada di bawah (baris 367 & 395)
@@ -833,37 +934,37 @@
             });
         });
 
-        $(document).on('change', '.select-product', function() {
-            const row = $(this).closest('tr');
-            const productId = $(this).val();
-            const selectedOption = $(this).find('option:selected');
+        // $(document).on('change', '.select-product', function() {
+        //     const row = $(this).closest('.product-item');
+        //     const productId = $(this).val();
+        //     const selectedOption = $(this).find('option:selected');
 
-            // 🔹 Ambil last price dari data attribute dulu
-            const lastPrice = parseFloat(selectedOption.data('price')) || 0;
-            row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
-            row.find('.freight').val('');
-            updateRowTotal(row);
+        //     // 🔹 Ambil last price dari data attribute dulu
+        //     const lastPrice = parseFloat(selectedOption.data('price')) || 0;
+        //     row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
+        //     row.find('.freight').val('');
+        //     updateRowTotal(row);
 
-            // 🔹 Kalau mau override dengan data dari server (jika ada endpoint)
-            if (!productId) return;
+        //     // 🔹 Kalau mau override dengan data dari server (jika ada endpoint)
+        //     if (!productId) return;
 
-            $.ajax({
-                url: `/erp/purchases/get-latest-price/${productId}`,
-                type: 'GET',
-                success: function(response) {
-                    const price = response.price ? parseFloat(response.price) : lastPrice;
-                    const freight = response.freight ? parseFloat(response.freight) : 0;
+        //     $.ajax({
+        //         url: `/erp/purchases/get-latest-price/${productId}`,
+        //         type: 'GET',
+        //         success: function(response) {
+        //             const price = response.price ? parseFloat(response.price) : lastPrice;
+        //             const freight = response.freight ? parseFloat(response.freight) : 0;
 
-                    row.find('.price').val(formatRibuan(price.toFixed(2)));
-                    row.find('.freight').val(formatRibuan(freight.toFixed(2)));
+        //             row.find('.price').val(formatRibuan(price.toFixed(2)));
+        //             row.find('.freight').val(formatRibuan(freight.toFixed(2)));
 
-                    updateRowTotal(row);
-                },
-                error: function() {
-                    updateRowTotal(row);
-                }
-            });
-        });
+        //             updateRowTotal(row);
+        //         },
+        //         error: function() {
+        //             updateRowTotal(row);
+        //         }
+        //     });
+        // });
 
         function showError(el, message) {
             if ($(el).hasClass('select2-hidden-accessible')) {
@@ -941,7 +1042,7 @@
         //     }
 
         //     // ✅ STEP 2: VALIDASI SETIAP BARIS PRODUK
-        //     $('#tab_logic tbody tr').each(function() {
+        //     $('.product-item').each(function() {
         //         const product = $(this).find('select[name="product[]"]');
         //         const qty = $(this).find('input[name="qty[]"]');
         //         const price = $(this).find('input[name="price[]"]');
@@ -1041,7 +1142,7 @@
             }
 
             // 🔹 Validasi setiap baris produk
-            $('#tab_logic tbody tr').each(function() {
+            $('.product-item').each(function() {
                 const row = $(this);
                 const product = row.find('select[name="product[]"]');
                 const unit = row.find('select[name="product_unit_id[]"]');
@@ -1121,7 +1222,7 @@
 
             if (val === '0' || val === '0,00') {
                 $(this).val('0');
-                updateRowTotal($(this).closest('tr'));
+                updateRowTotal($(this).closest('.product-item'));
                 return;
             }
 
@@ -1130,7 +1231,7 @@
             // ✅ maksimal 5 angka di belakang koma
             val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 5)}` : integerPart;
             $(this).val(val);
-            updateRowTotal($(this).closest('tr'));
+            updateRowTotal($(this).closest('.product-item'));
         });
 
         $(document).on('blur', '.price, .freight, .qty', function() {
@@ -1141,7 +1242,7 @@
                 const num = unformatRibuan(val);
                 $(this).val(formatRibuan(num));
             }
-            updateRowTotal($(this).closest('tr'));
+            updateRowTotal($(this).closest('.product-item'));
         });
 
         $(document).ready(function() {

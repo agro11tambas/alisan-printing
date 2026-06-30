@@ -34,6 +34,42 @@
             height: 42px !important;
             right: 10px !important;
         }
+
+        .product-item {
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: minmax(380px, 4fr) 130px 130px 130px 130px;
+            gap: 10px;
+            align-items: start;
+        }
+
+        .product-grid-header {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .product-col-span-2 {
+            grid-column: span 1;
+        }
+
+        .product-grid .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-grid .form-group>label {
+            display: none !important;
+        }
+
+        .product-grid .form-control,
+        .product-grid .select2-container--default .select2-selection--single {
+            height: 44px !important;
+        }
     </style>
 @endpush
 
@@ -182,138 +218,134 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card stretch stretch-full">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <div class="mb-4">
-                                        <h5 class="fw-bold">Add Products:</h5>
-                                    </div>
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered overflow-hidden" id="tab_logic">
-                                            <input type="hidden" name="inventory_warehouse_id"
-                                                id="inventory_warehouse_id" value="1">
-                                            <thead>
-                                                <tr class="single-item">
-                                                    <th class="text-center wd-50">#</th>
-                                                    <th class="text-center wd-450">Product</th>
-                                                    <th class="text-center wd-150">Qty</th>
-                                                    <th class="text-center wd-150">Price</th>
-                                                    <th class="text-center wd-150">Freight</th>
-                                                    <th class="text-center wd-150">Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach ($purchase->purchaseItems as $index => $item)
-                                                    <tr id="addr{{ $index }}">
-                                                        <td>{{ $index + 1 }}</td>
-                                                        <input type="hidden" name="purchase_item_ids[]"
-                                                            value="{{ $item->id }}">
+                    <div class="mt-3">
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="mb-4">
+                                    <h5 class="fw-bold">Add Products:</h5>
+                                </div>
+                                <input type="hidden" name="inventory_warehouse_id" id="inventory_warehouse_id"
+                                    value="1">
 
-                                                        <td>
-                                                            <select class="form-control select-product" name="product[]"
-                                                                id="product_{{ $index }}">
-                                                                <option value="" disabled>Pilih produk</option>
-                                                                @foreach ($products as $product)
-                                                                    <option value="{{ $product->id }}"
-                                                                        data-price="{{ $product->price }}"
-                                                                        {{ $product->id == $item->product_id ? 'selected' : '' }}>
-                                                                        [{{ $product->sku }}] {{ $product->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                        </td>
+                                <div class="product-grid product-grid-header mb-2">
+                                    <div class="product-col-span-2">Product</div>
+                                    <div>Qty</div>
+                                    <div>Price</div>
+                                    <div>Freight</div>
+                                    <div>Total</div>
+                                </div>
 
-                                                        <td>
-                                                            <input type="text" inputmode="numeric" name="qty[]"
-                                                                class="form-control qty" id="qty_{{ $index }}"
-                                                                min="1" max="{{ $item->remaining_qty }}">
-                                                            <small class="text-muted">Sisa max:
-                                                                {{ number_format($item->remaining_qty) }}</small>
-                                                        </td>
+                                <div id="product_list">
+                                    @foreach ($purchase->purchaseItems as $index => $item)
+                                        <div class="product-item" data-index="{{ $index }}">
+                                            <div class="product-grid">
+                                                <input type="hidden" name="purchase_item_ids[]"
+                                                    value="{{ $item->id }}">
 
-                                                        <td>
-                                                            <input type="text" name="price[]"
-                                                                class="form-control price"
-                                                                value="{{ number_format($item->price ?? 0, 2, ',', '.') }}">
-                                                        </td>
+                                                <div class="form-group product-col-span-2">
+                                                    <label>Product</label>
+                                                    <select class="form-control select-product" name="product[]"
+                                                        id="product_{{ $index }}">
+                                                        <option value="" disabled>Pilih produk</option>
+                                                        @foreach ($products as $product)
+                                                            <option value="{{ $product->id }}"
+                                                                data-price="{{ $product->price }}"
+                                                                {{ $product->id == $item->product_id ? 'selected' : '' }}>
+                                                                [{{ $product->sku }}] {{ $product->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
 
-                                                        <td>
-                                                            <input type="text" name="freight[]"
-                                                                class="form-control freight"
-                                                                value="{{ number_format($item->freight ?? 0, 2, ',', '.') }}">
-                                                        </td>
+                                                <div class="form-group">
+                                                    <label>Qty</label>
+                                                    <input type="text" inputmode="numeric" name="qty[]"
+                                                        class="form-control qty" id="qty_{{ $index }}"
+                                                        min="1" max="{{ $item->remaining_qty }}">
 
+                                                    <small class="text-muted">
+                                                        Sisa max: {{ number_format($item->remaining_qty) }}
+                                                    </small>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Price</label>
+                                                    <input type="text" name="price[]" class="form-control price"
+                                                        value="{{ number_format($item->price ?? 0, 2, ',', '.') }}">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Freight</label>
+                                                    <input type="text" name="freight[]" class="form-control freight"
+                                                        value="{{ number_format($item->freight ?? 0, 2, ',', '.') }}">
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label>Total</label>
+                                                    <input type="text" name="total[]" class="form-control total"
+                                                        readonly
+                                                        value="{{ $item->total ?? $item->quantity * $item->price + ($item->freight ?? 0) }}">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="col-lg-12 mt-4">
+                                <div class="row justify-content-end">
+                                    <div class="col-lg-4 mt-3">
+                                        <div class="mb-4">
+                                            <h5 class="fw-bold">Grand Total:</h5>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-bordered" id="tab_logic_total">
+                                                <tbody>
+                                                    <tr class="single-item">
+                                                        <th>Total Produk</th>
                                                         <td>
-                                                            <input type="text" name="total[]"
-                                                                class="form-control total" readonly
-                                                                value="{{ $item->total ?? $item->quantity * $item->price + ($item->freight ?? 0) }}">
+                                                            <input type="hidden" name="total_amount_product"
+                                                                id="total_amount_product">
+                                                            <input type="text" id="total_amount_product_display"
+                                                                class="form-control border-0 bg-transparent p-0" readonly>
                                                         </td>
                                                     </tr>
-                                                @endforeach
-                                            </tbody>
-
-                                        </table>
-                                    </div>
-                                </div>
-                                <div class="col-lg-12 mt-4">
-                                    <div class="row justify-content-end">
-                                        <div class="col-lg-4 mt-3">
-                                            <div class="mb-4">
-                                                <h5 class="fw-bold">Grand Total:</h5>
-                                            </div>
-                                            <div class="table-responsive">
-                                                <table class="table table-bordered" id="tab_logic_total">
-                                                    <tbody>
-                                                        <tr class="single-item">
-                                                            <th>Total Produk</th>
-                                                            <td>
-                                                                <input type="hidden" name="total_amount_product"
-                                                                    id="total_amount_product">
-                                                                <input type="text" id="total_amount_product_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                            </td>
-                                                        </tr>
-                                                        <tr class="single-item">
-                                                            <th>Total Freight</th>
-                                                            <td>
-                                                                <input type="hidden" name="total_amount_freight"
-                                                                    id="total_amount_freight">
-                                                                <input type="text" id="total_amount_freight_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                            </td>
-                                                        </tr>
-                                                        <tr class="single-item">
-                                                            <th>Sub Total</th>
-                                                            <td>
-                                                                <input type="hidden" name="sub_total" id="sub_total">
-                                                                <input type="text" id="sub_total_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                            </td>
-                                                        </tr>
-                                                        <tr class="single-item">
-                                                            <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
-                                                                Total</th>
-                                                            <td class="bg-gray-100">
-                                                                <input type="hidden" name="total_amount"
-                                                                    id="total_amount">
-                                                                <input type="text" id="total_amount_display"
-                                                                    class="form-control border-0 bg-transparent p-0 fw-700 text-dark"
-                                                                    readonly>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                                    <tr class="single-item">
+                                                        <th>Total Freight</th>
+                                                        <td>
+                                                            <input type="hidden" name="total_amount_freight"
+                                                                id="total_amount_freight">
+                                                            <input type="text" id="total_amount_freight_display"
+                                                                class="form-control border-0 bg-transparent p-0" readonly>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="single-item">
+                                                        <th>Sub Total</th>
+                                                        <td>
+                                                            <input type="hidden" name="sub_total" id="sub_total">
+                                                            <input type="text" id="sub_total_display"
+                                                                class="form-control border-0 bg-transparent p-0" readonly>
+                                                        </td>
+                                                    </tr>
+                                                    <tr class="single-item">
+                                                        <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
+                                                            Total</th>
+                                                        <td class="bg-gray-100">
+                                                            <input type="hidden" name="total_amount" id="total_amount">
+                                                            <input type="text" id="total_amount_display"
+                                                                class="form-control border-0 bg-transparent p-0 fw-700 text-dark"
+                                                                readonly>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    {{-- <div class="card stretch stretch-full">
+                    </div> --}}
                 </form>
             </div>
         </div>
@@ -367,7 +399,7 @@
         function calc_total() {
             let subtotalProduct = 0,
                 subtotalFreight = 0;
-            $('#tab_logic tbody tr').each(function() {
+            $('.product-item').each(function() {
                 const row = $(this);
                 const qty = parseFloat(unformatRibuan(row.find('.qty').val())) || 0;
                 const price = parseFloat(unformatRibuan(row.find('.price').val())) || 0;
@@ -411,7 +443,7 @@
                 $(this).val(formatRibuan(num));
             });
 
-            $('#tab_logic tbody tr').each(function() {
+            $('.product-item').each(function() {
                 updateRowTotal($(this));
             });
             calc_total();
@@ -420,7 +452,7 @@
         /* ===================== HANDLER INPUT QTY (LIMIT + TOAST) ===================== */
         $(document).on('input', '.qty', function() {
             const input = $(this);
-            const row = input.closest('tr');
+            const row = input.closest('.product-item');
             const max = parseInt(input.attr('max')) || 0;
 
             // ambil angka mentah tanpa titik
@@ -457,7 +489,7 @@
             const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 5)}` : integerPart;
             $(this).val(val);
-            updateRowTotal($(this).closest('tr'));
+            updateRowTotal($(this).closest('.product-item'));
         });
 
         $(document).on('blur', '.price, .freight, .qty', function() {
@@ -468,7 +500,7 @@
                 const num = unformatRibuan(val);
                 $(this).val(formatRibuan(num));
             }
-            updateRowTotal($(this).closest('tr'));
+            updateRowTotal($(this).closest('.product-item'));
         });
 
         /* ===================== AUTO CLEAR 0 SAAT FOCUS ===================== */
@@ -513,7 +545,7 @@
                 showError(supplier[0], 'Supplier wajib dipilih');
             }
 
-            $('#tab_logic tbody tr').each(function() {
+            $('.product-item').each(function() {
                 const product = $(this).find('select[name="product[]"]');
                 const qty = $(this).find('input[name="qty[]"]');
                 const price = $(this).find('input[name="price[]"]');

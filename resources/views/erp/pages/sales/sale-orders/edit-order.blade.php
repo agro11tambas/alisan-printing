@@ -74,9 +74,9 @@
         }
 
         .product-item {
-            border: 1px solid #e5e7eb;
+            /* border: 1px solid #e5e7eb; */
             border-radius: 12px;
-            padding: 14px;
+            /* padding: 14px; */
             margin-bottom: 12px;
             /* background: #fff; */
         }
@@ -252,6 +252,41 @@
             .product-grid .form-group:nth-of-type(4) label {
                 display: none !important;
             }
+        }
+
+
+        .product-bundle-inline {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .product-bundle-inline:has(.bundle-wrapper:not(.d-none)) {
+            grid-template-columns: auto 1fr 1fr;
+        }
+
+        .product-grid-header {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .product-item .form-group>label,
+        .product-delete-col>label {
+            display: none !important;
+        }
+
+        .product-option-name,
+        .product-option-selected .product-option-name {
+            font-weight: 500;
+            line-height: 1.2;
+        }
+
+        .product-option-sku {
+            font-size: 11px;
+            color: #6c757d;
+            line-height: 1.1;
         }
     </style>
 @endpush
@@ -455,317 +490,162 @@
                         </div>
                     </div>
 
-                    <div class="card stretch stretch-full">
-                        <div class="card-body">
+                    <div class="mt-3">
 
-                            <div class="mb-4">
-                                <h5 class="fw-bold">Add Products:</h5>
-                            </div>
+                        <div class="mb-4">
+                            <h5 class="fw-bold">Add Products:</h5>
+                        </div>
 
-                            <!-- PRODUCT LIST -->
-                            <div id="product_list">
-                                @foreach ($order->orderItems as $index => $item)
-                                    @php
-                                        $isBundle = $item->satuan === 'bundle';
+                        <!-- PRODUCT LIST -->
+                        <div id="product_list">
+                            @foreach ($order->orderItems as $index => $item)
+                                @php
+                                    $isBundle = $item->satuan === 'bundle';
 
-                                        $primaryProductId = null;
-                                        $secondaryProductId = null;
+                                    $primaryProductId = null;
+                                    $secondaryProductId = null;
 
-                                        if ($isBundle && $item->productBundle) {
-                                            $primaryProductId = optional($item->productBundle->primaryItem)->product_id;
-                                            $secondaryProductId = optional(
-                                                $item->productBundle->secondaryItems->first(),
-                                            )->product_id;
-                                        }
-                                    @endphp
+                                    if ($isBundle && $item->productBundle) {
+                                        $primaryProductId = optional($item->productBundle->primaryItem)->product_id;
+                                        $secondaryProductId = optional($item->productBundle->secondaryItems->first())
+                                            ->product_id;
+                                    }
+                                @endphp
 
-                                    <div class="product-item" data-index="{{ $index }}">
-                                        <div class="product-grid">
-
-                                            {{-- <div class="form-group product-col-span-2">
-                                                <label>Product</label>
-                                                <select class="form-select select-product" name="product[]"
-                                                    data-select2-selector="status">
-                                                    <option value="" disabled hidden>Pilih produk</option>
-
-                                                    @foreach ($products as $prod)
-                                                        <option value="satuan_{{ $prod->id }}"
-                                                            {{ $item->satuan === 'satuan' && $item->product_id == $prod->id ? 'selected' : '' }}
-                                                            data-price="{{ $prod->price }}"
-                                                            data-discounts='@json($prod->discounts ?? [])'
-                                                            data-categories='@json($prod->categories ?? [])'
-                                                            data-type="satuan">
-                                                            {{ $prod->name }}
-                                                        </option>
-                                                    @endforeach                                                    
-                                                </select>
-                                                @php
-                                                    $isBundle = $item->satuan === 'bundle';
-                                                    $secondaryProductId = null;
-
-                                                    if ($isBundle && $item->productBundle) {
-                                                        $secondaryProductId = optional(
-                                                            $item->productBundle->secondaryItems->first(),
-                                                        )->product_id;
-                                                    }
-                                                @endphp
-
-                                                <div class="form-group product-col-span-2">
-                                                    <div class="form-check mt-2">
-                                                        <input class="form-check-input add-bundle-check" type="checkbox"
-                                                            value="1" {{ $isBundle ? 'checked' : '' }}>
-                                                        <label class="form-check-label fw-semibold">Add Bundle</label>
-                                                    </div>
-
-                                                    <div class="bundle-wrapper mt-2 {{ $isBundle ? '' : 'd-none' }}">
-                                                        <label>Product Bundle</label>
-                                                        <select class="form-control bundle-secondary-product"
-                                                            name="bundle_secondary_product_id[]"
-                                                            data-selected-bundle-id="{{ $item->product_bundle_id }}"
-                                                            data-selected-secondary-id="{{ $secondaryProductId }}">
-                                                            <option value="">Pilih product secondary</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div> --}}
-
-                                            <div class="form-group product-col-span-2">
-                                                <div class="product-label-row">
-                                                    <label>Product</label>
-
-                                                    <label class="bundle-toggle">
-                                                        <input type="checkbox" class="add-bundle-check" value="1"
-                                                            {{ $isBundle ? 'checked' : '' }}>
-                                                        <span>
-                                                            <i class="feather-package"></i>
-                                                            Bundle
-                                                        </span>
-                                                    </label>
-                                                </div>
-
-                                                <div class="product-bundle-inline">
-                                                    <select class="form-control select-product"
-                                                        data-select2-selector="tag" name="product[]">
-                                                        <option value="" disabled hidden>Pilih produk</option>
-
-                                                        @foreach ($products as $prod)
-                                                            <option value="satuan_{{ $prod->id }}"
-                                                                {{ !$isBundle && $item->product_id == $prod->id ? 'selected' : '' }}
-                                                                data-price="{{ $prod->price }}"
-                                                                data-discounts='@json($prod->discounts ?? [])'
-                                                                data-categories='@json($prod->categories ?? [])'
-                                                                data-type="satuan" data-sku="{{ $prod->sku ?? '' }}">
-                                                                [{{ $prod->sku ?? '-' }}] {{ $prod->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-
-                                                    <div class="bundle-wrapper {{ $isBundle ? '' : 'd-none' }}">
-                                                        <select class="form-control bundle-secondary-product"
-                                                            name="bundle_secondary_product_id[]"
-                                                            data-selected-bundle-id="{{ $item->product_bundle_id }}"
-                                                            data-selected-secondary-id="{{ $secondaryProductId }}">
-                                                            <option value="">Pilih product bundle</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <input type="hidden" name="product_type[]" class="product-type"
-                                                value="{{ $item->satuan }}">
-
-                                            <div class="form-group product-unit-wrapper">
-                                                <label>Unit</label>
-                                                <select name="product_unit_id[]" class="form-control product-unit"
-                                                    data-selected-unit-id="{{ $item->satuan === 'satuan' ? $item->product_unit_conversion_id : $item->product_bundle_unit_conversion_id }}">
-                                                    <option value="">Pilih unit</option>
-
-                                                    @if ($item->satuan === 'satuan' && $item->product)
-                                                        @foreach ($item->product->unitConversions as $conversion)
-                                                            <option value="{{ $conversion->id }}"
-                                                                data-unit-id="{{ $conversion->unit_id }}"
-                                                                data-unit-name="{{ optional($conversion->unit)->name }}"
-                                                                data-conversion-value="{{ $conversion->conversion_value }}"
-                                                                data-sale-price="{{ $conversion->sale_price }}"
-                                                                {{ (int) $item->product_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
-                                                                {{ optional($conversion->unit)->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    @elseif ($item->satuan === 'bundle' && $item->productBundle)
-                                                        @foreach ($item->productBundle->unitConversions as $conversion)
-                                                            <option value="{{ $conversion->id }}"
-                                                                data-unit-id="{{ $conversion->unit_id }}"
-                                                                data-unit-name="{{ optional($conversion->unit)->name }}"
-                                                                data-conversion-value="{{ $conversion->conversion_value }}"
-                                                                data-sale-price="{{ $conversion->sale_price }}"
-                                                                {{ (int) $item->product_bundle_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
-                                                                {{ optional($conversion->unit)->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    @endif
-                                                </select>
-
-                                                <input type="hidden" name="unit_conversion_value[]"
-                                                    class="unit-conversion-value"
-                                                    value="{{ $item->unit_conversion_value ?? 1 }}">
-
-                                                <input type="hidden" name="unit_name[]" class="unit-name"
-                                                    value="{{ $item->unit_name ?? 'Pcs' }}">
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label>Qty</label>
-                                                <input type="text" name="qty[]" class="form-control qty"
-                                                    inputmode="numeric"
-                                                    value="{{ number_format($item->quantity, 0, ',', '.') }}">
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label>Price</label>
-                                                <input type="text" class="form-control price_before_discount_display"
-                                                    value="{{ number_format($item->price, 0, ',', '.') }}">
-                                                <input type="hidden" name="price_before_discount[]"
-                                                    class="price_before_discount"
-                                                    value="{{ number_format($item->price, 2, '.', '') }}">
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label>Mode</label>
-                                                <select name="mode[]" class="form-control item-mode">
-                                                    <option value="printing"
-                                                        {{ ($item->mode ?? 'printing') === 'printing' ? 'selected' : '' }}>
-                                                        Printing
-                                                    </option>
-                                                    <option value="polosan"
-                                                        {{ ($item->mode ?? 'printing') === 'polosan' ? 'selected' : '' }}>
-                                                        Polosan
-                                                    </option>
-                                                </select>
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label>Total</label>
-                                                <input type="text" class="form-control total_before_discount_display"
-                                                    readonly
-                                                    value="{{ number_format($item->price * $item->quantity, 0, ',', '.') }}">
-                                                <input type="hidden" name="total_before_discount[]"
-                                                    class="total_before_discount"
-                                                    value="{{ number_format($item->price * $item->quantity, 2, '.', '') }}">
-                                            </div>
-
-                                            <div class="product-delete-col">
-                                                <label>&nbsp;</label>
-                                                <button type="button" class="btn btn-danger delete-row">
-                                                    <i class="feather-trash"></i>
-                                                </button>
-                                            </div>
-
-                                            <input type="hidden" name="price_after_discount[]"
-                                                class="price_after_discount" value="{{ $item->price_after_discount }}">
-
-                                            <input type="hidden" name="total_after_discount[]"
-                                                class="total_after_discount" value="{{ $item->total_after_discount }}">
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-
-                            <template id="product_item_template">
-                                <div class="product-item" data-index="__index__">
+                                <div class="product-item" data-index="{{ $index }}">
                                     <div class="product-grid">
 
-                                        {{-- <div class="form-group product-col-span-2">
-                                            <label>Product</label>
-                                            <select class="form-select select-product" name="product[]"
-                                                data-select2-selector="status">
-                                                <option value="" disabled selected hidden>Pilih produk</option>
-                                            </select>
-                                            <div class="form-group product-col-span-2">
-                                                <div class="form-check mt-2">
-                                                    <input class="form-check-input add-bundle-check" type="checkbox"
-                                                        value="1">
-                                                    <label class="form-check-label fw-semibold">Add Bundle</label>
-                                                </div>
-
-                                                <div class="bundle-wrapper mt-2 d-none">
-                                                    <label>Product Bundle</label>
-                                                    <select class="form-control bundle-secondary-product"
-                                                        name="bundle_secondary_product_id[]">
-                                                        <option value="">Pilih product secondary</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div> --}}
-
                                         <div class="form-group product-col-span-2">
-                                            <div class="product-label-row">
+                                            {{-- <div class="product-label-row">
                                                 <label>Product</label>
 
                                                 <label class="bundle-toggle">
-                                                    <input type="checkbox" class="add-bundle-check" value="1">
+                                                    <input type="checkbox" class="add-bundle-check" value="1"
+                                                        {{ $isBundle ? 'checked' : '' }}>
                                                     <span>
                                                         <i class="feather-package"></i>
                                                         Bundle
                                                     </span>
                                                 </label>
-                                            </div>
+                                            </div> --}}
 
                                             <div class="product-bundle-inline">
+                                                <label class="bundle-toggle">
+                                                    <input type="checkbox" class="add-bundle-check" value="1"
+                                                        {{ $isBundle ? 'checked' : '' }}>
+                                                    <span>
+                                                        <i class="feather-package"></i>
+                                                        Bundle
+                                                    </span>
+                                                </label>
+
                                                 <select class="form-control select-product" data-select2-selector="tag"
                                                     name="product[]">
-                                                    <option value="" disabled selected hidden>Pilih produk</option>
+                                                    <option value="" disabled hidden>Pilih produk</option>
+
+                                                    @foreach ($products as $prod)
+                                                        <option value="satuan_{{ $prod->id }}"
+                                                            {{ !$isBundle && $item->product_id == $prod->id ? 'selected' : '' }}
+                                                            data-price="{{ $prod->price }}"
+                                                            data-discounts='@json($prod->discounts ?? [])'
+                                                            data-categories='@json($prod->categories ?? [])'
+                                                            data-type="satuan" data-sku="{{ $prod->sku ?? '' }}">
+                                                            [{{ $prod->sku ?? '-' }}] {{ $prod->name }}
+                                                        </option>
+                                                    @endforeach
                                                 </select>
 
-                                                <div class="bundle-wrapper d-none">
+                                                <div class="bundle-wrapper {{ $isBundle ? '' : 'd-none' }}">
                                                     <select class="form-control bundle-secondary-product"
-                                                        name="bundle_secondary_product_id[]">
+                                                        name="bundle_secondary_product_id[]"
+                                                        data-selected-bundle-id="{{ $item->product_bundle_id }}"
+                                                        data-selected-secondary-id="{{ $secondaryProductId }}">
                                                         <option value="">Pilih product bundle</option>
                                                     </select>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <input type="hidden" name="product_type[]" class="product-type">
+                                        <input type="hidden" name="product_type[]" class="product-type"
+                                            value="{{ $item->satuan }}">
 
                                         <div class="form-group product-unit-wrapper">
                                             <label>Unit</label>
-                                            <select name="product_unit_id[]" class="form-control product-unit">
+                                            <select name="product_unit_id[]" class="form-control product-unit"
+                                                data-selected-unit-id="{{ $item->satuan === 'satuan' ? $item->product_unit_conversion_id : $item->product_bundle_unit_conversion_id }}">
                                                 <option value="">Pilih unit</option>
+
+                                                @if ($item->satuan === 'satuan' && $item->product)
+                                                    @foreach ($item->product->unitConversions as $conversion)
+                                                        <option value="{{ $conversion->id }}"
+                                                            data-unit-id="{{ $conversion->unit_id }}"
+                                                            data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                            data-conversion-value="{{ $conversion->conversion_value }}"
+                                                            data-sale-price="{{ $conversion->sale_price }}"
+                                                            {{ (int) $item->product_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
+                                                            {{ optional($conversion->unit)->name }}
+                                                        </option>
+                                                    @endforeach
+                                                @elseif ($item->satuan === 'bundle' && $item->productBundle)
+                                                    @foreach ($item->productBundle->unitConversions as $conversion)
+                                                        <option value="{{ $conversion->id }}"
+                                                            data-unit-id="{{ $conversion->unit_id }}"
+                                                            data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                            data-conversion-value="{{ $conversion->conversion_value }}"
+                                                            data-sale-price="{{ $conversion->sale_price }}"
+                                                            {{ (int) $item->product_bundle_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
+                                                            {{ optional($conversion->unit)->name }}
+                                                        </option>
+                                                    @endforeach
+                                                @endif
                                             </select>
 
                                             <input type="hidden" name="unit_conversion_value[]"
-                                                class="unit-conversion-value" value="1">
-                                            <input type="hidden" name="unit_name[]" class="unit-name" value="">
+                                                class="unit-conversion-value"
+                                                value="{{ $item->unit_conversion_value ?? 1 }}">
+
+                                            <input type="hidden" name="unit_name[]" class="unit-name"
+                                                value="{{ $item->unit_name ?? 'Pcs' }}">
                                         </div>
 
                                         <div class="form-group">
                                             <label>Qty</label>
                                             <input type="text" name="qty[]" class="form-control qty"
-                                                inputmode="numeric" value="1">
+                                                inputmode="numeric"
+                                                value="{{ number_format($item->quantity, 0, ',', '.') }}">
                                         </div>
 
                                         <div class="form-group">
                                             <label>Price</label>
                                             <input type="text" class="form-control price_before_discount_display"
-                                                value="0">
+                                                value="{{ number_format($item->price, 0, ',', '.') }}">
                                             <input type="hidden" name="price_before_discount[]"
-                                                class="price_before_discount" value="0">
+                                                class="price_before_discount"
+                                                value="{{ number_format($item->price, 2, '.', '') }}">
                                         </div>
 
                                         <div class="form-group">
                                             <label>Mode</label>
                                             <select name="mode[]" class="form-control item-mode">
-                                                <option value="printing" selected>Printing</option>
-                                                <option value="polosan">Polosan</option>
+                                                <option value="printing"
+                                                    {{ ($item->mode ?? 'printing') === 'printing' ? 'selected' : '' }}>
+                                                    Printing
+                                                </option>
+                                                <option value="polosan"
+                                                    {{ ($item->mode ?? 'printing') === 'polosan' ? 'selected' : '' }}>
+                                                    Polosan
+                                                </option>
                                             </select>
                                         </div>
 
                                         <div class="form-group">
                                             <label>Total</label>
                                             <input type="text" class="form-control total_before_discount_display"
-                                                readonly value="0">
+                                                readonly
+                                                value="{{ number_format($item->price * $item->quantity, 0, ',', '.') }}">
                                             <input type="hidden" name="total_before_discount[]"
-                                                class="total_before_discount" value="0">
+                                                class="total_before_discount"
+                                                value="{{ number_format($item->price * $item->quantity, 2, '.', '') }}">
                                         </div>
 
                                         <div class="product-delete-col">
@@ -776,71 +656,168 @@
                                         </div>
 
                                         <input type="hidden" name="price_after_discount[]" class="price_after_discount"
-                                            value="0">
+                                            value="{{ $item->price_after_discount }}">
+
                                         <input type="hidden" name="total_after_discount[]" class="total_after_discount"
-                                            value="0">
+                                            value="{{ $item->total_after_discount }}">
                                     </div>
                                 </div>
-                            </template>
+                            @endforeach
+                        </div>
 
-                            <!-- ADD -->
-                            <div class="d-flex justify-content-end mt-3">
-                                <button type="button" id="add_row" class="btn btn-primary">
-                                    Add Item
-                                </button>
+                        <template id="product_item_template">
+                            <div class="product-item" data-index="__index__">
+                                <div class="product-grid">
+                                    <div class="form-group product-col-span-2">
+                                        {{-- <div class="product-label-row">
+                                            <label>Product</label>
+
+                                            <label class="bundle-toggle">
+                                                <input type="checkbox" class="add-bundle-check" value="1">
+                                                <span>
+                                                    <i class="feather-package"></i>
+                                                    Bundle
+                                                </span>
+                                            </label>
+                                        </div> --}}
+
+                                        <div class="product-bundle-inline">
+                                            <label class="bundle-toggle">
+                                                <input type="checkbox" class="add-bundle-check" value="1">
+                                                <span>
+                                                    <i class="feather-package"></i>
+                                                    Bundle
+                                                </span>
+                                            </label>
+                                            <select class="form-control select-product" data-select2-selector="tag"
+                                                name="product[]">
+                                                <option value="" disabled selected hidden>Pilih produk</option>
+                                            </select>
+
+                                            <div class="bundle-wrapper d-none">
+                                                <select class="form-control bundle-secondary-product"
+                                                    name="bundle_secondary_product_id[]">
+                                                    <option value="">Pilih product bundle</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <input type="hidden" name="product_type[]" class="product-type">
+
+                                    <div class="form-group product-unit-wrapper">
+                                        <label>Unit</label>
+                                        <select name="product_unit_id[]" class="form-control product-unit">
+                                            <option value="">Pilih unit</option>
+                                        </select>
+
+                                        <input type="hidden" name="unit_conversion_value[]"
+                                            class="unit-conversion-value" value="1">
+                                        <input type="hidden" name="unit_name[]" class="unit-name" value="">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Qty</label>
+                                        <input type="text" name="qty[]" class="form-control qty"
+                                            inputmode="numeric" value="1">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Price</label>
+                                        <input type="text" class="form-control price_before_discount_display"
+                                            value="0">
+                                        <input type="hidden" name="price_before_discount[]"
+                                            class="price_before_discount" value="0">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Mode</label>
+                                        <select name="mode[]" class="form-control item-mode">
+                                            <option value="printing" selected>Printing</option>
+                                            <option value="polosan">Polosan</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Total</label>
+                                        <input type="text" class="form-control total_before_discount_display" readonly
+                                            value="0">
+                                        <input type="hidden" name="total_before_discount[]"
+                                            class="total_before_discount" value="0">
+                                    </div>
+
+                                    <div class="product-delete-col">
+                                        <label>&nbsp;</label>
+                                        <button type="button" class="btn btn-danger delete-row">
+                                            <i class="feather-trash"></i>
+                                        </button>
+                                    </div>
+
+                                    <input type="hidden" name="price_after_discount[]" class="price_after_discount"
+                                        value="0">
+                                    <input type="hidden" name="total_after_discount[]" class="total_after_discount"
+                                        value="0">
+                                </div>
                             </div>
+                        </template>
 
-                            <div class="col-lg-12">
-                                <div class="row justify-content-end">
-                                    <div class="col-lg-4 mt-3">
-                                        <div class="mb-4">
-                                            <h5 class="fw-bold">Grand Total:</h5>
-                                        </div>
-                                        <div class="table-responsive">
-                                            <table class="table table-bordered" id="tab_logic_total">
-                                                <tbody>
-                                                    <tr>
-                                                        <th class="fs-10 text-dark text-uppercase">Sub Total (Before
-                                                            Discount)</th>
-                                                        <td>
-                                                            <input type="text" id="sub_total_display"
-                                                                class="form-control" readonly
-                                                                value="{{ number_format($order->sub_total ?? 0, 2, ',', '.') }}">
-                                                            <input type="hidden" name="sub_total" id="sub_total"
-                                                                value="{{ number_format($order->sub_total ?? 0, 2, '.', '') }}">
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <th class="fs-10 text-dark text-uppercase">Total Discount</th>
-                                                        <td>
-                                                            <input type="text" id="total_discount_display"
-                                                                class="form-control text-danger" readonly
-                                                                value="{{ number_format($order->total_discount ?? 0, 2, ',', '.') }}">
-                                                            <input type="hidden" name="total_discount"
-                                                                id="total_discount"
-                                                                value="{{ number_format($order->total_discount ?? 0, 2, '.', '') }}">
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
-                                                            Total</th>
-                                                        <td>
-                                                            <input type="text" id="total_amount_display"
-                                                                class="form-control bg-gray-100 fw-700 text-success"
-                                                                readonly
-                                                                value="{{ number_format($order->total_amount ?? 0, 2, ',', '.') }}">
-                                                            <input type="hidden" name="total_amount" id="total_amount"
-                                                                value="{{ number_format($order->total_amount ?? 0, 2, '.', '') }}">
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
+                        <!-- ADD -->
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="button" id="add_row" class="btn btn-primary">
+                                Add Item
+                            </button>
+                        </div>
+
+                        <div class="col-lg-12">
+                            <div class="row justify-content-end">
+                                <div class="col-lg-4 mt-3">
+                                    <div class="mb-4">
+                                        <h5 class="fw-bold">Grand Total:</h5>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered" id="tab_logic_total">
+                                            <tbody>
+                                                <tr>
+                                                    <th class="fs-10 text-dark text-uppercase">Sub Total (Before
+                                                        Discount)</th>
+                                                    <td>
+                                                        <input type="text" id="sub_total_display" class="form-control"
+                                                            readonly
+                                                            value="{{ number_format($order->sub_total ?? 0, 2, ',', '.') }}">
+                                                        <input type="hidden" name="sub_total" id="sub_total"
+                                                            value="{{ number_format($order->sub_total ?? 0, 2, '.', '') }}">
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th class="fs-10 text-dark text-uppercase">Total Discount</th>
+                                                    <td>
+                                                        <input type="text" id="total_discount_display"
+                                                            class="form-control text-danger" readonly
+                                                            value="{{ number_format($order->total_discount ?? 0, 2, ',', '.') }}">
+                                                        <input type="hidden" name="total_discount" id="total_discount"
+                                                            value="{{ number_format($order->total_discount ?? 0, 2, '.', '') }}">
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <th class="fs-10 text-dark text-uppercase bg-gray-100">Grand
+                                                        Total</th>
+                                                    <td>
+                                                        <input type="text" id="total_amount_display"
+                                                            class="form-control bg-gray-100 fw-700 text-success" readonly
+                                                            value="{{ number_format($order->total_amount ?? 0, 2, ',', '.') }}">
+                                                        <input type="hidden" name="total_amount" id="total_amount"
+                                                            value="{{ number_format($order->total_amount ?? 0, 2, '.', '') }}">
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    {{-- <div class="card stretch stretch-full">
+                    </div> --}}
                 </form>
             </div>
         </div>
@@ -1032,15 +1009,44 @@
             return {
                 placeholder: 'Pilih produk',
                 width: '100%',
-                templateResult: function(data) {
-                    return data.text;
-                },
-                templateSelection: function(data) {
-                    if (window.innerWidth <= 576) {
-                        return truncateText(data.text, 45);
-                    }
 
-                    return data.text;
+                matcher: function(params, data) {
+                    if ($.trim(params.term) === '') return data;
+                    if (!data.element) return null;
+
+                    const term = params.term.toLowerCase();
+                    const text = data.text.toLowerCase();
+                    const sku = $(data.element).data('sku')?.toLowerCase() || '';
+
+                    return text.includes(term) || sku.includes(term) ? data : null;
+                },
+
+                templateResult: function(data) {
+                    if (!data.element) return data.text;
+
+                    const name = data.text;
+                    const sku = $(data.element).data('sku') || '-';
+
+                    return $(`
+                <div class="product-option">
+                    <div class="product-option-name">${name}</div>
+                    <small class="product-option-sku">[${sku}]</small>
+                </div>
+            `);
+                },
+
+                templateSelection: function(data) {
+                    if (!data.element) return data.text;
+
+                    const name = data.text;
+                    const sku = $(data.element).data('sku') || '-';
+
+                    return $(`
+                <div class="product-option-selected">
+                    <div class="product-option-name">${name}</div>
+                    <small class="product-option-sku">[${sku}]</small>
+                </div>
+            `);
                 }
             };
         }
@@ -1072,9 +1078,11 @@
             allProducts.forEach(item => {
                 const option = $('<option>', {
                         value: item.type + '_' + item.id,
-                        text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? ' (Bundle)' : '')
+                        // text: `[${item.sku || '-'}] ${item.name}` + (item.type === 'bundle' ? ' (Bundle)' : '')
+                        text: item.name
                     })
                     .data('real-id', item.id)
+                    .data('sku', item.sku || '')
                     .data('price', item.price)
                     .data('discounts', item.discounts || [])
                     .data('categories', item.categories || [])
@@ -1111,57 +1119,27 @@
                     if (!product) return;
 
                     const option = $(`
-                <option value="${product.id}" data-bundle-id="${bundle.id}">
-                    [${product.sku || '-'}] ${product.name}
-                </option>
-            `);
+                        <option value="${product.id}"
+                            data-bundle-id="${bundle.id}"
+                            data-sku="${product.sku || '-'}">
+                            ${product.name}
+                        </option>
+                    `);
 
                     if (selectedBundleId && String(selectedBundleId) === String(bundle.id)) {
                         option.prop('selected', true);
                     }
 
                     select.append(option);
+
+                    if (select.hasClass('select2-hidden-accessible')) {
+                        select.select2('destroy');
+                    }
+
+                    select.select2(select2ProductConfig());
                 });
             });
         }
-
-        // function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0) {
-        //     const unitSelect = row.find('.product-unit');
-        //     const unitWrapper = row.find('.product-unit-wrapper');
-
-        //     unitSelect.empty().append('<option value="">Pilih unit</option>');
-
-        //     row.find('.unit-conversion-value').val('1');
-        //     row.find('.unit-name').val('Pcs');
-
-        //     unitWrapper.show();
-
-        //     if (Array.isArray(units) && units.length > 0) {
-        //         units.forEach(function(unit) {
-        //             const unitName = unit.unit_name || 'Pcs';
-
-        //             unitSelect.append(`
-    //         <option value="${unit.id}"
-    //             data-unit-id="${unit.unit_id}"
-    //             data-unit-name="${unitName}"
-    //             data-conversion-value="${unit.conversion_value || 1}"
-    //             data-sale-price="${unit.sale_price || defaultPrice}">
-    //             ${unitName}
-    //         </option>
-    //     `);
-        //         });
-        //     }
-
-        //     if (selectedUnitId) {
-        //         unitSelect.val(String(selectedUnitId));
-        //     }
-
-        //     if (!unitSelect.val()) {
-        //         unitSelect.val(unitSelect.find('option:eq(1)').val());
-        //     }
-
-        //     unitSelect.trigger('change');
-        // }
 
         function fillProductUnits(row, units, baseUnitId = null) {
             const unitSelect = row.find('.product-unit');
@@ -1574,74 +1552,6 @@
             recalcAllRows();
         });
 
-        // $(document).on('change', '.select-product', function() {
-        //     const row = $(this).closest('.product-item');
-
-        //     if (row.find('.add-bundle-check').is(':checked')) {
-        //         const selectedVal = $(this).val();
-
-        //         if (selectedVal) {
-        //             const primaryProductId = selectedVal.split('_')[1];
-
-        //             row.find('.bundle-wrapper').removeClass('d-none');
-        //             populateSecondaryBundleProducts(row, primaryProductId);
-        //             row.find('.product-type').val('bundle');
-        //         }
-
-        //         return;
-        //     }
-
-        //     const selectedData = findSelectedProductData($(this).val());
-
-        //     const type = selectedData ? selectedData.type : '';
-        //     const price = selectedData ? parseFloat(selectedData.price || 0) : 0;
-        //     const units = selectedData ? (selectedData.units || []) : [];
-
-        //     row.find('.product-type').val(type);
-
-        //     if (type === 'satuan') {
-        //         fillProductUnits(row, units, null, price, false);
-        //     } else {
-        //         row.find('.product-unit-wrapper').hide();
-        //         row.find('.product-unit').val('');
-        //         row.find('.unit-conversion-value').val('1');
-        //         row.find('.unit-name').val('');
-
-        //         row.find('.price_before_discount').val(price.toFixed(2));
-        //         row.find('.price_before_discount_display').val(formatNumber(price));
-
-        //         recalcAllRows();
-        //     }
-        // });
-
-        // $(document).on('change', '.select-product', function() {
-        //     const row = $(this).closest('.product-item');
-
-        //     const selectedData = findSelectedProductData($(this).val());
-        //     if (!selectedData) return;
-
-        //     row.find('.product-type').val(
-        //         row.find('.add-bundle-check').is(':checked') ? 'bundle' : 'satuan'
-        //     );
-
-        //     fillProductUnits(
-        //         row,
-        //         selectedData.units || [],
-        //         selectedData.base_unit_id
-        //     );
-
-        //     if (row.find('.add-bundle-check').is(':checked')) {
-        //         const primaryProductId = $(this).val().split('_')[1];
-        //         row.find('.bundle-wrapper').removeClass('d-none');
-        //         populateSecondaryBundleProducts(row, primaryProductId);
-        //     } else {
-        //         row.find('.bundle-wrapper').addClass('d-none');
-        //         row.find('.bundle-secondary-product').val('');
-        //     }
-
-        //     recalcAllRows();
-        // });
-
         $(document).on('change select2:select', 'select[name="product[]"]', function() {
             const row = $(this).closest('.product-item');
             const selectedOption = $(this).find('option:selected');
@@ -1795,53 +1705,6 @@
             }
         );
 
-        // $(document).on('change', '.add-bundle-check', function() {
-        //     const row = $(this).closest('.product-item');
-        //     const productSelect = row.find('select[name="product[]"]');
-        //     const selectedVal = productSelect.val();
-
-        //     if (this.checked) {
-        //         if (!selectedVal) {
-        //             $(this).prop('checked', false);
-        //             showError(productSelect, 'Pilih product dulu');
-        //             return;
-        //         }
-
-        //         const primaryProductId = selectedVal.split('_')[1];
-
-        //         row.find('.product-type').val('bundle');
-        //         row.find('.bundle-wrapper').removeClass('d-none');
-
-        //         populateSecondaryBundleProducts(row, primaryProductId);
-
-        //         row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-        //         row.find('.unit-conversion-value').val('1');
-        //         row.find('.unit-name').val('Pcs');
-
-        //     } else {
-        //         row.find('.product-type').val('satuan');
-        //         row.find('.bundle-wrapper').addClass('d-none');
-        //         row.find('.bundle-secondary-product').val('');
-
-        //         const selectedData = findSelectedProductData(productSelect.val());
-
-        //         if (selectedData) {
-        //             fillProductUnits(
-        //                 row,
-        //                 selectedData.units || [],
-        //                 null,
-        //                 parseFloat(selectedData.price || 0)
-        //             );
-        //         } else {
-        //             row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-        //             row.find('.unit-conversion-value').val('1');
-        //             row.find('.unit-name').val('Pcs');
-        //         }
-
-        //         recalcAllRows();
-        //     }
-        // });
-
         $(document).on('change', '.add-bundle-check', function() {
             const row = $(this).closest('.product-item');
             const productSelect = row.find('select[name="product[]"]');
@@ -1878,20 +1741,6 @@
 
             recalcAllRows();
         });
-
-        // $(document).on('change', '.bundle-secondary-product', function() {
-        //     const row = $(this).closest('.product-item');
-        //     const bundleId = $(this).find('option:selected').data('bundle-id');
-
-        //     const bundle = bundles.find(b => String(b.id) === String(bundleId));
-        //     if (!bundle) return;
-
-        //     row.find('.product-type').val('bundle');
-
-        //     fillProductUnits(row, bundle.units || [], null, parseFloat(bundle.price || 0));
-
-        //     recalcAllRows();
-        // });
 
         $(document).on('change', '.bundle-secondary-product', function() {
             const row = $(this).closest('.product-item');
