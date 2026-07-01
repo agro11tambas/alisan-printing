@@ -343,6 +343,20 @@
             color: #6c757d;
             line-height: 1.1;
         }
+
+        .item-mode+.select2 .select2-selection__rendered {
+            font-size: 14px !important;
+            font-weight: 500 !important;
+        }
+
+        .item-mode+.select2 .select2-results__option {
+            font-size: 14px !important;
+        }
+
+        .product-unit.unit-selected {
+            color: #0d6efd !important;
+            font-weight: 600 !important;
+        }
     </style>
 @endpush
 
@@ -1068,39 +1082,6 @@
             });
         }
 
-        // function populateSecondaryBundleProducts(row, primaryProductId) {
-        //     const select = row.find('.bundle-secondary-product');
-
-        //     select.empty().append('<option value="">Pilih product secondary</option>');
-
-        //     bundles.forEach(bundle => {
-        //         const primaryItem = bundle.primary_item;
-
-        //         if (!primaryItem) return;
-
-        //         if (String(primaryItem.product_id) !== String(primaryProductId)) {
-        //             return;
-        //         }
-
-        //         const secondaryItems = bundle.secondary_items || [];
-
-        //         secondaryItems.forEach(item => {
-        //             const product = item.product;
-        //             if (!product) return;
-
-        //             select.append(`
-    //                 <option value="${product.id}"
-    //                     data-bundle-id="${bundle.id}"
-    //                     data-sku="${product.sku || '-'}">
-    //                         ${product.name}
-    //                 </option>
-    //             `);
-        //         });
-        //     });
-
-        //     initProductSelect2(select);
-        // }
-
         function populateSecondaryBundleProducts(row, primaryProductId) {
             const select = row.find('.bundle-secondary-product');
 
@@ -1392,7 +1373,12 @@
             recalcAllRows();
         });
 
-        $(document).on('change', 'select[name="mode[]"]', function() {
+        $(document).on('change', '.item-mode', function() {
+            $(this).css({
+                color: this.value === 'printing' ? '#198754' : '#dc3545',
+                fontWeight: '600'
+            });
+
             recalcAllRows();
         });
 
@@ -1508,7 +1494,6 @@
 
             if ($(el).children('option').length === 1) populateProducts(el);
         }
-
 
         document.addEventListener('DOMContentLoaded', function() {
             let rowCount = 1;
@@ -1813,6 +1798,16 @@
             ) || 0;
         }
 
+        function getUnitColor(unitName) {
+            const name = (unitName || '').toLowerCase();
+
+            if (name.includes('pcs')) return '#230cf2';
+            if (name.includes('dus')) return '#fd7e14';
+            if (name.includes('pack')) return '#6f42c1';
+
+            return '#0d6efd';
+        }
+
         function fillProductUnits(row, units, baseUnitId = null) {
             const unitSelect = row.find('.product-unit');
 
@@ -1850,15 +1845,18 @@
                     unit.selling_price ||
                     0;
 
+                const unitColor = getUnitColor(unitName);
+
                 unitSelect.append(`
-            <option value="${id}"
-                data-unit-id="${unitId}"
-                data-unit-name="${unitName}"
-                data-conversion-value="${conversionValue}"
-                data-sale-price="${salePrice}">
-                ${unitName}
-            </option>
-        `);
+                    <option value="${id}"
+                        data-unit-id="${unitId}"
+                        data-unit-name="${unitName}"
+                        data-conversion-value="${conversionValue}"
+                        data-sale-price="${salePrice}"
+                        data-color="${unitColor}">
+                        ${unitName}
+                    </option>
+                `);
             });
 
             const baseOption = unitSelect.find(`option[data-unit-id="${baseUnitId}"]`).val();
@@ -1873,9 +1871,15 @@
             const unitName = selectedUnit.data('unit-name') || '';
             const conversionValue = selectedUnit.data('conversion-value') || '';
             const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
+            const unitColor = selectedUnit.data('color') || '#0d6efd';
 
             row.find('.unit-name').val(unitName);
             row.find('.unit-conversion-value').val(conversionValue);
+
+            row.find('.product-unit').css({
+                color: unitColor,
+                fontWeight: '600'
+            });
 
             row.find('.price_before_discount_display').val(formatNumber(salePrice));
             row.find('.price_before_discount').val(salePrice.toFixed(2));
@@ -1883,12 +1887,12 @@
             recalcAllRows();
         }
 
-
-
         $(document).on('change', '.product-unit', function() {
             const $item = $(this).closest('.product-item');
 
             updatePriceFromSelectedUnit($item);
         });
+
+        $('.item-mode').trigger('change');
     </script>
 @endpush

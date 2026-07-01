@@ -977,39 +977,6 @@
             });
         }
 
-        // function populateSecondaryBundleProducts(row, primaryProductId) {
-        //     const select = row.find('.bundle-secondary-product');
-
-        //     select.empty().append('<option value="">Pilih product secondary</option>');
-
-        //     bundles.forEach(bundle => {
-        //         const primaryItem = bundle.primary_item;
-
-        //         if (!primaryItem) return;
-
-        //         if (String(primaryItem.product_id) !== String(primaryProductId)) {
-        //             return;
-        //         }
-
-        //         const secondaryItems = bundle.secondary_items || [];
-
-        //         secondaryItems.forEach(item => {
-        //             const product = item.product;
-        //             if (!product) return;
-
-        //             select.append(`
-    //                 <option value="${product.id}"
-    //                     data-bundle-id="${bundle.id}"
-    //                     data-sku="${product.sku || '-'}">
-    //                         ${product.name}
-    //                 </option>
-    //             `);
-        //         });
-        //     });
-
-        //     initProductSelect2(select);
-        // }
-
         function populateSecondaryBundleProducts(row, primaryProductId) {
             const select = row.find('.bundle-secondary-product');
 
@@ -1720,6 +1687,16 @@
             ) || 0;
         }
 
+        function getUnitColor(unitName) {
+            const name = (unitName || '').toLowerCase();
+
+            if (name.includes('pcs')) return '#230cf2';
+            if (name.includes('dus')) return '#fd7e14';
+            if (name.includes('pack')) return '#6f42c1';
+
+            return '#0d6efd';
+        }
+
         function fillProductUnits(row, units, defaultPrice = 0, forceDefaultPcs = false, baseUnitId = null) {
             const unitSelect = row.find('.product-unit');
 
@@ -1731,14 +1708,15 @@
 
             if (forceDefaultPcs) {
                 unitSelect.append(`
-            <option value="default_pcs"
-                data-unit-id=""
-                data-unit-name="Pcs"
-                data-conversion-value="1"
-                data-sale-price="${defaultPrice}">
-                Pcs
-            </option>
-        `);
+                    <option value="default_pcs"
+                        data-unit-id=""
+                        data-unit-name="Pcs"
+                        data-conversion-value="1"
+                        data-sale-price="${defaultPrice}"
+                        data-color="${getUnitColor('Pcs')}">
+                            Pcs
+                    </option>
+                `);
             }
 
             if (Array.isArray(units) && units.length > 0) {
@@ -1750,15 +1728,18 @@
                         return;
                     }
 
+                    const unitColor = getUnitColor(unitName);
+
                     unitSelect.append(`
-                <option value="${unit.id}"
-                    data-unit-id="${unit.unit_id}"
-                    data-unit-name="${unitName}"
-                    data-conversion-value="${unit.conversion_value || 1}"
-                    data-sale-price="${unit.sale_price || defaultPrice}">
-                    ${unitName}
-                </option>
-            `);
+                        <option value="${unit.id}"
+                            data-unit-id="${unit.unit_id}"
+                            data-unit-name="${unitName}"
+                            data-conversion-value="${unit.conversion_value || 1}"
+                            data-sale-price="${unit.sale_price || defaultPrice}"
+                            data-color="${unitColor}">
+                            ${unitName}
+                        </option>
+                    `);
                 });
             }
 
@@ -1782,9 +1763,15 @@
             const unitName = selectedUnit.data('unit-name') || 'Pcs';
             const conversionValue = selectedUnit.data('conversion-value') || 1;
             const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
+            const unitColor = selectedUnit.data('color') || getUnitColor(unitName);
 
             row.find('.unit-name').val(unitName);
             row.find('.unit-conversion-value').val(conversionValue);
+
+            row.find('.product-unit').css({
+                color: unitColor,
+                fontWeight: '600'
+            });
 
             row.find('.price_before_discount_display').val(formatNumber(salePrice));
             row.find('.price_before_discount').val(salePrice.toFixed(2));
@@ -1797,5 +1784,17 @@
 
             updatePriceFromSelectedUnit($item);
         });
+
+        $(document).on('change', '.item-mode', function() {
+            $(this).css({
+                color: this.value === 'printing' ? '#198754' : '#dc3545',
+                fontWeight: '600'
+            });
+
+            recalcAllRows();
+        });
+
+        $('.product-unit').trigger('change');
+        $('.item-mode').trigger('change');
     </script>
 @endpush

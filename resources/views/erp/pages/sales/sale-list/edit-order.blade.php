@@ -312,6 +312,21 @@
             color: #6c757d;
             line-height: 1.1;
         }
+
+
+        .item-mode+.select2 .select2-selection__rendered {
+            font-size: 14px !important;
+            font-weight: 500 !important;
+        }
+
+        .item-mode+.select2 .select2-results__option {
+            font-size: 14px !important;
+        }
+
+        .product-unit.unit-selected {
+            color: #0d6efd !important;
+            font-weight: 600 !important;
+        }
     </style>
 @endpush
 
@@ -1294,6 +1309,16 @@
             select.select2(select2ProductConfig());
         }
 
+        function getUnitColor(unitName) {
+            const name = (unitName || '').toLowerCase();
+
+            if (name.includes('pcs')) return '#230cf2';
+            if (name.includes('dus')) return '#fd7e14';
+            if (name.includes('pack')) return '#6f42c1';
+
+            return '#0d6efd';
+        }
+
         function fillProductUnits(row, units, baseUnitId = null) {
             const unitSelect = row.find('.product-unit');
 
@@ -1330,15 +1355,18 @@
                     unit.selling_price ||
                     0;
 
+                const unitColor = getUnitColor(unitName);
+
                 unitSelect.append(`
-            <option value="${id}"
-                data-unit-id="${unitId}"
-                data-unit-name="${unitName}"
-                data-conversion-value="${conversionValue}"
-                data-sale-price="${salePrice}">
-                ${unitName}
-            </option>
-        `);
+                    <option value="${id}"
+                        data-unit-id="${unitId}"
+                        data-unit-name="${unitName}"
+                        data-conversion-value="${conversionValue}"
+                        data-sale-price="${salePrice}"
+                        data-color="${unitColor}">
+                        ${unitName}
+                    </option>
+                `);
             });
 
             const baseOption = unitSelect.find(`option[data-unit-id="${baseUnitId}"]`).val();
@@ -1371,11 +1399,18 @@
             const conversionValue = selectedUnit.data('conversion-value') || 1;
             const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
 
+            const unitColor = selectedUnit.data('color') || getUnitColor(unitName);
+
             row.find('.unit-name').val(unitName);
             row.find('.unit-conversion-value').val(conversionValue);
 
             row.find('.price_before_discount').val(salePrice.toFixed(2));
             row.find('.price_before_discount_display').val(formatNumber(salePrice));
+
+            row.find('.product-unit').css({
+                color: unitColor,
+                fontWeight: '600'
+            });
 
             recalcAllRows();
         }
@@ -1926,53 +1961,6 @@
             }
         );
 
-        // $(document).on('change', '.add-bundle-check', function() {
-        //     const row = $(this).closest('.product-item');
-        //     const productSelect = row.find('select[name="product[]"]');
-        //     const selectedVal = productSelect.val();
-
-        //     if (this.checked) {
-        //         if (!selectedVal) {
-        //             $(this).prop('checked', false);
-        //             showError(productSelect, 'Pilih product dulu');
-        //             return;
-        //         }
-
-        //         const primaryProductId = selectedVal.split('_')[1];
-
-        //         row.find('.product-type').val('bundle');
-        //         row.find('.bundle-wrapper').removeClass('d-none');
-
-        //         populateSecondaryBundleProducts(row, primaryProductId);
-
-        //         row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-        //         row.find('.unit-conversion-value').val('1');
-        //         row.find('.unit-name').val('Pcs');
-
-        //     } else {
-        //         row.find('.product-type').val('satuan');
-        //         row.find('.bundle-wrapper').addClass('d-none');
-        //         row.find('.bundle-secondary-product').val('');
-
-        //         const selectedData = findSelectedProductData(productSelect.val());
-
-        //         if (selectedData) {
-        //             fillProductUnits(
-        //                 row,
-        //                 selectedData.units || [],
-        //                 null,
-        //                 parseFloat(selectedData.price || 0)
-        //             );
-        //         } else {
-        //             row.find('.product-unit').empty().append('<option value="">Pilih unit</option>');
-        //             row.find('.unit-conversion-value').val('1');
-        //             row.find('.unit-name').val('Pcs');
-        //         }
-
-        //         recalcAllRows();
-        //     }
-        // });
-
         $(document).on('change', '.add-bundle-check', function() {
             const row = $(this).closest('.product-item');
             const productSelect = row.find('select[name="product[]"]');
@@ -2147,5 +2135,14 @@
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();
             }, 50);
         });
+
+        $(document).on('change', '.item-mode', function() {
+            $(this).css({
+                color: this.value === 'printing' ? '#198754' : '#dc3545',
+                fontWeight: '600'
+            });
+        });
+
+        $('.item-mode').trigger('change');
     </script>
 @endpush

@@ -1092,49 +1092,6 @@
             });
         }
 
-        // function populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId = null) {
-        //     const select = row.find('.bundle-secondary-product');
-
-        //     select.empty().append('<option value="">Pilih product secondary</option>');
-
-        //     bundles.forEach(bundle => {
-        //         const primaryItem = bundle.primary_item;
-
-        //         if (!primaryItem) return;
-
-        //         if (String(primaryItem.product_id) !== String(primaryProductId)) {
-        //             return;
-        //         }
-
-        //         const secondaryItems = bundle.secondary_items || [];
-
-        //         secondaryItems.forEach(item => {
-        //             const product = item.product;
-        //             if (!product) return;
-
-        //             const option = $(`
-    //                 <option value="${product.id}"
-    //                     data-bundle-id="${bundle.id}"
-    //                     data-sku="${product.sku || '-'}">
-    //                     ${product.name}
-    //                 </option>
-    //             `);
-
-        //             if (selectedBundleId && String(selectedBundleId) === String(bundle.id)) {
-        //                 option.prop('selected', true);
-        //             }
-
-        //             select.append(option);
-
-        //             if (select.hasClass('select2-hidden-accessible')) {
-        //                 select.select2('destroy');
-        //             }
-
-        //             select.select2(select2ProductConfig());
-        //         });
-        //     });
-        // }
-
         function populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId = null) {
             const select = row.find('.bundle-secondary-product');
 
@@ -1182,6 +1139,16 @@
             select.select2(select2ProductConfig());
         }
 
+        function getUnitColor(unitName) {
+            const name = (unitName || '').toLowerCase();
+
+            if (name.includes('pcs')) return '#230cf2';
+            if (name.includes('dus')) return '#fd7e14';
+            if (name.includes('pack')) return '#6f42c1';
+
+            return '#0d6efd';
+        }
+
         function fillProductUnits(row, units, baseUnitId = null) {
             const unitSelect = row.find('.product-unit');
 
@@ -1218,34 +1185,24 @@
                     unit.selling_price ||
                     0;
 
+                const unitColor = getUnitColor(unitName);
+
                 unitSelect.append(`
-            <option value="${id}"
-                data-unit-id="${unitId}"
-                data-unit-name="${unitName}"
-                data-conversion-value="${conversionValue}"
-                data-sale-price="${salePrice}">
-                ${unitName}
-            </option>
-        `);
+                    <option value="${id}"
+                        data-unit-id="${unitId}"
+                        data-unit-name="${unitName}"
+                        data-conversion-value="${conversionValue}"
+                        data-sale-price="${salePrice}"
+                        data-color="${unitColor}">
+                        ${unitName}
+                    </option>
+                `);
             });
 
             const baseOption = unitSelect.find(`option[data-unit-id="${baseUnitId}"]`).val();
             const firstOption = unitSelect.find('option:eq(1)').val();
 
             unitSelect.val(baseOption || firstOption).trigger('change');
-
-            // let baseOption = null;
-
-            // unitSelect.find('option').each(function() {
-            //     if (String($(this).data('unit-id')) === String(baseUnitId)) {
-            //         baseOption = $(this).val();
-            //         return false;
-            //     }
-            // });
-
-            // const firstOption = unitSelect.find('option:eq(1)').val();
-
-            // unitSelect.val(baseOption || firstOption).trigger('change');
         }
 
         function updatePriceFromSelectedUnit(row) {
@@ -1258,12 +1215,18 @@
             const unitName = selectedUnit.data('unit-name') || 'Pcs';
             const conversionValue = selectedUnit.data('conversion-value') || 1;
             const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
+            const unitColor = selectedUnit.data('color') || getUnitColor(unitName);
 
             row.find('.unit-name').val(unitName);
             row.find('.unit-conversion-value').val(conversionValue);
 
             row.find('.price_before_discount').val(salePrice.toFixed(2));
             row.find('.price_before_discount_display').val(formatNumber(salePrice));
+
+            row.find('.product-unit').css({
+                color: unitColor,
+                fontWeight: '600'
+            });
 
             recalcAllRows();
         }
@@ -1901,5 +1864,17 @@
                 document.querySelector('.select2-container--open .select2-search__field')?.focus();
             }, 50);
         });
+
+        $(document).on('change', '.item-mode', function() {
+            $(this).css({
+                color: this.value === 'printing' ? '#198754' : '#dc3545',
+                fontWeight: '600'
+            });
+
+            recalcAllRows();
+        });
+
+        $('.product-unit').trigger('change');
+        $('.item-mode').trigger('change');
     </script>
 @endpush
