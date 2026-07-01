@@ -138,7 +138,7 @@
                                         <tr>
                                             <td>{{ $assign->progressItem->product->name ?? '-' }}</td>
                                             <td>{{ number_format($assign->assigned_quantity, 0, ',', '.') }}
-                                                {{ $assign->progressItem->unit_name }}</td>
+                                            </td>
                                             <td>
                                                 <input type="hidden" name="items[{{ $index }}][assign_id]"
                                                     value="{{ $assign->id }}">

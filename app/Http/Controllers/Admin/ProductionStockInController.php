@@ -331,7 +331,7 @@ class ProductionStockInController extends Controller
 
                         $purchaseItemForCost = $inventoryItem->purchaseItem ?? null;
                         if ($purchaseItemForCost) {
-                            $cost       = $purchaseItemForCost->final_price;
+                            $cost = (float) $purchaseItemForCost->final_price / max(1, (float) $purchaseItemForCost->qty_base);
                             $newAvgCost = round(
                                 (($previousCost * $previousQty) + ($cost * $toAdd))
                                     / max(1, $previousQty + $toAdd),

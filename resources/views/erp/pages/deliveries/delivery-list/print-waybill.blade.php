@@ -37,6 +37,7 @@
                     'name' => $name,
                     'note' => $notes ?: '-',
                     'qty' => (string) $totalQty,
+                    'unit_name' => $unitName ?: '-',
                 ];
             })
             ->values()
@@ -133,17 +134,20 @@
 
                 pageOut += '-'.repeat(width) + CRLF;
 
-                pageOut += padR('No', 4) + ' ' + padR('Nama Barang', 55) + ' ' + padR('Qty', 8) + ' ' + padL('Catatan',
-                        22) +
-                    CRLF;
+                pageOut += padR('No', 4) + ' ' + padR('Nama Barang', 55) + ' ' + padR('Qty', 8) + ' ' + padR('Unit', 8) +
+                    ' ' + padL('Catatan', 13) + CRLF;
                 pageOut += '-'.repeat(width) + CRLF;
 
                 pageItems.forEach((row) => {
                     const name = String(row.name).substring(0, 53);
                     const note = String(row.note || '-').substring(0, 22);
+                    const unitName = String(row.unit_name || '-').substring(0, 8);
                     const qtyFormatted = Number(row.qty).toLocaleString('id-ID'); // ✅ format angka Indonesia
-                    pageOut += padR(row.no, 4) + ' ' + padR(name, 55) + ' ' + padR(qtyFormatted, 8) + ' ' + padL(
-                        note, 22) + CRLF;
+                    pageOut += padR(row.no, 4) + ' ' +
+                        padR(name, 55) + ' ' +
+                        padR(qtyFormatted, 8) + ' ' +
+                        padR(unitName, 8) + ' ' +
+                        padL(note, 13) + CRLF;
                 });
 
                 pageOut += '-'.repeat(width) + CRLF.repeat(2);

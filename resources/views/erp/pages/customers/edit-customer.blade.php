@@ -110,7 +110,7 @@
                                                             <div class="input-group-text"><i class="feather-user"></i></div>
                                                             <input type="text" class="form-control selected-account-name"
                                                                 name="existing_accounts[{{ $account->id }}][name]"
-                                                                value="{{ $account->name ?? '-' }}" disabled>
+                                                                value="{{ $account->name ?? '-' }}" readonly>
                                                         </div>
                                                     </div>
 
@@ -121,7 +121,7 @@
                                                             <input type="text"
                                                                 class="form-control selected-account-whatsapp"
                                                                 name="existing_accounts[{{ $account->id }}][whatsapp_number]"
-                                                                value="{{ $account->whatsapp_number ?? '-' }}" disabled>
+                                                                value="{{ $account->whatsapp_number ?? '-' }}" readonly>
                                                         </div>
                                                     </div>
 
@@ -288,6 +288,30 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="deleteSelectedAccountModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white">Hapus Customer Account?</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Apakah Anda yakin ingin menghapus customer account ini dari outlet?
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="confirmDeleteSelectedAccountBtn" class="btn btn-danger">
+                        Yes, Delete
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
@@ -310,28 +334,28 @@
             const wrapper = document.createElement('div');
             wrapper.classList.add('mb-3', 'row', 'address-group');
             wrapper.innerHTML = `
-            <div class="col-lg-3">
-                <div class="input-group">
-                    <div class="input-group-text"><i class="feather-briefcase"></i></div>
-                    <input type="text" class="form-control" name="addresses[${addressIndex}][business_name]" placeholder="Branch Name">
+                <div class="col-lg-3">
+                    <div class="input-group">
+                        <div class="input-group-text"><i class="feather-briefcase"></i></div>
+                        <input type="text" class="form-control" name="addresses[${addressIndex}][business_name]" placeholder="Branch Name">
+                    </div>
                 </div>
-            </div>
-            <div class="col-lg-5 mb-0">
-                <div class="input-group">
-                    <div class="input-group-text"><i class="feather-book"></i></div>
-                    <textarea class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address"></textarea>
+                <div class="col-lg-5 mb-0">
+                    <div class="input-group">
+                        <div class="input-group-text"><i class="feather-book"></i></div>
+                        <textarea class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address"></textarea>
+                    </div>
                 </div>
-            </div>
-            <div class="col-lg-3 mb-0">
-                <div class="input-group">
-                    <div class="input-group-text"><i class="feather-map-pin"></i></div>
-                    <input type="text" class="form-control" name="addresses[${addressIndex}][google_maps]" placeholder="Google Map">
+                <div class="col-lg-3 mb-0">
+                    <div class="input-group">
+                        <div class="input-group-text"><i class="feather-map-pin"></i></div>
+                        <input type="text" class="form-control" name="addresses[${addressIndex}][google_maps]" placeholder="Google Map">
+                    </div>
                 </div>
-            </div>
-            <div class="col-lg-1">
-                <button type="button" class="btn btn-danger btn-remove"><i class="feather-x"></i></button>
-            </div>
-        `;
+                <div class="col-lg-1">
+                    <button type="button" class="btn btn-danger btn-remove"><i class="feather-x"></i></button>
+                </div>
+            `;
             document.getElementById('addresses').appendChild(wrapper);
             addressIndex++;
             updateRemoveButtons();
@@ -469,32 +493,32 @@
                 wrapper.className = 'account-item mb-2 row';
 
                 wrapper.innerHTML = `
-        <div class="col-lg-5">
-            <div class="input-group">
-                <div class="input-group-text"><i class="feather-user"></i></div>
-                <input type="text"
-                    class="form-control"
-                    name="accounts[${accountIndex}][name]"
-                    placeholder="Account Name">
-            </div>
-        </div>
+                    <div class="col-lg-5">
+                        <div class="input-group">
+                            <div class="input-group-text"><i class="feather-user"></i></div>
+                                <input type="text"
+                                    class="form-control"
+                                    name="accounts[${accountIndex}][name]"
+                                    placeholder="Account Name">
+                            </div>
+                        </div>
 
-        <div class="col-lg-5">
-            <div class="input-group">
-                <div class="input-group-text"><i class="feather-phone"></i></div>
-                <input type="text"
-                    class="form-control phone-input"
-                    name="accounts[${accountIndex}][whatsapp_number]"
-                    placeholder="Whatsapp Number">
-            </div>
-        </div>
+                        <div class="col-lg-5">
+                            <div class="input-group">
+                                <div class="input-group-text"><i class="feather-phone"></i></div>
+                                    <input type="text"
+                                        class="form-control phone-input"
+                                        name="accounts[${accountIndex}][whatsapp_number]"
+                                        placeholder="Whatsapp Number">
+                                </div>
+                            </div>
 
-        <div class="col-lg-2 d-flex">
-            <button type="button" class="btn btn-danger btn-remove-account">
-                <i class="feather-x"></i> Remove
-            </button>
-        </div>
-    `;
+                        <div class="col-lg-2 d-flex">
+                            <button type="button" class="btn btn-danger btn-remove-account">
+                                <i class="feather-x"></i> Remove
+                            </button>
+                        </div>
+                `;
 
                 document.getElementById('accounts').appendChild(wrapper);
                 accountIndex++;
@@ -577,52 +601,73 @@
                 const accountWhatsapp = selectedOption.data('whatsapp') ?? '-';
 
                 const item = `
-    <div class="selected-account-item border rounded p-2 mb-2">
-        <div class="row align-items-center">
-            <div class="col-lg-5">
-                <div class="input-group">
-                    <div class="input-group-text"><i class="feather-user"></i></div>
-                    <input type="text"
-                        class="form-control selected-account-name"
-                        name="existing_accounts[${accountId}][name]"
-                        value="${accountName}"
-                        disabled>
-                </div>
-            </div>
+                    <div class="selected-account-item border rounded p-2 mb-2">
+                        <div class="row align-items-center">
+                            <div class="col-lg-5">
+                                <div class="input-group">
+                                    <div class="input-group-text"><i class="feather-user"></i></div>
+                                    <input type="text"
+                                    class="form-control selected-account-name"
+                                        name="existing_accounts[${accountId}][name]"
+                                        value="${accountName}"
+                                        readonly>
+                                </div>
+                            </div>
 
-            <div class="col-lg-5">
-                <div class="input-group">
-                    <div class="input-group-text"><i class="feather-phone"></i></div>
-                    <input type="text"
-                        class="form-control selected-account-whatsapp"
-                        name="existing_accounts[${accountId}][whatsapp_number]"
-                        value="${accountWhatsapp}"
-                        disabled>
-                </div>
-            </div>
+                            <div class="col-lg-5">
+                                <div class="input-group">
+                                    <div class="input-group-text"><i class="feather-phone"></i></div>
+                                    <input type="text"
+                                        class="form-control selected-account-whatsapp"
+                                        name="existing_accounts[${accountId}][whatsapp_number]"
+                                        value="${accountWhatsapp}"
+                                        readonly>
+                                </div>
+                            </div>
 
-            <div class="col-lg-2 d-flex gap-1">
-                <button type="button" class="btn btn-warning btn-sm btn-edit-selected-account">
-                    <i class="feather-edit"></i>
-                </button>
+                            <div class="col-lg-2 d-flex gap-1">
+                                <button type="button" class="btn btn-warning btn-sm btn-edit-selected-account">
+                                    <i class="feather-edit"></i>
+                                </button>
 
-                <button type="button" class="btn btn-danger btn-sm btn-remove-selected-account">
-                    <i class="feather-x"></i>
-                </button>
-            </div>
+                                <button type="button" class="btn btn-danger btn-sm btn-remove-selected-account">
+                                    <i class="feather-x"></i>
+                                </button>
+                            </div>
 
-            <input type="hidden" name="existing_account_ids[]" value="${accountId}">
-        </div>
-    </div>
-`;
+                            <input type="hidden" name="existing_account_ids[]" value="${accountId}">
+                        </div>
+                    </div>
+                `;
 
                 $('#selectedAccountList').append(item);
 
                 $(this).val('').trigger('change');
             });
 
+            // $('#selectedAccountList').on('click', '.btn-remove-selected-account', function() {
+            //     $(this).closest('.selected-account-item').remove();
+            // });
+
+            let selectedAccountToDelete = null;
+
             $('#selectedAccountList').on('click', '.btn-remove-selected-account', function() {
-                $(this).closest('.selected-account-item').remove();
+                selectedAccountToDelete = $(this).closest('.selected-account-item');
+
+                const modalEl = document.getElementById('deleteSelectedAccountModal');
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            });
+
+            $('#confirmDeleteSelectedAccountBtn').on('click', function() {
+                if (selectedAccountToDelete) {
+                    selectedAccountToDelete.remove();
+                    selectedAccountToDelete = null;
+                }
+
+                const modalEl = document.getElementById('deleteSelectedAccountModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
             });
 
             $('#selectedAccountList').on('click', '.btn-edit-selected-account', function() {
@@ -631,12 +676,12 @@
                 const nameInput = item.find('.selected-account-name');
                 const whatsappInput = item.find('.selected-account-whatsapp');
 
-                const isDisabled = nameInput.prop('disabled');
+                const isReadOnly = nameInput.prop('readonly');
 
-                nameInput.prop('disabled', !isDisabled);
-                whatsappInput.prop('disabled', !isDisabled);
+                nameInput.prop('readonly', !isReadOnly);
+                whatsappInput.prop('readonly', !isReadOnly);
 
-                if (isDisabled) {
+                if (isReadOnly) {
                     $(this)
                         .removeClass('btn-warning')
                         .addClass('btn-success')

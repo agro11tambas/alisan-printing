@@ -397,30 +397,47 @@ class DeliveryListController extends Controller
         ]);
 
         foreach ($request->items as $item) {
-            if (($item['shipped_quantity'] ?? 0) > 0) {
+            $inputQty = (float) ($item['shipped_quantity'] ?? 0);
+
+            if ($inputQty > 0) {
+                $doItem = DeliveryOrderItem::find($item['delivery_order_item_id']);
+
+                if (!$doItem) {
+                    continue;
+                }
+
+                $unitConversionValue = (float) ($doItem->unit_conversion_value ?? 1);
+
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
+
+                $shippedBaseQty = $inputQty * $unitConversionValue;
+
                 $deliveryList->items()->create([
-                    'delivery_order_item_id' => $item['delivery_order_item_id'],
-                    'product_id'             => $item['product_id'],
-                    'shipped_quantity'       => $item['shipped_quantity'],
+                    'delivery_order_item_id' => $doItem->id,
+                    'product_id'             => $doItem->product_id,
+                    'shipped_quantity'       => $shippedBaseQty,
+
+                    'product_unit_conversion_id' => $doItem->product_unit_conversion_id,
+                    'unit_name'                  => $doItem->unit_name,
+                    'unit_conversion_value'      => $unitConversionValue,
+
                     'note'                   => $item['note'] ?? null,
                 ]);
 
-                // ✅ Update DeliveryOrderItem
-                $doItem = DeliveryOrderItem::find($item['delivery_order_item_id']);
-                if ($doItem) {
-                    $newShippedQty = $doItem->shipped_qty + $item['shipped_quantity'];
+                $newShippedQty = $doItem->shipped_qty + $shippedBaseQty;
 
-                    $doItem->update([
-                        'shipped_qty' => $newShippedQty,
-                        'status'      => $newShippedQty >= $doItem->progress_qty ? 'Shipped' : $doItem->status,
-                    ]);
-                }
+                $doItem->update([
+                    'shipped_qty' => $newShippedQty,
+                    'status'      => $newShippedQty >= $doItem->progress_qty ? 'Shipped' : $doItem->status,
+                ]);
 
                 // ✅ Hanya decrement jika mode order BUKAN polosan
                 if ($deliveryOrder->order && $deliveryOrder->order->mode !== 'polosan') {
                     $productionStock = ProductionStock::where('product_id', $item['product_id'])->first();
                     if ($productionStock) {
-                        $productionStock->decrement('finished_product_stock', $item['shipped_quantity']);
+                        $productionStock->decrement('finished_product_stock', $shippedBaseQty);
                     }
                 }
             }
@@ -471,16 +488,31 @@ class DeliveryListController extends Controller
         ]);
 
         foreach ($request->items as $itemData) {
-            $item = DeliveryListItem::find($itemData['delivery_list_item_id']);
+            $item = DeliveryListItem::with('deliveryOrderItem')->find($itemData['delivery_list_item_id']);
             if (!$item) continue;
 
-            $oldQty = $item->shipped_quantity;
-            $newQty = (float) $itemData['shipped_quantity'];
-            $difference = $newQty - $oldQty; // bisa plus atau minus
+            $doItem = $item->deliveryOrderItem;
+            if (!$doItem) continue;
 
-            // ✅ Update delivery_list_item
+            $unitConversionValue = (float) ($doItem->unit_conversion_value ?? $item->unit_conversion_value ?? 1);
+
+            if ($unitConversionValue <= 0) {
+                $unitConversionValue = 1;
+            }
+
+            $oldQty = (float) $item->shipped_quantity; // base lama
+            $inputQty = (float) ($itemData['shipped_quantity'] ?? 0); // input display
+            $newQty = $inputQty * $unitConversionValue; // base baru
+
+            $difference = $newQty - $oldQty;
+
             $item->update([
                 'shipped_quantity' => $newQty,
+
+                'product_unit_conversion_id' => $doItem->product_unit_conversion_id,
+                'unit_name'                  => $doItem->unit_name,
+                'unit_conversion_value'      => $unitConversionValue,
+
                 'note' => $itemData['note'] ?? null,
             ]);
 

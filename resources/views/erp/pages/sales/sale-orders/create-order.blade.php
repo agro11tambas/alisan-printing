@@ -977,13 +977,52 @@
             });
         }
 
+        // function populateSecondaryBundleProducts(row, primaryProductId) {
+        //     const select = row.find('.bundle-secondary-product');
+
+        //     select.empty().append('<option value="">Pilih product secondary</option>');
+
+        //     bundles.forEach(bundle => {
+        //         const primaryItem = bundle.primary_item;
+
+        //         if (!primaryItem) return;
+
+        //         if (String(primaryItem.product_id) !== String(primaryProductId)) {
+        //             return;
+        //         }
+
+        //         const secondaryItems = bundle.secondary_items || [];
+
+        //         secondaryItems.forEach(item => {
+        //             const product = item.product;
+        //             if (!product) return;
+
+        //             select.append(`
+    //                 <option value="${product.id}"
+    //                     data-bundle-id="${bundle.id}"
+    //                     data-sku="${product.sku || '-'}">
+    //                         ${product.name}
+    //                 </option>
+    //             `);
+        //         });
+        //     });
+
+        //     initProductSelect2(select);
+        // }
+
         function populateSecondaryBundleProducts(row, primaryProductId) {
             const select = row.find('.bundle-secondary-product');
+
+            if (select.hasClass('select2-hidden-accessible')) {
+                select.select2('destroy');
+            }
 
             select.empty().append('<option value="">Pilih product secondary</option>');
 
             bundles.forEach(bundle => {
-                const primaryItem = bundle.primary_item;
+                const primaryItem =
+                    bundle.primary_item ||
+                    bundle.items?.find(i => i.role === 'primary');
 
                 if (!primaryItem) return;
 
@@ -991,23 +1030,38 @@
                     return;
                 }
 
-                const secondaryItems = bundle.secondary_items || [];
+                const secondaryItems =
+                    bundle.secondary_items ||
+                    bundle.items?.filter(i => i.role === 'secondary') || [];
 
                 secondaryItems.forEach(item => {
                     const product = item.product;
                     if (!product) return;
 
                     select.append(`
-                        <option value="${product.id}"
-                            data-bundle-id="${bundle.id}"
-                            data-sku="${product.sku || '-'}">
-                                ${product.name}
-                        </option>
-                    `);
+                <option value="${product.id}"
+                    data-bundle-id="${bundle.id}"
+                    data-sku="${product.sku || '-'}">
+                    ${product.name}
+                </option>
+            `);
                 });
             });
 
-            initProductSelect2(select);
+            select.select2({
+                placeholder: 'Pilih product secondary',
+                width: '100%',
+                matcher: function(params, data) {
+                    if ($.trim(params.term) === '') return data;
+                    if (!data.element) return null;
+
+                    const term = params.term.toLowerCase();
+                    const text = data.text.toLowerCase();
+                    const sku = $(data.element).data('sku')?.toLowerCase() || '';
+
+                    return text.includes(term) || sku.includes(term) ? data : null;
+                }
+            });
         }
 
         // ✅ Format otomatis titik ribuan + update hidden input untuk perhitungan

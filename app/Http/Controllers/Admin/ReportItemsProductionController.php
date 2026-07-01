@@ -33,7 +33,7 @@ class ReportItemsProductionController extends Controller
                 DB::raw('
             GREATEST(
                 COALESCE((
-                    SELECT SUM(quantity)
+                    SELECT SUM(quantity * COALESCE(unit_conversion_value, 1))
                     FROM design_items
                     WHERE design_items.product_id = production_stocks.product_id
                     AND design_items.deleted_at IS NULL
@@ -96,7 +96,8 @@ class ReportItemsProductionController extends Controller
                 // 2️⃣ Total qty sudah dikirim
                 $totalShipped = \App\Models\DeliveryOrderItem::where('product_id', $productId)
                     ->whereNull('deleted_at')
-                    ->sum('shipped_qty');
+                    ->selectRaw('COALESCE(SUM(shipped_qty * COALESCE(unit_conversion_value, 1)), 0) as total')
+                    ->value('total');
 
                 $finished = $totalCompleted - $totalShipped;
                 if ($finished < 0) $finished = 0;
@@ -172,7 +173,8 @@ class ReportItemsProductionController extends Controller
                 // 1️⃣ Total shipped_qty dari delivery_order_items
                 $totalOrderShipped = \App\Models\DeliveryOrderItem::where('product_id', $productId)
                     ->whereNull('deleted_at')
-                    ->sum('shipped_qty');
+                    ->selectRaw('COALESCE(SUM(shipped_qty * COALESCE(unit_conversion_value, 1)), 0) as total')
+                    ->value('total');
 
                 // 2️⃣ Total shipped_quantity dari delivery_list_items, 
                 //    hanya jika parent-nya (delivery_lists) status = finished
@@ -181,7 +183,8 @@ class ReportItemsProductionController extends Controller
                     ->whereHas('shipment', function ($q) {
                         $q->where('status', 'finished');  // 🔥 yang benar disini
                     })
-                    ->sum('shipped_quantity');
+                    ->selectRaw('COALESCE(SUM(shipped_quantity * COALESCE(unit_conversion_value, 1)), 0) as total')
+                    ->value('total');
 
                 $onDelivery = $totalOrderShipped - $totalListShipped;
                 if ($onDelivery < 0) $onDelivery = 0;

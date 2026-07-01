@@ -15,7 +15,21 @@
                     $totalCompleted = $item->assigns()->sum('completed_quantity');
                     $totalDefect = $item->assigns()->sum('defect_quantity');
                     $totalReject = $item->assigns()->sum('reject_quantity');
+
+                    $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
+
+                    if ($unitConversionValue <= 0) {
+                        $unitConversionValue = 1;
+                    }
+
                     $activeAssign = max($totalAssigned - ($totalCompleted + $totalDefect + $totalReject), 0);
+                    $activeAssignDisplay = $activeAssign / $unitConversionValue;
+
+                    $totalAssignedDisplay = $totalAssigned / $unitConversionValue;
+                    $totalCompletedDisplay = $totalCompleted / $unitConversionValue;
+                    $totalDefectDisplay = $totalDefect / $unitConversionValue;
+                    $totalRejectDisplay = $totalReject / $unitConversionValue;
+                    $quantityDisplay = $item->quantity / $unitConversionValue;
 
                     $images = json_decode(optional($item->designItem)->preview_image ?? '[]', true);
                 @endphp
@@ -38,12 +52,15 @@
 
                     </td>
                     <td>
-                        <span class="fw-bold text-success">{{ number_format($totalCompleted, 0, ',', '.') }}</span> /
+                        <span
+                            class="fw-bold text-success">{{ number_format($totalCompletedDisplay, 0, ',', '.') }}</span>
+                        /
                         <span class="fw-bold text-primary">{{ number_format($item->quantity, 0, ',', '.') }}</span>
                         {{ $item->unit_name }}
                     </td>
                     <td>
-                        <span class="fw-bold text-danger">{{ number_format($activeAssign, 0, ',', '.') }}</span>
+                        <span class="fw-bold text-danger">{{ number_format($activeAssignDisplay, 0, ',', '.') }}</span>
+                        {{ $item->unit_name }}
                     </td>
                 </tr>
             @endforeach

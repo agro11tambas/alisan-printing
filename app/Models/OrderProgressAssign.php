@@ -26,6 +26,10 @@ class OrderProgressAssign extends Model
         'reject_quantity',
         'note',
         'status',
+
+        'product_unit_conversion_id',
+        'unit_name',
+        'unit_conversion_value',
     ];
     protected $casts = [
         'deleted_at' => 'datetime',

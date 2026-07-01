@@ -49,7 +49,7 @@
                         </span>
                     </td>
                     <td><span
-                            class="fw-bold text-success">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span>
+                            class="fw-bold text-success">{{ number_format($assign->assigned_quantity / max((float) ($assign->progressItem?->unit_conversion_value ?? 1), 1), 0, ',', '.') }}</span>
                         {{ $assign->progressItem?->unit_name }}
                         {{-- /<span class="fw-bold text-primary">{{ number_format($assign->assigned_quantity, 0, ',', '.') }}</span> --}}
                     </td>

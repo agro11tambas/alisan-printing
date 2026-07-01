@@ -46,7 +46,7 @@ class ReportItemsProductionAndWarehouseController extends Controller
     {
         // 🔹 Ambil semua produk aktif beserta relasinya
         $products = Products::whereNull('deleted_at')
-            ->with(['productionStocks', 'inventoryStock'])
+            ->with(['productionStocks', 'inventoryStock', 'unitConversions'])
             ->when($request->filled('product_name'), function ($q) use ($request) {
                 $search = $request->product_name;
                 $q->where(function ($sub) use ($search) {
@@ -63,7 +63,11 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
             // ambil nilai asli
             $avg = $product->avg_cost ?? 0;
-            $fixed = $product->fixed_cost ?? 0;
+
+            $baseUnitConversion = $product->unitConversions
+                ->firstWhere('unit_id', $product->base_unit_id);
+
+            $fixed = $baseUnitConversion?->fixed_cost ?? 0;
 
             // fungsi pembulatan kustom ke 2 angka di belakang koma
             $customRound = function ($value) {
@@ -133,7 +137,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                      */
                     $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
                         ->whereNull('deleted_at')
-                        ->sum('quantity');
+                        ->selectRaw('COALESCE(SUM(quantity * COALESCE(unit_conversion_value, 1)), 0) as total')
+                        ->value('total');
 
                     $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
                         ->whereNull('deleted_at')
@@ -287,20 +292,6 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($totalIncoming, 0, ',', '.');
                 })(),
-
-                // 'incoming_stock_production_completed' => (function () use ($product, $request) {
-                //     $incomingProdQuery = DB::table('material_request_items')
-                //         ->where('product_id', $product->id)
-                //         ->whereNull('deleted_at');
-
-                //     $incomingProdQuery = $this->applyDateFilter($incomingProdQuery, $request);
-
-                //     $incomingProd = $incomingProdQuery
-                //         ->selectRaw('SUM(received_qty) AS incoming')
-                //         ->value('incoming');
-
-                //     return number_format($incomingProd ?? 0, 0, ',', '.');
-                // })(),
                 'incoming_stock_production_completed' => (function () use ($product, $request) {
 
                     // 1️⃣ Material request yang sudah diterima
@@ -339,7 +330,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
                         ->whereNull('deleted_at')
-                        ->sum('quantity');
+                        ->selectRaw('COALESCE(SUM(quantity * COALESCE(unit_conversion_value, 1)), 0) as total')
+                        ->value('total');
 
                     $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
                         ->whereNull('deleted_at')
@@ -381,17 +373,14 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($assigned ?? 0, 0, ',', '.');
                 })(),
-                // On Delivery
                 'on_delivery' => (function () use ($product) {
 
                     $productId = $product->id;
 
-                    // Total dari delivery_order_items
                     $totalOrderShipped = \App\Models\DeliveryOrderItem::where('product_id', $productId)
                         ->whereNull('deleted_at')
                         ->sum('shipped_qty');
 
-                    // Total dari delivery_list_items yang parent-nya status finished
                     $totalListShipped = \App\Models\DeliveryListItem::where('product_id', $productId)
                         ->whereNull('deleted_at')
                         ->whereHas('shipment', function ($q) {
@@ -400,25 +389,13 @@ class ReportItemsProductionAndWarehouseController extends Controller
                         ->sum('shipped_quantity');
 
                     $onDelivery = $totalOrderShipped - $totalListShipped;
-                    if ($onDelivery < 0) $onDelivery = 0;
+
+                    if ($onDelivery < 0) {
+                        $onDelivery = 0;
+                    }
 
                     return number_format($onDelivery, 0, ',', '.');
                 })(),
-                // 'completed_delivery' => (function () use ($product, $request) {
-
-                //     $completedQuery = DB::table('delivery_list_items')
-                //         ->where('product_id', $product->id)
-                //         ->whereNull('deleted_at');
-
-                //     // 🔥 FILTER TANGGAL — PERSIS SEPERTI incoming_stock_production_completed
-                //     $completedQuery = $this->applyDateFilter($completedQuery, $request);
-
-                //     $completed = $completedQuery
-                //         ->selectRaw('SUM(shipped_quantity) AS completed')
-                //         ->value('completed');
-
-                //     return number_format($completed ?? 0, 0, ',', '.');
-                // })(),
                 'completed_delivery' => (function () use ($product, $request) {
 
                     $query = \App\Models\DeliveryListItem::where('product_id', $product->id)
@@ -429,6 +406,10 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     // 🔥 KALAU MAU FILTER TANGGAL → PAKAI YANG SAMA
                     $query = $this->applyDateFilter($query, $request);
+
+                    // $completed = $query
+                    //     ->selectRaw('COALESCE(SUM(shipped_quantity * COALESCE(unit_conversion_value, 1)), 0) as total')
+                    //     ->value('total');
 
                     $completed = $query->sum('shipped_quantity');
 

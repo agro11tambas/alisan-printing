@@ -215,44 +215,85 @@ class CustomerController extends Controller
 
     // public function update(Request $request, $id)
     // {
-    //     $customer = Customers::findOrFail($id);
+    //     $customer = Customers::with('accounts')->findOrFail($id);
 
     //     $request->validate([
     //         'name' => 'required|string',
-    //         'phone' => 'required|string',
-    //         'addresses' => 'array|required',
+
+    //         'existing_account_ids' => 'nullable|array',
+    //         'existing_account_ids.*' => 'exists:customer_accounts,id',
+
+    //         'accounts' => 'nullable|array',
+    //         'accounts.*.name' => 'nullable|string',
+    //         'accounts.*.whatsapp_number' => 'nullable|string|distinct',
+
+    //         'addresses' => 'required|array|min:1',
     //         'addresses.*.business_name' => 'nullable|string',
     //         'addresses.*.address' => 'required|string',
     //         'addresses.*.google_maps' => 'required|string',
     //     ]);
 
-    //     $hasDuplicate = Customers::where('phone', $request->phone)
-    //         ->where('id', '!=', $customer->id)
-    //         ->exists();
+    //     DB::beginTransaction();
 
-    //     if ($hasDuplicate) {
-    //         return back()->with('error', 'Nomor telepon sudah terdaftar. Gunakan nomor lain.');
-    //     }
-
-    //     // Update data customer
-    //     $customer->update([
-    //         'name' => $request->name,
-    //         'phone' => $request->phone,
-    //     ]);
-
-    //     // Hapus semua alamat lama
-    //     $customer->addresses()->delete();
-
-    //     // Simpan ulang alamat baru
-    //     foreach ($request->addresses as $addr) {
-    //         $customer->addresses()->create([
-    //             'business_name' => $addr['business_name'] ?? null,
-    //             'address' => $addr['address'],
-    //             'google_maps' => $addr['google_maps'],
+    //     try {
+    //         $customer->update([
+    //             'name' => $request->name,
     //         ]);
-    //     }
 
-    //     return redirect('/erp/customers')->with('success', 'Customer berhasil diperbarui.');
+    //         $accountIds = $request->existing_account_ids ?? [];
+
+    //         foreach ($request->accounts ?? [] as $accountInput) {
+    //             $phone = $accountInput['whatsapp_number'] ?? null;
+
+    //             if (! $phone) {
+    //                 continue;
+    //             }
+
+    //             $existingAccount = CustomerAccount::where('whatsapp_number', $phone)->first();
+
+    //             if ($existingAccount) {
+    //                 DB::rollBack();
+
+    //                 return back()
+    //                     ->withInput()
+    //                     ->with('error', 'Nomor ' . $phone . ' sudah terdaftar. Silakan pilih dari Account Existing.');
+    //             }
+
+    //             $account = CustomerAccount::create([
+    //                 'name' => $accountInput['name'] ?? $request->name,
+    //                 'whatsapp_number' => $phone,
+    //                 'password' => bcrypt($phone),
+    //                 'auth_provider' => 'phone',
+    //                 'is_active' => true,
+    //             ]);
+
+    //             $accountIds[] = $account->id;
+    //         }
+
+    //         // Replace akses account outlet ini
+    //         $customer->accounts()->sync($accountIds);
+
+    //         // Replace alamat
+    //         $customer->addresses()->delete();
+
+    //         foreach ($request->addresses as $addr) {
+    //             $customer->addresses()->create([
+    //                 'business_name' => $addr['business_name'] ?? null,
+    //                 'address' => $addr['address'],
+    //                 'google_maps' => $addr['google_maps'],
+    //             ]);
+    //         }
+
+    //         DB::commit();
+
+    //         return redirect('/erp/customers')->with('success', 'Outlet berhasil diperbarui.');
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+
+    //         return back()
+    //             ->withInput()
+    //             ->with('error', 'Gagal memperbarui outlet: ' . $e->getMessage());
+    //     }
     // }
 
     public function update(Request $request, $id)
@@ -264,6 +305,10 @@ class CustomerController extends Controller
 
             'existing_account_ids' => 'nullable|array',
             'existing_account_ids.*' => 'exists:customer_accounts,id',
+
+            'existing_accounts' => 'nullable|array',
+            'existing_accounts.*.name' => 'nullable|string',
+            'existing_accounts.*.whatsapp_number' => 'nullable|string',
 
             'accounts' => 'nullable|array',
             'accounts.*.name' => 'nullable|string',
@@ -284,6 +329,35 @@ class CustomerController extends Controller
 
             $accountIds = $request->existing_account_ids ?? [];
 
+            // Update account existing yang diedit di form
+            foreach ($request->existing_accounts ?? [] as $accountId => $accountInput) {
+                if (! in_array($accountId, $accountIds)) {
+                    continue;
+                }
+
+                $phone = $accountInput['whatsapp_number'] ?? null;
+
+                if ($phone) {
+                    $phoneUsed = CustomerAccount::where('whatsapp_number', $phone)
+                        ->where('id', '!=', $accountId)
+                        ->exists();
+
+                    if ($phoneUsed) {
+                        DB::rollBack();
+
+                        return back()
+                            ->withInput()
+                            ->with('error', 'Nomor ' . $phone . ' sudah terdaftar di account lain.');
+                    }
+                }
+
+                CustomerAccount::where('id', $accountId)->update([
+                    'name' => $accountInput['name'] ?? $request->name,
+                    'whatsapp_number' => $phone,
+                ]);
+            }
+
+            // Create account baru
             foreach ($request->accounts ?? [] as $accountInput) {
                 $phone = $accountInput['whatsapp_number'] ?? null;
 
@@ -312,10 +386,8 @@ class CustomerController extends Controller
                 $accountIds[] = $account->id;
             }
 
-            // Replace akses account outlet ini
             $customer->accounts()->sync($accountIds);
 
-            // Replace alamat
             $customer->addresses()->delete();
 
             foreach ($request->addresses as $addr) {

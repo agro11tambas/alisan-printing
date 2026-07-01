@@ -120,8 +120,15 @@
                                         <tbody>
                                             @foreach ($deliveryList->deliveryOrder->items as $item)
                                                 @php
-                                                    // hitung semua shipment berdasar status
-                                                    $delivered = $item
+                                                    $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
+
+                                                    if ($unitConversionValue <= 0) {
+                                                        $unitConversionValue = 1;
+                                                    }
+
+                                                    $readyBase = $item->ready_qty ?? 0;
+
+                                                    $deliveredBase = $item
                                                         ->deliveryListItems()
                                                         ->whereHas(
                                                             'shipment',
@@ -129,26 +136,36 @@
                                                         )
                                                         ->sum('shipped_quantity');
 
-                                                    $shipping = $item
+                                                    $shippingBase = $item
                                                         ->deliveryListItems()
                                                         ->whereHas('shipment', fn($q) => $q->where('status', 'Ongoing'))
                                                         ->sum('shipped_quantity');
 
-                                                    // ambil item yang sedang diedit (dari list ini)
                                                     $dlItem = $deliveryList->items->firstWhere(
                                                         'delivery_order_item_id',
                                                         $item->id,
                                                     );
 
-                                                    $currentQty = $dlItem->shipped_quantity ?? 0;
+                                                    $currentBaseQty = $dlItem->shipped_quantity ?? 0;
+                                                    $currentDisplayQty = $currentBaseQty / $unitConversionValue;
+
                                                     $note = $dlItem->note ?? '';
 
-                                                    // available yang belum dikirim sama sekali
-                                                    $available = max($item->ready_qty - ($delivered + $shipping), 0);
+                                                    $availableBase = max(
+                                                        $readyBase - ($deliveredBase + $shippingBase),
+                                                        0,
+                                                    );
 
-                                                    // 💥 logika yang kamu mau:
-                                                    $max = $available + $currentQty;
-                                                    $remaining = max($max - $currentQty, 0);
+                                                    $maxBase = $availableBase + $currentBaseQty;
+                                                    $maxDisplay = $maxBase / $unitConversionValue;
+
+                                                    $remainingBase = max($maxBase - $currentBaseQty, 0);
+                                                    $remainingDisplay = $remainingBase / $unitConversionValue;
+
+                                                    $readyDisplay = $readyBase / $unitConversionValue;
+                                                    $deliveredDisplay = $deliveredBase / $unitConversionValue;
+                                                    $shippingDisplay = $shippingBase / $unitConversionValue;
+                                                    $availableDisplay = $availableBase / $unitConversionValue;
                                                 @endphp
 
                                                 <tr>
@@ -165,29 +182,39 @@
                                                     </td>
                                                     <td>
                                                         <span
-                                                            class="text-primary">{{ number_format($item->ready_qty, 0, ',', '.') }}</span>
+                                                            class="text-primary">{{ number_format($readyDisplay, 0, ',', '.') }}</span>
                                                         /
                                                         <span>{{ number_format($item->progress_qty, 0, ',', '.') }}</span>
+                                                        {{ $item->unit_name }}
+                                                        <div class="small text-muted">
+                                                            Base: {{ number_format($readyBase, 0, ',', '.') }}
+                                                        </div>
                                                     </td>
                                                     <td><span
-                                                            class="text-success">{{ number_format($delivered, 0, ',', '.') }}</span>
+                                                            class="text-success">{{ number_format($deliveredDisplay, 0, ',', '.') }}
+                                                            {{ $item->unit_name }}</span>
                                                     </td>
                                                     <td><span
-                                                            class="text-warning">{{ number_format($shipping, 0, ',', '.') }}</span>
+                                                            class="text-warning">{{ number_format($shippingDisplay, 0, ',', '.') }}
+                                                            {{ $item->unit_name }}</span>
                                                     </td>
                                                     <td><span
-                                                            class="text-danger">{{ number_format($available, 0, ',', '.') }}</span>
+                                                            class="text-danger">{{ number_format($availableDisplay, 0, ',', '.') }}
+                                                            {{ $item->unit_name }}</span>
+                                                        <div class="small text-muted">
+                                                            Base: {{ number_format($availableBase, 0, ',', '.') }}
+                                                        </div>
                                                     </td>
                                                     <td>
                                                         <input type="text" inputmode="numeric"
                                                             class="form-control shipped-input"
                                                             name="items[{{ $item->id }}][shipped_quantity]"
-                                                            min="0" max="{{ $max }}"
-                                                            data-max="{{ $max }}"
-                                                            value="{{ number_format($currentQty, 0, ',', '.') }}">
+                                                            max="{{ $maxDisplay }}" data-max="{{ $maxDisplay }}"
+                                                            value="{{ number_format($currentDisplayQty, 0, ',', '.') }}">
                                                         <small class="text-muted remaining-info">
                                                             Remaining:
-                                                            {{ number_format($remaining + $currentQty, 0, ',', '.') }}
+                                                            {{ number_format($maxDisplay, 0, ',', '.') }}
+                                                            {{ $item->unit_name }}
                                                         </small>
                                                     </td>
                                                     <td>

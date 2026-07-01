@@ -50,6 +50,7 @@ class ProductsController extends Controller
             'tags',
             'inventoryStock',
             'unitConversions.unit',
+            'baseUnit',
         ])
             ->orderBy('name', 'asc');
 
@@ -95,6 +96,8 @@ class ProductsController extends Controller
                 return [
                     'id' => $product->id,
                     'name' => e($product->name),
+                    'base_unit_id' => $product->base_unit_id,
+                    'base_unit_name' => e($product->baseUnit?->name ?? '-'),
                     'categories' => $product->categories->map(
                         fn($c) => '<span class="badge bg-soft-primary text-primary">'
                             . e($c->name) . '</span>'

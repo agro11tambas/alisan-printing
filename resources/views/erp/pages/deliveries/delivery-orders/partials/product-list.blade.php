@@ -11,7 +11,14 @@
         <tbody>
             @foreach ($do->items as $item)
                 @php
-                    $readyQty = $item->ready_qty ?? 0;
+                    // $readyQty = $item->ready_qty ?? 0;
+                    $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
+
+                    if ($unitConversionValue <= 0) {
+                        $unitConversionValue = 1;
+                    }
+
+                    $readyQty = ($item->ready_qty ?? 0) / $unitConversionValue;
 
                     $unit = $item->unit_name ?? '';
 

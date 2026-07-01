@@ -1204,13 +1204,62 @@
             });
         }
 
+        // function populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId = null) {
+        //     const select = row.find('.bundle-secondary-product');
+
+        //     select.empty().append('<option value="">Pilih product secondary</option>');
+
+        //     bundles.forEach(bundle => {
+        //         const primaryItem = bundle.primary_item;
+
+        //         if (!primaryItem) return;
+
+        //         if (String(primaryItem.product_id) !== String(primaryProductId)) {
+        //             return;
+        //         }
+
+        //         const secondaryItems = bundle.secondary_items || [];
+
+        //         secondaryItems.forEach(item => {
+        //             const product = item.product;
+        //             if (!product) return;
+
+        //             const option = $(`
+    //                 <option value="${product.id}"
+    //                     data-bundle-id="${bundle.id}"
+    //                     data-sku="${product.sku || '-'}">
+    //                     ${product.name}
+    //                 </option>
+    //             `);
+
+        //             if (selectedBundleId && String(selectedBundleId) === String(bundle.id)) {
+        //                 option.prop('selected', true);
+        //             }
+
+        //             select.append(option);
+
+        //             if (select.hasClass('select2-hidden-accessible')) {
+        //                 select.select2('destroy');
+        //             }
+
+        //             select.select2(select2ProductConfig());
+        //         });
+        //     });
+        // }    
+
         function populateSecondaryBundleProducts(row, primaryProductId, selectedBundleId = null) {
             const select = row.find('.bundle-secondary-product');
+
+            if (select.hasClass('select2-hidden-accessible')) {
+                select.select2('destroy');
+            }
 
             select.empty().append('<option value="">Pilih product secondary</option>');
 
             bundles.forEach(bundle => {
-                const primaryItem = bundle.primary_item;
+                const primaryItem =
+                    bundle.primary_item ||
+                    bundle.items?.find(i => i.role === 'primary');
 
                 if (!primaryItem) return;
 
@@ -1218,72 +1267,32 @@
                     return;
                 }
 
-                const secondaryItems = bundle.secondary_items || [];
+                const secondaryItems =
+                    bundle.secondary_items ||
+                    bundle.items?.filter(i => i.role === 'secondary') || [];
 
                 secondaryItems.forEach(item => {
                     const product = item.product;
                     if (!product) return;
 
                     const option = $(`
-                        <option value="${product.id}"
-                            data-bundle-id="${bundle.id}"
-                            data-sku="${product.sku || '-'}">
-                            ${product.name}
-                        </option>
-                    `);
+                <option value="${product.id}"
+                    data-bundle-id="${bundle.id}"
+                    data-sku="${product.sku || '-'}">
+                    ${product.name}
+                </option>
+            `);
 
                     if (selectedBundleId && String(selectedBundleId) === String(bundle.id)) {
                         option.prop('selected', true);
                     }
 
                     select.append(option);
-
-                    if (select.hasClass('select2-hidden-accessible')) {
-                        select.select2('destroy');
-                    }
-
-                    select.select2(select2ProductConfig());
                 });
             });
+
+            select.select2(select2ProductConfig());
         }
-
-        // function fillProductUnits(row, units, selectedUnitId = null, defaultPrice = 0) {
-        //     const unitSelect = row.find('.product-unit');
-        //     const unitWrapper = row.find('.product-unit-wrapper');
-
-        //     unitSelect.empty().append('<option value="">Pilih unit</option>');
-
-        //     row.find('.unit-conversion-value').val('1');
-        //     row.find('.unit-name').val('Pcs');
-
-        //     unitWrapper.show();
-
-        //     if (Array.isArray(units) && units.length > 0) {
-        //         units.forEach(function(unit) {
-        //             const unitName = unit.unit_name || 'Pcs';
-
-        //             unitSelect.append(`
-    //         <option value="${unit.id}"
-    //             data-unit-id="${unit.unit_id}"
-    //             data-unit-name="${unitName}"
-    //             data-conversion-value="${unit.conversion_value || 1}"
-    //             data-sale-price="${unit.sale_price || defaultPrice}">
-    //             ${unitName}
-    //         </option>
-    //     `);
-        //         });
-        //     }
-
-        //     if (selectedUnitId) {
-        //         unitSelect.val(String(selectedUnitId));
-        //     }
-
-        //     if (!unitSelect.val()) {
-        //         unitSelect.val(unitSelect.find('option:eq(1)').val());
-        //     }
-
-        //     unitSelect.trigger('change');
-        // }
 
         function fillProductUnits(row, units, baseUnitId = null) {
             const unitSelect = row.find('.product-unit');

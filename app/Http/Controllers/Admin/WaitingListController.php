@@ -95,11 +95,11 @@ class WaitingListController extends Controller
         if ($request->filled('progress_status')) {
             if ($request->progress_status === 'completed') {
                 $baseQuery->whereDoesntHave('items', function ($q) {
-                    $q->whereColumn('completed_quantity', '<', 'quantity');
+                    $q->whereRaw('completed_quantity < (quantity * COALESCE(unit_conversion_value, 1))');
                 });
             } elseif ($request->progress_status === 'progress') {
                 $baseQuery->whereHas('items', function ($q) {
-                    $q->whereColumn('completed_quantity', '<', 'quantity');
+                    $q->whereRaw('completed_quantity < (quantity * COALESCE(unit_conversion_value, 1))');
                 });
             }
         }
@@ -142,36 +142,18 @@ class WaitingListController extends Controller
         // 3️⃣ TOTAL REMAINING = progress pending + design pending
         $totalRemaining = $orderProgressPending + $designPending;
 
-
-        // 3️⃣ Ambil batch untuk ditampilkan
-        // $data = (clone $baseQuery)
-        //     ->with([
-        //         'order.customer',
-        //         'items.assigns',
-        //         'items.product.productionStocks',
-        //         'items.product.categories'
-        //     ])
-        //     ->orderBy('created_at', 'desc')
-        //     ->skip($start)
-        //     ->take($length)
-        //     ->get();
-
-        // $sort = $request->input('sort', 'latest');
-        // $sortDirection = $sort === 'oldest' ? 'asc' : 'desc';
-
-        // Filter progress_status — SEKALI SAJA
         if ($request->filled('progress_status')) {
             if ($request->progress_status === 'completed') {
                 $baseQuery->whereDoesntHave('items', function ($q) {
-                    $q->whereColumn('completed_quantity', '<', 'quantity');
-                })->orderBy('created_at', 'desc'); // terbaru dulu
+                    $q->whereRaw('completed_quantity < (quantity * COALESCE(unit_conversion_value, 1))');
+                })->orderBy('created_at', 'desc');
             } elseif ($request->progress_status === 'progress') {
                 $baseQuery->whereHas('items', function ($q) {
-                    $q->whereColumn('completed_quantity', '<', 'quantity');
-                })->orderBy('created_at', 'asc'); // terlama dulu
+                    $q->whereRaw('completed_quantity < (quantity * COALESCE(unit_conversion_value, 1))');
+                })->orderBy('created_at', 'asc');
             }
         } else {
-            $baseQuery->orderBy('created_at', 'desc'); // default
+            $baseQuery->orderBy('created_at', 'desc');
         }
 
         // Hitung total SETELAH semua filter diterapkan
@@ -202,7 +184,17 @@ class WaitingListController extends Controller
                 ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
                 : '';
 
-            $completeBadge = $progress->items->every(fn($item) => $item->completed_quantity >= $item->quantity)
+            $completeBadge = $progress->items->every(function ($item) {
+                $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
+
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
+
+                $requiredQty = (float) ($item->quantity ?? 0) * $unitConversionValue;
+
+                return (float) ($item->completed_quantity ?? 0) >= $requiredQty;
+            })
                 ? '<div><span class="badge bg-soft-success text-success mb-1">Completed</span></div>'
                 : '';
 
@@ -235,7 +227,15 @@ class WaitingListController extends Controller
 
             $allCompleted = $progress->items->every(function ($item) {
                 $assignedTotal = $item->assigns->sum('completed_quantity');
-                return $assignedTotal >= ($item->quantity ?? 0);
+                $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
+
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
+
+                $requiredQty = (float) ($item->quantity ?? 0) * $unitConversionValue;
+
+                return $assignedTotal >= $requiredQty;
             });
 
             $actionButtons = view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();

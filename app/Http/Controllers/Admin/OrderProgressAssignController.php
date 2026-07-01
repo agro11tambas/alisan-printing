@@ -64,20 +64,35 @@ class OrderProgressAssignController extends Controller
                 ')
                 ->first();
 
+            $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
+
+            if ($unitConversionValue <= 0) {
+                $unitConversionValue = 1;
+            }
+
+            $baseQuantity = (float) ($item->quantity ?? 0) * $unitConversionValue;
+
             $activeAssign = max(
-                ($totals->total_assigned) - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
+                ((float) $totals->total_assigned) - (
+                    (float) $totals->total_completed +
+                    (float) $totals->total_defect +
+                    (float) $totals->total_reject
+                ),
                 0
             );
 
             $remaining = max(
-                ($item->quantity) - (($item->completed_quantity ?? 0) + $activeAssign),
+                $baseQuantity - ((float) ($item->completed_quantity ?? 0) + $activeAssign),
                 0
             );
 
-            $item->active_assign      = $activeAssign;   // kolom "Assigning"
-            $item->available_quantity = $remaining;      // kolom "Available"
-            $item->remaining_quantity = $remaining;      // max input "Assign Now"
+            $item->active_assign = $activeAssign;
+            $item->available_quantity = $remaining;
+            $item->remaining_quantity = $remaining;
             $item->production_stock = $productionStocks[$item->product_id] ?? 0;
+
+            $item->base_quantity = $baseQuantity;
+            $item->base_available_quantity = $remaining;
         }
 
         return view('erp.pages.production.assign-list.add-assign', compact(
@@ -132,27 +147,41 @@ class OrderProgressAssignController extends Controller
                 //     ->findOrFail($data['order_progress_item_id']);
 
                 $item = OrderProgressItem::query()
-                    ->with('assigns') // <= WAJIB
-                    ->withSum('assigns as total_completed', 'completed_quantity')
+                    ->with(['assigns', 'product'])
                     ->findOrFail($data['order_progress_item_id']);
 
+                $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
 
-                // ⛔ BLOKIR jika assign sudah full assign
-                $alreadyAssigned = $item->assigns->sum('completed_quantity');
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
 
-                if ($alreadyAssigned >= $item->quantity) {
+                $quantityBase = (int) ((float) ($item->quantity ?? 0) * $unitConversionValue);
+
+                $completed = (int) ($item->completed_quantity ?? 0);
+
+                $activeAssigned = (int) $item->assigns->sum(function ($assign) {
+                    return max(
+                        ((int) $assign->assigned_quantity)
+                            - ((int) $assign->completed_quantity)
+                            - ((int) $assign->defect_quantity)
+                            - ((int) $assign->reject_quantity),
+                        0
+                    );
+                });
+
+                $remainingAllowed = max($quantityBase - ($completed + $activeAssigned), 0);
+
+                $requestedAssignQty = (int) $data['assigned_quantity'];
+
+                if ($remainingAllowed <= 0) {
                     DB::rollBack();
                     return back()->with('error', "Produk {$item->product->name} sudah full assign, tidak bisa ditambahkan lagi.");
                 }
 
-                $quantity          = (int) $item->quantity;
-                $completed         = (int) ($item->total_completed ?? 0); // total completed dari semua assign
-                $remainingAllowed  = max($quantity - $completed, 0);      // <= inilah batas yang boleh di-assign lagi
-                $requested         = (int) $data['assigned_quantity'];
-
-                if ($requested > $remainingAllowed) {
+                if ($requestedAssignQty > $remainingAllowed) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi remaining ($remainingAllowed) untuk produk {$item->product->name}.",
+                        "items.$idx.assigned_quantity" => "Assigned quantity ($requestedAssignQty) melebihi remaining ($remainingAllowed) untuk produk {$item->product->name}.",
                     ]);
                 }
 
@@ -194,9 +223,10 @@ class OrderProgressAssignController extends Controller
                         ]);
                     }
 
-                    if ($requested > $productionStock->available_quantity) {
+                    if ($requestedAssignQty > $productionStock->available_quantity) {
                         throw \Illuminate\Validation\ValidationException::withMessages([
-                            "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
+                            // "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
+                            "items.$idx.assigned_quantity" => "Assigned quantity ($requestedAssignQty) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
                         ]);
                     }
                 }
@@ -206,7 +236,7 @@ class OrderProgressAssignController extends Controller
                     'order_progress_item_id' => $item->id,
                     'product_id'             => $item->product_id,
                     'operator_id'            => (int) $data['operator_id'],
-                    'assigned_quantity'      => $requested, // aman karena <= remaining
+                    'assigned_quantity'      => $requestedAssignQty,
                     'completed_quantity'     => 0,
                     'note'                   => $data['note'] ?? null,
                 ]);
@@ -224,8 +254,8 @@ class OrderProgressAssignController extends Controller
                 //     ]
                 // );
 
-                $productionStock->decrement('available_quantity', $requested);
-                $productionStock->decrement('pending_waiting_list', $requested);
+                $productionStock->decrement('available_quantity', $requestedAssignQty);
+                $productionStock->decrement('pending_waiting_list', $requestedAssignQty);
             }
 
             DB::commit();
@@ -398,6 +428,15 @@ class OrderProgressAssignController extends Controller
 
                 $item = OrderProgressItem::with('product')->findOrFail($data['order_progress_item_id']);
 
+                $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
+
+                if ($unitConversionValue <= 0) {
+                    $unitConversionValue = 1;
+                }
+
+                $requested = (int) $data['assigned_quantity'];
+                $requestedAssignQty = $requested * $unitConversionValue;
+
                 // Hitung total assign batch ini
                 $currentAssigned = $item->assigns()
                     ->where('assign_batch_id', $batch->id)
@@ -410,7 +449,7 @@ class OrderProgressAssignController extends Controller
 
                 // Total sisa kuota = stok - batch lain + batch ini
                 $remaining = max($item->quantity - $alreadyAssigned + $currentAssigned, 0);
-                $assignedQty = min($data['assigned_quantity'], $remaining);
+                $assignedQty = min($requestedAssignQty, $remaining);
 
                 if ($assignedQty <= 0) continue;
 

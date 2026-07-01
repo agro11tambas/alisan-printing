@@ -238,6 +238,30 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="deleteSelectedAccountModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white">Hapus Customer Account?</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Apakah Anda yakin ingin menghapus customer account ini dari outlet?
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="confirmDeleteSelectedAccountBtn" class="btn btn-danger">
+                        Yes, Delete
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
@@ -389,17 +413,6 @@
             feedback.textContent = message;
             parent.appendChild(feedback);
         }
-
-        // document.getElementById('phone').addEventListener('paste', function(e) {
-        //     e.preventDefault();
-        //     let text = e.clipboardData.getData('text');
-        //     text = text.replace(/\D/g, '');
-        //     this.value = text;
-        // });
-
-        // document.getElementById('phone').addEventListener('input', function() {
-        //     this.value = this.value.replace(/\D/g, '');
-        // });
     </script>
 
     <script>
@@ -538,8 +551,25 @@
                 $(this).val('').trigger('change');
             });
 
+            let selectedAccountToDelete = null;
+
             $('#selectedAccountList').on('click', '.btn-remove-selected-account', function() {
-                $(this).closest('.selected-account-item').remove();
+                selectedAccountToDelete = $(this).closest('.selected-account-item');
+
+                const modalEl = document.getElementById('deleteSelectedAccountModal');
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            });
+
+            $('#confirmDeleteSelectedAccountBtn').on('click', function() {
+                if (selectedAccountToDelete) {
+                    selectedAccountToDelete.remove();
+                    selectedAccountToDelete = null;
+                }
+
+                const modalEl = document.getElementById('deleteSelectedAccountModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
             });
 
             $(document).on('select2:open', () => {

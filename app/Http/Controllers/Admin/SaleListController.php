@@ -1382,10 +1382,10 @@ class SaleListController extends Controller
                         []
                     );
 
-                    $inventoryStock->decrement('stock_after_sales', $qtyBase);
+                    $inventoryStock->decrement('stock_after_sales', $qty);
 
                     // if ($itemMode === 'polosan') {
-                    //     $inventoryStock->decrement('inventory_stock', $qtyBase);
+                    //     $inventoryStock->decrement('inventory_stock', $qty);
                     // }
                 } elseif ($type === 'bundle') {
                     $bundle = ProductBundle::with('items.product')->findOrFail($productInputId);
@@ -1427,7 +1427,7 @@ class SaleListController extends Controller
                         $avgCost = $component?->avg_cost ?? 0;
                         $fixedCostAtSale = $component?->fixed_cost ?? 0;
 
-                        $totalQty = $qtyBase * ($bundleItem->quantity ?? 1);
+                        $totalQty = $qty * ($bundleItem->quantity ?? 1);
 
                         OrderItemComponent::create([
                             'order_item_id'       => $orderItem->id,
@@ -2869,22 +2869,22 @@ class SaleListController extends Controller
                             InventoryStock::firstOrCreate(
                                 ['product_id' => $oldProductId, 'inventory_warehouse_id' => $warehouseId],
                                 ['stock_after_sales' => 0]
-                            )->increment('stock_after_sales', $oldQtyBase);
+                            )->increment('stock_after_sales', $oldQty);
 
                             InventoryStock::firstOrCreate(
                                 ['product_id' => $newProductId, 'inventory_warehouse_id' => $warehouseId],
                                 ['stock_after_sales' => 0]
-                            )->decrement('stock_after_sales', $qtyBase);
-                        } elseif ($diffQtyBase !== 0) {
+                            )->decrement('stock_after_sales', $qty);
+                        } elseif ($diffQty !== 0) {
                             $inventoryStock = InventoryStock::firstOrCreate(
                                 ['product_id' => $newProductId, 'inventory_warehouse_id' => $warehouseId],
                                 ['stock_after_sales' => 0]
                             );
 
-                            if ($diffQtyBase > 0) {
-                                $inventoryStock->decrement('stock_after_sales', $diffQtyBase);
+                            if ($diffQty > 0) {
+                                $inventoryStock->decrement('stock_after_sales', $diffQty);
                             } else {
-                                $inventoryStock->increment('stock_after_sales', abs($diffQtyBase));
+                                $inventoryStock->increment('stock_after_sales', abs($diffQty));
                             }
                         }
                     } elseif ($type === 'bundle') {
@@ -2895,7 +2895,7 @@ class SaleListController extends Controller
 
                             if ($oldBundle) {
                                 foreach ($oldBundle->items as $oldBundleItem) {
-                                    $restoreQty = $oldQtyBase * ($oldBundleItem->quantity ?? 1);
+                                    $restoreQty = $oldQty * ($oldBundleItem->quantity ?? 1);
 
                                     $oldInventoryStock = InventoryStock::firstOrCreate(
                                         [
@@ -2908,7 +2908,7 @@ class SaleListController extends Controller
                                     $oldInventoryStock->increment('stock_after_sales', $restoreQty);
 
                                     if ($oldMode === 'polosan') {
-                                        $oldInventoryStock->increment('inventory_stock', $restoreQty);
+                                        $oldInventoryStock->increment('inventory_stock', $oldQtyBase * ($oldBundleItem->quantity ?? 1));
                                     }
                                 }
                             }
@@ -2917,7 +2917,7 @@ class SaleListController extends Controller
 
                             if ($newBundle) {
                                 foreach ($newBundle->items as $newBundleItem) {
-                                    $takeQty = $qtyBase * ($newBundleItem->quantity ?? 1);
+                                    $takeQty = $qty * ($newBundleItem->quantity ?? 1);
 
                                     $newInventoryStock = InventoryStock::firstOrCreate(
                                         [
@@ -2930,16 +2930,16 @@ class SaleListController extends Controller
                                     $newInventoryStock->decrement('stock_after_sales', $takeQty);
 
                                     if ($itemMode === 'polosan') {
-                                        $newInventoryStock->decrement('inventory_stock', $takeQty);
+                                        $newInventoryStock->decrement('inventory_stock', $qtyBase * ($newBundleItem->quantity ?? 1));
                                     }
                                 }
                             }
-                        } elseif ($diffQtyBase !== 0 || $oldMode !== $itemMode) {
+                        } elseif ($diffQty !== 0 || $oldMode !== $itemMode) {
                             $bundle = ProductBundle::with('items.product')->find($productId);
 
                             if ($bundle) {
                                 foreach ($bundle->items as $bundleItem) {
-                                    $diffComponentQty = $diffQtyBase * ($bundleItem->quantity ?? 1);
+                                    $diffComponentQty = $diffQty * ($bundleItem->quantity ?? 1);
 
                                     $inventoryStock = InventoryStock::firstOrCreate(
                                         [
@@ -2955,22 +2955,21 @@ class SaleListController extends Controller
                                         $inventoryStock->increment('stock_after_sales', abs($diffComponentQty));
                                     }
 
-                                    // mode berubah printing -> polosan: inventory_stock ikut keluar
                                     if ($oldMode === 'printing' && $itemMode === 'polosan') {
                                         $inventoryStock->decrement('inventory_stock', $qtyBase * ($bundleItem->quantity ?? 1));
                                     }
 
-                                    // mode berubah polosan -> printing: inventory_stock dikembalikan
                                     if ($oldMode === 'polosan' && $itemMode === 'printing') {
                                         $inventoryStock->increment('inventory_stock', $oldQtyBase * ($bundleItem->quantity ?? 1));
                                     }
 
-                                    // tetap polosan dan qty berubah: inventory_stock ikut selisih
                                     if ($oldMode === 'polosan' && $itemMode === 'polosan') {
-                                        if ($diffComponentQty > 0) {
-                                            $inventoryStock->decrement('inventory_stock', $diffComponentQty);
-                                        } elseif ($diffComponentQty < 0) {
-                                            $inventoryStock->increment('inventory_stock', abs($diffComponentQty));
+                                        $diffInventoryQty = $diffQtyBase * ($bundleItem->quantity ?? 1);
+
+                                        if ($diffInventoryQty > 0) {
+                                            $inventoryStock->decrement('inventory_stock', $diffInventoryQty);
+                                        } elseif ($diffInventoryQty < 0) {
+                                            $inventoryStock->increment('inventory_stock', abs($diffInventoryQty));
                                         }
                                     }
                                 }
@@ -3023,10 +3022,10 @@ class SaleListController extends Controller
                             ],
                             ['stock_after_sales' => 0]
                         );
-                        $inventoryStock->decrement('stock_after_sales', $qtyBase);
+                        $inventoryStock->decrement('stock_after_sales', $qty);
 
                         if ($itemMode === 'polosan') {
-                            $inventoryStock->decrement('inventory_stock', $qtyBase);
+                            $inventoryStock->decrement('inventory_stock', $qty);
                         }
                     } elseif ($type === 'bundle') {
                         $bundle = ProductBundle::with('items.product')->findOrFail($productId);
@@ -3064,6 +3063,8 @@ class SaleListController extends Controller
 
                             $componentQty = $qtyBase * ($bundleItem->quantity ?? 1);
 
+                            $componentStockQty = $qty * ($bundleItem->quantity ?? 1);
+
                             $orderItem->components()->create([
                                 'product_id'         => $componentProduct->id,
                                 'qty'                => $componentQty,
@@ -3081,10 +3082,10 @@ class SaleListController extends Controller
                                 ['stock_after_sales' => 0]
                             );
 
-                            $inventoryStock->decrement('stock_after_sales', $componentQty);
+                            $inventoryStock->decrement('stock_after_sales', $componentStockQty);
 
                             if ($itemMode === 'polosan') {
-                                $inventoryStock->decrement('inventory_stock', $componentQty);
+                                $inventoryStock->decrement('inventory_stock', $componentStockQty);
                             }
                         }
                     }
@@ -3095,7 +3096,8 @@ class SaleListController extends Controller
                 if (!in_array((int) $item->id, $submittedItemIds, true)) {
 
                     if ($item->satuan === 'satuan') {
-                        $restoreQty = $item->qty_base ?? $item->quantity;
+                        // $restoreQty = $item->qty_base ?? $item->quantity;
+                        $restoreQty = $item->quantity;
 
                         $inventoryStock = InventoryStock::firstOrCreate(
                             [
@@ -3115,7 +3117,8 @@ class SaleListController extends Controller
 
                         if ($bundle) {
                             foreach ($bundle->items as $bundleItem) {
-                                $restoreQty = ($item->qty_base ?? $item->quantity) * ($bundleItem->quantity ?? 1);
+                                // $restoreQty = ($item->qty_base ?? $item->quantity) * ($bundleItem->quantity ?? 1);
+                                $restoreQty = $item->quantity * ($bundleItem->quantity ?? 1);
 
                                 $inventoryStock = InventoryStock::firstOrCreate(
                                     [

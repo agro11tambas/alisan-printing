@@ -206,33 +206,77 @@
                                             <tr>
                                                 {{-- <td>{{ $item->product->name }}</td> --}}
                                                 <td>
+                                                    @php
+                                                        $unitConversionValue =
+                                                            (float) ($item->unit_conversion_value ?? 1);
+
+                                                        if ($unitConversionValue <= 0) {
+                                                            $unitConversionValue = 1;
+                                                        }
+
+                                                        $baseRequiredQty =
+                                                            (float) ($item->quantity ?? 0) * $unitConversionValue;
+
+                                                        $completedUnit =
+                                                            (float) ($item->completed_quantity ?? 0) /
+                                                            $unitConversionValue;
+                                                        $requiredUnit = $baseRequiredQty / $unitConversionValue;
+                                                    @endphp
+
                                                     <div class="fw-semibold">
                                                         {{ $item->product->name }}
                                                     </div>
+
                                                     <div class="text-muted small">
                                                         Progress:
+                                                        {{ number_format($completedUnit, 0, ',', '.') }}
+                                                        /
+                                                        {{ number_format($requiredUnit, 0, ',', '.') }}
+                                                        {{ $item->unit_name }}
+                                                    </div>
+
+                                                    <div class="text-muted small">
+                                                        Base:
                                                         {{ number_format($item->completed_quantity, 0, ',', '.') }}
                                                         /
-                                                        {{ number_format($item->quantity, 0, ',', '.') }}
-                                                        {{ $item->unit_name }}
+                                                        {{ number_format($baseRequiredQty, 0, ',', '.') }}
                                                     </div>
                                                 </td>
 
-                                                {{-- <td class="text-start">
-                                                    {{ number_format($item->completed_quantity, 0, ',', '.') }} /
-                                                    {{ number_format($item->quantity, 0, ',', '.') }}
-                                                </td> --}}
                                                 <td class="text-start">
+                                                    @php
+                                                        $unitConversionValue =
+                                                            (float) ($item->unit_conversion_value ?? 1);
+
+                                                        if ($unitConversionValue <= 0) {
+                                                            $unitConversionValue = 1;
+                                                        }
+
+                                                        $availableUnit =
+                                                            (float) ($item->available_quantity ?? 0) /
+                                                            $unitConversionValue;
+                                                        $activeAssignUnit =
+                                                            (float) ($item->active_assign ?? 0) / $unitConversionValue;
+                                                    @endphp
+
                                                     <div class="fw-semibold text-primary mt-1">
                                                         Available:
-                                                        {{ number_format($item->available_quantity, 0, ',', '.') }}
+                                                        {{ number_format($availableUnit, 0, ',', '.') }}
                                                         {{ $item->unit_name }}
                                                     </div>
+
+                                                    <div class="small text-muted">
+                                                        Base:
+                                                        {{ number_format($item->available_quantity, 0, ',', '.') }}
+                                                    </div>
+
                                                     <div class="fw-semibold text-danger">
-                                                        Assigning: {{ number_format($item->active_assign, 0, ',', '.') }}
+                                                        Assigning:
+                                                        {{ number_format($activeAssignUnit, 0, ',', '.') }}
+                                                        {{ $item->unit_name }}
                                                     </div>
                                                 </td>
-                                                <td class="text-start" style="width: 100px; min-width: 100px;">
+                                                {{-- <td class="text-start" style="width: 100px; min-width: 100px;">
                                                     <input type="hidden"
                                                         name="items[{{ $index }}][order_progress_item_id]"
                                                         value="{{ $item->id }}">
@@ -244,6 +288,22 @@
                                                     <small class="text-muted d-block mt-1">
                                                         Current Stock:
                                                         {{ number_format($item->production_stock, 0, ',', '.') }}
+                                                    </small>
+                                                </td> --}}
+                                                <td class="text-start" style="width: 100px; min-width: 100px;">
+                                                    <input type="hidden"
+                                                        name="items[{{ $index }}][order_progress_item_id]"
+                                                        value="{{ $item->id }}">
+
+                                                    <input type="text" inputmode="numeric"
+                                                        name="items[{{ $index }}][assigned_quantity]"
+                                                        class="form-control text-start assigned-input" value="0"
+                                                        min="0" max="{{ $item->base_available_quantity }}"
+                                                        placeholder="Base Qty">
+
+                                                    <small class="text-muted d-block mt-1">
+                                                        Max Base:
+                                                        {{ number_format($item->base_available_quantity, 0, ',', '.') }}
                                                     </small>
                                                 </td>
                                                 <td>

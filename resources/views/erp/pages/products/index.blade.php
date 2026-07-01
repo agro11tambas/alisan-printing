@@ -139,7 +139,7 @@
                                         <th>Name</th>
                                         <th>Categories</th>
                                         <th>Merek</th>
-                                        {{-- <th>Price</th> --}}
+                                        <th>Base Unit</th>
                                         <th>SKU</th>
                                         <th>Product Units</th>
                                         <th>Avg Cost</th>
@@ -224,9 +224,9 @@
                     {
                         data: 'tags'
                     },
-                    // {
-                    //     data: 'price'
-                    // },
+                    {
+                        data: 'base_unit_name'
+                    },
                     {
                         data: 'sku'
                     },

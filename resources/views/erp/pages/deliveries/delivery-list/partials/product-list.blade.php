@@ -19,8 +19,24 @@
                     <span>{{ $item->deliveryOrderItem?->quantity ?? 0 }}</span>
                 </td> -->
                     <td>
-                        <span class="fw-bold text-success">{{ number_format($item->shipped_quantity, 0, ',', '.') }}
-                            {{ $item->deliveryOrderItem?->unit_name }}</span>
+                        @php
+                            $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
+
+                            if ($unitConversionValue <= 0) {
+                                $unitConversionValue = 1;
+                            }
+
+                            $shippedDisplay = $item->shipped_quantity / $unitConversionValue;
+                        @endphp
+
+                        <span class="fw-bold text-success">
+                            {{ number_format($shippedDisplay, 0, ',', '.') }}
+                            {{ $item->deliveryOrderItem?->unit_name }}
+                        </span>
+
+                        <div class="small text-muted">
+                            Base: {{ number_format($item->shipped_quantity, 0, ',', '.') }}
+                        </div>
                     </td>
                 </tr>
             @endforeach
