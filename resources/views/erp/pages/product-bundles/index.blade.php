@@ -164,6 +164,13 @@
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
+            let savedScrollTop = parseInt(sessionStorage.getItem('product_bundle_scroll_top') || '0');
+
+            const savedSearchType = sessionStorage.getItem('product_bundle_search_type');
+            const savedSearchKeyword = sessionStorage.getItem('product_bundle_search_keyword');
+
+            if (savedSearchType) $('#search_type').val(savedSearchType);
+            if (savedSearchKeyword) $('#search_keyword').val(savedSearchKeyword);
 
             const dataTable = $('#productBundleTable').DataTable({
                 processing: false,
@@ -216,6 +223,18 @@
                             dataTable.clear();
                             dataTable.rows.add(allData).draw(false);
                             currentPage++;
+                            setTimeout(() => {
+                                const scrollBody = $('.dataTables_scrollBody');
+
+                                if (savedScrollTop > 0) {
+                                    scrollBody.scrollTop(savedScrollTop);
+
+                                    if (scrollBody.scrollTop() < savedScrollTop &&
+                                        hasMoreData && !isLoading) {
+                                        loadMoreData();
+                                    }
+                                }
+                            }, 100);
                         } else {
                             hasMoreData = false;
                         }
@@ -232,6 +251,9 @@
             let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
+
+                sessionStorage.setItem('product_bundle_scroll_top', $(this).scrollTop());
+
                 const scrollTop = $(this).scrollTop();
                 const scrollHeight = $(this)[0].scrollHeight;
                 const clientHeight = $(this).height();
@@ -244,9 +266,14 @@
             });
 
             $('#search_type, #search_keyword, #category_id, #tag_id').on('change keyup', function() {
+                sessionStorage.setItem('product_bundle_search_type', $('#search_type').val());
+                sessionStorage.setItem('product_bundle_search_keyword', $('#search_keyword').val());
+                sessionStorage.removeItem('product_bundle_scroll_top');
+
                 allData = [];
                 currentPage = 0;
                 hasMoreData = true;
+                savedScrollTop = 0;
                 dataTable.clear().draw();
                 loadMoreData();
             });

@@ -219,6 +219,22 @@
                 lengthChange: false,
                 info: false,
                 pagingType: "simple",
+                stateSave: true,
+                stateDuration: -1,
+                stateSave: true,
+                stateDuration: -1,
+
+                stateSaveParams: function(settings, data) {
+                    data.customer_name_filter = $('#name').val();
+                },
+
+                stateLoadParams: function(settings, data) {
+                    if (data.customer_name_filter) {
+                        $('#name').val(data.customer_name_filter);
+                        lastKeyword = data.customer_name_filter;
+                    }
+                },
+
                 ajax: {
                     url: "{{ url('/erp/customers/data') }}",
                     data: function(d) {

@@ -188,10 +188,19 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            let allData = []; // ⚠️ Simpan semua data yang sudah dimuat
+            let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
+            let savedScrollTop = parseInt(sessionStorage.getItem('product_scroll_top') || '0');
+
+            const savedSearch = sessionStorage.getItem('product_search');
+            const savedCategory = sessionStorage.getItem('product_category');
+            const savedTag = sessionStorage.getItem('product_tag');
+
+            if (savedSearch) $('#search_keyword').val(savedSearch);
+            if (savedCategory) $('#category_id').val(savedCategory);
+            if (savedTag) $('#tag_id').val(savedTag);
 
             const dataTable = $('#productTable').DataTable({
                 processing: false, // ⚠️ Matikan processing default
@@ -275,6 +284,19 @@
                             dataTable.rows.add(allData);
                             dataTable.draw(false);
                             currentPage++;
+
+                            setTimeout(() => {
+                                const scrollBody = $('.dataTables_scrollBody');
+
+                                if (savedScrollTop > 0) {
+                                    scrollBody.scrollTop(savedScrollTop);
+
+                                    if (scrollBody.scrollTop() < savedScrollTop &&
+                                        hasMoreData && !isLoading) {
+                                        loadMoreData();
+                                    }
+                                }
+                            }, 100);
                         } else {
                             hasMoreData = false;
                             $('#loadingIndicator').html('✅ All products loaded').show();
@@ -305,6 +327,8 @@
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
 
+                sessionStorage.setItem('product_scroll_top', $(this).scrollTop());
+
                 const scrollTop = $(this).scrollTop();
                 const scrollHeight = $(this)[0].scrollHeight;
                 const clientHeight = $(this).height();
@@ -319,11 +343,17 @@
             });
 
             $('#search_keyword, #category_id, #tag_id').on('change keyup', function() {
+                sessionStorage.setItem('product_search', $('#search_keyword').val());
+                sessionStorage.setItem('product_category', $('#category_id').val());
+                sessionStorage.setItem('product_tag', $('#tag_id').val());
+                sessionStorage.removeItem('product_scroll_top');
+
                 clearTimeout(searchTimer);
                 searchTimer = setTimeout(() => {
                     allData = [];
                     currentPage = 0;
                     hasMoreData = true;
+                    savedScrollTop = 0;
                     dataTable.clear().draw();
                     loadMoreData();
                 }, 100);
@@ -381,24 +411,24 @@
             });
         });
 
-        // ⚠️ Restore search state dari sessionStorage
-        const savedSearch = sessionStorage.getItem('product_search');
-        const savedCategory = sessionStorage.getItem('product_category');
-        const savedTag = sessionStorage.getItem('product_tag');
 
-        if (savedSearch) $('#search_keyword').val(savedSearch);
-        if (savedCategory) $('#category_id').val(savedCategory).trigger('change');
-        if (savedTag) $('#tag_id').val(savedTag).trigger('change');
+        // const savedSearch = sessionStorage.getItem('product_search');
+        // const savedCategory = sessionStorage.getItem('product_category');
+        // const savedTag = sessionStorage.getItem('product_tag');
 
-        // ⚠️ Simpan state saat input berubah
-        $('#search_keyword').on('input', function() {
-            sessionStorage.setItem('product_search', $(this).val());
-        });
-        $('#category_id').on('change', function() {
-            sessionStorage.setItem('product_category', $(this).val());
-        });
-        $('#tag_id').on('change', function() {
-            sessionStorage.setItem('product_tag', $(this).val());
-        });
+        // if (savedSearch) $('#search_keyword').val(savedSearch);
+        // if (savedCategory) $('#category_id').val(savedCategory).trigger('change');
+        // if (savedTag) $('#tag_id').val(savedTag).trigger('change');
+
+
+        // $('#search_keyword').on('input', function() {
+        //     sessionStorage.setItem('product_search', $(this).val());
+        // });
+        // $('#category_id').on('change', function() {
+        //     sessionStorage.setItem('product_category', $(this).val());
+        // });
+        // $('#tag_id').on('change', function() {
+        //     sessionStorage.setItem('product_tag', $(this).val());
+        // });
     </script>
 @endpush
