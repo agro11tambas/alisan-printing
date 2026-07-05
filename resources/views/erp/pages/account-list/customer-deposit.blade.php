@@ -23,6 +23,9 @@
 
         .dataTables_scrollBody {
             scroll-behavior: smooth;
+            height: calc(100vh - 260px) !important;
+            min-height: calc(100vh - 260px) !important;
+            max-height: calc(100vh - 260px) !important;
         }
 
         #accountList tbody tr {
@@ -114,7 +117,8 @@
                                 <div class="col-md-6">
                                     <label for="search_account_type" class="fw-semibold fs-12">Search Account Type</label>
                                     <select id="search_account_type" name="search_account_type" class="form-control"
-                                        style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" data-select2-selector="status">
+                                        style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
+                                        data-select2-selector="status">
                                         <option value="">All</option>
                                         @foreach ($accountTypes as $type)
                                             <option value="{{ $type }}">{{ $type }}</option>
@@ -230,16 +234,16 @@
 
             loadMoreData();
 
-            
+
             $('.dataTables_scrollBody').on('scroll', function() {
                 const scrollTop = $(this).scrollTop();
-                    const scrollHeight = $(this)[0].scrollHeight;
-                    const clientHeight = $(this).height();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
 
-                    // Load earlier (70%) without delay
-                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
-                        loadMoreData();
-                    }
+                // Load earlier (70%) without delay
+                if (scrollTop + clientHeight >= scrollHeight * 0.70) {
+                    loadMoreData();
+                }
             });
 
             function resetAndReload() {

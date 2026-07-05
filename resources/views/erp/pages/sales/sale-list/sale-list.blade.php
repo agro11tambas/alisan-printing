@@ -38,6 +38,9 @@
 
         .dataTables_scrollBody {
             scroll-behavior: smooth;
+            height: calc(100vh - 260px) !important;
+            min-height: calc(100vh - 260px) !important;
+            max-height: calc(100vh - 260px) !important;
         }
 
         #saleListTable tbody tr,
@@ -1017,18 +1020,18 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             if (reset) {
-                                allData = []; 
+                                allData = [];
                                 dataTable.clear();
                                 allData = allData.concat(response.data);
                                 dataTable.rows.add(response.data).draw(false);
                             } else {
                                 allData = allData.concat(response.data);
                                 if (dataTable.rows().count() === 0) {
-                                dataTable.rows.add(response.data).draw(false);
-                            } else {
-                                let newNodes = dataTable.rows.add(response.data).nodes();
-                                $(dataTable.table().body()).append(newNodes);
-                            }
+                                    dataTable.rows.add(response.data).draw(false);
+                                } else {
+                                    let newNodes = dataTable.rows.add(response.data).nodes();
+                                    $(dataTable.table().body()).append(newNodes);
+                                }
                             }
                             renderMobileFromAllData();
                             currentPage++;
@@ -1392,11 +1395,11 @@
                             } else {
                                 editedData = editedData.concat(response.data);
                                 if (editedTable.rows().count() === 0) {
-                                editedTable.rows.add(response.data).draw(false);
-                            } else {
-                                let newNodes = editedTable.rows.add(response.data).nodes();
-                                $(editedTable.table().body()).append(newNodes);
-                            }
+                                    editedTable.rows.add(response.data).draw(false);
+                                } else {
+                                    let newNodes = editedTable.rows.add(response.data).nodes();
+                                    $(editedTable.table().body()).append(newNodes);
+                                }
                             }
                             editedPage++;
                             editedHasMoreData = true;
@@ -1531,7 +1534,7 @@
                 if (deletedIsLoading || (!deletedHasMoreData && !reset)) return;
 
                 deletedIsLoading = true;
-                if(reset) {
+                if (reset) {
                     deletedAllData = [];
                     deletedCurrentPage = 0;
                     deletedHasMoreData = true;
@@ -1563,11 +1566,11 @@
                             } else {
                                 deletedAllData = deletedAllData.concat(response.data);
                                 if (deletedTable.rows().count() === 0) {
-                                deletedTable.rows.add(response.data).draw(false);
-                            } else {
-                                let newNodes = deletedTable.rows.add(response.data).nodes();
-                                $(deletedTable.table().body()).append(newNodes);
-                            }
+                                    deletedTable.rows.add(response.data).draw(false);
+                                } else {
+                                    let newNodes = deletedTable.rows.add(response.data).nodes();
+                                    $(deletedTable.table().body()).append(newNodes);
+                                }
                             }
                             deletedCurrentPage++;
                         } else {

@@ -23,6 +23,9 @@
 
         .dataTables_scrollBody {
             scroll-behavior: smooth;
+            height: calc(100vh - 260px) !important;
+            min-height: calc(100vh - 260px) !important;
+            max-height: calc(100vh - 260px) !important;
         }
 
         #inventoryTable tbody tr {
@@ -351,16 +354,16 @@
 
             loadMoreData();
 
-            
+
             $('.dataTables_scrollBody').on('scroll', function() {
                 const scrollTop = $(this).scrollTop();
-                    const scrollHeight = $(this)[0].scrollHeight;
-                    const clientHeight = $(this).height();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
 
-                    // Load earlier (70%) without delay
-                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
-                        loadMoreData();
-                    }
+                // Load earlier (70%) without delay
+                if (scrollTop + clientHeight >= scrollHeight * 0.70) {
+                    loadMoreData();
+                }
             });
 
             function resetAndReload() {
@@ -425,7 +428,7 @@
                 resetAndReload();
             });
 
-            
+
             $('#search_type_dropdown').on('keyup change input paste', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => resetAndReload(), 400);

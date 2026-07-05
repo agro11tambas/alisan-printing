@@ -24,6 +24,9 @@
 
         .dataTables_scrollBody {
             scroll-behavior: smooth;
+            height: calc(100vh - 260px) !important;
+            min-height: calc(100vh - 260px) !important;
+            max-height: calc(100vh - 260px) !important;
         }
     </style>
 @endpush
@@ -103,7 +106,8 @@
                                     <div class="col-lg-6">
                                         <label for="name" class="fw-semibold fs-12">Name</label>
                                         <input type="text" id="name" name="name" class="form-control"
-                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search Name...">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
+                                            placeholder="Search Name...">
                                     </div>
                                 </div>
                             </div>

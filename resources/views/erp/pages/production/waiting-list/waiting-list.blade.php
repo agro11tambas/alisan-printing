@@ -33,6 +33,9 @@
 
         .dataTables_scrollBody {
             scroll-behavior: smooth;
+            height: calc(100vh - 260px) !important;
+            min-height: calc(100vh - 260px) !important;
+            max-height: calc(100vh - 260px) !important;
         }
 
         #waitingListTable tbody tr {
@@ -416,16 +419,16 @@
 
             loadMoreData();
 
-            
+
             $('.dataTables_scrollBody').on('scroll', function() {
                 const scrollTop = $(this).scrollTop();
-                    const scrollHeight = $(this)[0].scrollHeight;
-                    const clientHeight = $(this).height();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
 
-                    // Load earlier (70%) without delay
-                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
-                        loadMoreData();
-                    }
+                // Load earlier (70%) without delay
+                if (scrollTop + clientHeight >= scrollHeight * 0.70) {
+                    loadMoreData();
+                }
             });
 
             function resetAndReload() {
@@ -480,7 +483,7 @@
             //         searchTimeout = setTimeout(() => resetAndReload(), 400);
             //     }
             // });
-            
+
             // $('#search_keyword, #search_product').on('keyup input paste', function() {
             //     clearTimeout(searchTimeout);
             //     searchTimeout = setTimeout(() => resetAndReload(), 400);

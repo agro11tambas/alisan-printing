@@ -21,6 +21,13 @@
             height: 60vh !important;
             overflow-y: auto !important;
         }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+            height: calc(100vh - 260px) !important;
+            min-height: calc(100vh - 260px) !important;
+            max-height: calc(100vh - 260px) !important;
+        }
     </style>
 @endpush
 
@@ -248,7 +255,7 @@
 
             loadMoreData();
 
-            
+
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
 

@@ -10,6 +10,13 @@
         #ecommerceCategoryTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
         }
+
+        .dataTables_scrollBody {
+            scroll-behavior: smooth;
+            height: calc(100vh - 260px) !important;
+            min-height: calc(100vh - 260px) !important;
+            max-height: calc(100vh - 260px) !important;
+        }
     </style>
 @endpush
 
@@ -72,8 +79,7 @@
                             <div class="col-lg-3">
                                 <label for="search_keyword" class="fw-semibold fs-12">Search</label>
                                 <input type="text" id="search_keyword" class="form-control"
-                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
-                                    placeholder="Search category...">
+                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search category...">
                             </div>
                         </div>
 
