@@ -60,12 +60,12 @@
         <div class="col-lg-12">
             <div class="card stretch stretch-full">
                 <div class="card-body p-0">
-                    <div class="row g-3 p-4 justify-content-between">
+                    <div class="row g-3 p-2 justify-content-between">
                         <div class="col-lg-4 me-2">
                             <label for="" class="fw-semibold fs-12">Date</label>
                             <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                 <div class="col-auto">
-                                    <select id="filter" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                                    <select id="filter" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                                         <option value="all">All Time</option>
                                         <option value="yearly">Yearly</option>
                                         <option value="year_to_date">Year to Date</option>
@@ -77,10 +77,10 @@
                                     </select>
                                 </div>
                                 <div class="col-auto custom-range d-none">
-                                    <input type="date" id="start_date" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <input type="date" id="start_date" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                 </div>
                                 <div class="col-auto custom-range d-none">
-                                    <input type="date" id="end_date" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <input type="date" id="end_date" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                 </div>
                                 <div class="col-auto custom-range d-none">
                                     <button id="apply-filter" class="btn btn-primary">Apply</button>
@@ -91,7 +91,7 @@
                             <div class="row justify-content-end">
                                 <div class="col-lg-3">
                                     <label for="progress_status" class="fw-semibold fs-12">Progress Status</label>
-                                    <select id="progress_status" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <select id="progress_status" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                         <option value="progress">Progress</option>
                                         <option value="completed">Completed</option>
                                     </select>
@@ -100,14 +100,14 @@
                                     <label for="search_type" class="fw-semibold fs-12">Filter By</label>
                                     <div class="row g-3">
                                         <div class="col-md-6">
-                                            <select id="search_type" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            <select id="search_type" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                                 <option value="order_number">Order Number</option>
                                                 <option value="customer">Customer</option>
                                             </select>
                                         </div>
                                         <div class="col-md-6">
                                             <input type="text" id="search_keyword" name="search_keyword" class="form-control search-input"
-                                                style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search..." />
+                                                style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search..." />
                                         </div>
                                     </div>
                                 </div>

@@ -75,23 +75,23 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <form id="filter-form" class="row g-3">
                                     <div class="col-md-6">
                                         <label for="start_date" class="fw-semibold fs-12">Start Date</label>
                                         <input type="date" id="start_date" name="start_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-md-6">
                                         <label for="end_date" class="fw-semibold fs-12">Due Date</label>
                                         <input type="date" id="end_date" name="end_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                 </form>
                             </div>

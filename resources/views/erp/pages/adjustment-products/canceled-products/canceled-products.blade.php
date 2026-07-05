@@ -70,16 +70,16 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-2">
                                 <label for="product_name" class="fw-semibold fs-12">Product Name</label>
                                 <input type="text" id="product_name" name="product_name" class="form-control"
-                                    placeholder="Search Product..." style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    placeholder="Search Product..." style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                             </div>
                         </div>
                         <div class="table-responsive">
@@ -122,7 +122,7 @@
                     <input type="hidden" id="order_id" name="order_id">
 
                     <div class="modal-body">
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="date" class="fw-semibold">Date:</label>
                                 <div class="input-group">

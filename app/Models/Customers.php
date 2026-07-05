@@ -54,6 +54,7 @@ class Customers extends Model
 
     protected $fillable = [
         'name',
+        'phone',
         'customer_deposit',
         'user_id',
     ];

@@ -48,7 +48,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -56,7 +56,7 @@
                         @csrf
                         @method('PUT')
                         <div class="card-body">
-                            <div class="row mb-3">
+                            <div class="row mb-2">
                                 <div class="col-lg-2">
                                     <label for="name" class="fw-semibold">Name:</label>
                                 </div>
@@ -68,7 +68,7 @@
                                     </div>
                                 </div>
                             </div>
-                            {{-- <div class="row mb-3">
+                            {{-- <div class="row mb-2">
                                 <div class="col-lg-2">
                                     <label for="phone" class="fw-semibold">Phone:</label>
                                 </div>
@@ -80,7 +80,7 @@
                                     </div>
                                 </div>
                             </div> --}}
-                            <div class="row mb-3 align-items-start">
+                            <div class="row mb-2 align-items-start">
                                 <div class="col-lg-2">
                                     <label class="fw-semibold">Pilih Account Existing:</label>
                                 </div>
@@ -101,9 +101,9 @@
                                         Pilih account yang punya akses ke outlet ini.
                                     </small>
 
-                                    <div id="selectedAccountList" class="mt-3">
+                                    <div id="selectedAccountList" class="mt-2">
                                         @foreach ($customer->accounts as $account)
-                                            <div class="selected-account-item border rounded p-2 mb-2">
+                                            <div class="selected-account-item border rounded p-1 mb-1">
                                                 <div class="row align-items-center">
                                                     <div class="col-lg-5">
                                                         <div class="input-group">
@@ -146,14 +146,14 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label class="fw-semibold">Tambah Account Baru:</label>
                                 </div>
 
                                 <div class="col-lg-10">
                                     <div id="accounts">
-                                        <div class="account-item mb-2 row">
+                                        <div class="account-item mb-1 row">
                                             <div class="col-lg-5">
                                                 <div class="input-group">
                                                     <div class="input-group-text"><i class="feather-user"></i></div>
@@ -180,19 +180,19 @@
                                         </div>
                                     </div>
 
-                                    <button type="button" class="btn btn-success mt-2" id="add-account">
+                                    <button type="button" class="btn btn-success mt-1" id="add-account">
                                         <i class="feather-plus"></i> Add Account
                                     </button>
                                 </div>
                             </div>
-                            <div class="row mb-3">
+                            <div class="row mb-2">
                                 <div class="col-lg-2">
                                     <label for="address" class="fw-semibold">Address(s):</label>
                                 </div>
                                 <div class="col-lg-10">
                                     <div id="addresses">
                                         @foreach ($customer->addresses as $index => $address)
-                                            <div class="mb-3 row address-group">
+                                            <div class="mb-2 row address-group">
                                                 <div class="col-lg-3">
                                                     <div class="input-group">
                                                         <div class="input-group-text"><i class="feather-briefcase"></i>
@@ -228,7 +228,7 @@
                                             </div>
                                         @endforeach
                                     </div>
-                                    <button type="button" class="btn btn-success mt-2" id="add-address">
+                                    <button type="button" class="btn btn-success mt-1" id="add-address">
                                         <i class="feather-plus"></i> Add Address
                                     </button>
                                 </div>
@@ -332,7 +332,7 @@
 
         document.getElementById('add-address').addEventListener('click', function() {
             const wrapper = document.createElement('div');
-            wrapper.classList.add('mb-3', 'row', 'address-group');
+            wrapper.classList.add('mb-2', 'row', 'address-group');
             wrapper.innerHTML = `
                 <div class="col-lg-3">
                     <div class="input-group">
@@ -490,7 +490,7 @@
 
             document.getElementById('add-account').addEventListener('click', function() {
                 const wrapper = document.createElement('div');
-                wrapper.className = 'account-item mb-2 row';
+                wrapper.className = 'account-item mb-1 row';
 
                 wrapper.innerHTML = `
                     <div class="col-lg-5">
@@ -568,6 +568,7 @@
 
             document.addEventListener('DOMContentLoaded', updateRemoveAccountButtons);
             $('#existing_account_picker').select2({
+                theme: 'bootstrap-5',
                 placeholder: 'Pilih account existing',
                 width: '100%',
                 dropdownParent: $('#customerForm'),
@@ -601,7 +602,7 @@
                 const accountWhatsapp = selectedOption.data('whatsapp') ?? '-';
 
                 const item = `
-                    <div class="selected-account-item border rounded p-2 mb-2">
+                    <div class="selected-account-item border rounded p-1 mb-1">
                         <div class="row align-items-center">
                             <div class="col-lg-5">
                                 <div class="input-group">

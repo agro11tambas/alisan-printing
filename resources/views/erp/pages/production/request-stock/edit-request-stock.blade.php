@@ -40,7 +40,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/productions/material-request/update/{{ $materialRequest->id }}" method="POST"
@@ -49,9 +49,9 @@
                     @method('PUT')
 
                     {{-- Info User & Date --}}
-                    <div class="card stretch stretch-full mb-3">
+                    <div class="card stretch stretch-full mb-2">
                         <div class="card-body">
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="requested_by" class="fw-semibold">User:</label>
                                 </div>
@@ -60,7 +60,7 @@
                                         value="{{ Auth::user()->name }}" readonly>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="requested_at" class="fw-semibold">Date:</label>
                                 </div>
@@ -76,7 +76,7 @@
                     {{-- Table Products --}}
                     <div class="card stretch stretch-full">
                         <div class="card-body">
-                            <div class="mb-4">
+                            <div class="mb-2">
                                 <h5 class="fw-bold">Edit Products:</h5>
                             </div>
                             <div class="table-responsive">
@@ -122,7 +122,7 @@
                                 </table>
                             </div>
 
-                            <div class="d-flex justify-content-end gap-2 mt-3">
+                            <div class="d-flex justify-content-end gap-2 mt-2">
                                 <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
                             </div>
                         </div>
@@ -150,6 +150,7 @@
 
         function initSelect2(el) {
             $(el).select2({
+                theme: 'bootstrap-5',
                 placeholder: 'Pilih produk',
                 width: '100%',
                 matcher: (params, data) => {

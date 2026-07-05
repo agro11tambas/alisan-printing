@@ -92,7 +92,7 @@
                 <div class="invoice-wrapper">
                     <div class="card invoice-container" id="invoiceContent">
                         <div class="card-body p-0">
-                            <div class="px-4 pt-4 border-bottom mb-3">
+                            <div class="px-2 pt-2 border-bottom mb-2">
                                 <div class="row justify-content-between">
                                     <div class="col-lg-4">
                                         @php
@@ -105,7 +105,7 @@
                                             <img src="{{ asset($logoPath) }}" alt="Logo"
                                                 style="max-height: 50px; max-width: 200px; object-fit: contain;">
                                         @endif
-                                        <address class="text-muted mt-2">
+                                        <address class="text-muted mt-1">
                                             {{ $invoice->address }}
                                         </address>
                                     </div>
@@ -128,10 +128,10 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="px-4 py-0">
+                            <div class="px-2 py-0">
                                 <div class="row gap-4 justify-content-between">
                                     <div class="col-lg-12">
-                                        <h2 class="fs-16 fw-bold text-dark mb-3">Invoiced To:</h2>
+                                        <h2 class="fs-16 fw-bold text-dark mb-2">Invoiced To:</h2>
                                         <address class="text-muted lh-lg">
                                             {{ $order->business_name }}<br>
                                             <!--{{ $order->customer->name }}<br>-->
@@ -209,9 +209,9 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="px-4">
-                                <div class="alert alert-dismissible p-4 alert-soft-primary-message" role="alert">
-                                    <h5 class="mb-4">Syarat & Ketentuan</h5>
+                            <div class="px-2">
+                                <div class="alert alert-dismissible p-2 alert-soft-primary-message" role="alert">
+                                    <h5 class="mb-2">Syarat & Ketentuan</h5>
                                     <p class="mb-0">
                                         @forelse($invoice->termAndConditions as $term)
                                             <i class="feather feather-alert-circle me-2"></i> {{ $term->content }}<br>
@@ -222,15 +222,15 @@
                                     </p>
                                 </div>
                             </div>
-                            <div class="px-4 pt-4 d-sm-flex align-items-center justify-content-between">
-                                <div class="mb-5 mb-sm-0">
+                            <div class="px-2 pt-2 d-sm-flex align-items-center justify-content-between">
+                                <div class="mb-3 mb-sm-0">
                                     <h6 class="fs-14 fw-bold">Bank</h6>
                                     <p class="fs-14">BANK: {{ $invoice->bank_name }}<br>
                                         Atas Nama: <strong class="text-primary">{{ $invoice->name }}</strong><br>
                                         No Rek: <strong class="text-danger">{{ $invoice->account_number }}</strong></p>
                                 </div>
                                 <div class="text-end align-self-end">
-                                    <h6 class="fs-13 fw-bold mt-2">Owner</h6>
+                                    <h6 class="fs-13 fw-bold mt-1">Owner</h6>
                                     <p class="fs-11 fw-semibold text-muted">
                                         {{ date('d M Y, H:i', strtotime($order->created_at)) }}</p>
                                 </div>

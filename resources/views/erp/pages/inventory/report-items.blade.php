@@ -72,18 +72,18 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <div class="row g-3 justify-content-start">
                                     <div class="col-lg-6">
                                         <label for="product_name" class="fw-semibold fs-12">Item Name</label>
                                         <input type="text" id="product_name" name="product_name" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Item...">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search Item...">
                                     </div>
                                 </div>
                             </div>
@@ -130,18 +130,18 @@
                     <div class="modal-body">
                         <input type="hidden" name="product_id" id="defect_product_id">
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Product Name</label>
                             <input type="text" id="defect_product_name" class="form-control" readonly>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Defect Quantity</label>
                             <input type="number" name="quantity" id="defect_quantity" class="form-control" min="1"
                                 required>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Note (optional)</label>
                             <textarea name="note" id="defect_note" class="form-control" rows="2"></textarea>
                         </div>
@@ -257,18 +257,16 @@
 
             loadMoreData();
 
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             // let searchTimer;

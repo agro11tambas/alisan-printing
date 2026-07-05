@@ -28,7 +28,7 @@
 @endsection
 
 @section('content')
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -43,7 +43,7 @@
                                     : $secondaryItems;
                             @endphp
 
-                            <div class="row mb-3 align-items-start">
+                            <div class="row mb-2 align-items-start">
                                 <div class="col-lg-2">
                                     <label class="fw-semibold">Product Primary</label>
                                 </div>
@@ -62,7 +62,7 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3 align-items-start">
+                            <div class="row mb-2 align-items-start">
                                 <div class="col-lg-2">
                                     <label class="fw-semibold">Product Secondary</label>
                                 </div>
@@ -131,7 +131,7 @@
                                         </tbody>
                                     </table>
 
-                                    <div class="row mt-3">
+                                    <div class="row mt-2">
                                         <div class="col-lg-6">
                                             <label class="fw-semibold">Preview Name</label>
                                             <textarea class="form-control" id="preview_name" rows="4" readonly></textarea>
@@ -143,7 +143,7 @@
                                         </div>
                                     </div>
 
-                                    <button type="button" class="btn btn-outline-primary btn-sm mt-3"
+                                    <button type="button" class="btn btn-outline-primary btn-sm mt-2"
                                         id="addSecondaryRowBtn">
                                         <i class="feather-plus"></i> Tambah Secondary
                                     </button>
@@ -165,7 +165,8 @@
 
             function initSelect2(el) {
                 $(el).select2({
-                    placeholder: 'Pilih produk',
+                theme: 'bootstrap-5',
+                placeholder: 'Pilih produk',
                     width: '100%',
                     dropdownParent: $('#productBundleForm'),
                     minimumResultsForSearch: 0,

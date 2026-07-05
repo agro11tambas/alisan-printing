@@ -38,16 +38,16 @@
         <div class="col-lg-12">
             <div class="card stretch stretch-full">
                 <div class="card-body p-0">
-                    <div class="row g-3 p-4 justify-content-between">
+                    <div class="row g-3 p-2 justify-content-between">
                         <div class="col-lg-4 me-2">
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="start_date" class="fw-semibold fs-12">Start Date</label>
-                                    <input type="date" id="start_date" name="start_date" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <input type="date" id="start_date" name="start_date" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                 </div>
                                 <div class="col-md-6">
                                     <label for="end_date" class="fw-semibold fs-12">Due Date</label>
-                                    <input type="date" id="end_date" name="end_date" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <input type="date" id="end_date" name="end_date" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                 </div>
                             </div>
                         </div>
@@ -55,11 +55,11 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="order_number" class="fw-semibold fs-12">Order Number</label>
-                                    <input type="text" id="order_number" name="order_number" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Order Number...">
+                                    <input type="text" id="order_number" name="order_number" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search Order Number...">
                                 </div>
                                 <div class="col-md-6">
                                     <label for="customer_name" class="fw-semibold fs-12">Customer</label>
-                                    <input type="text" id="customer_name" name="customer_name" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Customer...">
+                                    <input type="text" id="customer_name" name="customer_name" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search Customer...">
                                 </div>
                             </div>
                         </div>

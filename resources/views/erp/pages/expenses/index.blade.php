@@ -84,18 +84,18 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <label for="" class="fw-semibold fs-12">Date</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                     <div class="col-auto">
                                         <select id="filter" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                                             <option value="all">All Time</option>
                                             <option value="yearly">Yearly</option>
                                             <option value="year_to_date">Year to Date</option>
@@ -108,11 +108,11 @@
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="start_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="end_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <button id="apply-filter" class="btn btn-primary">Apply</button>
@@ -188,6 +188,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
+                ordering: false,
                 order: [
                     [0, 'desc']
                 ],
@@ -230,8 +231,12 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            dataTable.clear();
-                            dataTable.rows.add(allData).draw(false);
+                            if (dataTable.rows().count() === 0) {
+                                dataTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = dataTable.rows.add(response.data).nodes();
+                                $(dataTable.table().body()).append(newNodes);
+                            }
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -247,18 +252,16 @@
 
             loadMoreData();
 
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             function resetAndReload() {

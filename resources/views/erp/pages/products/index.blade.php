@@ -84,18 +84,18 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <div class="row g-3">
                                     <div class="col-lg-6">
                                         <label for="category_id" class="fw-semibold fs-12">Categories</label>
                                         <select name="category_id[]" id="category_id" class="form-control"
-                                            style="padding: 0.5rem 1rem !important; font-size: 0.875rem !important;"
+                                            style="padding: 0.25rem 0.5rem !important; font-size: 0.875rem !important;"
                                             data-select2-selector="tag">
                                             <option value="" selected>All</option>
                                             @foreach ($categories as $category)
@@ -107,7 +107,7 @@
                                     <div class="col-lg-6">
                                         <label for="tag_id" class="fw-semibold fs-12">Merek</label>
                                         <select name="tag_id[]" id="tag_id" class="form-control"
-                                            style="padding: 0.5rem 1rem !important; font-size: 0.875rem !important;"
+                                            style="padding: 0.25rem 0.5rem !important; font-size: 0.875rem !important;"
                                             data-select2-selector="tag">
                                             <option value="" selected>All</option>
                                             @foreach ($tags as $tag)
@@ -124,7 +124,7 @@
                                         <label for="search_keyword" class="fw-semibold fs-12">Search</label>
                                         <input type="text" id="search_keyword" name="search_keyword"
                                             class="form-control search-input"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;"
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
                                             placeholder="Search by Product or SKU..." />
                                     </div>
                                 </div>
@@ -211,6 +211,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
+                ordering: false,
                 order: [
                     [2, 'asc']
                 ],
@@ -280,9 +281,12 @@
                     success: function(response) {
                         if (response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            dataTable.clear();
-                            dataTable.rows.add(allData);
-                            dataTable.draw(false);
+                            if (dataTable.rows().count() === 0) {
+                                dataTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = dataTable.rows.add(response.data).nodes();
+                                $(dataTable.table().body()).append(newNodes);
+                            }
                             currentPage++;
 
                             setTimeout(() => {
@@ -323,7 +327,7 @@
             loadMoreData();
 
             // ⚠️ Lazy load saat scroll
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
                 clearTimeout(scrollTimeout);
 

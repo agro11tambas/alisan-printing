@@ -45,7 +45,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="tab-content">
             <div class="tab-pane fade active show" id="proposalTab">
                 <div class="row g-3">
@@ -94,13 +94,13 @@
                     <div class="col-xxl-4 col-xl-6">
                         <div class="card stretch">
                             <div class="card-body task-info">
-                                <div class="mb-4">
+                                <div class="mb-2">
                                     <h5 class="card-title mb-1">Purchase Information</h5>
                                     <span
                                         class="fs-12 fw-normal text-muted d-block">{{ date('d M Y', strtotime($purchase->created_at)) }}</span>
                                 </div>
                                 <div class="task-info-list">
-                                    <div class="row align-items-center mb-3 task-list-row">
+                                    <div class="row align-items-center mb-2 task-list-row">
                                         <div class="col-6">
                                             <i class="feather-star me-2"></i>
                                             <span class="fw-semibold">Supplier Name:</span>
@@ -110,7 +110,7 @@
                                                 class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->supplier->name }}</span>
                                         </div>
                                     </div>
-                                    <div class="row align-items-center mb-3 task-list-row">
+                                    <div class="row align-items-center mb-2 task-list-row">
                                         <div class="col-6">
                                             <i class="feather-phone me-2"></i>
                                             <span class="fw-semibold">Whatsapp:</span>
@@ -120,7 +120,7 @@
                                                 class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->supplier->phone }}</span>
                                         </div>
                                     </div>
-                                    <div class="row align-items-center mb-3 task-list-row">
+                                    <div class="row align-items-center mb-2 task-list-row">
                                         <div class="col-6">
                                             <i class="feather-calendar me-2"></i>
                                             <span class="fw-semibold">Purchase Date:</span>
@@ -130,7 +130,7 @@
                                                 class="border-bottom border-bottom-dashed border-gray-5">{{ date('d M Y', strtotime($purchase->created_at)) }}</span>
                                         </div>
                                     </div>
-                                    <div class="row align-items-center mb-3 task-list-row">
+                                    <div class="row align-items-center mb-2 task-list-row">
                                         <div class="col-6">
                                             <i class="feather-clock me-2"></i>
                                             <span class="fw-semibold">Status:</span>
@@ -140,7 +140,7 @@
                                                 class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->status }}</span>
                                         </div>
                                     </div>
-                                    <div class="row align-items-center mb-3 task-list-row">
+                                    <div class="row align-items-center mb-2 task-list-row">
                                         <div class="col-6">
                                             <i class="feather-clipboard me-2"></i>
                                             <span class="fw-semibold">Payment Method:</span>
@@ -150,7 +150,7 @@
                                                 class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->payment_method }}</span>
                                         </div>
                                     </div>
-                                    <div class="row align-items-center mb-3 task-list-row">
+                                    <div class="row align-items-center mb-2 task-list-row">
                                         <div class="col-6">
                                             <i class="feather-clipboard me-2"></i>
                                             <span class="fw-semibold">Payment Status:</span>
@@ -160,7 +160,7 @@
                                                 class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->payment_status }}</span>
                                         </div>
                                     </div>
-                                    <div class="row align-items-center mb-3 task-list-row">
+                                    <div class="row align-items-center mb-2 task-list-row">
                                         <div class="col-6">
                                             <i class="feather-dollar-sign me-2"></i>
                                             <span class="fw-semibold">Total Amount:</span>

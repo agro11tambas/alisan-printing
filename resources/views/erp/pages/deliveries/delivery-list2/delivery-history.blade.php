@@ -89,7 +89,7 @@
                 </div>
                 <div class="card-body task-info">
                     <div class="task-info-list">
-                        <div class="row align-items-center mb-3 task-list-row">
+                        <div class="row align-items-center mb-2 task-list-row">
                             <div class="col-6">
                                 <i class="feather-star me-2"></i>
                                 <span class="fw-semibold">Customer Name:</span>
@@ -98,7 +98,7 @@
                                 <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->customer->name }}</span>
                             </div>
                         </div>
-                        <div class="row align-items-center mb-3 task-list-row">
+                        <div class="row align-items-center mb-2 task-list-row">
                             <div class="col-6">
                                 <i class="feather-phone me-2"></i>
                                 <span class="fw-semibold">Whatsapp:</span>
@@ -107,7 +107,7 @@
                                 <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->customer->phone }}</span>
                             </div>
                         </div>
-                        <div class="row align-items-center mb-3 task-list-row">
+                        <div class="row align-items-center mb-2 task-list-row">
                             <div class="col-6">
                                 <i class="feather-airplay me-2"></i>
                                 <span class="fw-semibold">Address:</span>
@@ -116,7 +116,7 @@
                                 <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->shipping_address }}</span>
                             </div>
                         </div>
-                        <div class="row align-items-center mb-3 task-list-row">
+                        <div class="row align-items-center mb-2 task-list-row">
                             <div class="col-6">
                                 <i class="feather-airplay me-2"></i>
                                 <span class="fw-semibold">Google Map:</span>
@@ -125,7 +125,7 @@
                                 <span class="border-bottom border-bottom-dashed border-gray-5"><a href="{{ $order->google_maps }}" target="_blank">Link Google Map</a></span>
                             </div>
                         </div>
-                        <div class="row align-items-center mb-3 task-list-row">
+                        <div class="row align-items-center mb-2 task-list-row">
                             <div class="col-6">
                                 <i class="feather-calendar me-2"></i>
                                 <span class="fw-semibold">Order Date:</span>
@@ -134,7 +134,7 @@
                                 <span class="border-bottom border-bottom-dashed border-gray-5">{{ date('d M Y', strtotime($order->created_at)) }}</span>
                             </div>
                         </div>
-                        <div class="row align-items-center mb-3 task-list-row">
+                        <div class="row align-items-center mb-2 task-list-row">
                             <div class="col-6">
                                 <i class="feather-clock me-2"></i>
                                 <span class="fw-semibold">Status:</span>
@@ -143,7 +143,7 @@
                                 <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->status }}</span>
                             </div>
                         </div>
-                        <div class="row align-items-center mb-3 task-list-row">
+                        <div class="row align-items-center mb-2 task-list-row">
                             <div class="col-6">
                                 <i class="feather-clipboard me-2"></i>
                                 <span class="fw-semibold">Payment Method:</span>
@@ -161,7 +161,7 @@
                                 <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->payment_status }}</span>
                             </div>
                         </div>
-                        <!-- <div class="row align-items-center mb-3 task-list-row">
+                        <!-- <div class="row align-items-center mb-2 task-list-row">
                             <div class="col-6">
                                 <i class="feather-dollar-sign me-2"></i>
                                 <span class="fw-semibold">Total Amount:</span>
@@ -180,12 +180,12 @@
                     <h5 class="card-title">Delivery History</h5>
                 </div>
                 <div class="card-body p-0">
-                    <div class="p-4">
+                    <div class="p-2">
                         <div class="col-lg-4 me-2">
                             <label for="" class="fw-semibold fs-12">Date</label>
                             <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                 <div class="col-auto">
-                                    <select id="filter" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                                    <select id="filter" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                                         <option value="all">All Time</option>
                                         <option value="yearly">Yearly</option>
                                         <option value="year_to_date">Year to Date</option>
@@ -197,10 +197,10 @@
                                     </select>
                                 </div>
                                 <div class="col-auto custom-range d-none">
-                                    <input type="date" id="start_date" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <input type="date" id="start_date" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                 </div>
                                 <div class="col-auto custom-range d-none">
-                                    <input type="date" id="end_date" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                    <input type="date" id="end_date" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                 </div>
                                 <div class="col-auto custom-range d-none">
                                     <button id="apply-filter" class="btn btn-primary">Apply</button>

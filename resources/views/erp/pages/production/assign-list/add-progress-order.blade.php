@@ -47,7 +47,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/productions/assign-list/add-progress/{{ $batch->id }}" method="POST"
@@ -57,21 +57,21 @@
 
                     <div class="row">
                         <div class="col-lg-12">
-                            <div class="card mb-4">
+                            <div class="card mb-2">
                                 <div class="card-header">
                                     <h4 class="card-title">Sale Info</h4>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-2 fw-semibold">Invoice Number:</div>
                                         <div class="col-lg-10">{{ $batch->orderProgress->order->order_number ?? '-' }}</div>
                                     </div>
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-2 fw-semibold">Customer:</div>
                                         <div class="col-lg-10">{{ $batch->orderProgress->order->customer->name ?? '-' }}
                                         </div>
                                     </div>
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-2 fw-semibold">
                                             <span class="text-primary">Order Note:</span>
                                         </div>
@@ -85,12 +85,12 @@
                         </div>
                         <input type="hidden" name="progress_date" id="progress_date" value="{{ now()->format('Y-m-d') }}">
                         {{-- <div class="col-lg-8">
-                            <div class="card mb-4">
+                            <div class="card mb-2">
                                 <div class="card-header">
                                     <h4 class="card-title">Assign Info - {{ $batch->assign_code }}</h4>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-2">
                                             <label for="progress_date" class="fw-semibold">Progress Date:</label>
                                         </div>
@@ -99,7 +99,7 @@
                                                 name="progress_date" value="{{ now()->format('Y-m-d') }}" required>
                                         </div>
                                     </div>
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-2">
                                             <label for="note" class="fw-semibold">Note:</label>
                                         </div>

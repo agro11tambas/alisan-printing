@@ -43,7 +43,7 @@
             <div class="col-lg-12">
                 <div class="card invoice-container" id="invoiceContent">
                     <div class="card-body p-0">
-                        <div class="px-4 pt-4">
+                        <div class="px-2 pt-2">
                             <div class="d-sm-flex justify-content-between">
                                 <div>
                                     <div class="fs-24 fw-bolder font-montserrat-alt text-uppercase text-primary">Alisan
@@ -52,7 +52,7 @@
                                         Jl. abcde asdkasdas
                                     </address>
                                 </div>
-                                <div class="lh-lg pt-3 pt-sm-0">
+                                <div class="lh-lg pt-2 pt-sm-0">
                                     <h2 class="fs-4 fw-bold text-primary">Invoice</h2>
                                     <div>
                                         <span class="fw-bold text-dark">Invoice:</span>
@@ -67,10 +67,10 @@
                             </div>
                         </div>
                         <hr class="border-dashed">
-                        <div class="px-4 py-sm-4">
+                        <div class="px-2 py-sm-4">
                             <div class="d-sm-flex gap-4 justify-content-center">
                                 <div class="text-sm-end">
-                                    <h2 class="fs-16 fw-bold text-dark mb-3">Invoiced To:</h2>
+                                    <h2 class="fs-16 fw-bold text-dark mb-2">Invoiced To:</h2>
                                     <address class="text-muted lh-lg">
                                         {{ $order->customer->name }}<br>
                                         {{ $order->customer->phone }}<br>
@@ -78,8 +78,8 @@
                                     </address>
                                 </div>
                                 <div class="border-end border-end-dashed border-gray-500 d-none d-sm-block"></div>
-                                <div class="mt-4 mt-sm-0">
-                                    <h2 class="fs-16 fw-bold text-dark mb-3">Payment Details:</h2>
+                                <div class="mt-2 mt-sm-0">
+                                    <h2 class="fs-16 fw-bold text-dark mb-2">Payment Details:</h2>
                                     <div class="text-muted lh-lg">
                                         <div>
                                             <span class="text-muted">Total Due:</span>
@@ -141,12 +141,12 @@
                             </table>
                         </div>
                         <hr class="border-dashed mt-0">
-                        <div class="px-4 pt-4 d-sm-flex align-items-center justify-content-between">
-                            <div class="d-flex mb-5 mb-sm-0">
+                        <div class="px-2 pt-2 d-sm-flex align-items-center justify-content-between">
+                            <div class="d-flex mb-3 mb-sm-0">
 
                             </div>
                             <div class="text-end">
-                                <h6 class="fs-13 fw-bold mt-2">Owner</h6>
+                                <h6 class="fs-13 fw-bold mt-1">Owner</h6>
                                 <p class="fs-11 fw-semibold text-muted">
                                     {{ date('d M Y, H:i', strtotime($order->created_at)) }}</p>
                             </div>

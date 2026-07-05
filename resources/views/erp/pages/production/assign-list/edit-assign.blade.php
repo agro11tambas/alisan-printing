@@ -57,7 +57,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/productions/assign-list/assign/update/{{ $batch->id }}" method="POST"
@@ -71,17 +71,17 @@
                                     <h4 class="card-title">Sale Info</h4>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-5 fw-semibold">Invoice Number:</div>
                                         <div class="col-lg-7">{{ $progress->order->order_number ?? '-' }}</div>
                                     </div>
 
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-5 fw-semibold">Customer:</div>
                                         <div class="col-lg-7">{{ $progress->order->customer->name ?? '-' }}</div>
                                     </div>
 
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-5 fw-semibold text-primary">Order Note:</div>
                                         <div class="col-lg-7 fw-semibold text-primary">
                                             {{ $progress->order->notes ?? '-' }}
@@ -103,7 +103,7 @@
 
                                     {{-- Design Preview Section --}}
                                     @if ($progress->items->pluck('designItem')->filter()->isNotEmpty())
-                                        <div class="row mb-4">
+                                        <div class="row mb-2">
                                             <div class="col-lg-2">
                                                 <label class="fw-semibold">Design Preview:</label>
                                             </div>

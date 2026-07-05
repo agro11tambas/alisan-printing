@@ -9,7 +9,7 @@
             background: #fafafa;
             border: 1px dashed #ccc;
             border-radius: 6px;
-            padding: 8px;
+            padding: 4px;
         }
 
         .preview-item {
@@ -21,7 +21,7 @@
             background: #fff;
             border: 1px solid #eee;
             border-radius: 8px;
-            padding: 10px;
+            padding: 5px;
             position: relative;
         }
 
@@ -98,7 +98,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row align-items-baseline">
             <div class="col-xxl-12 col-xl-6">
                 <div class="card">
@@ -120,8 +120,8 @@
                             @endphp
 
                             @if ($debitGroup->isNotEmpty())
-                                <div class="mb-4 border rounded" data-group="{{ $groupId }}">
-                                    <div class="d-flex justify-content-between align-items-center bg-light p-2">
+                                <div class="mb-2 border rounded" data-group="{{ $groupId }}">
+                                    <div class="d-flex justify-content-between align-items-center bg-light p-1">
                                         <span><strong>Tanggal:</strong>
                                             {{ \Carbon\Carbon::parse($debitGroup->first()->transaction_date)->format('d-m-Y') }}
                                         </span>
@@ -248,17 +248,17 @@
                     <div class="modal-body">
                         <input type="hidden" name="transaction_group_id" id="transaction_group_id">
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label>Tanggal</label>
                             <input type="date" name="transaction_date" id="edit_transaction_date" class="form-control">
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label>Paid Amount</label>
                             <input type="text" name="paid_amount" id="edit_paid_amount" class="form-control">
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label>Cash/Bank Account</label>
                             <select name="cash_bank_account_id" id="edit_cash_bank_account_id" class="form-control">
                                 <option value="">-- Pilih Akun --</option>
@@ -273,12 +273,12 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="fw-semibold">Upload / Paste Proof (optional):</label>
 
-                            <div id="pasteProofArea" class="border rounded p-3 text-center"
+                            <div id="pasteProofArea" class="border rounded p-2 text-center"
                                 style="min-height: 120px; cursor: pointer;">
-                                <p class="text-muted small mb-2">
+                                <p class="text-muted small mb-1">
                                     Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot bukti transfer
                                 </p>
                                 <div id="proofPreviewContainer" class="preview-list"></div>
@@ -289,7 +289,7 @@
 
                             <small class="text-danger d-none" id="error_payment_proof"></small>
                         </div>
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label>Note</label>
                             <input type="text" name="note" id="edit_note" class="form-control">
                         </div>
@@ -327,10 +327,10 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted mb-3">Apakah kamu yakin ingin menandai pembayaran berikut sebagai
+                    <p class="text-muted mb-2">Apakah kamu yakin ingin menandai pembayaran berikut sebagai
                         <strong>Verified</strong>?
                     </p>
-                    <ul class="list-unstyled mb-3">
+                    <ul class="list-unstyled mb-2">
                         <li><strong>Tanggal:</strong> <span id="verifyDate" class="text-dark"></span></li>
                         <li><strong>Jumlah:</strong> <span id="verifyAmount" class="text-dark"></span></li>
                     </ul>
@@ -357,10 +357,10 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted mb-3">
+                    <p class="text-muted mb-2">
                         Apakah kamu yakin ingin <strong>membatalkan verifikasi</strong> pembayaran ini?
                     </p>
-                    <ul class="list-unstyled mb-3">
+                    <ul class="list-unstyled mb-2">
                         <li><strong>Tanggal:</strong> <span id="unverifyDate" class="text-dark"></span></li>
                         <li><strong>Jumlah:</strong> <span id="unverifyAmount" class="text-dark"></span></li>
                     </ul>
@@ -505,9 +505,9 @@
                 proofs.forEach(item => {
                     const col = $(`
                 <div class="col-md-12 col-sm-12">
-                    <div class="border rounded shadow-sm p-2 bg-white h-100 text-center">
-                        <img src="/${item.file}" class="img-fluid rounded mb-2" style="width: 375px; object-fit: contain;">
-                        <p class="small text-muted mt-2 mb-0">Note: ${item.note || '-'}</p>
+                    <div class="border rounded shadow-sm p-1 bg-white h-100 text-center">
+                        <img src="/${item.file}" class="img-fluid rounded mb-1" style="width: 375px; object-fit: contain;">
+                        <p class="small text-muted mt-1 mb-0">Note: ${item.note || '-'}</p>
                     </div>
                 </div>
             `);

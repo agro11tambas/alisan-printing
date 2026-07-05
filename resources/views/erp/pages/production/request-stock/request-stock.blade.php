@@ -97,18 +97,18 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <label for="" class="fw-semibold fs-12">Date</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                     <div class="col-auto">
                                         <select id="filter" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                                             <option value="all">All Time</option>
                                             <option value="yearly">Yearly</option>
                                             <option value="year_to_date">Year to Date</option>
@@ -121,11 +121,11 @@
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="start_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="end_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <button id="apply-filter" class="btn btn-primary">Apply</button>
@@ -137,7 +137,7 @@
                                     <div class="col-lg-3">
                                         <label for="progress_status" class="fw-semibold fs-12">Progress Status</label>
                                         <select id="progress_status" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="progress">Progress</option>
                                             <option value="completed">Completed</option>
                                         </select>
@@ -150,7 +150,7 @@
                                 </div>
                             </div>
                         </div>
-                        <ul class="nav nav-tabs mb-3" id="requestStockTabs" role="tablist">
+                        <ul class="nav nav-tabs mb-2" id="requestStockTabs" role="tablist">
                             <li class="nav-item">
                                 <a class="nav-link active" id="request-stock-tab" data-bs-toggle="tab" href="#request-stock"
                                     role="tab">Request Stock</a>
@@ -233,7 +233,7 @@
                         <p>Apakah Anda yakin ingin menghapus RequestStock <strong id="RequestStockName"></strong>?</p>
                         <p class="text-muted">Data yang dihapus tidak dapat dikembalikan.</p>
 
-                        <div class="mt-3">
+                        <div class="mt-2">
                             <label class="form-label fw-bold">
                                 Ketik <span class="text-danger">DELETE</span> untuk konfirmasi
                             </label>
@@ -272,7 +272,7 @@
                         <p class="text-muted">⚠️ Request Stock ini belum di-issued maupun di-received.</p>
                         <p class="text-danger mb-0">Aksi ini hanya akan <strong>mengurangi incoming stock</strong> di
                             Production.</p>
-                        <div class="mt-3">
+                        <div class="mt-2">
                             <label class="form-label fw-bold">
                                 Ketik <span class="text-danger">DELETE</span> untuk konfirmasi
                             </label>
@@ -422,6 +422,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
+                ordering: false,
                 order: [
                     [1, 'desc']
                 ],
@@ -483,8 +484,12 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            dataTable.clear();
-                            dataTable.rows.add(allData).draw(false);
+                            if (dataTable.rows().count() === 0) {
+                                dataTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = dataTable.rows.add(response.data).nodes();
+                                $(dataTable.table().body()).append(newNodes);
+                            }
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -510,18 +515,16 @@
             //     reloadActiveTab();
             // });
 
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             function resetAndReload() {
@@ -686,17 +689,14 @@
                 deletedTableInitialized = true;
 
                 $('#deletedRequestStockTable').closest('.dataTables_scrollBody').on('scroll', function() {
-                    clearTimeout(scrollTimeout);
-
                     const scrollTop = $(this).scrollTop();
                     const scrollHeight = $(this)[0].scrollHeight;
                     const clientHeight = $(this).height();
 
-                    scrollTimeout = setTimeout(() => {
-                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
-                            loadMoreDeletedData();
-                        }
-                    }, 200);
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
+                        loadMoreDeletedData();
+                    }
                 });
             }
 
@@ -722,8 +722,12 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             deletedAllData = deletedAllData.concat(response.data);
-                            deletedTable.clear();
-                            deletedTable.rows.add(deletedAllData).draw(false);
+                            if (deletedTable.rows().count() === 0) {
+                                deletedTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = deletedTable.rows.add(response.data).nodes();
+                                $(deletedTable.table().body()).append(newNodes);
+                            }
                             deletedCurrentPage++;
                         } else {
                             deletedHasMoreData = false;

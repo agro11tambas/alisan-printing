@@ -36,7 +36,7 @@
         }
 
         .static-action-menu {
-            padding: 12px;
+            padding: 6px;
             min-width: 700px;
         }
 
@@ -147,18 +147,18 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <label for="" class="fw-semibold fs-12">Date</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                     <div class="col-auto">
                                         <select id="filter" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                                             <option value="all">All Time</option>
                                             <option value="yearly">Yearly</option>
                                             <option value="year_to_date">Year to Date</option>
@@ -171,11 +171,11 @@
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="start_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="end_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <button id="apply-filter" class="btn btn-primary">Apply</button>
@@ -187,7 +187,7 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <select id="search_type" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="supplier">Supplier</option>
                                             <option value="purchase_number">Invoice</option>
                                             <option value="payment_status">Payment Status</option>
@@ -197,16 +197,16 @@
                                     <div class="col-md-6">
                                         <input type="text" id="search_keyword" name="search_keyword"
                                             class="form-control search-input"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search..." />
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search..." />
                                         <select id="search_payment_status" class="form-control search-input d-none"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="">All</option>
                                             <option value="Paid">Paid</option>
                                             <option value="Unpaid">Unpaid</option>
                                             <option value="Partially Paid">Partially Paid</option>
                                         </select>
                                         <select id="due_date_order" class="form-control d-none"
-                                            style="padding: 0.5rem 1rem;">
+                                            style="padding: 0.25rem 0.5rem;">
                                             <option value="asc">Ascending</option>
                                             <option value="desc">Descending</option>
                                         </select>
@@ -214,7 +214,7 @@
                                 </div>
                             </div>
                         </div>
-                        <ul class="nav nav-tabs mb-3" id="purchaseListTabs" role="tablist">
+                        <ul class="nav nav-tabs mb-2" id="purchaseListTabs" role="tablist">
                             <li class="nav-item">
                                 <a class="nav-link active" id="purchase-list-tab" data-bs-toggle="tab" href="#purchase-list"
                                     role="tab">Purchase List</a>
@@ -287,7 +287,7 @@
                         <p style="font-size: 16px;">1. Apakah anda yakin ingin menghapus data ?</p>
                         <p style="font-size: 16px;">2. Jika ada kesalahan saat audit. Anda siap untuk Bertanggung Jawab ?
                             Kolom Keterangan (Wajib diisi)</p>
-                        <div class="form-group mt-3">
+                        <div class="form-group mt-2">
                             <label for="delete_notes" class="fw-semibold">Keterangan <span
                                     class="text-danger">*</span></label>
                             <textarea class="form-control" id="delete_notes" name="delete_notes" rows="3" required
@@ -317,7 +317,7 @@
                     @csrf
                     <input type="hidden" id="purchase_id_product" name="purchase_id">
                     <div class="modal-body">
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="transaction_type_product" class="fw-semibold">Purchase Account:</label>
                                 <div class="input-group">
@@ -337,7 +337,7 @@
                                 <small class="text-danger d-none" id="error_transaction_date_product"></small>
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="cash_bank_account_id_product" class="fw-semibold">Cash/Bank Account:</label>
                                 <div class="input-group">
@@ -405,9 +405,9 @@
                         <div class="col-md-12">
                             <label class="fw-semibold">Upload / Paste Proof (optional):</label>
 
-                            <div id="pasteProofAreaProduct" class="border rounded p-3 text-center"
+                            <div id="pasteProofAreaProduct" class="border rounded p-2 text-center"
                                 style="min-height: 120px; cursor: pointer;">
-                                <p class="text-muted small mb-2">
+                                <p class="text-muted small mb-1">
                                     Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot bukti transfer
                                 </p>
 
@@ -444,7 +444,7 @@
                     @csrf
                     <input type="hidden" id="purchase_id_freight" name="purchase_id">
                     <div class="modal-body">
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="transaction_type_freight" class="fw-semibold">Purchase Account:</label>
                                 <div class="input-group">
@@ -464,7 +464,7 @@
                                 <small class="text-danger d-none" id="error_transaction_date_freight"></small>
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="cash_bank_account_id_product" class="fw-semibold">Cash/Bank Account:</label>
                                 <div class="input-group">
@@ -532,9 +532,9 @@
                         <div class="col-md-12">
                             <label class="fw-semibold">Upload / Paste Proof (optional):</label>
 
-                            <div id="pasteProofAreaFreight" class="border rounded p-3 text-center"
+                            <div id="pasteProofAreaFreight" class="border rounded p-2 text-center"
                                 style="min-height: 120px; cursor: pointer;">
-                                <p class="text-muted small mb-2">
+                                <p class="text-muted small mb-1">
                                     Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot bukti transfer
                                 </p>
 
@@ -615,11 +615,11 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-2">
+                        <p class="mb-1">
                             Anda akan menghapus <strong id="fd-purchase-number"></strong> secara permanen
                             beserta rollback stok inventory & transaksi pembelian.
                         </p>
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Delete Notes <span class="text-danger">*</span></label>
                             <textarea name="delete_notes" class="form-control" rows="3" required placeholder="Alasan penghapusan..."></textarea>
                         </div>
@@ -645,11 +645,11 @@
         $(document).ready(function() {
             function formatProducts(products) {
                 if (!products || products.length === 0) {
-                    return '<div class="p-2 text-muted">No products</div>';
+                    return '<div class="p-1 text-muted">No products</div>';
                 }
 
                 let html = `
-                    <div class="table-responsive p-2">
+                    <div class="table-responsive p-1">
                         <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
                             <thead>
                                 <tr>
@@ -784,8 +784,12 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            dataTable.clear();
-                            dataTable.rows.add(allData).draw(false);
+                            if (dataTable.rows().count() === 0) {
+                                dataTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = dataTable.rows.add(response.data).nodes();
+                                $(dataTable.table().body()).append(newNodes);
+                            }
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -808,18 +812,16 @@
             loadMoreData();
 
             // Lazy load saat scroll
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             // Reset dan reload saat filter berubah
@@ -1024,7 +1026,8 @@
                     searching: false,
                     info: false,
                     lengthChange: false,
-                    order: [
+                ordering: false,
+                order: [
                         [4, 'asc']
                     ],
                     data: [],
@@ -1093,9 +1096,12 @@
 
                         if (response && response.data && response.data.length > 0) {
                             deletedAllData = deletedAllData.concat(response.data);
-                            deletedTable.clear();
-                            deletedTable.rows.add(deletedAllData);
-                            deletedTable.draw(false);
+                            if (deletedTable.rows().count() === 0) {
+                                deletedTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = deletedTable.rows.add(response.data).nodes();
+                                $(deletedTable.table().body()).append(newNodes);
+                            }
                             deletedCurrentPage++;
                         } else {
                             deletedHasMoreData = false;
@@ -1182,7 +1188,7 @@
                             const reader = new FileReader();
                             reader.onload = function(event) {
                                 const wrapper = document.createElement('div');
-                                wrapper.classList.add('preview-item', 'mb-2');
+                                wrapper.classList.add('preview-item', 'mb-1');
 
                                 const img = document.createElement('img');
                                 img.src = event.target.result;
@@ -1252,7 +1258,7 @@
                             const reader = new FileReader();
                             reader.onload = function(event) {
                                 const wrapper = document.createElement('div');
-                                wrapper.classList.add('preview-item', 'mb-2');
+                                wrapper.classList.add('preview-item', 'mb-1');
 
                                 const img = document.createElement('img');
                                 img.src = event.target.result;

@@ -28,7 +28,7 @@
 @endsection
 
 @section('content')
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -41,7 +41,7 @@
                                 value="{{ $stockOpname->production_warehouse_id ?? 1 }}">
 
                             {{-- Product --}}
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="product" class="fw-semibold">Product:</label>
                                 </div>
@@ -59,7 +59,7 @@
                             </div>
 
                             {{-- Date --}}
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="date" class="fw-semibold">Date:</label>
                                 </div>
@@ -73,7 +73,7 @@
                             </div>
 
                             {{-- Available Quantity --}}
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="available_quantity" class="fw-semibold">Available Quantity:</label>
                                 </div>
@@ -89,7 +89,7 @@
                             </div>
 
                             {{-- Status --}}
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="status" class="fw-semibold">Status:</label>
                                 </div>
@@ -104,7 +104,7 @@
                             </div>
 
                             {{-- Notes --}}
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="notes" class="fw-semibold">Notes:</label>
                                 </div>

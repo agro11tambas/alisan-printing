@@ -104,18 +104,18 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <label for="" class="fw-semibold fs-12">Date</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                     <div class="col-auto">
                                         <select id="filter" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                                             <option value="all">All Time</option>
                                             <option value="yearly">Yearly</option>
                                             <option value="year_to_date">Year to Date</option>
@@ -128,11 +128,11 @@
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="start_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="end_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <button id="apply-filter" class="btn btn-primary">Apply</button>
@@ -144,7 +144,7 @@
                                     <div class="col-lg-3">
                                         <label for="progress_status" class="fw-semibold fs-12">Progress Status</label>
                                         <select id="progress_status" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="progress">Progress</option>
                                             <option value="completed">Completed</option>
                                         </select>
@@ -159,7 +159,7 @@
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <select id="search_type" class="form-control"
-                                                    style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                                     <option value="customer">Customer</option>
                                                     <option value="order_number">Order Number</option>
                                                 </select>
@@ -167,7 +167,7 @@
                                             <div class="col-md-6">
                                                 <input type="text" id="search_keyword" name="search_keyword"
                                                     class="form-control search-input"
-                                                    style="padding: 0.5rem 1rem; font-size: 0.875rem;"
+                                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
                                                     placeholder="Search..." />
                                             </div>
                                         </div>
@@ -175,8 +175,8 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="px-4 pb-2 remaining-progress">
-                            <div class="d-flex justify-content-between align-items-center border rounded p-3">
+                        <div class="px-2 pb-1 remaining-progress">
+                            <div class="d-flex justify-content-between align-items-center border rounded p-2">
                                 <div>
                                     <h6 class="mb-0 fw-semibold">Total Remaining Progress</h6>
                                     <small class="text-muted">Jumlah total produk yang belum selesai</small>
@@ -268,7 +268,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <img id="viewerImage" src="" alt="Preview" class="img-fluid rounded mb-3"
+                    <img id="viewerImage" src="" alt="Preview" class="img-fluid rounded mb-2"
                         style="max-height: 70vh; object-fit: contain;">
                     <p id="viewerNote" class="text-muted fs-6"></p>
                 </div>
@@ -284,13 +284,13 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label fw-semibold">Order Note</label>
-                        <div id="previewOrderNote" class="border rounded p-3 bg-light text-dark"
+                        <div id="previewOrderNote" class="border rounded p-2 bg-light text-dark"
                             style="white-space: pre-wrap; font-size: 14px;"></div>
                     </div>
 
-                    <h6 class="fw-bold mb-3" id="previewProductName"></h6>
+                    <h6 class="fw-bold mb-2" id="previewProductName"></h6>
                     <div id="previewImageContainer" class="d-flex flex-column gap-3"></div>
                 </div>
             </div>
@@ -316,6 +316,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
+                ordering: false,
                 order: [],
                 data: [],
                 columns: [
@@ -381,8 +382,12 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            dataTable.clear();
-                            dataTable.rows.add(allData).draw(false);
+                            if (dataTable.rows().count() === 0) {
+                                dataTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = dataTable.rows.add(response.data).nodes();
+                                $(dataTable.table().body()).append(newNodes);
+                            }
                             currentPage++;
 
                             // 🧮 Update total remaining
@@ -411,18 +416,16 @@
 
             loadMoreData();
 
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             function resetAndReload() {
@@ -470,15 +473,14 @@
                 }
             });
 
-            // let searchTimeout = null;
+            // 
             // $('#search_keyword').on('keyup', function() {
             //     if ($('#search_type').val() !== 'payment_status') {
             //         clearTimeout(searchTimeout);
             //         searchTimeout = setTimeout(() => resetAndReload(), 400);
             //     }
             // });
-            let searchTimeout = null;
-
+            
             // $('#search_keyword, #search_product').on('keyup input paste', function() {
             //     clearTimeout(searchTimeout);
             //     searchTimeout = setTimeout(() => resetAndReload(), 400);
@@ -602,8 +604,8 @@
                     const fileUrl = img.file ? `/${img.file}`.replace(/\/{2,}/g, '/') : '';
                     const note = img.note || '-';
                     const html = `
-                        <div class="image-item border rounded p-3">
-                            <img src="${fileUrl}" class="img-fluid rounded mb-2" 
+                        <div class="image-item border rounded p-2">
+                            <img src="${fileUrl}" class="img-fluid rounded mb-1" 
                                 style="cursor:pointer;" 
                                 data-full="${fileUrl}">
                                 <p class="small text-muted mb-0">${note}</p>

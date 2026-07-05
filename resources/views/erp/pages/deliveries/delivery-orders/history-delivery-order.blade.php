@@ -35,7 +35,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row align-items-baseline">
             <div class="col-xxl-8 col-xl-6">
                 <div class="card">
@@ -84,39 +84,39 @@
                     </div>
                     <div class="card-body task-info">
                         <div class="task-info-list">
-                            <div class="row align-items-center mb-3">
+                            <div class="row align-items-center mb-2">
                                 <div class="col-6"><i class="feather-user me-2"></i> <span
                                         class="fw-semibold">Customer:</span></div>
                                 <div class="col-6"><span
                                         class="border-bottom border-bottom-dashed">{{ $delivery->customer }}</span></div>
                             </div>
-                            <div class="row align-items-center mb-3">
+                            <div class="row align-items-center mb-2">
                                 <div class="col-6"><i class="feather-map-pin me-2"></i> <span
                                         class="fw-semibold">Address:</span></div>
                                 <div class="col-6"><span
                                         class="border-bottom border-bottom-dashed">{{ $delivery->shipping_address }}</span>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3">
+                            <div class="row align-items-center mb-2">
                                 <div class="col-6"><i class="feather-link me-2"></i> <span class="fw-semibold">Google
                                         Map:</span></div>
                                 <div class="col-6"><a href="{{ $delivery->google_map_link }}" target="_blank">Open Link</a>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3">
+                            <div class="row align-items-center mb-2">
                                 <div class="col-6"><i class="feather-calendar me-2"></i> <span class="fw-semibold">Delivery
                                         Date:</span></div>
                                 <div class="col-6"><span
                                         class="border-bottom border-bottom-dashed">{{ date('d M Y', strtotime($delivery->delivery_date)) }}</span>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3">
+                            <div class="row align-items-center mb-2">
                                 <div class="col-6"><i class="feather-truck me-2"></i> <span
                                         class="fw-semibold">Status:</span></div>
                                 <div class="col-6"><span
                                         class="border-bottom border-bottom-dashed">{{ $delivery->status }}</span></div>
                             </div>
-                            <div class="row align-items-center mb-3">
+                            <div class="row align-items-center mb-2">
                                 <div class="col-6"><i class="feather-user-check me-2"></i> <span
                                         class="fw-semibold">Created By:</span></div>
                                 <div class="col-6"><span
@@ -124,7 +124,7 @@
                                 </div>
                             </div>
                             @if ($delivery->note)
-                                <div class="row align-items-center mb-3">
+                                <div class="row align-items-center mb-2">
                                     <div class="col-6"><i class="feather-file-text me-2"></i> <span
                                             class="fw-semibold">Note:</span></div>
                                     <div class="col-6"><span
@@ -142,7 +142,7 @@
                         <h5 class="card-title">Delivery History</h5>
                     </div>
                     <div class="card-body p-0">
-                        <div class="p-4">
+                        <div class="p-2">
                             <div class="col-lg-4 me-2">
                                 <label for="" class="fw-semibold fs-12">Date Filter</label>
                                 <div class="d-flex align-items-center gap-2">
@@ -210,18 +210,18 @@
                     <div class="modal-body">
                         <input type="hidden" id="history_id" name="id">
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Product</label>
                             <input type="text" id="product_name" class="form-control" readonly>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Shipped Quantity</label>
                             <input type="number" id="shipped_quantity" name="shipped_quantity" class="form-control"
                                 min="0">
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Note</label>
                             <textarea id="note" name="note" class="form-control" rows="3"></textarea>
                         </div>

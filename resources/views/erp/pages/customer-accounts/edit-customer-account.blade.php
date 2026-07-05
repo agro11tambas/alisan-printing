@@ -41,7 +41,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -51,7 +51,7 @@
                         @method('PUT')
 
                         <div class="card-body">
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="name" class="fw-semibold">Name:</label>
                                 </div>
@@ -68,7 +68,7 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="whatsapp_number" class="fw-semibold">WhatsApp Number:</label>
                                 </div>
@@ -87,7 +87,7 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="is_active" class="fw-semibold">Status:</label>
                                 </div>
@@ -104,7 +104,7 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label class="fw-semibold">Last Login:</label>
                                 </div>

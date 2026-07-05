@@ -57,7 +57,7 @@
                     @csrf
                     @method('PUT')
                     <div class="card-body">
-                        <div class="row mb-3 align-items-center">
+                        <div class="row mb-2 align-items-center">
                             <div class="col-lg-2">
                                 <label for="product" class="fw-semibold">Product:</label>
                             </div>
@@ -72,7 +72,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row mb-3 align-items-center">
+                        <div class="row mb-2 align-items-center">
                             <div class="col-lg-2">
                                 <label for="stock" class="fw-semibold">Stock:</label>
                             </div>
@@ -86,7 +86,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row mb-3 align-items-center d-none" id="form_barang_masuk">
+                        <div class="row mb-2 align-items-center d-none" id="form_barang_masuk">
                             <div class="col-lg-2">
                                 <label for="barang_masuk" class="fw-semibold">Stock In:</label>
                             </div>
@@ -97,7 +97,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row mb-3 align-items-center d-none" id="form_barang_keluar">
+                        <div class="row mb-2 align-items-center d-none" id="form_barang_keluar">
                             <div class="col-lg-2">
                                 <label for="barang_keluar" class="fw-semibold">Stock Out:</label>
                             </div>
@@ -108,7 +108,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row mb-3 align-items-center">
+                        <div class="row mb-2 align-items-center">
                             <div class="col-lg-2">
                                 <label for="date_change" class="fw-semibold">Date:</label>
                             </div>
@@ -118,7 +118,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row mb-3 align-items-center">
+                        <div class="row mb-2 align-items-center">
                             <div class="col-lg-2">
                                 <label for="note" class="fw-semibold">Note:</label>
                             </div>

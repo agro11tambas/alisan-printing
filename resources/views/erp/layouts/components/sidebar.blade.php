@@ -1,6 +1,6 @@
 <nav class="nxl-navigation">
     <div class="navbar-wrapper">
-        <div class="m-header">
+        <div class="m-header" style="padding: 8px 15px !important; height: 60px !important;">
             <a href="index.html" class="b-brand">
                 <img src="#" alt="" class="logo logo-lg">
                 <img src="#" alt="" class="logo logo-sm">
@@ -19,9 +19,29 @@
                         </a>
                     </li>
                 @endif
+                @if (Auth::check() && (Auth::user()->hasSubPermission('product-list') || Auth::user()->hasSubPermission('product-categories')))
+                    <li
+                        class="nxl-item nxl-hasmenu {{ request()->is('erp/ecommerce-products*') || request()->is('erp/ecommerce-product-categories*') ? 'active' : '' }}">
+                        <a href="javascript:void(0);" class="nxl-link">
+                            <span class="nxl-micon"><i class="feather-shopping-cart"></i></span>
+                            <span class="nxl-mtext ">Ecommerce</span><span class="nxl-arrow"><i
+                                    class="feather-chevron-right"></i></span>
+                        </a>
+                        <ul class="nxl-submenu">
+                            <li class="nxl-item {{ request()->is('erp/ecommerce-products*') ? 'active' : '' }}"><a
+                                    class="nxl-link" href="/erp/ecommerce-products"><span class="">Ecommerce
+                                        Product</span></a></li>
+                            <li
+                                class="nxl-item {{ request()->is('erp/ecommerce-product-categories*') ? 'active' : '' }}">
+                                <a class="nxl-link" href="/erp/ecommerce-product-categories"><span
+                                        class="">Ecommerce Category</span></a>
+                            </li>
+                        </ul>
+                    </li>
+                @endif
                 @if (Auth::check() && Auth::user()->hasPermission('products'))
                     <li
-                        class="nxl-item nxl-hasmenu {{ request()->is('products/product-list*') || request()->is('products/categories*') || request()->is('products/tags*') ? 'active' : '' }}">
+                        class="nxl-item nxl-hasmenu {{ request()->is('products/product-list*') || request()->is('products/categories*') || request()->is('products/tags*') || request()->is('products/units*') || request()->is('products/product-bundles*') ? 'active' : '' }}">
                         <a href="javascript:void(0);" class="nxl-link">
                             <span class="nxl-micon"><i class="feather-briefcase"></i></span>
                             <span class="nxl-mtext ">Products</span><span class="nxl-arrow"><i
@@ -53,6 +73,7 @@
                                         class="nxl-link" href="/erp/products/units"><span class="">Satuan
                                             Produk</span></a></li>
                             @endif
+
                         </ul>
                     </li>
                 @endif

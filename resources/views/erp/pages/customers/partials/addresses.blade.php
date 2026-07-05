@@ -1,5 +1,5 @@
 <table class="table table-sm">
-    <thead class="border-bottom mb-2">
+    <thead class="border-bottom mb-1">
         <tr>
             <th scope="col" width="20%">*</th>
             <th scope="col" width="40%">Alamat</th>

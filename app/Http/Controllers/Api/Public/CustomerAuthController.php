@@ -39,6 +39,8 @@ class CustomerAuthController extends Controller
                 'last_login_at' => now(),
             ]);
 
+            $account->customers()->syncWithoutDetaching([$customer->id]);
+
             $token = $account->createToken('customer-token')->plainTextToken;
 
             return response()->json([
@@ -46,7 +48,7 @@ class CustomerAuthController extends Controller
                 'message' => 'Register success.',
                 'data' => [
                     'token' => $token,
-                    'customer' => $account->load('customer'),
+                    'customer' => $account->load(['customer', 'customers']),
                 ],
             ], 201);
         });
@@ -88,7 +90,7 @@ class CustomerAuthController extends Controller
             'message' => 'Login success.',
             'data' => [
                 'token' => $token,
-                'customer' => $account->load('customer'),
+                'customer' => $account->load(['customer', 'customers']),
             ],
         ]);
     }
@@ -121,6 +123,10 @@ class CustomerAuthController extends Controller
                     'last_login_at' => now(),
                 ]);
 
+                if ($account->customer_id) {
+                    $account->customers()->syncWithoutDetaching([$account->customer_id]);
+                }
+
                 return $account;
             }
 
@@ -130,7 +136,7 @@ class CustomerAuthController extends Controller
                 'customer_deposit' => 0,
             ]);
 
-            return CustomerAccount::create([
+            $account = CustomerAccount::create([
                 'customer_id' => $customer->id,
                 'google_id' => $googleUser->getId(),
                 'name' => $googleUser->getName(),
@@ -142,6 +148,10 @@ class CustomerAuthController extends Controller
                 'is_active' => true,
                 'last_login_at' => now(),
             ]);
+
+            $account->customers()->syncWithoutDetaching([$customer->id]);
+
+            return $account;
         });
 
         $token = $account->createToken('customer-token')->plainTextToken;
@@ -158,7 +168,7 @@ class CustomerAuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Customer profile retrieved successfully.',
-            'data' => $request->user()->load('customer'),
+            'data' => $request->user()->load(['customer', 'customers']),
         ]);
     }
 

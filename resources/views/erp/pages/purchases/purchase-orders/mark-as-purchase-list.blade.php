@@ -47,7 +47,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="{{ route('purchase-orders.update-purchase-list', $purchase->id) }}" method="POST"
@@ -60,7 +60,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-lg-12">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="purchase_number" class="fw-semibold">Invoice Number:</label>
                                         </div>
@@ -71,7 +71,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="purchase_date" class="fw-semibold">Purchase Date:</label>
                                         </div>
@@ -83,7 +83,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="due_date_option" class="fw-semibold">Due Date:</label>
                                         </div>
@@ -99,13 +99,13 @@
                                                     <option value="custom">Custom</option>
                                                 </select>
                                             </div>
-                                            <div id="custom_due_date_wrapper" class="mt-2">
+                                            <div id="custom_due_date_wrapper" class="mt-1">
                                                 <input type="date" class="form-control" id="custom_due_date"
                                                     name="custom_due_date" readonly>
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="suppliers" class="fw-semibold">Supplier:</label>
                                         </div>
@@ -125,7 +125,7 @@
                                         </div>
                                     </div>
                                     <input type="hidden" value="12" name="transaction_type" id="transaction_type">
-                                    {{-- <div class="row mb-3 align-items-center">
+                                    {{-- <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="transaction_type" class="fw-semibold">Purchase:</label>
                                         </div>
@@ -138,7 +138,7 @@
                                             </div>
                                         </div>
                                     </div> --}}
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="stock_destination" class="fw-semibold">
                                                 Stock Destination:
@@ -160,7 +160,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-lg-12">
-                                    <div class="mb-4">
+                                    <div class="mb-2">
                                         <h5 class="fw-bold">Add Products:</h5>
                                     </div>
                                     <div class="table-responsive">
@@ -247,8 +247,8 @@
                                     </div>
 
                                     <div class="row justify-content-end">
-                                        <div class="col-lg-4 mt-3">
-                                            <div class="mb-4">
+                                        <div class="col-lg-4 mt-2">
+                                            <div class="mb-2">
                                                 <h5 class="fw-bold">Grand Total:</h5>
                                             </div>
                                             <div class="table-responsive">
@@ -481,6 +481,7 @@
         /* ==================== SELECT2 & INIT ==================== */
         function initSelect2(el) {
             $(el).select2({
+                theme: 'bootstrap-5',
                 placeholder: 'Pilih opsi',
                 width: '100%',
                 matcher: (params, data) => {

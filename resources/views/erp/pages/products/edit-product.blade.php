@@ -49,7 +49,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -58,7 +58,7 @@
                         @csrf
                         @method('PUT')
                         <div class="card-body">
-                            {{-- <div class="row mb-3 align-items-center">
+                            {{-- <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="image" class="fw-semibold">Upload Image</label>
                                 </div>
@@ -71,20 +71,20 @@
                                         @php
                                             $imageUrl = asset($product->image);
                                         @endphp
-                                        <div class="mt-2" id="old-image-container">
+                                        <div class="mt-1" id="old-image-container">
                                             <img src="{{ $imageUrl }}" alt="Old Image" id="old-image"
                                                 style="max-width: 100px; border-radius: 10px">
                                         </div>
                                     @endif
 
-                                    <div class="mt-2" id="new-image-container" style="display: none;">
+                                    <div class="mt-1" id="new-image-container" style="display: none;">
                                         <img id="preview-image" src="#" alt="Preview"
                                             style="max-width: 100px; border-radius: 10px">
                                     </div>
                                 </div>
                             </div> --}}
 
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="name" class="fw-semibold">Name:</label>
                                 </div>
@@ -95,7 +95,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="sku" class="fw-semibold">SKU</label>
                                 </div>
@@ -106,7 +106,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="categories" class="fw-semibold">Categories</label>
                                 </div>
@@ -146,7 +146,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="tags" class="fw-semibold">Merek</label>
                                 </div>
@@ -178,7 +178,7 @@
                                 </div>
                             </div>
                             <input type="hidden" id="price" name="price" value="0">
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="base_unit_id" class="fw-semibold">Base Unit</label>
                                 </div>
@@ -202,7 +202,7 @@
                                 $unitRowIndex = max($existingUnitConversions->count(), 1);
                             @endphp
 
-                            <div class="row mb-3 align-items-start">
+                            <div class="row mb-2 align-items-start">
                                 <div class="col-lg-2">
                                     <label class="fw-semibold">Product Units</label>
                                 </div>
@@ -362,17 +362,17 @@
                                         Add Unit
                                     </button>
 
-                                    {{-- <small class="text-muted d-block mt-2">
+                                    {{-- <small class="text-muted d-block mt-1">
                                         Pcs otomatis dihitung sebagai 1. Di sini cukup isi unit tambahan seperti Dus, Pack,
                                         Roll, dll.
                                     </small> --}}
-                                    <small class="text-muted d-block mt-2">
+                                    <small class="text-muted d-block mt-1">
                                         Isi rasio perbandingan antar unit. Contoh: DUS=1, PACK=10, PCS=1000 (artinya 1 DUS =
                                         10 PACK = 1000 PCS).
                                     </small>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="description" class="fw-semibold">Description:</label>
                                 </div>

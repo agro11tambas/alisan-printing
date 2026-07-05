@@ -75,19 +75,19 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
 
                             </div>
                             <div class="col-lg-3">
                                 <label for="name" class="fw-semibold fs-12">Category Name</label>
                                 <input type="text" id="name" name="name" class="form-control"
-                                    style="padding: 0.5rem 1rem; font-size: 0.875rem;"
+                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
                                     placeholder="Search Category Name...">
                             </div>
                         </div>

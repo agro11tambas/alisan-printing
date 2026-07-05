@@ -48,20 +48,20 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="tab-content">
             <div class="tab-pane fade show active" id="profileTab" role="tabpanel">
                 <div class="card card-body lead-info">
-                    <div class="row mb-4">
+                    <div class="row mb-2">
                         <div class="col-lg-2 fw-medium">Name</div>
                         <div class="col-lg-10"><strong class="text-black">{{ $customer->name }}</strong></div>
                     </div>
-                    <div class="row mb-4">
+                    <div class="row mb-2">
                         <div class="col-lg-2 fw-medium">Customer Account</div>
 
                         <div class="col-lg-10">
                             @forelse ($customer->accounts as $account)
-                                <div class="border rounded-3 p-3 mb-2 bg-light">
+                                <div class="border rounded-3 p-2 mb-1 bg-light">
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="avatar-text avatar-md bg-primary text-white rounded-circle">
                                             <i class="feather-user"></i>
@@ -91,16 +91,16 @@
                                     </div>
                                 </div>
                             @empty
-                                <div class="border rounded-3 p-4 text-center bg-light">
+                                <div class="border rounded-3 p-2 text-center bg-light">
                                     <i class="feather-user-x fs-4 text-muted"></i>
-                                    <div class="mt-2 text-muted">Belum ada customer account</div>
+                                    <div class="mt-1 text-muted">Belum ada customer account</div>
                                 </div>
                             @endforelse
                         </div>
                     </div>
-                    <div class="border-top pt-4">
+                    <div class="border-top pt-2">
                         @foreach ($customer->addresses as $index => $address)
-                            <div class="row mb-3">
+                            <div class="row mb-2">
                                 <div class="col-lg-2 fw-medium">Branch {{ $index + 1 }}</div>
                                 <div class="row col-lg-4">
                                     <div class="col-lg-4">

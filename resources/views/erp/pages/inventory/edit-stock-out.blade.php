@@ -49,7 +49,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/inventory/stock-out/update/{{ $stockOut->id }}" method="POST" id="stockInForm"
@@ -60,7 +60,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-12">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <!-- <input type="hidden" name="inventory_id" value="{{ $stockOut->id }}"> -->
                                             <label for="change_date" class="fw-semibold">Change Date:</label>
@@ -76,7 +76,7 @@
                                     </div>
                                 </div>
                                 <div class="col-12">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
                                         </div>
@@ -95,7 +95,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-lg-12">
-                                    <div class="mb-4">
+                                    <div class="mb-2">
                                         <h5 class="fw-bold">Add Products:</h5>
                                     </div>
                                     <div class="table-responsive">
@@ -152,7 +152,7 @@
                                             </tbody>
                                         </table>
                                     </div>
-                                    <div class="d-flex justify-content-end gap-2 mt-3">
+                                    <div class="d-flex justify-content-end gap-2 mt-2">
                                         <button type="button" id="delete_row"
                                             class="btn btn-md bg-soft-danger text-danger">Delete</button>
                                         <button type="button" id="add_row" class="btn btn-md btn-primary">Add
@@ -199,7 +199,8 @@
 
             function initSelect2() {
                 $('[data-select2-selector="status"]').select2({
-                    placeholder: 'Pilih produk',
+                theme: 'bootstrap-5',
+                placeholder: 'Pilih produk',
                     width: '100%'
                 });
             }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Erp\ProductCategoryApiController;
 use App\Http\Controllers\Api\Erp\ProductTagApiController;
 use App\Http\Controllers\Api\Erp\ProductUnitApiController;
 use App\Http\Controllers\Api\Public\CustomerAuthController;
+use App\Http\Controllers\Api\Public\EcommerceSaleOrderController;
 
 Route::prefix('v1')->group(function () {
     // ERP admin login
@@ -44,6 +45,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/me', [CustomerAuthController::class, 'me']);
             Route::post('/logout', [CustomerAuthController::class, 'logout']);
         });
+    });
+
+    Route::prefix('ecommerce')->middleware('auth:sanctum')->group(function () {
+        Route::get('/sale-orders', [EcommerceSaleOrderController::class, 'index']);
+        Route::post('/sale-orders', [EcommerceSaleOrderController::class, 'store']);
+        Route::get('/sale-orders/{order}', [EcommerceSaleOrderController::class, 'show']);
     });
 
     // Public ecommerce API

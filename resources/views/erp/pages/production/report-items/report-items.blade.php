@@ -39,7 +39,7 @@
         }
 
         .report-mobile-card {
-            padding: 14px 16px;
+            padding: 8px 10px;
             margin: 0 12px 12px;
             border-radius: 10px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, .06);
@@ -122,21 +122,21 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <div class="row g-3 justify-content-strart">
                                     <div class="col-lg-6">
                                         <label for="product_name" class="fw-semibold fs-12">Item Name</label>
                                         <input type="text" id="product_name" name="product_name" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Item...">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search Item...">
                                     </div>
                                 </div>
-                                <div class="mt-2 d-flex align-items-center gap-2">
+                                <div class="mt-1 d-flex align-items-center gap-2">
                                     <div class="form-check form-switch mb-0">
                                         <input class="form-check-input" type="checkbox" role="switch" id="dailyToggle">
                                         <label class="form-check-label fs-12 fw-semibold" for="dailyToggle">Daily
@@ -145,7 +145,7 @@
                                 </div>
                             </div>
                             <div class="col-lg-4">
-                                <div class="d-flex justify-content-end align-items-center p-3">
+                                <div class="d-flex justify-content-end align-items-center p-2">
                                     <button id="btnRequestStock" class="btn btn-primary d-none">
                                         <i class="feather-plus me-2"></i>Request Stock
                                     </button>
@@ -177,7 +177,7 @@
                             </table>
                         </div>
 
-                        <div id="reportItemsMobile" class="px-0 pb-4"></div>
+                        <div id="reportItemsMobile" class="px-0 pb-2"></div>
                     </div>
                 </div>
             </div>
@@ -197,16 +197,16 @@
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="product_id" id="defect_product_id">
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Product Name</label>
                             <input type="text" id="defect_product_name" class="form-control" readonly>
                         </div>
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Defect Quantity</label>
                             <input type="number" name="quantity" id="defect_quantity" class="form-control" min="1"
                                 required>
                         </div>
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Note (optional)</label>
                             <textarea name="note" id="defect_note" class="form-control" rows="2"></textarea>
                         </div>
@@ -414,18 +414,16 @@
                 renderMobileCards(allData, dailyOnly);
             });
 
-            let scrollTimeout = null;
+            
             $(".dataTables_scrollBody").on("scroll", function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             // $("#product_name").on("keyup change", function() {

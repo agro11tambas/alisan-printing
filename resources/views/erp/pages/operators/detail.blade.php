@@ -21,7 +21,7 @@
 @endsection
 
 @section('content')
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch">
@@ -50,7 +50,7 @@
                                 </thead>
                                 <tbody></tbody>
                             </table>
-                            <div id="loadingIndicator" class="text-center text-muted py-2" style="display:none;">
+                            <div id="loadingIndicator" class="text-center text-muted py-1" style="display:none;">
                                 Loading...
                             </div>
                         </div>
@@ -154,18 +154,16 @@
             loadMoreData();
 
             // Infinite scroll
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 100);
             });
 
             // Filter tanggal

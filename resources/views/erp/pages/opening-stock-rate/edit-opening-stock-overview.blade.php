@@ -36,7 +36,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -45,7 +45,7 @@
                         @method('PUT')
 
                         <div class="card-body">
-                            <h5 class="mb-3">Opening Stock Overview (Inventory + Production)</h5>
+                            <h5 class="mb-2">Opening Stock Overview (Inventory + Production)</h5>
                             <div class="table-responsive">
                                 <table class="table table-bordered align-middle">
                                     <thead class="table-light">

@@ -30,7 +30,7 @@
         }
 
         .report-mobile-card {
-            padding: 14px 16px;
+            padding: 8px 10px;
             margin: 0 12px 12px;
             border-radius: 10px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, .06);
@@ -95,24 +95,24 @@
 @endsection
 
 @section('content')
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             {{-- Filter Kiri --}}
                             <div class="col-lg-8">
                                 <div class="row g-3">
                                     <div class="col-lg-4">
                                         <label for="product_name" class="fw-semibold fs-12">Item Name</label>
                                         <input type="text" id="product_name" name="product_name" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Item...">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search Item...">
                                     </div>
                                     <div class="col-lg-4">
                                         <label for="snapshot_date" class="fw-semibold fs-12">Date</label>
                                         <input type="date" id="snapshot_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;" value="{{ date('Y-m-d') }}">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" value="{{ date('Y-m-d') }}">
                                     </div>
                                 </div>
                             </div>
@@ -138,7 +138,7 @@
                         </div>
 
                         {{-- Mobile Cards --}}
-                        <div id="snapshotMobile" class="px-0 pb-4"></div>
+                        <div id="snapshotMobile" class="px-0 pb-2"></div>
                     </div>
                 </div>
             </div>
@@ -278,18 +278,16 @@
             });
 
             // ── Infinite scroll ────────────────────────────────────
-            let scrollTimeout = null;
+            
             $(".dataTables_scrollBody").on("scroll", function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadData();
                     }
-                }, 200);
             });
 
             // ── Initial load (default: this_month) ────────────────

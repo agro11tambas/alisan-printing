@@ -97,7 +97,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 {{-- <form action="/erp/inventory/stock-in/store/{{ $stockIn->id }}" method="POST" id="stockInForm" --}}
@@ -126,7 +126,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-12">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="invoice_number" class="fw-semibold">Invoice Number:</label>
                                         </div>
@@ -144,7 +144,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="change_date" class="fw-semibold">Change Date:</label>
                                         </div>
@@ -155,7 +155,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="waybill_number" class="fw-semibold">Waybill Number:</label>
                                         </div>
@@ -168,7 +168,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="waybill_image" class="fw-semibold">Waybill Image</label>
                                         </div>
@@ -182,7 +182,7 @@
                                                 style="display:none; max-width: 100px; margin-top: 10px; border-radius: 10px" />
                                         </div>
                                     </div>
-                                    {{-- <div class="row mb-3 align-items-center">
+                                    {{-- <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
                                         </div>
@@ -311,15 +311,15 @@
                                         value="{{ $item->product_id }}">
                                     <input type="text" inputmode="numeric"
                                         name="items[{{ $index }}][stock_in]"
-                                        class="form-control form-control-sm mb-2 stock-in-input" value="0"
+                                        class="form-control form-control-sm mb-1 stock-in-input" value="0"
                                         data-max="{{ $item->remaining }}">
-                                    <small class="text-muted d-block mb-2">
+                                    <small class="text-muted d-block mb-1">
                                         Sisa: {{ number_format($item->remaining, 0, ',', '.') }}
                                     </small>
 
                                     <div class="stockin-mobile-label">Notes</div>
                                     <input type="text" name="items[{{ $index }}][notes]"
-                                        class="form-control form-control-sm mb-2">
+                                        class="form-control form-control-sm mb-1">
                                 </div>
                             @endforeach
                         </div>

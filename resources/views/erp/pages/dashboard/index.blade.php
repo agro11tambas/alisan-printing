@@ -21,7 +21,7 @@
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                     <div class="col-auto">
                         <select id="filter" class="form-control"
-                            style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                             <option value="this_month">This Month</option>
                             <option value="all">All Time</option>
                             <option value="yearly">Yearly</option>
@@ -35,11 +35,11 @@
 
                     <div class="col-auto custom-range d-none">
                         <input type="date" id="start_date" class="form-control"
-                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                     </div>
                     <div class="col-auto custom-range d-none">
                         <input type="date" id="end_date" class="form-control"
-                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                     </div>
                     <div class="col-auto custom-range d-none">
                         <button id="apply-filter" class="btn btn-primary">Apply</button>
@@ -70,13 +70,13 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Sale Order</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
                             </div>
                         </div>
-                        <h4 class="fw-bolder mb-3"><span id="SaleOrderDisplay">Rp 0</span></h4>
+                        <h4 class="fw-bolder mb-2"><span id="SaleOrderDisplay">Rp 0</span></h4>
                         <p class="fs-12 text-muted mb-0">Total Orders: <span class="fw-semibold text-dark"
                                 id="SaleOrderCount">0</span></p>
                     </div>
@@ -85,13 +85,13 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Purchase Order</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
                             </div>
                         </div>
-                        <h4 class="fw-bolder mb-3"><span id="PurchaseOrderDisplay">Rp 0</span></h4>
+                        <h4 class="fw-bolder mb-2"><span id="PurchaseOrderDisplay">Rp 0</span></h4>
                         <p class="fs-12 text-muted mb-0">Total Orders: <span class="fw-semibold text-dark"
                                 id="PurchaseOrderCount">0</span></p>
                     </div>
@@ -100,25 +100,25 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Sale List</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
                             </div>
                         </div>
                         <div class="hstack justify-content-between lh-base">
-                            <h4 class="fw-bolder mb-3"><span class="counter" id="SaleListDisplay">0</span></h4>
+                            <h4 class="fw-bolder mb-2"><span class="counter" id="SaleListDisplay">0</span></h4>
                         </div>
                         <p class="fs-12 text-muted mb-0">Total Sale List : <span class="fw-semibold text-dark"
                                 id="SaleListCount">0</span></p>
                         <hr>
                         <div class="d-flex flex-wrap fs-12 text-muted">
                             <span>Paid: <span class="fw-semibold text-dark" id="SalePaid">0</span></span>
-                            <span class="mx-2">|</span>
+                            <span class="mx-1">|</span>
                             <span>Unpaid: <span class="fw-semibold text-dark" id="SaleUnpaid">0</span></span>
-                            <span class="mx-2">|</span>
+                            <span class="mx-1">|</span>
                             <span>Overdue: <span class="fw-semibold text-dark" id="SaleOverdue">0</span></span>
-                            <span class="mx-2">|</span>
+                            <span class="mx-1">|</span>
                             <span>Partially Paid: <span class="fw-semibold text-dark" id="SalePartiallyPaid">0</span></span>
                         </div>
                     </div>
@@ -127,25 +127,25 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Purchase List</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
                             </div>
                         </div>
                         <div class="hstack justify-content-between lh-base">
-                            <h4 class="fw-bolder mb-3"><span class="counter" id="PurchaseListDisplay">0</span></h4>
+                            <h4 class="fw-bolder mb-2"><span class="counter" id="PurchaseListDisplay">0</span></h4>
                         </div>
                         <p class="fs-12 text-muted mb-0">Total Purchase List : <span class="fw-semibold text-dark"
                                 id="PurchaseListCount">0</span></p>
                         <hr>
                         <div class="d-flex flex-wrap fs-12 text-muted">
                             <span>Paid: <span class="fw-semibold text-dark" id="PurchasePaid">0</span></span>
-                            <span class="mx-2">|</span>
+                            <span class="mx-1">|</span>
                             <span>Unpaid: <span class="fw-semibold text-dark" id="PurchaseUnpaid">0</span></span>
-                            <span class="mx-2">|</span>
+                            <span class="mx-1">|</span>
                             <span>Overdue: <span class="fw-semibold text-dark" id="PurchaseOverdue">0</span></span>
-                            <span class="mx-2">|</span>
+                            <span class="mx-1">|</span>
                             <span>Partially Paid: <span class="fw-semibold text-dark"
                                     id="PurchasePartiallyPaid">0</span></span>
                         </div>
@@ -155,7 +155,7 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Payments</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
@@ -165,7 +165,7 @@
                             <div class="col-12">
                                 <p class="fs-12 text-muted mb-0">Received from Customer</p>
                                 <div class="hstack justify-content-between lh-base">
-                                    <h5 class="fw-bolder mt-2">
+                                    <h5 class="fw-bolder mt-1">
                                         <span class="counter" id="ReceivedFromCustomer">0</span>
                                     </h5>
                                 </div>
@@ -173,7 +173,7 @@
                             <div class="col-12">
                                 <p class="fs-12 text-muted mb-0">Paid to Supplier</p>
                                 <div class="hstack justify-content-between lh-base">
-                                    <h5 class="fw-bolder mt-2">
+                                    <h5 class="fw-bolder mt-1">
                                         <span class="counter" id="PaidToSupplier">0</span>
                                     </h5>
                                 </div>
@@ -186,7 +186,7 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Receivable</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
@@ -196,7 +196,7 @@
                             <div class="col-12">
                                 <p class="fs-12 text-muted mb-0">Receivable from Customer</p>
                                 <div class="hstack justify-content-between lh-base">
-                                    <h5 class="fw-bolder mt-2">
+                                    <h5 class="fw-bolder mt-1">
                                         <span class="counter" id="ReceivableFromCustomer">0</span>
                                     </h5>
                                 </div>
@@ -204,7 +204,7 @@
                             <div class="col-12">
                                 <p class="fs-12 text-muted mb-0">Payable to Supplier</p>
                                 <div class="hstack justify-content-between lh-base">
-                                    <h5 class="fw-bolder mt-2">
+                                    <h5 class="fw-bolder mt-1">
                                         <span class="counter" id="PayableToSupplier">0</span>
                                     </h5>
                                 </div>
@@ -216,14 +216,14 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Expense</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
                             </div>
                         </div>
                         <div class="hstack justify-content-between lh-base">
-                            <h4 class="fw-bolder mb-3"><span class="counter" id="ExpenseTotalDisplay">0</span></h4>
+                            <h4 class="fw-bolder mb-2"><span class="counter" id="ExpenseTotalDisplay">0</span></h4>
                         </div>
                         <div id="ExpenseBreakdown"></div>
                     </div>
@@ -232,14 +232,14 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Bank</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
                             </div>
                         </div>
                         <div class="hstack justify-content-between lh-base">
-                            <h4 class="fw-bolder mb-3">
+                            <h4 class="fw-bolder mb-2">
                                 <span class="counter" id="BankTotalDisplay">0</span>
                             </h4>
                         </div>
@@ -250,14 +250,14 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Cash</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
                             </div>
                         </div>
                         <div class="hstack justify-content-between lh-base">
-                            <h4 class="fw-bolder mb-3"><span class="counter" id="CashTotalDisplay">0</span></h4>
+                            <h4 class="fw-bolder mb-2"><span class="counter" id="CashTotalDisplay">0</span></h4>
                         </div>
                         <div id="CashBreakdown"></div>
                     </div>
@@ -266,7 +266,7 @@
             <div class="col-xxl-3 col-lg-4 col-md-6">
                 <div class="card stretch stretch-full">
                     <div class="card-body">
-                        <div class="hstack justify-content-between lh-base mb-3">
+                        <div class="hstack justify-content-between lh-base mb-2">
                             <span class="fs-12 fw-medium text-muted">Inventory Valuation</span>
                             <div class="hstack gap-2 fs-11 text-success">
                                 <i class="feather-circle fs-14"></i>
@@ -276,7 +276,7 @@
                             <div class="col-12">
                                 <p class="fs-12 text-muted mb-0">Inventory Warehouse</p>
                                 <div class="hstack justify-content-between lh-base">
-                                    <h5 class="fw-bolder mt-2">
+                                    <h5 class="fw-bolder mt-1">
                                         <span class="counter" id="InventoryValue">0</span>
                                     </h5>
                                 </div>
@@ -284,7 +284,7 @@
                             <div class="col-12">
                                 <p class="fs-12 text-muted mb-0">Production Warehouse</p>
                                 <div class="hstack justify-content-between lh-base">
-                                    <h5 class="fw-bolder mt-2">
+                                    <h5 class="fw-bolder mt-1">
                                         <span class="counter" id="ProductionValue">0</span>
                                     </h5>
                                 </div>
@@ -293,7 +293,7 @@
                             <div class="col-12">
                                 <p class="fs-12 text-muted mb-0 fw-medium text-dark">Total Valuation</p>
                                 <div class="hstack justify-content-between lh-base">
-                                    <h5 class="fw-bolder mt-2 text-primary">
+                                    <h5 class="fw-bolder mt-1 text-primary">
                                         <span class="counter" id="TotalInventoryValuation">0</span>
                                     </h5>
                                 </div>

@@ -57,7 +57,7 @@
                         @csrf
                         @method('POST')
                         <div class="card-body">
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="name" class="fw-semibold">Name:</label>
                                 </div>
@@ -69,7 +69,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="bank_name" class="fw-semibold">Bank Name:</label>
                                 </div>
@@ -81,7 +81,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="account_number" class="fw-semibold">No Rek:</label>
                                 </div>
@@ -93,7 +93,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="address" class="fw-semibold">Address</label>
                                 </div>
@@ -105,19 +105,19 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-start">
+                            <div class="row mb-2 align-items-start">
                                 <div class="col-lg-2">
                                     <label class="fw-semibold">Terms & Conditions</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
                                     <div id="contents-wrapper">
-                                        <div class="content-item mb-2 d-flex align-items-start">
+                                        <div class="content-item mb-1 d-flex align-items-start">
                                             <textarea class="form-control" name="contents[]" rows="1" placeholder="Enter content"></textarea>
                                             <button type="button"
                                                 class="btn btn-danger ms-2 remove-content d-none">Remove</button>
                                         </div>
                                     </div>
-                                    <button type="button" class="btn btn-success mt-2" id="add-content-btn">+ Add
+                                    <button type="button" class="btn btn-success mt-1" id="add-content-btn">+ Add
                                         Content</button>
                                 </div>
                             </div>
@@ -176,7 +176,7 @@
 
             addBtn.addEventListener('click', function() {
                 const newItem = document.createElement('div');
-                newItem.className = 'content-item mb-2 d-flex align-items-start';
+                newItem.className = 'content-item mb-1 d-flex align-items-start';
                 newItem.innerHTML = `
             <textarea class="form-control" name="contents[]" rows="1" placeholder="Enter content"></textarea>
             <button type="button" class="btn btn-danger ms-2 remove-content">Remove</button>

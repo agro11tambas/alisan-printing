@@ -39,14 +39,14 @@
 @endsection
 
 @section('content')
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <form action="/erp/shop-manager/store" method="POST" id="ShopManagerForm">
                         @csrf
                         <div class="card-body">
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="name" class="fw-semibold">Name:</label>
                                 </div>
@@ -58,7 +58,7 @@
                                     @enderror
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="username" class="fw-semibold">Username:</label>
                                 </div>
@@ -70,7 +70,7 @@
                                     @enderror
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="password" class="fw-semibold">Password:</label>
                                 </div>
@@ -82,7 +82,7 @@
                                     @enderror
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="role" class="fw-semibold">Role:</label>
                                 </div>
@@ -101,16 +101,16 @@
                                     @enderror
                                 </div>
                             </div>
-                            <div class="row mb-3">
+                            <div class="row mb-2">
                                 <div class="col-lg-2">
                                     <label class="fw-semibold">Hak Akses:</label>
                                 </div>
                                 <div class="col-lg-10">
                                     <div class="row">
                                         @foreach ($permissions as $permission)
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card p-2 h-100">
-                                                    <div class="form-check mb-2">
+                                            <div class="col-md-4 mb-2">
+                                                <div class="card p-1 h-100">
+                                                    <div class="form-check mb-1">
                                                         <input class="form-check-input parent-permission" type="checkbox"
                                                             name="permissions[]" value="{{ $permission->id }}"
                                                             id="perm_{{ $permission->id }}"

@@ -52,7 +52,7 @@
         }
 
         .static-action-menu {
-            padding: 12px;
+            padding: 6px;
             min-width: 850px;
         }
 
@@ -124,7 +124,7 @@
 
         .sale-mobile-card {
             border-radius: 0px;
-            padding: 12px 14px;
+            padding: 6px 14px;
             margin-bottom: 5px;
             overflow: visible !important;
             position: relative;
@@ -283,18 +283,18 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4">
                                 <label for="" class="fw-semibold fs-12">Date</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                     <div class="col-auto">
                                         <select id="filter" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                                             <option value="all">All Time</option>
                                             <option value="yearly">Yearly</option>
                                             <option value="year_to_date">Year to Date</option>
@@ -307,11 +307,11 @@
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="start_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="end_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <button id="apply-filter" class="btn btn-primary">Apply</button>
@@ -323,7 +323,7 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <select id="search_type" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="customer">Customer</option>
                                             <option value="order_number">Order Number</option>
                                             <option value="payment_status">Payment Status</option>
@@ -333,9 +333,9 @@
                                     <div class="col-md-6">
                                         <input type="text" id="search_keyword" name="search_keyword"
                                             class="form-control search-input"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search..." />
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search..." />
                                         <select id="search_payment_status" class="form-control search-input d-none"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             {{-- <option value="">All</option> --}}
                                             <option value="Paid">Paid</option>
                                             <option value="Unpaid">Unpaid</option>
@@ -343,7 +343,7 @@
                                             <option value="Overdue">Overdue</option> --}}
                                         </select>
                                         <select id="due_date_order" class="form-control d-none"
-                                            style="padding: 0.5rem 1rem;">
+                                            style="padding: 0.25rem 0.5rem;">
                                             <option value="asc">Ascending</option>
                                             <option value="desc">Descending</option>
                                         </select>
@@ -351,7 +351,7 @@
                                 </div>
                             </div>
                         </div>
-                        <ul class="nav nav-tabs mb-3 sale-tabs" id="saleListTabs" role="tablist">
+                        <ul class="nav nav-tabs mb-2 sale-tabs" id="saleListTabs" role="tablist">
                             <li class="nav-item">
                                 <a class="nav-link active" id="sale-list-tab" data-bs-toggle="tab" href="#sale-list"
                                     role="tab">Sale List</a>
@@ -445,7 +445,7 @@
                             </div>
                         </div>
                         {{-- MOBILE SALE LIST --}}
-                        <div id="saleListMobile" class="d-md-none px-0 pb-4">
+                        <div id="saleListMobile" class="d-md-none px-0 pb-2">
                         </div>
                     </div>
                 </div>
@@ -476,7 +476,7 @@
                             <li><strong>Nama Customer:</strong> <span id="delete_customer_name">-</span></li>
                             <li><strong>Business:</strong> <span id="delete_business_name">-</span></li>
                         </ul>
-                        <div class="form-group mt-3">
+                        <div class="form-group mt-2">
                             <label for="delete_notes" class="fw-semibold">Keterangan <span
                                     class="text-danger">*</span></label>
                             <textarea class="form-control" id="delete_notes" name="delete_notes" rows="3" required
@@ -509,7 +509,7 @@
                     @csrf
                     <input type="hidden" id="order_id" name="order_id">
                     <div class="modal-body">
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="transaction_type" class="fw-semibold">Account:</label>
                                 <div class="input-group">
@@ -529,7 +529,7 @@
                                 <small class="text-danger d-none" id="error_transaction_date"></small>
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="cash_bank_account_id" class="fw-semibold">Cash/Bank Account:</label>
                                 <div class="input-group">
@@ -582,7 +582,7 @@
                             </div>
                         </div>
 
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-12">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="use_write_off"
@@ -595,7 +595,7 @@
                         </div>
 
                         <!-- 🔥 FIELD CUSTOMER DEPOSIT (hidden by default) -->
-                        <div class="row g-3 mb-3 d-none" id="write_off_container">
+                        <div class="row g-3 mb-2 d-none" id="write_off_container">
                             <div class="col-md-12">
                                 <label for="customer_deposit_amount" class="fw-semibold">Customer Deposit Amount:</label>
                                 <div class="input-group">
@@ -611,7 +611,7 @@
                         </div>
 
                         <!-- 🔥 CHECKBOX WRITE OFF -->
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-12">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="use_write_off_only"
@@ -628,9 +628,9 @@
                         <div class="col-md-12">
                             <label class="fw-semibold">Upload / Paste Proof (optional):</label>
 
-                            <div id="pasteProofArea" class="border rounded p-3 text-center"
+                            <div id="pasteProofArea" class="border rounded p-2 text-center"
                                 style="min-height: 120px; cursor: pointer;">
-                                <p class="text-muted small mb-2">
+                                <p class="text-muted small mb-1">
                                     Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot bukti transfer
                                 </p>
 
@@ -638,7 +638,7 @@
                                 <div id="proofPreviewContainer" class="preview-list"></div>
                             </div>
 
-                            {{-- <input type="file" class="form-control mt-2" id="payment_proof" name="payment_proof[]"
+                            {{-- <input type="file" class="form-control mt-1" id="payment_proof" name="payment_proof[]"
                                 accept="image/jpg,image/jpeg,image/png,image/webp,application/pdf" multiple> --}}
 
                             <small class="text-danger d-none" id="error_payment_proof"></small>
@@ -723,7 +723,7 @@
                     @csrf
                     <input type="hidden" id="return_order_id" name="order_id">
                     <div class="modal-body">
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-12">
                                 <label for="return_transaction_date" class="fw-semibold">Transaction Date:</label>
                                 <div class="input-group">
@@ -734,7 +734,7 @@
                             </div>
                         </div>
 
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="return_cash_bank_account_id" class="fw-semibold">Cash/Bank Account:</label>
                                 <div class="input-group">
@@ -776,7 +776,7 @@
                             </div>
                         </div>
 
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-12">
                                 <label for="return_note" class="fw-semibold">Note:</label>
                                 <textarea id="return_note" name="note" class="form-control" rows="2" placeholder="Optional..."></textarea>
@@ -807,13 +807,13 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-2">Anda akan menghapus <strong id="fd-order-number"></strong> secara permanen
+                        <p class="mb-1">Anda akan menghapus <strong id="fd-order-number"></strong> secara permanen
                             beserta rollback stok produksi.</p>
                         <ul>
                             <li><strong>Nama Customer:</strong> <span id="fd-customer-name">-</span></li>
                             <li><strong>Business:</strong> <span id="fd-business-name">-</span></li>
                         </ul>
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Delete Notes <span class="text-danger">*</span></label>
                             <textarea name="delete_notes" class="form-control" rows="3" required placeholder="Alasan penghapusan..."></textarea>
                         </div>
@@ -837,11 +837,11 @@
         $(document).ready(function() {
             function formatProducts(products) {
                 if (!products || products.length === 0) {
-                    return '<div class="p-2 text-muted">No products</div>';
+                    return '<div class="p-1 text-muted">No products</div>';
                 }
 
                 let html = `
-        <div class="table-responsive p-2">
+        <div class="table-responsive p-1">
             <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
                 <thead>
                     <tr>
@@ -931,6 +931,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
+                ordering: false,
                 order: [
                     [9, 'desc']
                 ],
@@ -1015,12 +1016,20 @@
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
-                            if (reset) allData = []; // hapus data lama kalau reset
-                            allData = allData.concat(response.data);
-                            dataTable.clear();
-                            dataTable.rows.add(allData);
-                            dataTable.draw(false);
-
+                            if (reset) {
+                                allData = []; 
+                                dataTable.clear();
+                                allData = allData.concat(response.data);
+                                dataTable.rows.add(response.data).draw(false);
+                            } else {
+                                allData = allData.concat(response.data);
+                                if (dataTable.rows().count() === 0) {
+                                dataTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = dataTable.rows.add(response.data).nodes();
+                                $(dataTable.table().body()).append(newNodes);
+                            }
+                            }
                             renderMobileFromAllData();
                             currentPage++;
                             hasMoreData = true;
@@ -1050,20 +1059,17 @@
             loadMoreData();
 
             // Lazy load saat scroll
-            let scrollTimeout = null;
             $('.dataTables_scrollBody').on('scroll', function() {
                 if (window.innerWidth < 768) return;
-                clearTimeout(scrollTimeout);
 
                 const scrollTop = $(this).scrollTop();
                 const scrollHeight = $(this)[0].scrollHeight;
                 const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
-                        loadMoreData();
-                    }
-                }, 200);
+                // Load earlier (70%) and without setTimeout so it's smooth during scroll
+                if (scrollTop + clientHeight >= scrollHeight * 0.70) {
+                    loadMoreData();
+                }
             });
 
             // Reset dan reload saat filter berubah
@@ -1237,6 +1243,7 @@
                     searching: false,
                     info: false,
                     lengthChange: false,
+                    ordering: false,
                     order: [
                         [8, 'desc']
                     ],
@@ -1284,17 +1291,14 @@
 
                 // 🔥 Lazy load scroll untuk EDITED TABLE
                 $('#editedSaleListTable').parents('.dataTables_scrollBody').on('scroll', function() {
-                    clearTimeout(editedScrollTimeout);
-
                     const scrollTop = $(this).scrollTop();
                     const scrollHeight = $(this)[0].scrollHeight;
                     const clientHeight = $(this).height();
 
-                    editedScrollTimeout = setTimeout(() => {
-                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
-                            loadMoreEdited();
-                        }
-                    }, 200);
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
+                        loadMoreEdited();
+                    }
                 });
 
                 // 🔥 Expand/collapse products - EDITED
@@ -1380,11 +1384,20 @@
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
-                            if (reset) editedData = [];
-                            editedData = editedData.concat(response.data);
-                            editedTable.clear();
-                            editedTable.rows.add(editedData);
-                            editedTable.draw(false);
+                            if (reset) {
+                                editedData = [];
+                                editedTable.clear();
+                                editedData = editedData.concat(response.data);
+                                editedTable.rows.add(response.data).draw(false);
+                            } else {
+                                editedData = editedData.concat(response.data);
+                                if (editedTable.rows().count() === 0) {
+                                editedTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = editedTable.rows.add(response.data).nodes();
+                                $(editedTable.table().body()).append(newNodes);
+                            }
+                            }
                             editedPage++;
                             editedHasMoreData = true;
                         } else {
@@ -1475,6 +1488,7 @@
                     searching: false,
                     info: false,
                     lengthChange: false,
+                    ordering: false,
                     order: [
                         [4, 'asc']
                     ],
@@ -1484,19 +1498,15 @@
 
                 deletedTableInitialized = true;
 
-                let deletedScrollTimeout = null; // 🔥 BIKIN VARIABLE BARU!
                 $('#deletedSaleListTable').parents('.dataTables_scrollBody').on('scroll', function() {
-                    clearTimeout(deletedScrollTimeout); // 🔥 PAKAI INI!
-
                     const scrollTop = $(this).scrollTop();
                     const scrollHeight = $(this)[0].scrollHeight;
                     const clientHeight = $(this).height();
 
-                    deletedScrollTimeout = setTimeout(() => { // 🔥 PAKAI INI!
-                        if (scrollTop + clientHeight >= scrollHeight * 0.85) {
-                            loadMoreDeletedData();
-                        }
-                    }, 200);
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
+                        loadMoreDeletedData();
+                    }
                 });
 
                 // Expand products di deleted table
@@ -1517,10 +1527,16 @@
                 });
             }
 
-            function loadMoreDeletedData() {
-                if (deletedIsLoading || !deletedHasMoreData) return;
+            function loadMoreDeletedData(reset = false) {
+                if (deletedIsLoading || (!deletedHasMoreData && !reset)) return;
 
                 deletedIsLoading = true;
+                if(reset) {
+                    deletedAllData = [];
+                    deletedCurrentPage = 0;
+                    deletedHasMoreData = true;
+                    deletedTable.clear();
+                }
 
                 $.ajax({
                     url: "{{ url('/erp/sales/sale-list/data-deleted') }}",
@@ -1539,10 +1555,20 @@
                     success: function(response) {
 
                         if (response && response.data && response.data.length > 0) {
-                            deletedAllData = deletedAllData.concat(response.data);
-                            deletedTable.clear();
-                            deletedTable.rows.add(deletedAllData);
-                            deletedTable.draw(false);
+                            if (reset) {
+                                deletedAllData = [];
+                                deletedTable.clear();
+                                deletedAllData = deletedAllData.concat(response.data);
+                                deletedTable.rows.add(response.data).draw(false);
+                            } else {
+                                deletedAllData = deletedAllData.concat(response.data);
+                                if (deletedTable.rows().count() === 0) {
+                                deletedTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = deletedTable.rows.add(response.data).nodes();
+                                $(deletedTable.table().body()).append(newNodes);
+                            }
+                            }
                             deletedCurrentPage++;
                         } else {
                             deletedHasMoreData = false;
@@ -2168,7 +2194,7 @@
                 const container = $('#saleListMobile');
 
                 if (!allData.length) {
-                    container.html('<div class="text-center text-muted py-4">No sale data</div>');
+                    container.html('<div class="text-center text-muted py-2">No sale data</div>');
                     return;
                 }
 

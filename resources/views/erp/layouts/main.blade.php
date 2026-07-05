@@ -77,7 +77,7 @@
                 width: 100% !important;
                 max-width: 100% !important;
                 font-size: 12px;
-                padding: 10px;
+                padding: 5px;
             }
 
             #invoiceContent table th,
@@ -144,7 +144,7 @@
         }
 
         .shimmer-wrapper {
-            padding: 15px;
+            padding: 4px;
         }
 
         .shimmer {
@@ -190,7 +190,6 @@
             /* dark bold */
             transition: background-color 0.2s ease-in-out;
         }
-
 
         .select2-container .select2-selection__rendered {
             white-space: normal !important;
@@ -312,7 +311,7 @@
             background: #ffffff !important;
             border-radius: 10px;
             min-width: 200px;
-            padding: 10px 0;
+            padding: 5px 0;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.534);
         }
 
@@ -332,7 +331,7 @@
             pointer-events: auto !important;
 
             border-radius: 12px;
-            padding: 10px 0;
+            padding: 5px 0;
             min-width: 200px;
 
             box-shadow: 0 8px 18px rgba(0, 0, 0, 0.534);
@@ -352,7 +351,7 @@
             pointer-events: auto !important;
 
             border-radius: 12px;
-            padding: 10px 0;
+            padding: 5px 0;
             min-width: 200px;
 
             box-shadow: 0 8px 18px rgba(0, 0, 0, 0.534);
@@ -412,6 +411,14 @@
             /* color: #e5e7eb !important; */
         }
 
+        /* FIX LEVEL 3 SUBMENU (seperti Account List) DI DARK MODE */
+        html.app-skin-dark .nxl-navigation .nxl-submenu .nxl-submenu {
+            background: transparent !important;
+        }
+        html.app-skin-dark.minimenu .nxl-navigation .nxl-submenu .nxl-submenu {
+            background: #111827 !important;
+        }
+
         html.minimenu .nxl-navigation .nxl-submenu {
             position: fixed !important;
             top: 0 !important;
@@ -422,7 +429,7 @@
 
             /* background: var(--submenu-bg, #ffffff) !important; */
             border-radius: 10px;
-            padding: 10px 0;
+            padding: 5px 0;
             min-width: 200px;
             box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
         }
@@ -450,7 +457,7 @@
             display: block !important;
 
             min-width: 220px !important;
-            padding: 10px 0 !important;
+            padding: 5px 0 !important;
             /* background: var(--submenu-bg, #fff) !important; */
             border-radius: 10px !important;
             box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15) !important;
@@ -611,6 +618,127 @@
     </style>
 
     @stack('styles')
+    <style>
+        /* Compact Topbar Overrides */
+        .nxl-header {
+            height: 60px !important;
+            min-height: 60px !important;
+        }
+        .nxl-header .header-wrapper {
+            height: 60px !important;
+            min-height: 60px !important;
+        }
+        .nxl-header .header-wrapper .nxl-h-item {
+            min-height: 60px !important;
+        }
+        .nxl-header .nxl-head-link {
+            width: 35px !important;
+            height: 35px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nxl-header .nxl-head-link i {
+            font-size: 16px !important;
+        }
+        .nxl-header .user-avtar {
+            width: 35px !important;
+            height: 35px !important;
+        }
+        .nxl-container {
+            top: 60px !important;
+            min-height: calc(100vh - 60px) !important;
+        }
+        .page-header {
+            top: 60px !important;
+        }
+        /* Compact Sidebar Menu Overrides */
+        .nxl-navigation .navbar-content .nxl-item .nxl-link {
+            padding: 8px 15px !important;
+            font-size: 0.85rem !important;
+        }
+        .nxl-navigation .navbar-content .nxl-item.nxl-caption {
+            padding: 10px 15px 5px !important;
+            font-size: 0.75rem !important;
+        }
+        /* Compact Sidebar Width Overrides */
+        @media (min-width: 1025px) {
+            html:not(.minimenu) .nxl-navigation {
+                width: 230px !important;
+            }
+            html:not(.minimenu) .nxl-container {
+                margin-left: 230px !important;
+            }
+            html:not(.minimenu) .nxl-header {
+                left: 230px !important;
+            }
+            html:not(.minimenu) .page-header {
+                left: 230px !important;
+            }
+
+            /* Minimenu Overrides */
+            html.minimenu .nxl-navigation {
+                width: 80px !important;
+            }
+            html.minimenu .nxl-container {
+                margin-left: 80px !important;
+            }
+            html.minimenu .nxl-header {
+                left: 80px !important;
+            }
+            html.minimenu .page-header {
+                left: 80px !important;
+            }
+            html.minimenu .nxl-navigation .navbar-content {
+                width: 80px !important;
+            }
+            html.minimenu .nxl-navigation .logo-sm {
+                width: 35px !important;
+                margin: 0 auto;
+            }
+            html.minimenu .nxl-navigation .navbar-content .nxl-link {
+                margin: 0 10px !important;
+                padding: 8px 15px !important;
+                justify-content: center;
+            }
+            html.minimenu .nxl-navigation .navbar-content .nxl-micon {
+                margin-right: 0 !important;
+            }
+        }
+
+        /* DataTables Overrides */
+        .dataTables_wrapper .row:first-child,
+        .dataTables_wrapper .row:last-child {
+            padding: 25px 25px;
+        }
+        .dataTables_wrapper .row:last-child {
+            border-top: none !important;
+        }
+
+        /* Compact Table Overrides */
+        .table-responsive .table tr td,
+        .table-responsive .table tr th,
+        .table>:not(caption)>*>* {
+            padding: 5px !important;
+        }
+
+        /* Stretch Main Table Card and Inner Scroll to Bottom safely */
+        .nxl-content {
+            padding-bottom: 0 !important;
+        }
+        /* Memaksa kartu putih sampai dasar layar */
+        .main-content > .row > .col-lg-12 > .card.stretch-full {
+            margin-bottom: 0 !important;
+            min-height: calc(100vh - 115px) !important;
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+        }
+        /* MENGALAHKAN kode bawaan (60vh) menggunakan specificity hack :not(#fake) */
+        :not(#fake) .main-content > .row > .col-lg-12 > .card.stretch-full .dataTables_scrollBody {
+            height: auto !important; 
+            max-height: calc(100vh - 210px) !important; 
+        }
+    </style>
 </head>
 
 <body>
@@ -693,7 +821,7 @@
                         <td colspan="${colCount}" class="p-0">
                             <div class="d-flex justify-content-${tableSelector === '#deliveryListTable' ? 'start' : 'start'}">
                                 <div class="dropdown w-auto position-relative">
-                                    <ul class="dropdown-menu show static-action-menu shadow border rounded-3 p-2"
+                                    <ul class="dropdown-menu show static-action-menu shadow border rounded-3 p-1"
                                         style="display:block; position:absolute; ${menuPosition}">
                                         ${actionHtml}
                                     </ul>

@@ -22,7 +22,6 @@
         }
     </style>
 @endpush
-
 <header class="nxl-header">
     <div class="header-wrapper">
         <div class="header-left d-flex align-items-center gap-4">

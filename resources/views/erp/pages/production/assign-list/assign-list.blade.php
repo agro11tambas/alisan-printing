@@ -36,7 +36,7 @@
         }
 
         .static-action-menu {
-            padding: 12px;
+            padding: 6px;
             min-width: 500px;
         }
 
@@ -104,12 +104,12 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 pb-3 justify-content-between">
+                        <div class="row g-3 p-2 pb-2 justify-content-between">
                             <div class="col-lg-4">
                                 <label for="filter" class="fw-semibold fs-12">Date</label>
                                 <div class="d-flex align-items-center gap-2">
@@ -133,7 +133,7 @@
                                     <div class="col-lg-2">
                                         <label for="progress_status" class="fw-semibold fs-12">Progress Status</label>
                                         <select id="progress_status" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="progress">Progress</option>
                                             <option value="completed">Completed</option>
                                         </select>
@@ -148,7 +148,7 @@
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <select id="search_type" class="form-control"
-                                                    style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                                     <option value="customer">Customer</option>
                                                     <option value="order_number">Order Number</option>
                                                 </select>
@@ -156,7 +156,7 @@
                                             <div class="col-md-6">
                                                 <input type="text" id="search_keyword" name="search_keyword"
                                                     class="form-control search-input"
-                                                    style="padding: 0.5rem 1rem; font-size: 0.875rem;"
+                                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
                                                     placeholder="Search..." />
                                             </div>
                                         </div>
@@ -164,7 +164,7 @@
                                 </div>
                             </div>
                         </div>
-                        <ul class="nav nav-tabs mb-3" id="assignTabs" role="tablist">
+                        <ul class="nav nav-tabs mb-2" id="assignTabs" role="tablist">
                             <li class="nav-item">
                                 <a class="nav-link active" id="assign-list-tab" data-bs-toggle="tab" href="#assign-list"
                                     role="tab">
@@ -231,10 +231,10 @@
                     </div>
 
                     <div class="modal-body">
-                        <p class="fw-semibold mb-2">
+                        <p class="fw-semibold mb-1">
                             Yakin ingin menghapus batch ini?
                         </p>
-                        <p class="text-muted mb-3">
+                        <p class="text-muted mb-2">
                             Semua data <strong>assign</strong> di dalam batch ini juga akan ikut terhapus.
                         </p>
 
@@ -263,13 +263,13 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label fw-semibold">Order Note</label>
-                        <div id="previewOrderNote" class="border rounded p-3 bg-light text-dark"
+                        <div id="previewOrderNote" class="border rounded p-2 bg-light text-dark"
                             style="white-space: pre-wrap; font-size: 14px;"></div>
                     </div>
 
-                    <h6 class="fw-bold mb-3" id="previewProductName"></h6>
+                    <h6 class="fw-bold mb-2" id="previewProductName"></h6>
                     <div id="previewImageContainer" class="d-flex flex-column gap-3"></div>
                 </div>
             </div>
@@ -295,6 +295,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
+                ordering: false,
                 order: [],
                 data: [],
                 columns: [
@@ -364,8 +365,12 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            batchTable.clear();
-                            batchTable.rows.add(allData).draw(false);
+                            if (batchTable.rows().count() === 0) {
+                                batchTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = batchTable.rows.add(response.data).nodes();
+                                $(batchTable.table().body()).append(newNodes);
+                            }
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -387,18 +392,16 @@
 
             loadMoreData();
 
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             function resetAndReload() {
@@ -423,7 +426,7 @@
                     let $actionRow = $(`
                 <tr class="action-row">
                     <td colspan="${colCount}">
-                        <div class="d-flex justify-content-center py-2">${actionHtml}</div>
+                        <div class="d-flex justify-content-center py-1">${actionHtml}</div>
                     </td>
                 </tr>
             `);
@@ -617,9 +620,9 @@
                     const note = img.note || '-';
 
                     const html = `
-                <div class="image-item border rounded p-3">
+                <div class="image-item border rounded p-2">
                     <img src="${fileUrl}" 
-                         class="img-fluid rounded mb-2 preview-full"
+                         class="img-fluid rounded mb-1 preview-full"
                          style="cursor:pointer;"
                          data-full="${fileUrl}">
                     <p class="small text-muted mb-0">${note}</p>

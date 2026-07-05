@@ -49,7 +49,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row align-items-baseline">
             <div class="col-xxl-8 col-xl-6">
                 <div class="card">
@@ -107,7 +107,7 @@
                     </div>
                     <div class="card-body task-info">
                         <div class="task-info-list">
-                            {{-- <div class="row align-items-center mb-3 task-list-row">
+                            {{-- <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-star me-2"></i>
                                     <span class="fw-semibold">
@@ -132,7 +132,7 @@
                                     </span>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3 task-list-row">
+                            <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-calendar me-2"></i>
                                     <span class="fw-semibold">Date:</span>
@@ -142,7 +142,7 @@
                                         class="border-bottom border-bottom-dashed border-gray-5">{{ date('d M Y', strtotime($stockIn->date)) }}</span>
                                 </div>
                             </div> --}}
-                            <div class="row align-items-center mb-3 task-list-row">
+                            <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-star me-2"></i>
                                     <span class="fw-semibold">Supplier Name:</span>
@@ -153,7 +153,7 @@
                                     </span>
                                 </div>
                             </div>
-                            {{-- <div class="row align-items-center mb-3 task-list-row">
+                            {{-- <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-calendar me-2"></i>
                                     <span class="fw-semibold">Period:</span>
@@ -174,18 +174,18 @@
                         <h5 class="card-title">History</h5>
                     </div>
                     <div class="card-body p-0">
-                        <div class="p-4 row g-3 justify-content-between">
+                        <div class="p-2 row g-3 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label for="start_date" class="fw-semibold fs-12">Start Date</label>
                                         <input type="date" id="start_date" name="start_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-md-6">
                                         <label for="end_date" class="fw-semibold fs-12">Due Date</label>
                                         <input type="date" id="end_date" name="end_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                 </div>
                             </div>
@@ -193,7 +193,7 @@
                                 <div class="col-md-6 ms-auto">
                                     <label for="filter_verified" class="fw-semibold fs-12">Status</label>
                                     <select id="filter_verified" class="form-select"
-                                        style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                        style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                         <option value="unverified">Unpaid</option>
                                         <option value="verified">Paid</option>
                                     </select>
@@ -239,18 +239,18 @@
                     <div class="modal-body">
                         <input type="hidden" id="edit_id" name="id">
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Product</label>
                             <input type="text" id="product_name" class="form-control" readonly>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Quantity (pcs)</label>
                             <input type="number" id="edit_quantity" name="quantity" class="form-control" min="0"
                                 required>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Notes</label>
                             <textarea id="edit_notes" name="notes" class="form-control" rows="3"></textarea>
                         </div>
@@ -273,7 +273,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <i class="ri-checkbox-circle-line fs-1 text-primary mb-2"></i>
+                    <i class="ri-checkbox-circle-line fs-1 text-primary mb-1"></i>
                     <p class="mb-0">Yakin ingin menandai stock in ini sebagai dibayar?</p>
                 </div>
                 <div class="modal-footer justify-content-center">

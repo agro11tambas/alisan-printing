@@ -52,7 +52,7 @@
         }
 
         .static-action-menu {
-            padding: 12px;
+            padding: 6px;
             min-width: 850px;
         }
 
@@ -124,7 +124,7 @@
 
         .sale-mobile-card {
             border-radius: 0px;
-            padding: 12px 14px;
+            padding: 6px 14px;
             margin-bottom: 5px;
             overflow: visible !important;
             position: relative;
@@ -283,18 +283,18 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <label for="" class="fw-semibold fs-12">Date</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                     <div class="col-auto">
                                         <select id="filter" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                                             <option value="all">All Time</option>
                                             <option value="yearly">Yearly</option>
                                             <option value="year_to_date">Year to Date</option>
@@ -308,11 +308,11 @@
 
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="start_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="end_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <button id="apply-filter" class="btn btn-primary">Apply</button>
@@ -324,7 +324,7 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <select id="search_type" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="customer">Customer</option>
                                             <option value="order_number">Order Number</option>
                                         </select>
@@ -332,9 +332,9 @@
                                     <div class="col-md-6">
                                         <input type="text" id="search_keyword" name="search_keyword"
                                             class="form-control search-input"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search..." />
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search..." />
                                         <select id="search_payment_status" class="form-control search-input d-none"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="">All</option>
                                             <option value="Paid">Paid</option>
                                             <option value="Unpaid">Unpaid</option>
@@ -364,7 +364,7 @@
                             </table>
                         </div>
                         {{-- MOBILE SALE LIST --}}
-                        <div id="saleOrderMobile" class="d-md-none px-0 pb-4">
+                        <div id="saleOrderMobile" class="d-md-none px-0 pb-2">
                         </div>
                     </div>
                 </div>
@@ -415,14 +415,14 @@
                     @csrf
                     <input type="hidden" id="order_id" name="order_id">
                     <div class="modal-body">
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-12">
                                 <label for="order_number" class="fw-semibold fs-12">Invoice Number</label>
                                 <input type="text" id="modal_order_number_display" class="form-control" readonly>
                                 <input type="hidden" id="modal_order_number" name="order_number">
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="order_date" class="fw-semibold fs-12" id="modal_order_date">Order
                                     Date</label>
@@ -447,7 +447,7 @@
                             </div>
                         </div>
 
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-12">
                                 <label for="paid_amount" class="fw-semibold">Paid Amount:</label>
                                 <div class="input-group">
@@ -456,7 +456,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="transaction_type" class="fw-semibold">Sale:</label>
                                 <div class="input-group">
@@ -472,7 +472,7 @@
                                     value="{{ date('Y-m-d') }}">
                             </div>
                         </div>
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-12">
                                 <label for="cash_bank_account_id" class="fw-semibold">Cash/Bank Account:</label>
                                 <div class="input-group">
@@ -506,7 +506,7 @@
                                 </div>
                             </div>
                         </div>
-                        {{-- <div class="row g-3 mb-3">
+                        {{-- <div class="row g-3 mb-2">
                             <div class="col-md-12">
                                 <label for="notes" class="fw-semibold">Note:</label>
                                 <textarea class="form-control" name="notes" id="notes" rows="3"></textarea>
@@ -533,11 +533,11 @@
         $(document).ready(function() {
             function formatProducts(products) {
                 if (!products || products.length === 0) {
-                    return '<div class="p-2 text-muted">No products</div>';
+                    return '<div class="p-1 text-muted">No products</div>';
                 }
 
                 let html = `
-        <div class="table-responsive p-2">
+        <div class="table-responsive p-1">
             <table class="table bg-transparent table-sm table-bordered mb-0 w-auto">
                 <thead>
                     <tr>
@@ -576,6 +576,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
+                ordering: false,
                 order: [
                     [6, 'desc']
                 ],
@@ -641,8 +642,12 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            dataTable.clear();
-                            dataTable.rows.add(allData).draw(false);
+                            if (dataTable.rows().count() === 0) {
+                                dataTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = dataTable.rows.add(response.data).nodes();
+                                $(dataTable.table().body()).append(newNodes);
+                            }
                             renderMobileFromAllData();
                             currentPage++;
                         } else {
@@ -666,18 +671,16 @@
             loadMoreData();
 
             // ========== LAZY LOAD SCROLL ==========
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             // ========== FILTER HANDLERS ==========
@@ -735,7 +738,7 @@
                 // resetAndReload();
             });
 
-            // let searchTimeout = null;
+            // 
             // $('#search_keyword').on('keyup', function() {
             //     if ($('#search_type').val() !== 'payment_status') {
             //         clearTimeout(searchTimeout);
@@ -861,7 +864,7 @@
                 container.html('');
 
                 if (!allData.length) {
-                    container.html('<div class="text-center text-muted py-4">No sale data</div>');
+                    container.html('<div class="text-center text-muted py-2">No sale data</div>');
                     return;
                 }
 

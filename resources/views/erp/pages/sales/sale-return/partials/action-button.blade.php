@@ -21,7 +21,7 @@
                 @endif
 
                 <li>
-                    <hr class="my-2">
+                    <hr class="my-1">
                 </li>
 
                 @php
@@ -103,7 +103,7 @@
                 @endif
 
                 <li>
-                    <hr class="my-2">
+                    <hr class="my-1">
                 </li>
 
                 <li>
@@ -120,7 +120,7 @@
                 </li>
             </div>
             {{-- <li>
-            <hr class="my-2">
+            <hr class="my-1">
                 </li> --}}
 
 

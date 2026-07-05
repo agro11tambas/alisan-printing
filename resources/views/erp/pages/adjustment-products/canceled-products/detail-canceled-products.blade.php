@@ -77,21 +77,21 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-0 p-4 justify-content-between">
+                        <div class="row g-0 p-2 justify-content-between">
                             <div class="col-lg-6">
-                                <h5 class="fw-bold mb-3">Product: {{ $product->name }}</h5>
+                                <h5 class="fw-bold mb-2">Product: {{ $product->name }}</h5>
                             </div>
                             <div class="col-lg-6">
                                 <div class="row justify-content-end">
                                     <div class="col-lg-3">
                                         <label for="progress_status" class="fw-semibold fs-12">Progress Status</label>
                                         <select id="progress_status" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="pending">Pending</option>
                                             <option value="completed">Completed</option>
                                         </select>
@@ -142,7 +142,7 @@
                     <input type="hidden" id="canceled_product_id" name="canceled_product_id">
 
                     <div class="modal-body">
-                        <div class="row g-3 mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-6">
                                 <label for="date" class="fw-semibold">Date:</label>
                                 <div class="input-group">

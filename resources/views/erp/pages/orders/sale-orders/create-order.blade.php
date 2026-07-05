@@ -59,7 +59,7 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-lg-12">
-                                <div class="row mb-3 align-items-center">
+                                <div class="row mb-2 align-items-center">
                                     <div class="col-lg-2">
                                         <label for="order_date" class="fw-semibold">Order Date:</label>
                                     </div>
@@ -70,7 +70,7 @@
                                     </div>
                                 </div>
                                 <!--  -->
-                                <div class="row mb-3 align-items-center">
+                                <div class="row mb-2 align-items-center">
                                     <div class="col-lg-2">
                                         <label for="customers" class="fw-semibold">Customer:</label>
                                     </div>
@@ -91,7 +91,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row mb-3 align-items-center">
+                                <div class="row mb-2 align-items-center">
                                     <div class="col-lg-2">
                                         <label for="addresses" class="fw-semibold">Address:</label>
                                     </div>
@@ -101,7 +101,7 @@
                                                 <option disabled selected hidden>Pilih alamat</option>
                                             </select>
                                         </div>
-                                        <div id="google-maps-link" class="mt-2"></div>
+                                        <div id="google-maps-link" class="mt-1"></div>
                                     </div>
                                 </div>
                             </div>
@@ -112,7 +112,7 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-lg-8">
-                                <div class="mb-4">
+                                <div class="mb-2">
                                     <h5 class="fw-bold">Add Products:</h5>
                                 </div>
                                 <div class="table-responsive">
@@ -144,13 +144,13 @@
                                         </tbody>
                                     </table>
                                 </div>
-                                <div class="d-flex justify-content-end gap-2 mt-3">
+                                <div class="d-flex justify-content-end gap-2 mt-2">
                                     <button type="button" id="delete_row" class="btn btn-md bg-soft-danger text-danger">Delete</button>
                                     <button type="button" id="add_row" class="btn btn-md btn-primary">Add Items</button>
                                 </div>
                             </div>
                             <div class="col-lg-4">
-                                <div class="mb-4">
+                                <div class="mb-2">
                                     <h5 class="fw-bold">Grand Total:</h5>
                                 </div>
                                 <div class="table-responsive">
@@ -237,6 +237,7 @@
 
         function initSelect2() {
             $('[data-select2-selector="status"]').select2({
+                theme: 'bootstrap-5',
                 placeholder: 'Pilih produk',
                 width: '100%'
             });
@@ -388,7 +389,7 @@
 
             if (mapUrl) {
                 $('#google-maps-link').html(`
-                <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
                     Lihat di Google Maps
                 </a>
             `);

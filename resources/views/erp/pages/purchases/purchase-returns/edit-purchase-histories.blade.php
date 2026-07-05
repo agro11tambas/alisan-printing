@@ -26,7 +26,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row align-items-baseline">
             <div class="col-xxl-12 col-xl-8">
                 <div class="card">
@@ -46,15 +46,15 @@
                         @endphp
 
                         @forelse($histories as $history)
-                            <div class="mb-4 border rounded">
-                                <div class="d-flex justify-content-between align-items-center bg-light p-2">
+                            <div class="mb-2 border rounded">
+                                <div class="d-flex justify-content-between align-items-center bg-light p-1">
                                     <span>
                                         <strong>Tanggal:</strong>
                                         {{ \Carbon\Carbon::parse($history->edited_at)->format('d-m-Y H:i') }}
                                         | <strong>Oleh:</strong> {{ $history->user->name ?? 'System' }}
                                     </span>
                                 </div>
-                                <div class="p-3">
+                                <div class="p-2">
                                     <p class="text-danger"><strong>Catatan:</strong> {{ $history->text ?? '-' }}</p>
                                     <div class="table-responsive">
                                         @php
@@ -102,7 +102,7 @@
 
                                         {{-- Item Changes --}}
                                         @if (!empty($itemChanges))
-                                            <h6 class="mt-4">Perubahan Items</h6>
+                                            <h6 class="mt-2">Perubahan Items</h6>
                                             <table class="table table-sm table-bordered">
                                                 <thead>
                                                     <tr>

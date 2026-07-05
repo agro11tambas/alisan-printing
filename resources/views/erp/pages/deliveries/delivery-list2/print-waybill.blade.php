@@ -65,11 +65,11 @@
 </head>
 
 <body>
-    <div class="noprint" style="text-align:center; padding:10px;">
-        <button onclick="window.print()" style="padding:8px 12px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:6px;">
+    <div class="noprint" style="text-align:center; padding: 5px;">
+        <button onclick="window.print()" style="padding: 4px 8px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:6px;">
             🖨️ Print (Browser)
         </button>
-        <button id="btnRawPrint" style="padding:8px 12px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:6px;">
+        <button id="btnRawPrint" style="padding: 4px 8px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:6px;">
             ⚡ Cetak Direct (RAW LX-310)
         </button>
     </div>

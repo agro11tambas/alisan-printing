@@ -49,7 +49,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -57,7 +57,7 @@
                         @csrf
                         @method('PUT')
                         <div class="card-body">
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="name" class="fw-semibold">Discount Name:</label>
                                 </div>
@@ -69,7 +69,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="type" class="fw-semibold">Discount Type:</label>
                                 </div>
@@ -87,7 +87,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="amount" class="fw-semibold">Amount:</label>
                                 </div>
@@ -99,7 +99,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="minimum_based_on" class="fw-semibold">Discount Type:</label>
                                 </div>
@@ -118,7 +118,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="minimum_qty_or_amount" class="fw-semibold">Minimum Qty or Purchase
                                         Amount:</label>
@@ -133,7 +133,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="apply_on" class="fw-semibold">Apply On:</label>
                                 </div>
@@ -148,7 +148,7 @@
                                     </select>
                                 </div>
                             </div>
-                            <div id="product_group" class="row mb-3 align-items-center" style="display: none;">
+                            <div id="product_group" class="row mb-2 align-items-center" style="display: none;">
                                 <div class="col-lg-2">
                                     <label for="products" class="fw-semibold">Select Product(s):</label>
                                 </div>
@@ -163,7 +163,7 @@
                                     </select>
                                 </div>
                             </div>
-                            <div id="category_group" class="row mb-3 align-items-center" style="display: none;">
+                            <div id="category_group" class="row mb-2 align-items-center" style="display: none;">
                                 <div class="col-lg-2">
                                     <label for="categories" class="fw-semibold">Select Category(ies):</label>
                                 </div>
@@ -178,7 +178,7 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="status" class="fw-semibold">Status:</label>
                                 </div>

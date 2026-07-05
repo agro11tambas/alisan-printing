@@ -37,7 +37,7 @@
                 </li>
                 @if (!$purchase->is_fully_returned && $purchase->hasStockIn())
                     {{-- <li>
-                        <hr class="my-2">
+                        <hr class="my-1">
                     </li> --}}
                     <li>
                         <a href="/erp/purchases/purchase-returns/create-purchase-return/{{ $purchase->id }}"
@@ -49,7 +49,7 @@
                 @endif
             </div>
             {{-- <li>
-            <hr class="my-2">
+            <hr class="my-1">
         </li> --}}
             <div class="action-col">
                 <li>

@@ -41,7 +41,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row align-items-baseline">
             <div class="col-xxl-8 col-xl-6">
                 <div class="card">
@@ -89,7 +89,7 @@
                     </div>
                     <div class="card-body task-info">
                         <div class="task-info-list">
-                            <div class="row align-items-center mb-3 task-list-row">
+                            <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-star me-2"></i>
                                     <span class="fw-semibold">Customer Name:</span>
@@ -99,7 +99,7 @@
                                         class="border-bottom border-bottom-dashed border-gray-5">{{ $progress->order->customer->name }}</span>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3 task-list-row">
+                            <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-phone me-2"></i>
                                     <span class="fw-semibold">Whatsapp:</span>
@@ -109,7 +109,7 @@
                                         class="border-bottom border-bottom-dashed border-gray-5">{{ $progress->order->customer->phone }}</span>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3 task-list-row">
+                            <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-airplay me-2"></i>
                                     <span class="fw-semibold">Address:</span>
@@ -119,7 +119,7 @@
                                         class="border-bottom border-bottom-dashed border-gray-5">{{ $progress->order->shipping_address }}</span>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3 task-list-row">
+                            <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-airplay me-2"></i>
                                     <span class="fw-semibold">Google Map:</span>
@@ -130,7 +130,7 @@
                                             Map</a></span>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3 task-list-row">
+                            <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-calendar me-2"></i>
                                     <span class="fw-semibold">Order Date:</span>
@@ -140,7 +140,7 @@
                                         class="border-bottom border-bottom-dashed border-gray-5">{{ date('d M Y', strtotime($progress->order->created_at)) }}</span>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3 task-list-row">
+                            <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-clock me-2"></i>
                                     <span class="fw-semibold">Status:</span>
@@ -150,7 +150,7 @@
                                         class="border-bottom border-bottom-dashed border-gray-5">{{ $progress->order->status }}</span>
                                 </div>
                             </div>
-                            <div class="row align-items-center mb-3 task-list-row">
+                            <div class="row align-items-center mb-2 task-list-row">
                                 <div class="col-6">
                                     <i class="feather-clipboard me-2"></i>
                                     <span class="fw-semibold">Payment Method:</span>
@@ -180,13 +180,13 @@
                         <h5 class="card-title">History</h5>
                     </div>
                     <div class="card-body p-0">
-                        <div class="p-4">
+                        <div class="p-2">
                             <div class="col-lg-4 me-2">
                                 <label for="" class="fw-semibold fs-12">Date</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
                                     <div class="col-auto">
                                         <select id="filter" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem; width: 200px !important;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem; width: 200px !important;">
                                             <option value="all">All Time</option>
                                             <option value="yearly">Yearly</option>
                                             <option value="year_to_date">Year to Date</option>
@@ -199,11 +199,11 @@
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="start_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <input type="date" id="end_date" class="form-control"
-                                            style="padding: 0.5rem 1rem; font-size: 0.875rem;">
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                     </div>
                                     <div class="col-auto custom-range d-none">
                                         <button id="apply-filter" class="btn btn-primary">Apply</button>
@@ -250,33 +250,33 @@
 
                     <div class="modal-body">
                         <input type="hidden" id="history_id" name="id">
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Product</label>
                             <input type="text" id="product_name" class="form-control" readonly>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Completed Quantity</label>
                             <input type="number" id="completed_quantity" name="completed_quantity"
                                 class="form-control">
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Defect</label>
                             <input type="number" id="defect_quantity" name="defect_quantity" class="form-control">
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Reject</label>
                             <input type="number" id="reject_quantity" name="reject_quantity" class="form-control">
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Operator</label>
                             <input type="text" id="operator_name" name="operator_name" class="form-control" readonly>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Notes</label>
                             <textarea id="note" name="note" class="form-control" rows="3"></textarea>
                         </div>
@@ -319,7 +319,7 @@
 
                     <div class="modal-footer justify-content-center">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-danger px-4">Hapus</button>
+                        <button type="submit" class="btn btn-danger px-2">Hapus</button>
                     </div>
                 </form>
             </div>
@@ -347,7 +347,7 @@
                         <p class="text-muted mb-1 fs-13">
                             Semua history dan progress dalam batch ini juga akan dihapus.
                         </p>
-                        <p class="fw-bold text-danger fs-16 mt-2 mb-0">
+                        <p class="fw-bold text-danger fs-16 mt-1 mb-0">
                             <span id="delete_batch_date">-</span>
                         </p>
                         <p class="text-secondary fs-13 mb-0">
@@ -357,7 +357,7 @@
 
                     <div class="modal-footer justify-content-center">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-danger px-4">Hapus Batch</button>
+                        <button type="submit" class="btn btn-danger px-2">Hapus Batch</button>
                     </div>
                 </form>
             </div>

@@ -70,12 +70,12 @@
 @endsection
 
 @section('content')
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4">
                                 <label for="filter" class="fw-semibold fs-12">Date Filter</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
@@ -165,27 +165,27 @@
                     </div>
                     <div class="modal-body">
                         <input type="hidden" id="design_item_id" name="design_item_id">
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label fw-semibold">Order Note</label>
-                            <div id="orderNoteBox" class="border rounded p-3 bg-light text-dark"
+                            <div id="orderNoteBox" class="border rounded p-2 bg-light text-dark"
                                 style="white-space: pre-wrap; font-size: 14px;"></div>
                         </div>
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label">Upload / Paste Screenshot (Multiple)</label>
 
-                            <div id="pasteArea" class="border rounded p-3 text-center"
+                            <div id="pasteArea" class="border rounded p-2 text-center"
                                 style="min-height: 120px; cursor: pointer;">
-                                <p class="text-muted small mb-2">
+                                <p class="text-muted small mb-1">
                                     Klik di sini lalu tekan <strong>Ctrl + V</strong> untuk paste screenshot
                                 </p>
                                 <div id="previewContainer" class="d-flex flex-wrap gap-3 justify-content-start"></div>
                             </div>
 
-                            {{-- <input type="file" class="form-control mt-2" id="preview_image" name="preview_image[]"
+                            {{-- <input type="file" class="form-control mt-1" id="preview_image" name="preview_image[]"
                                 accept="image/*" multiple> --}}
                         </div>
 
-                        {{-- <div class="mb-3">
+                        {{-- <div class="mb-2">
                             <label for="note" class="form-label">Note</label>
                             <textarea class="form-control" name="note" id="note" rows="3" placeholder="Add a note..."></textarea>
                         </div> --}}
@@ -208,7 +208,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <img id="viewerImage" src="" alt="Preview" class="img-fluid rounded mb-3"
+                    <img id="viewerImage" src="" alt="Preview" class="img-fluid rounded mb-2"
                         style="max-height: 70vh; object-fit: contain;">
                     <p id="viewerNote" class="text-muted fs-6"></p>
                 </div>
@@ -276,12 +276,12 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label fw-semibold">Order Note</label>
-                        <div id="multiViewerOrderNote" class="border rounded p-3 bg-light text-dark"
+                        <div id="multiViewerOrderNote" class="border rounded p-2 bg-light text-dark"
                             style="white-space: pre-wrap; font-size: 14px;"></div>
                     </div>
-                    <h6 class="fw-bold mb-3" id="multiViewerProduct"></h6>
+                    <h6 class="fw-bold mb-2" id="multiViewerProduct"></h6>
                     <div id="multiViewerContainer" class="d-flex flex-column gap-3"></div>
                 </div>
             </div>
@@ -297,8 +297,7 @@
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
-            let searchTimeout = null;
-
+            
             const table = $('#designListTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -308,6 +307,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
+                ordering: false,
                 order: [
                     [5, 'asc']
                 ],
@@ -405,18 +405,16 @@
                 loadMoreData();
             }
 
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             // 🔹 Hanya filter lain yang trigger reload otomatis (bukan #filter)
@@ -541,7 +539,7 @@
                 if (previewUrl) {
                     if (previewContainer.length === 0) {
                         $('#uploadModal .modal-body').prepend(`
-                            <div class="old-preview mb-3 text-center">
+                            <div class="old-preview mb-2 text-center">
                                 <p class="text-muted small mb-1">Current Preview:</p>
                                     <img src="${previewUrl}" width="120" height="90"
                                         style="border-radius:8px;object-fit:cover;object-position:center;border:1px solid #ddd;">
@@ -758,8 +756,8 @@
                         const reader = new FileReader();
                         reader.onload = function(event) {
                             const imgHTML = `
-                    <div class="border rounded p-2 position-relative" style="max-width:250px;">
-                        <img src="${event.target.result}" class="rounded border mb-2" 
+                    <div class="border rounded p-1 position-relative" style="max-width:250px;">
+                        <img src="${event.target.result}" class="rounded border mb-1" 
                              style="width:100%;height:150px;object-fit:cover;">
                         <textarea class="form-control form-control-sm note-input" 
                             placeholder="Catatan untuk gambar ini..."></textarea>
@@ -781,8 +779,8 @@
                     const reader = new FileReader();
                     reader.onload = function(event) {
                         const imgHTML = `
-                <div class="border rounded p-2 position-relative" style="max-width:250px;">
-                    <img src="${event.target.result}" class="rounded border mb-2" 
+                <div class="border rounded p-1 position-relative" style="max-width:250px;">
+                    <img src="${event.target.result}" class="rounded border mb-1" 
                          style="width:100%;height:150px;object-fit:cover;">
                     <textarea class="form-control form-control-sm note-input" 
                         placeholder="Catatan untuk gambar ini..."></textarea>
@@ -820,8 +818,8 @@
                     const fileUrl = img.file ? `/${img.file}`.replace(/\/{2,}/g, '/') : '';
                     const note = img.note || '-';
                     const itemHTML = `
-                        <div class="image-item border rounded p-3">
-                            <img src="${fileUrl}" class="img-fluid rounded mb-2" 
+                        <div class="image-item border rounded p-2">
+                            <img src="${fileUrl}" class="img-fluid rounded mb-1" 
                                 style="cursor:pointer;" 
                                 onclick="window.open('${fileUrl}', '_blank')">
                             <p class="small text-muted mb-0">${note}</p>

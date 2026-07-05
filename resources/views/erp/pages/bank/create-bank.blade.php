@@ -56,7 +56,7 @@
                     @csrf
                     @method('POST')
                     <div class="card-body">
-                        <div class="row mb-3 align-items-center">
+                        <div class="row mb-2 align-items-center">
                             <div class="col-lg-2">
                                 <label for="name" class="fw-semibold">Name:</label>
                             </div>
@@ -67,7 +67,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row mb-3 align-items-center">
+                        <div class="row mb-2 align-items-center">
                             <div class="col-lg-2">
                                 <label for="bank_name" class="fw-semibold">Bank Name:</label>
                             </div>
@@ -78,7 +78,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row mb-3 align-items-center">
+                        <div class="row mb-2 align-items-center">
                             <div class="col-lg-2">
                                 <label for="account_number" class="fw-semibold">No Rek:</label>
                             </div>

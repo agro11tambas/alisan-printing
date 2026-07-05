@@ -11,7 +11,7 @@
         }
 
         /* 🔹 Perbesar font di dalam Select2 container */
-        .select2-container--default .select2-selection--single {
+        .select2-container--bootstrap-5 .select2-selection--single {
             height: 42px !important;
             font-size: 16px !important;
             line-height: 42px !important;
@@ -27,7 +27,7 @@
         /* 🔹 Perbesar teks di dropdown Select2 */
         .select2-results__option {
             font-size: 16px !important;
-            padding: 8px 12px !important;
+            padding: 4px 8px !important;
         }
 
         /* 🔹 Perbesar ikon dropdown */
@@ -143,7 +143,7 @@
         }
 
         .product-grid .form-control,
-        .product-grid .select2-container--default .select2-selection--single {
+        .product-grid .select2-container--bootstrap-5 .select2-selection--single {
             height: 44px !important;
         }
 
@@ -159,16 +159,16 @@
                 padding: 6px !important;
             }
 
-            .select2-container--default .select2-selection--single {
+            .select2-container--bootstrap-5 .select2-selection--single {
                 padding: 1px !important;
                 height: auto !important;
             }
 
-            .select2-container--default .select2-selection--single .select2-selection__arrow {
+            .select2-container--bootstrap-5 .select2-selection--single .select2-selection__arrow {
                 display: none !important;
             }
 
-            .select2-container--default .select2-selection--single .select2-selection__rendered {
+            .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
                 padding-left: 4px;
                 padding-right: 4px;
                 line-height: 1.5;
@@ -229,7 +229,7 @@
             }
 
             /* Select2 compact */
-            .select2-container--default .select2-selection--single {
+            .select2-container--bootstrap-5 .select2-selection--single {
                 height: 36px !important;
                 line-height: 36px !important;
             }
@@ -409,7 +409,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/sales/sale-list/store" method="POST" id="orderForm">
@@ -419,7 +419,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-lg-12">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="order_date" class="fw-semibold">Order Date:</label>
                                         </div>
@@ -430,7 +430,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="due_date_option" class="fw-semibold">Due Date:</label>
                                         </div>
@@ -446,14 +446,14 @@
                                                     <option value="custom">Custom</option>
                                                 </select>
                                             </div>
-                                            <div id="custom_due_date_wrapper" class="mt-2">
+                                            <div id="custom_due_date_wrapper" class="mt-1">
                                                 <input type="date" class="form-control" id="custom_due_date"
                                                     name="custom_due_date" readonly>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customers" class="fw-semibold">Customer:</label>
                                         </div>
@@ -482,7 +482,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customer_accounts" class="fw-semibold">Customer Account:</label>
                                         </div>
@@ -495,7 +495,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="addresses" class="fw-semibold">Address:</label>
                                         </div>
@@ -506,11 +506,11 @@
                                                     <option disabled selected hidden>Pilih alamat</option>
                                                 </select>
                                             </div>
-                                            <div id="google-maps-link" class="mt-2"></div>
+                                            <div id="google-maps-link" class="mt-1"></div>
                                         </div>
                                     </div>
                                     <input type="hidden" id="transaction_type" name="transaction_type" value="11">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
                                         </div>
@@ -521,7 +521,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label class="fw-semibold">Diskon:</label>
                                         </div>
@@ -550,13 +550,13 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-3">
+                    <div class="mt-2">
 
-                        <div class="mb-4">
+                        <div class="mb-2">
                             <h5 class="fw-bold">Add Products:</h5>
                         </div>
 
-                        <div class="product-grid product-grid-header mb-2">
+                        <div class="product-grid product-grid-header mb-1">
                             <div class="product-col-span-2">Product</div>
                             <div>Unit</div>
                             <div>Qty</div>
@@ -593,7 +593,7 @@
                                             <option value="" disabled selected hidden>Pilih produk</option>
                                         </select>
 
-                                        <div class="bundle-wrapper mt-2 d-none">
+                                        <div class="bundle-wrapper mt-1 d-none">
                                             <label>Product Bundle</label>
                                             <select class="form-control bundle-secondary-product"
                                                 name="bundle_secondary_product_id[]">
@@ -724,7 +724,7 @@
                                             <option value="" disabled selected hidden>Pilih produk</option>
                                         </select>
 
-                                        <div class="bundle-wrapper mt-2 d-none">
+                                        <div class="bundle-wrapper mt-1 d-none">
                                             <label>Product Bundle</label>
                                             <select class="form-control bundle-secondary-product"
                                                 name="bundle_secondary_product_id[]">
@@ -828,16 +828,16 @@
                         </template>
 
                         <!-- ADD BUTTON -->
-                        <div class="d-flex justify-content-end mt-3">
+                        <div class="d-flex justify-content-end mt-2">
                             <button type="button" id="add_row" class="btn btn-primary">
                                 Add Item
                             </button>
                         </div>
 
                         <!-- GRAND TOTAL -->
-                        <div class="row justify-content-end mt-4">
+                        <div class="row justify-content-end mt-2">
                             <div class="col-lg-4">
-                                <h5 class="fw-bold mb-3">Grand Total:</h5>
+                                <h5 class="fw-bold mb-2">Grand Total:</h5>
 
                                 <table class="table table-bordered" id="tab_logic_total">
                                     <tbody>
@@ -1121,6 +1121,7 @@
             });
 
             select.select2({
+                theme: 'bootstrap-5',
                 placeholder: 'Pilih product secondary',
                 width: '100%',
                 matcher: function(params, data) {
@@ -1450,6 +1451,7 @@
 
         function initProductSelect2(el) {
             $(el).select2({
+                theme: 'bootstrap-5',
                 placeholder: 'Pilih produk',
                 width: '100%',
 
@@ -1606,7 +1608,7 @@
                 const mapUrl = $(this).find('option:selected').data('map');
                 if (mapUrl) {
                     $('#google-maps-link').html(
-                        `<a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">Lihat di Google Maps</a>`
+                        `<a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">Lihat di Google Maps</a>`
                     );
                 } else {
                     $('#google-maps-link').empty();

@@ -27,6 +27,8 @@ use App\Http\Controllers\Admin\DeliveryListController;
 use App\Http\Controllers\Admin\DeliveryOrderController;
 use App\Http\Controllers\Admin\DesignController;
 use App\Http\Controllers\Admin\DesignItemController;
+use App\Http\Controllers\Admin\EcommerceProductCategoryController;
+use App\Http\Controllers\Admin\EcommerceProductController;
 use App\Http\Controllers\Admin\HistoryRequestStockController;
 use App\Http\Controllers\Admin\HistoryStockInController;
 use App\Http\Controllers\Admin\HistoryStockOutController;
@@ -138,6 +140,23 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
                 [ProductBundleController::class, 'storeMoreProduct']
             );
         });
+
+        Route::get('/erp/ecommerce-product-categories/data', [EcommerceProductCategoryController::class, 'data'])
+            ->name('erp.ecommerce-product-categories.data');
+        Route::post('/erp/ecommerce-product-categories/{id}/restore', [EcommerceProductCategoryController::class, 'restore'])
+            ->name('erp.ecommerce-product-categories.restore');
+        Route::resource('erp/ecommerce-product-categories', EcommerceProductCategoryController::class)
+            ->parameters(['ecommerce-product-categories' => 'category'])
+            ->except(['show'])
+            ->names('erp.ecommerce-product-categories');
+
+        Route::get('/erp/ecommerce-products/data', [EcommerceProductController::class, 'data'])
+            ->name('erp.ecommerce-products.data');
+        Route::post('/erp/ecommerce-products/{id}/restore', [EcommerceProductController::class, 'restore'])
+            ->name('erp.ecommerce-products.restore');
+        Route::resource('erp/ecommerce-products', EcommerceProductController::class)
+            ->parameters(['ecommerce-products' => 'product'])
+            ->names('erp.ecommerce-products');
     });
 
     Route::middleware(['web.auth', 'permission:adjustment'])->group(function () {

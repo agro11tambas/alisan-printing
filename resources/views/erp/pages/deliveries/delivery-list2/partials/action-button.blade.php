@@ -41,7 +41,7 @@
             </a>
         </li>
         <!-- <li>
-                <hr class="my-2">
+                <hr class="my-1">
             </li>
             <li>
                 <a href="/delivery-list/detail-order/{{ $order->id }}" class="dropdown-item">

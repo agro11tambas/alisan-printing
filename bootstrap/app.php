@@ -24,6 +24,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->renderable(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
+        });
+
         $exceptions->renderable(function (\Illuminate\Session\TokenMismatchException $e, $request) {
             return redirect('/')
                 ->with('error', 'Session expired, silakan login kembali.');

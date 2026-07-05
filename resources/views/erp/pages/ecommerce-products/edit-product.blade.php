@@ -1,0 +1,34 @@
+@extends('erp.layouts.main')
+
+@section('breadcrumb')
+    <div class="page-header sticky-top">
+        <div class="page-header-left d-flex align-items-center">
+            <div class="page-header-title">
+                <h5 class="m-b-10">Ecommerce Product</h5>
+            </div>
+            <ul class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('erp.ecommerce-products.index') }}">Ecommerce Product</a></li>
+                <li class="breadcrumb-item">Edit</li>
+            </ul>
+        </div>
+        <div class="page-header-right ms-auto">
+            <div class="page-header-right-items">
+                <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
+                    <a href="{{ route('erp.ecommerce-products.index') }}" class="btn btn-light-brand">
+                        <i class="feather-arrow-left me-2"></i>
+                        <span>Back</span>
+                    </a>
+                    <button type="submit" class="btn btn-primary" form="ecommerceProductForm">
+                        <i class="feather-save me-2"></i>
+                        <span>Save Product</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@section('content')
+    @include('erp.pages.ecommerce-products.form')
+@endsection

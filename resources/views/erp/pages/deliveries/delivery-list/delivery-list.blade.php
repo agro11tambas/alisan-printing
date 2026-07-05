@@ -53,7 +53,7 @@
                 border: 1px solid #eee;
                 border-radius: 6px;
                 margin-bottom: 10px;
-                padding: 10px;
+                padding: 5px;
             }
         }
 
@@ -82,7 +82,7 @@
         }
 
         .static-action-menu {
-            padding: 12px;
+            padding: 6px;
             min-width: 450px;
         }
 
@@ -129,7 +129,7 @@
 
             .static-action-menu {
                 min-width: 100% !important;
-                padding: 10px;
+                padding: 5px;
             }
         }
     </style>
@@ -170,12 +170,12 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-4 justify-content-between">
+                        <div class="row g-3 p-2 justify-content-between">
                             <div class="col-lg-4 me-2">
                                 <label class="fw-semibold fs-12">Date</label>
                                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
@@ -273,11 +273,11 @@
                     </div>
 
                     <div class="modal-body">
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <label class="form-label fw-semibold">Ambil Foto Bukti (Surat Jalan & Pengantaran)</label>
                             <input type="file" id="proof_camera" class="form-control" accept="image/*"
                                 capture="environment">
-                            <div id="preview-container" class="mt-3 d-flex flex-wrap gap-2"></div>
+                            <div id="preview-container" class="mt-2 d-flex flex-wrap gap-2"></div>
                             <div class="invalid-feedback d-block text-danger" id="error-proof_photos"></div>
                         </div>
                     </div>
@@ -351,7 +351,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <h6 class="fw-bold mb-3" id="proofShipment"></h6>
+                    <h6 class="fw-bold mb-2" id="proofShipment"></h6>
                     <div id="proofPhotoContainer" class="d-flex flex-wrap gap-3 justify-content-start"></div>
                 </div>
             </div>
@@ -377,6 +377,7 @@
                 searching: false,
                 info: false,
                 lengthChange: false,
+                ordering: false,
                 order: [],
                 data: [],
                 columns: [
@@ -458,8 +459,12 @@
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
-                            dataTable.clear();
-                            dataTable.rows.add(allData).draw(false);
+                            if (dataTable.rows().count() === 0) {
+                                dataTable.rows.add(response.data).draw(false);
+                            } else {
+                                let newNodes = dataTable.rows.add(response.data).nodes();
+                                $(dataTable.table().body()).append(newNodes);
+                            }
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -481,18 +486,16 @@
 
             loadMoreData();
 
-            let scrollTimeout = null;
+            
             $('.dataTables_scrollBody').on('scroll', function() {
-                clearTimeout(scrollTimeout);
                 const scrollTop = $(this).scrollTop();
-                const scrollHeight = $(this)[0].scrollHeight;
-                const clientHeight = $(this).height();
+                    const scrollHeight = $(this)[0].scrollHeight;
+                    const clientHeight = $(this).height();
 
-                scrollTimeout = setTimeout(() => {
-                    if (scrollTop + clientHeight >= scrollHeight * 0.85) {
+                    // Load earlier (70%) without delay
+                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                         loadMoreData();
                     }
-                }, 200);
             });
 
             function resetAndReload() {
@@ -749,9 +752,9 @@
                     const src = path.startsWith('http') ? path :
                         `${window.location.origin}/${path.replace(/^\/+/, '')}`;
                     const html = `
-                <div class="text-center border rounded p-2" style="max-width:240px;">
+                <div class="text-center border rounded p-1" style="max-width:240px;">
                     <img src="${src}" 
-                        class="img-fluid rounded mb-2 proof-image" 
+                        class="img-fluid rounded mb-1 proof-image" 
                         style="width:180px;height:180px;object-fit:cover;cursor:pointer;"
                         data-full="${src}" alt="Proof ${idx + 1}">
                     <p class="small text-muted mb-0">Photo ${idx + 1}</p>

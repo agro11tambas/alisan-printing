@@ -58,7 +58,7 @@
         <div class="col-lg-12">
             <div class="card stretch stretch-full">
                 <div class="card-body p-0">
-                    <div class="row g-3 p-4 justify-content-between">
+                    <div class="row g-3 p-2 justify-content-between">
                         <div class="col-lg-4 me-2">
 
                         </div>
@@ -66,7 +66,7 @@
                             <div class="row g-3 justify-content-end">
                                 <div class="col-lg-6">
                                     <label for="name" class="fw-semibold fs-12">Product Name</label>
-                                    <input type="text" id="name" name="name" class="form-control" style="padding: 0.5rem 1rem; font-size: 0.875rem;" placeholder="Search Product Name...">
+                                    <input type="text" id="name" name="name" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search Product Name...">
                                 </div>
                             </div>
                         </div>

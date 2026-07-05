@@ -62,7 +62,7 @@
                         @method('PUT')
                         <div class="row">
                             <div class="col-12">
-                                <div class="mb-3">
+                                <div class="mb-2">
                                     <label for="delivery_image" class="form-label">Image</label>
                                     <input class="form-control" type="file" id="delivery_image" name="delivery_image">
                                 </div>

@@ -10,7 +10,7 @@
         }
 
         /* 🔹 Perbesar font di dalam Select2 container */
-        .select2-container--default .select2-selection--single {
+        .select2-container--bootstrap-5 .select2-selection--single {
             height: 42px !important;
             font-size: 16px !important;
             line-height: 42px !important;
@@ -26,7 +26,7 @@
         /* 🔹 Perbesar teks di dropdown Select2 */
         .select2-results__option {
             font-size: 16px !important;
-            padding: 8px 12px !important;
+            padding: 4px 8px !important;
         }
 
         /* 🔹 Perbesar ikon dropdown */
@@ -144,7 +144,7 @@
         }
 
         .product-grid .form-control,
-        .product-grid .select2-container--default .select2-selection--single {
+        .product-grid .select2-container--bootstrap-5 .select2-selection--single {
             height: 44px !important;
         }
 
@@ -252,7 +252,7 @@
             }
 
             /* Select2 compact */
-            .select2-container--default .select2-selection--single {
+            .select2-container--bootstrap-5 .select2-selection--single {
                 height: 36px !important;
                 line-height: 36px !important;
             }
@@ -379,7 +379,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/sales/sale-list/update/{{ $order->id }}" method="POST" id="orderForm">
@@ -389,7 +389,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-lg-12">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="order_number" class="fw-semibold">Order Number:</label>
                                         </div>
@@ -401,7 +401,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="order_date" class="fw-semibold">Order Date:</label>
                                         </div>
@@ -413,7 +413,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="due_date_option" class="fw-semibold">Due Date:</label>
                                         </div>
@@ -429,14 +429,14 @@
                                                     <option value="custom">Custom</option>
                                                 </select>
                                             </div>
-                                            <div id="custom_due_date_wrapper" class="mt-2">
+                                            <div id="custom_due_date_wrapper" class="mt-1">
                                                 <input type="date" class="form-control" id="custom_due_date"
                                                     name="custom_due_date"
                                                     value="{{ $order->due_date ? \Carbon\Carbon::parse($order->due_date)->format('Y-m-d') : '' }}">
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customers" class="fw-semibold">Customer:</label>
                                         </div>
@@ -466,7 +466,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customer_accounts" class="fw-semibold">Customer Account:</label>
                                         </div>
@@ -490,7 +490,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="addresses" class="fw-semibold">Address:</label>
                                         </div>
@@ -511,10 +511,10 @@
                                                     @endif
                                                 </select>
                                             </div>
-                                            <div id="google-maps-link" class="mt-2">
+                                            <div id="google-maps-link" class="mt-1">
                                                 @if ($order->customerAddress && $order->customerAddress->google_maps)
                                                     <a href="{{ $order->customerAddress->google_maps }}" target="_blank"
-                                                        class="btn btn-sm btn-outline-primary mt-2">
+                                                        class="btn btn-sm btn-outline-primary mt-1">
                                                         Lihat di Google Maps
                                                     </a>
                                                 @endif
@@ -522,7 +522,7 @@
                                         </div>
                                     </div>
                                     <input type="hidden" value="6" name="transaction_type" id="transaction_type">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="notes" class="fw-semibold">Note:</label>
                                         </div>
@@ -533,14 +533,14 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label class="fw-semibold">Diskon:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="row align-items-center">
                                                 <!-- 🔹 Kolom Diskon -->
-                                                <div class="col-md-6 mb-3 mb-md-0">
+                                                <div class="col-md-6 mb-2 mb-md-0">
                                                     <div class="d-flex flex-column">
                                                         <label class="fw-semibold mb-1">Diskon:</label>
                                                         <div class="form-check form-switch">
@@ -584,7 +584,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="edit_note" class="fw-semibold">Edit Note:</label>
                                         </div>
@@ -599,13 +599,13 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-3">
+                    <div class="mt-2">
 
-                        <div class="mb-4">
+                        <div class="mb-2">
                             <h5 class="fw-bold">Add Products:</h5>
                         </div>
 
-                        <div class="product-grid product-grid-header mb-2">
+                        <div class="product-grid product-grid-header mb-1">
                             <div class="product-col-span-2">Product</div>
                             <div>Unit</div>
                             <div>Qty</div>
@@ -889,7 +889,7 @@
                         </template>
 
                         <!-- ADD -->
-                        <div class="d-flex justify-content-end mt-3">
+                        <div class="d-flex justify-content-end mt-2">
                             <button type="button" id="add_row" class="btn btn-primary">
                                 Add Item
                             </button>
@@ -897,8 +897,8 @@
 
                         <div class="col-lg-12">
                             <div class="row justify-content-end">
-                                <div class="col-lg-4 mt-3">
-                                    <div class="mb-4">
+                                <div class="col-lg-4 mt-2">
+                                    <div class="mb-2">
                                         <h5 class="fw-bold">Grand Total:</h5>
                                     </div>
                                     <div class="table-responsive">
@@ -1571,7 +1571,7 @@
 
             if (mapUrl) {
                 $('#google-maps-link').html(`
-                <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
                     Lihat di Google Maps
                 </a>
             `);

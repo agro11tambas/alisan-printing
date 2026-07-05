@@ -108,12 +108,12 @@
                 <div class="col-xxl-4 col-xl-6">
                     <div class="card stretch">
                         <div class="card-body task-info">
-                            <div class="mb-4">
+                            <div class="mb-2">
                                 <h5 class="card-title mb-1">Order Information</h5>
                                 <span class="fs-12 fw-normal text-muted d-block">{{ date('d M Y', strtotime($order->created_at)) }}</span>
                             </div>
                             <div class="task-info-list">
-                                <div class="row align-items-center mb-3 task-list-row">
+                                <div class="row align-items-center mb-2 task-list-row">
                                     <div class="col-6">
                                         <i class="feather-star me-2"></i>
                                         <span class="fw-semibold">Customer Name:</span>
@@ -122,7 +122,7 @@
                                         <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->customer->name }}</span>
                                     </div>
                                 </div>
-                                <div class="row align-items-center mb-3 task-list-row">
+                                <div class="row align-items-center mb-2 task-list-row">
                                     <div class="col-6">
                                         <i class="feather-phone me-2"></i>
                                         <span class="fw-semibold">Whatsapp:</span>
@@ -131,7 +131,7 @@
                                         <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->customer->phone }}</span>
                                     </div>
                                 </div>
-                                <div class="row align-items-center mb-3 task-list-row">
+                                <div class="row align-items-center mb-2 task-list-row">
                                     <div class="col-6">
                                         <i class="feather-airplay me-2"></i>
                                         <span class="fw-semibold">Address:</span>
@@ -140,7 +140,7 @@
                                         <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->shipping_address }}</span>
                                     </div>
                                 </div>
-                                <div class="row align-items-center mb-3 task-list-row">
+                                <div class="row align-items-center mb-2 task-list-row">
                                     <div class="col-6">
                                         <i class="feather-airplay me-2"></i>
                                         <span class="fw-semibold">Google Map:</span>
@@ -149,7 +149,7 @@
                                         <span class="border-bottom border-bottom-dashed border-gray-5"><a href="{{ $order->google_maps }}" target="_blank">Link Google Map</a></span>
                                     </div>
                                 </div>
-                                <div class="row align-items-center mb-3 task-list-row">
+                                <div class="row align-items-center mb-2 task-list-row">
                                     <div class="col-6">
                                         <i class="feather-calendar me-2"></i>
                                         <span class="fw-semibold">Order Date:</span>
@@ -158,7 +158,7 @@
                                         <span class="border-bottom border-bottom-dashed border-gray-5">{{ date('d M Y', strtotime($order->created_at)) }}</span>
                                     </div>
                                 </div>
-                                <div class="row align-items-center mb-3 task-list-row">
+                                <div class="row align-items-center mb-2 task-list-row">
                                     <div class="col-6">
                                         <i class="feather-clock me-2"></i>
                                         <span class="fw-semibold">Status:</span>
@@ -167,7 +167,7 @@
                                         <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->status }}</span>
                                     </div>
                                 </div>
-                                <div class="row align-items-center mb-3 task-list-row">
+                                <div class="row align-items-center mb-2 task-list-row">
                                     <div class="col-6">
                                         <i class="feather-clipboard me-2"></i>
                                         <span class="fw-semibold">Payment Method:</span>
@@ -176,7 +176,7 @@
                                         <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->payment_method }}</span>
                                     </div>
                                 </div>
-                                <div class="row align-items-center mb-3 task-list-row">
+                                <div class="row align-items-center mb-2 task-list-row">
                                     <div class="col-6">
                                         <i class="feather-clipboard me-2"></i>
                                         <span class="fw-semibold">Payment Status:</span>
@@ -185,7 +185,7 @@
                                         <span class="border-bottom border-bottom-dashed border-gray-5">{{ $order->payment_status }}</span>
                                     </div>
                                 </div>
-                                <div class="row align-items-center mb-3 task-list-row">
+                                <div class="row align-items-center mb-2 task-list-row">
                                     <div class="col-6">
                                         <i class="feather-dollar-sign me-2"></i>
                                         <span class="fw-semibold">Total Amount:</span>

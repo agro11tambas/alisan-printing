@@ -10,7 +10,7 @@
             background: #fff;
             font-family: 'Courier New', monospace;
             margin: 0;
-            padding: 20px;
+            padding: 5px;
         }
 
         pre {

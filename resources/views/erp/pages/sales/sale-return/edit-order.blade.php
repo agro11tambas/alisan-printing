@@ -10,7 +10,7 @@
         }
 
         /* 🔹 Perbesar font di dalam Select2 container */
-        .select2-container--default .select2-selection--single {
+        .select2-container--bootstrap-5 .select2-selection--single {
             height: 42px !important;
             font-size: 16px !important;
             line-height: 42px !important;
@@ -26,7 +26,7 @@
         /* 🔹 Perbesar teks di dropdown Select2 */
         .select2-results__option {
             font-size: 16px !important;
-            padding: 8px 12px !important;
+            padding: 4px 8px !important;
         }
 
         /* 🔹 Perbesar ikon dropdown */
@@ -75,7 +75,7 @@
         }
 
         .product-grid .form-control,
-        .product-grid .select2-container--default .select2-selection--single {
+        .product-grid .select2-container--bootstrap-5 .select2-selection--single {
             height: 44px !important;
         }
     </style>
@@ -130,7 +130,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/sales/sale-returns/update/{{ $saleReturn->id }}" method="POST" id="orderForm">
@@ -142,7 +142,7 @@
                                 <input type="hidden" name="sale_order_id" value="{{ $order->id }}">
                                 <input type="hidden" name="customer_id" value="{{ $order->customer_id }}">
                                 <div class="col-lg-12">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="order_number" class="fw-semibold">Order Number:</label>
                                         </div>
@@ -154,7 +154,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="return_date" class="fw-semibold">Sale Return Date:</label>
                                         </div>
@@ -166,7 +166,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customer_id" class="fw-semibold">Customer:</label>
                                         </div>
@@ -182,7 +182,7 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="customer_account_select" class="fw-semibold">Customer
                                                 Account:</label>
@@ -204,7 +204,7 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="addresses" class="fw-semibold">Address:</label>
                                         </div>
@@ -222,10 +222,10 @@
                                                     @endforeach
                                                 @endif
                                             </select>
-                                            <div id="google-maps-link" class="mt-2">
+                                            <div id="google-maps-link" class="mt-1">
                                                 @if ($saleReturn->customerAddress && $saleReturn->customerAddress->google_maps)
                                                     <a href="{{ $saleReturn->customerAddress->google_maps }}"
-                                                        target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                                                        target="_blank" class="btn btn-sm btn-outline-primary mt-1">
                                                         Lihat di Google Maps
                                                     </a>
                                                 @endif
@@ -233,7 +233,7 @@
                                         </div>
                                     </div>
                                     <input type="hidden" value="13" name="transaction_type" id="transaction_type">
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="note" class="fw-semibold">Note:</label>
                                         </div>
@@ -244,7 +244,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="row mb-3 align-items-center">
+                                    <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
                                             <label for="edit_note" class="fw-semibold">Edit Note:</label>
                                         </div>
@@ -259,11 +259,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="mt-3">
+                    <div class="mt-2">
                         <div class="row">
                             <div class="col-lg-12">
-                                <h5 class="fw-bold mb-4">Add Products:</h5>
-                                <div class="product-grid product-grid-header mb-2">
+                                <h5 class="fw-bold mb-2">Add Products:</h5>
+                                <div class="product-grid product-grid-header mb-1">
                                     <div class="product-col-span-2">Product</div>
                                     <div>Canceled Qty</div>
                                     <div>Defect Qty</div>
@@ -333,7 +333,7 @@
                                     @endforeach
                                 </div>
                             </div>
-                            <div class="col-lg-12 mt-4">
+                            <div class="col-lg-12 mt-2">
                                 <div class="row justify-content-end">
                                     <div class="col-lg-4">
                                         <table class="table table-bordered">
@@ -437,6 +437,7 @@
 
         $(document).ready(function() {
             $('.select-product').select2({
+                theme: 'bootstrap-5',
                 placeholder: 'Pilih produk',
                 width: '100%'
             });
@@ -510,7 +511,7 @@
 
                 if (mapUrl) {
                     $('#google-maps-link').html(`
-                    <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                    <a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
                         Lihat di Google Maps
                     </a>
                 `);

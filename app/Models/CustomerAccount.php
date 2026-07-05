@@ -54,6 +54,7 @@ class CustomerAccount extends Authenticatable
     protected $table = 'customer_accounts';
 
     protected $fillable = [
+        'customer_id',
         'google_id',
         'name',
         'email',
@@ -87,5 +88,10 @@ class CustomerAccount extends Authenticatable
             'customer_account_id',
             'customer_id'
         )->withTimestamps();
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customers::class, 'customer_id');
     }
 }

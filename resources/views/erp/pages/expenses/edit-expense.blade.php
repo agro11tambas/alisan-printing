@@ -49,7 +49,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -58,7 +58,7 @@
                         @csrf
                         @method('PUT')
                         <div class="card-body">
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="transaction_date" class="fw-semibold">Transaction Date:</label>
                                 </div>
@@ -70,7 +70,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="transaction_type" class="fw-semibold">Expense Type:</label>
                                 </div>
@@ -100,7 +100,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="cash_bank_account_id" class="fw-semibold">Cash/Bank Account:</label>
                                 </div>
@@ -122,7 +122,7 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="debit" class="fw-semibold">Debit:</label>
                                 </div>
@@ -134,7 +134,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="note" class="fw-semibold">Note:</label>
                                 </div>

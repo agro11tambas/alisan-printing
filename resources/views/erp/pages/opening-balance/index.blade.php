@@ -70,12 +70,12 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
-                    <div class="card-body px-0 py-4">
-                        <div class="row px-4 mb-3">
+                    <div class="card-body px-0 py-2">
+                        <div class="row px-2 mb-2">
                             <div class="col-lg-12">
                                 <h4>Opening Balance</h4>
                             </div>

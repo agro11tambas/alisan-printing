@@ -51,7 +51,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/deliveries/delivery-list/store/{{ $deliveryOrder->id }}" method="POST"
@@ -59,7 +59,7 @@
                     @csrf
                     <div class="card stretch stretch-full">
                         <div class="card-body">
-                            <div class="row mb-3">
+                            <div class="row mb-2">
                                 <div class="col-md-6">
                                     <label class="fw-semibold">Shipment Number</label>
                                     <input type="text" class="form-control" name="shipment_number"
@@ -71,7 +71,7 @@
                                         value="{{ date('Y-m-d') }}" required>
                                 </div>
                             </div>
-                            <div class="row mb-3">
+                            <div class="row mb-2">
                                 <div class="col-md-6">
                                     <div class="input-group">
                                         <label class="fw-semibold w-100">Driver</label>
@@ -90,7 +90,7 @@
                                         placeholder="Vehicle Plate No">
                                 </div>
                             </div>
-                            <div class="row mb-3">
+                            <div class="row mb-2">
                                 <div class="col-12">
                                     <label class="fw-semibold">Note</label>
                                     <textarea class="form-control" name="note" rows="2" placeholder="Optional note..."></textarea>
@@ -101,7 +101,7 @@
 
                     <div class="card stretch stretch-full">
                         <div class="card-body">
-                            <h5 class="fw-bold mb-3">Delivery Items</h5>
+                            <h5 class="fw-bold mb-2">Delivery Items</h5>
                             <div class="table-responsive">
                                 <table class="table table-bordered">
                                     <thead>

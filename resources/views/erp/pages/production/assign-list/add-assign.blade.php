@@ -71,7 +71,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/productions/waiting-list/assign/{{ $progress->id }}" method="POST" id="assignForm">
@@ -84,15 +84,15 @@
                                     <h4 class="card-title">Sale Info</h4>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-5 fw-semibold">Invoice Number:</div>
                                         <div class="col-lg-7">{{ $progress->order->order_number ?? '-' }}</div>
                                     </div>
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-5 fw-semibold">Customer:</div>
                                         <div class="col-lg-7">{{ $progress->order->customer->name ?? '-' }}</div>
                                     </div>
-                                    <div class="row mb-3">
+                                    <div class="row mb-2">
                                         <div class="col-lg-5 fw-semibold">
                                             <span class="text-primary">Order Note:</span>
                                         </div>
@@ -109,7 +109,7 @@
                                     <h4 class="card-title">Preview Image</h4>
                                 </div>
                                 <div class="card-body">
-                                    {{-- <div class="row mb-3">
+                                    {{-- <div class="row mb-2">
                                 <div class="col-lg-2">
                                     <label for="assign_code" class="fw-semibold">Assign Code:</label>
                                 </div>
@@ -121,7 +121,7 @@
 
                                     {{-- Design Preview Section --}}
                                     @if ($progress->items->pluck('designItem')->filter()->isNotEmpty())
-                                        <div class="row mb-4">
+                                        <div class="row mb-2">
                                             <div class="col-lg-2">
                                                 <label class="fw-semibold">Design Preview:</label>
                                             </div>
@@ -157,7 +157,7 @@
                                     <input type="hidden" class="form-control" id="assign_date" name="assign_date"
                                         value="{{ now()->format('Y-m-d') }}">
 
-                                    {{-- <div class="row mb-3">
+                                    {{-- <div class="row mb-2">
                                 <div class="col-lg-2">
                                     <label for="assign_date" class="fw-semibold">Assign Date:</label>
                                 </div>
@@ -167,7 +167,7 @@
                                 </div>
                             </div> --}}
 
-                                    {{-- <div class="row mb-3">
+                                    {{-- <div class="row mb-2">
                                 <div class="col-lg-2">
                                     <label for="note" class="fw-semibold">Note:</label>
                                 </div>
@@ -356,7 +356,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <img id="previewImageFull" src="" alt="Design Preview" class="img-fluid rounded mb-3"
+                    <img id="previewImageFull" src="" alt="Design Preview" class="img-fluid rounded mb-2"
                         style="max-height:70vh;object-fit:contain;">
                     <p id="previewImageNote" class="text-muted fs-6 mb-0"></p>
                 </div>

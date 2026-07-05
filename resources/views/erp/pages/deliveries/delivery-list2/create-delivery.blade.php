@@ -62,7 +62,7 @@
                     <div class="card-body">
                         <div class="row">
                             <div class="col-12">
-                                <div class="row mb-3 align-items-center">
+                                <div class="row mb-2 align-items-center">
                                     <div class="col-lg-2">
                                         <label for="invoice_number" class="fw-semibold">Invoice Number:</label>
                                     </div>
@@ -73,7 +73,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row mb-3 align-items-center">
+                                <div class="row mb-2 align-items-center">
                                     <div class="col-lg-2">
                                         <label for="delivered_at" class="fw-semibold">Delivered At:</label>
                                     </div>
@@ -83,7 +83,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row mb-3 align-items-center">
+                                <div class="row mb-2 align-items-center">
                                     <div class="col-lg-2">
                                         <label for="delivery_proof" class="fw-semibold">Delivery Proof:</label>
                                     </div>
@@ -93,7 +93,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row mb-3 align-items-center">
+                                <div class="row mb-2 align-items-center">
                                     <div class="col-lg-2">
                                         <label for="notes" class="fw-semibold">Note:</label>
                                     </div>

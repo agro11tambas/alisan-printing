@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             ProductionWarehouseSeeder::class,
             AccountSeeder::class,
             InvoiceSeeder::class,
+            CustomerSeeder::class,
             // Tambahkan seeder lain di sini
         ]);
     }

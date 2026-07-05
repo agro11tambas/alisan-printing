@@ -50,7 +50,7 @@
         </script>
     @endif
 
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-2 pt-md-0">
+    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/productions/waiting-list/progress-order/{{ $progress->id }}" method="POST"
@@ -63,7 +63,7 @@
                             <h4 class="card-title">Invoice Number : <span>{{ $progress->order_number }}</span></h4>
                         </div>
                         <div class="card-body">
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="change_date" class="fw-semibold">Change Date:</label>
                                 </div>
@@ -73,7 +73,7 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-3 align-items-center">
+                            <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="notes" class="fw-semibold">Note:</label>
                                 </div>
