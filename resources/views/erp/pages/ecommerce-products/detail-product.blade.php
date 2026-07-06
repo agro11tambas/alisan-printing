@@ -38,25 +38,49 @@
                         <div class="row g-4 mb-2">
                             <div class="col-lg-3">
                                 @if ($product->main_image)
-                                    <a href="{{ asset('storage/' . $product->main_image) }}" data-lightbox="product-main">
-                                        <img src="{{ asset('storage/' . $product->main_image) }}" alt="Product Image"
-                                            class="img-fluid rounded" style="width:100%;max-height:240px;object-fit:cover;">
-                                    </a>
+                                    <div class="mb-2">
+                                        <div class="fw-semibold mb-1">Image</div>
+                                        <a href="{{ asset('uploads/' . $product->main_image) }}" data-lightbox="product-main">
+                                            <img src="{{ asset('uploads/' . $product->main_image) }}" alt="Product Image"
+                                                class="img-fluid rounded" style="width:100%;max-height:240px;object-fit:cover;">
+                                        </a>
+                                    </div>
                                 @else
-                                    <div class="border rounded d-flex align-items-center justify-content-center text-muted"
+                                    <div class="border rounded d-flex align-items-center justify-content-center text-muted mb-2"
                                         style="height:180px;">
                                         No Image
                                     </div>
                                 @endif
+                                
+                                @if ($product->main_video)
+                                    <div class="mb-2">
+                                        <div class="fw-semibold mb-1">Video</div>
+                                        <video controls class="w-100 rounded" style="max-height:240px;object-fit:cover;">
+                                            <source src="{{ asset('uploads/' . $product->main_video) }}">
+                                        </video>
+                                    </div>
+                                @endif
                             </div>
                             <div class="col-lg-9">
-                                <h5 class="fw-bold mb-1">{{ $product->title }}</h5>
-                                <div class="text-muted mb-2">{{ $product->slug }}</div>
+                                <h5 class="fw-bold mb-3">
+                                    {{ $product->title }}
+                                    @if($product->is_active)
+                                        <span class="badge bg-success ms-2">Active</span>
+                                    @else
+                                        <span class="badge bg-secondary ms-2">Inactive</span>
+                                    @endif
+                                </h5>
 
                                 <div class="row g-3">
                                     <div class="col-md-4">
                                         <div class="fw-semibold">Category</div>
-                                        <div>{{ $product->category?->name ?? '-' }}</div>
+                                        <div>
+                                            @if($product->categories->isNotEmpty())
+                                                {{ $product->categories->pluck('name')->implode(', ') }}
+                                            @else
+                                                -
+                                            @endif
+                                        </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="fw-semibold">Unit</div>
@@ -101,10 +125,8 @@
                                                 <tr>
                                                     <th>ERP Product</th>
                                                     <th>Alias</th>
-                                                    <th>Extra Price</th>
                                                     <th>Image</th>
                                                     <th>Video</th>
-                                                    <th>Sort</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -112,12 +134,11 @@
                                                     <tr>
                                                         <td>{{ $option->product?->name ?? '-' }}</td>
                                                         <td>{{ $option->alias }}</td>
-                                                        <td>Rp {{ number_format((float) $option->extra_price, 0, ',', '.') }}</td>
                                                         <td>
                                                             @if ($option->image)
-                                                                <a href="{{ asset('storage/' . $option->image) }}"
+                                                                <a href="{{ asset('uploads/' . $option->image) }}"
                                                                     data-lightbox="option-{{ $option->id }}">
-                                                                    <img src="{{ asset('storage/' . $option->image) }}"
+                                                                    <img src="{{ asset('uploads/' . $option->image) }}"
                                                                         alt="Option Image" class="rounded"
                                                                         style="width:56px;height:56px;object-fit:cover;">
                                                                 </a>
@@ -128,13 +149,12 @@
                                                         <td>
                                                             @if ($option->video)
                                                                 <video controls style="width:150px;max-width:100%;border-radius:8px;">
-                                                                    <source src="{{ asset('storage/' . $option->video) }}">
+                                                                    <source src="{{ asset('uploads/' . $option->video) }}">
                                                                 </video>
                                                             @else
                                                                 -
                                                             @endif
                                                         </td>
-                                                        <td>{{ $option->sort_order ?? 0 }}</td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>

@@ -139,21 +139,23 @@
 
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
-                                    <label for="category_id" class="fw-semibold">Category</label>
+                                    <label for="category_ids" class="fw-semibold">Category</label>
                                 </div>
                                 <div class="col-lg-10 field-wrapper">
+                                    @php
+                                        $selectedCategories = old('category_ids', isset($product) ? $product->categories->pluck('id')->toArray() : []);
+                                    @endphp
                                     <select
-                                        class="form-control select2-field @error('category_id') is-invalid @enderror"
-                                        id="category_id" name="category_id">
-                                        <option value="">Choose Category</option>
+                                        class="form-control select2-field @error('category_ids') is-invalid @enderror"
+                                        id="category_ids" name="category_ids[]" multiple="multiple">
                                         @foreach ($categories as $category)
                                             <option value="{{ $category->id }}"
-                                                {{ (int) old('category_id', $product->category_id ?? 0) === (int) $category->id ? 'selected' : '' }}>
+                                                {{ in_array($category->id, $selectedCategories) ? 'selected' : '' }}>
                                                 {{ $category->name }}
                                             </option>
                                         @endforeach
                                     </select>
-                                    @error('category_id')
+                                    @error('category_ids')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -194,19 +196,7 @@
                                 </div>
                             </div>
 
-                            <div class="row mb-2 align-items-center">
-                                <div class="col-lg-2">
-                                    <label for="slug" class="fw-semibold">Slug</label>
-                                </div>
-                                <div class="col-lg-10 field-wrapper">
-                                    <input type="text" class="form-control @error('slug') is-invalid @enderror"
-                                        id="slug" name="slug" value="{{ old('slug', $product->slug ?? '') }}"
-                                        placeholder="slug">
-                                    @error('slug')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
+
 
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
@@ -219,6 +209,18 @@
                                     @error('brand')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
+                                </div>
+                            </div>
+
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-lg-2">
+                                    <label for="is_active" class="fw-semibold">Status</label>
+                                </div>
+                                <div class="col-lg-10 field-wrapper">
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" {{ old('is_active', $product->is_active ?? true) ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="is_active">Active</label>
+                                    </div>
                                 </div>
                             </div>
 
@@ -236,13 +238,39 @@
 
                                     @if ($isEdit && $product->main_image)
                                         <div class="mt-1 old-file-preview">
-                                            <img src="{{ asset('storage/' . $product->main_image) }}"
+                                            <img src="{{ asset('uploads/' . $product->main_image) }}"
                                                 alt="Product Image" class="file-preview-image">
                                         </div>
                                     @endif
 
                                     <div class="mt-1 new-image-preview-wrap" style="display:none;">
                                         <img src="#" alt="Preview" class="file-preview-image new-image-preview">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-2 align-items-start">
+                                <div class="col-lg-2">
+                                    <label for="main_video" class="fw-semibold">Main Video</label>
+                                </div>
+                                <div class="col-lg-10 field-wrapper preview-cell">
+                                    <input type="file"
+                                        class="form-control video-preview-input @error('main_video') is-invalid @enderror"
+                                        id="main_video" name="main_video" accept="video/*">
+                                    @error('main_video')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+
+                                    @if ($isEdit && $product->main_video)
+                                        <div class="mt-1 old-file-preview">
+                                            <video controls class="file-preview-video">
+                                                <source src="{{ asset('uploads/' . $product->main_video) }}">
+                                            </video>
+                                        </div>
+                                    @endif
+
+                                    <div class="mt-1 new-video-preview-wrap" style="display:none;">
+                                        <video controls class="file-preview-video new-video-preview"></video>
                                     </div>
                                 </div>
                             </div>
@@ -266,20 +294,29 @@
 
                             <div class="row g-3">
                                 <div class="col-lg-4 field-wrapper">
-                                    <label for="multiple_qty" class="fw-semibold">Multiple Qty</label>
-                                    <input type="text" class="form-control numeric-format" id="multiple_qty"
+                                    <label for="multiple_qty" class="fw-semibold">Multiple Qty <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control numeric-format @error('multiple_qty') is-invalid @enderror" id="multiple_qty"
                                         name="multiple_qty"
                                         value="{{ $formatNumber(old('multiple_qty', $product->multiple_qty ?? 1)) }}">
+                                    @error('multiple_qty')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
                                 </div>
                                 <div class="col-lg-4 field-wrapper">
-                                    <label for="min_qty" class="fw-semibold">Minimum Qty</label>
-                                    <input type="text" class="form-control numeric-format" id="min_qty"
+                                    <label for="min_qty" class="fw-semibold">Minimum Qty <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control numeric-format @error('min_qty') is-invalid @enderror" id="min_qty"
                                         name="min_qty" value="{{ $formatNumber(old('min_qty', $product->min_qty ?? 1)) }}">
+                                    @error('min_qty')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
                                 </div>
                                 <div class="col-lg-4 field-wrapper">
-                                    <label for="max_qty" class="fw-semibold">Maximum Qty</label>
-                                    <input type="text" class="form-control numeric-format" id="max_qty"
+                                    <label for="max_qty" class="fw-semibold">Maximum Qty <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control numeric-format @error('max_qty') is-invalid @enderror" id="max_qty"
                                         name="max_qty" value="{{ $formatNumber(old('max_qty', $product->max_qty ?? '')) }}">
+                                    @error('max_qty')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
                         </div>
@@ -337,10 +374,8 @@
                                                     <tr>
                                                         <th>ERP Product</th>
                                                         <th>Alias</th>
-                                                        <th>Extra Price</th>
                                                         <th>Image</th>
                                                         <th>Video</th>
-                                                        <th class="sort-column">Sort</th>
                                                         <th class="action-column"></th>
                                                     </tr>
                                                 </thead>
@@ -371,12 +406,6 @@
                                                                     value="{{ $optionRow['alias'] ?? '' }}"
                                                                     placeholder="Alias">
                                                             </td>
-                                                            <td class="field-wrapper">
-                                                                <input type="text"
-                                                                    class="form-control numeric-format"
-                                                                    name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][extra_price]"
-                                                                    value="{{ $formatNumber($optionRow['extra_price'] ?? 0) }}">
-                                                            </td>
                                                             <td class="preview-cell">
                                                                 <input type="file"
                                                                     class="form-control image-preview-input"
@@ -384,7 +413,7 @@
                                                                     accept="image/*">
                                                                 @if (!empty($optionRow['image']))
                                                                     <div class="mt-1 old-file-preview">
-                                                                        <img src="{{ asset('storage/' . $optionRow['image']) }}"
+                                                                        <img src="{{ asset('uploads/' . $optionRow['image']) }}"
                                                                             alt="Option Image"
                                                                             class="file-preview-image">
                                                                     </div>
@@ -404,7 +433,7 @@
                                                                     <div class="mt-1 old-file-preview">
                                                                         <video controls class="file-preview-video">
                                                                             <source
-                                                                                src="{{ asset('storage/' . $optionRow['video']) }}">
+                                                                                src="{{ asset('uploads/' . $optionRow['video']) }}">
                                                                         </video>
                                                                     </div>
                                                                 @endif
@@ -413,11 +442,6 @@
                                                                     <video controls
                                                                         class="file-preview-video new-video-preview"></video>
                                                                 </div>
-                                                            </td>
-                                                            <td class="sort-column">
-                                                                <input type="text" class="form-control numeric-format"
-                                                                    name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][sort_order]"
-                                                                    value="{{ $formatNumber($optionRow['sort_order'] ?? 0) }}">
                                                             </td>
                                                             <td class="text-center action-column">
                                                                 <button type="button"
@@ -524,9 +548,6 @@
                         <td class="field-wrapper">
                             <input type="text" class="form-control option-alias-input" name="variant_groups[${groupIndex}][options][${optionIndex}][alias]" placeholder="Alias">
                         </td>
-                        <td class="field-wrapper">
-                            <input type="text" class="form-control numeric-format" name="variant_groups[${groupIndex}][options][${optionIndex}][extra_price]" value="0">
-                        </td>
                         <td class="preview-cell">
                             <input type="file" class="form-control image-preview-input" name="variant_groups[${groupIndex}][options][${optionIndex}][image]" accept="image/*">
                             <div class="mt-1 new-image-preview-wrap" style="display:none;">
@@ -538,9 +559,6 @@
                             <div class="mt-1 new-video-preview-wrap" style="display:none;">
                                 <video controls class="file-preview-video new-video-preview"></video>
                             </div>
-                        </td>
-                        <td class="sort-column">
-                            <input type="text" class="form-control numeric-format" name="variant_groups[${groupIndex}][options][${optionIndex}][sort_order]" value="0">
                         </td>
                         <td class="text-center action-column">
                             <button type="button" class="btn btn-danger btn-sm remove-variant-option">
@@ -574,10 +592,8 @@
                                     <tr>
                                         <th>ERP Product</th>
                                         <th>Alias</th>
-                                        <th>Extra Price</th>
                                         <th>Image</th>
                                         <th>Video</th>
-                                        <th class="sort-column">Sort</th>
                                         <th class="action-column"></th>
                                     </tr>
                                 </thead>
@@ -711,8 +727,8 @@
 
                 let isValid = true;
 
-                if (!$('#category_id').val()) {
-                    showError($('#category_id'), 'Category wajib dipilih.');
+                if (!$('#category_ids').val() || $('#category_ids').val().length === 0) {
+                    showError($('#category_ids'), 'Minimal satu Category wajib dipilih.');
                     isValid = false;
                 }
 
@@ -723,6 +739,21 @@
 
                 if (!$('#title').val().trim()) {
                     showError($('#title'), 'Title wajib diisi.');
+                    isValid = false;
+                }
+
+                if (!$('#multiple_qty').val().trim()) {
+                    showError($('#multiple_qty'), 'Multiple Qty wajib diisi.');
+                    isValid = false;
+                }
+
+                if (!$('#min_qty').val().trim()) {
+                    showError($('#min_qty'), 'Minimum Qty wajib diisi.');
+                    isValid = false;
+                }
+
+                if (!$('#max_qty').val().trim()) {
+                    showError($('#max_qty'), 'Maximum Qty wajib diisi.');
                     isValid = false;
                 }
 

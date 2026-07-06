@@ -10,12 +10,12 @@ class EcommerceProduct extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'category_id',
         'unit_id',
         'title',
         'slug',
         'brand',
         'main_image',
+        'main_video',
         'description',
         'multiple_qty',
         'min_qty',
@@ -29,9 +29,9 @@ class EcommerceProduct extends Model
         'deleted_at' => 'datetime',
     ];
 
-    public function category()
+    public function categories()
     {
-        return $this->belongsTo(EcommerceProductCategory::class, 'category_id');
+        return $this->belongsToMany(EcommerceProductCategory::class, 'ecommerce_product_category_pivot', 'ecommerce_product_id', 'ecommerce_product_category_id');
     }
 
     public function unit()

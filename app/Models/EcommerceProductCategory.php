@@ -25,6 +25,6 @@ class EcommerceProductCategory extends Model
 
     public function products()
     {
-        return $this->hasMany(EcommerceProduct::class, 'category_id');
+        return $this->belongsToMany(EcommerceProduct::class, 'ecommerce_product_category_pivot', 'ecommerce_product_category_id', 'ecommerce_product_id');
     }
 }

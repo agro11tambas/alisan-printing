@@ -26,10 +26,12 @@ class EcommerceProductController extends Controller
 
     public function data(Request $request)
     {
-        $query = EcommerceProduct::with(['category', 'unit']);
+        $query = EcommerceProduct::with(['categories', 'unit']);
 
         if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
+            $query->whereHas('categories', function ($q) use ($request) {
+                $q->where('ecommerce_product_categories.id', $request->category_id);
+            });
         }
 
         if ($request->filled('search_keyword')) {
@@ -51,20 +53,29 @@ class EcommerceProductController extends Controller
                     return '-';
                 }
 
-                $url = asset('storage/' . $product->main_image);
+                $url = asset('uploads/' . $product->main_image);
 
                 return '<a href="' . $url . '" data-lightbox="product-' . $product->id . '">
                     <img src="' . $url . '" class="rounded" style="width:48px;height:48px;object-fit:cover;" alt="Product Image">
                 </a>';
             })
             ->addColumn('title', fn($product) => e($product->title))
-            ->addColumn('category', fn($product) => e($product->category?->name ?? '-'))
+            ->addColumn('status', function ($product) {
+                if ($product->is_active) {
+                    return '<span class="badge bg-success">Active</span>';
+                }
+                return '<span class="badge bg-secondary">Inactive</span>';
+            })
+            ->addColumn('category', function ($product) {
+                if ($product->categories->isEmpty()) return '-';
+                return $product->categories->pluck('name')->map(fn($name) => e($name))->implode(', ');
+            })
             ->addColumn('unit', fn($product) => e($product->unit?->name ?? '-'))
             ->addColumn('created_at', fn($product) => optional($product->created_at)->format('d M Y H:i'))
             ->addColumn('action', function ($product) {
                 return view('erp.pages.ecommerce-products.partials.action-button', compact('product'))->render();
             })
-            ->rawColumns(['image', 'action'])
+            ->rawColumns(['image', 'status', 'action'])
             ->make(true);
     }
 
@@ -76,7 +87,7 @@ class EcommerceProductController extends Controller
     public function show(EcommerceProduct $product)
     {
         $product->load([
-            'category',
+            'categories',
             'unit',
             'variantGroups.options.product',
         ]);
@@ -90,6 +101,7 @@ class EcommerceProductController extends Controller
             DB::transaction(function () use ($request) {
                 $product = EcommerceProduct::create($this->productPayload($request));
 
+                $product->categories()->sync($request->category_ids);
                 $this->syncVariantGroups($product, $request);
             });
 
@@ -122,6 +134,7 @@ class EcommerceProductController extends Controller
             DB::transaction(function () use ($request, $product) {
                 $product->update($this->productPayload($request, $product));
 
+                $product->categories()->sync($request->category_ids);
                 $this->syncVariantGroups($product, $request);
             });
 
@@ -181,18 +194,18 @@ class EcommerceProductController extends Controller
     private function productPayload(Request $request, ?EcommerceProduct $product = null): array
     {
         return [
-            'category_id' => $request->category_id,
             'unit_id' => $request->unit_id,
             'title' => $request->title,
             'slug' => $request->slug,
             'brand' => $request->brand,
             'main_image' => $this->storeFile($request->file('main_image'), $product?->main_image),
+            'main_video' => $this->storeFile($request->file('main_video'), $product?->main_video),
             'description' => $request->description,
             'multiple_qty' => $request->multiple_qty,
             'min_qty' => $request->min_qty,
             'max_qty' => $request->filled('max_qty') ? $request->max_qty : null,
-            'is_active' => true,
-            'sort_order' => 0,
+            'is_active' => $request->boolean('is_active'),
+            'sort_order' => $request->sort_order ?? 0,
         ];
     }
 
@@ -240,7 +253,6 @@ class EcommerceProductController extends Controller
                 $payload = [
                     'product_id' => $optionData['product_id'] ?? null,
                     'alias' => $optionData['alias'],
-                    'extra_price' => filled($optionData['extra_price'] ?? null) ? $optionData['extra_price'] : 0,
                     'image' => $this->storeFile(
                         $request->file("variant_groups.$groupIndex.options.$optionIndex.image"),
                         $oldImage
@@ -250,7 +262,6 @@ class EcommerceProductController extends Controller
                         $oldVideo
                     ),
                     'is_active' => true,
-                    'sort_order' => filled($optionData['sort_order'] ?? null) ? $optionData['sort_order'] : 0,
                 ];
 
                 if ($option) {
@@ -287,11 +298,14 @@ class EcommerceProductController extends Controller
             return $oldPath;
         }
 
-        if ($oldPath) {
-            Storage::disk('public')->delete($oldPath);
+        if ($oldPath && file_exists(public_path('uploads/' . $oldPath))) {
+            unlink(public_path('uploads/' . $oldPath));
         }
 
-        return $file->store('ecommerce-products', 'public');
+        $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+        $file->move(public_path('uploads/ecommerce-products'), $filename);
+
+        return 'ecommerce-products/' . $filename;
     }
 
 }

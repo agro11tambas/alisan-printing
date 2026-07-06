@@ -103,6 +103,7 @@
                                     <tr>
                                         <th>Image</th>
                                         <th>Title</th>
+                                        <th>Status</th>
                                         <th>Category</th>
                                         <th>Unit</th>
                                         <th>Created At</th>
@@ -174,6 +175,11 @@
                     {
                         data: 'title',
                         name: 'title'
+                    },
+                    {
+                        data: 'status',
+                        name: 'is_active',
+                        searchable: false
                     },
                     {
                         data: 'category',
