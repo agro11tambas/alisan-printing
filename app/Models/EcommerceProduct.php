@@ -24,6 +24,11 @@ class EcommerceProduct extends Model
         'sort_order',
     ];
 
+    protected $appends = [
+        'image',
+        'video'
+    ];
+
     protected $casts = [
         'is_active' => 'boolean',
         'deleted_at' => 'datetime',
@@ -61,5 +66,15 @@ class EcommerceProduct extends Model
     {
         return $this->hasMany(EcommerceVariantCombination::class, 'ecommerce_product_id')
             ->orderBy('sort_order');
+    }
+
+    public function getImageAttribute()
+    {
+        return $this->main_image ? asset('uploads/' . $this->main_image) : null;
+    }
+
+    public function getVideoAttribute()
+    {
+        return $this->main_video ? asset('uploads/' . $this->main_video) : null;
     }
 }

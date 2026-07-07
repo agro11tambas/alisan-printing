@@ -18,8 +18,18 @@ class EcommerceProductUpdateRequest extends FormRequest
         $variantGroups = $this->input('variant_groups', []);
         $variantGroups = is_array($variantGroups) ? $variantGroups : [];
 
-        foreach ($variantGroups as $groupIndex => $group) {
-            // Options extra processing can be done here if needed
+        foreach ($variantGroups as $groupIndex => &$group) {
+            if (isset($group['options']) && is_array($group['options'])) {
+                foreach ($group['options'] as &$option) {
+                    $option['is_active'] = isset($option['is_active']);
+                }
+            }
+        }
+
+        $variantCombinations = $this->input('variant_combinations', []);
+        $variantCombinations = is_array($variantCombinations) ? $variantCombinations : [];
+        foreach ($variantCombinations as &$combination) {
+            $combination['is_active'] = isset($combination['is_active']);
         }
 
         $this->merge([
@@ -30,6 +40,7 @@ class EcommerceProductUpdateRequest extends FormRequest
             'max_qty' => $this->normalizeNumber($this->input('max_qty')),
             'sort_order' => 0,
             'variant_groups' => $variantGroups,
+            'variant_combinations' => $variantCombinations,
         ]);
     }
 
@@ -68,13 +79,15 @@ class EcommerceProductUpdateRequest extends FormRequest
             'variant_groups.*.options.*.product_id' => ['required', 'exists:products,id'],
             'variant_groups.*.options.*.image' => ['nullable', 'image', 'max:4096'],
             'variant_groups.*.options.*.video' => ['nullable', 'file', 'mimes:mp4,mov,avi,webm,mkv', 'max:51200'],
+            'variant_groups.*.options.*.is_active' => ['nullable', 'boolean'],
 
             'variant_combinations' => ['nullable', 'array'],
-            'variant_combinations.*.id' => ['nullable', 'exists:ecommerce_variant_combinations,id'],
+            'variant_combinations.*.id' => ['nullable', 'integer', 'exists:ecommerce_variant_combinations,id'],
             'variant_combinations.*.product_option_product_id' => ['nullable', 'integer'],
             'variant_combinations.*.lid_option_product_id' => ['nullable', 'integer'],
             'variant_combinations.*.image' => ['nullable', 'image', 'max:4096'],
             'variant_combinations.*.video' => ['nullable', 'file', 'mimes:mp4,mov,avi,webm,mkv', 'max:51200'],
+            'variant_combinations.*.is_active' => ['nullable', 'boolean'],
         ];
     }
 

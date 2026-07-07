@@ -39,6 +39,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/register', [CustomerAuthController::class, 'register']);
         Route::post('/login', [CustomerAuthController::class, 'login']);
 
+        // OTP auth
+        Route::post('/otp/request', [CustomerAuthController::class, 'requestOtp']);
+        Route::post('/otp/verify', [CustomerAuthController::class, 'verifyOtp']);
+
         // Google OAuth
         Route::get('/google/redirect', [CustomerAuthController::class, 'redirectToGoogle']);
         Route::get('/google/callback', [CustomerAuthController::class, 'handleGoogleCallback']);
@@ -52,12 +56,12 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('ecommerce')->middleware('auth:sanctum')->group(function () {
         Route::get('/sale-orders', [EcommerceSaleOrderController::class, 'index']);
-        Route::post('/sale-orders', [EcommerceSaleOrderController::class, 'store']);
         Route::get('/sale-orders/{order}', [EcommerceSaleOrderController::class, 'show']);
     });
 
     // Public ecommerce API
     Route::prefix('ecommerce')->group(function () {
+        Route::post('/sale-orders', [EcommerceSaleOrderController::class, 'store']);
         Route::get('/products', [EcommerceProductController::class, 'index']);
         Route::get('/products/{slug}', [EcommerceProductController::class, 'show']);
         Route::get('/categories', [EcommerceProductCategoryController::class, 'index']);

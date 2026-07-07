@@ -348,7 +348,7 @@ class EcommerceProductController extends Controller
                         $request->file("variant_groups.$groupIndex.options.$optionIndex.video"),
                         $oldVideo
                     ),
-                    'is_active' => true,
+                    'is_active' => $optionData['is_active'] ?? false,
                 ];
 
                 if ($option) {
@@ -456,6 +456,7 @@ class EcommerceProductController extends Controller
                     $request->file("variant_combinations.$index.video"),
                     $oldVideo
                 ),
+                'is_active' => $combData['is_active'] ?? false,
                 'sort_order' => $index,
             ];
 

@@ -392,6 +392,7 @@
                                                         <th>Alias</th>
                                                         <th>Image</th>
                                                         <th>Video</th>
+                                                        <th>Is Active</th>
                                                         <th class="action-column"></th>
                                                     </tr>
                                                 </thead>
@@ -466,6 +467,11 @@
                                                                         class="file-preview-video new-video-preview"></video>
                                                                 </div>
                                                             </td>
+                                                            <td class="text-center align-middle">
+                                                                <div class="form-check form-switch d-inline-block">
+                                                                    <input class="form-check-input" type="checkbox" name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][is_active]" value="1" {{ !isset($optionRow['is_active']) || $optionRow['is_active'] ? 'checked' : '' }}>
+                                                                </div>
+                                                            </td>
                                                             <td class="text-center action-column">
                                                                 <button type="button"
                                                                     class="btn btn-danger btn-sm remove-variant-option">
@@ -499,6 +505,7 @@
                                             <th>Price (Saved)</th>
                                             <th>Image</th>
                                             <th>Video</th>
+                                            <th>Is Active</th>
                                         </tr>
                                     </thead>
                                     <tbody id="variantCombinationsList">
@@ -728,6 +735,11 @@
                                     <video controls class="file-preview-video new-video-preview"></video>
                                 </div>
                             </td>
+                            <td class="text-center align-middle">
+                                <div class="form-check form-switch d-inline-block">
+                                    <input class="form-check-input" type="checkbox" name="variant_combinations[${combIndex}][is_active]" value="1" ${existing.is_active !== false && existing.is_active !== 0 && existing.is_active !== "0" ? 'checked' : ''}>
+                                </div>
+                            </td>
                         </tr>
                     `;
                     tbody.append(tr);
@@ -884,6 +896,11 @@
                             <input type="file" class="form-control video-preview-input" name="variant_groups[${groupIndex}][options][${optionIndex}][video]" accept="video/*">
                             <div class="mt-1 new-video-preview-wrap" style="display:none;">
                                 <video controls class="file-preview-video new-video-preview"></video>
+                            </div>
+                        </td>
+                        <td class="text-center align-middle">
+                            <div class="form-check form-switch d-inline-block">
+                                <input class="form-check-input" type="checkbox" name="variant_groups[${groupIndex}][options][${optionIndex}][is_active]" value="1" checked>
                             </div>
                         </td>
                         <td class="text-center action-column">

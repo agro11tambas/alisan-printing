@@ -13,6 +13,16 @@ class EcommerceVariantCombination extends Model
         'price', 'image',
         'video',
         'sort_order',
+        'is_active',
+    ];
+
+    protected $appends = [
+        'image_url',
+        'video_url'
+    ];
+
+    protected $casts = [
+        'is_active' => 'boolean',
     ];
 
     public function ecommerceProduct()
@@ -28,5 +38,15 @@ class EcommerceVariantCombination extends Model
     public function lidOption()
     {
         return $this->belongsTo(EcommerceVariantOption::class, 'lid_option_id');
+    }
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image ? asset('uploads/' . $this->image) : null;
+    }
+
+    public function getVideoUrlAttribute()
+    {
+        return $this->video ? asset('uploads/' . $this->video) : null;
     }
 }

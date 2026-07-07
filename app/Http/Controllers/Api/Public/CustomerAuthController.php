@@ -8,6 +8,9 @@ use App\Models\CustomerAccount;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
 
 class CustomerAuthController extends Controller
@@ -93,6 +96,122 @@ class CustomerAuthController extends Controller
                 'customer' => $account->load(['customer', 'customers']),
             ],
         ]);
+    }
+
+    public function requestOtp(Request $request)
+    {
+        $validated = $request->validate([
+            'whatsapp_number' => 'required|string|min:9|max:20',
+        ]);
+
+        $phone = $validated['whatsapp_number'];
+        $otp = rand(100000, 999999);
+
+        Cache::put('otp_' . $phone, $otp, now()->addMinutes(5));
+
+        $url = config('whatsapp.fonnte.url');
+        $token = config('whatsapp.fonnte.api_key');
+
+        if ($token && $token !== 'isi_dengan_token_api_disini') {
+            try {
+                $response = Http::withHeaders([
+                    'Authorization' => $token
+                ])->post($url, [
+                    'target' => $phone,
+                    'message' => "Kode OTP Anda untuk login ke Alisan adalah: *$otp*. Kode ini berlaku selama 5 menit. Jangan berikan kode ini kepada siapapun.",
+                ]);
+
+                if (!$response->successful()) {
+                    Log::error('WhatsApp OTP Send Error', ['response' => $response->body()]);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Gagal mengirim OTP ke WhatsApp. Coba lagi nanti.',
+                    ], 500);
+                }
+            } catch (\Exception $e) {
+                Log::error('WhatsApp OTP Send Exception', ['error' => $e->getMessage()]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal terhubung ke server WhatsApp. Coba lagi nanti.',
+                ], 500);
+            }
+        } else {
+            Log::info("DEVELOPMENT OTP generated for {$phone}: {$otp}");
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OTP berhasil dikirim ke nomor WhatsApp Anda.',
+        ]);
+    }
+
+    public function verifyOtp(Request $request)
+    {
+        $validated = $request->validate([
+            'whatsapp_number' => 'required|string',
+            'otp' => 'required|numeric',
+        ]);
+
+        $phone = $validated['whatsapp_number'];
+        $inputOtp = $validated['otp'];
+
+        $cachedOtp = Cache::get('otp_' . $phone);
+
+        if (!$cachedOtp || $cachedOtp != $inputOtp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'OTP tidak valid atau sudah kedaluwarsa.',
+            ], 400);
+        }
+
+        Cache::forget('otp_' . $phone);
+
+        $account = CustomerAccount::where('whatsapp_number', $phone)->first();
+
+        if ($account && !$account->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun customer tidak aktif.',
+            ], 403);
+        }
+
+        return DB::transaction(function () use ($phone, $account) {
+            if (!$account) {
+                $customer = Customers::create([
+                    'name' => 'User ' . substr($phone, -4),
+                    'phone' => $phone,
+                    'customer_deposit' => 0,
+                ]);
+
+                $account = CustomerAccount::create([
+                    'customer_id' => $customer->id,
+                    'name' => 'User ' . substr($phone, -4),
+                    'whatsapp_number' => $phone,
+                    'email' => null,
+                    'password' => null,
+                    'auth_provider' => 'otp',
+                    'is_active' => true,
+                    'last_login_at' => now(),
+                ]);
+
+                $account->customers()->syncWithoutDetaching([$customer->id]);
+            } else {
+                $account->update([
+                    'last_login_at' => now(),
+                ]);
+            }
+
+            $token = $account->createToken('customer-token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Login sukses.',
+                'data' => [
+                    'token' => $token,
+                    'customer' => $account->load(['customer', 'customers']),
+                ],
+            ]);
+        });
     }
 
     public function redirectToGoogle()

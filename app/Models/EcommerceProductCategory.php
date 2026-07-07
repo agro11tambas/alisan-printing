@@ -18,6 +18,10 @@ class EcommerceProductCategory extends Model
         'sort_order',
     ];
 
+    protected $appends = [
+        'image_url'
+    ];
+
     protected $casts = [
         'is_active' => 'boolean',
         'deleted_at' => 'datetime',
@@ -26,5 +30,10 @@ class EcommerceProductCategory extends Model
     public function products()
     {
         return $this->belongsToMany(EcommerceProduct::class, 'ecommerce_product_category_pivot', 'ecommerce_product_category_id', 'ecommerce_product_id');
+    }
+
+    public function getImageUrlAttribute()
+    {
+        return $this->image ? asset('uploads/' . $this->image) : null;
     }
 }
