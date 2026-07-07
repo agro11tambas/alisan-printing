@@ -11,7 +11,7 @@ class EcommerceProduct extends Model
 
     protected $fillable = [
         'unit_id',
-        'title',
+        'price', 'title',
         'slug',
         'brand',
         'main_image',
@@ -57,4 +57,9 @@ class EcommerceProduct extends Model
         );
     }
 
+    public function variantCombinations()
+    {
+        return $this->hasMany(EcommerceVariantCombination::class, 'ecommerce_product_id')
+            ->orderBy('sort_order');
+    }
 }

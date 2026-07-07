@@ -289,17 +289,21 @@
                     const keyword = $(this).val().trim();
                     if (keyword !== lastKeyword) {
                         lastKeyword = keyword;
-                        dataTable.ajax.reload();
+                        dataTable.ajax.reload(null, true); // Force reset paging for scroller
                     }
                 }
             });
 
-            // jika dikosongkan → reload otomatis
+            // Handle when user clears input and presses ENTER, or clicks a clear button.
+            // If they want to search, they must press ENTER. 
+            // BUT if they clear the input, maybe they want it to auto-reload?
+            // "aku hapus andi nya tabelnya malah kosong" - we must ensure it doesn't empty out!
             $('#name').on('input', function() {
                 const val = $(this).val().trim();
                 if (val === '' && lastKeyword !== '') {
+                    // Allow auto-reload ONLY when cleared completely to revert to original state
                     lastKeyword = '';
-                    dataTable.ajax.reload();
+                    dataTable.ajax.reload(null, true); // Force reset paging for scroller
                 }
             });
 

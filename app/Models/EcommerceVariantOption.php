@@ -12,7 +12,7 @@ class EcommerceVariantOption extends Model
     protected $fillable = [
         'variant_group_id',
         'product_id',
-        'alias',
+        'price', 'alias',
         'extra_price',
         'image',
         'video',

@@ -21,7 +21,7 @@
                 @endif
                 @if (Auth::check() && (Auth::user()->hasSubPermission('product-list') || Auth::user()->hasSubPermission('product-categories')))
                     <li
-                        class="nxl-item nxl-hasmenu {{ request()->is('erp/ecommerce-products*') || request()->is('erp/ecommerce-product-categories*') ? 'active' : '' }}">
+                        class="nxl-item nxl-hasmenu {{ request()->is('erp/ecommerce-products*') || request()->is('erp/ecommerce-product-categories*') || request()->is('erp/ecommerce-information*') ? 'active' : '' }}">
                         <a href="javascript:void(0);" class="nxl-link">
                             <span class="nxl-micon"><i class="feather-shopping-cart"></i></span>
                             <span class="nxl-mtext ">Ecommerce</span><span class="nxl-arrow"><i
@@ -35,6 +35,11 @@
                                 class="nxl-item {{ request()->is('erp/ecommerce-product-categories*') ? 'active' : '' }}">
                                 <a class="nxl-link" href="/erp/ecommerce-product-categories"><span
                                         class="">Ecommerce Category</span></a>
+                            </li>
+                            <li
+                                class="nxl-item {{ request()->is('erp/ecommerce-information*') ? 'active' : '' }}">
+                                <a class="nxl-link" href="/erp/ecommerce-information"><span
+                                        class="">Information</span></a>
                             </li>
                         </ul>
                     </li>

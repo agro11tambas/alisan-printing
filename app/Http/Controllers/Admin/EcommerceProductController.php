@@ -8,7 +8,9 @@ use App\Http\Requests\EcommerceProductUpdateRequest;
 use App\Models\EcommerceProduct;
 use App\Models\EcommerceProductCategory;
 use App\Models\EcommerceVariantOption;
+use App\Models\EcommerceVariantCombination;
 use App\Models\Products;
+use App\Models\ProductBundle;
 use App\Models\ProductUnit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,12 +86,75 @@ class EcommerceProductController extends Controller
         return view('erp.pages.ecommerce-products.create-product', $this->formData());
     }
 
+    public function getBundleSecondaryProducts(Request $request)
+    {
+        $productIds = $request->input('product_ids', []);
+        $unitId = $request->input('unit_id');
+
+        if (empty($productIds)) {
+            return response()->json(['secondaries' => [], 'pairs' => []]);
+        }
+
+        // Get bundles where ANY of the given product IDs is the primary item
+        $bundles = ProductBundle::whereHas('items', function ($query) use ($productIds) {
+            $query->whereIn('product_id', $productIds)
+                  ->where('role', 'primary');
+        })->with(['items.product', 'unitConversions'])->get();
+
+        $secondaryProducts = collect();
+        $pairs = [];
+
+        foreach ($bundles as $bundle) {
+            $primaryItem = $bundle->items->firstWhere('role', 'primary');
+            $secondaryItem = $bundle->items->firstWhere('role', 'secondary');
+
+            if (!$primaryItem?->product || !$secondaryItem?->product) {
+                continue;
+            }
+
+            // Collect unique secondaries
+            $secondaryProducts->push([
+                'id' => $secondaryItem->product->id,
+                'name' => $secondaryItem->product->name,
+                'sku' => $secondaryItem->product->sku,
+            ]);
+
+            // Calculate price based on unit
+            $price = 0;
+            if ($unitId) {
+                $conversion = $bundle->unitConversions->firstWhere('unit_id', $unitId);
+                if ($conversion && $conversion->sale_price > 0) {
+                    $price = $conversion->sale_price;
+                }
+            }
+            if ($price == 0) {
+                $price = $bundle->sale_price > 0 ? $bundle->sale_price : $bundle->price;
+            }
+
+            // Collect the actual pair
+            $pairs[] = [
+                'primary_product_id' => $primaryItem->product_id,
+                'secondary_product_id' => $secondaryItem->product_id,
+                'price' => $price
+            ];
+        }
+
+        $secondaryProducts = $secondaryProducts->unique('id')->values();
+
+        return response()->json([
+            'secondaries' => $secondaryProducts,
+            'pairs' => $pairs
+        ]);
+    }
+
     public function show(EcommerceProduct $product)
     {
         $product->load([
             'categories',
             'unit',
             'variantGroups.options.product',
+            'variantCombinations.productOption',
+            'variantCombinations.lidOption',
         ]);
 
         return view('erp.pages.ecommerce-products.detail-product', compact('product'));
@@ -103,6 +168,8 @@ class EcommerceProductController extends Controller
 
                 $product->categories()->sync($request->category_ids);
                 $this->syncVariantGroups($product, $request);
+                $this->syncVariantCombinations($product, $request);
+                $this->syncBasePrice($product);
             });
 
             return redirect()
@@ -120,6 +187,7 @@ class EcommerceProductController extends Controller
     {
         $product->load([
             'variantGroups.options.product',
+            'variantCombinations',
         ]);
 
         return view('erp.pages.ecommerce-products.edit-product', array_merge(
@@ -136,6 +204,8 @@ class EcommerceProductController extends Controller
 
                 $product->categories()->sync($request->category_ids);
                 $this->syncVariantGroups($product, $request);
+                $this->syncVariantCombinations($product, $request);
+                $this->syncBasePrice($product);
             });
 
             return redirect()
@@ -187,7 +257,7 @@ class EcommerceProductController extends Controller
         return [
             'categories' => EcommerceProductCategory::orderBy('name')->get(),
             'productUnits' => ProductUnit::orderBy('name')->get(),
-            'erpProducts' => Products::orderBy('name')->get(),
+            'erpProducts' => Products::with('unitConversions')->orderBy('name')->get(),
         ];
     }
 
@@ -250,9 +320,26 @@ class EcommerceProductController extends Controller
                 $oldImage = $option?->image;
                 $oldVideo = $option?->video;
 
+                $erpProduct = null;
+                $price = 0;
+                if (!empty($optionData['product_id'])) {
+                    $erpProduct = \App\Models\Products::find($optionData['product_id']);
+                    if ($erpProduct) {
+                        $unitId = $request->unit_id;
+                        $conversion = $erpProduct->unitConversions()->where('unit_id', $unitId)->first();
+                        
+                        if ($conversion && $conversion->sale_price > 0) {
+                            $price = $conversion->sale_price;
+                        } else {
+                            $price = $erpProduct->sale_price > 0 ? $erpProduct->sale_price : $erpProduct->price;
+                        }
+                    }
+                }
+
                 $payload = [
                     'product_id' => $optionData['product_id'] ?? null,
                     'alias' => $optionData['alias'],
+                    'price' => $price,
                     'image' => $this->storeFile(
                         $request->file("variant_groups.$groupIndex.options.$optionIndex.image"),
                         $oldImage
@@ -292,6 +379,100 @@ class EcommerceProductController extends Controller
 
     }
 
+    private function syncVariantCombinations(EcommerceProduct $product, Request $request): void
+    {
+        $keptCombinationIds = [];
+        $combinations = $request->input('variant_combinations', []);
+        
+        // Refresh product to get newly created groups and options
+        $product->load('variantGroups.options');
+        
+        $groups = $product->variantGroups;
+        if ($groups->count() < 2) {
+            // If less than 2 groups, no combinations are possible
+            $product->variantCombinations()->delete();
+            return;
+        }
+
+        $productGroup = $groups[0];
+        $lidGroup = $groups[1];
+
+        foreach ($combinations as $index => $combData) {
+            if (empty($combData['product_option_product_id']) || empty($combData['lid_option_product_id'])) {
+                continue;
+            }
+
+            $productOption = $productGroup->options->firstWhere('product_id', $combData['product_option_product_id']);
+            $lidOption = $lidGroup->options->firstWhere('product_id', $combData['lid_option_product_id']);
+
+            if (!$productOption || !$lidOption) {
+                continue; // Skip if options were not saved or found
+            }
+
+            $combination = null;
+
+            if (!empty($combData['id'])) {
+                $combination = $product->variantCombinations()
+                    ->where('id', $combData['id'])
+                    ->first();
+            }
+
+            // Fetch bundle price
+            $bundleId = \App\Models\ProductBundleItem::where('product_id', $combData['product_option_product_id'])
+                ->where('role', 'primary')
+                ->whereHas('bundle', function ($q) use ($combData) {
+                    $q->whereHas('items', function ($q2) use ($combData) {
+                        $q2->where('product_id', $combData['lid_option_product_id'])
+                           ->where('role', 'secondary');
+                    });
+                })->value('bundle_id');
+
+            $price = 0;
+            if ($bundleId) {
+                $bundle = \App\Models\ProductBundle::find($bundleId);
+                if ($bundle) {
+                    $unitId = $request->unit_id;
+                    $conversion = $bundle->unitConversions()->where('unit_id', $unitId)->first();
+                    
+                    if ($conversion && $conversion->sale_price > 0) {
+                        $price = $conversion->sale_price;
+                    } else {
+                        $price = $bundle->sale_price > 0 ? $bundle->sale_price : $bundle->price;
+                    }
+                }
+            }
+
+            $oldImage = $combination?->image;
+            $oldVideo = $combination?->video;
+            $payload = [
+                'product_option_id' => $productOption->id,
+                'lid_option_id' => $lidOption->id,
+                'price' => $price,
+                'image' => $this->storeFile(
+                    $request->file("variant_combinations.$index.image"),
+                    $oldImage
+                ),
+                'video' => $this->storeFile(
+                    $request->file("variant_combinations.$index.video"),
+                    $oldVideo
+                ),
+                'sort_order' => $index,
+            ];
+
+            if ($combination) {
+                $combination->update($payload);
+            } else {
+                $combination = $product->variantCombinations()->create($payload);
+            }
+
+            $keptCombinationIds[] = $combination->id;
+        }
+
+        $product->variantCombinations()
+            ->whereNotIn('id', $keptCombinationIds)
+            ->delete();
+    }
+
     private function storeFile($file, ?string $oldPath = null): ?string
     {
         if (!$file) {
@@ -306,6 +487,21 @@ class EcommerceProductController extends Controller
         $file->move(public_path('uploads/ecommerce-products'), $filename);
 
         return 'ecommerce-products/' . $filename;
+    }
+
+    private function syncBasePrice(EcommerceProduct $product): void
+    {
+        $minPrice = 0;
+        
+        $optionPrices = \App\Models\EcommerceVariantOption::whereIn('variant_group_id', $product->variantGroups()->pluck('id'))->pluck('price')->filter(function ($price) {
+            return $price > 0;
+        });
+        
+        if ($optionPrices->isNotEmpty()) {
+            $minPrice = $optionPrices->min();
+        }
+
+        $product->update(['price' => $minPrice]);
     }
 
 }

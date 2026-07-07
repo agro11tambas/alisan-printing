@@ -29,6 +29,7 @@
                             'id' => $option->id,
                             'alias' => $option->alias,
                             'product_id' => $option->product_id,
+                            'price' => $option->price,
                             'extra_price' => $option->extra_price,
                             'image' => $option->image,
                             'video' => $option->video,
@@ -41,7 +42,7 @@
     } else {
         $groupRows = collect([
             [
-                'name' => 'PRODUCT OPTION',
+                'name' => '',
                 'options' => [
                     [
                         'alias' => '',
@@ -52,6 +53,23 @@
                 ],
             ],
         ]);
+    }
+
+    $oldCombinations = old('variant_combinations');
+    if ($oldCombinations !== null) {
+        $combinations = collect($oldCombinations);
+    } elseif ($isEdit) {
+        $combinations = $product->variantCombinations->map(function ($comb) {
+            return [
+                'id' => $comb->id,
+                'product_option_product_id' => $comb->productOption?->product_id,
+                'lid_option_product_id' => $comb->lidOption?->product_id,
+                'price' => $comb->price,
+                'image' => $comb->image,
+            ];
+        });
+    } else {
+        $combinations = collect([]);
     }
 @endphp
 
@@ -196,21 +214,18 @@
                                 </div>
                             </div>
 
-
-
+                            @if($isEdit)
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
-                                    <label for="brand" class="fw-semibold">Brand</label>
+                                    <label class="fw-semibold">Base Price</label>
                                 </div>
                                 <div class="col-lg-10 field-wrapper">
-                                    <input type="text" class="form-control @error('brand') is-invalid @enderror"
-                                        id="brand" name="brand" value="{{ old('brand', $product->brand ?? '') }}"
-                                        placeholder="Brand">
-                                    @error('brand')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
+                                    <input type="text" class="form-control" value="Rp {{ $formatNumber($product->price) }}" readonly disabled>
+                                    <small class="text-muted">Auto-calculated from lowest variant option price.</small>
                                 </div>
                             </div>
+                            @endif
+
 
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
@@ -297,7 +312,7 @@
                                     <label for="multiple_qty" class="fw-semibold">Multiple Qty <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control numeric-format @error('multiple_qty') is-invalid @enderror" id="multiple_qty"
                                         name="multiple_qty"
-                                        value="{{ $formatNumber(old('multiple_qty', $product->multiple_qty ?? 1)) }}">
+                                        value="{{ $formatNumber(old('multiple_qty', $product->multiple_qty ?? '')) }}">
                                     @error('multiple_qty')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
@@ -305,7 +320,7 @@
                                 <div class="col-lg-4 field-wrapper">
                                     <label for="min_qty" class="fw-semibold">Minimum Qty <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control numeric-format @error('min_qty') is-invalid @enderror" id="min_qty"
-                                        name="min_qty" value="{{ $formatNumber(old('min_qty', $product->min_qty ?? 1)) }}">
+                                        name="min_qty" value="{{ $formatNumber(old('min_qty', $product->min_qty ?? '')) }}">
                                     @error('min_qty')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
@@ -358,7 +373,7 @@
                                                 <input type="text" class="form-control variant-group-name"
                                                     name="variant_groups[{{ $groupIndex }}][name]"
                                                     value="{{ $groupRow['name'] ?? '' }}"
-                                                    placeholder="PRODUCT OPTION">
+                                                    placeholder="Group Name">
                                             </div>
                                             <div class="col-lg-2 d-flex align-items-end justify-content-end">
                                                 <button type="button"
@@ -373,6 +388,7 @@
                                                 <thead class="table-light">
                                                     <tr>
                                                         <th>ERP Product</th>
+                                                        <th>Price (Saved)</th>
                                                         <th>Alias</th>
                                                         <th>Image</th>
                                                         <th>Video</th>
@@ -398,6 +414,13 @@
                                                                         </option>
                                                                     @endforeach
                                                                 </select>
+                                                            </td>
+                                                            <td class="field-wrapper align-middle">
+                                                                @if(isset($optionRow['price']))
+                                                                    <span class="badge bg-soft-success text-success">Rp {{ $formatNumber($optionRow['price'] ?? 0) }}</span>
+                                                                @else
+                                                                    <span class="badge bg-soft-secondary text-secondary">-</span>
+                                                                @endif
                                                             </td>
                                                             <td class="field-wrapper">
                                                                 <input type="text"
@@ -465,6 +488,26 @@
                             </div>
                         </div>
 
+                        <div class="mb-2" id="variantCombinationsSection" style="display:none;">
+                            <h6 class="fw-bold mb-2">Variant Combinations (PRODUCT OPTION + LID OPTION)</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered ecommerce-repeater-table mb-1">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Product Option</th>
+                                            <th>Lid Option</th>
+                                            <th>Price (Saved)</th>
+                                            <th>Image</th>
+                                            <th>Video</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="variantCombinationsList">
+                                        <!-- Rendered by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                     </div>
                 </form>
             </div>
@@ -474,11 +517,31 @@
 
 @push('scripts')
     <script>
-        const erpProducts = @json(
-            $erpProducts->map(fn($item) => [
-                        'id' => $item->id,
-                        'text' => trim($item->name . ' - ' . $item->sku),
-                    ])->values());
+@php
+    $erpProductsJson = $erpProducts->map(fn($item) => [
+        'id' => $item->id,
+        'text' => trim($item->name . ' - ' . $item->sku),
+        'base_price' => $item->sale_price > 0 ? $item->sale_price : $item->price,
+        'conversions' => $item->unitConversions->map(fn($c) => [
+            'unit_id' => $c->unit_id,
+            'sale_price' => $c->sale_price,
+        ])->values(),
+    ])->values();
+@endphp
+        const erpProducts = @json($erpProductsJson);
+
+        function getProductPrice(productId) {
+            const product = erpProducts.find(p => String(p.id) === String(productId));
+            if (!product) return 0;
+            const unitId = $('#unit_id').val();
+            if (unitId && product.conversions) {
+                const conv = product.conversions.find(c => String(c.unit_id) === String(unitId));
+                if (conv && parseFloat(conv.sale_price) > 0) {
+                    return parseFloat(conv.sale_price);
+                }
+            }
+            return parseFloat(product.base_price) || 0;
+        }
 
         $(document).ready(function() {
             const form = $('#ecommerceProductForm');
@@ -504,6 +567,14 @@
                 const digits = String(value ?? '').replace(/\D/g, '');
 
                 return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            }
+
+            function formatPrice(value) {
+                if (value === undefined || value === null || value === '') return '0';
+                let num = parseFloat(value);
+                if (isNaN(num)) num = 0;
+                num = Math.floor(num);
+                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             function optionsHtml(items, selectedValue = '') {
@@ -533,7 +604,259 @@
                 return indexes.length ? Math.max(...indexes) + 1 : 0;
             }
 
+                        const combinationsData = @json($combinations ?? []);
+            let combinationsState = {}; // { "prodId_lidId": {id, image_url} }
+            combinationsData.forEach(c => {
+                if (c.product_option_product_id && c.lid_option_product_id) {
+                    combinationsState[`${c.product_option_product_id}_${c.lid_option_product_id}`] = c;
+                }
+            });
+
             let nextGroupIndex = getNextIndex('.variant-group-item', 'group-index');
+
+            function getProductGroupsData() {
+                const groups = [];
+                $('.variant-group-item').each(function() {
+                    const group = $(this);
+                    const groupName = group.find('.variant-group-name').val() || '';
+                    const options = [];
+                    group.find('.variant-option-row').each(function() {
+                        const productSelect = $(this).find('.option-product-select');
+                        const alias = $(this).find('.option-alias-input').val() || '';
+                        const productId = productSelect.val();
+                        const productName = productSelect.find('option:selected').text();
+                        if (productId) {
+                            options.push({ productId, productName, alias });
+                        }
+                    });
+                    groups.push({ name: groupName, options });
+                });
+                return groups;
+            }
+
+            // Store bundle pairs from API
+            let bundlePairs = [];
+
+            function renderCombinations() {
+                const groups = getProductGroupsData();
+                if (groups.length < 2 || bundlePairs.length === 0) {
+                    $('#variantCombinationsSection').hide();
+                    return;
+                }
+
+                const productGroup = groups[0];
+                const lidGroup = groups[1];
+
+                if (productGroup.options.length === 0 || lidGroup.options.length === 0) {
+                    $('#variantCombinationsSection').hide();
+                    return;
+                }
+
+                // Build lookup maps for aliases
+                const productAliasMap = {};
+                productGroup.options.forEach(o => {
+                    productAliasMap[o.productId] = o.alias || o.productName;
+                });
+                const lidAliasMap = {};
+                lidGroup.options.forEach(o => {
+                    lidAliasMap[o.productId] = o.alias || o.productName;
+                });
+
+                // Filter pairs: only those where both primary AND secondary exist in our current groups
+                const validPairs = bundlePairs.filter(pair => {
+                    return productAliasMap[pair.primary_product_id] !== undefined
+                        && lidAliasMap[pair.secondary_product_id] !== undefined;
+                });
+
+                if (validPairs.length === 0) {
+                    $('#variantCombinationsSection').hide();
+                    return;
+                }
+
+                $('#variantCombinationsSection').show();
+                const tbody = $('#variantCombinationsList');
+                tbody.empty();
+
+                validPairs.forEach((pair, combIndex) => {
+                    const key = `${pair.primary_product_id}_${pair.secondary_product_id}`;
+                    const existing = combinationsState[key] || {};
+                    const hiddenId = existing.id ? `<input type="hidden" name="variant_combinations[${combIndex}][id]" value="${existing.id}">` : '';
+                    
+                    let oldPreview = '';
+                    if (existing.image) {
+                        oldPreview = `<div class="mt-1 old-file-preview"><img src="/uploads/${existing.image}" class="file-preview-image"></div>`;
+                    }
+                    
+                    let oldVideoPreview = '';
+                    if (existing.video) {
+                        oldVideoPreview = `<div class="mt-1 old-file-preview"><video controls class="file-preview-video"><source src="/uploads/${existing.video}"></video></div>`;
+                    }
+
+                    const productLabel = escapeHtml(productAliasMap[pair.primary_product_id] || '');
+                    const lidLabel = escapeHtml(lidAliasMap[pair.secondary_product_id] || '');
+                    
+                    const displayPrice = pair.price !== undefined && pair.price !== null ? pair.price : existing.price;
+                    const priceLabel = displayPrice !== undefined && displayPrice !== null
+                        ? `<span class="badge bg-soft-success text-success">Rp ${formatPrice(displayPrice)}</span>`
+                        : `<span class="badge bg-soft-secondary text-secondary">-</span>`;
+
+                    const tr = `
+                        <tr>
+                            <td>
+                                ${hiddenId}
+                                <input type="hidden" name="variant_combinations[${combIndex}][product_option_product_id]" value="${pair.primary_product_id}">
+                                ${productLabel}
+                            </td>
+                            <td>
+                                <input type="hidden" name="variant_combinations[${combIndex}][lid_option_product_id]" value="${pair.secondary_product_id}">
+                                ${lidLabel}
+                            </td>
+                            <td class="align-middle">
+                                ${priceLabel}
+                            </td>
+                            <td class="preview-cell">
+                                <input type="file" class="form-control image-preview-input" name="variant_combinations[${combIndex}][image]" accept="image/*">
+                                ${oldPreview}
+                                <div class="mt-1 new-image-preview-wrap" style="display:none;">
+                                    <img src="#" alt="Preview" class="file-preview-image new-image-preview">
+                                </div>
+                            </td>
+                            <td class="preview-cell">
+                                <input type="file" class="form-control video-preview-input" name="variant_combinations[${combIndex}][video]" accept="video/*">
+                                ${oldVideoPreview}
+                                <div class="mt-1 new-video-preview-wrap" style="display:none;">
+                                    <video controls class="file-preview-video new-video-preview"></video>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.append(tr);
+                });
+            }
+
+            function fetchSecondaryProducts() {
+                const groups = getProductGroupsData();
+                if (groups.length === 0) return;
+                
+                const productIds = groups[0].options.map(o => o.productId);
+                if (productIds.length === 0) {
+                    // Remove lid option group if empty
+                    const lidGroup = $('.variant-group-item').eq(1);
+                    if (lidGroup.length) lidGroup.remove();
+                    bundlePairs = [];
+                    renderCombinations();
+                    return;
+                }
+
+                $.ajax({
+                    url: '{{ route("erp.ecommerce-products.bundle-secondary") }}',
+                    data: { 
+                        product_ids: productIds,
+                        unit_id: $('#unit_id').val()
+                    },
+                    success: function(response) {
+                        const secondaries = response.secondaries || [];
+                        bundlePairs = response.pairs || [];
+
+                        if (secondaries.length === 0) {
+                            const lidGroup = $('.variant-group-item').eq(1);
+                            if (lidGroup.length) lidGroup.remove();
+                        } else {
+                            let lidGroup = $('.variant-group-item').eq(1);
+                            if (!lidGroup.length) {
+                                $('#variantGroupList').append(groupTemplate(nextGroupIndex));
+                                lidGroup = $('.variant-group-item').last();
+                                nextGroupIndex++;
+                            }
+
+                            // lidGroup.find('.variant-group-name').val('LID OPTION').prop('readonly', true);
+                            lidGroup.find('.add-variant-option').hide();
+                            lidGroup.find('.remove-variant-group').hide();
+                            
+                            const tbody = lidGroup.find('.variant-option-list');
+                            const groupIndex = lidGroup.data('group-index');
+                            
+                            // Keep existing row values for image/video
+                            const existingRows = {};
+                            tbody.find('.variant-option-row').each(function() {
+                                const prodId = $(this).find('.option-product-select').val();
+                                if (prodId) {
+                                    existingRows[prodId] = $(this).detach();
+                                } else {
+                                    $(this).remove();
+                                }
+                            });
+
+                            secondaries.forEach((sec, idx) => {
+                                let row;
+                                if (existingRows[sec.id]) {
+                                    row = existingRows[sec.id];
+                                    tbody.append(row);
+                                } else {
+                                    row = $(optionRowTemplate(groupIndex, idx));
+                                    row.find('.option-product-select').val(sec.id);
+                                    
+                                    // Make readonly
+                                    row.find('.option-product-select').css('pointer-events', 'none').css('background-color', '#e9ecef');
+                                    row.find('.remove-variant-option').hide();
+                                    
+                                    tbody.append(row);
+                                }
+                                
+                                // Update Price based on selected unit
+                                const secPrice = getProductPrice(sec.id);
+                                row.find('td:nth-child(2)').html(`<span class="badge bg-soft-success text-success">Rp ${formatPrice(secPrice)}</span>`);
+                            });
+                            
+                            initSelect2(lidGroup);
+                        }
+                        renderCombinations();
+                    }
+                });
+            }
+
+            $(document).on('change', '.variant-group-item:first-child .option-product-select', function() {
+                const tr = $(this).closest('tr');
+                const productId = $(this).val();
+                if (productId) {
+                    const price = getProductPrice(productId);
+                    tr.find('td:nth-child(2)').html(`<span class="badge bg-soft-success text-success">Rp ${formatPrice(price)}</span>`);
+                } else {
+                    tr.find('td:nth-child(2)').html(`<span class="badge bg-soft-secondary text-secondary">-</span>`);
+                }
+                
+                fetchSecondaryProducts();
+            });
+
+            $(document).on('input', '.variant-group-item .option-alias-input', function() {
+                renderCombinations();
+            });
+            
+            // Refresh all variant option prices based on selected unit
+            function refreshAllVariantPrices() {
+                $('.variant-group-item .variant-option-row').each(function() {
+                    const priceCell = $(this).find('td:nth-child(2)');
+                    const productId = $(this).find('.option-product-select').val();
+                    if (productId) {
+                        const price = getProductPrice(productId);
+                        priceCell.html(`<span class="badge bg-soft-success text-success">Rp ${formatPrice(price)}</span>`);
+                    }
+                });
+            }
+
+            // When unit changes, refresh ALL prices + re-fetch combinations
+            $(document).on('change', '#unit_id', function() {
+                refreshAllVariantPrices();
+                fetchSecondaryProducts();
+            });
+
+            // Call on load
+            setTimeout(() => {
+                refreshAllVariantPrices();
+                fetchSecondaryProducts();
+            }, 500);
+
+
 
             function optionRowTemplate(groupIndex, optionIndex) {
                 return `
@@ -544,6 +867,9 @@
                                 <option value="">Choose Product</option>
                                 ${optionsHtml(erpProducts)}
                             </select>
+                        </td>
+                        <td class="field-wrapper align-middle">
+                            <span class="badge bg-soft-secondary text-secondary">-</span>
                         </td>
                         <td class="field-wrapper">
                             <input type="text" class="form-control option-alias-input" name="variant_groups[${groupIndex}][options][${optionIndex}][alias]" placeholder="Alias">

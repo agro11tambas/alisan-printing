@@ -87,6 +87,10 @@
                                         <div>{{ $product->unit?->name ?? '-' }}</div>
                                     </div>
                                     <div class="col-md-4">
+                                        <div class="fw-semibold">Base Price</div>
+                                        <div>Rp {{ number_format($product->price ?? 0, 0, ',', '.') }}</div>
+                                    </div>
+                                    <div class="col-md-4">
                                         <div class="fw-semibold">Brand</div>
                                         <div>{{ $product->brand ?? '-' }}</div>
                                     </div>
@@ -124,6 +128,7 @@
                                             <thead class="table-light">
                                                 <tr>
                                                     <th>ERP Product</th>
+                                                    <th>Price</th>
                                                     <th>Alias</th>
                                                     <th>Image</th>
                                                     <th>Video</th>
@@ -133,6 +138,7 @@
                                                 @foreach ($group->options as $option)
                                                     <tr>
                                                         <td>{{ $option->product?->name ?? '-' }}</td>
+                                                        <td>Rp {{ number_format($option->price ?? 0, 0, ',', '.') }}</td>
                                                         <td>{{ $option->alias }}</td>
                                                         <td>
                                                             @if ($option->image)
@@ -165,6 +171,57 @@
                                 <div class="text-muted">Belum ada variant group.</div>
                             @endforelse
                         </div>
+
+                        @if($product->variantCombinations->isNotEmpty())
+                        <div class="mb-2 mt-4">
+                            <h6 class="fw-bold mb-2">Variant Combinations</h6>
+                            <div class="border rounded p-2">
+                                <div class="table-responsive">
+                                    <table class="table table-bordered align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Product Option</th>
+                                                <th>Lid Option</th>
+                                                <th>Price</th>
+                                                <th>Image</th>
+                                                <th>Video</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach ($product->variantCombinations as $comb)
+                                                <tr>
+                                                    <td>{{ $comb->productOption?->alias ?? $comb->productOption?->product?->name ?? '-' }}</td>
+                                                    <td>{{ $comb->lidOption?->alias ?? $comb->lidOption?->product?->name ?? '-' }}</td>
+                                                    <td>Rp {{ number_format($comb->price ?? 0, 0, ',', '.') }}</td>
+                                                    <td>
+                                                        @if ($comb->image)
+                                                            <a href="{{ asset('uploads/' . $comb->image) }}"
+                                                                data-lightbox="comb-{{ $comb->id }}">
+                                                                <img src="{{ asset('uploads/' . $comb->image) }}"
+                                                                    alt="Combination Image" class="rounded"
+                                                                    style="width:56px;height:56px;object-fit:cover;">
+                                                            </a>
+                                                        @else
+                                                            -
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        @if ($comb->video)
+                                                            <video controls style="width:150px;max-width:100%;border-radius:8px;">
+                                                                <source src="{{ asset('uploads/' . $comb->video) }}">
+                                                            </video>
+                                                        @else
+                                                            -
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
 
                     </div>
                 </div>

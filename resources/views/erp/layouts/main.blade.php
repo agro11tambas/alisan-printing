@@ -322,8 +322,7 @@
         html:not(.app-skin-dark).minimenu .nxl-submenu {
             position: fixed !important;
             /* margin-left: 20px !important; */
-            left: unset !important;
-            top: unset !important;
+            left: 65px !important;
             /* z-index: 6000 !important; */
 
             background: #ffffff !important;
@@ -343,8 +342,7 @@
         html.app-skin-dark.minimenu .nxl-submenu {
             position: fixed !important;
             /* margin-left: 20px !important; */
-            left: unset !important;
-            top: unset !important;
+            left: 65px !important;
             /* z-index: 9000 !important; */
 
             /* light mode */
@@ -422,7 +420,7 @@
         html.minimenu .nxl-navigation .nxl-submenu {
             position: fixed !important;
             top: 0 !important;
-            left: 75px !important;
+            left: 65px !important;
             /* tepat di samping sidebar minimize */
             transform: translateY(calc(var(--item-top) * 1px)) !important;
             /* z-index: 99999 !important; */
@@ -444,14 +442,14 @@
         html.minimenu .nxl-submenu {
             display: block !important;
             position: fixed !important;
-            left: 75px !important;
+            left: 65px !important;
             /* z-index: 6000 !important; */
         }
 
         /* Minimize: hanya LEVEL 1 yang floating */
         html.minimenu .nxl-hasmenu>.nxl-submenu {
             position: fixed !important;
-            left: 75px !important;
+            left: 65px !important;
             /* samping sidebar */
             top: var(--submenu-top) !important;
             display: block !important;

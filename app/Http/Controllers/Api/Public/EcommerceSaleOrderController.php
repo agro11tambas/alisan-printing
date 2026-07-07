@@ -8,6 +8,9 @@ use App\Models\CustomerAddresses;
 use App\Models\Customers;
 use App\Models\EcommerceProduct;
 use App\Models\EcommerceVariantOption;
+use App\Models\EcommerceVariantCombination;
+use App\Models\ProductBundle;
+use App\Models\ProductBundleItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemComponent;
@@ -63,6 +66,7 @@ class EcommerceSaleOrderController extends Controller
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.ecommerce_product_id' => ['required', 'integer', 'exists:ecommerce_products,id'],
+            'items.*.ecommerce_variant_combination_id' => ['nullable', 'integer', 'exists:ecommerce_variant_combinations,id'],
             'items.*.variant_option_id' => ['nullable', 'integer', 'exists:ecommerce_variant_options,id'],
             'items.*.variant_option_ids' => ['nullable', 'array'],
             'items.*.variant_option_ids.*' => ['integer', 'distinct', 'exists:ecommerce_variant_options,id'],
@@ -129,14 +133,14 @@ class EcommerceSaleOrderController extends Controller
             foreach ($lineItems as $line) {
                 $orderItem = OrderItem::create([
                     'order_id' => $order->id,
-                    'product_id' => $line['product']->id,
-                    'product_bundle_id' => null,
+                    'product_id' => $line['is_bundle'] ? null : $line['erp_item']->id,
+                    'product_bundle_id' => $line['is_bundle'] ? $line['erp_item']->id : null,
                     'product_unit_conversion_id' => null,
                     'product_bundle_unit_conversion_id' => null,
                     'unit_name' => $line['unit_name'],
                     'unit_conversion_value' => 1,
                     'qty_base' => $line['quantity'],
-                    'product_name' => $line['product']->name,
+                    'product_name' => $line['erp_item']->name,
                     'satuan' => 'satuan',
                     'quantity' => $line['quantity'],
                     'mode' => $line['mode'],
@@ -147,15 +151,29 @@ class EcommerceSaleOrderController extends Controller
                     'total_after_discount' => $line['subtotal'],
                 ]);
 
-                OrderItemComponent::create([
-                    'order_item_id' => $orderItem->id,
-                    'product_id' => $line['product']->id,
-                    'qty' => $line['quantity'],
-                    'avg_cost_at_sale' => $line['avg_cost'],
-                    'fixed_cost_at_sale' => $line['fixed_cost'],
-                    'total_cost' => $line['avg_cost'] * $line['quantity'],
-                    'total_fixed_cost' => $line['fixed_cost'] * $line['quantity'],
-                ]);
+                if ($line['is_bundle'] && !empty($line['bundle_items'])) {
+                    foreach ($line['bundle_items'] as $bundleItem) {
+                        OrderItemComponent::create([
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $bundleItem['product_id'],
+                            'qty' => $bundleItem['quantity'],
+                            'avg_cost_at_sale' => $bundleItem['avg_cost'],
+                            'fixed_cost_at_sale' => $bundleItem['fixed_cost'],
+                            'total_cost' => $bundleItem['total_cost'],
+                            'total_fixed_cost' => $bundleItem['total_fixed_cost'],
+                        ]);
+                    }
+                } else if (!$line['is_bundle']) {
+                    OrderItemComponent::create([
+                        'order_item_id' => $orderItem->id,
+                        'product_id' => $line['erp_item']->id,
+                        'qty' => $line['quantity'],
+                        'avg_cost_at_sale' => $line['avg_cost'],
+                        'fixed_cost_at_sale' => $line['fixed_cost'],
+                        'total_cost' => $line['avg_cost'] * $line['quantity'],
+                        'total_fixed_cost' => $line['fixed_cost'] * $line['quantity'],
+                    ]);
+                }
             }
 
             return $order->load([
@@ -289,59 +307,129 @@ class EcommerceSaleOrderController extends Controller
             $quantity = (int) $item['quantity'];
             $this->validateQuantity($ecommerceProduct, $quantity, $index);
 
-            $optionIds = $this->variantOptionIds($item);
+            if (!empty($item['ecommerce_variant_combination_id'])) {
+                $combination = EcommerceVariantCombination::with(['productOption.product', 'lidOption.product'])
+                    ->whereKey($item['ecommerce_variant_combination_id'])
+                    ->first();
 
-            if (empty($optionIds)) {
-                throw ValidationException::withMessages([
-                    "items.$index.variant_option_ids" => 'Minimal satu variant option wajib dipilih.',
-                ]);
-            }
-
-            $options = EcommerceVariantOption::with(['group', 'product.baseUnit'])
-                ->whereIn('id', $optionIds)
-                ->where('is_active', true)
-                ->get();
-
-            if ($options->count() !== count($optionIds)) {
-                throw ValidationException::withMessages([
-                    "items.$index.variant_option_ids" => 'Salah satu variant option tidak aktif atau tidak ditemukan.',
-                ]);
-            }
-
-            $this->validateVariantOptions($ecommerceProduct, $options, $index);
-
-            foreach ($options->sortBy(fn ($option) => sprintf(
-                '%010d-%010d',
-                $option->group?->sort_order ?? 0,
-                $option->sort_order ?? 0
-            )) as $option) {
-                $product = $option->product;
-
-                if (!$product || $product->trashed()) {
+                if (!$combination) {
                     throw ValidationException::withMessages([
-                        "items.$index.variant_option_ids" => 'ERP product pada variant option tidak aktif.',
+                        "items.$index.ecommerce_variant_combination_id" => 'Kombinasi produk tidak ditemukan.',
                     ]);
                 }
 
-                $unitPrice = $this->unitPrice($product, (float) $option->extra_price);
+                $primaryProductId = $combination->productOption?->product_id;
+                $secondaryProductId = $combination->lidOption?->product_id;
+
+                if (!$primaryProductId || !$secondaryProductId) {
+                    throw ValidationException::withMessages([
+                        "items.$index.ecommerce_variant_combination_id" => 'Data kombinasi tidak lengkap.',
+                    ]);
+                }
+
+                $bundle = ProductBundle::with(['items.product', 'baseUnit'])
+                    ->whereHas('items', fn ($q) => $q->where('role', 'primary')->where('product_id', $primaryProductId))
+                    ->whereHas('items', fn ($q) => $q->where('role', 'secondary')->where('product_id', $secondaryProductId))
+                    ->first();
+
+                if (!$bundle) {
+                    throw ValidationException::withMessages([
+                        "items.$index.ecommerce_variant_combination_id" => 'Product Bundle untuk kombinasi ini tidak ditemukan.',
+                    ]);
+                }
+
+                $unitPrice = (float) (($bundle->sale_price ?? 0) > 0 ? $bundle->sale_price : $bundle->price);
+
+                $bundleItems = [];
+                foreach ($bundle->items as $bItem) {
+                    $bQty = $bItem->quantity * $quantity;
+                    $bundleItems[] = [
+                        'product_id' => $bItem->product_id,
+                        'quantity' => $bQty,
+                        'avg_cost' => (float) ($bItem->product?->avg_cost ?? 0),
+                        'fixed_cost' => (float) ($bItem->product?->fixed_cost ?? 0),
+                        'total_cost' => (float) ($bItem->product?->avg_cost ?? 0) * $bQty,
+                        'total_fixed_cost' => (float) ($bItem->product?->fixed_cost ?? 0) * $bQty,
+                    ];
+                }
 
                 $lineItems[] = [
+                    'is_bundle' => true,
+                    'erp_item' => $bundle,
+                    'bundle_items' => $bundleItems,
                     'ecommerce_product_id' => $ecommerceProduct->id,
                     'ecommerce_product_title' => $ecommerceProduct->title,
-                    'variant_option_id' => $option->id,
-                    'variant_group' => $option->group?->name,
-                    'variant_alias' => $option->alias,
-                    'product' => $product,
+                    'variant_option_id' => null,
+                    'variant_group' => null,
+                    'variant_alias' => null,
                     'quantity' => $quantity,
                     'mode' => $item['mode'] ?? 'printing',
-                    'unit_name' => $ecommerceProduct->unit?->name
-                        ?? $product->baseUnit?->name
-                        ?? 'Pcs',
+                    'unit_name' => $ecommerceProduct->unit?->name ?? $bundle->baseUnit?->name ?? 'Pcs',
                     'unit_price' => $unitPrice,
                     'subtotal' => $unitPrice * $quantity,
-                    'avg_cost' => (float) ($product->avg_cost ?? 0),
-                    'fixed_cost' => (float) ($product->fixed_cost ?? 0),
+                    'avg_cost' => 0,
+                    'fixed_cost' => 0,
                 ];
+
+            } else {
+                $optionIds = $this->variantOptionIds($item);
+
+                if (empty($optionIds) && $ecommerceProduct->variantGroups->count() > 0) {
+                    throw ValidationException::withMessages([
+                        "items.$index.variant_option_ids" => 'Minimal satu variant option wajib dipilih.',
+                    ]);
+                }
+
+                if (!empty($optionIds)) {
+                    $options = EcommerceVariantOption::with(['group', 'product.baseUnit'])
+                        ->whereIn('id', $optionIds)
+                        ->where('is_active', true)
+                        ->get();
+
+                    if ($options->count() !== count($optionIds)) {
+                        throw ValidationException::withMessages([
+                            "items.$index.variant_option_ids" => 'Salah satu variant option tidak aktif atau tidak ditemukan.',
+                        ]);
+                    }
+
+                    $this->validateVariantOptions($ecommerceProduct, $options, $index);
+
+                    foreach ($options->sortBy(fn ($option) => sprintf(
+                        '%010d-%010d',
+                        $option->group?->sort_order ?? 0,
+                        $option->sort_order ?? 0
+                    )) as $option) {
+                        $product = $option->product;
+
+                        if (!$product || $product->trashed()) {
+                            throw ValidationException::withMessages([
+                                "items.$index.variant_option_ids" => 'ERP product pada variant option tidak aktif.',
+                            ]);
+                        }
+
+                        $unitPrice = $this->unitPrice($product, (float) $option->extra_price);
+
+                        $lineItems[] = [
+                            'is_bundle' => false,
+                            'erp_item' => $product,
+                            'bundle_items' => [],
+                            'ecommerce_product_id' => $ecommerceProduct->id,
+                            'ecommerce_product_title' => $ecommerceProduct->title,
+                            'variant_option_id' => $option->id,
+                            'variant_group' => $option->group?->name,
+                            'variant_alias' => $option->alias,
+                            'quantity' => $quantity,
+                            'mode' => $item['mode'] ?? 'printing',
+                            'unit_name' => $ecommerceProduct->unit?->name
+                                ?? $product->baseUnit?->name
+                                ?? 'Pcs',
+                            'unit_price' => $unitPrice,
+                            'subtotal' => $unitPrice * $quantity,
+                            'avg_cost' => (float) ($product->avg_cost ?? 0),
+                            'fixed_cost' => (float) ($product->fixed_cost ?? 0),
+                        ];
+                    }
+                }
             }
         }
 

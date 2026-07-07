@@ -30,8 +30,12 @@ class CustomerController extends Controller
         }
 
         if ($request->filled('name')) {
-            $customers->whereHas('addresses', function ($query) use ($request) {
-                $query->where('name', 'like', '%' . $request->name . '%');
+            $keyword = $request->name;
+            $customers->where(function ($q) use ($keyword) {
+                $q->where('name', 'like', '%' . $keyword . '%')
+                  ->orWhereHas('addresses', function ($query) use ($keyword) {
+                      $query->where('business_name', 'like', '%' . $keyword . '%');
+                  });
             });
         }
 

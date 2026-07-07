@@ -7,6 +7,9 @@ use App\Http\Controllers\Api\Erp\ProductTagApiController;
 use App\Http\Controllers\Api\Erp\ProductUnitApiController;
 use App\Http\Controllers\Api\Public\CustomerAuthController;
 use App\Http\Controllers\Api\Public\EcommerceSaleOrderController;
+use App\Http\Controllers\Api\Public\EcommerceProductController;
+use App\Http\Controllers\Api\Public\EcommerceProductCategoryController;
+use App\Http\Controllers\Api\Public\EcommerceInformationController;
 
 Route::prefix('v1')->group(function () {
     // ERP admin login
@@ -54,9 +57,10 @@ Route::prefix('v1')->group(function () {
     });
 
     // Public ecommerce API
-    // Route::prefix('ecommerce')->group(function () {
-    //     Route::get('/product-groups', [EcommerceProductController::class, 'index']);
-    //     Route::get('/product-groups/{slug}', [EcommerceProductController::class, 'show']);
-    //     Route::get('/categories', [EcommerceCategoryController::class, 'index']);
-    // });
+    Route::prefix('ecommerce')->group(function () {
+        Route::get('/products', [EcommerceProductController::class, 'index']);
+        Route::get('/products/{slug}', [EcommerceProductController::class, 'show']);
+        Route::get('/categories', [EcommerceProductCategoryController::class, 'index']);
+        Route::get('/information', [EcommerceInformationController::class, 'index']);
+    });
 });

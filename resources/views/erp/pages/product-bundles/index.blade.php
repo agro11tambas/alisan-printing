@@ -172,6 +172,7 @@
             let isLoading = false;
             let hasMoreData = true;
             let savedScrollTop = parseInt(sessionStorage.getItem('product_bundle_scroll_top') || '0');
+            let searchTimer = null;
 
             const savedSearchType = sessionStorage.getItem('product_bundle_search_type');
             const savedSearchKeyword = sessionStorage.getItem('product_bundle_search_keyword');
@@ -209,26 +210,40 @@
                 ]
             });
 
-            function loadMoreData() {
-                if (isLoading || !hasMoreData) return;
+            let currentRequest = null;
+
+            function loadMoreData(isNewSearch = false) {
+                if (!isNewSearch && (isLoading || !hasMoreData)) return;
+
+                if (currentRequest) {
+                    currentRequest.abort();
+                }
+
                 isLoading = true;
 
-                $.ajax({
+                currentRequest = $.ajax({
                     url: "{{ url('/erp/products/product-bundles/data') }}",
                     type: 'GET',
                     data: {
                         start: currentPage * 25,
                         length: 25,
                         search_type: $('#search_type').val(),
-                        search_keyword: $('#search_keyword').val(),
+                        search_keyword: $('#search_keyword').val() ? $('#search_keyword').val().trim() : '',
                         category_id: $('#category_id').val(),
                         tag_id: $('#tag_id').val()
                     },
                     success: function(res) {
+                        if (isNewSearch) {
+                            dataTable.clear();
+                        }
                         if (res && res.data && res.data.length > 0) {
                             allData = allData.concat(res.data);
-                            dataTable.clear();
-                            dataTable.rows.add(allData).draw(false);
+                            if (dataTable.rows().count() === 0) {
+                                dataTable.rows.add(res.data).draw(false);
+                            } else {
+                                let newNodes = dataTable.rows.add(res.data).nodes();
+                                $(dataTable.table().body()).append(newNodes);
+                            }
                             currentPage++;
                             setTimeout(() => {
                                 const scrollBody = $('.dataTables_scrollBody');
@@ -243,11 +258,21 @@
                                 }
                             }, 100);
                         } else {
+                            if (isNewSearch) {
+                                dataTable.draw(); // Draw empty table
+                            }
                             hasMoreData = false;
                         }
                         isLoading = false;
                     },
+                    complete: function() {
+                        isLoading = false;
+                        currentRequest = null;
+                    },
                     error: function(xhr) {
+                        if (xhr.statusText !== "abort") {
+                            console.error("AJAX error", xhr);
+                        }
                         isLoading = false;
                     }
                 });
@@ -272,17 +297,44 @@
                 }, 200);
             });
 
-            $('#search_type, #search_keyword, #category_id, #tag_id').on('change keyup', function() {
+            let lastKeyword = $('#search_keyword').val() ? $('#search_keyword').val().trim() : '';
+
+            function triggerSearch() {
                 sessionStorage.setItem('product_bundle_search_type', $('#search_type').val());
                 sessionStorage.setItem('product_bundle_search_keyword', $('#search_keyword').val());
                 sessionStorage.removeItem('product_bundle_scroll_top');
 
-                allData = [];
-                currentPage = 0;
-                hasMoreData = true;
-                savedScrollTop = 0;
-                dataTable.clear().draw();
-                loadMoreData();
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    allData = [];
+                    currentPage = 0;
+                    hasMoreData = true;
+                    savedScrollTop = 0;
+                    loadMoreData(true);
+                }, 50);
+            }
+
+            $('#search_keyword').on('keypress', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    const keyword = $(this).val().trim();
+                    if (keyword !== lastKeyword) {
+                        lastKeyword = keyword;
+                        triggerSearch();
+                    }
+                }
+            });
+
+            $('#search_keyword').on('input', function() {
+                const val = $(this).val().trim();
+                if (val === '' && lastKeyword !== '') {
+                    lastKeyword = '';
+                    triggerSearch();
+                }
+            });
+
+            $('#search_type, #category_id, #tag_id').on('change', function() {
+                triggerSearch();
             });
 
             $('#productBundleTable tbody').on('click', 'tr', function(e) {

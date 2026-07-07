@@ -260,16 +260,16 @@
             let searchTimer = null;
             let currentRequest = null;
             // ⚠️ Fungsi untuk load data dari server
-            function loadMoreData() {
-                if (isLoading || !hasMoreData) return;
-
-                isLoading = true;
-                $('#loadingIndicator').show();
+            function loadMoreData(isNewSearch = false) {
+                if (!isNewSearch && (isLoading || !hasMoreData)) return;
 
                 // Batalkan request sebelumnya jika masih jalan
                 if (currentRequest) {
                     currentRequest.abort();
                 }
+
+                isLoading = true;
+                $('#loadingIndicator').show();
 
                 currentRequest = $.ajax({
                     url: "{{ url('/erp/products/data') }}",
@@ -277,11 +277,14 @@
                     data: {
                         start: currentPage * 200,
                         length: 200,
-                        search_keyword: $('#search_keyword').val(),
+                        search_keyword: $('#search_keyword').val() ? $('#search_keyword').val().trim() : '',
                         category_id: $('#category_id').val(),
                         tag_id: $('#tag_id').val()
                     },
                     success: function(response) {
+                        if (isNewSearch) {
+                            dataTable.clear();
+                        }
                         if (response.data.length > 0) {
                             allData = allData.concat(response.data);
                             if (dataTable.rows().count() === 0) {
@@ -305,6 +308,9 @@
                                 }
                             }, 100);
                         } else {
+                            if (isNewSearch) {
+                                dataTable.draw(); // Draw the empty table
+                            }
                             hasMoreData = false;
                             $('#loadingIndicator').html('✅ All products loaded').show();
                             setTimeout(() => $('#loadingIndicator').hide(), 2000);
@@ -349,7 +355,9 @@
                 }, 100);
             });
 
-            $('#search_keyword, #category_id, #tag_id').on('change keyup', function() {
+            let lastKeyword = $('#search_keyword').val() ? $('#search_keyword').val().trim() : '';
+
+            function triggerSearch() {
                 sessionStorage.setItem('product_search', $('#search_keyword').val());
                 sessionStorage.setItem('product_category', $('#category_id').val());
                 sessionStorage.setItem('product_tag', $('#tag_id').val());
@@ -361,9 +369,31 @@
                     currentPage = 0;
                     hasMoreData = true;
                     savedScrollTop = 0;
-                    dataTable.clear().draw();
-                    loadMoreData();
-                }, 100);
+                    loadMoreData(true);
+                }, 50);
+            }
+
+            $('#search_keyword').on('keypress', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    const keyword = $(this).val().trim();
+                    if (keyword !== lastKeyword) {
+                        lastKeyword = keyword;
+                        triggerSearch();
+                    }
+                }
+            });
+
+            $('#search_keyword').on('input', function() {
+                const val = $(this).val().trim();
+                if (val === '' && lastKeyword !== '') {
+                    lastKeyword = '';
+                    triggerSearch();
+                }
+            });
+
+            $('#category_id, #tag_id').on('change', function() {
+                triggerSearch();
             });
 
 
