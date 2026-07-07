@@ -51,13 +51,13 @@ class EcommerceSaleOrderController extends Controller
 
     public function store(Request $request)
     {
-        $account = $this->customerAccount($request);
-
         $validated = $request->validate([
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'customer_address_id' => ['nullable', 'integer', 'exists:customer_addresses,id'],
             'shipping' => ['nullable', 'array'],
             'shipping.business_name' => ['nullable', 'string', 'max:255'],
+            'shipping.recipient_name' => ['nullable', 'string', 'max:255'],
+            'shipping.whatsapp_number' => ['nullable', 'string', 'max:255'],
             'shipping.address' => ['nullable', 'string'],
             'shipping.google_maps' => ['nullable', 'string'],
             'order_date' => ['nullable', 'date'],
@@ -74,7 +74,8 @@ class EcommerceSaleOrderController extends Controller
             'items.*.mode' => ['nullable', 'in:printing,polosan'],
         ]);
 
-        $customer = $this->resolveCustomer($account, $validated['customer_id'] ?? null);
+        $account = $this->customerAccount($request, $validated['shipping'] ?? []);
+        $customer = $this->resolveCustomer($account, $validated['customer_id'] ?? null, $validated['shipping'] ?? []);
         $address = $this->resolveAddress(
             $customer,
             $validated['customer_address_id'] ?? null,
@@ -87,7 +88,7 @@ class EcommerceSaleOrderController extends Controller
         $grandTotal = $subTotal - $discountTotal;
         $paidAmount = (float) ($validated['paid_amount'] ?? 0);
         $remainingAmount = $grandTotal - $paidAmount;
-        $orderDate = Carbon::parse($validated['order_date'] ?? now());
+        $orderDate = Carbon::parse($validated['order_date'] ?? now())->setTimezone(config('app.timezone'));
         $orderMode = collect($lineItems)->pluck('mode')->unique()->count() === 1
             ? $lineItems[0]['mode']
             : 'mixed';
@@ -131,17 +132,24 @@ class EcommerceSaleOrderController extends Controller
             ]);
 
             foreach ($lineItems as $line) {
+                $isBundle = $line['is_bundle'];
+                $erpItem = $line['erp_item'];
+
+                $conversionId = $erpItem->unitConversions()
+                    ->where('conversion_value', 1)
+                    ->value('id') ?? $erpItem->unitConversions()->value('id');
+
                 $orderItem = OrderItem::create([
                     'order_id' => $order->id,
-                    'product_id' => $line['is_bundle'] ? null : $line['erp_item']->id,
-                    'product_bundle_id' => $line['is_bundle'] ? $line['erp_item']->id : null,
-                    'product_unit_conversion_id' => null,
-                    'product_bundle_unit_conversion_id' => null,
+                    'product_id' => $isBundle ? null : $erpItem->id,
+                    'product_bundle_id' => $isBundle ? $erpItem->id : null,
+                    'product_unit_conversion_id' => $isBundle ? null : $conversionId,
+                    'product_bundle_unit_conversion_id' => $isBundle ? $conversionId : null,
                     'unit_name' => $line['unit_name'],
                     'unit_conversion_value' => 1,
                     'qty_base' => $line['quantity'],
                     'product_name' => $line['erp_item']->name,
-                    'satuan' => 'satuan',
+                    'satuan' => $line['is_bundle'] ? 'bundle' : 'satuan',
                     'quantity' => $line['quantity'],
                     'mode' => $line['mode'],
                     'completed_quantity' => 0,
@@ -215,13 +223,25 @@ class EcommerceSaleOrderController extends Controller
         ]);
     }
 
-    private function customerAccount(Request $request): CustomerAccount
+    private function customerAccount(Request $request, array $shipping = []): CustomerAccount
     {
         $account = $request->user();
 
-        // TEMPORARY BYPASS FOR TESTING GUEST CHECKOUT
+        // GUEST CHECKOUT
         if (!$account) {
-            $account = CustomerAccount::first();
+            $wa = $shipping['whatsapp_number'] ?? '081234567890';
+            $name = $shipping['recipient_name'] ?? 'Guest';
+            
+            $wa = preg_replace('/\D/', '', $wa);
+
+            $account = CustomerAccount::firstOrCreate(
+                ['whatsapp_number' => $wa],
+                [
+                    'name' => $name,
+                    'is_active' => true,
+                    'password' => bcrypt('password123') // Default for guest
+                ]
+            );
         }
 
         if (!$account instanceof CustomerAccount || !$account->is_active) {
@@ -231,7 +251,7 @@ class EcommerceSaleOrderController extends Controller
         return $account;
     }
 
-    private function resolveCustomer(CustomerAccount $account, ?int $customerId): Customers
+    private function resolveCustomer(CustomerAccount $account, ?int $customerId, array $shipping = []): Customers
     {
         $customer = null;
 
@@ -249,9 +269,19 @@ class EcommerceSaleOrderController extends Controller
         }
 
         if (!$customer) {
-            throw ValidationException::withMessages([
-                'customer_id' => 'Customer tidak terhubung dengan akun ini.',
+            $wa = $shipping['whatsapp_number'] ?? $account->whatsapp_number;
+            $name = $shipping['recipient_name'] ?? $account->name;
+
+            $customer = Customers::create([
+                'name' => $name,
+                'phone' => $wa,
+                'email' => $account->email,
             ]);
+
+            $account->update(['customer_id' => $customer->id]);
+            if ($account->customers()->where('customers.id', $customer->id)->doesntExist()) {
+                $account->customers()->attach($customer->id);
+            }
         }
 
         return $customer;
@@ -343,7 +373,7 @@ class EcommerceSaleOrderController extends Controller
                     ]);
                 }
 
-                $unitPrice = (float) (($bundle->sale_price ?? 0) > 0 ? $bundle->sale_price : $bundle->price);
+                $unitPrice = (float) $combination->price;
 
                 $bundleItems = [];
                 foreach ($bundle->items as $bItem) {
@@ -412,7 +442,7 @@ class EcommerceSaleOrderController extends Controller
                             ]);
                         }
 
-                        $unitPrice = $this->unitPrice($product, (float) $option->extra_price);
+                        $unitPrice = (float) $option->price;
 
                         $lineItems[] = [
                             'is_bundle' => false,
