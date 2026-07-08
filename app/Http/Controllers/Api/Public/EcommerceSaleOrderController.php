@@ -225,7 +225,7 @@ class EcommerceSaleOrderController extends Controller
 
     private function customerAccount(Request $request, array $shipping = []): CustomerAccount
     {
-        $account = $request->user();
+        $account = $request->user('sanctum') ?? $request->user();
 
         // GUEST CHECKOUT
         if (!$account) {

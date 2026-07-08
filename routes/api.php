@@ -51,6 +51,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('/me', [CustomerAuthController::class, 'me']);
             Route::post('/logout', [CustomerAuthController::class, 'logout']);
+            Route::put('/profile', [CustomerAuthController::class, 'updateProfile']);
         });
     });
 

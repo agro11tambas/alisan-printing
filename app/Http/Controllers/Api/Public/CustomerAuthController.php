@@ -291,6 +291,35 @@ class CustomerAuthController extends Controller
         ]);
     }
 
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'whatsapp_number' => 'required|string|max:20|unique:customer_accounts,whatsapp_number,' . $user->id,
+        ]);
+
+        $user->update([
+            'name' => $validated['name'],
+            'whatsapp_number' => $validated['whatsapp_number'],
+        ]);
+
+        // Also update the linked customer records if they exist
+        foreach ($user->customers as $customer) {
+            $customer->update([
+                'name' => $validated['name'],
+                'phone' => $validated['whatsapp_number'],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully.',
+            'data' => $user->load(['customer', 'customers']),
+        ]);
+    }
+
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()?->delete();

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Carbon\Carbon;
 
 class AuthApiController extends Controller
 {
@@ -28,7 +29,8 @@ class AuthApiController extends Controller
             ], 401);
         }
 
-        $token = $user->createToken('api-token')->plainTextToken;
+        $expiresAt = Carbon::now()->endOfWeek(); // Expire on Sunday 23:59:59
+        $token = $user->createToken('api-token', ['*'], $expiresAt)->plainTextToken;
 
         return response()->json([
             'success' => true,
