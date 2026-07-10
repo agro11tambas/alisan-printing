@@ -117,12 +117,12 @@
                             </div>
                         </div>
 
-                        <div class="mb-2">
-                            <h6 class="fw-bold mb-2">Variant Group</h6>
+                        <div class="mb-4">
+                            <h6 class="fw-bold mb-3 text-primary"><i class="bx bx-list-plus me-2"></i>Variant Groups</h6>
 
                             @forelse ($product->variantGroups as $group)
-                                <div class="border rounded p-2 mb-2">
-                                    <div class="fw-bold mb-2">{{ $group->name }}</div>
+                                <div class="mb-4 border border-start border-4 border-primary rounded p-3 shadow-sm bg-white">
+                                    <h6 class="fw-bold mb-3 text-primary"><i class="bx bx-layer me-2"></i>{{ $group->name }}</h6>
                                     <div class="table-responsive">
                                         <table class="table table-bordered align-middle mb-0">
                                             <thead class="table-light">
@@ -130,7 +130,6 @@
                                                     <th>ERP Product</th>
                                                     <th>Price</th>
                                                     <th>Alias</th>
-                                                    <th>Image</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -139,18 +138,7 @@
                                                         <td>{{ $option->product?->name ?? '-' }}</td>
                                                         <td>Rp {{ number_format($option->price ?? 0, 0, ',', '.') }}</td>
                                                         <td>{{ $option->alias }}</td>
-                                                        <td>
-                                                            @if ($option->image)
-                                                                <a href="{{ asset('uploads/' . $option->image) }}"
-                                                                    data-lightbox="option-{{ $option->id }}">
-                                                                    <img src="{{ asset('uploads/' . $option->image) }}"
-                                                                        alt="Option Image" class="rounded"
-                                                                        style="width:56px;height:56px;object-fit:cover;">
-                                                                </a>
-                                                            @else
-                                                                -
-                                                            @endif
-                                                        </td>
+                                                        <!-- Image removed from table -->
                                                     </tr>
                                                 @endforeach
                                             </tbody>
@@ -162,19 +150,40 @@
                             @endforelse
                         </div>
 
+                        @if($product->variantGroups->isNotEmpty() && $product->variantGroups->first()->options->isNotEmpty())
+                        <div class="mb-4 mt-4 border border-start border-4 border-warning rounded p-3 shadow-sm bg-white">
+                            <h6 class="fw-bold mb-3 text-warning" style="color: #d97706 !important;"><i class="bx bx-images me-2"></i>Primary Variant Images</h6>
+                            <div class="row g-3">
+                                @foreach ($product->variantGroups->first()->options as $optionIndex => $optionRow)
+                                    <div class="col-lg-2 col-md-3 col-sm-4">
+                                        <div class="card shadow-sm border mb-0 text-center p-2">
+                                            <h6 class="mb-2 fw-bold" style="font-size: 13px;">{{ $optionRow->alias ?: 'Option ' . ($optionIndex + 1) }}</h6>
+                                            @if ($optionRow->image)
+                                                <a href="{{ asset('uploads/' . $optionRow->image) }}" data-lightbox="primary-{{ $optionRow->id }}">
+                                                    <img src="{{ asset('uploads/' . $optionRow->image) }}" alt="Option Image" class="w-100 rounded" style="max-height:100px; object-fit:cover;">
+                                                </a>
+                                            @else
+                                                <div class="text-muted d-flex align-items-center justify-content-center" style="height: 100px; background-color: #f8f9fa; border-radius: 4px;">No Image</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
+
                         @if($product->variantCombinations->isNotEmpty())
-                        <div class="mb-2 mt-4">
-                            <h6 class="fw-bold mb-2">Variant Combinations</h6>
-                            <div class="border rounded p-2">
-                                <div class="table-responsive">
-                                    <table class="table table-bordered align-middle mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Product Option + Lid Option</th>
-                                                <th>Price</th>
-                                                <th>Image</th>
-                                            </tr>
-                                        </thead>
+                        <div class="mb-4 mt-4 border border-start border-4 border-success rounded p-3 shadow-sm bg-white">
+                            <h6 class="fw-bold mb-3 text-success"><i class="bx bx-git-merge me-2"></i>Variant Combinations (PRODUCT OPTION + LID OPTION)</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered align-middle mb-0">
+                                    <thead class="table-success">
+                                        <tr>
+                                            <th>Product Option + Lid Option</th>
+                                            <th>Price</th>
+                                            <th>Image</th>
+                                        </tr>
+                                    </thead>
                                         <tbody>
                                             @foreach ($product->variantCombinations as $comb)
                                                 <tr>
@@ -197,7 +206,6 @@
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
                         </div>
                         @endif
 
