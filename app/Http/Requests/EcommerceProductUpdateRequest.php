@@ -78,7 +78,6 @@ class EcommerceProductUpdateRequest extends FormRequest
             'variant_groups.*.options.*.alias' => ['required', 'string', 'max:255'],
             'variant_groups.*.options.*.product_id' => ['required', 'exists:products,id'],
             'variant_groups.*.options.*.image' => ['nullable', 'image', 'max:4096'],
-            'variant_groups.*.options.*.video' => ['nullable', 'file', 'mimes:mp4,mov,avi,webm,mkv', 'max:51200'],
             'variant_groups.*.options.*.is_active' => ['nullable', 'boolean'],
 
             'variant_combinations' => ['nullable', 'array'],
@@ -86,7 +85,6 @@ class EcommerceProductUpdateRequest extends FormRequest
             'variant_combinations.*.product_option_product_id' => ['nullable', 'integer'],
             'variant_combinations.*.lid_option_product_id' => ['nullable', 'integer'],
             'variant_combinations.*.image' => ['nullable', 'image', 'max:4096'],
-            'variant_combinations.*.video' => ['nullable', 'file', 'mimes:mp4,mov,avi,webm,mkv', 'max:51200'],
             'variant_combinations.*.is_active' => ['nullable', 'boolean'],
         ];
     }
@@ -124,10 +122,8 @@ class EcommerceProductUpdateRequest extends FormRequest
             'variant_groups.*.options.*.alias.required' => 'Alias Variant Option wajib diisi.',
             'variant_groups.*.options.*.product_id.required' => 'ERP Product wajib dipilih.',
             'variant_groups.*.options.*.product_id.exists' => 'ERP Product tidak valid.',
-            'variant_groups.*.options.*.image.image' => 'Image option harus berupa gambar.',
-            'variant_groups.*.options.*.video.mimes' => 'Video option harus berformat mp4, mov, avi, webm, atau mkv.',
-            'variant_combinations.*.image.image' => 'Image combination harus berupa gambar.',
-            'variant_combinations.*.video.mimes' => 'Video combination harus berformat mp4, mov, avi, webm, atau mkv.',
+            'variant_groups.*.options.*.image.image' => 'Image option harus berupa file gambar.',
+            'variant_combinations.*.image.image' => 'Image combination harus berupa file gambar.',
         ];
     }
 }

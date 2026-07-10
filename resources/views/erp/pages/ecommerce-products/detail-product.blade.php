@@ -131,7 +131,6 @@
                                                     <th>Price</th>
                                                     <th>Alias</th>
                                                     <th>Image</th>
-                                                    <th>Video</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -148,15 +147,6 @@
                                                                         alt="Option Image" class="rounded"
                                                                         style="width:56px;height:56px;object-fit:cover;">
                                                                 </a>
-                                                            @else
-                                                                -
-                                                            @endif
-                                                        </td>
-                                                        <td>
-                                                            @if ($option->video)
-                                                                <video controls style="width:150px;max-width:100%;border-radius:8px;">
-                                                                    <source src="{{ asset('uploads/' . $option->video) }}">
-                                                                </video>
                                                             @else
                                                                 -
                                                             @endif
@@ -180,18 +170,15 @@
                                     <table class="table table-bordered align-middle mb-0">
                                         <thead class="table-light">
                                             <tr>
-                                                <th>Product Option</th>
-                                                <th>Lid Option</th>
+                                                <th>Product Option + Lid Option</th>
                                                 <th>Price</th>
                                                 <th>Image</th>
-                                                <th>Video</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @foreach ($product->variantCombinations as $comb)
                                                 <tr>
-                                                    <td>{{ $comb->productOption?->alias ?? $comb->productOption?->product?->name ?? '-' }}</td>
-                                                    <td>{{ $comb->lidOption?->alias ?? $comb->lidOption?->product?->name ?? '-' }}</td>
+                                                    <td>{{ $comb->productOption?->alias ?? $comb->productOption?->product?->name ?? '-' }} <span class="text-muted mx-1">+</span> {{ $comb->lidOption?->alias ?? $comb->lidOption?->product?->name ?? '-' }}</td>
                                                     <td>Rp {{ number_format($comb->price ?? 0, 0, ',', '.') }}</td>
                                                     <td>
                                                         @if ($comb->image)
@@ -201,15 +188,6 @@
                                                                     alt="Combination Image" class="rounded"
                                                                     style="width:56px;height:56px;object-fit:cover;">
                                                             </a>
-                                                        @else
-                                                            -
-                                                        @endif
-                                                    </td>
-                                                    <td>
-                                                        @if ($comb->video)
-                                                            <video controls style="width:150px;max-width:100%;border-radius:8px;">
-                                                                <source src="{{ asset('uploads/' . $comb->video) }}">
-                                                            </video>
                                                         @else
                                                             -
                                                         @endif

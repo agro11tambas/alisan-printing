@@ -318,7 +318,6 @@ class EcommerceProductController extends Controller
                 }
 
                 $oldImage = $option?->image;
-                $oldVideo = $option?->video;
 
                 $erpProduct = null;
                 $price = 0;
@@ -343,10 +342,6 @@ class EcommerceProductController extends Controller
                     'image' => $this->storeFile(
                         $request->file("variant_groups.$groupIndex.options.$optionIndex.image"),
                         $oldImage
-                    ),
-                    'video' => $this->storeFile(
-                        $request->file("variant_groups.$groupIndex.options.$optionIndex.video"),
-                        $oldVideo
                     ),
                     'is_active' => $optionData['is_active'] ?? false,
                 ];
@@ -443,7 +438,6 @@ class EcommerceProductController extends Controller
             }
 
             $oldImage = $combination?->image;
-            $oldVideo = $combination?->video;
             $payload = [
                 'product_option_id' => $productOption->id,
                 'lid_option_id' => $lidOption->id,
@@ -451,10 +445,6 @@ class EcommerceProductController extends Controller
                 'image' => $this->storeFile(
                     $request->file("variant_combinations.$index.image"),
                     $oldImage
-                ),
-                'video' => $this->storeFile(
-                    $request->file("variant_combinations.$index.video"),
-                    $oldVideo
                 ),
                 'is_active' => $combData['is_active'] ?? false,
                 'sort_order' => $index,

@@ -338,9 +338,9 @@
 
                         <div class="mb-2">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <h6 class="fw-bold mb-0">Variant Group</h6>
-                                <button type="button" class="btn btn-light-brand btn-sm" id="addVariantGroup">
-                                    <i class="feather-plus me-2"></i>
+                                <h6 class="fw-bold mb-0 text-primary"><i class="bx bx-list-plus me-2"></i>Variant Groups</h6>
+                                <button type="button" class="btn btn-primary btn-sm fw-bold shadow-sm rounded-pill px-3" id="addVariantGroup">
+                                    <i class="feather-plus me-1"></i>
                                     Add Variant Group
                                 </button>
                             </div>
@@ -362,24 +362,25 @@
                                         }
                                     @endphp
 
-                                    <div class="variant-group-item" data-group-index="{{ $groupIndex }}"
+                                    <div class="variant-group-item mb-4 border border-start border-4 border-primary rounded p-3 shadow-sm bg-white" data-group-index="{{ $groupIndex }}"
                                         data-option-index="{{ $options->count() }}">
-                                        <input type="hidden" name="variant_groups[{{ $groupIndex }}][id]"
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="fw-bold mb-0 text-primary"><i class="bx bx-layer me-2"></i>{{ $groupRow['name'] }}</h6>
+                                            <input type="hidden" name="variant_groups[{{ $groupIndex }}][id]"
                                             value="{{ $groupRow['id'] ?? '' }}">
+                                            <button type="button"
+                                                    class="btn btn-danger btn-sm remove-variant-group">
+                                                <i class="feather-trash-2"></i>
+                                            </button>
+                                        </div>
 
-                                        <div class="row g-3 mb-2">
-                                            <div class="col-lg-10 field-wrapper">
-                                                <label class="fw-semibold">Group Name</label>
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-lg-12 field-wrapper">
+                                                <label class="fw-semibold mb-1">Group Name</label>
                                                 <input type="text" class="form-control variant-group-name"
                                                     name="variant_groups[{{ $groupIndex }}][name]"
                                                     value="{{ $groupRow['name'] ?? '' }}"
                                                     placeholder="Group Name">
-                                            </div>
-                                            <div class="col-lg-2 d-flex align-items-end justify-content-end">
-                                                <button type="button"
-                                                    class="btn btn-danger btn-sm remove-variant-group">
-                                                    <i class="feather-trash-2"></i>
-                                                </button>
                                             </div>
                                         </div>
 
@@ -390,15 +391,13 @@
                                                         <th>ERP Product</th>
                                                         <th>Price (Saved)</th>
                                                         <th>Alias</th>
-                                                        <th>Image</th>
-                                                        <th>Video</th>
                                                         <th>Is Active</th>
                                                         <th class="action-column"></th>
                                                     </tr>
                                                 </thead>
                                                 <tbody class="variant-option-list">
                                                     @foreach ($options as $optionIndex => $optionRow)
-                                                        <tr class="variant-option-row">
+                                                        <tr class="variant-option-row" data-option-index="{{ $optionIndex }}">
                                                             <td class="field-wrapper">
                                                                 <input type="hidden"
                                                                     name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][id]"
@@ -430,43 +429,6 @@
                                                                     value="{{ $optionRow['alias'] ?? '' }}"
                                                                     placeholder="Alias">
                                                             </td>
-                                                            <td class="preview-cell">
-                                                                <input type="file"
-                                                                    class="form-control image-preview-input"
-                                                                    name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][image]"
-                                                                    accept="image/*">
-                                                                @if (!empty($optionRow['image']))
-                                                                    <div class="mt-1 old-file-preview">
-                                                                        <img src="{{ asset('uploads/' . $optionRow['image']) }}"
-                                                                            alt="Option Image"
-                                                                            class="file-preview-image">
-                                                                    </div>
-                                                                @endif
-                                                                <div class="mt-1 new-image-preview-wrap"
-                                                                    style="display:none;">
-                                                                    <img src="#" alt="Preview"
-                                                                        class="file-preview-image new-image-preview">
-                                                                </div>
-                                                            </td>
-                                                            <td class="preview-cell">
-                                                                <input type="file"
-                                                                    class="form-control video-preview-input"
-                                                                    name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][video]"
-                                                                    accept="video/*">
-                                                                @if (!empty($optionRow['video']))
-                                                                    <div class="mt-1 old-file-preview">
-                                                                        <video controls class="file-preview-video">
-                                                                            <source
-                                                                                src="{{ asset('uploads/' . $optionRow['video']) }}">
-                                                                        </video>
-                                                                    </div>
-                                                                @endif
-                                                                <div class="mt-1 new-video-preview-wrap"
-                                                                    style="display:none;">
-                                                                    <video controls
-                                                                        class="file-preview-video new-video-preview"></video>
-                                                                </div>
-                                                            </td>
                                                             <td class="text-center align-middle">
                                                                 <div class="form-check form-switch d-inline-block">
                                                                     <input class="form-check-input" type="checkbox" name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][is_active]" value="1" {{ !isset($optionRow['is_active']) || $optionRow['is_active'] ? 'checked' : '' }}>
@@ -494,17 +456,48 @@
                             </div>
                         </div>
 
-                        <div class="mb-2" id="variantCombinationsSection" style="display:none;">
-                            <h6 class="fw-bold mb-2">Variant Combinations (PRODUCT OPTION + LID OPTION)</h6>
+                        <div class="mb-4 mt-4 border border-start border-4 border-warning rounded p-3 shadow-sm bg-white" id="primaryImagesSection">
+                            <h6 class="fw-bold mb-3 text-warning" style="color: #d97706 !important;"><i class="bx bx-images me-2"></i>Primary Variant Images</h6>
+                            <div class="row g-3" id="primaryImagesList">
+                                @foreach ($groupRows[0]['options'] ?? [] as $optionIndex => $optionRow)
+                                    <div class="col-lg-2 col-md-3 col-sm-4 primary-image-card" data-option-index="{{ $optionIndex }}">
+                                        <div class="card shadow-sm border mb-0 image-upload-zone" tabindex="0" style="position: relative; overflow: hidden; outline: none; transition: 0.2s;">
+                                            <div class="card-body p-2 text-center preview-cell">
+                                                <h6 class="mb-2 primary-image-title fw-bold" style="font-size: 13px; position: relative; z-index: 2;">{{ $optionRow['alias'] ?: 'Option ' . ($optionIndex + 1) }}</h6>
+                                                
+                                                <input type="file" class="image-preview-input" 
+                                                    name="variant_groups[0][options][{{ $optionIndex }}][image]" accept="image/*"
+                                                    style="display: none;">
+                                                
+                                                <div class="upload-placeholder mt-2" style="{{ !empty($optionRow['image']) ? 'display:none;' : '' }}">
+                                                    <i class="bx bx-cloud-upload text-muted mb-1" style="font-size: 2rem;"></i>
+                                                    <p class="mb-0 text-muted" style="font-size: 11px;">Click to Paste<br>Dbl-Click to Browse</p>
+                                                </div>
+
+                                                @if (!empty($optionRow['image']))
+                                                    <div class="mt-2 old-file-preview" style="position: relative; z-index: 2;">
+                                                        <img src="{{ asset('uploads/' . $optionRow['image']) }}" alt="Option Image" class="file-preview-image w-100 rounded" style="max-height:100px; object-fit:cover;">
+                                                    </div>
+                                                @endif
+                                                <div class="mt-2 new-image-preview-wrap" style="display:none; position: relative; z-index: 2;">
+                                                    <img src="#" alt="Preview" class="file-preview-image new-image-preview w-100 rounded" style="max-height:100px; object-fit:cover;">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <div class="mb-4 border border-start border-4 border-success rounded p-3 shadow-sm bg-white" id="variantCombinationsSection" style="display:none;">
+                            <h6 class="fw-bold mb-3 text-success"><i class="bx bx-git-merge me-2"></i>Variant Combinations (PRODUCT OPTION + LID OPTION)</h6>
                             <div class="table-responsive">
                                 <table class="table table-bordered ecommerce-repeater-table mb-1">
-                                    <thead class="table-light">
+                                    <thead class="table-success">
                                         <tr>
-                                            <th>Product Option</th>
-                                            <th>Lid Option</th>
+                                            <th>Product Option + Lid Option</th>
                                             <th>Price (Saved)</th>
                                             <th>Image</th>
-                                            <th>Video</th>
                                             <th>Is Active</th>
                                         </tr>
                                     </thead>
@@ -691,12 +684,7 @@
                     
                     let oldPreview = '';
                     if (existing.image) {
-                        oldPreview = `<div class="mt-1 old-file-preview"><img src="/uploads/${existing.image}" class="file-preview-image"></div>`;
-                    }
-                    
-                    let oldVideoPreview = '';
-                    if (existing.video) {
-                        oldVideoPreview = `<div class="mt-1 old-file-preview"><video controls class="file-preview-video"><source src="/uploads/${existing.video}"></video></div>`;
+                        oldPreview = `<div class="mt-2 old-file-preview" style="position: relative; z-index: 2;"><img src="/uploads/${existing.image}" class="file-preview-image w-100 rounded" style="max-height:80px; object-fit:cover;"></div>`;
                     }
 
                     const productLabel = escapeHtml(productAliasMap[pair.primary_product_id] || '');
@@ -712,27 +700,24 @@
                             <td>
                                 ${hiddenId}
                                 <input type="hidden" name="variant_combinations[${combIndex}][product_option_product_id]" value="${pair.primary_product_id}">
-                                ${productLabel}
-                            </td>
-                            <td>
                                 <input type="hidden" name="variant_combinations[${combIndex}][lid_option_product_id]" value="${pair.secondary_product_id}">
-                                ${lidLabel}
+                                ${productLabel} <span class="text-muted mx-1">+</span> ${lidLabel}
                             </td>
                             <td class="align-middle">
                                 ${priceLabel}
                             </td>
-                            <td class="preview-cell">
-                                <input type="file" class="form-control image-preview-input" name="variant_combinations[${combIndex}][image]" accept="image/*">
-                                ${oldPreview}
-                                <div class="mt-1 new-image-preview-wrap" style="display:none;">
-                                    <img src="#" alt="Preview" class="file-preview-image new-image-preview">
+                            <td class="preview-cell image-upload-zone text-center" tabindex="0" style="position: relative; overflow: hidden; outline: none; transition: 0.2s; min-width: 120px; padding: 0.5rem; border-radius: 4px; border: 1px dashed #ced4da;">
+                                <input type="file" class="image-preview-input" name="variant_combinations[${combIndex}][image]" accept="image/*"
+                                                    style="display: none;">
+                                                
+                                <div class="upload-placeholder mt-2" style="${existing.image ? 'display:none;' : ''}">
+                                    <i class="bx bx-cloud-upload text-muted mb-1" style="font-size: 1.5rem;"></i>
+                                    <p class="mb-0 text-muted" style="font-size: 10px;">Paste / Dbl-Click</p>
                                 </div>
-                            </td>
-                            <td class="preview-cell">
-                                <input type="file" class="form-control video-preview-input" name="variant_combinations[${combIndex}][video]" accept="video/*">
-                                ${oldVideoPreview}
-                                <div class="mt-1 new-video-preview-wrap" style="display:none;">
-                                    <video controls class="file-preview-video new-video-preview"></video>
+
+                                ${oldPreview}
+                                <div class="mt-2 new-image-preview-wrap" style="display:none; position: relative; z-index: 2;">
+                                    <img src="#" alt="Preview" class="file-preview-image new-image-preview w-100 rounded" style="max-height:80px; object-fit:cover;">
                                 </div>
                             </td>
                             <td class="text-center align-middle">
@@ -815,6 +800,16 @@
                                     tbody.append(row);
                                 }
                                 
+                                // Re-index all name attributes to prevent collisions
+                                row.find('input, select, textarea').each(function() {
+                                    let name = $(this).attr('name');
+                                    if (name) {
+                                        // Update the [options][<number>] part to [options][idx]
+                                        name = name.replace(/\[options\]\[\d+\]/, '[options][' + idx + ']');
+                                        $(this).attr('name', name);
+                                    }
+                                });
+                                
                                 // Update Price based on selected unit
                                 const secPrice = getProductPrice(sec.id);
                                 row.find('td:nth-child(2)').html(`<span class="badge bg-soft-success text-success">Rp ${formatPrice(secPrice)}</span>`);
@@ -838,6 +833,13 @@
                 }
                 
                 fetchSecondaryProducts();
+            });
+
+            $(document).on('input', '.variant-group-item[data-group-index="0"] .option-alias-input', function() {
+                const tr = $(this).closest('tr');
+                const optIndex = tr.data('option-index');
+                const val = $(this).val() || ('Option ' + (optIndex + 1));
+                $(`.primary-image-card[data-option-index="${optIndex}"] .primary-image-title`).text(val);
             });
 
             $(document).on('input', '.variant-group-item .option-alias-input', function() {
@@ -872,7 +874,7 @@
 
             function optionRowTemplate(groupIndex, optionIndex) {
                 return `
-                    <tr class="variant-option-row">
+                    <tr class="variant-option-row" data-option-index="${optionIndex}">
                         <td class="field-wrapper">
                             <input type="hidden" name="variant_groups[${groupIndex}][options][${optionIndex}][id]" value="">
                             <select class="form-control select2-field option-product-select" name="variant_groups[${groupIndex}][options][${optionIndex}][product_id]">
@@ -885,18 +887,6 @@
                         </td>
                         <td class="field-wrapper">
                             <input type="text" class="form-control option-alias-input" name="variant_groups[${groupIndex}][options][${optionIndex}][alias]" placeholder="Alias">
-                        </td>
-                        <td class="preview-cell">
-                            <input type="file" class="form-control image-preview-input" name="variant_groups[${groupIndex}][options][${optionIndex}][image]" accept="image/*">
-                            <div class="mt-1 new-image-preview-wrap" style="display:none;">
-                                <img src="#" alt="Preview" class="file-preview-image new-image-preview">
-                            </div>
-                        </td>
-                        <td class="preview-cell">
-                            <input type="file" class="form-control video-preview-input" name="variant_groups[${groupIndex}][options][${optionIndex}][video]" accept="video/*">
-                            <div class="mt-1 new-video-preview-wrap" style="display:none;">
-                                <video controls class="file-preview-video new-video-preview"></video>
-                            </div>
                         </td>
                         <td class="text-center align-middle">
                             <div class="form-check form-switch d-inline-block">
@@ -912,20 +902,46 @@
                 `;
             }
 
+            function primaryImageCardTemplate(optionIndex, title) {
+                return `
+                    <div class="col-lg-2 col-md-3 col-sm-4 primary-image-card" data-option-index="${optionIndex}">
+                        <div class="card shadow-sm border mb-0 image-upload-zone" tabindex="0" style="position: relative; overflow: hidden; outline: none; transition: 0.2s;">
+                            <div class="card-body p-2 text-center preview-cell">
+                                <h6 class="mb-2 primary-image-title fw-bold" style="font-size: 13px; position: relative; z-index: 2;">${escapeHtml(title)}</h6>
+                                
+                                <input type="file" class="image-preview-input" 
+                                    name="variant_groups[0][options][${optionIndex}][image]" accept="image/*"
+                                    style="display: none;">
+                                
+                                <div class="upload-placeholder mt-2">
+                                    <i class="bx bx-cloud-upload text-muted mb-1" style="font-size: 2rem;"></i>
+                                    <p class="mb-0 text-muted" style="font-size: 11px;">Click to Paste<br>Dbl-Click to Browse</p>
+                                </div>
+
+                                <div class="mt-2 new-image-preview-wrap" style="display:none; position: relative; z-index: 2;">
+                                    <img src="#" alt="Preview" class="file-preview-image new-image-preview w-100 rounded" style="max-height:100px; object-fit:cover;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             function groupTemplate(groupIndex) {
                 return `
-                    <div class="variant-group-item" data-group-index="${groupIndex}" data-option-index="1">
-                        <input type="hidden" name="variant_groups[${groupIndex}][id]" value="">
+                    <div class="variant-group-item mb-4 border border-start border-4 border-primary rounded p-3 shadow-sm bg-white" data-group-index="${groupIndex}" data-option-index="1">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold mb-0 text-primary"><i class="bx bx-layer me-2"></i>Variant Group ${groupIndex + 1}</h6>
+                            <input type="hidden" name="variant_groups[${groupIndex}][id]" value="">
+                            <button type="button" class="btn btn-danger btn-sm remove-variant-group">
+                                <i class="feather-trash-2"></i>
+                            </button>
+                        </div>
 
-                        <div class="row g-3 mb-2">
-                            <div class="col-lg-10 field-wrapper">
+                        <div class="row g-3 mb-3">
+                            <div class="col-lg-12 field-wrapper">
                                 <label class="fw-semibold">Group Name</label>
                                 <input type="text" class="form-control variant-group-name" name="variant_groups[${groupIndex}][name]" placeholder="LID OPTION">
-                            </div>
-                            <div class="col-lg-2 d-flex align-items-end justify-content-end">
-                                <button type="button" class="btn btn-danger btn-sm remove-variant-group">
-                                    <i class="feather-trash-2"></i>
-                                </button>
                             </div>
                         </div>
 
@@ -935,8 +951,6 @@
                                     <tr>
                                         <th>ERP Product</th>
                                         <th>Alias</th>
-                                        <th>Image</th>
-                                        <th>Video</th>
                                         <th class="action-column"></th>
                                     </tr>
                                 </thead>
@@ -980,10 +994,16 @@
                 const cell = $(input).closest('.preview-cell');
                 const wrap = cell.find('.new-image-preview-wrap');
                 const preview = cell.find('.new-image-preview');
+                const placeholder = cell.find('.upload-placeholder');
 
                 if (!file) {
                     wrap.hide();
-                    cell.find('.old-file-preview').show();
+                    const oldPreview = cell.find('.old-file-preview');
+                    if (oldPreview.length > 0) {
+                        oldPreview.show();
+                    } else {
+                        placeholder.show();
+                    }
                     return;
                 }
 
@@ -991,12 +1011,68 @@
 
                 reader.onload = function(e) {
                     preview.attr('src', e.target.result);
-                    wrap.show();
                     cell.find('.old-file-preview').hide();
+                    placeholder.hide();
+                    wrap.show();
                 };
 
                 reader.readAsDataURL(file);
             }
+
+            $(document).on('click', '.image-upload-zone', function(e) {
+                $(this).focus();
+            });
+
+            $(document).on('dblclick', '.image-upload-zone', function(e) {
+                $(this).find('input[type="file"]').click();
+            });
+
+            // Drag and Drop visual feedback & drop handling
+            $(document).on('dragover', '.image-upload-zone', function(e) {
+                e.preventDefault();
+                $(this).addClass('border-primary bg-light');
+            });
+            $(document).on('dragleave', '.image-upload-zone', function(e) {
+                $(this).removeClass('border-primary bg-light');
+            });
+            $(document).on('drop', '.image-upload-zone', function(e) {
+                e.preventDefault();
+                $(this).removeClass('border-primary bg-light');
+                $(this).focus();
+                
+                const file = e.originalEvent.dataTransfer.files[0];
+                if (file && file.type.indexOf("image") === 0) {
+                    const input = $(this).find('input[type="file"]')[0];
+                    if (input) {
+                        const dt = new DataTransfer();
+                        dt.items.add(file);
+                        input.files = dt.files;
+                        $(input).trigger('change');
+                    }
+                }
+            });
+
+            // Handle Paste
+            $(document).on('paste', '.image-upload-zone', function(e) {
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                let file = null;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf("image") === 0) {
+                        file = items[i].getAsFile();
+                        break;
+                    }
+                }
+                if (file) {
+                    e.preventDefault();
+                    const input = $(this).find('input[type="file"]')[0];
+                    if (input) {
+                        const dt = new DataTransfer();
+                        dt.items.add(file);
+                        input.files = dt.files;
+                        $(input).trigger('change');
+                    }
+                }
+            });
 
             function previewVideo(input) {
                 const file = input.files[0];
@@ -1055,6 +1131,10 @@
                 group.data('option-index', optionIndex + 1);
 
                 initSelect2(group.find('.variant-option-list tr:last'));
+
+                if (groupIndex === 0) {
+                    $('#primaryImagesList').append(primaryImageCardTemplate(optionIndex, 'Option ' + (optionIndex + 1)));
+                }
             });
 
             $(document).on('click', '.remove-variant-group', function() {
@@ -1062,7 +1142,15 @@
             });
 
             $(document).on('click', '.remove-variant-option', function() {
-                $(this).closest('.variant-option-row').remove();
+                const tr = $(this).closest('.variant-option-row');
+                const groupIndex = $(this).closest('.variant-group-item').data('group-index');
+                const optionIndex = tr.data('option-index');
+                
+                tr.remove();
+
+                if (groupIndex === 0) {
+                    $(`.primary-image-card[data-option-index="${optionIndex}"]`).remove();
+                }
             });
 
             form.on('submit', function(e) {
