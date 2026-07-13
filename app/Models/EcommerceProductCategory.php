@@ -36,4 +36,9 @@ class EcommerceProductCategory extends Model
     {
         return $this->image ? asset('uploads/' . $this->image) : null;
     }
+
+    public function discounts()
+    {
+        return $this->belongsToMany(Discount::class, 'discount_ecommerce_categories', 'ecommerce_product_category_id', 'discount_id');
+    }
 }

@@ -21,7 +21,7 @@ class EcommerceProductUpdateRequest extends FormRequest
         foreach ($variantGroups as $groupIndex => &$group) {
             if (isset($group['options']) && is_array($group['options'])) {
                 foreach ($group['options'] as &$option) {
-                    $option['is_active'] = isset($option['is_active']);
+                    $option['is_active'] = filter_var($option['is_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
                 }
             }
         }
@@ -29,11 +29,11 @@ class EcommerceProductUpdateRequest extends FormRequest
         $variantCombinations = $this->input('variant_combinations', []);
         $variantCombinations = is_array($variantCombinations) ? $variantCombinations : [];
         foreach ($variantCombinations as &$combination) {
-            $combination['is_active'] = isset($combination['is_active']);
+            $combination['is_active'] = filter_var($combination['is_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
         }
 
         $this->merge([
-            'is_active' => $this->has('is_active'),
+            'is_active' => filter_var($this->input('is_active', false), FILTER_VALIDATE_BOOLEAN),
             'slug' => Str::slug($this->input('slug') ?: $this->input('title')),
             'multiple_qty' => $this->normalizeNumber($this->input('multiple_qty', 1)) ?? 1,
             'min_qty' => $this->normalizeNumber($this->input('min_qty', 1)) ?? 1,

@@ -80,7 +80,8 @@ class DiscountController extends Controller
     {
         $products = Products::all();
         $categories = ProductCategory::all();
-        return view('erp.pages.discounts.create-discount', compact('products', 'categories'));
+        $ecommerceCategories = \App\Models\EcommerceProductCategory::all();
+        return view('erp.pages.discounts.create-discount', compact('products', 'categories', 'ecommerceCategories'));
     }
 
     public function store(Request $request)
@@ -92,13 +93,16 @@ class DiscountController extends Controller
             'amount' => 'required|numeric|min:0',
             'minimum_based_on' => 'required|in:Quantity of Items,Purchase Amount',
             'minimum_qty_or_amount' => 'required|numeric|min:0',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
             'apply_on' => 'required|in:Product,Category',
             'products' => 'nullable|array',
             'products.*' => 'exists:products,id',
             'categories' => 'nullable|array',
             'categories.*' => 'exists:product_categories,id',
-            // 'start_date' => 'required|date',
-            // 'end_date' => 'required|date|after_or_equal:start_date',
+            'apply_on_ecommerce' => 'required|in:None,Category',
+            'ecommerce_categories' => 'nullable|array',
+            'ecommerce_categories.*' => 'exists:ecommerce_product_categories,id',
             'status' => 'required|in:1,0',
         ]);
 
@@ -111,66 +115,23 @@ class DiscountController extends Controller
                 'amount' => $validated['amount'],
                 'minimum_based_on' => $validated['minimum_based_on'],
                 'minimum_qty_or_amount' => $validated['minimum_qty_or_amount'],
+                'start_date' => $validated['start_date'] ?? null,
+                'end_date' => $validated['end_date'] ?? null,
                 'apply_on' => $validated['apply_on'],
-                // 'start_date' => $validated['start_date'],
-                // 'end_date' => $validated['end_date'],
+                'apply_on_ecommerce' => $validated['apply_on_ecommerce'],
                 'is_active' => $validated['status'],
             ]);
 
-            if ($validated['apply_on'] === 'Product' && isset($validated['products'])) {
-                $discount->products()->sync($validated['products']);
-
-                // Update sale_price untuk produk yang dipilih
-                foreach ($validated['products'] as $productId) {
-                    $product = Products::find($productId);
-
-                    if ($product) {
-                        $newPrice = $product->price;
-                        if ($validated['type'] === 'Percentage') {
-                            $newPrice -= ($product->price * ($validated['amount'] / 100));
-                        } else { // Fixed Amount
-                            $newPrice -= $validated['amount'];
-                        }
-
-                        // Pastikan harga tidak negatif
-                        $newPrice = max(0, $newPrice);
-
-                        $product->update(['sale_price' => $newPrice]);
-                    }
-                }
+            // 3. UPDATE RELASI ERP
+            if ($validated['apply_on'] === 'Product') {
+                $discount->products()->sync($validated['products'] ?? []);
+            } elseif ($validated['apply_on'] === 'Category') {
+                $discount->categories()->sync($validated['categories'] ?? []);
             }
 
-            if ($validated['apply_on'] === 'Category' && !empty($validated['categories'])) {
-                $discount->categories()->sync($validated['categories']);
-
-                // Ambil semua produk di kategori ini
-                $products = Products::whereHas('categories', function ($q) use ($validated) {
-                    $q->whereIn('product_categories.id', $validated['categories']);
-                })->get();
-
-                // Update harga produk dulu
-                foreach ($products as $product) {
-                    $newPrice = $this->calculateSalePrice(
-                        $product->price,
-                        $validated['type'],
-                        $validated['amount']
-                    );
-                    $product->update(['sale_price' => max(0, $newPrice)]);
-
-                    // Update sale price bundle yang berisi produk ini
-                    $bundleIds = $product->includedInBundles()->pluck('bundle_id')->unique();
-                    foreach ($bundleIds as $bundleId) {
-                        $bundle = ProductBundle::find($bundleId);
-                        if ($bundle) {
-                            $newBundlePrice = $this->calculateSalePrice(
-                                $bundle->price, // harga bundle asli
-                                $validated['type'],
-                                $validated['amount']
-                            );
-                            $bundle->update(['sale_price' => max(0, $newBundlePrice)]);
-                        }
-                    }
-                }
+            // 4. UPDATE RELASI ECOMMERCE
+            if ($validated['apply_on_ecommerce'] === 'Category') {
+                $discount->ecommerceCategories()->sync($validated['ecommerce_categories'] ?? []);
             }
 
             DB::commit();
@@ -184,10 +145,11 @@ class DiscountController extends Controller
 
     public function edit($id)
     {
-        $discount = Discount::where('id', $id)->first();
+        $discount = Discount::with(['ecommerceCategories', 'products', 'categories'])->where('id', $id)->first();
         $products = Products::all();
         $categories = ProductCategory::all();
-        return view('erp.pages.discounts.edit-discount', compact('discount', 'products', 'categories'));
+        $ecommerceCategories = \App\Models\EcommerceProductCategory::all();
+        return view('erp.pages.discounts.edit-discount', compact('discount', 'products', 'categories', 'ecommerceCategories'));
     }
 
     public function update(Request $request, $id)
@@ -198,34 +160,23 @@ class DiscountController extends Controller
             'amount' => 'required|numeric|min:0',
             'minimum_based_on' => 'required|in:Quantity of Items,Purchase Amount',
             'minimum_qty_or_amount' => 'required|numeric|min:0',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
             'apply_on' => 'required|in:Product,Category',
             'products' => 'nullable|array',
             'products.*' => 'exists:products,id',
             'categories' => 'nullable|array',
             'categories.*' => 'exists:product_categories,id',
-            // 'start_date' => 'required|date',
-            // 'end_date' => 'required|date|after_or_equal:start_date',
+            'apply_on_ecommerce' => 'required|in:None,Category',
+            'ecommerce_categories' => 'nullable|array',
+            'ecommerce_categories.*' => 'exists:ecommerce_product_categories,id',
             'status' => 'required|in:1,0',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $discount = Discount::with(['products', 'categories'])->findOrFail($id);
-
-            // 1. RESET SALE PRICE PADA PRODUK LAMA
-            foreach ($discount->products as $oldProduct) {
-                $oldProduct->update(['sale_price' => $oldProduct->price]);
-            }
-            foreach ($discount->categories as $oldCategory) {
-                $products = Products::whereHas('categories', function ($q) use ($oldCategory) {
-                    $q->where('product_categories.id', $oldCategory->id);
-                })->get();
-
-                foreach ($products as $p) {
-                    $p->update(['sale_price' => $p->price]);
-                }
-            }
+            $discount = Discount::with(['products', 'categories', 'ecommerceCategories'])->findOrFail($id);
 
             // 2. UPDATE DATA DISCOUNT
             $discount->update([
@@ -234,59 +185,27 @@ class DiscountController extends Controller
                 'amount' => $validated['amount'],
                 'minimum_based_on' => $validated['minimum_based_on'],
                 'minimum_qty_or_amount' => $validated['minimum_qty_or_amount'],
+                'start_date' => $validated['start_date'] ?? null,
+                'end_date' => $validated['end_date'] ?? null,
                 'apply_on' => $validated['apply_on'],
-                // 'start_date' => $validated['start_date'],
-                // 'end_date' => $validated['end_date'],
+                'apply_on_ecommerce' => $validated['apply_on_ecommerce'],
                 'is_active' => $validated['status'],
             ]);
 
-            // 3. UPDATE RELASI DAN SALE_PRICE BARU
+            // 3. UPDATE RELASI ERP
             if ($validated['apply_on'] === 'Product') {
                 $discount->products()->sync($validated['products'] ?? []);
                 $discount->categories()->detach();
-
-                if (!empty($validated['products'])) {
-                    foreach ($validated['products'] as $productId) {
-                        $product = Products::find($productId);
-                        if ($product) {
-                            $newPrice = $this->calculateSalePrice($product->price, $validated['type'], $validated['amount']);
-                            $product->update(['sale_price' => $newPrice]);
-                        }
-                    }
-                }
             } elseif ($validated['apply_on'] === 'Category') {
                 $discount->categories()->sync($validated['categories'] ?? []);
                 $discount->products()->detach();
+            }
 
-                if (!empty($validated['categories'])) {
-                    $products = Products::whereHas('categories', function ($q) use ($validated) {
-                        $q->whereIn('product_categories.id', $validated['categories']);
-                    })->get();
-
-                    foreach ($products as $product) {
-                        // Update harga produk
-                        $newPrice = $this->calculateSalePrice(
-                            $product->price,
-                            $validated['type'],
-                            $validated['amount']
-                        );
-                        $product->update(['sale_price' => max(0, $newPrice)]);
-
-                        // Update harga bundle yang mengandung produk ini
-                        $bundleIds = $product->includedInBundles()->pluck('bundle_id')->unique();
-                        foreach ($bundleIds as $bundleId) {
-                            $bundle = ProductBundle::find($bundleId);
-                            if ($bundle) {
-                                $newBundlePrice = $this->calculateSalePrice(
-                                    $bundle->price,
-                                    $validated['type'],
-                                    $validated['amount']
-                                );
-                                $bundle->update(['sale_price' => max(0, $newBundlePrice)]);
-                            }
-                        }
-                    }
-                }
+            // 4. UPDATE RELASI ECOMMERCE
+            if ($validated['apply_on_ecommerce'] === 'Category') {
+                $discount->ecommerceCategories()->sync($validated['ecommerce_categories'] ?? []);
+            } else {
+                $discount->ecommerceCategories()->detach();
             }
 
             DB::commit();
@@ -315,6 +234,7 @@ class DiscountController extends Controller
             // Hapus relasi pivot dulu
             $discount->products()->detach();
             $discount->categories()->detach();
+            $discount->ecommerceCategories()->detach();
 
             // Lalu hapus discount-nya
             $discount->delete();

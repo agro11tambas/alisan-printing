@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Public\EcommerceSaleOrderController;
 use App\Http\Controllers\Api\Public\EcommerceProductController;
 use App\Http\Controllers\Api\Public\EcommerceProductCategoryController;
 use App\Http\Controllers\Api\Public\EcommerceInformationController;
+use App\Http\Controllers\Api\Public\EcommerceDiscountController;
 
 Route::prefix('v1')->group(function () {
     // ERP admin login
@@ -67,5 +68,6 @@ Route::prefix('v1')->group(function () {
         Route::get('/products/{slug}', [EcommerceProductController::class, 'show']);
         Route::get('/categories', [EcommerceProductCategoryController::class, 'index']);
         Route::get('/information', [EcommerceInformationController::class, 'index']);
+        Route::get('/discounts', [EcommerceDiscountController::class, 'index']);
     });
 });

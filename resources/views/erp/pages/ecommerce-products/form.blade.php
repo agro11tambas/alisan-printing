@@ -33,6 +33,7 @@
                             'extra_price' => $option->extra_price,
                             'image' => $option->image,
                             'video' => $option->video,
+                            'is_active' => $option->is_active,
                             'sort_order' => $option->sort_order,
                         ];
                     })
@@ -48,6 +49,7 @@
                         'alias' => '',
                         'product_id' => null,
                         'extra_price' => 0,
+                        'is_active' => true,
                         'sort_order' => 0,
                     ],
                 ],
@@ -66,6 +68,7 @@
                 'lid_option_product_id' => $comb->lidOption?->product_id,
                 'price' => $comb->price,
                 'image' => $comb->image,
+                'is_active' => $comb->is_active,
             ];
         });
     } else {
@@ -233,6 +236,7 @@
                                 </div>
                                 <div class="col-lg-10 field-wrapper">
                                     <div class="form-check form-switch mt-2">
+                                        <input type="hidden" name="is_active" value="0">
                                         <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" {{ old('is_active', $product->is_active ?? true) ? 'checked' : '' }}>
                                         <label class="form-check-label" for="is_active">Active</label>
                                     </div>
@@ -356,6 +360,7 @@
                                                     'alias' => '',
                                                     'product_id' => null,
                                                     'extra_price' => 0,
+                                                    'is_active' => true,
                                                     'sort_order' => 0,
                                                 ],
                                             ]);
@@ -368,10 +373,12 @@
                                             <h6 class="fw-bold mb-0 text-primary"><i class="bx bx-layer me-2"></i>{{ $groupRow['name'] }}</h6>
                                             <input type="hidden" name="variant_groups[{{ $groupIndex }}][id]"
                                             value="{{ $groupRow['id'] ?? '' }}">
+                                            @if($groupIndex !== 1)
                                             <button type="button"
                                                     class="btn btn-danger btn-sm remove-variant-group">
                                                 <i class="feather-trash-2"></i>
                                             </button>
+                                            @endif
                                         </div>
 
                                         <div class="row g-3 mb-3">
@@ -431,14 +438,17 @@
                                                             </td>
                                                             <td class="text-center align-middle">
                                                                 <div class="form-check form-switch d-inline-block">
+                                                                    <input type="hidden" name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][is_active]" value="0">
                                                                     <input class="form-check-input" type="checkbox" name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][is_active]" value="1" {{ !isset($optionRow['is_active']) || $optionRow['is_active'] ? 'checked' : '' }}>
                                                                 </div>
                                                             </td>
                                                             <td class="text-center action-column">
+                                                                @if($groupIndex !== 1)
                                                                 <button type="button"
                                                                     class="btn btn-danger btn-sm remove-variant-option">
                                                                     <i class="feather-trash-2"></i>
                                                                 </button>
+                                                                @endif
                                                             </td>
                                                         </tr>
                                                     @endforeach
@@ -722,6 +732,7 @@
                             </td>
                             <td class="text-center align-middle">
                                 <div class="form-check form-switch d-inline-block">
+                                    <input type="hidden" name="variant_combinations[${combIndex}][is_active]" value="0">
                                     <input class="form-check-input" type="checkbox" name="variant_combinations[${combIndex}][is_active]" value="1" ${existing.is_active !== false && existing.is_active !== 0 && existing.is_active !== "0" ? 'checked' : ''}>
                                 </div>
                             </td>
@@ -845,6 +856,23 @@
             $(document).on('input', '.variant-group-item .option-alias-input', function() {
                 renderCombinations();
             });
+
+            $(document).on('change', '.variant-group-item .form-check-input', function() {
+                const isChecked = $(this).is(':checked');
+                const tr = $(this).closest('.variant-option-row');
+                const productId = tr.find('.option-product-select').val();
+                
+                if (productId) {
+                    $('#variantCombinationsList tr').each(function() {
+                        const primaryId = $(this).find('input[name$="[product_option_product_id]"]').val();
+                        const secondaryId = $(this).find('input[name$="[lid_option_product_id]"]').val();
+                        
+                        if (String(primaryId) === String(productId) || String(secondaryId) === String(productId)) {
+                            $(this).find('input[type="checkbox"][name^="variant_combinations"]').prop('checked', isChecked);
+                        }
+                    });
+                }
+            });
             
             // Refresh all variant option prices based on selected unit
             function refreshAllVariantPrices() {
@@ -890,13 +918,16 @@
                         </td>
                         <td class="text-center align-middle">
                             <div class="form-check form-switch d-inline-block">
+                                <input type="hidden" name="variant_groups[${groupIndex}][options][${optionIndex}][is_active]" value="0">
                                 <input class="form-check-input" type="checkbox" name="variant_groups[${groupIndex}][options][${optionIndex}][is_active]" value="1" checked>
                             </div>
                         </td>
                         <td class="text-center action-column">
+                            ${groupIndex !== 1 ? `
                             <button type="button" class="btn btn-danger btn-sm remove-variant-option">
                                 <i class="feather-trash-2"></i>
                             </button>
+                            ` : ''}
                         </td>
                     </tr>
                 `;
@@ -933,9 +964,11 @@
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h6 class="fw-bold mb-0 text-primary"><i class="bx bx-layer me-2"></i>Variant Group ${groupIndex + 1}</h6>
                             <input type="hidden" name="variant_groups[${groupIndex}][id]" value="">
+                            ${groupIndex !== 1 ? `
                             <button type="button" class="btn btn-danger btn-sm remove-variant-group">
                                 <i class="feather-trash-2"></i>
                             </button>
+                            ` : ''}
                         </div>
 
                         <div class="row g-3 mb-3">
@@ -1138,7 +1171,21 @@
             });
 
             $(document).on('click', '.remove-variant-group', function() {
-                $(this).closest('.variant-group-item').remove();
+                const btn = $(this);
+                Swal.fire({
+                    title: 'Konfirmasi',
+                    text: 'Apakah Anda yakin ingin menghapus Variant Group ini?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        btn.closest('.variant-group-item').remove();
+                    }
+                });
             });
 
             $(document).on('click', '.remove-variant-option', function() {
@@ -1146,11 +1193,25 @@
                 const groupIndex = $(this).closest('.variant-group-item').data('group-index');
                 const optionIndex = tr.data('option-index');
                 
-                tr.remove();
+                Swal.fire({
+                    title: 'Konfirmasi',
+                    text: 'Apakah Anda yakin ingin menghapus opsi ini?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        tr.remove();
 
-                if (groupIndex === 0) {
-                    $(`.primary-image-card[data-option-index="${optionIndex}"]`).remove();
-                }
+                        if (groupIndex === 0) {
+                            $(`.primary-image-card[data-option-index="${optionIndex}"]`).remove();
+                            fetchSecondaryProducts();
+                        }
+                    }
+                });
             });
 
             form.on('submit', function(e) {

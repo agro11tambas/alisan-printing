@@ -19,7 +19,8 @@ class Discount extends Model
         'start_date',
         'end_date',
         'is_active',
-        'apply_on'
+        'apply_on',
+        'apply_on_ecommerce',
     ];
 
     public function products()
@@ -30,5 +31,10 @@ class Discount extends Model
     public function categories()
     {
         return $this->belongsToMany(ProductCategory::class, 'discount_categories', 'discount_id', 'category_id');
+    }
+
+    public function ecommerceCategories()
+    {
+        return $this->belongsToMany(EcommerceProductCategory::class, 'discount_ecommerce_categories', 'discount_id', 'ecommerce_product_category_id');
     }
 }

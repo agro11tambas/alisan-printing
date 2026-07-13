@@ -130,6 +130,7 @@
                                                     <th>ERP Product</th>
                                                     <th>Price</th>
                                                     <th>Alias</th>
+                                                    <th>Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -138,6 +139,13 @@
                                                         <td>{{ $option->product?->name ?? '-' }}</td>
                                                         <td>Rp {{ number_format($option->price ?? 0, 0, ',', '.') }}</td>
                                                         <td>{{ $option->alias }}</td>
+                                                        <td>
+                                                            @if($option->is_active)
+                                                                <span class="badge bg-success">Active</span>
+                                                            @else
+                                                                <span class="badge bg-secondary">Inactive</span>
+                                                            @endif
+                                                        </td>
                                                         <!-- Image removed from table -->
                                                     </tr>
                                                 @endforeach
@@ -182,6 +190,7 @@
                                             <th>Product Option + Lid Option</th>
                                             <th>Price</th>
                                             <th>Image</th>
+                                            <th>Status</th>
                                         </tr>
                                     </thead>
                                         <tbody>
@@ -199,6 +208,13 @@
                                                             </a>
                                                         @else
                                                             -
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        @if($comb->is_active)
+                                                            <span class="badge bg-success">Active</span>
+                                                        @else
+                                                            <span class="badge bg-secondary">Inactive</span>
                                                         @endif
                                                     </td>
                                                 </tr>

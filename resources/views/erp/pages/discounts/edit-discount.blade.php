@@ -178,6 +178,37 @@
                                     </select>
                                 </div>
                             </div>
+
+                            <hr class="my-4">
+                            <h5 class="mb-3 text-primary">Target Ecommerce (Website)</h5>
+
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-lg-2">
+                                    <label for="apply_on_ecommerce" class="fw-semibold">Apply On Ecommerce:</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <select name="apply_on_ecommerce" id="apply_on_ecommerce" class="form-control" required>
+                                        <option value="None" {{ $discount->apply_on_ecommerce === 'None' ? 'selected' : '' }}>None</option>
+                                        <option value="Category" {{ $discount->apply_on_ecommerce === 'Category' ? 'selected' : '' }}>Ecommerce Category</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="ecommerce_category_group" class="row mb-2 align-items-center" style="display: none;">
+                                <div class="col-lg-2">
+                                    <label for="ecommerce_categories" class="fw-semibold">Select Ecommerce Category(ies):</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <select name="ecommerce_categories[]" id="ecommerce_categories" class="form-control"
+                                        data-select2-selector="tag" multiple>
+                                        @foreach ($ecommerceCategories as $category)
+                                            <option value="{{ $category->id }}"
+                                                {{ $discount->ecommerceCategories->contains($category->id) ? 'selected' : '' }}>
+                                                {{ $category->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="status" class="fw-semibold">Status:</label>
@@ -219,12 +250,27 @@
             }
         }
 
+        function toggleApplyOnEcommerceFields(value) {
+            if (value === 'Category') {
+                $('#ecommerce_category_group').show();
+            } else {
+                $('#ecommerce_category_group').hide();
+            }
+        }
+
         $(document).ready(function() {
             const applyOn = $('#apply_on').val();
             toggleApplyOnFields(applyOn);
 
             $('#apply_on').on('change', function() {
                 toggleApplyOnFields(this.value);
+            });
+
+            const applyOnEcommerce = $('#apply_on_ecommerce').val();
+            toggleApplyOnEcommerceFields(applyOnEcommerce);
+
+            $('#apply_on_ecommerce').on('change', function() {
+                toggleApplyOnEcommerceFields(this.value);
             });
         });
 
