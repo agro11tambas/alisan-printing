@@ -966,9 +966,90 @@
             }
         });
 
-        $(document).on('click', '.btn-share-invoice', function() {
+        $(document).on('click', '.btn-view-invoice', function() {
             const url = $(this).data('url');
             window.open(url, '_blank');
+        });
+
+        $(document).on('click', '.btn-share-wa', async function() {
+            const btn = $(this);
+
+            const orderId = btn.data('id');
+            const invoiceUrl = btn.data('url');
+            const business = btn.data('business');
+            const invoiceNo = btn.data('invoice');
+            const total = btn.data('total');
+
+            const rawPhone = btn.attr('data-phone') ?? '';
+            let phone = String(rawPhone).replace(/[^0-9]/g, '');
+            if (phone.startsWith('0')) phone = '62' + phone.substring(1);
+
+            try {
+                // ???? ambil HTML invoice
+                const html = await fetch(invoiceUrl).then(r => r.text());
+
+                const temp = document.createElement('div');
+                temp.style.position = 'fixed';
+                temp.style.left = '-99999px';
+                temp.innerHTML = html;
+                document.body.appendChild(temp);
+
+                const invoiceContent = temp.querySelector('#invoiceContent');
+                if (!invoiceContent) throw new Error('invoiceContent tidak ditemukan');
+
+                // ???? convert ke image
+                const canvas = await html2canvas(invoiceContent, {
+                    scale: 2,
+                    backgroundColor: '#ffffff'
+                });
+
+                document.body.removeChild(temp);
+
+                const imageData = canvas.toDataURL('image/jpeg', 0.95);
+
+                // ???? upload ke server
+                const response = await fetch('{{ route('invoice.convert') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        image: imageData,
+                        order_id: orderId,
+                        order_number: invoiceNo
+                    })
+                });
+
+                const result = await response.json();
+                if (!result.success) return;
+
+                const message = [
+                    `Kepada *${business}*`,
+                    `Berikut Invoice *${invoiceNo}*`,
+                    result.url.replace('https://', ''),
+                    ``,
+                    `*1) Diwajibkan Melunasi Tagihan*`,
+                    `Terlebih dahulu sebelum proses produksi dimulai.`,
+                    ``,
+                    `*2) Setelah pembayaran diterima*`,
+                    `Produksi akan berjalan sesuai estimasi yang disepakati.`,
+                    ``,
+                    `*REKENING BCA*`,
+                    `Nomor: *0590712647*`,
+                    `Nama: *STEFAN LEWIS*`,
+                    ``,
+                    `*WAJIB:*`,
+                    `Mengirim bukti transfer setelah pembayaran`,
+                ].join('\n');
+                window.open(
+                    `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+                    '_blank'
+                );
+
+            } catch (e) {
+                console.error(e);
+            }
         });
 
         const paidInput = document.getElementById("paid_amount");

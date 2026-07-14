@@ -53,6 +53,8 @@ class EcommerceProductStoreRequest extends FormRequest
             'slug' => ['required', 'string', 'max:255', 'unique:ecommerce_products,slug'],
             'brand' => ['nullable', 'string', 'max:255'],
             'main_image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:4096'],
+            'gallery_images' => ['nullable', 'array'],
+            'gallery_images.*' => ['image', 'mimes:jpeg,png,jpg,gif,webp', 'max:4096'],
             'main_video' => ['nullable', 'file', 'mimes:mp4,mov,avi,webm,mkv', 'max:51200'],
             'description' => ['nullable', 'string'],
             'multiple_qty' => ['required', 'integer', 'min:1'],

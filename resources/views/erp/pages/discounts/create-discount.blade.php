@@ -165,30 +165,7 @@
                                 </div>
                             </div>
 
-                            <hr class="my-4">
-                            <h5 class="mb-3 text-primary">Target Ecommerce (Website)</h5>
 
-                            <!-- SECTION: Apply On Ecommerce -->
-                            <div class="mb-4">
-                                <label for="apply_on_ecommerce" class="form-label fw-bold">Apply On Ecommerce</label>
-                                <select name="apply_on_ecommerce" id="apply_on_ecommerce" class="form-control shadow-sm" required onchange="toggleEcommerceSections()">
-                                    <option value="None">None</option>
-                                    <option value="Category">Ecommerce Category</option>
-                                </select>
-                            </div>
-
-                            <!-- SECTION: Ecommerce Categories -->
-                            <div id="section_ecommerce_categories" class="mb-4 d-none">
-                                <label for="ecommerce_categories" class="form-label fw-bold">Select Ecommerce Category(ies)</label>
-                                <select name="ecommerce_categories[]" id="ecommerce_categories" class="form-control shadow-sm select2-multiple" multiple>
-                                    @foreach($ecommerceCategories as $ecCat)
-                                        <option value="{{ $ecCat->id }}">
-                                            {{ $ecCat->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <div class="form-text text-muted">Hold CTRL (Windows) or CMD (Mac) to select multiple.</div>
-                            </div>
 
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
@@ -217,11 +194,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const applySelect = document.getElementById('apply_on');
-            const applyOnEcommerceSelect = document.getElementById('apply_on_ecommerce');
             const productGroup = document.getElementById('product_group');
             const categoryGroup = document.getElementById('category_group');
-            const sectionEcommerceCategories = document.getElementById('section_ecommerce_categories');
-            const selectEcommerceCategories = document.getElementById('ecommerce_categories');
 
             function toggleApplyOn() {
                 productGroup.style.display = 'none';
@@ -234,22 +208,9 @@
                 }
             }
 
-            function toggleEcommerceSections() {
-                const target = applyOnEcommerceSelect.value;
-                sectionEcommerceCategories.classList.add('d-none');
-                selectEcommerceCategories.required = false;
-
-                if (target === 'Category') {
-                    sectionEcommerceCategories.classList.remove('d-none');
-                    selectEcommerceCategories.required = true;
-                }
-            }
-
             applySelect.addEventListener('change', toggleApplyOn);
-            applyOnEcommerceSelect.addEventListener('change', toggleEcommerceSections);
             
             toggleApplyOn();
-            toggleEcommerceSections();
         });
 
         document.getElementById('discountForm').addEventListener('submit', function(e) {

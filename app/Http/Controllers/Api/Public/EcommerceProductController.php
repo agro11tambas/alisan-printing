@@ -13,6 +13,7 @@ class EcommerceProductController extends Controller
     {
         $products = EcommerceProduct::with([
                 'categories',
+                'galleryImages',
                 'variantGroups.options.product.categories',
                 'variantCombinations.productOption.product',
                 'variantCombinations.lidOption.product'
@@ -34,6 +35,7 @@ class EcommerceProductController extends Controller
     {
         $product = EcommerceProduct::with([
             'categories', 
+            'galleryImages',
             'variantGroups.options.product.categories', 
             'variantCombinations.productOption.product',
             'variantCombinations.lidOption.product'
@@ -74,11 +76,14 @@ class EcommerceProductController extends Controller
         if ($product->relationLoaded('variantGroups')) {
             foreach ($product->variantGroups as $group) {
                 foreach ($group->options as $opt) {
-                    if ($opt->relationLoaded('product') && $opt->product) {
-                        $opt->original_price = (float)$opt->product->price + (float)$opt->extra_price;
-                        $opt->price = (float)$opt->product->sale_price + (float)$opt->extra_price;
+                    $originalPrice = (float)$opt->price;
+                    
+                    if ($opt->relationLoaded('product') && $opt->product && (float)$opt->product->sale_price > 0) {
+                        $opt->original_price = $originalPrice;
+                        $opt->sale_price = (float)$opt->product->sale_price + (float)$opt->extra_price;
                     } else {
-                        $opt->original_price = (float)$opt->price;
+                        $opt->original_price = $originalPrice;
+                        $opt->sale_price = null;
                     }
                 }
             }
@@ -89,23 +94,51 @@ class EcommerceProductController extends Controller
             foreach ($product->variantCombinations as $comb) {
                 $originalPrice = 0;
                 $salePrice = 0;
+                $hasDiscount = false;
                 
-                if ($comb->relationLoaded('productOption') && $comb->productOption && $comb->productOption->relationLoaded('product') && $comb->productOption->product) {
-                    $originalPrice += (float)$comb->productOption->product->price + (float)$comb->productOption->extra_price;
-                    $salePrice += (float)$comb->productOption->product->sale_price + (float)$comb->productOption->extra_price;
+                if ($comb->relationLoaded('productOption') && $comb->productOption) {
+                    $optPrice = (float)$comb->productOption->price;
+                    $originalPrice += $optPrice;
+                    
+                    $erpSalePrice = 0;
+                    if ($comb->productOption->relationLoaded('product') && $comb->productOption->product) {
+                        $erpSalePrice = (float)$comb->productOption->product->sale_price;
+                    }
+                    
+                    if ($erpSalePrice > 0) {
+                        $salePrice += $erpSalePrice + (float)$comb->productOption->extra_price;
+                        $hasDiscount = true;
+                    } else {
+                        $salePrice += $optPrice;
+                    }
                 }
                 
-                if ($comb->relationLoaded('lidOption') && $comb->lidOption && $comb->lidOption->relationLoaded('product') && $comb->lidOption->product) {
-                    $originalPrice += (float)$comb->lidOption->product->price + (float)$comb->lidOption->extra_price;
-                    $salePrice += (float)$comb->lidOption->product->sale_price + (float)$comb->lidOption->extra_price;
+                if ($comb->relationLoaded('lidOption') && $comb->lidOption) {
+                    $optPrice = (float)$comb->lidOption->price;
+                    $originalPrice += $optPrice;
+                    
+                    $erpSalePrice = 0;
+                    if ($comb->lidOption->relationLoaded('product') && $comb->lidOption->product) {
+                        $erpSalePrice = (float)$comb->lidOption->product->sale_price;
+                    }
+                    
+                    if ($erpSalePrice > 0) {
+                        $salePrice += $erpSalePrice + (float)$comb->lidOption->extra_price;
+                        $hasDiscount = true;
+                    } else {
+                        $salePrice += $optPrice;
+                    }
                 }
 
                 if ($originalPrice > 0) {
                     $comb->original_price = $originalPrice;
-                    $comb->price = $salePrice;
+                    $comb->price = $originalPrice; // By default price is original
                 } else {
                     $comb->original_price = (float)$comb->price;
                 }
+                
+                // Add explicit sale_price to combination to be sent via API
+                $comb->sale_price = $hasDiscount && $salePrice > 0 && $salePrice < $originalPrice ? $salePrice : null;
             }
         }
 
@@ -120,6 +153,13 @@ class EcommerceProductController extends Controller
             foreach ($data['categories'] as &$category) {
                 if (!empty($category['image'])) {
                     $category['image'] = $this->resolveImageUrl($category['image']);
+                }
+            }
+        }
+        if (isset($data['gallery_images'])) {
+            foreach ($data['gallery_images'] as &$gallery) {
+                if (!empty($gallery['image'])) {
+                    $gallery['image_url'] = $this->resolveImageUrl($gallery['image']);
                 }
             }
         }

@@ -287,7 +287,7 @@ class CustomerAuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Customer profile retrieved successfully.',
-            'data' => $request->user()->load(['customer', 'customers']),
+            'data' => $request->user()->load(['customer', 'customers.addresses']),
         ]);
     }
 
@@ -316,7 +316,137 @@ class CustomerAuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Profile updated successfully.',
-            'data' => $user->load(['customer', 'customers']),
+            'data' => $user->load(['customer', 'customers.addresses']),
+        ]);
+    }
+
+    public function createBusiness(Request $request)
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $phone = $validated['phone'] ?? null;
+
+        // If phone is provided, check if it already exists
+        if ($phone) {
+            $existingCustomer = Customers::where('phone', $phone)->first();
+            if ($existingCustomer) {
+                // Link the existing customer to this account instead of creating a duplicate
+                $user->customers()->syncWithoutDetaching([$existingCustomer->id]);
+
+                if (!$user->customer_id) {
+                    $user->update(['customer_id' => $existingCustomer->id]);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Bisnis berhasil ditambahkan.',
+                    'data' => $user->load(['customer', 'customers.addresses']),
+                ]);
+            }
+        }
+
+        $customer = Customers::create([
+            'name' => $validated['name'],
+            'phone' => $phone,
+            'customer_deposit' => 0,
+        ]);
+
+        $user->customers()->syncWithoutDetaching([$customer->id]);
+
+        if (!$user->customer_id) {
+            $user->update(['customer_id' => $customer->id]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Bisnis berhasil ditambahkan.',
+            'data' => $user->load(['customer', 'customers.addresses']),
+        ]);
+    }
+
+    public function createAddress(Request $request, $customerId)
+    {
+        $user = $request->user();
+        
+        if (!$user->customers()->where('customers.id', $customerId)->exists() && $user->customer_id != $customerId) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'business_name' => 'nullable|string|max:255',
+            'address' => 'required|string',
+            'google_maps' => 'nullable|string',
+            'is_default' => 'nullable|boolean',
+        ]);
+
+        $customer = Customers::findOrFail($customerId);
+
+        $address = $customer->addresses()->create([
+            'business_name' => $validated['business_name'] ?? null,
+            'address' => $validated['address'],
+            'google_maps' => $validated['google_maps'] ?? null,
+            'is_default' => $validated['is_default'] ?? false,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Alamat berhasil ditambahkan.',
+            'data' => $user->load(['customer', 'customers.addresses']),
+        ]);
+    }
+
+    public function updateAddress(Request $request, $id)
+    {
+        $user = $request->user();
+        
+        $validated = $request->validate([
+            'business_name' => 'nullable|string|max:255',
+            'address' => 'required|string',
+            'google_maps' => 'nullable|string',
+            'is_default' => 'nullable|boolean',
+        ]);
+
+        $address = \App\Models\CustomerAddresses::findOrFail($id);
+
+        $customerId = $address->customer_id;
+        if (!$user->customers()->where('customers.id', $customerId)->exists() && $user->customer_id != $customerId) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $address->update([
+            'business_name' => $validated['business_name'] ?? null,
+            'address' => $validated['address'],
+            'google_maps' => $validated['google_maps'] ?? null,
+            'is_default' => $validated['is_default'] ?? false,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Alamat berhasil diperbarui.',
+            'data' => $user->load(['customer', 'customers.addresses']),
+        ]);
+    }
+
+    public function deleteAddress(Request $request, $id)
+    {
+        $user = $request->user();
+        $address = \App\Models\CustomerAddresses::findOrFail($id);
+
+        $customerId = $address->customer_id;
+        if (!$user->customers()->where('customers.id', $customerId)->exists() && $user->customer_id != $customerId) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $address->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Alamat berhasil dihapus.',
+            'data' => $user->load(['customer', 'customers.addresses']),
         ]);
     }
 

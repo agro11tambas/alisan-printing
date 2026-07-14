@@ -270,6 +270,37 @@
 
                             <div class="row mb-2 align-items-start">
                                 <div class="col-lg-2">
+                                    <label for="gallery_images" class="fw-semibold">Gallery Images</label>
+                                </div>
+                                <div class="col-lg-10 field-wrapper preview-cell">
+                                    <input type="file"
+                                        class="form-control"
+                                        id="gallery_images" name="gallery_images[]" accept="image/*" multiple>
+                                    <small class="text-muted">You can upload multiple photos for the gallery.</small>
+                                    @error('gallery_images')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+
+                                    @if ($isEdit && $product->galleryImages->count() > 0)
+                                        <div class="mt-2 row">
+                                            @foreach($product->galleryImages as $img)
+                                                <div class="col-auto position-relative mb-2">
+                                                    <img src="{{ $img->image_url }}" alt="Gallery Image" class="file-preview-image border rounded" style="width:100px; height:100px; object-fit:cover;">
+                                                    <div class="form-check mt-1">
+                                                        <input class="form-check-input" type="checkbox" name="delete_gallery_images[]" value="{{ $img->id }}" id="del_img_{{ $img->id }}">
+                                                        <label class="form-check-label text-danger" style="font-size:12px;" for="del_img_{{ $img->id }}">Delete</label>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                    
+                                    <div class="mt-2 row" id="gallery_preview_container"></div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-2 align-items-start">
+                                <div class="col-lg-2">
                                     <label for="main_video" class="fw-semibold">Main Video</label>
                                 </div>
                                 <div class="col-lg-10 field-wrapper preview-cell">
@@ -1141,6 +1172,29 @@
 
             $(document).on('change', '.video-preview-input', function() {
                 previewVideo(this);
+            });
+
+            $('#gallery_images').on('change', function() {
+                const container = $('#gallery_preview_container');
+                container.empty();
+                
+                const files = this.files;
+                if (files) {
+                    $.each(files, function(i, file) {
+                        if (file && file.type.indexOf('image') === 0) {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const html = `
+                                    <div class="col-auto mb-2">
+                                        <img src="${e.target.result}" class="file-preview-image border rounded" style="width:100px; height:100px; object-fit:cover;">
+                                    </div>
+                                `;
+                                container.append(html);
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    });
+                }
             });
 
             $(document).on('input', '.numeric-format', function() {

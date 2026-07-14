@@ -80,8 +80,7 @@ class DiscountController extends Controller
     {
         $products = Products::all();
         $categories = ProductCategory::all();
-        $ecommerceCategories = \App\Models\EcommerceProductCategory::all();
-        return view('erp.pages.discounts.create-discount', compact('products', 'categories', 'ecommerceCategories'));
+        return view('erp.pages.discounts.create-discount', compact('products', 'categories'));
     }
 
     public function store(Request $request)
@@ -100,9 +99,6 @@ class DiscountController extends Controller
             'products.*' => 'exists:products,id',
             'categories' => 'nullable|array',
             'categories.*' => 'exists:product_categories,id',
-            'apply_on_ecommerce' => 'required|in:None,Category',
-            'ecommerce_categories' => 'nullable|array',
-            'ecommerce_categories.*' => 'exists:ecommerce_product_categories,id',
             'status' => 'required|in:1,0',
         ]);
 
@@ -118,7 +114,6 @@ class DiscountController extends Controller
                 'start_date' => $validated['start_date'] ?? null,
                 'end_date' => $validated['end_date'] ?? null,
                 'apply_on' => $validated['apply_on'],
-                'apply_on_ecommerce' => $validated['apply_on_ecommerce'],
                 'is_active' => $validated['status'],
             ]);
 
@@ -127,11 +122,6 @@ class DiscountController extends Controller
                 $discount->products()->sync($validated['products'] ?? []);
             } elseif ($validated['apply_on'] === 'Category') {
                 $discount->categories()->sync($validated['categories'] ?? []);
-            }
-
-            // 4. UPDATE RELASI ECOMMERCE
-            if ($validated['apply_on_ecommerce'] === 'Category') {
-                $discount->ecommerceCategories()->sync($validated['ecommerce_categories'] ?? []);
             }
 
             DB::commit();
@@ -145,11 +135,10 @@ class DiscountController extends Controller
 
     public function edit($id)
     {
-        $discount = Discount::with(['ecommerceCategories', 'products', 'categories'])->where('id', $id)->first();
+        $discount = Discount::with(['products', 'categories'])->where('id', $id)->first();
         $products = Products::all();
         $categories = ProductCategory::all();
-        $ecommerceCategories = \App\Models\EcommerceProductCategory::all();
-        return view('erp.pages.discounts.edit-discount', compact('discount', 'products', 'categories', 'ecommerceCategories'));
+        return view('erp.pages.discounts.edit-discount', compact('discount', 'products', 'categories'));
     }
 
     public function update(Request $request, $id)
@@ -167,16 +156,13 @@ class DiscountController extends Controller
             'products.*' => 'exists:products,id',
             'categories' => 'nullable|array',
             'categories.*' => 'exists:product_categories,id',
-            'apply_on_ecommerce' => 'required|in:None,Category',
-            'ecommerce_categories' => 'nullable|array',
-            'ecommerce_categories.*' => 'exists:ecommerce_product_categories,id',
             'status' => 'required|in:1,0',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $discount = Discount::with(['products', 'categories', 'ecommerceCategories'])->findOrFail($id);
+            $discount = Discount::with(['products', 'categories'])->findOrFail($id);
 
             // 2. UPDATE DATA DISCOUNT
             $discount->update([
@@ -188,7 +174,6 @@ class DiscountController extends Controller
                 'start_date' => $validated['start_date'] ?? null,
                 'end_date' => $validated['end_date'] ?? null,
                 'apply_on' => $validated['apply_on'],
-                'apply_on_ecommerce' => $validated['apply_on_ecommerce'],
                 'is_active' => $validated['status'],
             ]);
 
@@ -199,13 +184,6 @@ class DiscountController extends Controller
             } elseif ($validated['apply_on'] === 'Category') {
                 $discount->categories()->sync($validated['categories'] ?? []);
                 $discount->products()->detach();
-            }
-
-            // 4. UPDATE RELASI ECOMMERCE
-            if ($validated['apply_on_ecommerce'] === 'Category') {
-                $discount->ecommerceCategories()->sync($validated['ecommerce_categories'] ?? []);
-            } else {
-                $discount->ecommerceCategories()->detach();
             }
 
             DB::commit();
@@ -234,7 +212,6 @@ class DiscountController extends Controller
             // Hapus relasi pivot dulu
             $discount->products()->detach();
             $discount->categories()->detach();
-            $discount->ecommerceCategories()->detach();
 
             // Lalu hapus discount-nya
             $discount->delete();

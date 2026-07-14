@@ -44,6 +44,11 @@ class EcommerceProduct extends Model
         return $this->belongsTo(ProductUnit::class, 'unit_id');
     }
 
+    public function galleryImages()
+    {
+        return $this->hasMany(EcommerceProductImage::class, 'ecommerce_product_id')->orderBy('sort_order');
+    }
+
     public function variantGroups()
     {
         return $this->hasMany(EcommerceVariantGroup::class, 'ecommerce_product_id')

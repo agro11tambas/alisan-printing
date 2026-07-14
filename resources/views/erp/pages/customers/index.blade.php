@@ -16,17 +16,12 @@
         }
 
         #customerList_wrapper .dataTables_scrollBody {
-            /* background: #fff !important; */
             background-image: none !important;
-            height: 60vh !important;
             overflow-y: auto !important;
         }
 
         .dataTables_scrollBody {
             scroll-behavior: smooth;
-            height: calc(100vh - 260px) !important;
-            min-height: calc(100vh - 260px) !important;
-            max-height: calc(100vh - 260px) !important;
         }
     </style>
 @endpush
@@ -215,15 +210,13 @@
                 processing: true,
                 serverSide: true,
                 deferRender: true,
-                scrollY: 600,
+                scrollY: 'calc(100vh - 260px)',
                 scroller: true,
                 paging: true,
                 searching: false,
                 lengthChange: false,
                 info: false,
                 pagingType: "simple",
-                stateSave: true,
-                stateDuration: -1,
                 stateSave: true,
                 stateDuration: -1,
 
@@ -303,6 +296,7 @@
                 if (val === '' && lastKeyword !== '') {
                     // Allow auto-reload ONLY when cleared completely to revert to original state
                     lastKeyword = '';
+                    dataTable.state.clear();
                     dataTable.ajax.reload(null, true); // Force reset paging for scroller
                 }
             });

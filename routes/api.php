@@ -53,6 +53,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/me', [CustomerAuthController::class, 'me']);
             Route::post('/logout', [CustomerAuthController::class, 'logout']);
             Route::put('/profile', [CustomerAuthController::class, 'updateProfile']);
+
+            Route::post('/businesses', [CustomerAuthController::class, 'createBusiness']);
+            Route::post('/businesses/{customerId}/addresses', [CustomerAuthController::class, 'createAddress']);
+            Route::put('/addresses/{id}', [CustomerAuthController::class, 'updateAddress']);
+            Route::delete('/addresses/{id}', [CustomerAuthController::class, 'deleteAddress']);
         });
     });
 

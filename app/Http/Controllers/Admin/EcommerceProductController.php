@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\EcommerceProductStoreRequest;
 use App\Http\Requests\EcommerceProductUpdateRequest;
 use App\Models\EcommerceProduct;
+use App\Models\EcommerceProductImage;
 use App\Models\EcommerceProductCategory;
 use App\Models\EcommerceVariantOption;
 use App\Models\EcommerceVariantCombination;
@@ -170,6 +171,7 @@ class EcommerceProductController extends Controller
                 $this->syncVariantGroups($product, $request);
                 $this->syncVariantCombinations($product, $request);
                 $this->syncBasePrice($product);
+                $this->syncGalleryImages($product, $request);
             });
 
             return redirect()
@@ -206,6 +208,7 @@ class EcommerceProductController extends Controller
                 $this->syncVariantGroups($product, $request);
                 $this->syncVariantCombinations($product, $request);
                 $this->syncBasePrice($product);
+                $this->syncGalleryImages($product, $request);
             });
 
             return redirect()
@@ -484,15 +487,49 @@ class EcommerceProductController extends Controller
     {
         $minPrice = 0;
         
-        $optionPrices = \App\Models\EcommerceVariantOption::whereIn('variant_group_id', $product->variantGroups()->pluck('id'))->pluck('price')->filter(function ($price) {
-            return $price > 0;
-        });
+        $firstGroup = $product->variantGroups()->first();
         
-        if ($optionPrices->isNotEmpty()) {
-            $minPrice = $optionPrices->min();
+        if ($firstGroup) {
+            $optionPrices = \App\Models\EcommerceVariantOption::where('variant_group_id', $firstGroup->id)
+                ->pluck('price')
+                ->filter(function ($price) {
+                    return $price > 0;
+                });
+            
+            if ($optionPrices->isNotEmpty()) {
+                $minPrice = $optionPrices->min();
+            }
         }
 
         $product->update(['price' => $minPrice]);
     }
 
+    private function syncGalleryImages(EcommerceProduct $product, Request $request): void
+    {
+        // 1. Delete gallery images requested by user
+        if ($request->has('delete_gallery_images')) {
+            $imagesToDelete = EcommerceProductImage::whereIn('id', $request->delete_gallery_images)->get();
+            foreach ($imagesToDelete as $img) {
+                if ($img->image && file_exists(public_path('uploads/' . $img->image))) {
+                    unlink(public_path('uploads/' . $img->image));
+                }
+                $img->delete();
+            }
+        }
+
+        // 2. Add new gallery images
+        if ($request->hasFile('gallery_images')) {
+            $sortOrder = $product->galleryImages()->max('sort_order') ?? 0;
+            foreach ($request->file('gallery_images') as $file) {
+                $sortOrder++;
+                $path = $this->storeFile($file);
+                if ($path) {
+                    $product->galleryImages()->create([
+                        'image' => $path,
+                        'sort_order' => $sortOrder,
+                    ]);
+                }
+            }
+        }
+    }
 }
