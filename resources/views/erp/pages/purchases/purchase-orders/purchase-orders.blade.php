@@ -155,6 +155,7 @@
                                         <th></th>
                                         <th>Purchase Number</th>
                                         <th>Supplier</th>
+                                        <th>PO Status</th>
                                         <th>Total Amount</th>
                                         <th>User</th>
                                     </tr>
@@ -191,6 +192,34 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-danger btn-md">Hapus</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalApprovePurchaseOrder" tabindex="-1"
+        aria-labelledby="approvePurchaseOrderLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" id="formApprovePurchaseOrder">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title text-white" id="approvePurchaseOrderLabel">Konfirmasi Approve PO</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">Approve Purchase Order <strong id="approvePurchaseNumber"></strong>?</p>
+                        <div class="alert alert-warning mb-0">
+                            Setelah di-approve, PO tidak dapat diedit dan sudah dapat dibuatkan Purchase List.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="feather-check-circle me-2"></i>Ya, Approve PO
+                        </button>
                     </div>
                 </div>
             </form>
@@ -453,7 +482,9 @@
                         <tr>
                             <th>Product</th>
                             <th>SKU</th>
-                            <th>Qty</th>
+                            <th>PO Qty</th>
+                            <th>Approved Qty</th>
+                            <th>Sisa</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -464,7 +495,9 @@
                 <tr>
                     <td>${p.name}</td>
                     <td>${p.sku}</td>
-                    <td>${p.qty}</td>
+                    <td>${p.qty} ${p.unit}</td>
+                    <td class="text-success fw-semibold">${p.approved_qty} ${p.unit}</td>
+                    <td class="text-primary fw-bold">${p.remaining_qty} ${p.unit}</td>
                 </tr>
             `;
                 });
@@ -503,6 +536,9 @@
                     },
                     {
                         data: 'supplier'
+                    },
+                    {
+                        data: 'approval_status'
                     },
                     {
                         data: 'total_amount'
@@ -765,6 +801,18 @@
                 form.action = url;
                 form.dataset.id = id;
                 nameHolder.textContent = name;
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('modalApprovePurchaseOrder');
+            const form = document.getElementById('formApprovePurchaseOrder');
+            const numberHolder = document.getElementById('approvePurchaseNumber');
+
+            modal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                form.action = button.getAttribute('data-url');
+                numberHolder.textContent = button.getAttribute('data-number');
             });
         });
 

@@ -145,11 +145,11 @@
                                             </label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
-                                            <select class="form-select" name="stock_destination" id="stock_destination"
-                                                required>
-                                                <option value="production">Production</option>
-                                                <option value="warehouse">Inventory Warehouse</option>
+                                            <select class="form-select" id="stock_destination_display" disabled>
+                                                <option value="production" {{ $purchase->stock_destination === 'production' ? 'selected' : '' }}>Production</option>
+                                                <option value="warehouse" {{ $purchase->stock_destination === 'warehouse' ? 'selected' : '' }}>Inventory Warehouse</option>
                                             </select>
+                                            <input type="hidden" name="stock_destination" id="stock_destination" value="{{ $purchase->stock_destination }}">
                                         </div>
                                     </div>
                                 </div>
@@ -161,7 +161,7 @@
                             <div class="row">
                                 <div class="col-lg-12">
                                     <div class="mb-2">
-                                        <h5 class="fw-bold">Add Products:</h5>
+                                        <h5 class="fw-bold">Products from PO {{ $purchase->purchase_number }}</h5>
                                     </div>
                                     <div class="table-responsive">
                                         <input type="hidden" name="inventory_warehouse_id" id="inventory_warehouse_id"
@@ -172,7 +172,10 @@
                                                     <th class="text-center wd-50">#</th>
                                                     <th class="text-center wd-450">Product</th>
                                                     <th class="text-center wd-200">Unit</th>
-                                                    <th class="text-center wd-150">Qty</th>
+                                                    <th class="text-center wd-100">PO Qty</th>
+                                                    <th class="text-center wd-100">Approved</th>
+                                                    <th class="text-center wd-100">Sisa</th>
+                                                    <th class="text-center wd-150">Qty PL</th>
                                                     <th class="text-center wd-150">Price</th>
                                                     <th class="text-center wd-150">Freight</th>
                                                     <th class="text-center wd-150">Total</th>
@@ -183,40 +186,13 @@
                                                     <tr>
                                                         <td>{{ $i + 1 }}</td>
                                                         <td>
-                                                            <select name="product[]" class="form-select select-product"
-                                                                data-select2-selector="tag" required>
-                                                                <option value="">Pilih Produk</option>
-                                                                @foreach ($products as $p)
-                                                                    @php
-                                                                        $lastPrice = $p->last_price ?? 0;
-                                                                    @endphp
-
-                                                                    <option value="{{ $p->id }}"
-                                                                        data-price="{{ $lastPrice }}"
-                                                                        {{ $p->id == $item->product_id ? 'selected' : '' }}>
-                                                                        {{ $p->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
+                                                            <span class="fw-semibold">{{ $item->purchaseProduct->name }}</span>
+                                                            <input type="hidden" name="product[]" value="{{ $item->product_id }}">
+                                                            <input type="hidden" name="source_purchase_item_id[]" value="{{ $item->id }}">
                                                         </td>
                                                         <td>
-                                                            <select class="form-control select-unit"
-                                                                name="product_unit_id[]">
-                                                                <option value="" data-name="Pcs"
-                                                                    data-conversion="1"
-                                                                    {{ !$item->product_unit_conversion_id ? 'selected' : '' }}>
-                                                                    Default Unit
-                                                                </option>
-
-                                                                @foreach ($item->purchaseProduct?->unitConversions ?? [] as $conversion)
-                                                                    <option value="{{ $conversion->id }}"
-                                                                        data-name="{{ $conversion->unit->name ?? 'Pcs' }}"
-                                                                        data-conversion="{{ $conversion->conversion_value ?? 1 }}"
-                                                                        {{ $item->product_unit_conversion_id == $conversion->id ? 'selected' : '' }}>
-                                                                        {{ $conversion->unit->name ?? 'Pcs' }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
+                                                            {{ $item->unit_name ?? 'Pcs' }}
+                                                            <input type="hidden" name="product_unit_id[]" value="{{ $item->product_unit_conversion_id }}">
 
                                                             <input type="hidden" name="unit_name[]" class="unit-name"
                                                                 value="{{ $item->unit_name ?? 'Pcs' }}">
@@ -225,8 +201,12 @@
                                                                 class="unit-conversion-value"
                                                                 value="{{ $item->unit_conversion_value ?? 1 }}">
                                                         </td>
+                                                        <td class="text-end">{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                                        <td class="text-end">{{ number_format($item->approved_quantity, 0, ',', '.') }}</td>
+                                                        <td class="text-end fw-bold text-primary">{{ number_format($item->remaining_quantity, 0, ',', '.') }}</td>
                                                         <td><input type="text" inputmode="numeric" name="qty[]"
-                                                                class="form-control qty" value="{{ $item->quantity }}">
+                                                                class="form-control qty" value="{{ $item->remaining_quantity }}"
+                                                                data-max="{{ $item->remaining_quantity }}">
                                                         </td>
                                                         <td>
                                                             <input type="text" inputmode="numeric" name="price[]"
@@ -381,6 +361,8 @@
         function syncSelectedUnit(row) {
             const selected = row.find('.select-unit option:selected');
 
+            if (!selected.length) return;
+
             row.find('.unit-name').val(selected.data('name') || 'Pcs');
             row.find('.unit-conversion-value').val(selected.data('conversion') || 1);
         }
@@ -440,6 +422,7 @@
             let subtotalProduct = 0,
                 subtotalFreight = 0;
 
+            let hasPositiveQty = false;
             $('#tab_logic tbody tr').each(function() {
                 const row = $(this);
                 syncSelectedUnit(row);
@@ -842,7 +825,7 @@
             $('#tab_logic tbody tr').each(function() {
                 const row = $(this);
                 syncSelectedUnit(row);
-                const product = row.find('select[name="product[]"]');
+                const product = row.find('input[name="product[]"]');
                 const qty = row.find('input[name="qty[]"]');
                 const price = row.find('input[name="price[]"]');
                 const freight = row.find('input[name="freight[]"]');
@@ -852,12 +835,16 @@
                     showError(product[0], 'Produk wajib dipilih');
                 }
 
-                if (!qty.val() || parseFloat(unformatRibuan(qty.val())) <= 0) {
+                const qtyNumber = parseFloat(unformatRibuan(qty.val())) || 0;
+                const maxQty = parseFloat(qty.data('max')) || 0;
+                if (qtyNumber < 0 || qtyNumber > maxQty) {
                     isValid = false;
-                    showError(qty[0], 'Qty wajib diisi dan harus lebih dari 0');
+                    showError(qty[0], `Qty harus antara 0 dan ${formatRibuan(maxQty)}`);
                 }
 
-                if (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0) {
+                if (qtyNumber > 0) hasPositiveQty = true;
+
+                if (qtyNumber > 0 && (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0)) {
                     isValid = false;
                     showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
                 }
@@ -875,6 +862,11 @@
                     }
                 }
             });
+
+            if (!hasPositiveQty) {
+                isValid = false;
+                Swal.fire('Gagal', 'Isi minimal satu quantity produk untuk Purchase List.', 'error');
+            }
 
             // 🔹 Jika tidak valid, cegah submit
             if (!isValid) {

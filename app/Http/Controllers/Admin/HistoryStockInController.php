@@ -82,6 +82,74 @@ class HistoryStockInController extends Controller
         ));
     }
 
+    public function addStockInByPurchaseList($inventoryId)
+    {
+        $inventory = Inventory::with(['items.product', 'purchase.supplier'])
+            ->where('status', 'Stock In')
+            ->whereHas('purchase', fn ($query) => $query->where('status', 'Purchase List'))
+            ->findOrFail($inventoryId);
+
+        $groupedInventories = collect([$inventory]);
+        $supplier = optional($inventory->purchase->supplier);
+        $monthLabel = Carbon::parse($inventory->purchase->purchase_date ?? $inventory->created_at)->format('F Y');
+        $mergedItems = $this->mergeInventoryItems($groupedInventories);
+        $firstInventory = $inventory;
+        $supplierId = $inventory->purchase->supplier_id;
+        $year = Carbon::parse($inventory->purchase->purchase_date)->year;
+        $month = Carbon::parse($inventory->purchase->purchase_date)->month;
+        $individualInventoryId = $inventory->id;
+        $invoiceNumbers = $inventory->purchase->purchase_number ?? $inventory->purchase_number ?? '-';
+
+        return view('erp.pages.inventory.stock-in.add-stock-in', compact(
+            'mergedItems',
+            'supplier',
+            'monthLabel',
+            'invoiceNumbers',
+            'firstInventory',
+            'supplierId',
+            'year',
+            'month',
+            'individualInventoryId'
+        ));
+    }
+
+    public function storeByPurchaseList(Request $request, $inventoryId)
+    {
+        $inventory = Inventory::with('purchase')->where('status', 'Stock In')->findOrFail($inventoryId);
+        $submittedIds = collect($request->input('items', []))
+            ->flatMap(fn ($item) => $item['inventory_item_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+        $validIds = $inventory->items()->whereIn('id', $submittedIds)->pluck('id');
+
+        abort_unless($submittedIds->isNotEmpty() && $submittedIds->diff($validIds)->isEmpty(), 422, 'Item Stock In tidak sesuai dengan Purchase List.');
+
+        $date = Carbon::parse($inventory->purchase->purchase_date ?? $inventory->created_at);
+
+        return $this->storeGrouped($request, $inventory->purchase->supplier_id, $date->year, $date->month);
+    }
+
+    private function mergeInventoryItems($inventories)
+    {
+        return $inventories->flatMap(fn ($inventory) => $inventory->items)
+            ->groupBy('product_id')
+            ->map(function ($productItems) {
+                $first = $productItems->first();
+
+                return (object) [
+                    'product' => $first->product,
+                    'product_id' => $first->product_id,
+                    'unit_name' => $first->unit_name ?? 'Pcs',
+                    'unit_conversion_value' => $first->unit_conversion_value ?? 1,
+                    'quantity' => $productItems->sum('quantity'),
+                    'qty_base' => $productItems->sum('qty_base'),
+                    'stock_in' => $productItems->sum('stock_in'),
+                    'remaining' => $productItems->sum('qty_base') - $productItems->sum('stock_in'),
+                    'item_ids' => $productItems->pluck('id')->toArray(),
+                ];
+            })->values();
+    }
+
     private function getTotalStockForAvg($productId)
     {
         // dari inventory_stocks
@@ -562,6 +630,46 @@ class HistoryStockInController extends Controller
         ));
     }
 
+    public function getHistoryByPurchaseList($inventoryId)
+    {
+        $inventory = Inventory::with(['items.product', 'purchase.supplier'])
+            ->where('status', 'Stock In')
+            ->whereHas('purchase', fn ($query) => $query->where('status', 'Purchase List'))
+            ->findOrFail($inventoryId);
+
+        $groupedInventories = collect([$inventory]);
+        $supplier = optional($inventory->purchase->supplier);
+        $monthLabel = Carbon::parse($inventory->purchase->purchase_date ?? $inventory->created_at)->format('F Y');
+        $inventoryIds = [$inventory->id];
+        $supplierId = $inventory->purchase->supplier_id;
+        $year = Carbon::parse($inventory->purchase->purchase_date)->year;
+        $month = Carbon::parse($inventory->purchase->purchase_date)->month;
+        $individualInventoryId = $inventory->id;
+        $invoiceNumbers = $inventory->purchase->purchase_number ?? $inventory->purchase_number ?? '-';
+        $mergedItems = $this->mergeInventoryItems($groupedInventories);
+
+        return view('erp.pages.inventory.stock-in.history-stock-in', compact(
+            'mergedItems',
+            'supplier',
+            'monthLabel',
+            'inventoryIds',
+            'supplierId',
+            'year',
+            'month',
+            'individualInventoryId',
+            'invoiceNumbers'
+        ));
+    }
+
+    public function dataHistoryByPurchaseList(Request $request, $inventoryId)
+    {
+        $inventory = Inventory::with('purchase')->where('status', 'Stock In')->findOrFail($inventoryId);
+        $date = Carbon::parse($inventory->purchase->purchase_date ?? $inventory->created_at);
+        $request->merge(['individual_inventory_id' => $inventory->id]);
+
+        return $this->dataHistory($request, $inventory->purchase->supplier_id, $date->year, $date->month);
+    }
+
     public function dataHistory(Request $request, $supplierId, $year, $month)
     {
         $inventoryIds = Inventory::where('status', 'Stock In')
@@ -571,6 +679,10 @@ class HistoryStockInController extends Controller
                     ->whereMonth('purchase_date', $month);
             })
             ->pluck('id');
+
+        if ($request->filled('individual_inventory_id')) {
+            $inventoryIds = collect([(int) $request->individual_inventory_id]);
+        }
 
         $stockIn = InventoryStockIn::with(['user', 'histories.inventoryItem.product'])
             ->whereIn('inventory_id', $inventoryIds)

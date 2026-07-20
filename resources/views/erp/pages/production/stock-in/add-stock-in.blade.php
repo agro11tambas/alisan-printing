@@ -52,7 +52,9 @@
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
-                <form action="/erp/productions/stock-in/store-grouped/{{ $supplierId }}" method="POST" id="stockInForm"
+                <form action="{{ isset($individualInventoryId)
+                    ? url('/erp/productions/stock-in/by-pl/' . $individualInventoryId . '/store')
+                    : url('/erp/productions/stock-in/store-grouped/' . $supplierId) }}" method="POST" id="stockInForm"
                     enctype="multipart/form-data">
                     @csrf
                     @method('POST')
@@ -70,7 +72,7 @@
                                     @endif
                                 </span>
                             </h4> --}}
-                            <h4 class="card-title">{{ $supplier->name }}</h4>
+                            <h4 class="card-title">{{ $supplier->name }}{{ isset($individualInventoryId) ? ' — PL ' . $invoiceNumbers : '' }}</h4>
 
                         </div>
                         <div class="card-body">
@@ -119,13 +121,7 @@
                                             <label for="waybill_image" class="fw-semibold">Waybill Image</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
-                                            <div class="input-group">
-                                                <input type="file" class="form-control" id="waybill_image"
-                                                    name="waybill_image" accept="image/*"
-                                                    value="{{ old('waybill_image') }}">
-                                            </div>
-                                            <img id="preview-image" src="#" alt="Preview"
-                                                style="display:none; max-width: 100px; margin-top: 10px; border-radius: 10px" />
+                                            @include('erp.pages.inventory.stock-in.partials.waybill-image-editor')
                                         </div>
                                     </div>
                                     {{-- <div class="row mb-2 align-items-center">
@@ -235,60 +231,6 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-
-            $('#waybill_image').on('change', function() {
-                const input = this;
-                const file = input.files[0];
-
-                if (!file || !file.type.startsWith('image/')) return;
-
-                const img = new Image();
-                const reader = new FileReader();
-
-                reader.onload = function(e) {
-                    img.onload = function() {
-                        const isPortrait = img.height > img.width;
-
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-
-                        if (isPortrait) {
-                            canvas.width = img.height;
-                            canvas.height = img.width;
-
-                            ctx.translate(canvas.width / 2, canvas.height / 2);
-                            ctx.rotate(-90 * Math.PI / 180);
-                            ctx.drawImage(img, -img.width / 2, -img.height / 2);
-                        } else {
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-
-                            ctx.drawImage(img, 0, 0);
-                        }
-
-                        canvas.toBlob(function(blob) {
-                            const newFile = new File([blob], file.name.replace(/\.[^/.]+$/,
-                                '') + '.jpg', {
-                                type: 'image/jpeg',
-                                lastModified: Date.now()
-                            });
-
-                            const dataTransfer = new DataTransfer();
-                            dataTransfer.items.add(newFile);
-                            input.files = dataTransfer.files;
-
-                            $('#preview-image')
-                                .attr('src', URL.createObjectURL(newFile))
-                                .show();
-
-                        }, 'image/jpeg', 0.9);
-                    };
-
-                    img.src = e.target.result;
-                };
-
-                reader.readAsDataURL(file);
-            });
 
             function formatNumber(n) {
                 return n.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');

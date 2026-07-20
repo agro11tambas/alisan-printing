@@ -61,7 +61,9 @@
                                             <tr>
                                                 <th>Product</th>
                                                 <th>Price</th>
+                                                <th>Freight</th>
                                                 <th>QTY</th>
+                                                <th>Stock In</th>
                                                 <th class="text-end">Amount</th>
                                             </tr>
                                         </thead>
@@ -70,7 +72,10 @@
                                                 <tr>
                                                     <td>{{ $item->purchaseProduct->name }}</td>
                                                     <td>Rp. {{ number_format($item->price, 0, ',', '.') }}</td>
+                                                    <td>Rp. {{ number_format($item->freight, 0, ',', '.') }}</td>
                                                     <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                                    @php($stockInInUnit = ($item->stock_in ?? 0) / max(1, $item->unit_conversion_value ?? 1))
+                                                    <td><span class="fw-bold text-success">{{ number_format($stockInInUnit, 0, ',', '.') }}/{{ number_format($item->quantity, 0, ',', '.') }}</span></td>
                                                     <td class="text-end">Rp.
                                                         {{ number_format($item->subtotal, 0, ',', '.') }}</td>
                                                 </tr>
@@ -79,7 +84,7 @@
                                                 $totalAmount = $purchase->purchaseItems->sum('subtotal');
                                             @endphp
                                             <tr>
-                                                <td colspan="2" class="border-0"></td>
+                                                <td colspan="4" class="border-0"></td>
                                                 <td class="fw-semibold text-dark text-lg-end border-bottom text-end">Sub
                                                     Total</td>
                                                 <td class="fw-bold text-dark border-bottom text-end">Rp.

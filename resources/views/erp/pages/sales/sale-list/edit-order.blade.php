@@ -631,6 +631,7 @@
                                     }
                                 @endphp
                                 <div class="product-item" data-index="{{ $index }}">
+                                    <input type="hidden" name="order_item_id[]" value="{{ $item->id }}">
 
                                     <div class="product-grid">
                                         <div class="form-group product-col-span-2">
@@ -787,6 +788,7 @@
 
                         <template id="product_item_template">
                             <div class="product-item" data-index="__index__">
+                                <input type="hidden" name="order_item_id[]" value="">
                                 <div class="product-grid">
 
                                     <div class="form-group product-col-span-2">

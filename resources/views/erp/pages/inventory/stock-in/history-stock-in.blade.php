@@ -75,7 +75,7 @@
             <div class="col-xxl-8 col-xl-6">
                 <div class="card">
                     <div class="card-header">
-                        <h5>{{ $supplier->name }} — {{ $monthLabel }}</h5>
+                        <h5>{{ $supplier->name }} — {{ isset($individualInventoryId) ? 'PL ' . $invoiceNumbers : $monthLabel }}</h5>
                         <br>
                         <h5 class="card-title">Products</h5>
                     </div>
@@ -237,7 +237,9 @@
                 searching: false,
                 lengthChange: false,
                 ajax: {
-                    url: "{{ url('/erp/inventory/stock-in/history/' . $supplierId . '/' . $year . '/' . $month . '/data') }}",
+                    url: "{{ isset($individualInventoryId)
+                        ? url('/erp/inventory/stock-in/by-pl/' . $individualInventoryId . '/history/data')
+                        : url('/erp/inventory/stock-in/history/' . $supplierId . '/' . $year . '/' . $month . '/data') }}",
                     data: function(d) {
                         d.start_date = $('#start_date').val();
                         d.end_date = $('#end_date').val();

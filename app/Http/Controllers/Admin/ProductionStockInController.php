@@ -69,6 +69,65 @@ class ProductionStockInController extends Controller
         ));
     }
 
+    public function addStockInByPurchaseList($inventoryId)
+    {
+        $inventory = Inventory::with(['items.product', 'purchase.supplier'])
+            ->where('status', 'Stock In Production')
+            ->whereHas('purchase', fn ($query) => $query->where('status', 'Purchase List'))
+            ->findOrFail($inventoryId);
+
+        $supplier = optional($inventory->purchase->supplier);
+        $mergedItems = $this->mergeInventoryItems(collect([$inventory]));
+        $firstInventory = $inventory;
+        $supplierId = $inventory->purchase->supplier_id;
+        $individualInventoryId = $inventory->id;
+        $invoiceNumbers = $inventory->purchase->purchase_number ?? $inventory->purchase_number ?? '-';
+
+        return view('erp.pages.production.stock-in.add-stock-in', compact(
+            'mergedItems',
+            'supplier',
+            'invoiceNumbers',
+            'firstInventory',
+            'supplierId',
+            'individualInventoryId'
+        ));
+    }
+
+    public function storeByPurchaseList(Request $request, $inventoryId)
+    {
+        $inventory = Inventory::with('purchase')->where('status', 'Stock In Production')->findOrFail($inventoryId);
+        $submittedIds = collect($request->input('items', []))
+            ->flatMap(fn ($item) => $item['inventory_item_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+        $validIds = $inventory->items()->whereIn('id', $submittedIds)->pluck('id');
+
+        abort_unless($submittedIds->isNotEmpty() && $submittedIds->diff($validIds)->isEmpty(), 422, 'Item Stock In tidak sesuai dengan Purchase List.');
+
+        return $this->storeGrouped($request, $inventory->purchase->supplier_id);
+    }
+
+    private function mergeInventoryItems($inventories)
+    {
+        return $inventories->flatMap(fn ($inventory) => $inventory->items)
+            ->groupBy('product_id')
+            ->map(function ($productItems) {
+                $first = $productItems->first();
+
+                return (object) [
+                    'product' => $first->product,
+                    'product_id' => $first->product_id,
+                    'unit_name' => $first->unit_name ?? 'Pcs',
+                    'unit_conversion_value' => $first->unit_conversion_value ?? 1,
+                    'quantity' => $productItems->sum('quantity'),
+                    'qty_base' => $productItems->sum('qty_base'),
+                    'stock_in' => $productItems->sum('stock_in'),
+                    'remaining' => $productItems->sum('qty_base') - $productItems->sum('stock_in'),
+                    'item_ids' => $productItems->pluck('id')->toArray(),
+                ];
+            })->values();
+    }
+
     private function getTotalStockForAvg($productId)
     {
         // dari inventory_stocks
@@ -428,6 +487,10 @@ class ProductionStockInController extends Controller
             ->whereHas('purchase.supplier', fn($q) => $q->where('id', $supplierId))
             ->pluck('id');
 
+        if ($request->filled('individual_inventory_id')) {
+            $inventoryIds = collect([(int) $request->individual_inventory_id]);
+        }
+
         $query = InventoryStockIn::with(['user', 'histories.inventoryItem.product'])
             ->whereIn('inventory_id', $inventoryIds)
             ->latest();
@@ -582,6 +645,38 @@ class ProductionStockInController extends Controller
             'inventoryIds',
             'supplierId',
         ));
+    }
+
+    public function getHistoryByPurchaseList($inventoryId)
+    {
+        $inventory = Inventory::with(['items.product', 'purchase.supplier'])
+            ->where('status', 'Stock In Production')
+            ->whereHas('purchase', fn ($query) => $query->where('status', 'Purchase List'))
+            ->findOrFail($inventoryId);
+
+        $supplier = optional($inventory->purchase->supplier);
+        $inventoryIds = [$inventory->id];
+        $supplierId = $inventory->purchase->supplier_id;
+        $individualInventoryId = $inventory->id;
+        $invoiceNumbers = $inventory->purchase->purchase_number ?? $inventory->purchase_number ?? '-';
+        $mergedItems = $this->mergeInventoryItems(collect([$inventory]));
+
+        return view('erp.pages.production.stock-in.history-stock-in', compact(
+            'mergedItems',
+            'supplier',
+            'inventoryIds',
+            'supplierId',
+            'individualInventoryId',
+            'invoiceNumbers'
+        ));
+    }
+
+    public function dataHistoryByPurchaseList(Request $request, $inventoryId)
+    {
+        $inventory = Inventory::with('purchase')->where('status', 'Stock In Production')->findOrFail($inventoryId);
+        $request->merge(['individual_inventory_id' => $inventory->id]);
+
+        return $this->dataHistory($request, $inventory->purchase->supplier_id);
     }
 
     public function verify($id)

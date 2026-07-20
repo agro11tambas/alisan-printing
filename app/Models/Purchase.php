@@ -9,12 +9,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Purchase extends Model
 {
     use HasFactory;
-
     use SoftDeletes;
 
     protected $table = 'purchases';
 
     protected $fillable = [
+        'parent_purchase_id',
+        'approval_status',
         'status_edited',
         'purchase_number',
         'purchase_date',
@@ -60,6 +61,16 @@ class Purchase extends Model
     public function purchaseItems()
     {
         return $this->hasMany(PurchaseItem::class, 'purchase_id');
+    }
+
+    public function parentPurchase()
+    {
+        return $this->belongsTo(self::class, 'parent_purchase_id');
+    }
+
+    public function purchaseLists()
+    {
+        return $this->hasMany(self::class, 'parent_purchase_id');
     }
 
     public function purchaseReturn()
@@ -111,6 +122,7 @@ class Purchase extends Model
             })
             ->exists();
     }
+
     public function getIsFullyReturnedAttribute()
     {
         // ambil total qty purchase

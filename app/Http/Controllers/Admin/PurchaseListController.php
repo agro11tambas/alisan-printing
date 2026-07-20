@@ -3,9 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Purchase;
-use App\Models\PurchaseItem;
-use App\Models\Supplier;
 use App\Models\Account;
 use App\Models\AccountTransaction;
 use App\Models\FinancialReport;
@@ -14,19 +11,19 @@ use App\Models\InventoryItem;
 use App\Models\InventoryStock;
 use App\Models\ProductionStock;
 use App\Models\Products;
+use App\Models\Purchase;
 use App\Models\PurchaseEditHistory;
-use App\Models\PurchaseReturn;
+use App\Models\PurchaseItem;
 use App\Models\PurchaseReturnItem;
+use App\Models\Supplier;
+use App\Services\ProductCostService;
+use App\Services\UnitConversionService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Services\ProductCostService;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Auth;
 
 class PurchaseListController extends Controller
 {
@@ -58,7 +55,7 @@ class PurchaseListController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $purchases = Purchase::with(['supplier', 'purchaseItems.purchaseProduct', 'inventories.stockIns'])
+        $purchases = Purchase::with(['supplier', 'parentPurchase', 'purchaseItems.purchaseProduct', 'inventories.stockIns'])
             ->where('status', 'Purchase List')
             ->orderByDesc('id');
 
@@ -102,19 +99,19 @@ class PurchaseListController extends Controller
         } elseif ($request->search_type === 'due_date') {
             $direction = strtolower($request->due_date_order ?? 'asc');
             if ($direction === 'asc') {
-                $purchases->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
+                $purchases->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC')
                     ->orderBy('due_date', 'asc');
             } else {
-                $purchases->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
+                $purchases->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC')
                     ->orderBy('due_date', 'desc');
             }
         } elseif ($request->filled('search_keyword')) {
             if ($request->search_type === 'supplier') {
                 $purchases->whereHas('supplier', function ($query) use ($request) {
-                    $query->where('name', 'like', '%' . $request->search_keyword . '%');
+                    $query->where('name', 'like', '%'.$request->search_keyword.'%');
                 });
             } else {
-                $purchases->where('purchase_number', 'like', '%' . $request->search_keyword . '%');
+                $purchases->where('purchase_number', 'like', '%'.$request->search_keyword.'%');
             }
         }
 
@@ -153,11 +150,15 @@ class PurchaseListController extends Controller
                     ? ' <i class="fa fa-check-circle text-success ms-1"></i>'
                     : '';
 
-                $purchaseNumberHtml = $returnBadge . '
+                $parentOrderHtml = $purchase->parentPurchase
+                    ? '<small class="text-primary">PO: '.e($purchase->parentPurchase->purchase_number).'</small><br>'
+                    : '';
+                $purchaseNumberHtml = $returnBadge.'
                 <div>
-                    <div>' . e($purchase->purchase_number) . $editedBadge . '</div>
-                    <small class="text-muted">' . $date . '</small>,
-                    <small class="text-danger">Due: ' . $dueDate . '</small>
+                    <div>'.e($purchase->purchase_number).$editedBadge.'</div>
+                    '.$parentOrderHtml.'
+                    <small class="text-muted">'.$date.'</small>,
+                    <small class="text-danger">Due: '.$dueDate.'</small>
                 </div>';
 
                 // 👤 Supplier
@@ -171,46 +172,46 @@ class PurchaseListController extends Controller
                 // $remainingHtml = '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>';
 
                 // 💰 Produk
-                $totalProduct   = $purchase->total_amount_product ?? 0;
-                $paidProduct    = $purchase->paid_amount_product ?? 0;
-                $remainProduct  = $purchase->remaining_amount_product ?? 0;
+                $totalProduct = $purchase->total_amount_product ?? 0;
+                $paidProduct = $purchase->paid_amount_product ?? 0;
+                $remainProduct = $purchase->remaining_amount_product ?? 0;
 
                 // 🚛 Freight
-                $totalFreight   = $purchase->total_amount_freight ?? 0;
-                $paidFreight    = $purchase->paid_amount_freight ?? 0;
-                $remainFreight  = $purchase->remaining_amount_freight ?? 0;
+                $totalFreight = $purchase->total_amount_freight ?? 0;
+                $paidFreight = $purchase->paid_amount_freight ?? 0;
+                $remainFreight = $purchase->remaining_amount_freight ?? 0;
 
                 // Format HTML
-                $totalProductHtml  = '<span class="text-primary fw-semibold">Rp ' . number_format($totalProduct, 0, ',', '.') . '</span>';
-                $paidProductHtml   = '<span class="text-success fw-semibold">Rp ' . number_format($paidProduct, 0, ',', '.') . '</span>';
-                $remainProductHtml = '<span class="text-danger fw-semibold">Rp ' . number_format($remainProduct, 0, ',', '.') . '</span>';
+                $totalProductHtml = '<span class="text-primary fw-semibold">Rp '.number_format($totalProduct, 0, ',', '.').'</span>';
+                $paidProductHtml = '<span class="text-success fw-semibold">Rp '.number_format($paidProduct, 0, ',', '.').'</span>';
+                $remainProductHtml = '<span class="text-danger fw-semibold">Rp '.number_format($remainProduct, 0, ',', '.').'</span>';
 
-                $totalFreightHtml  = '<span class="text-primary fw-semibold">Rp ' . number_format($totalFreight, 0, ',', '.') . '</span>';
-                $paidFreightHtml   = '<span class="text-success fw-semibold">Rp ' . number_format($paidFreight, 0, ',', '.') . '</span>';
-                $remainFreightHtml = '<span class="text-danger fw-semibold">Rp ' . number_format($remainFreight, 0, ',', '.') . '</span>';
+                $totalFreightHtml = '<span class="text-primary fw-semibold">Rp '.number_format($totalFreight, 0, ',', '.').'</span>';
+                $paidFreightHtml = '<span class="text-success fw-semibold">Rp '.number_format($paidFreight, 0, ',', '.').'</span>';
+                $remainFreightHtml = '<span class="text-danger fw-semibold">Rp '.number_format($remainFreight, 0, ',', '.').'</span>';
 
                 $paidProductColumn = '
-                    <div class="text-success fw-semibold">Rp ' . number_format($paidProduct, 0, ',', '.') . '</div>'
-                    . ($remainProduct > 0
-                        ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($remainProduct, 0, ',', '.') . '</small>'
+                    <div class="text-success fw-semibold">Rp '.number_format($paidProduct, 0, ',', '.').'</div>'
+                    .($remainProduct > 0
+                        ? '<small class="text-danger fw-semibold">Remaining: Rp '.number_format($remainProduct, 0, ',', '.').'</small>'
                         : ''
                     );
 
                 $paidFreightColumn = '
-                    <div class="text-success fw-semibold">Rp ' . number_format($paidFreight, 0, ',', '.') . '</div>'
-                    . ($remainFreight > 0
-                        ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($remainFreight, 0, ',', '.') . '</small>'
+                    <div class="text-success fw-semibold">Rp '.number_format($paidFreight, 0, ',', '.').'</div>'
+                    .($remainFreight > 0
+                        ? '<small class="text-danger fw-semibold">Remaining: Rp '.number_format($remainFreight, 0, ',', '.').'</small>'
                         : ''
                     );
 
                 // 🏷️ Payment Status + Verified check
                 $paymentStatus = strtolower($purchase->payment_status);
                 $badgeClass = match ($paymentStatus) {
-                    'paid'       => 'bg-soft-success text-success',
-                    'overpaid'   => 'bg-soft-primary text-primary',
-                    'unpaid'     => 'bg-soft-danger text-danger',
+                    'paid' => 'bg-soft-success text-success',
+                    'overpaid' => 'bg-soft-primary text-primary',
+                    'unpaid' => 'bg-soft-danger text-danger',
                     'partially paid' => 'bg-soft-warning text-warning',
-                    default      => 'bg-secondary',
+                    default => 'bg-secondary',
                 };
 
                 $verifiedIcon = '';
@@ -218,31 +219,27 @@ class PurchaseListController extends Controller
                     $verifiedIcon = ' <i class="fa fa-check-circle text-success ms-1" title="Verified"></i>';
                 }
 
-                $paymentBadge = '<div class="badge ' . $badgeClass . '">' . ucfirst($paymentStatus) . '</div>' . $verifiedIcon;
+                $paymentBadge = '<div class="badge '.$badgeClass.'">'.ucfirst($paymentStatus).'</div>'.$verifiedIcon;
 
                 // 💳 Payment method
                 $paymentMethod = e($purchase->payment_method ?? '-');
 
                 // 📦 Products list (sudah + tax)
-                $items = $purchase->purchaseItems()->with(['purchaseProduct' => fn($q) => $q->withTrashed()])->get();
+                $items = $purchase->purchaseItems()->with(['purchaseProduct' => fn ($q) => $q->withTrashed()])->get();
                 $taxPercent = $purchase->tax_percent ?? 0;
-                $products = $items->map(function ($item) use ($taxPercent, $purchase) {
+                $products = $items->map(function ($item) use ($taxPercent) {
                     $price = $item->price ?? 0;
                     $freight = $item->freight ?? 0;
                     $priceWithTax = $price + ($price * ($taxPercent / 100));
                     $total = ($priceWithTax + $freight) * $item->quantity;
 
-                    $stockIn = InventoryItem::where('product_id', $item->product_id)
-                        ->whereHas('inventory', function ($q) use ($purchase) {
-                            $q->where('purchase_id', $purchase->id)
-                                ->where('note', 'Purchase Account');
-                        })
-                        ->sum('stock_in');
+                    $stockInBase = InventoryItem::where('purchase_item_id', $item->id)->sum('stock_in');
+                    $stockIn = $stockInBase / max(1, $item->unit_conversion_value ?? 1);
 
                     return [
                         'name' => $item->purchaseProduct->name ?? '-',
                         'sku' => $item->purchaseProduct->sku ?? '-',
-                        'qty' => number_format($item->quantity, 0, ',', '.') . ' ' . $item->unit_name,
+                        'qty' => number_format($item->quantity, 0, ',', '.').' '.$item->unit_name,
                         'stock_in' => number_format($stockIn, 0, ',', '.'), // jika perlu ditampilkan
                         'price' => number_format($priceWithTax, 0, ',', '.'),
                         'freight' => number_format($freight, 0, ',', '.'),
@@ -254,9 +251,9 @@ class PurchaseListController extends Controller
                 // 🏷️ Status
                 $status = strtolower($purchase->status);
                 $statusBadge = match ($status) {
-                    'purchase orders' => '<div class="badge bg-soft-warning text-warning">' . e($purchase->status) . '</div>',
-                    'purchase list' => '<div class="badge bg-soft-success text-success">' . e($purchase->status) . '</div>',
-                    default => '<div class="badge bg-secondary">' . e($purchase->status) . '</div>',
+                    'purchase orders' => '<div class="badge bg-soft-warning text-warning">'.e($purchase->status).'</div>',
+                    'purchase list' => '<div class="badge bg-soft-success text-success">'.e($purchase->status).'</div>',
+                    default => '<div class="badge bg-secondary">'.e($purchase->status).'</div>',
                 };
 
                 // ⚙️ Action Button Partial
@@ -265,6 +262,7 @@ class PurchaseListController extends Controller
                         ->whereHas('purchaseReturn', function ($q) use ($purchase) {
                             $q->where('purchase_id', $purchase->id);
                         })->sum('quantity');
+
                     return $returnedQty >= $item->quantity;
                 });
 
@@ -277,8 +275,8 @@ class PurchaseListController extends Controller
                     'supplier' => '
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
                             <div class="d-flex align-items-center fw-semibold">
-                                ' . ($stockInCompleted ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
-                                ' . e($purchase->supplier->name ?? '-') . '
+                                '.($stockInCompleted ? '<i class="fa fa-check-circle text-success me-1"></i>' : '').'
+                                '.e($purchase->supplier->name ?? '-').'
                             </div>
                             <small class="text-muted">Supplier</small>
                         </div>
@@ -354,13 +352,11 @@ class PurchaseListController extends Controller
                     ->orWhere('delete_notes', 'like', "%$keyword%")
                     ->orWhereHas(
                         'supplier',
-                        fn($qs) =>
-                        $qs->where('name', 'like', "%$keyword%")
+                        fn ($qs) => $qs->where('name', 'like', "%$keyword%")
                     )
                     ->orWhereHas(
                         'deletedByUser',
-                        fn($qs) =>
-                        $qs->where('name', 'like', "%$keyword%")
+                        fn ($qs) => $qs->where('name', 'like', "%$keyword%")
                     );
             });
         }
@@ -383,25 +379,25 @@ class PurchaseListController extends Controller
                 // 🧾 Nomor + tanggal
                 $purchaseNumberHtml = '
                 <div>
-                    <div>' . e($purchase->purchase_number) . '</div>
-                    <small class="text-muted">' . $date . '</small>
+                    <div>'.e($purchase->purchase_number).'</div>
+                    <small class="text-muted">'.$date.'</small>
                 </div>';
 
                 // 👤 Supplier
                 $supplier = e($purchase->supplier->name ?? '-');
 
                 // 💰 Grand total
-                $totalAmount = '<span class="text-primary">Rp ' . number_format($purchase->total_amount, 0, ',', '.') . '</span>';
+                $totalAmount = '<span class="text-primary">Rp '.number_format($purchase->total_amount, 0, ',', '.').'</span>';
 
                 // 📦 Produk list
                 $products = $purchase->purchaseItems->map(function ($item) {
                     return [
-                        'name'  => $item->purchaseProduct?->name ?? '-',
-                        'sku'   => $item->purchaseProduct?->sku ?? '-',
-                        'qty'   => number_format($item->quantity ?? 0, 0, ',', '.'),
+                        'name' => $item->purchaseProduct?->name ?? '-',
+                        'sku' => $item->purchaseProduct?->sku ?? '-',
+                        'qty' => number_format($item->quantity ?? 0, 0, ',', '.'),
                         'price' => number_format($item->price ?? 0, 0, ',', '.'),
                         'freight' => number_format($item->freight ?? 0, 0, ',', '.'),
-                        'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.')
+                        'total_price' => number_format(($item->price ?? 0) + ($item->freight ?? 0), 2, ',', '.'),
                     ];
                 })->toArray();
 
@@ -418,18 +414,18 @@ class PurchaseListController extends Controller
                             class="btn btn-success btn-sm me-1"
                             data-bs-toggle="modal"
                             data-bs-target="#modalRestoreOrder"
-                            data-id="' . $purchase->id . '" 
-                            data-name="' . e($purchase->purchase_number) . '"
-                            data-url="' . route('purchases.restore', $purchase->id) . '">
+                            data-id="'.$purchase->id.'"
+                            data-name="'.e($purchase->purchase_number).'"
+                            data-url="'.route('purchases.restore', $purchase->id).'">
                                 Restore
                         </button>
                         <button type="button" 
                             class="btn btn-danger btn-sm"
                             data-bs-toggle="modal"
                             data-bs-target="#modalForceDeleteOrder"
-                            data-id="' . $purchase->id . '" 
-                            data-name="' . e($purchase->purchase_number) . '"
-                            data-url="' . route('purchases.forceDelete', $purchase->id) . '">
+                            data-id="'.$purchase->id.'"
+                            data-name="'.e($purchase->purchase_number).'"
+                            data-url="'.route('purchases.forceDelete', $purchase->id).'">
                                 Hapus Permanen
                         </button>
                     </div>';
@@ -508,7 +504,7 @@ class PurchaseListController extends Controller
             return [
                 'id' => $product->id,
                 'name' => $product->name,
-                'sku'  => $product->sku,
+                'sku' => $product->sku,
                 'price' => $product->price,
                 'last_price' => $product->last_price,
                 'last_freight' => $product->last_freight,
@@ -553,27 +549,27 @@ class PurchaseListController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'purchase_number'   => 'required|string|unique:purchases,purchase_number',
-            'purchase_date'     => 'required|date_format:Y-m-d\TH:i',
-            'due_date_option'   => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
-            'custom_due_date'   => 'nullable|date',
-            'suppliers'         => 'required|exists:suppliers,id',
-            'product'           => 'required|array',
-            'product.*'         => 'exists:products,id',
-            'qty'               => 'required|array',
-            'qty.*'             => 'numeric|min:1',
-            'price'             => 'required|array',
-            'price.*'           => 'numeric|min:0',
-            'freight'           => 'required|array',
-            'freight.*'         => 'numeric|min:0',
-            'total'             => 'required|array',
-            'total.*'           => 'numeric|min:0',
-            'sub_total'         => 'required|numeric|min:0',
-            'tax_percent'       => 'nullable|numeric|min:0',
-            'tax_amount'        => 'nullable|numeric|min:0',
-            'total_amount_product'  => 'required|numeric|min:0',
-            'total_amount_freight'  => 'required|numeric|min:0',
-            'total_amount'          => 'required|numeric|min:0',
+            'purchase_number' => 'required|string|unique:purchases,purchase_number',
+            'purchase_date' => 'required|date_format:Y-m-d\TH:i',
+            'due_date_option' => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
+            'custom_due_date' => 'nullable|date',
+            'suppliers' => 'required|exists:suppliers,id',
+            'product' => 'required|array',
+            'product.*' => 'exists:products,id',
+            'qty' => 'required|array',
+            'qty.*' => 'numeric|min:1',
+            'price' => 'required|array',
+            'price.*' => 'numeric|min:0',
+            'freight' => 'required|array',
+            'freight.*' => 'numeric|min:0',
+            'total' => 'required|array',
+            'total.*' => 'numeric|min:0',
+            'sub_total' => 'required|numeric|min:0',
+            'tax_percent' => 'nullable|numeric|min:0',
+            'tax_amount' => 'nullable|numeric|min:0',
+            'total_amount_product' => 'required|numeric|min:0',
+            'total_amount_freight' => 'required|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0',
             'stock_destination' => 'required|in:warehouse,production',
             'product_unit_id' => 'nullable|array',
             'product_unit_id.*' => 'nullable',
@@ -589,20 +585,20 @@ class PurchaseListController extends Controller
             $purchaseDate = Carbon::parse($request->purchase_date);
 
             $dueDate = match ($request->due_date_option) {
-                'today'     => $purchaseDate,
-                '1_week'    => $purchaseDate->copy()->addWeek(),
-                '1_month'   => $purchaseDate->copy()->addMonth(),
-                '3_months'  => $purchaseDate->copy()->addMonths(3),
-                'custom'    => $request->custom_due_date ? Carbon::parse($request->custom_due_date) : null,
-                default     => null
+                'today' => $purchaseDate,
+                '1_week' => $purchaseDate->copy()->addWeek(),
+                '1_month' => $purchaseDate->copy()->addMonth(),
+                '3_months' => $purchaseDate->copy()->addMonths(3),
+                'custom' => $request->custom_due_date ? Carbon::parse($request->custom_due_date) : null,
+                default => null
             };
 
             $status = 'Purchase List';
             $paymentStatus = 'Unpaid';
 
-            $totalProduct  = $request->total_amount_product;
-            $totalFreight  = $request->total_amount_freight;
-            $taxPercent    = $request->tax_percent ?? 0;
+            $totalProduct = $request->total_amount_product;
+            $totalFreight = $request->total_amount_freight;
+            $taxPercent = $request->tax_percent ?? 0;
 
             $taxAmount = ($totalProduct * $taxPercent) / 100;
 
@@ -610,76 +606,72 @@ class PurchaseListController extends Controller
 
             $grandTotal = $totalProductWithTax + $totalFreight;
 
-            $paidProduct       = 0;
-            $remainingProduct  = $totalProductWithTax;
-            $paidFreight       = 0;
-            $remainingFreight  = $totalFreight;
+            $paidProduct = 0;
+            $remainingProduct = $totalProductWithTax;
+            $paidFreight = 0;
+            $remainingFreight = $totalFreight;
 
             $purchase = Purchase::create([
-                'purchase_number'           => $request->purchase_number,
-                'purchase_date'             => $purchaseDate,
-                'due_date'                  => $dueDate,
-                'supplier_id'               => $request->suppliers,
-                'payment_status'            => $paymentStatus,
-                'sub_total'                 => $totalProduct + $totalFreight,
-                'tax_percent'               => $taxPercent,
-                'tax_amount'                => $taxAmount,
-                'freight_total'             => $totalFreight,
-                'total_amount_product'      => $totalProductWithTax,
-                'paid_amount_product'       => $paidProduct,
-                'remaining_amount_product'  => $remainingProduct,
-                'total_amount_freight'      => $totalFreight,
-                'paid_amount_freight'       => $paidFreight,
-                'remaining_amount_freight'  => $remainingFreight,
-                'total_amount'              => $grandTotal,
-                'paid_amount'               => 0,
-                'remaining_amount'          => $grandTotal,
-                'status'                    => $status,
-                'stock_destination'        => $request->stock_destination,
-                'user_id'                   => Auth::id(),
+                'purchase_number' => $request->purchase_number,
+                'purchase_date' => $purchaseDate,
+                'due_date' => $dueDate,
+                'supplier_id' => $request->suppliers,
+                'payment_status' => $paymentStatus,
+                'sub_total' => $totalProduct + $totalFreight,
+                'tax_percent' => $taxPercent,
+                'tax_amount' => $taxAmount,
+                'freight_total' => $totalFreight,
+                'total_amount_product' => $totalProductWithTax,
+                'paid_amount_product' => $paidProduct,
+                'remaining_amount_product' => $remainingProduct,
+                'total_amount_freight' => $totalFreight,
+                'paid_amount_freight' => $paidFreight,
+                'remaining_amount_freight' => $remainingFreight,
+                'total_amount' => $grandTotal,
+                'paid_amount' => 0,
+                'remaining_amount' => $grandTotal,
+                'status' => $status,
+                'stock_destination' => $request->stock_destination,
+                'user_id' => Auth::id(),
             ]);
 
             $inventoryStatus = match ($request->stock_destination) {
-                'warehouse'  => 'Stock In',
+                'warehouse' => 'Stock In',
                 'production' => 'Stock In Production',
             };
 
             foreach ($request->product as $index => $productId) {
                 $qty = (float) $request->qty[$index];
 
-                $unitConversionId = $request->product_unit_id[$index] ?? null;
-
-                if (!is_numeric($unitConversionId)) {
-                    $unitConversionId = null;
-                }
-
-                $unitConversionValue = (float) ($request->unit_conversion_value[$index] ?? 1);
-                $unitName = $request->unit_name[$index] ?? 'Pcs';
-
-                if ($unitConversionValue <= 0) {
-                    $unitConversionValue = 1;
-                }
+                $unit = UnitConversionService::resolve(
+                    (int) $productId,
+                    $request->product_unit_id[$index] ?? null,
+                    $request->unit_name[$index] ?? 'Pcs'
+                );
+                $unitConversionId = $unit['id'];
+                $unitConversionValue = $unit['factor'];
+                $unitName = $unit['unit_name'];
 
                 $qtyBase = $qty * $unitConversionValue;
-                $price   = $request->price[$index];
+                $price = $request->price[$index];
                 $freight = $request->freight[$index];
-                $total   = $request->total[$index];
+                $total = $request->total[$index];
 
                 $taxPercent = $request->tax_percent ?? 0;
 
                 $priceAfterTax = $price + ($price * $taxPercent / 100);
-                $finalPrice    = $priceAfterTax + $freight;
+                $finalPrice = $priceAfterTax + $freight;
 
                 $product = Products::findOrFail($productId);
 
                 $purchaseItem = PurchaseItem::create([
                     'purchase_id' => $purchase->id,
-                    'product_id'  => $productId,
+                    'product_id' => $productId,
 
                     'product_unit_conversion_id' => $unitConversionId,
-                    'unit_name'                  => $unitName,
-                    'unit_conversion_value'      => $unitConversionValue,
-                    'qty_base'                   => $qtyBase,
+                    'unit_name' => $unitName,
+                    'unit_conversion_value' => $unitConversionValue,
+                    'qty_base' => $qtyBase,
 
                     'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
                         ? ($request->inventory_warehouse_id ?? 1)
@@ -689,13 +681,13 @@ class PurchaseListController extends Controller
                         ? ($request->production_warehouse_id ?? 2)
                         : null,
 
-                    'status'          => 'Purchase Account',
-                    'quantity'        => $qty,
-                    'price'           => $price,
+                    'status' => 'Purchase Account',
+                    'quantity' => $qty,
+                    'price' => $price,
                     'price_after_tax' => $priceAfterTax,
-                    'freight'         => $freight,
-                    'final_price'     => $finalPrice,
-                    'subtotal'        => $total,
+                    'freight' => $freight,
+                    'final_price' => $finalPrice,
+                    'subtotal' => $total,
                 ]);
 
                 if ($purchase->status === 'Purchase List') {
@@ -703,17 +695,17 @@ class PurchaseListController extends Controller
                         ['purchase_id' => $purchase->id],
                         [
                             'purchase_number' => $purchase->purchase_number,
-                            'supplier_id'     => $purchase->supplier_id,
-                            'date'            => $purchase->purchase_date,
-                            'status'          => $inventoryStatus,
-                            'note'            => 'Purchase Account',
+                            'supplier_id' => $purchase->supplier_id,
+                            'date' => $purchase->purchase_date,
+                            'status' => $inventoryStatus,
+                            'note' => 'Purchase Account',
                         ]
                     );
 
                     InventoryItem::create([
-                        'inventory_id'     => $inventory->id,
+                        'inventory_id' => $inventory->id,
                         'purchase_item_id' => $purchaseItem->id,
-                        'product_id'       => $productId,
+                        'product_id' => $productId,
 
                         'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
                             ? ($request->inventory_warehouse_id ?? 1)
@@ -723,15 +715,15 @@ class PurchaseListController extends Controller
                             ? ($request->production_warehouse_id ?? 2)
                             : null,
 
-                        'unit_name'             => $unitName,
+                        'unit_name' => $unitName,
                         'unit_conversion_value' => $unitConversionValue,
-                        'qty_base'              => $qtyBase,
+                        'qty_base' => $qtyBase,
 
-                        'quantity'           => $qty,
-                        'price'              => $finalPrice,
-                        'stock_in'           => 0,
+                        'quantity' => $qty,
+                        'price' => $finalPrice,
+                        'stock_in' => 0,
                         'remaining_stock_in' => $qtyBase,
-                        'stock_out'          => 0,
+                        'stock_out' => 0,
                     ]);
 
                     // 🧩 Update Stock berdasarkan destination
@@ -766,25 +758,27 @@ class PurchaseListController extends Controller
             $purchaseAccount = Account::where('type', 'Purchase Account')->firstOrFail();
 
             AccountTransaction::create([
-                'purchase_id'          => $purchase->id,
-                'purchase_number'      => $purchase->purchase_number,
-                'transaction_date'     => $purchase->purchase_date,
-                'account_id'           => $purchaseAccount->id,
-                'debit'                => $grandTotal, // hanya product
-                'credit'               => 0,
-                'note'                 => 'Purchase Account Transaction',
-                'particular'           => 'Purchase Invoice',
+                'purchase_id' => $purchase->id,
+                'purchase_number' => $purchase->purchase_number,
+                'transaction_date' => $purchase->purchase_date,
+                'account_id' => $purchaseAccount->id,
+                'debit' => $grandTotal, // hanya product
+                'credit' => 0,
+                'note' => 'Purchase Account Transaction',
+                'particular' => 'Purchase Invoice',
                 'transaction_group_id' => $groupId,
-                'verified'             => 1,
+                'verified' => 1,
             ]);
 
             $purchaseAccount->increment('closing_balance', $grandTotal);
 
             DB::commit();
+
             return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase order created successfully');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Purchase store failed: ' . $e->getMessage());
+            Log::error('Purchase store failed: '.$e->getMessage());
+
             return back()->with('error', 'Purchase order failed to create');
         }
     }
@@ -880,7 +874,7 @@ class PurchaseListController extends Controller
             return [
                 'id' => $product->id,
                 'name' => $product->name,
-                'sku'  => $product->sku,
+                'sku' => $product->sku,
                 'price' => $product->price,
                 'last_price' => $product->last_price,
                 'last_freight' => $product->last_freight,
@@ -912,31 +906,31 @@ class PurchaseListController extends Controller
     {
         // dd($request->all());
         $request->validate([
-            'purchase_date'   => 'required|date',
+            'purchase_date' => 'required|date',
             'due_date_option' => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
             'custom_due_date' => 'nullable|date',
-            'suppliers'       => 'required|exists:suppliers,id',
-            'purchase_number' => 'required|string|unique:purchases,purchase_number,' . $id,
-            'status'          => 'required|string',
-            'product'         => 'required|array',
-            'product.*'       => 'exists:products,id',
-            'qty'             => 'required|array',
-            'qty.*'           => 'numeric|min:1',
-            'price'           => 'required|array',
-            'price.*'         => 'numeric|min:0',
-            'freight'         => 'required|array',
-            'freight.*'       => 'numeric|min:0',
-            'total'           => 'required|array',
-            'total.*'         => 'numeric|min:0',
-            'sub_total'       => 'required|numeric|min:0',
-            'tax_percent'     => 'nullable|numeric|min:0',
-            'tax_amount'      => 'nullable|numeric|min:0',
-            'total_amount_product'  => 'required|numeric|min:0',
-            'total_amount_freight'  => 'required|numeric|min:0',
-            'total_amount'          => 'required|numeric|min:0',
-            'note'            => 'nullable|string',
-            'image'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'edit_note'       => 'required|string|max:500',
+            'suppliers' => 'required|exists:suppliers,id',
+            'purchase_number' => 'required|string|unique:purchases,purchase_number,'.$id,
+            'status' => 'required|string',
+            'product' => 'required|array',
+            'product.*' => 'exists:products,id',
+            'qty' => 'required|array',
+            'qty.*' => 'numeric|min:1',
+            'price' => 'required|array',
+            'price.*' => 'numeric|min:0',
+            'freight' => 'required|array',
+            'freight.*' => 'numeric|min:0',
+            'total' => 'required|array',
+            'total.*' => 'numeric|min:0',
+            'sub_total' => 'required|numeric|min:0',
+            'tax_percent' => 'nullable|numeric|min:0',
+            'tax_amount' => 'nullable|numeric|min:0',
+            'total_amount_product' => 'required|numeric|min:0',
+            'total_amount_freight' => 'required|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0',
+            'note' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'edit_note' => 'required|string|max:500',
             'stock_destination' => 'required|in:warehouse,production',
 
             'product_unit_id' => 'nullable|array',
@@ -951,10 +945,37 @@ class PurchaseListController extends Controller
 
         try {
             $purchase = Purchase::with('purchaseItems')->findOrFail($id);
+            if ($purchase->parent_purchase_id) {
+                $parent = Purchase::with('purchaseItems')->findOrFail($purchase->parent_purchase_id);
+                if ((int) $request->suppliers !== (int) $parent->supplier_id) {
+                    throw new \RuntimeException('Supplier PL harus sama dengan supplier PO.');
+                }
+                if ($request->stock_destination !== $parent->stock_destination) {
+                    throw new \RuntimeException('Tujuan stok PL harus sama dengan tujuan stok PO.');
+                }
+
+                foreach ($request->input('product', []) as $index => $productId) {
+                    $existingChildItem = $purchase->purchaseItems->firstWhere('product_id', (int) $productId);
+                    if (! $existingChildItem || ! $existingChildItem->source_purchase_item_id) {
+                        throw new \RuntimeException('Produk baru tidak dapat ditambahkan ke PL turunan PO.');
+                    }
+
+                    $sourceItem = $parent->purchaseItems->firstWhere('id', $existingChildItem->source_purchase_item_id);
+                    $allocatedByOtherLists = (float) PurchaseItem::where('source_purchase_item_id', $sourceItem->id)
+                        ->where('id', '!=', $existingChildItem->id)
+                        ->sum('quantity');
+                    $maximum = max(0, (float) $sourceItem->quantity - $allocatedByOtherLists);
+
+                    if ((float) ($request->qty[$index] ?? 0) > $maximum) {
+                        throw new \RuntimeException("Qty {$sourceItem->purchaseProduct?->name} melebihi sisa PO ({$maximum}).");
+                    }
+                }
+            }
 
             // 🚫 Cegah edit jika sudah ada return/stock-in
             if ($purchase->purchaseReturn()->exists()) {
                 DB::rollBack();
+
                 return back()->with('error', 'Purchase ini memiliki Purchase Return dan tidak bisa diedit lagi.');
             }
             // if ($purchase->hasStockIn()) {
@@ -974,14 +995,14 @@ class PurchaseListController extends Controller
                 'remaining_amount_product',
                 'remaining_amount_freight',
             ]);
-            $oldItems = $purchase->purchaseItems->mapWithKeys(fn($i) => [
+            $oldItems = $purchase->purchaseItems->mapWithKeys(fn ($i) => [
                 $i->product_id => [
-                    'product'  => $i->purchaseProduct->name ?? 'Unknown',
+                    'product' => $i->purchaseProduct->name ?? 'Unknown',
                     'quantity' => $i->quantity,
-                    'price'    => $i->price,
-                    'freight'  => $i->freight,
+                    'price' => $i->price,
+                    'freight' => $i->freight,
                     'subtotal' => $i->subtotal,
-                ]
+                ],
             ]);
 
             // ===== 2️⃣ HITUNG DUE DATE
@@ -998,42 +1019,42 @@ class PurchaseListController extends Controller
             // ===== 3️⃣ HITUNG NILAI BARU
             $totalProduct = $request->total_amount_product;
             $totalFreight = $request->total_amount_freight;
-            $grandTotal   = $totalProduct + $totalFreight;
+            $grandTotal = $totalProduct + $totalFreight;
 
             $paidProduct = $purchase->paid_amount_product ?? 0;
             $paidFreight = $purchase->paid_amount_freight ?? 0;
 
             $remainingProduct = max(0, $totalProduct - $paidProduct);
             $remainingFreight = max(0, $totalFreight - $paidFreight);
-            $remainingAmount  = $remainingProduct + $remainingFreight;
+            $remainingAmount = $remainingProduct + $remainingFreight;
 
             $stockDestination = $request->stock_destination;
 
             // ===== 4️⃣ UPDATE PURCHASE HEADER
             $purchase->update([
                 'purchase_number' => $request->purchase_number,
-                'purchase_date'   => $request->purchase_date,
-                'due_date'        => $dueDate,
-                'supplier_id'     => $request->suppliers,
-                'status'          => $request->status,
-                'sub_total'       => $request->sub_total,
-                'tax_percent'     => $request->tax_percent,
-                'tax_amount'      => $request->tax_amount,
-                'total_amount_product'     => $totalProduct,
-                'total_amount_freight'     => $totalFreight,
-                'total_amount'             => $grandTotal,
+                'purchase_date' => $request->purchase_date,
+                'due_date' => $dueDate,
+                'supplier_id' => $request->suppliers,
+                'status' => $request->status,
+                'sub_total' => $request->sub_total,
+                'tax_percent' => $request->tax_percent,
+                'tax_amount' => $request->tax_amount,
+                'total_amount_product' => $totalProduct,
+                'total_amount_freight' => $totalFreight,
+                'total_amount' => $grandTotal,
                 'remaining_amount_product' => $remainingProduct,
                 'remaining_amount_freight' => $remainingFreight,
-                'remaining_amount'         => $remainingAmount,
-                'stock_destination' => $stockDestination
+                'remaining_amount' => $remainingAmount,
+                'stock_destination' => $stockDestination,
             ]);
 
             // ===== 5️⃣ UPDATE ITEMS
             $existingItems = $purchase->purchaseItems->keyBy('product_id');
-            $requestKeys   = [];
+            $requestKeys = [];
 
             $inventoryStatus = match ($stockDestination) {
-                'warehouse'  => 'Stock In',
+                'warehouse' => 'Stock In',
                 'production' => 'Stock In Production',
             };
 
@@ -1046,28 +1067,26 @@ class PurchaseListController extends Controller
                 : null;
 
             foreach ($request->input('product', []) as $index => $productId) {
-                $qty     = $request->qty[$index] ?? 0;
+                $qty = $request->qty[$index] ?? 0;
 
-                $unitConversionId = $request->product_unit_id[$index] ?? null;
-
-                if (!is_numeric($unitConversionId)) {
-                    $unitConversionId = null;
-                }
-
-                $unitConversionValue = (float) ($request->unit_conversion_value[$index] ?? 1);
-                $unitName = $request->unit_name[$index] ?? 'Pcs';
-
-                if ($unitConversionValue <= 0) {
-                    $unitConversionValue = 1;
-                }
+                $unit = UnitConversionService::resolve(
+                    (int) $productId,
+                    $request->product_unit_id[$index] ?? null,
+                    $request->unit_name[$index] ?? 'Pcs'
+                );
+                $unitConversionId = $unit['id'];
+                $unitConversionValue = $unit['factor'];
+                $unitName = $unit['unit_name'];
 
                 $qtyBase = $qty * $unitConversionValue;
 
-                $price   = $request->price[$index] ?? 0;
+                $price = $request->price[$index] ?? 0;
                 $freight = $request->freight[$index] ?? 0;
-                $total   = $request->total[$index] ?? 0;
+                $total = $request->total[$index] ?? 0;
 
-                if (!$productId) continue;
+                if (! $productId) {
+                    continue;
+                }
 
                 $product = Products::findOrFail($productId);
                 $requestKeys[] = $productId;
@@ -1085,9 +1104,10 @@ class PurchaseListController extends Controller
 
                     if ($invItem && $qtyBase < $invItem->stock_in) {
                         DB::rollBack();
+
                         return back()->with(
                             'error',
-                            "Quantity untuk produk {$product->name} (" . number_format($qtyBase) . ") tidak boleh lebih kecil dari jumlah stock in (" . number_format($invItem->stock_in) . ")."
+                            "Quantity untuk produk {$product->name} (".number_format($qtyBase).') tidak boleh lebih kecil dari jumlah stock in ('.number_format($invItem->stock_in).').'
                         );
                     }
                 }
@@ -1098,26 +1118,26 @@ class PurchaseListController extends Controller
                     $oldQty = $item->qty_base ?? ($item->quantity * ($item->unit_conversion_value ?? 1));
 
                     $item->update([
-                        'inventory_warehouse_id'  => $stockDestination === 'warehouse' ? ($request->inventory_warehouse_id ?? 1) : null,
+                        'inventory_warehouse_id' => $stockDestination === 'warehouse' ? ($request->inventory_warehouse_id ?? 1) : null,
                         'production_warehouse_id' => $stockDestination === 'production' ? ($request->production_warehouse_id ?? 2) : null,
-                        'quantity'        => $qty,
-                        'price'           => $price,
+                        'quantity' => $qty,
+                        'price' => $price,
                         'price_after_tax' => $priceAfterTax,
-                        'freight'         => $freight,
-                        'final_price'     => $finalPrice,
-                        'subtotal'        => $total,
+                        'freight' => $freight,
+                        'final_price' => $finalPrice,
+                        'subtotal' => $total,
                         'product_unit_conversion_id' => $unitConversionId,
-                        'unit_name'                  => $unitName,
-                        'unit_conversion_value'      => $unitConversionValue,
-                        'qty_base'                   => $qtyBase,
+                        'unit_name' => $unitName,
+                        'unit_conversion_value' => $unitConversionValue,
+                        'qty_base' => $qtyBase,
                     ]);
                 } else {
                     $oldQty = 0;
                     $item = PurchaseItem::create([
                         'purchase_id' => $purchase->id,
-                        'product_id'  => $productId,
+                        'product_id' => $productId,
 
-                        'inventory_warehouse_id'  => $stockDestination === 'warehouse'
+                        'inventory_warehouse_id' => $stockDestination === 'warehouse'
                             ? ($request->inventory_warehouse_id ?? 1)
                             : null,
 
@@ -1125,19 +1145,19 @@ class PurchaseListController extends Controller
                             ? ($request->production_warehouse_id ?? 2)
                             : null,
 
-                        'status'          => 'Purchase Account',
-                        'product_name'    => $product->name,
-                        'quantity'        => $qty,
-                        'price'           => $price,
+                        'status' => 'Purchase Account',
+                        'product_name' => $product->name,
+                        'quantity' => $qty,
+                        'price' => $price,
                         'price_after_tax' => $priceAfterTax,
-                        'freight'         => $freight,
-                        'final_price'     => $finalPrice,
-                        'subtotal'        => $total,
+                        'freight' => $freight,
+                        'final_price' => $finalPrice,
+                        'subtotal' => $total,
 
                         'product_unit_conversion_id' => $unitConversionId,
-                        'unit_name'                  => $unitName,
-                        'unit_conversion_value'      => $unitConversionValue,
-                        'qty_base'                   => $qtyBase,
+                        'unit_name' => $unitName,
+                        'unit_conversion_value' => $unitConversionValue,
+                        'qty_base' => $qtyBase,
                     ]);
                 }
 
@@ -1146,10 +1166,10 @@ class PurchaseListController extends Controller
                     ['purchase_id' => $purchase->id],
                     [
                         'purchase_number' => $purchase->purchase_number,
-                        'supplier_id'     => $purchase->supplier_id,
-                        'date'            => $purchase->purchase_date,
-                        'status'          => $inventoryStatus,
-                        'note'            => 'Purchase Account',
+                        'supplier_id' => $purchase->supplier_id,
+                        'date' => $purchase->purchase_date,
+                        'status' => $inventoryStatus,
+                        'note' => 'Purchase Account',
                     ]
                 );
 
@@ -1167,21 +1187,27 @@ class PurchaseListController extends Controller
 
                 if ($invItem->exists) {
                     $invItem->fill([
-                        'inventory_warehouse_id'  => $invWarehouseId,
+                        'inventory_warehouse_id' => $invWarehouseId,
                         'production_warehouse_id' => $prodWarehouseId,
-                        'quantity' => $qtyBase,
-                        'price'                  => $price,
+                        'quantity' => $qty,
+                        'unit_name' => $unitName,
+                        'unit_conversion_value' => $unitConversionValue,
+                        'qty_base' => $qtyBase,
+                        'price' => $price,
                         'remaining_stock_in' => $qtyBase,
                     ]);
                 } else {
                     $invItem->fill([
-                        'inventory_warehouse_id'  => $invWarehouseId,
+                        'inventory_warehouse_id' => $invWarehouseId,
                         'production_warehouse_id' => $prodWarehouseId,
-                        'quantity' => $qtyBase,
-                        'price'                  => $finalPrice,
+                        'quantity' => $qty,
+                        'unit_name' => $unitName,
+                        'unit_conversion_value' => $unitConversionValue,
+                        'qty_base' => $qtyBase,
+                        'price' => $finalPrice,
                         'remaining_stock_in' => $qtyBase,
-                        'stock_in'               => 0,
-                        'stock_out'              => 0,
+                        'stock_in' => 0,
+                        'stock_out' => 0,
                     ]);
                 }
 
@@ -1214,13 +1240,12 @@ class PurchaseListController extends Controller
                     $prodStock->increment('incoming_stock', $difference);
                 }
 
-
                 // $difference = $qtyBase - $oldQty;
                 // $invStock->increment('incoming_stock', $difference);
             }
 
             foreach ($existingItems as $pid => $item) {
-                if (!in_array($pid, $requestKeys)) {
+                if (! in_array($pid, $requestKeys)) {
                     $item->forceDelete();
                     InventoryItem::where('purchase_item_id', $item->id)->delete();
                     $invStock = InventoryStock::where('product_id', $pid)->first();
@@ -1238,13 +1263,12 @@ class PurchaseListController extends Controller
                             $totalPurchasedQty = PurchaseItem::where('product_id', $pid)
                                 ->whereHas(
                                     'purchase',
-                                    fn($q) =>
-                                    $q->where('stock_destination', 'production')
+                                    fn ($q) => $q->where('stock_destination', 'production')
                                 )
                                 ->sum('qty_base');
 
                             $prodStock->update([
-                                'incoming_stock' => $totalPurchasedQty
+                                'incoming_stock' => $totalPurchasedQty,
                             ]);
                         }
                     }
@@ -1264,14 +1288,14 @@ class PurchaseListController extends Controller
                 'remaining_amount_product',
                 'remaining_amount_freight',
             ]);
-            $newItems = $purchase->purchaseItems->mapWithKeys(fn($i) => [
+            $newItems = $purchase->purchaseItems->mapWithKeys(fn ($i) => [
                 $i->product_id => [
-                    'product'  => $i->purchaseProduct->name ?? 'Unknown',
+                    'product' => $i->purchaseProduct->name ?? 'Unknown',
                     'quantity' => $i->quantity,
-                    'price'    => $i->price,
-                    'freight'  => $i->freight,
+                    'price' => $i->price,
+                    'freight' => $i->freight,
                     'subtotal' => $i->subtotal,
-                ]
+                ],
             ]);
 
             // ===== 7️⃣ DIFF
@@ -1294,9 +1318,9 @@ class PurchaseListController extends Controller
                 $old = $oldItems[$pid] ?? null;
                 $new = $newItems[$pid] ?? null;
 
-                if ($old && !$new) {
+                if ($old && ! $new) {
                     $itemsDiff[] = ['product' => $old['product'], 'action' => 'removed', 'old' => $old, 'new' => null];
-                } elseif (!$old && $new) {
+                } elseif (! $old && $new) {
                     $itemsDiff[] = ['product' => $new['product'], 'action' => 'added', 'old' => null, 'new' => $new];
                 } elseif ($old && $new && $old != $new) {
                     $itemsDiff[] = ['product' => $new['product'], 'action' => 'updated', 'old' => $old, 'new' => $new];
@@ -1306,10 +1330,10 @@ class PurchaseListController extends Controller
             // ===== 8️⃣ SIMPAN HISTORY
             PurchaseEditHistory::create([
                 'purchase_id' => $purchase->id,
-                'edited_by'   => Auth::id(),
-                'changes'     => ['purchase' => $purchaseDiff, 'items' => $itemsDiff],
-                'text'        => $request->edit_note,
-                'edited_at'   => now(),
+                'edited_by' => Auth::id(),
+                'changes' => ['purchase' => $purchaseDiff, 'items' => $itemsDiff],
+                'text' => $request->edit_note,
+                'edited_at' => now(),
             ]);
 
             $purchase->update(['status_edited' => true]);
@@ -1329,41 +1353,47 @@ class PurchaseListController extends Controller
                     $purchaseAccount->decrement('closing_balance', $accountTransaction->debit);
 
                     $accountTransaction->update([
-                        'transaction_date'     => $purchase->purchase_date,
-                        'debit'                => $grandTotal,
-                        'credit'               => 0,
-                        'note'                 => 'Purchase Account Transaction (Edited)',
-                        'particular'           => 'Purchase Invoice Updated',
+                        'transaction_date' => $purchase->purchase_date,
+                        'debit' => $grandTotal,
+                        'credit' => 0,
+                        'note' => 'Purchase Account Transaction (Edited)',
+                        'particular' => 'Purchase Invoice Updated',
                     ]);
                 } else {
                     AccountTransaction::create([
-                        'purchase_id'          => $purchase->id,
-                        'purchase_number'      => $purchase->purchase_number,
-                        'transaction_date'     => $purchase->purchase_date,
-                        'account_id'           => $purchaseAccount->id,
-                        'debit'                => $grandTotal,
-                        'credit'               => 0,
-                        'note'                 => 'Purchase Account Transaction (Created via Edit)',
-                        'particular'           => 'Purchase Invoice Updated',
+                        'purchase_id' => $purchase->id,
+                        'purchase_number' => $purchase->purchase_number,
+                        'transaction_date' => $purchase->purchase_date,
+                        'account_id' => $purchaseAccount->id,
+                        'debit' => $grandTotal,
+                        'credit' => 0,
+                        'note' => 'Purchase Account Transaction (Created via Edit)',
+                        'particular' => 'Purchase Invoice Updated',
                         'transaction_group_id' => $groupId,
                     ]);
                 }
 
                 $purchaseAccount->increment('closing_balance', $grandTotal);
             } catch (\Exception $e) {
-                Log::warning("Gagal update account transaction untuk purchase {$purchase->id}: " . $e->getMessage());
+                Log::warning("Gagal update account transaction untuk purchase {$purchase->id}: ".$e->getMessage());
+            }
+
+            if ($purchase->parent_purchase_id) {
+                $this->refreshParentPurchaseProgress($purchase->parent_purchase_id);
             }
 
             DB::commit();
+
             return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Purchase Update Error', [
                 'message' => $e->getMessage(),
-                'line'    => $e->getLine(),
-                'file'    => $e->getFile(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
             ]);
-            return redirect()->back()->with('error', 'Update failed: ' . $e->getMessage());
+
+            return redirect()->back()->with('error', 'Update failed: '.$e->getMessage());
         }
     }
 
@@ -1371,7 +1401,7 @@ class PurchaseListController extends Controller
     {
         if ($request->expectsJson()) {
             return response()->json([
-                'status'  => $success ? 'success' : 'error',
+                'status' => $success ? 'success' : 'error',
                 'message' => $message,
             ], $success ? 200 : 400);
         }
@@ -1393,11 +1423,13 @@ class PurchaseListController extends Controller
 
         try {
             $purchase = Purchase::with('purchaseItems')->findOrFail($id);
+            $parentPurchaseId = $purchase->parent_purchase_id;
 
             // 🚫 Cek dulu apakah ada Purchase Return
             if ($purchase->purchaseReturn()->exists()) {
                 DB::rollBack();
                 $msg = 'Tidak dapat menghapus order ini karena sudah memiliki Purchase Return.';
+
                 return $this->deleteResponse($request, false, $msg);
             }
 
@@ -1405,27 +1437,28 @@ class PurchaseListController extends Controller
             if ($purchase->hasStockIn()) {
                 DB::rollBack();
                 $msg = 'Tidak dapat menghapus order ini karena sudah memiliki Stock In.';
+
                 return $this->deleteResponse($request, false, $msg);
             }
 
             // 🔁 Rollback stok incoming & stock-in
             foreach ($purchase->purchaseItems as $item) {
-                $inventoryStock = InventoryStock::where('product_id', $item->product_id)->first();
-                if ($inventoryStock) {
-                    $stockInQty = InventoryItem::where('purchase_item_id', $item->id)
-                        ->where('stock_in', '>', 0)
-                        ->sum('stock_in');
+                $stockInQty = InventoryItem::where('purchase_item_id', $item->id)
+                    ->where('stock_in', '>', 0)
+                    ->sum('stock_in');
+                $quantityBase = $item->qty_base ?? ($item->quantity * ($item->unit_conversion_value ?? 1));
+                $incomingLeft = max(0, $quantityBase - $stockInQty);
 
-                    $incomingLeft = max(0, $item->quantity - $stockInQty);
+                $stock = $purchase->stock_destination === 'production'
+                    ? ProductionStock::where('product_id', $item->product_id)
+                        ->where('production_warehouse_id', $item->production_warehouse_id ?? 2)
+                        ->first()
+                    : InventoryStock::where('product_id', $item->product_id)
+                        ->where('inventory_warehouse_id', $item->inventory_warehouse_id ?? 1)
+                        ->first();
 
-                    if ($incomingLeft > 0) {
-                        $inventoryStock->decrement('incoming_stock', $incomingLeft);
-                    }
-
-                    if ($stockInQty > 0) {
-                        $inventoryStock->decrement('stock_after_sales', $stockInQty);
-                        InventoryItem::where('purchase_item_id', $item->id)->delete();
-                    }
+                if ($stock && $incomingLeft > 0) {
+                    $stock->decrement('incoming_stock', $incomingLeft);
                 }
             }
 
@@ -1436,7 +1469,9 @@ class PurchaseListController extends Controller
 
             foreach ($transactions as $trx) {
                 $account = Account::find($trx->account_id);
-                if (!$account) continue;
+                if (! $account) {
+                    continue;
+                }
 
                 if ($account->type === 'Purchase Account') {
                     // Hapus transaksi Purchase Account
@@ -1446,7 +1481,7 @@ class PurchaseListController extends Controller
                 } else {
                     // Cash / Bank → jangan dihapus, hanya unlink
                     $trx->purchase_id = null;
-                    $trx->note = trim(($trx->note ?? '') . ' [Purchase deleted]');
+                    $trx->note = trim(($trx->note ?? '').' [Purchase deleted]');
                     $trx->save();
                 }
 
@@ -1457,8 +1492,8 @@ class PurchaseListController extends Controller
             PurchaseItem::where('purchase_id', $purchase->id)->delete();
 
             // 🔁 Hapus file image kalau ada
-            if ($purchase->image && file_exists(public_path('storage/' . $purchase->image))) {
-                unlink(public_path('storage/' . $purchase->image));
+            if ($purchase->image && file_exists(public_path('storage/'.$purchase->image))) {
+                unlink(public_path('storage/'.$purchase->image));
             }
 
             // 🔁 Hapus inventory kalau status Purchase List
@@ -1472,24 +1507,30 @@ class PurchaseListController extends Controller
 
             // Simpan delete_notes & deleted_by
             $purchase->delete_notes = $request->input('delete_notes');
-            $purchase->deleted_by   = Auth::id();
+            $purchase->deleted_by = Auth::id();
             $purchase->save();
 
             // Soft delete purchase
             $purchase->delete();
 
+            if ($parentPurchaseId) {
+                $this->refreshParentPurchaseProgress($parentPurchaseId);
+            }
+
             DB::commit();
+
             return back()->with('success', 'Purchase berhasil dihapus.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Purchase delete failed: ' . $e->getMessage());
-            return back()->with('error', 'Gagal menghapus purchase: ' . $e->getMessage());
+            Log::error('Purchase delete failed: '.$e->getMessage());
+
+            return back()->with('error', 'Gagal menghapus purchase: '.$e->getMessage());
         }
     }
 
     public function forceDeleteOwner($id, Request $request)
     {
-        if (!Auth::check() || Auth::user()->role !== 'Owner') {
+        if (! Auth::check() || Auth::user()->role !== 'Owner') {
             abort(403, 'Only Owner can force delete.');
         }
 
@@ -1501,6 +1542,7 @@ class PurchaseListController extends Controller
 
         try {
             $purchase = Purchase::with(['purchaseItems'])->findOrFail($id);
+            $parentPurchaseId = $purchase->parent_purchase_id;
 
             // $hasStockIn = InventoryItem::whereIn('purchase_item_id', $purchase->purchaseItems->pluck('id'))
             //     ->where('stock_in', '>', 0)
@@ -1514,14 +1556,16 @@ class PurchaseListController extends Controller
 
             // 1️⃣ ROLLBACK STOK (Termasuk Stock In)
             foreach ($purchase->purchaseItems as $item) {
-                if (!$item->product_id) continue;
+                if (! $item->product_id) {
+                    continue;
+                }
 
                 $inventoryStock = InventoryStock::firstOrCreate(
                     ['product_id' => $item->product_id],
                     [
-                        'incoming_stock'     => 0,
-                        'stock_after_sales'  => 0,
-                        'inventory_stock'    => 0, // stok utama
+                        'incoming_stock' => 0,
+                        'stock_after_sales' => 0,
+                        'inventory_stock' => 0, // stok utama
                     ]
                 );
 
@@ -1552,7 +1596,9 @@ class PurchaseListController extends Controller
             $transactions = AccountTransaction::where('purchase_id', $purchase->id)->get();
             foreach ($transactions as $trx) {
                 $account = Account::find($trx->account_id);
-                if (!$account) continue;
+                if (! $account) {
+                    continue;
+                }
 
                 if ($account->type === 'Purchase Account') {
                     $account->closing_balance -= $trx->debit;
@@ -1560,7 +1606,7 @@ class PurchaseListController extends Controller
                     $trx->forceDelete();
                 } else {
                     $trx->purchase_id = null;
-                    $trx->note = trim(($trx->note ?? '') . ' [Purchase deleted]');
+                    $trx->note = trim(($trx->note ?? '').' [Purchase deleted]');
                     $trx->save();
                 }
 
@@ -1581,15 +1627,19 @@ class PurchaseListController extends Controller
                 ->forceDelete();
 
             // 5️⃣ HAPUS FILE IMAGE
-            if ($purchase->image && file_exists(public_path('storage/' . $purchase->image))) {
-                unlink(public_path('storage/' . $purchase->image));
+            if ($purchase->image && file_exists(public_path('storage/'.$purchase->image))) {
+                unlink(public_path('storage/'.$purchase->image));
             }
 
             // 6️⃣ FORCE DELETE PURCHASE
             $purchase->delete_notes = $request->input('delete_notes');
-            $purchase->deleted_by   = Auth::id();
+            $purchase->deleted_by = Auth::id();
             $purchase->saveQuietly();
             $purchase->forceDelete();
+
+            if ($parentPurchaseId) {
+                $this->refreshParentPurchaseProgress($parentPurchaseId);
+            }
 
             // // 7️⃣ HITUNG ULANG AVG COST & STOCK PRODUK YANG TERDAMPAK
             // foreach ($productIds as $productId) {
@@ -1632,13 +1682,15 @@ class PurchaseListController extends Controller
             // }
 
             DB::commit();
+
             return back()->with('success', 'Purchase berhasil dihapus total (force delete oleh Owner). Semua efek stok & transaksi telah direset.');
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Force delete purchase failed: ' . $e->getMessage(), [
+            Log::error('Force delete purchase failed: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
-            return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
+
+            return back()->with('error', 'Gagal force delete: '.$e->getMessage());
         }
     }
 
@@ -1656,9 +1708,9 @@ class PurchaseListController extends Controller
             'transaction_type' => 'required|exists:accounts,id',
             'note' => 'nullable|string',
             'particular' => 'nullable|string',
-            'payment_proof'       => 'nullable|array',
-            'payment_proof.*'     => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
-            'note_per_image'      => 'nullable|array',
+            'payment_proof' => 'nullable|array',
+            'payment_proof.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image' => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -1678,37 +1730,37 @@ class PurchaseListController extends Controller
 
             if ($request->hasFile('payment_proof')) {
                 $uploadPath = base_path('uploads/payment_proofs');
-                if (!file_exists($uploadPath)) {
+                if (! file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
 
                 foreach ($request->file('payment_proof') as $index => $file) {
-                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $fileName = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
                     $file->move($uploadPath, $fileName);
 
                     $uploadedProofs[] = [
-                        'file' => 'uploads/payment_proofs/' . $fileName,
+                        'file' => 'uploads/payment_proofs/'.$fileName,
                         'note' => $notes[$index] ?? '',
                     ];
                 }
             }
 
-            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+            $proofJson = ! empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // =========================
             // 1️⃣ Kas / Bank - CREDIT
             // =========================
             AccountTransaction::create([
-                'purchase_id'          => $purchase->id,
-                'purchase_number'      => $purchase->purchase_number,
-                'transaction_date'     => $request->transaction_date,
-                'account_id'           => $cashBankAccount->id,
-                'debit'                => 0,
-                'credit'               => $request->paid_amount,
-                'note'                 => 'Product Payment',
-                'particular'           => 'Product Payment - ' . $purchaseAccount->name,
+                'purchase_id' => $purchase->id,
+                'purchase_number' => $purchase->purchase_number,
+                'transaction_date' => $request->transaction_date,
+                'account_id' => $cashBankAccount->id,
+                'debit' => 0,
+                'credit' => $request->paid_amount,
+                'note' => 'Product Payment',
+                'particular' => 'Product Payment - '.$purchaseAccount->name,
                 'transaction_group_id' => $groupId,
-                'proof'           => $proofJson,
+                'proof' => $proofJson,
             ]);
 
             $cashBankAccount->decrement('closing_balance', $request->paid_amount);
@@ -1739,7 +1791,7 @@ class PurchaseListController extends Controller
 
             // 🔹 Status final: gabungkan hasil pembayaran produk + freight
             $totalPaid = $purchase->paid_amount_product + $purchase->paid_amount_freight;
-            $totalAll  = $purchase->total_amount_product + $purchase->total_amount_freight;
+            $totalAll = $purchase->total_amount_product + $purchase->total_amount_freight;
 
             if ($totalPaid >= $totalAll) {
                 $purchase->payment_status = 'Paid';
@@ -1759,7 +1811,7 @@ class PurchaseListController extends Controller
                 'paid' => '<div class="badge bg-soft-success text-success">Paid</div>',
                 'partially paid' => '<div class="badge bg-soft-warning text-warning">Partially Paid</div>',
                 'unpaid' => '<div class="badge bg-soft-dark text-dark">Unpaid</div>',
-                default => '<div class="badge bg-secondary text-white">' . e($purchase->payment_status) . '</div>',
+                default => '<div class="badge bg-secondary text-white">'.e($purchase->payment_status).'</div>',
             };
 
             // 💰 Hitung ulang total gabungan
@@ -1767,29 +1819,30 @@ class PurchaseListController extends Controller
             $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
 
             $paidProductColumn = '
-                <div class="text-success">Rp ' . number_format($purchase->paid_amount_product, 0, ',', '.') . '</div>
-                <small class="text-danger">Remaining: Rp ' . number_format($purchase->remaining_amount_product, 0, ',', '.') . '</small>
+                <div class="text-success">Rp '.number_format($purchase->paid_amount_product, 0, ',', '.').'</div>
+                <small class="text-danger">Remaining: Rp '.number_format($purchase->remaining_amount_product, 0, ',', '.').'</small>
             ';
 
             $paidFreightColumn = '
-                <div class="text-success">Rp ' . number_format($purchase->paid_amount_freight, 0, ',', '.') . '</div>
-                <small class="text-danger">Remaining: Rp ' . number_format($purchase->remaining_amount_freight, 0, ',', '.') . '</small>
+                <div class="text-success">Rp '.number_format($purchase->paid_amount_freight, 0, ',', '.').'</div>
+                <small class="text-danger">Remaining: Rp '.number_format($purchase->remaining_amount_freight, 0, ',', '.').'</small>
             ';
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Pembayaran produk berhasil disimpan!',
                 'purchase' => [
-                    'id'               => $purchase->id,
+                    'id' => $purchase->id,
                     'paid_amount_product_html' => $paidProductColumn,
                     'paid_amount_freight_html' => $paidFreightColumn,
-                    'remaining_amount_html' => '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>',
+                    'remaining_amount_html' => '<span class="text-danger">Rp '.number_format($remainingTotal, 0, ',', '.').'</span>',
                     'payment_status_html' => $paymentBadge,
                     'action_html' => view('erp.pages.purchases.purchase-list.partials.action-button', [
-                        'purchase' => $purchase
+                        'purchase' => $purchase,
                     ])->render(),
                 ],
             ]);
+
             return back()->with('success', 'Pembayaran produk berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1799,7 +1852,8 @@ class PurchaseListController extends Controller
                     'message' => 'Pembayaran berhasil disimpan.',
                 ]);
             }
-            return back()->with('error', 'Gagal menyimpan pembayaran produk: ' . $e->getMessage());
+
+            return back()->with('error', 'Gagal menyimpan pembayaran produk: '.$e->getMessage());
         }
     }
 
@@ -1817,9 +1871,9 @@ class PurchaseListController extends Controller
             'transaction_type' => 'required|exists:accounts,id',
             'note' => 'nullable|string',
             'particular' => 'nullable|string',
-            'payment_proof'       => 'nullable|array',
-            'payment_proof.*'     => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
-            'note_per_image'      => 'nullable|array',
+            'payment_proof' => 'nullable|array',
+            'payment_proof.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image' => 'nullable|array',
         ]);
 
         DB::beginTransaction();
@@ -1839,37 +1893,37 @@ class PurchaseListController extends Controller
 
             if ($request->hasFile('payment_proof')) {
                 $uploadPath = base_path('uploads/payment_proofs');
-                if (!file_exists($uploadPath)) {
+                if (! file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
 
                 foreach ($request->file('payment_proof') as $index => $file) {
-                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $fileName = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
                     $file->move($uploadPath, $fileName);
 
                     $uploadedProofs[] = [
-                        'file' => 'uploads/payment_proofs/' . $fileName,
+                        'file' => 'uploads/payment_proofs/'.$fileName,
                         'note' => $notes[$index] ?? '',
                     ];
                 }
             }
 
-            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+            $proofJson = ! empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // =========================
             // 1️⃣ Kas / Bank - CREDIT
             // =========================
             AccountTransaction::create([
-                'purchase_id'          => $purchase->id,
-                'purchase_number'      => $purchase->purchase_number,
-                'transaction_date'     => $request->transaction_date,
-                'account_id'           => $cashBankAccount->id,
-                'debit'                => 0,
-                'credit'               => $request->paid_amount,
-                'note'                 => 'Freight Payment',
-                'particular'           => 'Freight Payment - ' . $purchaseAccount->name,
+                'purchase_id' => $purchase->id,
+                'purchase_number' => $purchase->purchase_number,
+                'transaction_date' => $request->transaction_date,
+                'account_id' => $cashBankAccount->id,
+                'debit' => 0,
+                'credit' => $request->paid_amount,
+                'note' => 'Freight Payment',
+                'particular' => 'Freight Payment - '.$purchaseAccount->name,
                 'transaction_group_id' => $groupId,
-                'proof'                => $proofJson
+                'proof' => $proofJson,
             ]);
 
             $cashBankAccount->decrement('closing_balance', $request->paid_amount);
@@ -1900,7 +1954,7 @@ class PurchaseListController extends Controller
 
             // 🔹 Status akhir (gabungan produk + freight)
             $totalPaid = $purchase->paid_amount_product + $purchase->paid_amount_freight;
-            $totalAll  = $purchase->total_amount_product + $purchase->total_amount_freight;
+            $totalAll = $purchase->total_amount_product + $purchase->total_amount_freight;
 
             if ($totalPaid >= $totalAll) {
                 $purchase->payment_status = 'Paid';
@@ -1919,7 +1973,7 @@ class PurchaseListController extends Controller
                 'paid' => '<div class="badge bg-soft-success text-success">Paid</div>',
                 'partially paid' => '<div class="badge bg-soft-warning text-warning">Partially Paid</div>',
                 'unpaid' => '<div class="badge bg-soft-dark text-dark">Unpaid</div>',
-                default => '<div class="badge bg-secondary text-white">' . e($purchase->payment_status) . '</div>',
+                default => '<div class="badge bg-secondary text-white">'.e($purchase->payment_status).'</div>',
             };
 
             // 💰 Hitung ulang total gabungan
@@ -1927,29 +1981,30 @@ class PurchaseListController extends Controller
             $remainingTotal = ($purchase->remaining_amount_product ?? 0) + ($purchase->remaining_amount_freight ?? 0);
 
             $paidProductColumn = '
-                <div class="text-success">Rp ' . number_format($purchase->paid_amount_product, 0, ',', '.') . '</div>
-                <small class="text-danger">Remaining: Rp ' . number_format($purchase->remaining_amount_product, 0, ',', '.') . '</small>
+                <div class="text-success">Rp '.number_format($purchase->paid_amount_product, 0, ',', '.').'</div>
+                <small class="text-danger">Remaining: Rp '.number_format($purchase->remaining_amount_product, 0, ',', '.').'</small>
             ';
 
             $paidFreightColumn = '
-                <div class="text-success">Rp ' . number_format($purchase->paid_amount_freight, 0, ',', '.') . '</div>
-                <small class="text-danger">Remaining: Rp ' . number_format($purchase->remaining_amount_freight, 0, ',', '.') . '</small>
+                <div class="text-success">Rp '.number_format($purchase->paid_amount_freight, 0, ',', '.').'</div>
+                <small class="text-danger">Remaining: Rp '.number_format($purchase->remaining_amount_freight, 0, ',', '.').'</small>
             ';
 
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Pembayaran freight berhasil disimpan!',
                 'purchase' => [
-                    'id'               => $purchase->id,
+                    'id' => $purchase->id,
                     'paid_amount_product_html' => $paidProductColumn,
                     'paid_amount_freight_html' => $paidFreightColumn,
-                    'remaining_amount_html' => '<span class="text-danger">Rp ' . number_format($remainingTotal, 0, ',', '.') . '</span>',
+                    'remaining_amount_html' => '<span class="text-danger">Rp '.number_format($remainingTotal, 0, ',', '.').'</span>',
                     'payment_status_html' => $paymentBadge,
                     'action_html' => view('erp.pages.purchases.purchase-list.partials.action-button', [
-                        'purchase' => $purchase
+                        'purchase' => $purchase,
                     ])->render(),
                 ],
             ]);
+
             return back()->with('success', 'Pembayaran freight berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -1959,7 +2014,8 @@ class PurchaseListController extends Controller
                     'message' => 'Pembayaran berhasil disimpan.',
                 ]);
             }
-            return back()->with('error', 'Gagal menyimpan pembayaran freight: ' . $e->getMessage());
+
+            return back()->with('error', 'Gagal menyimpan pembayaran freight: '.$e->getMessage());
         }
     }
 
@@ -1977,7 +2033,7 @@ class PurchaseListController extends Controller
         $bankAccounts = Account::where('name', 'Bank')->get();
 
         return view('erp.pages.purchases.purchase-list.payment-history', [
-            'purchase'     => $purchase,
+            'purchase' => $purchase,
             'transactions' => $transactions,
             'cashAccounts' => $cashAccounts,
             'bankAccounts' => $bankAccounts,
@@ -1991,24 +2047,24 @@ class PurchaseListController extends Controller
         ]);
 
         $request->validate([
-            'transaction_date'      => 'required|date',
-            'paid_amount'           => 'required|numeric|min:0',
-            'cash_bank_account_id'  => 'required|exists:accounts,id',
-            'note'                  => 'nullable|string',
-            'payment_proof'         => 'nullable|array',
-            'payment_proof.*'       => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
-            'note_per_image'        => 'nullable|array',
+            'transaction_date' => 'required|date',
+            'paid_amount' => 'required|numeric|min:0',
+            'cash_bank_account_id' => 'required|exists:accounts,id',
+            'note' => 'nullable|string',
+            'payment_proof' => 'nullable|array',
+            'payment_proof.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image' => 'nullable|array',
         ]);
 
         DB::beginTransaction();
         try {
             $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
             if ($transactions->isEmpty()) {
-                throw new \Exception("Payment not found");
+                throw new \Exception('Payment not found');
             }
 
             $purchaseId = $transactions->first()->purchase_id;
-            $purchase   = Purchase::findOrFail($purchaseId);
+            $purchase = Purchase::findOrFail($purchaseId);
 
             foreach ($transactions as $trx) {
                 $trx->update(['verified' => false]);
@@ -2032,13 +2088,15 @@ class PurchaseListController extends Controller
 
             if ($request->hasFile('payment_proof')) {
                 $uploadPath = base_path('uploads/payment_proofs');
-                if (!file_exists($uploadPath)) mkdir($uploadPath, 0755, true);
+                if (! file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
 
                 foreach ($request->file('payment_proof') as $index => $file) {
-                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $fileName = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
                     $file->move($uploadPath, $fileName);
                     $uploadedProofs[] = [
-                        'file' => 'uploads/payment_proofs/' . $fileName,
+                        'file' => 'uploads/payment_proofs/'.$fileName,
                         'note' => $notes[$index] ?? '',
                     ];
                 }
@@ -2051,7 +2109,7 @@ class PurchaseListController extends Controller
                 $uploadedProofs = $oldProofs;
             }
 
-            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+            $proofJson = ! empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // =====================================================
             // 🔥 Jika paid_amount = 0 → hapus semua transaksi dalam group
@@ -2086,14 +2144,14 @@ class PurchaseListController extends Controller
                     ->where('particular', 'like', '%freight%')
                     ->sum('credit');
 
-                $purchase->paid_amount_product    = $totalProductPaid;
+                $purchase->paid_amount_product = $totalProductPaid;
                 $purchase->remaining_amount_product = max(0, $purchase->total_amount_product - $totalProductPaid);
 
-                $purchase->paid_amount_freight    = $totalFreightPaid;
+                $purchase->paid_amount_freight = $totalFreightPaid;
                 $purchase->remaining_amount_freight = max(0, $purchase->total_amount_freight - $totalFreightPaid);
 
                 $totalPaid = $totalProductPaid + $totalFreightPaid;
-                $totalAll  = ($purchase->total_amount_product ?? 0) + ($purchase->total_amount_freight ?? 0);
+                $totalAll = ($purchase->total_amount_product ?? 0) + ($purchase->total_amount_freight ?? 0);
 
                 if ($totalPaid == 0) {
                     $purchase->payment_status = 'Unpaid';
@@ -2113,8 +2171,8 @@ class PurchaseListController extends Controller
                 // =====================================================
                 if ($request->ajax()) {
                     return response()->json([
-                        'status'   => 'deleted',
-                        'message'  => 'Payment berhasil dihapus.',
+                        'status' => 'deleted',
+                        'message' => 'Payment berhasil dihapus.',
                         'group_id' => $groupId,
                     ]);
                 }
@@ -2139,10 +2197,12 @@ class PurchaseListController extends Controller
             // 🔹 Payment Process
             // =====================================================
             $oldCredit = $transactions->firstWhere('credit', '>', 0);
-            if (!$oldCredit) throw new \Exception("Credit transaction not found in this group");
+            if (! $oldCredit) {
+                throw new \Exception('Credit transaction not found in this group');
+            }
 
             $oldAccount = $oldCredit->account;
-            $oldAmount  = $oldCredit->credit;
+            $oldAmount = $oldCredit->credit;
 
             // rollback saldo lama
             $oldAccount->increment('closing_balance', $oldAmount);
@@ -2151,10 +2211,10 @@ class PurchaseListController extends Controller
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
             $oldCredit->update([
                 'transaction_date' => $request->transaction_date,
-                'account_id'       => $cashBankAccount->id,
-                'credit'           => $request->paid_amount,
-                'note'             => $request->note ?? '',
-                'proof'            => $proofJson,
+                'account_id' => $cashBankAccount->id,
+                'credit' => $request->paid_amount,
+                'note' => $request->note ?? '',
+                'proof' => $proofJson,
             ]);
 
             // kurangi saldo akun baru
@@ -2165,7 +2225,7 @@ class PurchaseListController extends Controller
             if ($purchaseTrx) {
                 $purchaseTrx->update([
                     'transaction_date' => $request->transaction_date,
-                    'note'             => $request->note ?? '',
+                    'note' => $request->note ?? '',
                 ]);
             }
 
@@ -2193,7 +2253,7 @@ class PurchaseListController extends Controller
 
             // gabungan
             $totalPaid = $totalProductPaid + $totalFreightPaid;
-            $totalAll  = ($purchase->total_amount_product ?? 0) + ($purchase->total_amount_freight ?? 0);
+            $totalAll = ($purchase->total_amount_product ?? 0) + ($purchase->total_amount_freight ?? 0);
 
             if ($totalPaid == 0) {
                 $purchase->payment_status = 'Unpaid';
@@ -2208,25 +2268,27 @@ class PurchaseListController extends Controller
             DB::commit();
             if ($request->ajax()) {
                 return response()->json([
-                    'status'  => 'success',
+                    'status' => 'success',
                     'message' => 'Payment berhasil diperbarui.',
-                    'data'    => [
+                    'data' => [
                         'transaction_group_id' => $groupId,
-                        'transaction_date'     => \Carbon\Carbon::parse($request->transaction_date)->format('d-m-Y'),
-                        'paid_amount'          => number_format($request->paid_amount, 0, ',', '.'),
-                        'account_id'           => $cashBankAccount->id,
-                        'account_name'         => $cashBankAccount->name,
-                        'account_type'         => $cashBankAccount->type,
-                        'note'                 => $request->note ?? '',
-                        'proofs'               => $uploadedProofs,
-                        'verified'             => false,
+                        'transaction_date' => \Carbon\Carbon::parse($request->transaction_date)->format('d-m-Y'),
+                        'paid_amount' => number_format($request->paid_amount, 0, ',', '.'),
+                        'account_id' => $cashBankAccount->id,
+                        'account_name' => $cashBankAccount->name,
+                        'account_type' => $cashBankAccount->type,
+                        'note' => $request->note ?? '',
+                        'proofs' => $uploadedProofs,
+                        'verified' => false,
                     ],
                 ]);
             }
+
             return back()->with('success', 'Payment berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Gagal update payment: ' . $e->getMessage());
+
+            return back()->with('error', 'Gagal update payment: '.$e->getMessage());
         }
     }
 
@@ -2271,7 +2333,7 @@ class PurchaseListController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Gagal verifikasi payment: ' . $e->getMessage(),
+                'message' => 'Gagal verifikasi payment: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -2297,10 +2359,12 @@ class PurchaseListController extends Controller
             $purchase = Purchase::onlyTrashed()->findOrFail($id);
             $purchase->forceDelete();
             DB::commit();
+
             return redirect()->back()->with('success', 'Purchase berhasil dihapus permanen!');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Force delete purchase gagal', ['purchase_id' => $id, 'error' => $e->getMessage()]);
+
             return redirect()->back()->with('error', 'Gagal menghapus permanen purchase!');
         }
     }
@@ -2311,7 +2375,7 @@ class PurchaseListController extends Controller
 
         try {
             $purchase = Purchase::onlyTrashed()
-                ->with(['purchaseItems' => fn($q) => $q->withTrashed()])
+                ->with(['purchaseItems' => fn ($q) => $q->withTrashed()])
                 ->findOrFail($id);
 
             // ✅ Restore purchase
@@ -2320,16 +2384,24 @@ class PurchaseListController extends Controller
             // ✅ Restore purchase items
             $purchase->purchaseItems()->withTrashed()->restore();
 
-            $inventories = \App\Models\Inventory::with(['items' => fn($q) => $q->withTrashed()])
+            if ($purchase->parent_purchase_id) {
+                $this->refreshParentPurchaseProgress($purchase->parent_purchase_id);
+            }
+
+            $inventories = \App\Models\Inventory::with(['items' => fn ($q) => $q->withTrashed()])
                 ->withTrashed()
                 ->where('purchase_id', $purchase->id)
                 ->get();
 
             foreach ($inventories as $inventory) {
-                if ($inventory->trashed()) $inventory->restore();
+                if ($inventory->trashed()) {
+                    $inventory->restore();
+                }
 
                 foreach ($inventory->items as $invItem) {
-                    if ($invItem->trashed()) $invItem->restore();
+                    if ($invItem->trashed()) {
+                        $invItem->restore();
+                    }
                 }
             }
 
@@ -2360,13 +2432,21 @@ class PurchaseListController extends Controller
 
             foreach ($transactions as $trx) {
                 $account = Account::find($trx->account_id);
-                if (!$account) continue;
+                if (! $account) {
+                    continue;
+                }
 
                 if ($account->type === 'Purchase Account') {
-                    if ($trx->trashed()) $trx->restore();
+                    if ($trx->trashed()) {
+                        $trx->restore();
+                    }
 
-                    if ($trx->debit > 0) $account->closing_balance += $trx->debit;
-                    if ($trx->credit > 0) $account->closing_balance -= $trx->credit;
+                    if ($trx->debit > 0) {
+                        $account->closing_balance += $trx->debit;
+                    }
+                    if ($trx->credit > 0) {
+                        $account->closing_balance -= $trx->credit;
+                    }
                 } else {
                     $trx->purchase_id = $purchase->id;
                     $trx->note = str_replace('[Purchase deleted]', '', $trx->note ?? '');
@@ -2388,6 +2468,7 @@ class PurchaseListController extends Controller
             }
 
             DB::commit();
+
             return redirect()->back()->with('success', 'Purchase dan Inventory terkait berhasil direstore!');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -2395,7 +2476,28 @@ class PurchaseListController extends Controller
                 'purchase_id' => $id,
                 'error' => $e->getMessage(),
             ]);
-            return redirect()->back()->with('error', 'Gagal mengembalikan purchase! ' . $e->getMessage());
+
+            return redirect()->back()->with('error', 'Gagal mengembalikan purchase! '.$e->getMessage());
         }
+    }
+
+    private function refreshParentPurchaseProgress(int $parentPurchaseId): void
+    {
+        $parent = Purchase::with('purchaseItems')->find($parentPurchaseId);
+        if (! $parent) {
+            return;
+        }
+
+        $ordered = (float) $parent->purchaseItems->sum('quantity');
+        $allocated = (float) PurchaseItem::whereIn(
+            'source_purchase_item_id',
+            $parent->purchaseItems->pluck('id')
+        )->sum('quantity');
+
+        $parent->update([
+            'approval_status' => $allocated <= 0
+                ? 'Approved'
+                : ($allocated >= $ordered ? 'Completed' : 'Partial'),
+        ]);
     }
 }

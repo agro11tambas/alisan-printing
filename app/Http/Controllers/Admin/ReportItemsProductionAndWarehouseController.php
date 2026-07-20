@@ -163,7 +163,7 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     if ($isPolosan) {
                         // POLOSAN = tidak dikurangi apa pun
-                        $final = $inventoryStock + $productionAvailable;
+                        $final = $inventoryStock + $productionAvailable + $pendingWaitingList;
                     } else {
                         // PRINTING = inventory + production - pending waiting list
                         $final = $inventoryStock + $productionAvailable - $pendingWaitingList;

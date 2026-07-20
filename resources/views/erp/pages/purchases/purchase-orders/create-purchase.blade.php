@@ -235,7 +235,7 @@
                                                 <label>Unit</label>
                                                 <select class="form-control select-unit" name="product_unit_id[]"
                                                     id="product_unit_0">
-                                                    <option value="" data-name="Pcs" data-ratio="1" selected>
+                                                    <option value="" data-name="Pcs" data-ratio="1" data-conversion="1" selected>
                                                         Default Unit</option>
                                                 </select>
 
@@ -280,7 +280,7 @@
                                             <div class="form-group">
                                                 <label>Unit</label>
                                                 <select class="form-control select-unit" name="product_unit_id[]">
-                                                    <option value="" data-name="Pcs" data-ratio="1" selected>
+                                                    <option value="" data-name="Pcs" data-ratio="1" data-conversion="1" selected>
                                                         Default Unit</option>
                                                 </select>
 
@@ -339,6 +339,7 @@
                             'id' => $conversion->id,
                             'unit_name' => optional($conversion->unit)->name ?? 'Pcs',
                             'ratio_value' => $conversion->ratio_value ?? 1,
+                            'conversion_value' => $conversion->conversion_value ?? 1,
                         ];
                     })
                     ->values(),
@@ -407,14 +408,15 @@
                     $unitSelect.append(`
                 <option value="${unit.id}"
                     data-name="${unit.unit_name}"
-                    data-ratio="${unit.ratio_value}">
+                    data-ratio="${unit.ratio_value}"
+                    data-conversion="${unit.conversion_value}">
                     ${unit.unit_name}
                 </option>
             `);
                 });
 
                 const $baseUnit = $unitSelect.find('option').filter(function() {
-                    return Number($(this).data('ratio')) === 1;
+                    return Number($(this).data('conversion')) === 1;
                 });
 
                 if ($baseUnit.length) {
@@ -426,7 +428,7 @@
                 syncSelectedUnit($row);
             } else {
                 $unitSelect.append(`
-            <option value="" data-name="Pcs" data-ratio="1" selected>
+            <option value="" data-name="Pcs" data-ratio="1" data-conversion="1" selected>
                 Default Unit
             </option>
         `);

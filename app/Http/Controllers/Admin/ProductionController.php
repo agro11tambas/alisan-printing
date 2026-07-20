@@ -267,9 +267,11 @@ class ProductionController extends Controller
         // });
 
         $grouped = $allData->groupBy(function ($item) {
-            $supplierId = optional($item->purchase->supplier ?? null)->id
-                ?? ($item->sale_return_id ? 'return_' . (optional($item->saleReturn->customer)->id ?? 'unknown') : 'other');
-            return $supplierId;
+            // Flow aktif: satu baris per Purchase List/inventory.
+            // Grouping supplier yang lama tetap disimpan di blok komentar di atas.
+            return $item->purchase_id
+                ? 'purchase_list_'.$item->purchase_id
+                : 'inventory_'.$item->id;
         });
 
 
@@ -277,7 +279,7 @@ class ProductionController extends Controller
         if ($request->filled('progress_status')) {
             $grouped = $grouped->filter(function ($items) use ($request) {
                 $allCompleted = $items->every(function ($inv) {
-                    return $inv->items->every(fn($item) => $item->stock_in >= $item->quantity);
+                    return $inv->items->every(fn($item) => $item->stock_in >= ($item->qty_base ?? $item->quantity));
                 });
 
                 if ($request->progress_status === 'completed') return $allCompleted;
@@ -346,6 +348,7 @@ class ProductionController extends Controller
                         // 'month'       => $monthNum,
                         'isCompleted' => $isGroupCompleted,
                         'inventory'   => $first,
+                        'inventoryId' => $first->purchase_id ? $first->id : null,
                     ]
                 )->render();
 
@@ -367,7 +370,7 @@ class ProductionController extends Controller
                     'transaction_number' => $transactionDisplay,
                     'date'               => $month,
                     'date_raw'           => $first->purchase?->purchase_date ?? $first->created_at,
-                    'partner_name'       => $partner . ' <small class="text-muted">(' . $items->count() . ' PO)</small>',
+                    'partner_name'       => $partner,
                     'stock_in'           => $stockInHtml,
                     'action'             => $actionHtml,
                 ];

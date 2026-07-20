@@ -116,9 +116,9 @@
                     </a>
                 </div>
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="/erp/purchases/purchase-list/create-purchase" class="btn btn-primary">
-                        <i class="feather-plus me-2"></i>
-                        <span>Create Purchase List</span>
+                    <a href="/erp/purchases/purchase-orders" class="btn btn-primary">
+                        <i class="feather-git-branch me-2"></i>
+                        <span>Create via Purchase Order</span>
                     </a>
                 </div>
             </div>

@@ -2,23 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use App\Models\PurchaseProduct;
-use App\Models\Purchase;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PurchaseItem extends Model
 {
     use HasFactory;
-
     use SoftDeletes;
 
     protected $table = 'purchase_items';
 
     protected $fillable = [
         'purchase_id',
+        'source_purchase_item_id',
         'product_id',
         'product_unit_conversion_id',
         'unit_name',
@@ -51,6 +49,16 @@ class PurchaseItem extends Model
     public function purchase(): BelongsTo
     {
         return $this->belongsTo(Purchase::class, 'purchase_id');
+    }
+
+    public function sourcePurchaseItem(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'source_purchase_item_id');
+    }
+
+    public function purchaseListItems()
+    {
+        return $this->hasMany(self::class, 'source_purchase_item_id');
     }
 
     public function scopeAccount($query)

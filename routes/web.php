@@ -414,6 +414,10 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::middleware(['web.auth', 'subpermission:stock-in-production'])->group(function () {
             Route::get('/erp/productions/stock-in/data', [ProductionController::class, 'dataStockIn']);
             Route::get('/erp/productions/stock-in', [ProductionController::class, 'getStockIn']);
+            Route::get('/erp/productions/stock-in/by-pl/{inventory_id}/add', [ProductionStockInController::class, 'addStockInByPurchaseList']);
+            Route::post('/erp/productions/stock-in/by-pl/{inventory_id}/store', [ProductionStockInController::class, 'storeByPurchaseList']);
+            Route::get('/erp/productions/stock-in/by-pl/{inventory_id}/history', [ProductionStockInController::class, 'getHistoryByPurchaseList']);
+            Route::get('/erp/productions/stock-in/by-pl/{inventory_id}/history/data', [ProductionStockInController::class, 'dataHistoryByPurchaseList']);
             // Route::get('/erp/productions/stock-in/add-stock-in/{id}', [ProductionStockInController::class, 'addStockIn']);
             // Route::post('/erp/productions/stock-in/store/{id}', [ProductionStockInController::class, 'store']);
             Route::get('/erp/productions/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'addStockIn']);
@@ -474,6 +478,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::get('/erp/purchases/purchase-orders/edit-purchase/{id}', [PurchaseOrderController::class, 'edit']);
             Route::put('/erp/purchases/purchase-orders/update/{id}', [PurchaseOrderController::class, 'update']);
             Route::delete('/erp/purchases/purchase-orders/delete/{id}', [PurchaseOrderController::class, 'delete']);
+            Route::post('/erp/purchases/purchase-orders/approve/{id}', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve');
             Route::get('/erp/purchases/purchase-orders/mark-as-purchase-list/{id}', [PurchaseOrderController::class, 'markAsPurchaseList']);
             Route::put('/erp/purchases/purchase-orders/mark-as-purchase-list/update/{id}', [PurchaseOrderController::class, 'updatePurchaseList'])->name('purchase-orders.update-purchase-list');
         });
@@ -531,6 +536,10 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::middleware(['web.auth', 'subpermission:stock-in'])->group(function () {
             Route::get('/erp/inventory/stock-in/data', [InventoryController::class, 'dataStockIn']);
             Route::get('/erp/inventory/stock-in', [InventoryController::class, 'getStockIn']);
+            Route::get('/erp/inventory/stock-in/by-pl/{inventory_id}/add', [HistoryStockInController::class, 'addStockInByPurchaseList']);
+            Route::post('/erp/inventory/stock-in/by-pl/{inventory_id}/store', [HistoryStockInController::class, 'storeByPurchaseList']);
+            Route::get('/erp/inventory/stock-in/by-pl/{inventory_id}/history', [HistoryStockInController::class, 'getHistoryByPurchaseList']);
+            Route::get('/erp/inventory/stock-in/by-pl/{inventory_id}/history/data', [HistoryStockInController::class, 'dataHistoryByPurchaseList']);
 
             // Route::get('/erp/inventory/stock-in/add-stock-in/{id}', [HistoryStockInController::class, 'addStockIn']);
             Route::get('/erp/inventory/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'addStockIn']);

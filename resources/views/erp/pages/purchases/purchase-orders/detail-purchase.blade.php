@@ -60,31 +60,52 @@
                                         <thead>
                                             <tr>
                                                 <th>Product</th>
-                                                <th>Price</th>
-                                                <th>QTY</th>
-                                                <th class="text-end">Amount</th>
+                                                <th>PO Qty</th>
+                                                <th>Approved ke PL</th>
+                                                <th>Sisa</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @foreach ($purchase->purchaseItems as $item)
                                                 <tr>
                                                     <td>{{ $item->purchaseProduct->name }}</td>
-                                                    <td>Rp. {{ number_format($item->price, 0, ',', '.') }}</td>
-                                                    <td>{{ $item->quantity }}</td>
-                                                    <td class="text-end">Rp.
-                                                        {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                                                    @php($approved = $item->purchaseListItems->sum('quantity'))
+                                                    <td>{{ number_format($item->quantity, 0, ',', '.') }} {{ $item->unit_name }}</td>
+                                                    <td>{{ number_format($approved, 0, ',', '.') }} {{ $item->unit_name }}</td>
+                                                    <td class="fw-bold text-primary">{{ number_format(max(0, $item->quantity - $approved), 0, ',', '.') }} {{ $item->unit_name }}</td>
                                                 </tr>
                                             @endforeach
-                                            @php
-                                                $totalAmount = $purchase->purchaseItems->sum('subtotal');
-                                            @endphp
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card stretch">
+                            <div class="card-header">
+                                <h5 class="card-title">Purchase Lists</h5>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table mb-0">
+                                        <thead>
                                             <tr>
-                                                <td colspan="2" class="border-0"></td>
-                                                <td class="fw-semibold text-dark text-lg-end border-bottom text-end">Sub
-                                                    Total</td>
-                                                <td class="fw-bold text-dark border-bottom text-end">Rp.
-                                                    {{ number_format($totalAmount, 0, ',', '.') }}</td>
+                                                <th>PL Number</th>
+                                                <th>Date</th>
+                                                <th>Products</th>
+                                                <th>Total</th>
                                             </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse ($purchase->purchaseLists as $purchaseList)
+                                                <tr>
+                                                    <td><a href="/erp/purchases/purchase-list/detail-purchase/{{ $purchaseList->id }}">{{ $purchaseList->purchase_number }}</a></td>
+                                                    <td>{{ $purchaseList->purchase_date?->format('d M Y') }}</td>
+                                                    <td>{{ number_format($purchaseList->purchaseItems->sum('quantity'), 0, ',', '.') }}</td>
+                                                    <td>Rp. {{ number_format($purchaseList->total_amount, 0, ',', '.') }}</td>
+                                                </tr>
+                                            @empty
+                                                <tr><td colspan="4" class="text-center text-muted">Belum ada Purchase List.</td></tr>
+                                            @endforelse
                                         </tbody>
                                     </table>
                                 </div>
@@ -137,7 +158,7 @@
                                         </div>
                                         <div class="col-6 d-flex">
                                             <span
-                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->status }}</span>
+                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->approval_status ?? 'Draft' }}</span>
                                         </div>
                                     </div>
                                     <div class="row align-items-center mb-2 task-list-row">

@@ -130,6 +130,12 @@ class InventoryController extends Controller
         // });
 
         $grouped = $data->groupBy(function ($item) {
+            // Flow aktif: setiap Purchase List memiliki baris Stock In sendiri.
+            // Grouping supplier + bulan yang lama tetap disimpan di blok komentar di atas.
+            if ($item->purchase_id) {
+                return 'purchase_list_'.$item->purchase_id;
+            }
+
             $supplierId = optional($item->purchase->supplier ?? null)->id
                 ?? ($item->sale_return_id ? 'return_' . (optional($item->saleReturn->customer)->id ?? 'unknown') : 'other');
             $month = Carbon::parse($item->purchase?->purchase_date ?? $item->created_at)->format('Y-m');
@@ -140,7 +146,7 @@ class InventoryController extends Controller
             $grouped = $grouped->filter(function ($items) use ($request) {
                 // Cek apakah SEMUA items di semua invoice dalam group ini completed
                 $allCompleted = $items->every(function ($inv) {
-                    return $inv->items->every(fn($item) => $item->stock_in >= $item->quantity);
+                    return $inv->items->every(fn($item) => $item->stock_in >= ($item->qty_base ?? $item->quantity));
                 });
 
                 if ($request->progress_status === 'completed') {
@@ -224,6 +230,7 @@ class InventoryController extends Controller
                         'month'       => $month,
                         'isCompleted' => $isGroupCompleted,
                         'inventory'   => $first, // untuk history link
+                        'inventoryId' => $first->purchase_id ? $first->id : null,
                     ]
                 )->render();
 
@@ -253,7 +260,7 @@ class InventoryController extends Controller
                     'date'               => $month,
                     // 'date_raw'           => $first->purchase_date,
                     'date_raw' => $first->purchase?->purchase_date ?? $first->created_at,
-                    'partner_name'       => $partner . ' <small class="text-muted">(' . $items->count() . ' PO)</small>',
+                    'partner_name'       => $partner,
                     'stock_in'           => $stockInHtml,
                     'action'             => $actionHtml,
                     'transaction_mobile' => '

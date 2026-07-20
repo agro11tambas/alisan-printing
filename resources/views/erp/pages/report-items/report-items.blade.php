@@ -45,8 +45,7 @@
         #combinedReportTable_wrapper .dataTables_scrollBody td:nth-child(2),
         #combinedReportTable_wrapper .dataTables_scrollHead th:nth-child(2) {
             position: sticky;
-            left: 70px;
-            /* Sesuaikan lebar kolom No */
+            left: var(--report-no-column-width, 42px);
             background: #fff;
             z-index: 60 !important;
         }
@@ -247,6 +246,22 @@
             let hasMoreData = true;
             let lastKeyword = ''; // 🔹 simpan keyword terakhir
 
+            function syncStickyColumnOffset() {
+                window.requestAnimationFrame(function() {
+                    const wrapper = document.getElementById('combinedReportTable_wrapper');
+                    const firstColumn = wrapper?.querySelector(
+                        '.dataTables_scrollBody tbody tr td:first-child, .dataTables_scrollHead th:first-child'
+                    );
+
+                    if (wrapper && firstColumn) {
+                        wrapper.style.setProperty(
+                            '--report-no-column-width',
+                            `${firstColumn.getBoundingClientRect().width}px`
+                        );
+                    }
+                });
+            }
+
             let table = $('#combinedReportTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -333,6 +348,10 @@
                     }
                 ]
             });
+
+            table.on('draw.dt column-visibility.dt', syncStickyColumnOffset);
+            $(window).on('resize.reportItems', syncStickyColumnOffset);
+            syncStickyColumnOffset();
 
             // =========================
             // ✅ Fungsi utama load data

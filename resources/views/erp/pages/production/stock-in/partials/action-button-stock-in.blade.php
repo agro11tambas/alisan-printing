@@ -1,7 +1,7 @@
 {{-- <div class="dropdown">
     <ul class="dropdown-menu show static-action-menu">
         @php
-            $isCompleted = $inventory->items->every(fn($item) => $item->stock_in >= $item->quantity);
+            $isCompleted = $inventory->items->every(fn($item) => $item->stock_in >= ($item->qty_base ?? $item->quantity));
         @endphp
 
         @if (!$isCompleted)
@@ -49,7 +49,14 @@
 <div class="dropdown">
     <ul class="dropdown-menu show static-action-menu">
 
-        @if (!$isCompleted && $supplierId)
+        @if (!$isCompleted && !empty($inventoryId))
+            <li>
+                <a class="dropdown-item" href="/erp/productions/stock-in/by-pl/{{ $inventoryId }}/add">
+                    <i class="feather feather-plus me-3"></i>
+                    <span>Add Stock In</span>
+                </a>
+            </li>
+        @elseif (!$isCompleted && $supplierId)
             <li>
                 <a class="dropdown-item" href="/erp/productions/stock-in/add-stock-in/{{ $supplierId }}">
                     <i class="feather feather-plus me-3"></i>
@@ -59,7 +66,9 @@
         @endif
 
         <li>
-            <a class="dropdown-item" href="/erp/productions/stock-in/history/{{ $supplierId }}">
+            <a class="dropdown-item" href="{{ !empty($inventoryId)
+                ? url('/erp/productions/stock-in/by-pl/' . $inventoryId . '/history')
+                : url('/erp/productions/stock-in/history/' . $supplierId) }}">
                 <i class="feather feather-info me-3"></i>
                 <span>History Stock In</span>
             </a>
