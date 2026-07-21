@@ -20,6 +20,15 @@
             </a>
         </li>
         @endif
+        @if (Auth::user()->hasSubPermission('purchase-list'))
+        <li>
+            <a href="/erp/purchases/purchase-list?purchase_order_id={{ $purchase->id }}"
+                class="dropdown-item">
+                <i class="feather feather-list"></i>
+                <span>Purchase List</span>
+            </a>
+        </li>
+        @endif
         <li>
             <a href="/erp/purchases/purchase-orders/detail-purchase/{{ $purchase->id }}" class="dropdown-item">
                 <i class="feather feather-eye"></i>

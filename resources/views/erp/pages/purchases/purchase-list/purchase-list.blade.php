@@ -101,11 +101,16 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Purchase</h5>
+                <h5 class="m-b-10">Purchase List</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
-                <li class="breadcrumb-item">Purchase</li>
+                <li class="breadcrumb-item"><a href="/erp/purchases/purchase-orders">Purchase Order</a></li>
+                @if ($purchaseOrder)
+                    <li class="breadcrumb-item">{{ $purchaseOrder->purchase_number }}</li>
+                @else
+                    <li class="breadcrumb-item">Purchase List</li>
+                @endif
             </ul>
         </div>
         <div class="page-header-right ms-auto">
@@ -116,9 +121,9 @@
                     </a>
                 </div>
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="/erp/purchases/purchase-orders" class="btn btn-primary">
-                        <i class="feather-git-branch me-2"></i>
-                        <span>Create via Purchase Order</span>
+                    <a href="/erp/purchases/purchase-orders" class="btn btn-light-brand">
+                        <i class="feather-arrow-left me-2"></i>
+                        <span>Back to Purchase Order</span>
                     </a>
                 </div>
             </div>
@@ -776,6 +781,7 @@
                     data: {
                         start: currentPage * 50,
                         length: 50,
+                        purchase_order_id: @json($purchaseOrder?->id),
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -1087,6 +1093,7 @@
                     data: {
                         start: deletedCurrentPage * 50,
                         length: 50,
+                        purchase_order_id: @json($purchaseOrder?->id),
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),

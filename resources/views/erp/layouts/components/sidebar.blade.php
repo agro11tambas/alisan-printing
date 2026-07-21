@@ -263,14 +263,8 @@
                         <ul class="nxl-submenu">
                             @if (Auth::user()->hasSubPermission('purchase-orders'))
                                 <li class="nxl-item "><a
-                                        class="nxl-link {{ request()->is('purchases/purchase-orders*') ? 'active' : '' }}"
+                                        class="nxl-link {{ request()->is('purchases/purchase-orders*') || request()->is('purchases/purchase-list*') ? 'active' : '' }}"
                                         href="/erp/purchases/purchase-orders"><span class="">Purchase
-                                            Orders</span></a></li>
-                            @endif
-                            @if (Auth::user()->hasSubPermission('purchase-list'))
-                                <li class="nxl-item "><a
-                                        class="nxl-link {{ request()->is('purchases/purchase-list*') ? 'active' : '' }}"
-                                        href="/erp/purchases/purchase-list"><span class="">Purchase
                                             List</span></a></li>
                             @endif
                             @if (Auth::user()->hasSubPermission('purchase-returns'))

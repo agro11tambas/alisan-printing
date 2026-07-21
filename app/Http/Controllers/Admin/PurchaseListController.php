@@ -38,7 +38,7 @@ class PurchaseListController extends Controller
         return response()->json(['price' => $latestPrice]);
     }
 
-    public function getPurchaseList()
+    public function getPurchaseList(Request $request)
     {
         $purchase_number = Purchase::first();
         $transactionTypes = Account::where('name', 'Purchase')->get();
@@ -46,8 +46,14 @@ class PurchaseListController extends Controller
         $bankAccounts = Account::where('name', 'Bank')->get();
 
         $defaultAccount = Account::where('is_default', true)->first();
+        $purchaseOrder = null;
 
-        return view('erp.pages.purchases.purchase-list.purchase-list', compact('purchase_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount'));
+        if ($request->integer('purchase_order_id') > 0) {
+            $purchaseOrder = Purchase::where('status', 'Purchase Orders')
+                ->findOrFail($request->integer('purchase_order_id'));
+        }
+
+        return view('erp.pages.purchases.purchase-list.purchase-list', compact('purchase_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount', 'purchaseOrder'));
     }
 
     public function dataPurchaseList(Request $request)
@@ -58,6 +64,10 @@ class PurchaseListController extends Controller
         $purchases = Purchase::with(['supplier', 'parentPurchase', 'purchaseItems.purchaseProduct', 'inventories.stockIns'])
             ->where('status', 'Purchase List')
             ->orderByDesc('id');
+
+        if ($request->integer('purchase_order_id') > 0) {
+            $purchases->where('parent_purchase_id', $request->integer('purchase_order_id'));
+        }
 
         // ✅ Filter tanggal
         if ($request->filter) {
@@ -312,6 +322,10 @@ class PurchaseListController extends Controller
             ->with(['supplier', 'purchaseItems.purchaseProduct', 'deletedByUser'])
             ->where('status', 'Purchase List')
             ->orderByDesc('deleted_at');
+
+        if ($request->integer('purchase_order_id') > 0) {
+            $purchases->where('parent_purchase_id', $request->integer('purchase_order_id'));
+        }
 
         // Filter tanggal (based on purchase_date)
         if ($request->filter) {
