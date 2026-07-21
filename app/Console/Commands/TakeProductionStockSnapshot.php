@@ -2,34 +2,36 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\ProductionStock;
 use App\Models\ProductionStockSnapshot;
+use App\Models\StockOpnameProduction;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TakeProductionStockSnapshot extends Command
 {
-    protected $signature   = 'stock:snapshot';
+    protected $signature = 'stock:snapshot';
+
     protected $description = 'Take a daily opening stock snapshot for all active production stocks';
 
     public function handle(): void
     {
-        $today  = today()->toDateString();
+        $today = today()->toDateString();
         $stocks = ProductionStock::query()
-            ->whereHas('product', fn($q) => $q->whereNull('products.deleted_at'))
+            ->whereHas('product', fn ($q) => $q->whereNull('products.deleted_at'))
             ->get();
 
         foreach ($stocks as $stock) {
             $productId = $stock->product_id;
 
             $snapshot = ProductionStockSnapshot::firstOrNew([
-                'product_id'    => $productId,
+                'product_id' => $productId,
                 'snapshot_date' => $today,
             ]);
 
             // opening_stock hanya diset saat pertama kali (record baru)
-            if (!$snapshot->exists) {
+            if (! $snapshot->exists) {
                 $snapshot->opening_stock = $stock->available_quantity ?? 0;
             }
 
@@ -61,6 +63,11 @@ class TakeProductionStockSnapshot extends Command
                 ->whereNull('deleted_at')
                 ->whereDate('created_at', $today)
                 ->sum('assigned_quantity');
+
+            $snapshot->stock_opname_today = StockOpnameProduction::where('product_id', $productId)
+                ->whereDate('date', $today)
+                ->get()
+                ->sum(fn (StockOpnameProduction $stockOpname) => $stockOpname->signedQuantity());
 
             $snapshot->save();
         }

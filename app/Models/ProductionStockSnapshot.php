@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -17,12 +18,33 @@ class ProductionStockSnapshot extends Model
         'closing_stock',
         'stock_in_today',
         'assign_today',
+        'stock_opname_today',
         'snapshot_date',
     ];
 
     protected $casts = [
         'snapshot_date' => 'date',
     ];
+
+    public static function adjustStockOpname(int $productId, CarbonInterface|string $date, int $adjustment): void
+    {
+        if ($adjustment === 0) {
+            return;
+        }
+
+        $snapshot = static::firstOrCreate(
+            [
+                'product_id' => $productId,
+                'snapshot_date' => $date,
+            ],
+            [
+                'opening_stock' => ProductionStock::where('product_id', $productId)
+                    ->sum('available_quantity'),
+            ]
+        );
+
+        $snapshot->increment('stock_opname_today', $adjustment);
+    }
 
     // ── Relations ──────────────────────────────────────────
 

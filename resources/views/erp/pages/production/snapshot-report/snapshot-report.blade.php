@@ -130,6 +130,7 @@
                                         <th>Opening Stock</th>
                                         <th>Stock In</th>
                                         <th>Assign Today</th>
+                                        <th>Stock Opname Today</th>
                                         <th>Closing Stock</th>
                                     </tr>
                                 </thead>
@@ -190,6 +191,9 @@
                     },
                     {
                         data: 'assign_today'
+                    },
+                    {
+                        data: 'stock_opname_today'
                     },
                     {
                         data: 'closing_stock'
@@ -263,6 +267,7 @@
                             <div class="report-mobile-row"><span class="label">Opening Stock</span><span class="value">${row.opening_stock}</span></div>
                             <div class="report-mobile-row"><span class="label">Stock In</span><span class="value">${row.stock_in_today}</span></div>
                             <div class="report-mobile-row"><span class="label">Assign Today</span><span class="value">${row.assign_today}</span></div>
+                            <div class="report-mobile-row"><span class="label">Stock Opname Today</span><span class="value">${row.stock_opname_today}</span></div>
                             <div class="report-mobile-row"><span class="label">Closing Stock</span><span class="value">${row.closing_stock}</span></div>
                         </div>
                     `);

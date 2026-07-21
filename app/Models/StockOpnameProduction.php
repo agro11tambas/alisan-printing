@@ -26,6 +26,56 @@ class StockOpnameProduction extends Model
         'date' => 'date',
     ];
 
+    protected static function booted(): void
+    {
+        static::created(function (StockOpnameProduction $stockOpname) {
+            ProductionStockSnapshot::adjustStockOpname(
+                $stockOpname->product_id,
+                $stockOpname->date,
+                $stockOpname->signedQuantity()
+            );
+        });
+
+        static::updated(function (StockOpnameProduction $stockOpname) {
+            $originalQuantity = static::signedQuantityFrom(
+                $stockOpname->getOriginal('status'),
+                $stockOpname->getOriginal('available_quantity')
+            );
+
+            ProductionStockSnapshot::adjustStockOpname(
+                $stockOpname->getOriginal('product_id'),
+                $stockOpname->getOriginal('date'),
+                -$originalQuantity
+            );
+
+            ProductionStockSnapshot::adjustStockOpname(
+                $stockOpname->product_id,
+                $stockOpname->date,
+                $stockOpname->signedQuantity()
+            );
+        });
+
+        static::deleted(function (StockOpnameProduction $stockOpname) {
+            ProductionStockSnapshot::adjustStockOpname(
+                $stockOpname->product_id,
+                $stockOpname->date,
+                -$stockOpname->signedQuantity()
+            );
+        });
+    }
+
+    public function signedQuantity(): int
+    {
+        return static::signedQuantityFrom($this->status, $this->available_quantity);
+    }
+
+    private static function signedQuantityFrom(?string $status, mixed $quantity): int
+    {
+        $quantity = (int) $quantity;
+
+        return strcasecmp((string) $status, 'Loss') === 0 ? -$quantity : $quantity;
+    }
+
     public function product()
     {
         return $this->belongsTo(Products::class);

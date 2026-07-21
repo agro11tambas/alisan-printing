@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ProductionStock;
 use App\Models\ProductionStockSnapshot;
 use App\Models\Products;
+use App\Models\StockOpnameProduction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -71,12 +72,12 @@ class ProductionStockSnapshotController extends Controller
         $isToday = $date === today()->toDateString(); // 🔥
 
         $stocks = ProductionStock::query()
-            ->whereHas('product', fn($q) => $q->whereNull('products.deleted_at'))
+            ->whereHas('product', fn ($q) => $q->whereNull('products.deleted_at'))
             ->with('product')
             ->when($request->filled('product_name'), function ($q) use ($request) {
                 $keyword = $request->product_name;
-                $q->whereHas('product', fn($q2) => $q2->where('name', 'like', '%' . $keyword . '%')
-                    ->orWhere('sku', 'like', '%' . $keyword . '%'));
+                $q->whereHas('product', fn ($q2) => $q2->where('name', 'like', '%'.$keyword.'%')
+                    ->orWhere('sku', 'like', '%'.$keyword.'%'));
             })
             ->orderBy(
                 Products::select('name')
@@ -112,31 +113,38 @@ class ProductionStockSnapshotController extends Controller
                     ->whereDate('s.created_at', $date)
                     ->sum('h.stock_in');
 
-                $stockInToday  = ($fromMaterial ?? 0) + ($fromInventory ?? 0);
+                $stockInToday = ($fromMaterial ?? 0) + ($fromInventory ?? 0);
 
                 $assignToday = \App\Models\OrderProgressAssign::where('product_id', $productId)
                     ->whereNull('deleted_at')
                     ->whereDate('created_at', $date)
                     ->sum('assigned_quantity');
 
-                $openingStock  = $snap?->opening_stock ?? 0; // tetap dari snapshot kalau ada
-                $closingStock  = $stock->available_quantity ?? 0; // real-time
+                $stockOpnameToday = StockOpnameProduction::where('product_id', $productId)
+                    ->whereDate('date', $date)
+                    ->get()
+                    ->sum(fn (StockOpnameProduction $stockOpname) => $stockOpname->signedQuantity());
+
+                $openingStock = $snap?->opening_stock ?? 0; // tetap dari snapshot kalau ada
+                $closingStock = $stock->available_quantity ?? 0; // real-time
             } else {
                 // 📦 Dari snapshot tersimpan
-                $stockInToday  = $snap?->stock_in_today ?? 0;
-                $assignToday   = $snap?->assign_today ?? 0;
-                $openingStock  = $snap?->opening_stock ?? 0;
-                $closingStock  = $snap?->closing_stock ?? 0;
+                $stockInToday = $snap?->stock_in_today ?? 0;
+                $assignToday = $snap?->assign_today ?? 0;
+                $stockOpnameToday = $snap?->stock_opname_today ?? 0;
+                $openingStock = $snap?->opening_stock ?? 0;
+                $closingStock = $snap?->closing_stock ?? 0;
             }
 
             return [
-                'product_name'       => $stock->product->name ?? '-',
+                'product_name' => $stock->product->name ?? '-',
                 'available_quantity' => number_format($stock->available_quantity ?? 0, 0, ',', '.'),
-                'snapshot_date'      => \Carbon\Carbon::parse($date)->format('d/m/Y'),
-                'opening_stock'      => number_format($openingStock, 0, ',', '.'),
-                'closing_stock'      => number_format($closingStock, 0, ',', '.'),
-                'stock_in_today'     => number_format($stockInToday, 0, ',', '.'),
-                'assign_today'       => number_format($assignToday, 0, ',', '.'),
+                'snapshot_date' => \Carbon\Carbon::parse($date)->format('d/m/Y'),
+                'opening_stock' => number_format($openingStock, 0, ',', '.'),
+                'closing_stock' => number_format($closingStock, 0, ',', '.'),
+                'stock_in_today' => number_format($stockInToday, 0, ',', '.'),
+                'assign_today' => number_format($assignToday, 0, ',', '.'),
+                'stock_opname_today' => number_format($stockOpnameToday, 0, ',', '.'),
             ];
         });
 
