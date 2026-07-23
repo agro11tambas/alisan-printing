@@ -61,7 +61,7 @@
                                             <tr>
                                                 <th>Product</th>
                                                 <th>PO Qty</th>
-                                                <th>Approved ke PL</th>
+                                                <th>Verify ke PL</th>
                                                 <th>Sisa</th>
                                             </tr>
                                         </thead>
@@ -158,7 +158,7 @@
                                         </div>
                                         <div class="col-6 d-flex">
                                             <span
-                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->approval_status ?? 'Draft' }}</span>
+                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->approval_status === 'Approved' ? 'Verify' : ($purchase->approval_status ?? 'Draft') }}</span>
                                         </div>
                                     </div>
                                     <div class="row align-items-center mb-2 task-list-row">

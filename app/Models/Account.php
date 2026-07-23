@@ -17,6 +17,12 @@ class Account extends Model
         'opening_balance',
         'closing_balance',
         'is_default',
+        'is_default_purchase',
+    ];
+
+    protected $casts = [
+        'is_default' => 'boolean',
+        'is_default_purchase' => 'boolean',
     ];
 
     public function transactions()

@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CustomerAccount;
+use App\Models\CustomerPasswordResetToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -87,6 +89,42 @@ class CustomerAccountController extends Controller
         $customerAccount = CustomerAccount::findOrFail($id);
 
         return view('erp.pages.customer-accounts.edit-customer-account', compact('customerAccount'));
+    }
+
+    public function generatePasswordResetLink($id)
+    {
+        $customerAccount = CustomerAccount::findOrFail($id);
+
+        if (! $customerAccount->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Link reset password hanya dapat dibuat untuk akun yang aktif.',
+            ], 422);
+        }
+
+        $plainToken = Str::random(64);
+        $expiresAt = now()->addHour();
+
+        CustomerPasswordResetToken::updateOrCreate(
+            ['customer_account_id' => $customerAccount->id],
+            [
+                'token_hash' => hash('sha256', $plainToken),
+                'expires_at' => $expiresAt,
+                'used_at' => null,
+            ]
+        );
+
+        $websiteUrl = rtrim(config('app.frontend_website_url'), '/');
+        $resetUrl = $websiteUrl.'/reset-password?'.http_build_query(['token' => $plainToken]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Link reset password berhasil dibuat dan berlaku selama 1 jam.',
+            'data' => [
+                'reset_url' => $resetUrl,
+                'expires_at' => $expiresAt->toIso8601String(),
+            ],
+        ]);
     }
 
     public function update(Request $request, $id)

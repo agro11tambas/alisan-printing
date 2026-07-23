@@ -185,6 +185,7 @@ class ProductionController extends Controller
         $inventory = Inventory::with([
             'items',
             'purchase.supplier',
+            'purchase.parentPurchase',
             'order.customer',
             'saleReturn.customer',
             'materialRequest',
@@ -227,7 +228,10 @@ class ProductionController extends Controller
             if ($request->search_type === 'invoice_number') {
                 $inventory->where(function ($q) use ($request) {
                     $q->where('purchase_number', 'like', '%' . $request->search_keyword . '%')
-                        ->orWhere('order_number', 'like', '%' . $request->search_keyword . '%');
+                        ->orWhere('order_number', 'like', '%' . $request->search_keyword . '%')
+                        ->orWhereHas('purchase.parentPurchase', function ($query) use ($request) {
+                            $query->where('purchase_number', 'like', '%' . $request->search_keyword . '%');
+                        });
                 });
             } elseif ($request->search_type === 'partner') {
                 $inventory->where(function ($q) use ($request) {
@@ -266,12 +270,24 @@ class ProductionController extends Controller
         //     return $supplierId . '_' . $month;
         // });
 
+        /*
+         * Grouping per Purchase List (PI) yang sebelumnya dipakai.
+         * Dipertahankan agar flow PI bisa diaktifkan kembali bila dibutuhkan.
+         *
+         * $grouped = $allData->groupBy(function ($item) {
+         *     return $item->purchase_id
+         *         ? 'purchase_list_'.$item->purchase_id
+         *         : 'inventory_'.$item->id;
+         * });
+         */
         $grouped = $allData->groupBy(function ($item) {
-            // Flow aktif: satu baris per Purchase List/inventory.
-            // Grouping supplier yang lama tetap disimpan di blok komentar di atas.
-            return $item->purchase_id
-                ? 'purchase_list_'.$item->purchase_id
-                : 'inventory_'.$item->id;
+            if ($item->purchase_id) {
+                return $item->purchase?->parent_purchase_id
+                    ? 'purchase_order_'.$item->purchase->parent_purchase_id
+                    : 'purchase_list_'.$item->purchase_id;
+            }
+
+            return 'inventory_'.$item->id;
         });
 
 
@@ -294,6 +310,10 @@ class ProductionController extends Controller
         return response()->json([
             'data' => $paginated->map(function ($items) {
                 $first = $items->first();
+                $purchaseOrder = $first->purchase?->parentPurchase;
+                $groupDate = $purchaseOrder?->purchase_date
+                    ?? $first->purchase?->purchase_date
+                    ?? $first->created_at;
 
                 // Partner + badge
                 if ($first->purchase_id) {
@@ -309,7 +329,9 @@ class ProductionController extends Controller
 
                 // $month = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->format('F Y');
                 $dates = $items->map(fn($inv) => Carbon::parse($inv->purchase?->purchase_date ?? $inv->created_at));
-                $month = $dates->min()->format('M Y') . ' – ' . $dates->max()->format('M Y');
+                $month = $purchaseOrder
+                    ? Carbon::parse($groupDate)->format('M Y')
+                    : $dates->min()->format('M Y') . ' – ' . $dates->max()->format('M Y');
 
                 // Merge items by product_id
                 $mergedItems = $items->flatMap(fn($inv) => $inv->items)
@@ -337,8 +359,7 @@ class ProductionController extends Controller
                 $completeIcon     = $isGroupCompleted ? '<i class="fa fa-check-circle text-success ms-1"></i>' : '';
 
                 $supplierId = $first->purchase?->supplier?->id;
-                $year       = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->year;
-                $monthNum   = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->month;
+                $purchaseOrderId = $purchaseOrder?->id;
 
                 $actionHtml = view(
                     'erp.pages.production.stock-in.partials.action-button-stock-in',
@@ -348,12 +369,15 @@ class ProductionController extends Controller
                         // 'month'       => $monthNum,
                         'isCompleted' => $isGroupCompleted,
                         'inventory'   => $first,
-                        'inventoryId' => $first->purchase_id ? $first->id : null,
+                        'inventoryId' => $first->purchase_id && ! $purchaseOrderId ? $first->id : null,
+                        'purchaseOrderId' => $purchaseOrderId,
                     ]
                 )->render();
 
-                $numbersList = $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
-                    ->filter()->unique()->values();
+                $numbersList = $purchaseOrder
+                    ? collect([$purchaseOrder->purchase_number])
+                    : $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
+                        ->filter()->unique()->values();
 
                 $numberHtml = $numbersList->implode('<br>');
 
@@ -369,7 +393,7 @@ class ProductionController extends Controller
                     'id'                 => $first->id,
                     'transaction_number' => $transactionDisplay,
                     'date'               => $month,
-                    'date_raw'           => $first->purchase?->purchase_date ?? $first->created_at,
+                    'date_raw'           => $groupDate,
                     'partner_name'       => $partner,
                     'stock_in'           => $stockInHtml,
                     'action'             => $actionHtml,

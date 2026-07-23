@@ -45,7 +45,7 @@ class PurchaseListController extends Controller
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        $defaultAccount = Account::where('is_default', true)->first();
+        $defaultAccount = Account::where('is_default_purchase', true)->first();
         $purchaseOrder = null;
 
         if ($request->integer('purchase_order_id') > 0) {

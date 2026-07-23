@@ -205,20 +205,20 @@
                 @csrf
                 <div class="modal-content">
                     <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title text-white" id="approvePurchaseOrderLabel">Konfirmasi Approve PO</h5>
+                        <h5 class="modal-title text-white" id="approvePurchaseOrderLabel">Konfirmasi Verify PO</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                             aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-2">Approve Purchase Order <strong id="approvePurchaseNumber"></strong>?</p>
+                        <p class="mb-2">Verify Purchase Order <strong id="approvePurchaseNumber"></strong>?</p>
                         <div class="alert alert-warning mb-0">
-                            Setelah di-approve, PO tidak dapat diedit dan sudah dapat dibuatkan Purchase List.
+                            Setelah di-verify, PO tidak dapat diedit dan sudah dapat dibuatkan Purchase List.
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="feather-check-circle me-2"></i>Ya, Approve PO
+                            <i class="feather-check-circle me-2"></i>Ya, Verify PO
                         </button>
                     </div>
                 </div>
@@ -483,7 +483,7 @@
                             <th>Product</th>
                             <th>SKU</th>
                             <th>PO Qty</th>
-                            <th>Approved Qty</th>
+                            <th>Verify Qty</th>
                             <th>Sisa</th>
                         </tr>
                     </thead>

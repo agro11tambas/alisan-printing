@@ -94,6 +94,7 @@
                                         <label for="name" class="fw-semibold fs-12">Customer Name</label>
                                         <input type="text" id="name" name="name" class="form-control"
                                             style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
+                                            autocomplete="off"
                                             placeholder="Search Customer Name...">
                                     </div>
                                 </div>
@@ -206,6 +207,8 @@
                 $('#customerList').DataTable().clear().destroy();
             }
 
+            let lastKeyword = $('#name').val().trim();
+
             const dataTable = $('#customerList').DataTable({
                 processing: true,
                 serverSide: true,
@@ -225,10 +228,12 @@
                 },
 
                 stateLoadParams: function(settings, data) {
-                    if (data.customer_name_filter) {
-                        $('#name').val(data.customer_name_filter);
-                        lastKeyword = data.customer_name_filter;
-                    }
+                    const savedKeyword = typeof data.customer_name_filter === 'string'
+                        ? data.customer_name_filter.trim()
+                        : '';
+
+                    $('#name').val(savedKeyword);
+                    lastKeyword = savedKeyword;
                 },
 
                 ajax: {
@@ -273,15 +278,15 @@
             //     dataTable.ajax.reload();
             // });
 
-            let lastKeyword = '';
-
             $('#name').on('keypress', function(e) {
                 if (e.which === 13) { // ENTER
                     e.preventDefault();
 
                     const keyword = $(this).val().trim();
                     if (keyword !== lastKeyword) {
+                        $(this).val(keyword);
                         lastKeyword = keyword;
+                        dataTable.state.save();
                         dataTable.ajax.reload(null, true); // Force reset paging for scroller
                     }
                 }
@@ -294,9 +299,8 @@
             $('#name').on('input', function() {
                 const val = $(this).val().trim();
                 if (val === '' && lastKeyword !== '') {
-                    // Allow auto-reload ONLY when cleared completely to revert to original state
                     lastKeyword = '';
-                    dataTable.state.clear();
+                    dataTable.state.save();
                     dataTable.ajax.reload(null, true); // Force reset paging for scroller
                 }
             });
@@ -388,7 +392,10 @@
 
                 // Reset field
                 document.getElementById('deposit_amount').value = '0';
-                document.getElementById('deposit_note').value = '';
+                const depositNote = document.getElementById('deposit_note');
+                if (depositNote) {
+                    depositNote.value = '';
+                }
                 document.getElementById('error_deposit_amount').classList.add('d-none');
             });
 

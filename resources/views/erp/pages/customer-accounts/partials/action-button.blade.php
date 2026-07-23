@@ -8,6 +8,15 @@
         </li>
 
         <li>
+            <button type="button" class="dropdown-item btn-reset-password" data-bs-toggle="modal"
+                data-bs-target="#modalResetCustomerPassword" data-name="{{ $account->name }}"
+                data-url="{{ url('/erp/customer-accounts/' . $account->id . '/password-reset-link') }}">
+                <i class="feather feather-key me-3"></i>
+                <span>Reset Password</span>
+            </button>
+        </li>
+
+        <li>
             <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
                 data-bs-target="#modalDeleteCustomerAccount" data-id="{{ $account->id }}"
                 data-name="{{ $account->name }}" data-url="{{ url('/erp/customer-accounts/delete/' . $account->id) }}">

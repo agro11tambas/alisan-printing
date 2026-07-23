@@ -129,6 +129,78 @@ class HistoryStockInController extends Controller
         return $this->storeGrouped($request, $inventory->purchase->supplier_id, $date->year, $date->month);
     }
 
+    public function addStockInByPurchaseOrder($purchaseOrderId)
+    {
+        $purchaseOrder = Purchase::where('status', 'Purchase Orders')->findOrFail($purchaseOrderId);
+        $groupedInventories = $this->getPurchaseOrderInventories($purchaseOrder->id);
+
+        abort_if($groupedInventories->isEmpty(), 404);
+
+        $supplier = optional($purchaseOrder->supplier);
+        $monthLabel = Carbon::parse($purchaseOrder->purchase_date ?? $purchaseOrder->created_at)->format('F Y');
+        $invoiceNumbers = $groupedInventories
+            ->pluck('purchase.purchase_number')
+            ->filter()
+            ->unique()
+            ->implode(', ');
+        $mergedItems = $this->mergeInventoryItems($groupedInventories);
+        $firstInventory = $groupedInventories->first();
+        $supplierId = $purchaseOrder->supplier_id;
+        $year = Carbon::parse($purchaseOrder->purchase_date ?? $purchaseOrder->created_at)->year;
+        $month = Carbon::parse($purchaseOrder->purchase_date ?? $purchaseOrder->created_at)->month;
+        $purchaseOrderId = $purchaseOrder->id;
+        $purchaseOrderNumber = $purchaseOrder->purchase_number;
+
+        return view('erp.pages.inventory.stock-in.add-stock-in', compact(
+            'mergedItems',
+            'supplier',
+            'monthLabel',
+            'invoiceNumbers',
+            'firstInventory',
+            'supplierId',
+            'year',
+            'month',
+            'purchaseOrderId',
+            'purchaseOrderNumber'
+        ));
+    }
+
+    public function storeByPurchaseOrder(Request $request, $purchaseOrderId)
+    {
+        $purchaseOrder = Purchase::where('status', 'Purchase Orders')->findOrFail($purchaseOrderId);
+        $inventories = $this->getPurchaseOrderInventories($purchaseOrder->id);
+        $submittedIds = collect($request->input('items', []))
+            ->flatMap(fn ($item) => $item['inventory_item_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+        $validIds = InventoryItem::whereIn('inventory_id', $inventories->pluck('id'))
+            ->whereIn('id', $submittedIds)
+            ->pluck('id');
+
+        abort_unless(
+            $inventories->isNotEmpty()
+                && $submittedIds->isNotEmpty()
+                && $submittedIds->diff($validIds)->isEmpty(),
+            422,
+            'Item Stock In tidak sesuai dengan Purchase Order.'
+        );
+
+        $date = Carbon::parse($purchaseOrder->purchase_date ?? $purchaseOrder->created_at);
+
+        return $this->storeGrouped($request, $purchaseOrder->supplier_id, $date->year, $date->month);
+    }
+
+    private function getPurchaseOrderInventories($purchaseOrderId)
+    {
+        return Inventory::with(['items.product', 'purchase.supplier'])
+            ->where('status', 'Stock In')
+            ->whereHas('purchase', function ($query) use ($purchaseOrderId) {
+                $query->where('status', 'Purchase List')
+                    ->where('parent_purchase_id', $purchaseOrderId);
+            })
+            ->get();
+    }
+
     private function mergeInventoryItems($inventories)
     {
         return $inventories->flatMap(fn ($inventory) => $inventory->items)
@@ -670,6 +742,51 @@ class HistoryStockInController extends Controller
         return $this->dataHistory($request, $inventory->purchase->supplier_id, $date->year, $date->month);
     }
 
+    public function getHistoryByPurchaseOrder($purchaseOrderId)
+    {
+        $purchaseOrder = Purchase::where('status', 'Purchase Orders')->findOrFail($purchaseOrderId);
+        $groupedInventories = $this->getPurchaseOrderInventories($purchaseOrder->id);
+
+        abort_if($groupedInventories->isEmpty(), 404);
+
+        $supplier = optional($purchaseOrder->supplier);
+        $monthLabel = Carbon::parse($purchaseOrder->purchase_date ?? $purchaseOrder->created_at)->format('F Y');
+        $inventoryIds = $groupedInventories->pluck('id')->all();
+        $supplierId = $purchaseOrder->supplier_id;
+        $year = Carbon::parse($purchaseOrder->purchase_date ?? $purchaseOrder->created_at)->year;
+        $month = Carbon::parse($purchaseOrder->purchase_date ?? $purchaseOrder->created_at)->month;
+        $purchaseOrderId = $purchaseOrder->id;
+        $purchaseOrderNumber = $purchaseOrder->purchase_number;
+        $invoiceNumbers = $groupedInventories
+            ->pluck('purchase.purchase_number')
+            ->filter()
+            ->unique()
+            ->implode(', ');
+        $mergedItems = $this->mergeInventoryItems($groupedInventories);
+
+        return view('erp.pages.inventory.stock-in.history-stock-in', compact(
+            'mergedItems',
+            'supplier',
+            'monthLabel',
+            'inventoryIds',
+            'supplierId',
+            'year',
+            'month',
+            'purchaseOrderId',
+            'purchaseOrderNumber',
+            'invoiceNumbers'
+        ));
+    }
+
+    public function dataHistoryByPurchaseOrder(Request $request, $purchaseOrderId)
+    {
+        $purchaseOrder = Purchase::where('status', 'Purchase Orders')->findOrFail($purchaseOrderId);
+        $date = Carbon::parse($purchaseOrder->purchase_date ?? $purchaseOrder->created_at);
+        $request->merge(['purchase_order_id' => $purchaseOrder->id]);
+
+        return $this->dataHistory($request, $purchaseOrder->supplier_id, $date->year, $date->month);
+    }
+
     public function dataHistory(Request $request, $supplierId, $year, $month)
     {
         $inventoryIds = Inventory::where('status', 'Stock In')
@@ -682,6 +799,13 @@ class HistoryStockInController extends Controller
 
         if ($request->filled('individual_inventory_id')) {
             $inventoryIds = collect([(int) $request->individual_inventory_id]);
+        } elseif ($request->filled('purchase_order_id')) {
+            $inventoryIds = Inventory::where('status', 'Stock In')
+                ->whereHas('purchase', function ($query) use ($request) {
+                    $query->where('status', 'Purchase List')
+                        ->where('parent_purchase_id', $request->integer('purchase_order_id'));
+                })
+                ->pluck('id');
         }
 
         $stockIn = InventoryStockIn::with(['user', 'histories.inventoryItem.product'])

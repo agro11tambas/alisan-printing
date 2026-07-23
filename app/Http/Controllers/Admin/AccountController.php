@@ -25,6 +25,7 @@ class AccountController extends Controller
 
         $account = Account::query();
         $hasDefault = Account::where('is_default', true)->exists();
+        $hasDefaultPurchase = Account::where('is_default_purchase', true)->exists();
 
         // 🔍 Filter by name
         if ($request->filled('name')) {
@@ -41,20 +42,34 @@ class AccountController extends Controller
         $totalData = $totalQuery->count();
 
         // ✅ Ambil data sesuai offset dan limit
-        $data = $account->orderBy('id', 'desc')->skip($start)->take($length)->get();
+        $data = $account
+            ->orderBy('name', 'asc')
+            ->orderBy('id', 'asc')
+            ->skip($start)
+            ->take($length)
+            ->get();
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
-            'data' => $data->map(function ($account) use ($hasDefault) {
+            'data' => $data->map(function ($account) use ($hasDefault, $hasDefaultPurchase) {
                 // 🏷️ Nama + Badge Default
-                $badge = $account->is_default ? ' <span class="badge bg-success ms-2">Default</span>' : '';
-                $name = e($account->name) . $badge;
+                $saleBadge = $account->is_default
+                    ? ' <span class="badge bg-success ms-2">Default Sale</span>'
+                    : '';
+                $purchaseBadge = $account->is_default_purchase
+                    ? ' <span class="badge bg-primary ms-2">Default Purchase</span>'
+                    : '';
+                $name = e($account->name).$saleBadge.$purchaseBadge;
 
                 // 📘 Type
                 $type = e($account->type ?? '-');
 
                 // ⚙️ Action Partial
-                $action = view('erp.pages.account.partials.action-button', compact('account', 'hasDefault'))->render();
+                $action = view('erp.pages.account.partials.action-button', compact(
+                    'account',
+                    'hasDefault',
+                    'hasDefaultPurchase'
+                ))->render();
 
                 return [
                     'id' => $account->id,
@@ -117,10 +132,10 @@ class AccountController extends Controller
             $account = Account::findOrFail($id);
 
             // 🔒 Cek apakah akun ini default
-            if ($account->is_default) {
+            if ($account->is_default || $account->is_default_purchase) {
                 return redirect('/erp/accounts')->with(
                     'error',
-                    'Account ini adalah Default. Hapus status Default terlebih dahulu sebelum menghapus account ini.'
+                    'Account ini masih menjadi Default Sale atau Default Purchase. Hapus status default terlebih dahulu.'
                 );
             }
 
@@ -159,5 +174,42 @@ class AccountController extends Controller
 
         $account->update(['is_default' => false]);
         return redirect()->back()->with('success', "{$account->name} tidak lagi menjadi default account.");
+    }
+
+    public function markAsDefaultPurchase($id)
+    {
+        DB::beginTransaction();
+        try {
+            Account::query()->update(['is_default_purchase' => false]);
+            $account = Account::findOrFail($id);
+            $account->update(['is_default_purchase' => true]);
+
+            DB::commit();
+
+            return redirect()->back()->with(
+                'success',
+                "{$account->name} berhasil dijadikan default account Purchase."
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return redirect()->back()->with('error', 'Gagal menetapkan default account Purchase: '.$e->getMessage());
+        }
+    }
+
+    public function removeDefaultPurchase($id)
+    {
+        $account = Account::findOrFail($id);
+
+        if (! $account->is_default_purchase) {
+            return redirect()->back()->with('error', 'Account ini bukan default Purchase.');
+        }
+
+        $account->update(['is_default_purchase' => false]);
+
+        return redirect()->back()->with(
+            'success',
+            "{$account->name} tidak lagi menjadi default account Purchase."
+        );
     }
 }

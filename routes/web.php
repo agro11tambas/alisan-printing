@@ -418,6 +418,10 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::post('/erp/productions/stock-in/by-pl/{inventory_id}/store', [ProductionStockInController::class, 'storeByPurchaseList']);
             Route::get('/erp/productions/stock-in/by-pl/{inventory_id}/history', [ProductionStockInController::class, 'getHistoryByPurchaseList']);
             Route::get('/erp/productions/stock-in/by-pl/{inventory_id}/history/data', [ProductionStockInController::class, 'dataHistoryByPurchaseList']);
+            Route::get('/erp/productions/stock-in/by-po/{purchase_order_id}/add', [ProductionStockInController::class, 'addStockInByPurchaseOrder']);
+            Route::post('/erp/productions/stock-in/by-po/{purchase_order_id}/store', [ProductionStockInController::class, 'storeByPurchaseOrder']);
+            Route::get('/erp/productions/stock-in/by-po/{purchase_order_id}/history', [ProductionStockInController::class, 'getHistoryByPurchaseOrder']);
+            Route::get('/erp/productions/stock-in/by-po/{purchase_order_id}/history/data', [ProductionStockInController::class, 'dataHistoryByPurchaseOrder']);
             // Route::get('/erp/productions/stock-in/add-stock-in/{id}', [ProductionStockInController::class, 'addStockIn']);
             // Route::post('/erp/productions/stock-in/store/{id}', [ProductionStockInController::class, 'store']);
             Route::get('/erp/productions/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [ProductionStockInController::class, 'addStockIn']);
@@ -540,6 +544,10 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::post('/erp/inventory/stock-in/by-pl/{inventory_id}/store', [HistoryStockInController::class, 'storeByPurchaseList']);
             Route::get('/erp/inventory/stock-in/by-pl/{inventory_id}/history', [HistoryStockInController::class, 'getHistoryByPurchaseList']);
             Route::get('/erp/inventory/stock-in/by-pl/{inventory_id}/history/data', [HistoryStockInController::class, 'dataHistoryByPurchaseList']);
+            Route::get('/erp/inventory/stock-in/by-po/{purchase_order_id}/add', [HistoryStockInController::class, 'addStockInByPurchaseOrder']);
+            Route::post('/erp/inventory/stock-in/by-po/{purchase_order_id}/store', [HistoryStockInController::class, 'storeByPurchaseOrder']);
+            Route::get('/erp/inventory/stock-in/by-po/{purchase_order_id}/history', [HistoryStockInController::class, 'getHistoryByPurchaseOrder']);
+            Route::get('/erp/inventory/stock-in/by-po/{purchase_order_id}/history/data', [HistoryStockInController::class, 'dataHistoryByPurchaseOrder']);
 
             // Route::get('/erp/inventory/stock-in/add-stock-in/{id}', [HistoryStockInController::class, 'addStockIn']);
             Route::get('/erp/inventory/stock-in/add-stock-in/{supplier_id}/{year}/{month}', [HistoryStockInController::class, 'addStockIn']);
@@ -620,6 +628,8 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::delete('/erp/accounts/delete/{id}', [AccountController::class, 'delete']);
             Route::post('/erp/accounts/mark-default/{id}', [AccountController::class, 'markAsDefault']);
             Route::post('/erp/accounts/remove-default/{id}', [AccountController::class, 'removeDefault']);
+            Route::post('/erp/accounts/mark-default-purchase/{id}', [AccountController::class, 'markAsDefaultPurchase']);
+            Route::post('/erp/accounts/remove-default-purchase/{id}', [AccountController::class, 'removeDefaultPurchase']);
         });
 
         Route::middleware(['web.auth', 'subpermission:account-expense'])->group(function () {
@@ -707,6 +717,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::get('/erp/customer-accounts/create', [CustomerAccountController::class, 'create']);
         Route::post('/erp/customer-accounts/store', [CustomerAccountController::class, 'store']);
         Route::get('/erp/customer-accounts/edit/{id}', [CustomerAccountController::class, 'edit']);
+        Route::post('/erp/customer-accounts/{id}/password-reset-link', [CustomerAccountController::class, 'generatePasswordResetLink']);
         Route::put('/erp/customer-accounts/update/{id}', [CustomerAccountController::class, 'update']);
         Route::put('/erp/customer-accounts/delete/{id}', [CustomerAccountController::class, 'delete']);
     });

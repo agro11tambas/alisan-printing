@@ -151,6 +151,7 @@ class PurchaseOrderController extends Controller
                 };
 
                 $approvalStatus = $purchase->approval_status ?? 'Draft';
+                $approvalStatusLabel = $approvalStatus === 'Approved' ? 'Verify' : $approvalStatus;
                 $approvalBadgeClass = match (strtolower($approvalStatus)) {
                     'approved' => 'bg-soft-primary text-primary',
                     'partial' => 'bg-soft-warning text-warning',
@@ -172,7 +173,7 @@ class PurchaseOrderController extends Controller
                     'payment_method' => $paymentMethod,
                     'products' => $products,
                     'status' => $statusBadge,
-                    'approval_status' => '<div class="badge '.$approvalBadgeClass.'">'.e($approvalStatus).'</div>',
+                    'approval_status' => '<div class="badge '.$approvalBadgeClass.'">'.e($approvalStatusLabel).'</div>',
                     'action' => $actionHtml,
                     'user' => $purchase->user->name ?? '-',
                 ];
@@ -318,7 +319,7 @@ class PurchaseOrderController extends Controller
 
         if (($purchase->approval_status ?? 'Draft') !== 'Draft') {
             return redirect('/erp/purchases/purchase-orders')
-                ->with('error', 'PO yang sudah di-approved tidak dapat diedit.');
+                ->with('error', 'PO yang sudah di-verify tidak dapat diedit.');
         }
 
         $products = Products::with('unitConversions.unit')
@@ -371,7 +372,7 @@ class PurchaseOrderController extends Controller
             $purchase = Purchase::with('purchaseItems')->findOrFail($id);
 
             if (($purchase->approval_status ?? 'Draft') !== 'Draft') {
-                throw new \RuntimeException('PO yang sudah di-approved tidak dapat diedit.');
+                throw new \RuntimeException('PO yang sudah di-verify tidak dapat diedit.');
             }
 
             // ===== 1️⃣ HITUNG TOTAL & TAX =====
@@ -548,16 +549,16 @@ class PurchaseOrderController extends Controller
         $purchase = Purchase::where('status', 'Purchase Orders')->findOrFail($id);
 
         if (($purchase->approval_status ?? 'Draft') !== 'Draft') {
-            return back()->with('error', 'PO ini sudah di-approved.');
+            return back()->with('error', 'PO ini sudah di-verify.');
         }
 
         if (! $purchase->purchaseItems()->exists()) {
-            return back()->with('error', 'PO tanpa produk tidak dapat di-approved.');
+            return back()->with('error', 'PO tanpa produk tidak dapat di-verify.');
         }
 
         $purchase->update(['approval_status' => 'Approved']);
 
-        return back()->with('success', 'Purchase Order berhasil di-approved dan siap dibuatkan Purchase List.');
+        return back()->with('success', 'Purchase Order berhasil di-verify dan siap dibuatkan Purchase List.');
     }
 
     public function delete($id)
@@ -620,7 +621,7 @@ class PurchaseOrderController extends Controller
 
         if (! in_array($purchase->approval_status, ['Approved', 'Partial'], true)) {
             return redirect('/erp/purchases/purchase-orders')
-                ->with('error', 'PO harus di-approved sebelum membuat Purchase List.');
+                ->with('error', 'PO harus di-verify sebelum membuat Purchase List.');
         }
 
         $purchase->purchaseItems->each(function ($item) {
@@ -1010,7 +1011,7 @@ class PurchaseOrderController extends Controller
                 ->findOrFail($id);
 
             if (! in_array($order->approval_status, ['Approved', 'Partial'], true)) {
-                throw new \RuntimeException('PO harus di-approved sebelum membuat Purchase List.');
+                throw new \RuntimeException('PO harus di-verify sebelum membuat Purchase List.');
             }
 
             if ((int) $validated['suppliers'] !== (int) $order->supplier_id) {
@@ -1184,7 +1185,7 @@ class PurchaseOrderController extends Controller
             $this->refreshPurchaseOrderProgress($order);
             DB::commit();
 
-            return redirect('/erp/purchases/purchase-list')
+            return redirect('/erp/purchases/purchase-list?purchase_order_id='.$order->id)
                 ->with('success', 'Purchase List dan draft Stock In berhasil dibuat.');
         } catch (\Throwable $e) {
             DB::rollBack();

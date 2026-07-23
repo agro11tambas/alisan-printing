@@ -101,9 +101,11 @@
         <div class="row">
             <div class="col-12">
                 {{-- <form action="/erp/inventory/stock-in/store/{{ $stockIn->id }}" method="POST" id="stockInForm" --}}
-                <form action="{{ isset($individualInventoryId)
-                    ? url('/erp/inventory/stock-in/by-pl/' . $individualInventoryId . '/store')
-                    : url('/erp/inventory/stock-in/store/' . $supplierId . '/' . $year . '/' . $month) }}"
+                <form action="{{ isset($purchaseOrderId)
+                    ? url('/erp/inventory/stock-in/by-po/' . $purchaseOrderId . '/store')
+                    : (isset($individualInventoryId)
+                        ? url('/erp/inventory/stock-in/by-pl/' . $individualInventoryId . '/store')
+                        : url('/erp/inventory/stock-in/store/' . $supplierId . '/' . $year . '/' . $month)) }}"
                     method="POST" id="stockInForm" enctype="multipart/form-data">
                     @csrf
                     @method('POST')
@@ -122,7 +124,7 @@
                                 </span>
                             </h4> --}}
                             <h4 class="card-title">
-                                {{ $supplier->name }} — {{ isset($individualInventoryId) ? 'PL ' . $invoiceNumbers : $monthLabel }}
+                                {{ $supplier->name }} — {{ isset($purchaseOrderId) ? 'PO ' . $purchaseOrderNumber : (isset($individualInventoryId) ? 'PL ' . $invoiceNumbers : $monthLabel) }}
                             </h4>
                         </div>
                         <div class="card-body">

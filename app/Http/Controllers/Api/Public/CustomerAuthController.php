@@ -5,13 +5,11 @@ namespace App\Http\Controllers\Api\Public;
 use App\Http\Controllers\Controller;
 use App\Models\Customers;
 use App\Models\CustomerAccount;
+use App\Models\CustomerPasswordResetToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Validation\ValidationException;
 
 class CustomerAuthController extends Controller
 {
@@ -19,7 +17,7 @@ class CustomerAuthController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:customer_accounts,email',
+            'email' => 'nullable|email|unique:customer_accounts,email',
             'whatsapp_number' => 'required|string|max:20|unique:customer_accounts,whatsapp_number',
             'password' => 'required|string|min:8|confirmed',
         ]);
@@ -34,10 +32,10 @@ class CustomerAuthController extends Controller
             $account = CustomerAccount::create([
                 'customer_id' => $customer->id,
                 'name' => $validated['name'],
-                'email' => $validated['email'],
+                'email' => $validated['email'] ?? null,
                 'whatsapp_number' => $validated['whatsapp_number'],
                 'password' => Hash::make($validated['password']),
-                'auth_provider' => 'manual',
+                'auth_provider' => 'phone',
                 'is_active' => true,
                 'last_login_at' => now(),
             ]);
@@ -60,18 +58,23 @@ class CustomerAuthController extends Controller
     public function login(Request $request)
     {
         $validated = $request->validate([
-            'identifier' => 'required|string',
+            'whatsapp_number' => ['required', 'string', 'min:9', 'max:20', 'regex:/^08\d+$/'],
             'password' => 'required|string',
         ]);
 
-        $account = CustomerAccount::where('email', $validated['identifier'])
-            ->orWhere('whatsapp_number', $validated['identifier'])
-            ->first();
+        $phone = preg_replace('/\D/', '', $validated['whatsapp_number']);
+        $phoneCandidates = [$phone];
+
+        if (str_starts_with($phone, '0')) {
+            $phoneCandidates[] = '62'.substr($phone, 1);
+        }
+
+        $account = CustomerAccount::whereIn('whatsapp_number', array_unique($phoneCandidates))->first();
 
         if (! $account || ! Hash::check($validated['password'], $account->password)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Email/WhatsApp atau password salah.',
+                'message' => 'Nomor HP atau password salah.',
             ], 401);
         }
 
@@ -98,188 +101,86 @@ class CustomerAuthController extends Controller
         ]);
     }
 
-    public function requestOtp(Request $request)
+    public function validatePasswordResetToken(Request $request)
     {
         $validated = $request->validate([
-            'whatsapp_number' => 'required|string|min:9|max:20',
+            'token' => 'required|string|size:64',
         ]);
 
-        $phone = $validated['whatsapp_number'];
-        $otp = rand(100000, 999999);
+        $resetToken = CustomerPasswordResetToken::query()
+            ->where('token_hash', hash('sha256', $validated['token']))
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->whereHas('customerAccount', fn ($query) => $query->where('is_active', true))
+            ->first();
 
-        Cache::put('otp_' . $phone, $otp, now()->addMinutes(5));
-
-        $url = config('whatsapp.fonnte.url');
-        $token = config('whatsapp.fonnte.api_key');
-
-        if ($token && $token !== 'isi_dengan_token_api_disini') {
-            try {
-                $response = Http::withHeaders([
-                    'Authorization' => $token
-                ])->post($url, [
-                    'target' => $phone,
-                    'message' => "Kode OTP Anda untuk login ke Alisan adalah: *$otp*. Kode ini berlaku selama 5 menit. Jangan berikan kode ini kepada siapapun.",
-                ]);
-
-                if (!$response->successful()) {
-                    Log::error('WhatsApp OTP Send Error', ['response' => $response->body()]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Gagal mengirim OTP ke WhatsApp. Coba lagi nanti.',
-                    ], 500);
-                }
-            } catch (\Exception $e) {
-                Log::error('WhatsApp OTP Send Exception', ['error' => $e->getMessage()]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Gagal terhubung ke server WhatsApp. Coba lagi nanti.',
-                ], 500);
-            }
-        } else {
-            Log::info("DEVELOPMENT OTP generated for {$phone}: {$otp}");
+        if (! $resetToken) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Link reset password tidak valid, sudah digunakan, atau sudah kedaluwarsa.',
+            ], 422);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'OTP berhasil dikirim ke nomor WhatsApp Anda.',
+            'message' => 'Link reset password masih valid.',
         ]);
     }
 
-    public function verifyOtp(Request $request)
+    public function resetPassword(Request $request)
     {
         $validated = $request->validate([
-            'whatsapp_number' => 'required|string',
-            'otp' => 'required|numeric',
+            'token' => 'required|string|size:64',
+            'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $phone = $validated['whatsapp_number'];
-        $inputOtp = $validated['otp'];
-
-        $cachedOtp = Cache::get('otp_' . $phone);
-
-        if (!$cachedOtp || $cachedOtp != $inputOtp) {
-            return response()->json([
-                'success' => false,
-                'message' => 'OTP tidak valid atau sudah kedaluwarsa.',
-            ], 400);
-        }
-
-        Cache::forget('otp_' . $phone);
-
-        $account = CustomerAccount::where('whatsapp_number', $phone)->first();
-
-        if ($account && !$account->is_active) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Akun customer tidak aktif.',
-            ], 403);
-        }
-
-        return DB::transaction(function () use ($phone, $account) {
-            if (!$account) {
-                $customer = Customers::create([
-                    'name' => 'User ' . substr($phone, -4),
-                    'phone' => $phone,
-                    'customer_deposit' => 0,
-                ]);
-
-                $account = CustomerAccount::create([
-                    'customer_id' => $customer->id,
-                    'name' => 'User ' . substr($phone, -4),
-                    'whatsapp_number' => $phone,
-                    'email' => null,
-                    'password' => null,
-                    'auth_provider' => 'otp',
-                    'is_active' => true,
-                    'last_login_at' => now(),
-                ]);
-
-                $account->customers()->syncWithoutDetaching([$customer->id]);
-            } else {
-                $account->update([
-                    'last_login_at' => now(),
-                ]);
-            }
-
-            $token = $account->createToken('customer-token')->plainTextToken;
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Login sukses.',
-                'data' => [
-                    'token' => $token,
-                    'customer' => $account->load(['customer', 'customers']),
-                ],
-            ]);
-        });
-    }
-
-    public function redirectToGoogle()
-    {
-        return Socialite::driver('google')
-            ->stateless()
-            ->redirect();
-    }
-
-    public function handleGoogleCallback()
-    {
-        $googleUser = Socialite::driver('google')
-            ->stateless()
-            ->user();
-
-        $account = DB::transaction(function () use ($googleUser) {
-            $account = CustomerAccount::where('google_id', $googleUser->getId())
-                ->orWhere('email', $googleUser->getEmail())
+        $wasReset = DB::transaction(function () use ($validated) {
+            $resetToken = CustomerPasswordResetToken::query()
+                ->where('token_hash', hash('sha256', $validated['token']))
+                ->lockForUpdate()
                 ->first();
 
-            if ($account) {
-                $account->update([
-                    'google_id' => $googleUser->getId(),
-                    'name' => $googleUser->getName(),
-                    'email' => $googleUser->getEmail(),
-                    'avatar' => $googleUser->getAvatar(),
-                    'auth_provider' => $account->auth_provider ?? 'google',
-                    'last_login_at' => now(),
-                ]);
-
-                if ($account->customer_id) {
-                    $account->customers()->syncWithoutDetaching([$account->customer_id]);
-                }
-
-                return $account;
+            if (
+                ! $resetToken
+                || $resetToken->used_at
+                || $resetToken->expires_at->isPast()
+            ) {
+                return false;
             }
 
-            $customer = Customers::create([
-                'name' => $googleUser->getName(),
-                'phone' => 'google_' . $googleUser->getId(),
-                'customer_deposit' => 0,
+            $customerAccount = CustomerAccount::query()
+                ->whereKey($resetToken->customer_account_id)
+                ->where('is_active', true)
+                ->first();
+
+            if (! $customerAccount) {
+                return false;
+            }
+
+            $customerAccount->update([
+                'password' => Hash::make($validated['password']),
+                'auth_provider' => 'phone',
+            ]);
+            $customerAccount->tokens()->delete();
+
+            $resetToken->update([
+                'used_at' => now(),
             ]);
 
-            $account = CustomerAccount::create([
-                'customer_id' => $customer->id,
-                'google_id' => $googleUser->getId(),
-                'name' => $googleUser->getName(),
-                'email' => $googleUser->getEmail(),
-                'avatar' => $googleUser->getAvatar(),
-                'whatsapp_number' => null,
-                'password' => null,
-                'auth_provider' => 'google',
-                'is_active' => true,
-                'last_login_at' => now(),
-            ]);
-
-            $account->customers()->syncWithoutDetaching([$customer->id]);
-
-            return $account;
+            return true;
         });
 
-        $token = $account->createToken('customer-token')->plainTextToken;
+        if (! $wasReset) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Link reset password tidak valid, sudah digunakan, atau sudah kedaluwarsa.',
+            ], 422);
+        }
 
-        $frontendUrl = config('app.frontend_website_url', env('FRONTEND_WEBSITE_URL', 'http://localhost:3000'));
-
-        return redirect()->away(
-            $frontendUrl . '/auth/callback?token=' . urlencode($token)
-        );
+        return response()->json([
+            'success' => true,
+            'message' => 'Password berhasil diubah. Silakan login menggunakan password baru.',
+        ]);
     }
 
     public function me(Request $request)
@@ -317,6 +218,37 @@ class CustomerAuthController extends Controller
             'success' => true,
             'message' => 'Profile updated successfully.',
             'data' => $user->load(['customer', 'customers.addresses']),
+        ]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed|different:current_password',
+        ]);
+
+        $customerAccount = $request->user();
+
+        if (! Hash::check($validated['current_password'], $customerAccount->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Password saat ini tidak sesuai.'],
+            ]);
+        }
+
+        $customerAccount->update([
+            'password' => Hash::make($validated['password']),
+            'auth_provider' => 'phone',
+        ]);
+
+        $currentTokenId = $customerAccount->currentAccessToken()?->id;
+        $customerAccount->tokens()
+            ->when($currentTokenId, fn ($query) => $query->whereKeyNot($currentTokenId))
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password berhasil diubah.',
         ]);
     }
 

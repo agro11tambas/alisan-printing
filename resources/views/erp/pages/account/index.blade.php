@@ -193,6 +193,57 @@
             </form>
         </div>
     </div>
+    <div class="modal fade" id="modalMarkDefaultPurchase" tabindex="-1"
+        aria-labelledby="markDefaultPurchaseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" id="formMarkDefaultPurchase">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title text-white" id="markDefaultPurchaseModalLabel">
+                            Jadikan Default Account Purchase
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Jadikan Account <strong id="markDefaultPurchaseName"></strong> sebagai default untuk
+                            pembayaran Purchase List?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary btn-md">Ya, Jadikan Default Purchase</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="modal fade" id="modalRemoveDefaultPurchase" tabindex="-1"
+        aria-labelledby="removeDefaultPurchaseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form method="POST" id="formRemoveDefaultPurchase">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title text-white" id="removeDefaultPurchaseModalLabel">
+                            Hapus Default Account Purchase
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Hapus status default Purchase dari Account
+                            <strong id="removeDefaultPurchaseName"></strong>?
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger btn-md">Ya, Hapus Default Purchase</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 @endpush
 
 @push('scripts')
@@ -385,6 +436,26 @@
                 const button = event.relatedTarget;
                 formRemove.action = button.getAttribute('data-url');
                 nameRemove.textContent = button.getAttribute('data-name');
+            });
+
+            const modalMarkPurchase = document.getElementById('modalMarkDefaultPurchase');
+            const formMarkPurchase = document.getElementById('formMarkDefaultPurchase');
+            const nameMarkPurchase = document.getElementById('markDefaultPurchaseName');
+
+            modalMarkPurchase.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                formMarkPurchase.action = button.getAttribute('data-url');
+                nameMarkPurchase.textContent = button.getAttribute('data-name');
+            });
+
+            const modalRemovePurchase = document.getElementById('modalRemoveDefaultPurchase');
+            const formRemovePurchase = document.getElementById('formRemoveDefaultPurchase');
+            const nameRemovePurchase = document.getElementById('removeDefaultPurchaseName');
+
+            modalRemovePurchase.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                formRemovePurchase.action = button.getAttribute('data-url');
+                nameRemovePurchase.textContent = button.getAttribute('data-name');
             });
         });
 

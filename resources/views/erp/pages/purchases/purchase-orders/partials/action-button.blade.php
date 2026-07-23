@@ -7,7 +7,7 @@
                 data-number="{{ $purchase->purchase_number }}"
                 data-url="{{ route('purchase-orders.approve', $purchase->id) }}">
                 <i class="feather feather-check-circle"></i>
-                <span>Approve PO</span>
+                <span>Verify PO</span>
             </button>
         </li>
         @endif

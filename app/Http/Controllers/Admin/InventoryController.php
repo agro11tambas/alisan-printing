@@ -30,6 +30,7 @@ class InventoryController extends Controller
         $inventory = Inventory::with([
             'items',
             'purchase.supplier',
+            'purchase.parentPurchase',
             'order.customer',
             'saleReturn.customer',
             'materialRequest',
@@ -71,7 +72,10 @@ class InventoryController extends Controller
             if ($request->search_type === 'invoice_number') {
                 $inventory->where(function ($q) use ($request) {
                     $q->where('purchase_number', 'like', '%' . $request->search_keyword . '%')
-                        ->orWhere('order_number', 'like', '%' . $request->search_keyword . '%');
+                        ->orWhere('order_number', 'like', '%' . $request->search_keyword . '%')
+                        ->orWhereHas('purchase.parentPurchase', function ($query) use ($request) {
+                            $query->where('purchase_number', 'like', '%' . $request->search_keyword . '%');
+                        });
                 });
             } elseif ($request->search_type === 'partner') {
                 $inventory->where(function ($q) use ($request) {
@@ -119,7 +123,9 @@ class InventoryController extends Controller
         // $totalData = $totalQuery->count();
 
         // ✅ Ambil data sesuai offset dan limit
-        $data = $inventory->skip($start)->take($length)->get();
+        // Grouping dilakukan sebelum pagination agar seluruh Purchase List dalam
+        // satu Purchase Order tidak terpotong ke halaman yang berbeda.
+        $data = $inventory->get();
 
         // Group by supplier + year-month
         // $grouped = $data->groupBy(function ($item) {
@@ -129,11 +135,27 @@ class InventoryController extends Controller
         //     return $supplierId . '_' . $month;
         // });
 
+        /*
+         * Grouping per Purchase List (PI) yang sebelumnya dipakai.
+         * Dipertahankan agar flow PI bisa diaktifkan kembali bila dibutuhkan.
+         *
+         * $grouped = $data->groupBy(function ($item) {
+         *     if ($item->purchase_id) {
+         *         return 'purchase_list_'.$item->purchase_id;
+         *     }
+         *
+         *     $supplierId = optional($item->purchase->supplier ?? null)->id
+         *         ?? ($item->sale_return_id ? 'return_' . (optional($item->saleReturn->customer)->id ?? 'unknown') : 'other');
+         *     $month = Carbon::parse($item->purchase?->purchase_date ?? $item->created_at)->format('Y-m');
+         *     return $supplierId . '_' . $month;
+         * });
+         */
         $grouped = $data->groupBy(function ($item) {
-            // Flow aktif: setiap Purchase List memiliki baris Stock In sendiri.
-            // Grouping supplier + bulan yang lama tetap disimpan di blok komentar di atas.
+            // Flow aktif: seluruh Purchase List turunan digabung berdasarkan Purchase Order.
             if ($item->purchase_id) {
-                return 'purchase_list_'.$item->purchase_id;
+                return $item->purchase?->parent_purchase_id
+                    ? 'purchase_order_'.$item->purchase->parent_purchase_id
+                    : 'purchase_list_'.$item->purchase_id;
             }
 
             $supplierId = optional($item->purchase->supplier ?? null)->id
@@ -160,10 +182,15 @@ class InventoryController extends Controller
         }
 
         $totalData = $grouped->count();
+        $grouped = $grouped->slice($start, $length);
 
         return response()->json([
             'data' => $grouped->map(function ($items) {
                 $first = $items->first();
+                $purchaseOrder = $first->purchase?->parentPurchase;
+                $groupDate = $purchaseOrder?->purchase_date
+                    ?? $first->purchase?->purchase_date
+                    ?? $first->created_at;
 
                 // Partner
                 if ($first->purchase_id) {
@@ -179,7 +206,7 @@ class InventoryController extends Controller
 
                 // $month   = Carbon::parse($first->purchase_date)->format('F Y');
 
-                $month = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->format('F Y');
+                $monthLabel = Carbon::parse($groupDate)->format('F Y');
 
                 $numbers = $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
                     ->filter()->unique()->implode(', ');
@@ -215,11 +242,12 @@ class InventoryController extends Controller
                 // })->implode(' ');
 
                 $supplierId = $first->purchase?->supplier?->id;
+                $purchaseOrderId = $purchaseOrder?->id;
                 // $year       = Carbon::parse($first->purchase_date)->year;
                 // $month      = Carbon::parse($first->purchase_date)->month;
 
-                $year  = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->year;
-                $month = Carbon::parse($first->purchase?->purchase_date ?? $first->created_at)->month;
+                $year = Carbon::parse($groupDate)->year;
+                $monthNumber = Carbon::parse($groupDate)->month;
                 $isGroupCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->qty_base);
 
                 $actionHtml = view(
@@ -227,15 +255,18 @@ class InventoryController extends Controller
                     [
                         'supplierId'  => $supplierId,
                         'year'        => $year,
-                        'month'       => $month,
+                        'month'       => $monthNumber,
                         'isCompleted' => $isGroupCompleted,
                         'inventory'   => $first, // untuk history link
-                        'inventoryId' => $first->purchase_id ? $first->id : null,
+                        'inventoryId' => $first->purchase_id && ! $purchaseOrderId ? $first->id : null,
+                        'purchaseOrderId' => $purchaseOrderId,
                     ]
                 )->render();
 
-                $numbersList = $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
-                    ->filter()->unique()->values();
+                $numbersList = $purchaseOrder
+                    ? collect([$purchaseOrder->purchase_number])
+                    : $items->map(fn($inv) => $inv->purchase->purchase_number ?? $inv->order_number ?? '-')
+                        ->filter()->unique()->values();
 
                 // $displayNumbers = $numbersList->take(2)->implode('<br>');
                 // $remainingCount = $numbersList->count() - 2;
@@ -250,16 +281,16 @@ class InventoryController extends Controller
                     <div>
                         <div>' . $badge . '</div>
                         <div class="fw-semibold">' . $numberHtml . '</div>
-                        <small class="text-muted">' . $month . ' (' . $items->count() . ' transactions)</small>
+                        <small class="text-muted">' . $monthLabel . ' (' . $items->count() . ' transactions)</small>
                     </div>
                 ';
 
                 return [
                     'id'                 => $first->id,
                     'transaction_number' => $transactionDisplay,
-                    'date'               => $month,
+                    'date'               => $monthLabel,
                     // 'date_raw'           => $first->purchase_date,
-                    'date_raw' => $first->purchase?->purchase_date ?? $first->created_at,
+                    'date_raw' => $groupDate,
                     'partner_name'       => $partner,
                     'stock_in'           => $stockInHtml,
                     'action'             => $actionHtml,
@@ -267,7 +298,7 @@ class InventoryController extends Controller
                 <div>
                     <div class="d-flex align-items-center gap-1">' . $badge . $completeIcon . '</div>
                     <div class="fw-semibold">' . $partner . '</div>
-                    <small class="text-muted">' . $month . ' · ' . $items->count() . ' transactions</small>
+                    <small class="text-muted">' . $monthLabel . ' · ' . $items->count() . ' transactions</small>
                 </div>',
                     'partner_mobile'     => '<div class="fw-semibold">' . $partner . '</div>',
                     'items_mobile'       => view(

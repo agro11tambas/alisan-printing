@@ -415,14 +415,21 @@
             `);
                 });
 
-                const $baseUnit = $unitSelect.find('option').filter(function() {
-                    return Number($(this).data('conversion')) === 1;
+                const $largestUnit = $unitSelect.find('option').filter(function() {
+                    return Number($(this).data('ratio')) === 1;
                 });
 
-                if ($baseUnit.length) {
-                    $unitSelect.val($baseUnit.val());
+                if ($largestUnit.length) {
+                    $unitSelect.val($largestUnit.first().val());
                 } else {
-                    $unitSelect.prop('selectedIndex', 0);
+                    const $fallbackUnit = $unitSelect.find('option').toArray().reduce((largest, option) => {
+                        if (!largest) return option;
+
+                        return Number($(option).data('conversion')) >
+                            Number($(largest).data('conversion')) ? option : largest;
+                    }, null);
+
+                    $unitSelect.val($fallbackUnit?.value ?? '');
                 }
 
                 syncSelectedUnit($row);

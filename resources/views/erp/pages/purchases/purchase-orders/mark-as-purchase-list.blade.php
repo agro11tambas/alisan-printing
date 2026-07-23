@@ -170,15 +170,15 @@
                                             <thead>
                                                 <tr class="single-item">
                                                     <th class="text-center wd-50">#</th>
-                                                    <th class="text-center wd-450">Product</th>
-                                                    <th class="text-center wd-200">Unit</th>
-                                                    <th class="text-center wd-100">PO Qty</th>
-                                                    <th class="text-center wd-100">Approved</th>
-                                                    <th class="text-center wd-100">Sisa</th>
-                                                    <th class="text-center wd-150">Qty PL</th>
-                                                    <th class="text-center wd-150">Price</th>
-                                                    <th class="text-center wd-150">Freight</th>
-                                                    <th class="text-center wd-150">Total</th>
+                                                    <th class="text-center wd-500">Product</th>
+                                                    <th class="text-start wd-80">Unit</th>
+                                                    <th class="text-start wd-80">PO Qty</th>
+                                                    <th class="text-start wd-80">Verify</th>
+                                                    <th class="text-start wd-80">Sisa</th>
+                                                    <th class="text-center" style="width: 120px; min-width: 120px;">Qty PL</th>
+                                                    <th class="text-center" style="width: 120px; min-width: 120px;">Price</th>
+                                                    <th class="text-center" style="width: 120px; min-width: 120px;">Freight</th>
+                                                    <th class="text-center" style="width: 120px; min-width: 120px;">Total</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -190,7 +190,7 @@
                                                             <input type="hidden" name="product[]" value="{{ $item->product_id }}">
                                                             <input type="hidden" name="source_purchase_item_id[]" value="{{ $item->id }}">
                                                         </td>
-                                                        <td>
+                                                        <td class="text-start">
                                                             {{ $item->unit_name ?? 'Pcs' }}
                                                             <input type="hidden" name="product_unit_id[]" value="{{ $item->product_unit_conversion_id }}">
 
@@ -201,11 +201,12 @@
                                                                 class="unit-conversion-value"
                                                                 value="{{ $item->unit_conversion_value ?? 1 }}">
                                                         </td>
-                                                        <td class="text-end">{{ number_format($item->quantity, 0, ',', '.') }}</td>
-                                                        <td class="text-end">{{ number_format($item->approved_quantity, 0, ',', '.') }}</td>
-                                                        <td class="text-end fw-bold text-primary">{{ number_format($item->remaining_quantity, 0, ',', '.') }}</td>
+                                                        <td class="text-start fw-bold text-primary">{{ number_format($item->quantity, 0, ',', '.') }}</td>
+                                                        <td class="text-start fw-bold text-success">{{ number_format($item->approved_quantity, 0, ',', '.') }}</td>
+                                                        <td class="text-start fw-bold text-danger">{{ number_format($item->remaining_quantity, 0, ',', '.') }}</td>
                                                         <td><input type="text" inputmode="numeric" name="qty[]"
-                                                                class="form-control qty" value="{{ $item->remaining_quantity }}"
+                                                                class="form-control qty" value="0"
+                                                                max="{{ $item->remaining_quantity }}"
                                                                 data-max="{{ $item->remaining_quantity }}">
                                                         </td>
                                                         <td>
@@ -400,6 +401,18 @@
             return isNaN(num) ? 0 : num;
         }
 
+        function clampQtyToRemaining(input) {
+            const maxQty = parseFloat($(input).data('max')) || 0;
+            const qty = unformatRibuan($(input).val());
+
+            if (qty > maxQty) {
+                $(input).val(formatRibuan(maxQty));
+                return true;
+            }
+
+            return false;
+        }
+
         /* ==================== PERHITUNGAN TOTAL ==================== */
         function updateRowTotal(row) {
             // ✅ Gunakan unformatRibuan untuk semua field supaya konsisten
@@ -587,6 +600,7 @@
                 // Jangan format dulu kalau baru ngetik koma
                 if (val.endsWith(',')) {
                     $(this).val(val);
+                    clampQtyToRemaining(this);
                     return;
                 }
 
@@ -604,6 +618,8 @@
                     val = val.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                     $(this).val(val);
                 }
+
+                clampQtyToRemaining(this);
 
                 // ✅ Hitung total realtime
                 updateRowTotal($(this).closest('tr'));
@@ -666,6 +682,7 @@
                     $(this).val(formatRibuan(num)); // baru format ulang
                 }
 
+                clampQtyToRemaining(this);
                 updateRowTotal(row);
             });
 
@@ -783,6 +800,7 @@
 
         $('#purchaseForm').on('submit', function(e) {
             let isValid = true;
+            let hasPositiveQty = false;
             const form = $(this);
 
             // 🔹 Hapus semua error dan clone lama dulu

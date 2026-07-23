@@ -36,23 +36,19 @@ Route::prefix('v1')->group(function () {
 
     // Customer Login
     Route::prefix('ecommerce/auth')->group(function () {
-        // Manual auth
         Route::post('/register', [CustomerAuthController::class, 'register']);
-        Route::post('/login', [CustomerAuthController::class, 'login']);
-
-        // OTP auth
-        Route::post('/otp/request', [CustomerAuthController::class, 'requestOtp']);
-        Route::post('/otp/verify', [CustomerAuthController::class, 'verifyOtp']);
-
-        // Google OAuth
-        Route::get('/google/redirect', [CustomerAuthController::class, 'redirectToGoogle']);
-        Route::get('/google/callback', [CustomerAuthController::class, 'handleGoogleCallback']);
+        Route::post('/login', [CustomerAuthController::class, 'login'])->middleware('throttle:5,1');
+        Route::get('/password-reset/validate', [CustomerAuthController::class, 'validatePasswordResetToken'])
+            ->middleware('throttle:30,1');
+        Route::post('/password-reset', [CustomerAuthController::class, 'resetPassword'])
+            ->middleware('throttle:5,1');
 
         // Protected customer auth
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('/me', [CustomerAuthController::class, 'me']);
             Route::post('/logout', [CustomerAuthController::class, 'logout']);
             Route::put('/profile', [CustomerAuthController::class, 'updateProfile']);
+            Route::put('/password', [CustomerAuthController::class, 'changePassword']);
 
             Route::post('/businesses', [CustomerAuthController::class, 'createBusiness']);
             Route::post('/businesses/{customerId}/addresses', [CustomerAuthController::class, 'createAddress']);
