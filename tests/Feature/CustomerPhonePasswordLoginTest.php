@@ -135,7 +135,7 @@ class CustomerPhonePasswordLoginTest extends TestCase
         $this->getJson('/api/v1/ecommerce/auth/google/callback')->assertNotFound();
     }
 
-    public function test_erp_generates_a_hashed_password_reset_link_valid_for_one_hour(): void
+    public function test_erp_generates_a_hashed_password_reset_link_valid_for_thirty_minutes(): void
     {
         config(['app.frontend_website_url' => 'https://shop.example.test']);
 
@@ -147,6 +147,7 @@ class CustomerPhonePasswordLoginTest extends TestCase
             'auth_provider' => 'phone',
             'is_active' => true,
         ]);
+        $this->assertSame('not_created', $account->password_reset_status);
 
         $response = app(CustomerAccountController::class)
             ->generatePasswordResetLink($account->id);
@@ -156,15 +157,17 @@ class CustomerPhonePasswordLoginTest extends TestCase
         $storedToken = CustomerPasswordResetToken::where('customer_account_id', $account->id)->firstOrFail();
 
         $this->assertTrue($payload['success']);
+        $this->assertSame('pending', $account->fresh()->password_reset_status);
         $this->assertStringStartsWith(
             'https://shop.example.test/reset-password?token=',
             $payload['data']['reset_url']
         );
         $this->assertSame(hash('sha256', $query['token']), $storedToken->token_hash);
         $this->assertNotSame($query['token'], $storedToken->token_hash);
-        $this->assertTrue($storedToken->expires_at->between(now()->addMinutes(59), now()->addMinutes(61)));
+        $this->assertTrue($storedToken->expires_at->between(now()->addMinutes(29), now()->addMinutes(31)));
 
         $storedToken->update(['expires_at' => now()->subSecond()]);
+        $this->assertSame('expired', $account->fresh()->password_reset_status);
 
         $this->getJson('/api/v1/ecommerce/auth/password-reset/validate?token='.$query['token'])
             ->assertUnprocessable()
@@ -187,7 +190,7 @@ class CustomerPhonePasswordLoginTest extends TestCase
         CustomerPasswordResetToken::create([
             'customer_account_id' => $account->id,
             'token_hash' => hash('sha256', $plainToken),
-            'expires_at' => now()->addHour(),
+            'expires_at' => now()->addMinutes(30),
         ]);
 
         $this->getJson('/api/v1/ecommerce/auth/password-reset/validate?token='.$plainToken)
@@ -203,6 +206,7 @@ class CustomerPhonePasswordLoginTest extends TestCase
 
         $this->assertTrue(Hash::check('new-password-123', $account->fresh()->password));
         $this->assertNotNull(CustomerPasswordResetToken::firstOrFail()->used_at);
+        $this->assertSame('completed', $account->fresh()->password_reset_status);
         $this->assertDatabaseCount('personal_access_tokens', 0);
 
         $this->postJson('/api/v1/ecommerce/auth/password-reset', [

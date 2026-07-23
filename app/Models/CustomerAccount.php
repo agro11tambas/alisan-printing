@@ -99,4 +99,23 @@ class CustomerAccount extends Authenticatable
     {
         return $this->hasOne(CustomerPasswordResetToken::class);
     }
+
+    public function getPasswordResetStatusAttribute(): string
+    {
+        $resetToken = $this->passwordResetToken;
+
+        if (! $resetToken) {
+            return 'not_created';
+        }
+
+        if ($resetToken->used_at) {
+            return 'completed';
+        }
+
+        if ($resetToken->expires_at->isPast()) {
+            return 'expired';
+        }
+
+        return 'pending';
+    }
 }

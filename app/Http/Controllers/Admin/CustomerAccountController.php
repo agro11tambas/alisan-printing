@@ -21,7 +21,7 @@ class CustomerAccountController extends Controller
 
     public function data(Request $request)
     {
-        $customerAccounts = CustomerAccount::latest();
+        $customerAccounts = CustomerAccount::with('passwordResetToken')->latest();
 
         if ($request->filled('name')) {
             $customerAccounts->where('name', 'like', '%' . $request->name . '%');
@@ -40,10 +40,18 @@ class CustomerAccountController extends Controller
                     ? '<span class="badge bg-soft-success text-success">Active</span>'
                     : '<span class="badge bg-soft-danger text-danger">Inactive</span>';
             })
+            ->addColumn('password_reset_status', function ($account) {
+                return match ($account->password_reset_status) {
+                    'pending' => '<span class="badge bg-soft-warning text-warning">Menunggu Reset</span>',
+                    'completed' => '<span class="badge bg-soft-success text-success">Sudah Reset</span>',
+                    'expired' => '<span class="badge bg-soft-danger text-danger">Kedaluwarsa</span>',
+                    default => '<span class="badge bg-soft-secondary text-secondary">Belum Dibuat</span>',
+                };
+            })
             ->addColumn('action', function ($account) {
                 return view('erp.pages.customer-accounts.partials.action-button', compact('account'))->render();
             })
-            ->rawColumns(['action', 'whatsapp_number', 'is_active'])
+            ->rawColumns(['action', 'whatsapp_number', 'is_active', 'password_reset_status'])
             ->make(true);
     }
 
@@ -103,7 +111,7 @@ class CustomerAccountController extends Controller
         }
 
         $plainToken = Str::random(64);
-        $expiresAt = now()->addHour();
+        $expiresAt = now()->addMinutes(30);
 
         CustomerPasswordResetToken::updateOrCreate(
             ['customer_account_id' => $customerAccount->id],
@@ -119,7 +127,7 @@ class CustomerAccountController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Link reset password berhasil dibuat dan berlaku selama 1 jam.',
+            'message' => 'Link reset password berhasil dibuat dan berlaku selama 30 menit.',
             'data' => [
                 'reset_url' => $resetUrl,
                 'expires_at' => $expiresAt->toIso8601String(),

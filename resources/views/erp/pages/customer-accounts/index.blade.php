@@ -110,6 +110,7 @@
                                         <th>Name</th>
                                         <th>WhatsApp Number</th>
                                         <th>Status</th>
+                                        <th>Status Reset Password</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -144,7 +145,7 @@
                                 <strong id="resetPasswordCustomerName"></strong>?
                             </p>
                             <p class="text-muted mb-0">
-                                Link hanya berlaku selama 1 jam. Pembuatan link baru akan membatalkan link sebelumnya.
+                                Link hanya berlaku selama 30 menit. Pembuatan link baru akan membatalkan link sebelumnya.
                             </p>
                         </div>
 
@@ -244,6 +245,12 @@
                     {
                         data: 'is_active',
                         name: 'is_active',
+                    },
+                    {
+                        data: 'password_reset_status',
+                        name: 'password_reset_status',
+                        orderable: false,
+                        searchable: false,
                     },
                     {
                         data: 'action',
@@ -377,6 +384,7 @@
                     resetConfirmation.classList.add('d-none');
                     resetResult.classList.remove('d-none');
                     generateButton.classList.add('d-none');
+                    $('#customerAccountList').DataTable().ajax.reload(null, false);
                 } catch (error) {
                     resetError.textContent = error.message || 'Gagal membuat link reset password.';
                     resetError.classList.remove('d-none');
