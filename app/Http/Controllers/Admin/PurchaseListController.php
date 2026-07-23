@@ -17,6 +17,7 @@ use App\Models\PurchaseItem;
 use App\Models\PurchaseReturnItem;
 use App\Models\Supplier;
 use App\Services\ProductCostService;
+use App\Services\PurchaseListForceDeleteService;
 use App\Services\UnitConversionService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -1542,7 +1543,58 @@ class PurchaseListController extends Controller
         }
     }
 
-    public function forceDeleteOwner($id, Request $request)
+    public function forceDeleteOwner(
+        $id,
+        Request $request,
+        PurchaseListForceDeleteService $forceDeleteService
+    )
+    {
+        if (! Auth::check() || Auth::user()->role !== 'Owner') {
+            abort(403, 'Only Owner can force delete.');
+        }
+
+        $request->validate([
+            'delete_notes' => 'required|string|max:1000',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $purchase = Purchase::whereKey($id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $parentPurchaseId = $purchase->parent_purchase_id;
+            $filesToDelete = $forceDeleteService->execute($purchase);
+
+            $this->refreshParentPurchaseProgress($parentPurchaseId);
+
+            DB::commit();
+
+            foreach ($filesToDelete as $file) {
+                if (is_file($file)) {
+                    @unlink($file);
+                }
+            }
+
+            return back()->with(
+                'success',
+                'Purchase List anak berhasil dihapus permanen. Stok, stock-in, inventory, dan transaksi akun telah dibalik.'
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Force delete child purchase list failed: '.$e->getMessage(), [
+                'purchase_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return back()->with('error', 'Gagal force delete: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * @deprecated Kept temporarily for reference; forceDeleteOwner uses PurchaseListForceDeleteService.
+     */
+    private function legacyForceDeleteOwner($id, Request $request)
     {
         if (! Auth::check() || Auth::user()->role !== 'Owner') {
             abort(403, 'Only Owner can force delete.');

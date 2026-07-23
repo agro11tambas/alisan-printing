@@ -173,8 +173,8 @@
                                                     <th class="text-center wd-500">Product</th>
                                                     <th class="text-start wd-80">Unit</th>
                                                     <th class="text-start wd-80">PO Qty</th>
-                                                    <th class="text-start wd-80">Verify</th>
-                                                    <th class="text-start wd-80">Sisa</th>
+                                                    <th class="text-start wd-80">Verify Qty</th>
+                                                    <th class="text-start wd-80">Remaining</th>
                                                     <th class="text-center" style="width: 120px; min-width: 120px;">Qty PL</th>
                                                     <th class="text-center" style="width: 120px; min-width: 120px;">Price</th>
                                                     <th class="text-center" style="width: 120px; min-width: 120px;">Freight</th>

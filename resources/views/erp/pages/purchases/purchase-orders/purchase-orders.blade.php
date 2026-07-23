@@ -484,7 +484,8 @@
                             <th>SKU</th>
                             <th>PO Qty</th>
                             <th>Verify Qty</th>
-                            <th>Sisa</th>
+                            <th>Remaining</th>
+                            <th>Stock In</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -495,9 +496,10 @@
                 <tr>
                     <td>${p.name}</td>
                     <td>${p.sku}</td>
-                    <td>${p.qty} ${p.unit}</td>
+                    <td class="text-primary fw-bold">${p.qty} ${p.unit}</td>
                     <td class="text-success fw-semibold">${p.approved_qty} ${p.unit}</td>
-                    <td class="text-primary fw-bold">${p.remaining_qty} ${p.unit}</td>
+                    <td class="text-danger fw-bold">${p.remaining_qty} ${p.unit}</td>
+                    <td class="text-warning fw-bold">${p.stock_in}/${p.approved_qty} ${p.unit}</td>
                 </tr>
             `;
                 });

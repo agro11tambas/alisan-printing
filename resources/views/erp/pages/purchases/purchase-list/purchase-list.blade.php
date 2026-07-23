@@ -624,16 +624,17 @@
                     </div>
                     <div class="modal-body">
                         <p class="mb-1">
-                            Anda akan menghapus <strong id="fd-purchase-number"></strong> secara permanen
-                            beserta rollback stok inventory & transaksi pembelian.
+                            Anda akan menghapus Purchase List anak
+                            <strong id="fd-purchase-number"></strong> secara permanen.
                         </p>
+                        <div class="alert alert-warning py-2">
+                            Stock In akan dibalik sesuai tujuan stok, seluruh history stock-in dan inventory akan
+                            dihapus, serta transaksi pembayaran akan dibalik dari saldo akun.
+                        </div>
                         <div class="mb-2">
                             <label class="form-label">Delete Notes <span class="text-danger">*</span></label>
                             <textarea name="delete_notes" class="form-control" rows="3" required placeholder="Alasan penghapusan..."></textarea>
                         </div>
-
-                        {{-- Opsional: field tambahan kalau nanti mau perlu warehouse ID --}}
-                        <input type="hidden" name="inventory_warehouse_id" value="1">
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>

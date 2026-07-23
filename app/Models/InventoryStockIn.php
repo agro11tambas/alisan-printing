@@ -18,7 +18,6 @@ class InventoryStockIn extends Model
         'inventory_id',
         'user_id',
         'invoice_number',
-        'purchase_id',
         'production_stock_id',
         'change_date',
         'waybill_number',

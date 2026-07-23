@@ -42,7 +42,7 @@ class PurchaseOrderController extends Controller
             'supplier',
             'purchaseAccount',
             'purchaseItems.purchaseProduct',
-            'purchaseItems.purchaseListItems',
+            'purchaseItems.purchaseListItems.inventoryItems',
         ])
             ->where('status', 'Purchase Orders')
             ->orderByDesc('purchase_date');
@@ -131,6 +131,10 @@ class PurchaseOrderController extends Controller
                 $products = $items->map(function ($item) {
                     $approved = (float) $item->purchaseListItems->sum('quantity');
                     $remaining = max(0, (float) $item->quantity - $approved);
+                    $stockInBase = (float) $item->purchaseListItems->sum(
+                        fn ($purchaseListItem) => $purchaseListItem->inventoryItems->sum('stock_in')
+                    );
+                    $stockIn = $stockInBase / max(1, (float) ($item->unit_conversion_value ?? 1));
 
                     return [
                         'name' => $item->purchaseProduct->name ?? '-',
@@ -138,6 +142,7 @@ class PurchaseOrderController extends Controller
                         'qty' => number_format($item->quantity, 0, ',', '.'),
                         'approved_qty' => number_format($approved, 0, ',', '.'),
                         'remaining_qty' => number_format($remaining, 0, ',', '.'),
+                        'stock_in' => number_format($stockIn, 0, ',', '.'),
                         'unit' => $item->unit_name ?? 'Pcs',
                     ];
                 })->toArray();

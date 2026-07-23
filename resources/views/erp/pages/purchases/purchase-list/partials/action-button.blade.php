@@ -101,7 +101,7 @@
 
                 @php $isOwner = auth()->check() && auth()->user()->role === 'Owner'; @endphp
 
-                @if ($isOwner)
+                @if ($isOwner && $purchase->parent_purchase_id)
                     <li>
                         <button type="button" class="dropdown-item text-danger btn-force-delete-owner"
                             data-bs-toggle="modal" data-bs-target="#modalForceDeleteOwnerPurchase"
