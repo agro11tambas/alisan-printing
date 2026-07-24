@@ -50,8 +50,6 @@ Route::prefix('v1')->group(function () {
             Route::put('/profile', [CustomerAuthController::class, 'updateProfile']);
             Route::put('/password', [CustomerAuthController::class, 'changePassword']);
 
-            Route::post('/businesses', [CustomerAuthController::class, 'createBusiness']);
-            Route::post('/businesses/{customerId}/addresses', [CustomerAuthController::class, 'createAddress']);
             Route::put('/addresses/{id}', [CustomerAuthController::class, 'updateAddress']);
             Route::delete('/addresses/{id}', [CustomerAuthController::class, 'deleteAddress']);
         });
