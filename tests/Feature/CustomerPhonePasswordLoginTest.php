@@ -120,6 +120,29 @@ class CustomerPhonePasswordLoginTest extends TestCase
             ->assertJsonValidationErrors('whatsapp_number');
     }
 
+    public function test_customer_can_use_local_phone_format_for_legacy_erp_initial_password(): void
+    {
+        $customer = Customers::create([
+            'name' => 'Legacy ERP Customer',
+            'phone' => '6281234567890',
+        ]);
+
+        CustomerAccount::create([
+            'customer_id' => $customer->id,
+            'name' => $customer->name,
+            'whatsapp_number' => '6281234567890',
+            'password' => Hash::make('6281234567890'),
+            'auth_provider' => 'phone',
+            'is_active' => true,
+        ])->customers()->attach($customer->id);
+
+        $this->postJson('/api/v1/ecommerce/auth/login', [
+            'whatsapp_number' => '081234567890',
+            'password' => '081234567890',
+        ])->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
     public function test_otp_and_google_login_routes_are_removed(): void
     {
         $this->postJson('/api/v1/ecommerce/auth/otp/request', [

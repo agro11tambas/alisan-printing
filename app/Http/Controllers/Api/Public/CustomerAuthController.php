@@ -71,7 +71,7 @@ class CustomerAuthController extends Controller
 
         $account = CustomerAccount::whereIn('whatsapp_number', array_unique($phoneCandidates))->first();
 
-        if (! $account || ! Hash::check($validated['password'], $account->password)) {
+        if (! $account || ! $this->passwordMatches($account, $validated['password'], $phone)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Nomor HP atau password salah.',
@@ -99,6 +99,34 @@ class CustomerAuthController extends Controller
                 'customer' => $account->load(['customer', 'customers']),
             ],
         ]);
+    }
+
+    /**
+     * Support legacy ERP accounts whose initial password was generated from
+     * the international (628...) version of the phone number.
+     */
+    private function passwordMatches(CustomerAccount $account, string $password, string $loginPhone): bool
+    {
+        if (Hash::check($password, $account->password)) {
+            return true;
+        }
+
+        // Only apply the compatibility check when the customer is using their
+        // login phone number as the initial password. Custom passwords remain exact.
+        if ($password !== $loginPhone) {
+            return false;
+        }
+
+        $accountPhone = preg_replace('/\D/', '', (string) $account->whatsapp_number);
+        $internationalLoginPhone = str_starts_with($loginPhone, '0')
+            ? '62'.substr($loginPhone, 1)
+            : $loginPhone;
+        $internationalAccountPhone = str_starts_with($accountPhone, '0')
+            ? '62'.substr($accountPhone, 1)
+            : $accountPhone;
+
+        return $internationalLoginPhone === $internationalAccountPhone
+            && Hash::check($internationalAccountPhone, $account->password);
     }
 
     public function validatePasswordResetToken(Request $request)

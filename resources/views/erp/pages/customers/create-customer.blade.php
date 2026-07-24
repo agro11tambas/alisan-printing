@@ -58,13 +58,13 @@
                         <div class="card-body">
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
-                                    <label for="name" class="fw-semibold">Name:</label>
+                                    <label for="name" class="fw-semibold">Business Name:</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
                                         <div class="input-group-text"><i class="feather-user"></i></div>
                                         <input type="text" class="form-control" id="name" name="name"
-                                            value="{{ old('name') }}" placeholder="Name">
+                                            value="{{ old('name') }}" placeholder="Business Name">
                                     </div>
                                 </div>
                             </div>
@@ -82,13 +82,13 @@
                             </div> --}}
                             <div class="row mb-2 align-items-start">
                                 <div class="col-lg-2">
-                                    <label class="fw-semibold">Pilih Account Existing:</label>
+                                    <label class="fw-semibold">Choose Existing Contact:</label>
                                 </div>
 
                                 <div class="col-lg-10">
                                     <select id="existing_account_picker" class="form-select existing-account-select"
                                         data-select2-selector="tag">
-                                        <option value="">Pilih account existing</option>
+                                        <option value="">Choose existing contact</option>
                                         @foreach ($customerAccounts as $account)
                                             <option value="{{ $account->id }}">
                                                 {{ $account->name ?? '-' }} - {{ $account->whatsapp_number }}
@@ -97,7 +97,7 @@
                                     </select>
 
                                     <small class="text-muted">
-                                        Pilih jika nomor/account sudah pernah dibuat.
+                                        Choose this option if the contact has already been created.
                                     </small>
 
                                     <div id="selectedAccountList" class="mt-2">
@@ -107,7 +107,7 @@
                             </div>
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
-                                    <label class="fw-semibold">Account / Phone:</label>
+                                    <label class="fw-semibold">Contact Person (Account):</label>
                                 </div>
 
                                 <div class="col-lg-10">
@@ -117,7 +117,8 @@
                                                 <div class="input-group">
                                                     <div class="input-group-text"><i class="feather-user"></i></div>
                                                     <input type="text" class="form-control" name="accounts[0][name]"
-                                                        value="{{ old('accounts.0.name') }}" placeholder="Account Name">
+                                                        value="{{ old('accounts.0.name') }}"
+                                                        placeholder="Contact Person Name">
                                                 </div>
                                             </div>
 
@@ -140,7 +141,7 @@
                                     </div>
 
                                     <button type="button" class="btn btn-success mt-1" id="add-account">
-                                        <i class="feather-plus"></i> Add Account
+                                        <i class="feather-plus"></i> Add Contact Person
                                     </button>
                                 </div>
                             </div>
@@ -377,7 +378,7 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Gagal!',
-                    text: 'Minimal pilih account existing atau input nomor baru.',
+                    text: 'Minimal pilih existing contact atau input contact person baru.',
                 });
 
                 isValid = false;
@@ -435,7 +436,7 @@
                     <input type="text"
                         class="form-control"
                         name="accounts[${accountIndex}][name]"
-                        placeholder="Account Name">
+                        placeholder="Contact Person Name">
                 </div>
             </div>
 
@@ -505,7 +506,7 @@
         $(document).ready(function() {
             $('#existing_account_picker').select2({
                 theme: 'bootstrap-5',
-                placeholder: 'Pilih account existing',
+                placeholder: 'Choose existing contact',
                 width: '100%',
                 dropdownParent: $('#customerForm'),
                 minimumResultsForSearch: 0,

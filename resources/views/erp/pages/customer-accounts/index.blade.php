@@ -111,7 +111,7 @@
                                         <th>Name</th>
                                         <th>WhatsApp Number</th>
                                         <th>Status</th>
-                                        <th>Status Reset Password</th>
+                                        <th>Status Buat Baru/Reset Password</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -126,54 +126,7 @@
 @endsection
 
 @push('modals')
-    <div class="modal fade" id="modalResetCustomerPassword" tabindex="-1"
-        aria-labelledby="resetPasswordModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <form id="formResetCustomerPassword">
-                @csrf
-
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title text-white" id="resetPasswordModalLabel">Reset Password Customer</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                            aria-label="Close"></button>
-                    </div>
-
-                    <div class="modal-body">
-                        <div id="resetPasswordConfirmation">
-                            <p>
-                                Buat link reset password untuk
-                                <strong id="resetPasswordCustomerName"></strong>?
-                            </p>
-                            <p class="text-muted mb-0">
-                                Link hanya berlaku selama 30 menit. Pembuatan link baru akan membatalkan link sebelumnya.
-                            </p>
-                        </div>
-
-                        <div id="resetPasswordResult" class="d-none">
-                            <label for="resetPasswordUrl" class="form-label fw-semibold">Link Website</label>
-                            <div class="input-group">
-                                <input type="text" id="resetPasswordUrl" class="form-control" readonly>
-                                <button type="button" class="btn btn-outline-primary" id="copyResetPasswordUrl">
-                                    <i class="feather feather-copy me-1"></i> Salin
-                                </button>
-                            </div>
-                            <p class="text-success mt-3 mb-0" id="resetPasswordMessage"></p>
-                        </div>
-
-                        <div class="alert alert-danger d-none mt-3 mb-0" id="resetPasswordError"></div>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Tutup</button>
-                        <button type="submit" class="btn btn-primary btn-md" id="generateResetPasswordLink">
-                            Generate Link
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
+    @include('erp.pages.customer-accounts.partials.password-reset-modal')
 
     <div class="modal fade" id="modalDeleteCustomerAccount" tabindex="-1" aria-labelledby="deleteModalLabel"
         aria-hidden="true">
@@ -206,6 +159,8 @@
 @endpush
 
 @push('scripts')
+    @include('erp.pages.customer-accounts.partials.password-reset-script')
+
     <script>
         $(document).ready(function() {
             if ($.fn.DataTable.isDataTable('#customerAccountList')) {
@@ -338,82 +293,6 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            const resetModal = document.getElementById('modalResetCustomerPassword');
-            const resetForm = document.getElementById('formResetCustomerPassword');
-            const resetNameHolder = document.getElementById('resetPasswordCustomerName');
-            const resetConfirmation = document.getElementById('resetPasswordConfirmation');
-            const resetResult = document.getElementById('resetPasswordResult');
-            const resetUrl = document.getElementById('resetPasswordUrl');
-            const resetMessage = document.getElementById('resetPasswordMessage');
-            const resetError = document.getElementById('resetPasswordError');
-            const generateButton = document.getElementById('generateResetPasswordLink');
-            const copyButton = document.getElementById('copyResetPasswordUrl');
-            let resetEndpoint = '';
-
-            resetModal.addEventListener('show.bs.modal', function(event) {
-                const button = event.relatedTarget;
-
-                resetEndpoint = button.getAttribute('data-url');
-                resetNameHolder.textContent = button.getAttribute('data-name');
-                resetConfirmation.classList.remove('d-none');
-                resetResult.classList.add('d-none');
-                resetError.classList.add('d-none');
-                resetError.textContent = '';
-                resetUrl.value = '';
-                generateButton.classList.remove('d-none');
-                generateButton.disabled = false;
-                generateButton.textContent = 'Generate Link';
-            });
-
-            resetForm.addEventListener('submit', async function(event) {
-                event.preventDefault();
-
-                generateButton.disabled = true;
-                generateButton.textContent = 'Memproses...';
-                resetError.classList.add('d-none');
-
-                try {
-                    const response = await fetch(resetEndpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': resetForm.querySelector('input[name="_token"]').value,
-                        },
-                    });
-                    const payload = await response.json();
-
-                    if (!response.ok) {
-                        throw new Error(payload.message || 'Gagal membuat link reset password.');
-                    }
-
-                    resetUrl.value = payload.data.reset_url;
-                    resetMessage.textContent = payload.message;
-                    resetConfirmation.classList.add('d-none');
-                    resetResult.classList.remove('d-none');
-                    generateButton.classList.add('d-none');
-                    $('#customerAccountList').DataTable().ajax.reload(null, false);
-                } catch (error) {
-                    resetError.textContent = error.message || 'Gagal membuat link reset password.';
-                    resetError.classList.remove('d-none');
-                    generateButton.disabled = false;
-                    generateButton.textContent = 'Generate Link';
-                }
-            });
-
-            copyButton.addEventListener('click', async function() {
-                try {
-                    await navigator.clipboard.writeText(resetUrl.value);
-                } catch (error) {
-                    resetUrl.select();
-                    document.execCommand('copy');
-                }
-
-                copyButton.innerHTML = '<i class="feather feather-check me-1"></i> Tersalin';
-                window.setTimeout(function() {
-                    copyButton.innerHTML = '<i class="feather feather-copy me-1"></i> Salin';
-                }, 1500);
-            });
-
             const modal = document.getElementById('modalDeleteCustomerAccount');
             const form = document.getElementById('formDeleteCustomerAccount');
             const nameHolder = document.getElementById('customerAccountName');

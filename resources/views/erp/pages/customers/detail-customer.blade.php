@@ -85,9 +85,21 @@
                                             @endif
                                         </div>
 
-                                        <span class="badge bg-soft-success text-success">
-                                            Account {{ $loop->iteration }}
-                                        </span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-soft-success text-success">
+                                                Account {{ $loop->iteration }}
+                                            </span>
+                                            <button type="button" class="btn btn-sm btn-primary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalResetCustomerPassword"
+                                                data-name="{{ $account->name }}"
+                                                data-phone="{{ $account->whatsapp_number }}"
+                                                data-url="{{ url('/erp/customer-accounts/' . $account->id . '/password-reset-link') }}"
+                                                @disabled(! $account->is_active)>
+                                                <i class="feather-key me-1"></i>
+                                                Buat Baru/Reset Password
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             @empty
@@ -133,3 +145,11 @@
         </div>
     </div>
 @endsection
+
+@push('modals')
+    @include('erp.pages.customer-accounts.partials.password-reset-modal')
+@endpush
+
+@push('scripts')
+    @include('erp.pages.customer-accounts.partials.password-reset-script')
+@endpush
