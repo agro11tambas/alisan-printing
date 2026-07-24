@@ -44,9 +44,6 @@ class CustomerController extends Controller
             ->addColumn('name', function ($customer) {
                 return $customer->name;
             })
-            ->addColumn('phone', function ($customer) {
-                return '<strong>' . ($customer->phone ?? '-') . '</strong>';
-            })
             ->addColumn('customer_deposit', function ($customer) {
                 return '<strong> Rp. ' . number_format($customer->customer_deposit, 0, ',', '.') . '</strong>';
             })
@@ -56,7 +53,7 @@ class CustomerController extends Controller
             ->addColumn('user', function ($customer) {
                 return $customer->user?->name ?? '-';
             })
-            ->rawColumns(['action', 'addresses', 'phone', 'customer_deposit'])
+            ->rawColumns(['action', 'addresses', 'customer_deposit'])
             ->make(true);
     }
 

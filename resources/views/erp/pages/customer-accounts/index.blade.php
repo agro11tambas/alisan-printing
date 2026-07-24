@@ -95,10 +95,10 @@
                     <div class="card-body p-0">
                         <div class="row g-3 p-2 justify-content-end">
                             <div class="col-lg-3">
-                                <label for="name" class="fw-semibold fs-12">Account Name</label>
+                                <label for="name" class="fw-semibold fs-12">Account / Customer Name</label>
                                 <input type="text" id="name" class="form-control"
                                     style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
-                                    placeholder="Search account name...">
+                                    placeholder="Search account or customer name...">
                             </div>
                         </div>
 
@@ -107,6 +107,7 @@
                                 <thead>
                                     <tr>
                                         <th class="wd-30">No</th>
+                                        <th>Account - Customer</th>
                                         <th>Name</th>
                                         <th>WhatsApp Number</th>
                                         <th>Status</th>
@@ -231,6 +232,12 @@
                 columns: [{
                         data: 'DT_RowIndex',
                         name: 'DT_RowIndex',
+                        orderable: false,
+                        searchable: false,
+                    },
+                    {
+                        data: 'account_customer_name',
+                        name: 'account_customer_name',
                         orderable: false,
                         searchable: false,
                     },

@@ -17,11 +17,15 @@
 
         #customerList_wrapper .dataTables_scrollBody {
             background-image: none !important;
+            height: 60vh !important;
             overflow-y: auto !important;
         }
 
         .dataTables_scrollBody {
             scroll-behavior: smooth;
+            height: calc(100vh - 260px) !important;
+            min-height: calc(100vh - 260px) !important;
+            max-height: calc(100vh - 260px) !important;
         }
     </style>
 @endpush
@@ -106,7 +110,6 @@
                                     <tr>
                                         <th class="wd-30">No</th>
                                         <th>Nama</th>
-                                        <th>Phone</th>
                                         <th>Customer Deposit</th>
                                         <th>User</th>
                                         <!-- <th class="text-end">Actions</th> -->
@@ -213,7 +216,7 @@
                 processing: true,
                 serverSide: true,
                 deferRender: true,
-                scrollY: 'calc(100vh - 260px)',
+                scrollY: 600,
                 scroller: true,
                 paging: true,
                 searching: false,
@@ -251,10 +254,6 @@
                     {
                         data: 'name',
                         name: 'name',
-                    },
-                    {
-                        data: 'phone',
-                        name: 'phone',
                     },
                     {
                         data: 'customer_deposit',
@@ -309,9 +308,14 @@
                 if ($(e.target).closest('td.dt-control').length) return;
 
                 let $tr = $(this);
+                if ($tr.hasClass('action-row')) return;
+
                 let row = dataTable.row($tr);
 
-                $('#customerList tbody tr').removeClass('action-shown').next('.action-row').remove();
+                $('#customerList tbody tr')
+                    .removeClass('action-shown')
+                    .next('.action-row')
+                    .remove();
 
                 if ($tr.hasClass('action-shown')) {
                     $tr.removeClass('action-shown');
@@ -320,14 +324,14 @@
 
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}">
-                            <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                            </div>
-                        </td>
-                    </tr>
-                `);
+                        <tr class="action-row">
+                            <td colspan="${colCount}">
+                                <div class="d-flex justify-content-center">
+                                    ${actionHtml}
+                                </div>
+                            </td>
+                        </tr>
+                    `);
 
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
@@ -337,7 +341,10 @@
             $(document).on('click', function(e) {
                 if ($(e.target).closest('#customerList').length) return;
 
-                $('#customerList tbody tr').removeClass('action-shown').next('.action-row').remove();
+                $('#customerList tbody tr')
+                    .removeClass('action-shown')
+                    .next('.action-row')
+                    .remove();
             });
 
             $(document).on('click', function(e) {

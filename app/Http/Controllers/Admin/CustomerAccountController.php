@@ -21,16 +21,38 @@ class CustomerAccountController extends Controller
 
     public function data(Request $request)
     {
-        $customerAccounts = CustomerAccount::with('passwordResetToken')->latest();
+        $customerAccounts = CustomerAccount::with(['passwordResetToken', 'customers', 'customer'])->latest();
 
         if ($request->filled('name')) {
-            $customerAccounts->where('name', 'like', '%' . $request->name . '%');
+            $keyword = trim($request->name);
+
+            $customerAccounts->where(function ($query) use ($keyword) {
+                $query->where('name', 'like', '%' . $keyword . '%')
+                    ->orWhereHas('customers', function ($customerQuery) use ($keyword) {
+                        $customerQuery->where('name', 'like', '%' . $keyword . '%');
+                    })
+                    ->orWhereHas('customer', function ($customerQuery) use ($keyword) {
+                        $customerQuery->where('name', 'like', '%' . $keyword . '%');
+                    });
+            });
         }
 
         return DataTables::of($customerAccounts)
             ->addIndexColumn()
             ->addColumn('name', function ($account) {
                 return $account->name ?? '-';
+            })
+            ->addColumn('account_customer_name', function ($account) {
+                $customerNames = $account->customers
+                    ->pluck('name')
+                    ->filter()
+                    ->unique();
+
+                if ($customerNames->isEmpty() && $account->customer?->name) {
+                    $customerNames->push($account->customer->name);
+                }
+
+                return ($account->name ?? '-') . ' - ' . ($customerNames->join(', ') ?: '-');
             })
             ->addColumn('whatsapp_number', function ($account) {
                 return '<strong>' . ($account->whatsapp_number ?? '-') . '</strong>';

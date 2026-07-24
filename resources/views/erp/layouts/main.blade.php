@@ -906,7 +906,6 @@
             initRowActionHandler('#capitalTransactionList');
             initRowActionHandler('#ShopManagerList');
             initRowActionHandler('#OperatorList');
-            initRowActionHandler('#customerList');
             initRowActionHandler('#supplierList');
         });
     </script>
