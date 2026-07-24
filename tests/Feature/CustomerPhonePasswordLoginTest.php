@@ -143,6 +143,32 @@ class CustomerPhonePasswordLoginTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
+    public function test_login_checks_all_equivalent_phone_accounts_before_rejecting_password(): void
+    {
+        CustomerAccount::create([
+            'name' => 'Old Local Account',
+            'whatsapp_number' => '082388018828',
+            'password' => Hash::make('old-password'),
+            'auth_provider' => 'phone',
+            'is_active' => true,
+        ]);
+
+        CustomerAccount::create([
+            'name' => 'Reset International Account',
+            'whatsapp_number' => '6282388018828',
+            'password' => Hash::make('adminalisan@1122'),
+            'auth_provider' => 'phone',
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/v1/ecommerce/auth/login', [
+            'whatsapp_number' => '082388018828',
+            'password' => 'adminalisan@1122',
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.customer.whatsapp_number', '6282388018828');
+    }
+
     public function test_otp_and_google_login_routes_are_removed(): void
     {
         $this->postJson('/api/v1/ecommerce/auth/otp/request', [

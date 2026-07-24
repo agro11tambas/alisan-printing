@@ -69,14 +69,24 @@ class CustomerAuthController extends Controller
             $phoneCandidates[] = '62'.substr($phone, 1);
         }
 
-        $account = CustomerAccount::whereIn('whatsapp_number', array_unique($phoneCandidates))->first();
+        $matchingAccounts = CustomerAccount::query()
+            ->whereIn('whatsapp_number', array_unique($phoneCandidates))
+            ->get()
+            ->filter(fn (CustomerAccount $candidate) => $this->passwordMatches(
+                $candidate,
+                $validated['password'],
+                $phone
+            ));
 
-        if (! $account || ! $this->passwordMatches($account, $validated['password'], $phone)) {
+        if ($matchingAccounts->isEmpty()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Nomor HP atau password salah.',
             ], 401);
         }
+
+        $account = $matchingAccounts->firstWhere('is_active', true)
+            ?? $matchingAccounts->first();
 
         if (! $account->is_active) {
             return response()->json([
