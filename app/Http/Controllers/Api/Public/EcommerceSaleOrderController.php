@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CustomerAccount;
 use App\Models\CustomerAddresses;
 use App\Models\Customers;
+use App\Models\Discount;
 use App\Models\EcommerceProduct;
 use App\Models\EcommerceVariantOption;
 use App\Models\EcommerceVariantCombination;
@@ -82,9 +83,9 @@ class EcommerceSaleOrderController extends Controller
             $validated['shipping'] ?? []
         );
 
-        $lineItems = $this->buildLineItems($validated['items']);
+        $lineItems = $this->applyDiscounts($this->buildLineItems($validated['items']));
         $subTotal = collect($lineItems)->sum('subtotal');
-        $discountTotal = 0;
+        $discountTotal = collect($lineItems)->sum('discount_amount');
         $grandTotal = $subTotal - $discountTotal;
         $paidAmount = (float) ($validated['paid_amount'] ?? 0);
         $remainingAmount = $grandTotal - $paidAmount;
@@ -128,7 +129,7 @@ class EcommerceSaleOrderController extends Controller
                 'discount' => $discountTotal,
                 'remaining_amount' => $remainingAmount,
                 'mode' => $orderMode,
-                'discount_active' => false,
+                'discount_active' => $discountTotal > 0,
             ]);
 
             foreach ($lineItems as $line) {
@@ -155,8 +156,8 @@ class EcommerceSaleOrderController extends Controller
                     'completed_quantity' => 0,
                     'price' => $line['unit_price'],
                     'subtotal' => $line['subtotal'],
-                    'discount_price' => $line['unit_price'],
-                    'total_after_discount' => $line['subtotal'],
+                    'discount_price' => $line['unit_price_after_discount'],
+                    'total_after_discount' => $line['total_after_discount'],
                 ]);
 
                 if ($line['is_bundle'] && !empty($line['bundle_items'])) {
@@ -343,7 +344,7 @@ class EcommerceSaleOrderController extends Controller
             $this->validateQuantity($ecommerceProduct, $quantity, $index);
 
             if (!empty($item['ecommerce_variant_combination_id'])) {
-                $combination = EcommerceVariantCombination::with(['productOption.product', 'lidOption.product'])
+                $combination = EcommerceVariantCombination::with(['productOption.product.categories', 'lidOption.product.categories'])
                     ->whereKey($item['ecommerce_variant_combination_id'])
                     ->first();
 
@@ -394,6 +395,9 @@ class EcommerceSaleOrderController extends Controller
                     'bundle_items' => $bundleItems,
                     'ecommerce_product_id' => $ecommerceProduct->id,
                     'ecommerce_product_title' => $ecommerceProduct->title,
+                    'discount_product_id' => (int) $primaryProductId,
+                    'discount_category_ids' => $combination->productOption->product->categories->pluck('id')->map(fn ($id) => (int) $id)->all(),
+                    'discount_ecommerce_category_ids' => $ecommerceProduct->categories->pluck('id')->map(fn ($id) => (int) $id)->all(),
                     'variant_option_id' => null,
                     'variant_group' => null,
                     'variant_alias' => null,
@@ -416,7 +420,7 @@ class EcommerceSaleOrderController extends Controller
                 }
 
                 if (!empty($optionIds)) {
-                    $options = EcommerceVariantOption::with(['group', 'product.baseUnit'])
+                    $options = EcommerceVariantOption::with(['group', 'product.baseUnit', 'product.categories'])
                         ->whereIn('id', $optionIds)
                         ->where('is_active', true)
                         ->get();
@@ -450,6 +454,9 @@ class EcommerceSaleOrderController extends Controller
                             'bundle_items' => [],
                             'ecommerce_product_id' => $ecommerceProduct->id,
                             'ecommerce_product_title' => $ecommerceProduct->title,
+                            'discount_product_id' => (int) $product->id,
+                            'discount_category_ids' => $product->categories->pluck('id')->map(fn ($id) => (int) $id)->all(),
+                            'discount_ecommerce_category_ids' => $ecommerceProduct->categories->pluck('id')->map(fn ($id) => (int) $id)->all(),
                             'variant_option_id' => $option->id,
                             'variant_group' => $option->group?->name,
                             'variant_alias' => $option->alias,
@@ -471,6 +478,98 @@ class EcommerceSaleOrderController extends Controller
         return $lineItems;
     }
 
+    private function applyDiscounts(array $lineItems): array
+    {
+        $today = now()->toDateString();
+        $discounts = Discount::with(['products:id', 'categories:id', 'ecommerceCategories:id'])
+            ->where('is_active', 1)
+            ->where(fn ($query) => $query->whereNull('start_date')->orWhereDate('start_date', '<=', $today))
+            ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $today))
+            ->get();
+
+        $metrics = [
+            'product' => [],
+            'category' => [],
+            'ecommerce_category' => [],
+        ];
+
+        foreach ($lineItems as $line) {
+            $quantity = (int) $line['quantity'];
+            $subtotal = (float) $line['subtotal'];
+            $scopeIds = [
+                'product' => [(int) $line['discount_product_id']],
+                'category' => $line['discount_category_ids'],
+                'ecommerce_category' => $line['discount_ecommerce_category_ids'],
+            ];
+
+            foreach ($scopeIds as $scope => $ids) {
+                foreach (array_unique($ids) as $id) {
+                    $metrics[$scope][$id]['quantity'] = ($metrics[$scope][$id]['quantity'] ?? 0) + $quantity;
+                    $metrics[$scope][$id]['total'] = ($metrics[$scope][$id]['total'] ?? 0) + $subtotal;
+                }
+            }
+        }
+
+        foreach ($lineItems as &$line) {
+            $bestDiscountPerUnit = 0.0;
+
+            foreach ($discounts as $discount) {
+                $meetsMinimum = function (array $metric) use ($discount): bool {
+                    if ($discount->minimum_based_on === 'Quantity of Items') {
+                        return ($metric['quantity'] ?? 0) >= (float) $discount->minimum_qty_or_amount;
+                    }
+
+                    return ($metric['total'] ?? 0) >= (float) $discount->minimum_qty_or_amount;
+                };
+
+                $eligible = false;
+                if ($discount->apply_on === 'Product') {
+                    $productId = (int) $line['discount_product_id'];
+                    $eligible = $discount->products->contains('id', $productId)
+                        && $meetsMinimum($metrics['product'][$productId] ?? []);
+                } elseif ($discount->apply_on === 'Category') {
+                    foreach ($line['discount_category_ids'] as $categoryId) {
+                        if ($discount->categories->contains('id', $categoryId)
+                            && $meetsMinimum($metrics['category'][$categoryId] ?? [])) {
+                            $eligible = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!$eligible && $discount->apply_on_ecommerce === 'Category') {
+                    foreach ($line['discount_ecommerce_category_ids'] as $categoryId) {
+                        if ($discount->ecommerceCategories->contains('id', $categoryId)
+                            && $meetsMinimum($metrics['ecommerce_category'][$categoryId] ?? [])) {
+                            $eligible = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!$eligible) {
+                    continue;
+                }
+
+                $discountPerUnit = $discount->type === 'Percentage'
+                    ? (float) $line['unit_price'] * ((float) $discount->amount / 100)
+                    : (float) $discount->amount;
+
+                $bestDiscountPerUnit = max(
+                    $bestDiscountPerUnit,
+                    min((float) $line['unit_price'], max(0, $discountPerUnit))
+                );
+            }
+
+            $line['discount_per_unit'] = $bestDiscountPerUnit;
+            $line['discount_amount'] = $bestDiscountPerUnit * (int) $line['quantity'];
+            $line['unit_price_after_discount'] = (float) $line['unit_price'] - $bestDiscountPerUnit;
+            $line['total_after_discount'] = (float) $line['subtotal'] - $line['discount_amount'];
+        }
+        unset($line);
+
+        return $lineItems;
+    }
     private function validateQuantity(EcommerceProduct $product, int $quantity, int $index): void
     {
         if ($quantity < (int) $product->min_qty) {

@@ -9,8 +9,11 @@ class EcommerceDiscountController extends Controller
 {
     public function index()
     {
+        $today = now()->toDateString();
         $discounts = Discount::with(['products', 'categories', 'ecommerceCategories'])
             ->where('is_active', 1)
+            ->where(fn ($query) => $query->whereNull('start_date')->orWhereDate('start_date', '<=', $today))
+            ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $today))
             ->get()
             ->map(function ($discount) {
                 return [
