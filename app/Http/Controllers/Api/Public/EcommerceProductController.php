@@ -13,6 +13,7 @@ class EcommerceProductController extends Controller
     {
         $products = EcommerceProduct::with([
                 'categories',
+                'unit',
                 'galleryImages',
                 'variantGroups.options.product.categories',
                 'variantCombinations.productOption.product',
@@ -35,6 +36,7 @@ class EcommerceProductController extends Controller
     {
         $product = EcommerceProduct::with([
             'categories', 
+            'unit',
             'galleryImages',
             'variantGroups.options.product.categories', 
             'variantCombinations.productOption.product',
