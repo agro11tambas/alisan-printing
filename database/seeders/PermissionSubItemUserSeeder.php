@@ -10,11 +10,11 @@ class PermissionSubItemUserSeeder extends Seeder
 {
     public function run(): void
     {
-        // ambil user dengan id 28
-        $user = User::find(28);
+        // ambil user dengan id 1
+        $user = User::find(1);
 
         if (!$user) {
-            $this->command->warn('User dengan ID 28 tidak ditemukan.');
+            $this->command->warn('User dengan ID 1 tidak ditemukan.');
             return;
         }
 
@@ -26,7 +26,7 @@ class PermissionSubItemUserSeeder extends Seeder
             return;
         }
 
-        // assign semua sub item ke user id 28
+        // assign semua sub item ke user id 1
         $user->permissionSubItems()->syncWithoutDetaching($allSubItems->pluck('id'));
 
         $this->command->info("User {$user->id} - {$user->name} sudah diberi semua sub permission.");

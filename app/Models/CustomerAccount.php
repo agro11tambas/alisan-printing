@@ -95,6 +95,11 @@ class CustomerAccount extends Authenticatable
         return $this->belongsTo(Customers::class, 'customer_id');
     }
 
+    public function cartItems()
+    {
+        return $this->hasMany(CustomerCartItem::class);
+    }
+
     public function passwordResetToken()
     {
         return $this->hasOne(CustomerPasswordResetToken::class);

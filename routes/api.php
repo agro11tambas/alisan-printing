@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Public\EcommerceProductController;
 use App\Http\Controllers\Api\Public\EcommerceProductCategoryController;
 use App\Http\Controllers\Api\Public\EcommerceInformationController;
 use App\Http\Controllers\Api\Public\EcommerceDiscountController;
+use App\Http\Controllers\Api\Public\CustomerCartController;
 
 Route::prefix('v1')->group(function () {
     // ERP admin login
@@ -56,6 +57,8 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::prefix('ecommerce')->middleware('auth:sanctum')->group(function () {
+        Route::get('/cart', [CustomerCartController::class, 'index']);
+        Route::put('/cart', [CustomerCartController::class, 'sync']);
         Route::get('/sale-orders', [EcommerceSaleOrderController::class, 'index']);
         Route::get('/sale-orders/{order}', [EcommerceSaleOrderController::class, 'show']);
     });
