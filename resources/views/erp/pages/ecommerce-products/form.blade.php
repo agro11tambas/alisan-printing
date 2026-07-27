@@ -34,6 +34,7 @@
                             'image' => $option->image,
                             'video' => $option->video,
                             'is_active' => $option->is_active,
+                            'allow_without_lid' => $option->allow_without_lid,
                             'sort_order' => $option->sort_order,
                         ];
                     })
@@ -50,6 +51,7 @@
                         'product_id' => null,
                         'extra_price' => 0,
                         'is_active' => true,
+                        'allow_without_lid' => true,
                         'sort_order' => 0,
                     ],
                 ],
@@ -429,6 +431,9 @@
                                                         <th>ERP Product</th>
                                                         <th>Price (Saved)</th>
                                                         <th>Alias</th>
+                                                        @if ($groupIndex === 0)
+                                                            <th>Tanpa Tutup</th>
+                                                        @endif
                                                         <th>Is Active</th>
                                                         <th class="action-column"></th>
                                                     </tr>
@@ -467,6 +472,26 @@
                                                                     value="{{ $optionRow['alias'] ?? '' }}"
                                                                     placeholder="Alias">
                                                             </td>
+                                                            @if ($groupIndex === 0)
+                                                                <td class="text-center align-middle">
+                                                                    <div class="d-flex justify-content-center gap-2">
+                                                                        <div class="form-check mb-0">
+                                                                            <input class="form-check-input" type="radio"
+                                                                                name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][allow_without_lid]"
+                                                                                id="allow_without_lid_on_{{ $groupIndex }}_{{ $optionIndex }}" value="1"
+                                                                                {{ !isset($optionRow['allow_without_lid']) || filter_var($optionRow['allow_without_lid'], FILTER_VALIDATE_BOOLEAN) ? 'checked' : '' }}>
+                                                                            <label class="form-check-label" for="allow_without_lid_on_{{ $groupIndex }}_{{ $optionIndex }}">ON</label>
+                                                                        </div>
+                                                                        <div class="form-check mb-0">
+                                                                            <input class="form-check-input" type="radio"
+                                                                                name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][allow_without_lid]"
+                                                                                id="allow_without_lid_off_{{ $groupIndex }}_{{ $optionIndex }}" value="0"
+                                                                                {{ isset($optionRow['allow_without_lid']) && !filter_var($optionRow['allow_without_lid'], FILTER_VALIDATE_BOOLEAN) ? 'checked' : '' }}>
+                                                                            <label class="form-check-label" for="allow_without_lid_off_{{ $groupIndex }}_{{ $optionIndex }}">OFF</label>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            @endif
                                                             <td class="text-center align-middle">
                                                                 <div class="form-check form-switch d-inline-block">
                                                                     <input type="hidden" name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][is_active]" value="0">
@@ -634,6 +659,54 @@
                         dropdownParent: form,
                         minimumResultsForSearch: 0
                     });
+                });
+            }
+
+            function refreshVariantProductOptions(group) {
+                const $group = $(group);
+                const selectedProductIds = $group.find('.option-product-select').map(function() {
+                    return String($(this).val() || '');
+                }).get().filter(Boolean);
+
+                $group.find('.option-product-select').each(function() {
+                    const $select = $(this);
+                    const currentValue = String($select.val() || '');
+                    const unavailableIds = new Set(
+                        selectedProductIds.filter(productId => productId !== currentValue)
+                    );
+                    const availableProducts = erpProducts.filter(product => {
+                        const productId = String(product.id);
+                        return productId === currentValue || !unavailableIds.has(productId);
+                    });
+
+                    $select.html(
+                        `<option value="">Choose Product</option>${optionsHtml(availableProducts, currentValue)}`
+                    );
+                    $select.val(currentValue);
+                });
+            }
+
+            function confirmRemoval(message, onConfirmed) {
+                if (typeof Swal === 'undefined') {
+                    if (window.confirm(message)) {
+                        onConfirmed();
+                    }
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Konfirmasi',
+                    text: message,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        onConfirmed();
+                    }
                 });
             }
 
@@ -877,6 +950,10 @@
                 fetchSecondaryProducts();
             });
 
+            $(document).on('change', '.option-product-select', function() {
+                refreshVariantProductOptions($(this).closest('.variant-group-item'));
+            });
+
             $(document).on('input', '.variant-group-item[data-group-index="0"] .option-alias-input', function() {
                 const tr = $(this).closest('tr');
                 const optIndex = tr.data('option-index');
@@ -947,6 +1024,20 @@
                         <td class="field-wrapper">
                             <input type="text" class="form-control option-alias-input" name="variant_groups[${groupIndex}][options][${optionIndex}][alias]" placeholder="Alias">
                         </td>
+                        ${groupIndex === 0 ? `
+                        <td class="text-center align-middle">
+                            <div class="d-flex justify-content-center gap-2">
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="radio" name="variant_groups[${groupIndex}][options][${optionIndex}][allow_without_lid]" id="allow_without_lid_on_${groupIndex}_${optionIndex}" value="1" checked>
+                                    <label class="form-check-label" for="allow_without_lid_on_${groupIndex}_${optionIndex}">ON</label>
+                                </div>
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="radio" name="variant_groups[${groupIndex}][options][${optionIndex}][allow_without_lid]" id="allow_without_lid_off_${groupIndex}_${optionIndex}" value="0">
+                                    <label class="form-check-label" for="allow_without_lid_off_${groupIndex}_${optionIndex}">OFF</label>
+                                </div>
+                            </div>
+                        </td>
+                        ` : ''}
                         <td class="text-center align-middle">
                             <div class="form-check form-switch d-inline-block">
                                 <input type="hidden" name="variant_groups[${groupIndex}][options][${optionIndex}][is_active]" value="0">
@@ -1014,7 +1105,10 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>ERP Product</th>
+                                        <th>Price (Saved)</th>
                                         <th>Alias</th>
+                                        ${groupIndex === 0 ? '<th>Tanpa Tutup</th>' : ''}
+                                        <th>Is Active</th>
                                         <th class="action-column"></th>
                                     </tr>
                                 </thead>
@@ -1218,54 +1312,48 @@
                 group.data('option-index', optionIndex + 1);
 
                 initSelect2(group.find('.variant-option-list tr:last'));
+                refreshVariantProductOptions(group);
 
                 if (groupIndex === 0) {
                     $('#primaryImagesList').append(primaryImageCardTemplate(optionIndex, 'Option ' + (optionIndex + 1)));
                 }
             });
 
-            $(document).on('click', '.remove-variant-group', function() {
-                const btn = $(this);
-                Swal.fire({
-                    title: 'Konfirmasi',
-                    text: 'Apakah Anda yakin ingin menghapus Variant Group ini?',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Ya, hapus!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        btn.closest('.variant-group-item').remove();
+            $(document).on('click', '.remove-variant-group', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const group = $(e.currentTarget).closest('.variant-group-item');
+                confirmRemoval('Apakah Anda yakin ingin menghapus Variant Group ini?', function() {
+                    group.remove();
+                    renderCombinations();
+                });
+            });
+
+            $(document).on('click', '.remove-variant-option', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const tr = $(e.currentTarget).closest('.variant-option-row');
+                const group = tr.closest('.variant-group-item');
+                const groupIndex = group.data('group-index');
+                const optionIndex = tr.data('option-index');
+
+                confirmRemoval('Apakah Anda yakin ingin menghapus opsi ini?', function() {
+                    tr.remove();
+                    refreshVariantProductOptions(group);
+
+                    if (groupIndex === 0) {
+                        $(`.primary-image-card[data-option-index="${optionIndex}"]`).remove();
+                        fetchSecondaryProducts();
+                    } else {
+                        renderCombinations();
                     }
                 });
             });
 
-            $(document).on('click', '.remove-variant-option', function() {
-                const tr = $(this).closest('.variant-option-row');
-                const groupIndex = $(this).closest('.variant-group-item').data('group-index');
-                const optionIndex = tr.data('option-index');
-                
-                Swal.fire({
-                    title: 'Konfirmasi',
-                    text: 'Apakah Anda yakin ingin menghapus opsi ini?',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Ya, hapus!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        tr.remove();
-
-                        if (groupIndex === 0) {
-                            $(`.primary-image-card[data-option-index="${optionIndex}"]`).remove();
-                            fetchSecondaryProducts();
-                        }
-                    }
-                });
+            $('.variant-group-item').each(function() {
+                refreshVariantProductOptions(this);
             });
 
             form.on('submit', function(e) {

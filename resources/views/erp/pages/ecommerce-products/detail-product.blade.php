@@ -120,7 +120,7 @@
                         <div class="mb-4">
                             <h6 class="fw-bold mb-3 text-primary"><i class="bx bx-list-plus me-2"></i>Variant Groups</h6>
 
-                            @forelse ($product->variantGroups as $group)
+                            @forelse ($product->variantGroups as $groupIndex => $group)
                                 <div class="mb-4 border border-start border-4 border-primary rounded p-3 shadow-sm bg-white">
                                     <h6 class="fw-bold mb-3 text-primary"><i class="bx bx-layer me-2"></i>{{ $group->name }}</h6>
                                     <div class="table-responsive">
@@ -130,6 +130,9 @@
                                                     <th>ERP Product</th>
                                                     <th>Price</th>
                                                     <th>Alias</th>
+                                                    @if ($groupIndex === 0)
+                                                        <th>Tanpa Tutup</th>
+                                                    @endif
                                                     <th>Status</th>
                                                 </tr>
                                             </thead>
@@ -139,6 +142,13 @@
                                                         <td>{{ $option->product?->name ?? '-' }}</td>
                                                         <td>Rp {{ number_format($option->price ?? 0, 0, ',', '.') }}</td>
                                                         <td>{{ $option->alias }}</td>
+                                                        @if ($groupIndex === 0)
+                                                            <td>
+                                                                <span class="badge {{ $option->allow_without_lid ? 'bg-success' : 'bg-secondary' }}">
+                                                                    {{ $option->allow_without_lid ? 'ON' : 'OFF' }}
+                                                                </span>
+                                                            </td>
+                                                        @endif
                                                         <td>
                                                             @if($option->is_active)
                                                                 <span class="badge bg-success">Active</span>

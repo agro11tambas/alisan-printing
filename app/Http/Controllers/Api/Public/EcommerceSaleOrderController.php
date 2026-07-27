@@ -346,6 +346,8 @@ class EcommerceSaleOrderController extends Controller
             if (!empty($item['ecommerce_variant_combination_id'])) {
                 $combination = EcommerceVariantCombination::with(['productOption.product.categories', 'lidOption.product.categories'])
                     ->whereKey($item['ecommerce_variant_combination_id'])
+                    ->where('ecommerce_product_id', $ecommerceProduct->id)
+                    ->where('is_active', true)
                     ->first();
 
                 if (!$combination) {
@@ -432,6 +434,23 @@ class EcommerceSaleOrderController extends Controller
                     }
 
                     $this->validateVariantOptions($ecommerceProduct, $options, $index);
+                    $primaryGroupId = $ecommerceProduct->variantGroups->first()?->id;
+                    $primaryOption = $options->firstWhere('variant_group_id', $primaryGroupId);
+
+                    if (!$primaryOption) {
+                        throw ValidationException::withMessages([
+                            "items.$index.variant_option_ids" => 'Variant produk utama wajib dipilih.',
+                        ]);
+                    }
+
+                    $requiresLid = $ecommerceProduct->variantGroups->count() > 1
+                        && !$primaryOption->allow_without_lid;
+
+                    if ($requiresLid) {
+                        throw ValidationException::withMessages([
+                            "items.$index.ecommerce_variant_combination_id" => 'Variant produk ini wajib menggunakan tutup.',
+                        ]);
+                    }
 
                     foreach ($options->sortBy(fn ($option) => sprintf(
                         '%010d-%010d',

@@ -16,12 +16,14 @@ class EcommerceVariantOption extends Model
         'extra_price',
         'image',
         'video',
+        'allow_without_lid',
         'is_active',
         'sort_order',
     ];
 
     protected $casts = [
         'extra_price' => 'decimal:2',
+        'allow_without_lid' => 'boolean',
         'is_active' => 'boolean',
         'deleted_at' => 'datetime',
     ];

@@ -22,6 +22,7 @@ class EcommerceProductUpdateRequest extends FormRequest
             if (isset($group['options']) && is_array($group['options'])) {
                 foreach ($group['options'] as &$option) {
                     $option['is_active'] = filter_var($option['is_active'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                    $option['allow_without_lid'] = filter_var($option['allow_without_lid'] ?? false, FILTER_VALIDATE_BOOLEAN);
                 }
             }
         }
@@ -81,6 +82,7 @@ class EcommerceProductUpdateRequest extends FormRequest
             'variant_groups.*.options.*.id' => ['nullable', 'exists:ecommerce_variant_options,id'],
             'variant_groups.*.options.*.alias' => ['required', 'string', 'max:255'],
             'variant_groups.*.options.*.product_id' => ['required', 'exists:products,id'],
+            'variant_groups.*.options.*.allow_without_lid' => ['nullable', 'boolean'],
             'variant_groups.*.options.*.image' => ['nullable', 'image', 'max:4096'],
             'variant_groups.*.options.*.is_active' => ['nullable', 'boolean'],
 

@@ -347,6 +347,7 @@ class EcommerceProductController extends Controller
                         $oldImage
                     ),
                     'is_active' => $optionData['is_active'] ?? false,
+                    'allow_without_lid' => $optionData['allow_without_lid'] ?? false,
                 ];
 
                 if ($option) {
