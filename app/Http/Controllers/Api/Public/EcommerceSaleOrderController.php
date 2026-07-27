@@ -487,21 +487,22 @@ class EcommerceSaleOrderController extends Controller
             ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $today))
             ->get();
 
-        $productMetrics = [];
-        foreach ($lineItems as $line) {
-            $productId = (int) $line['discount_product_id'];
-            $productMetrics[$productId]['quantity'] = ($productMetrics[$productId]['quantity'] ?? 0)
-                + (int) $line['quantity'];
-            $productMetrics[$productId]['total'] = ($productMetrics[$productId]['total'] ?? 0)
-                + (float) $line['subtotal'];
-        }
+        $orderQuantity = collect($lineItems)->sum('quantity');
+        $orderTotal = collect($lineItems)->sum('subtotal');
 
         foreach ($lineItems as &$line) {
             $bestDiscountPerUnit = 0.0;
             $productId = (int) $line['discount_product_id'];
-            $productMetric = $productMetrics[$productId] ?? [];
 
             foreach ($discounts as $discount) {
+                $eligible = $discount->minimum_based_on === 'Quantity of Items'
+                    ? $orderQuantity >= (float) $discount->minimum_qty_or_amount
+                    : $orderTotal >= (float) $discount->minimum_qty_or_amount;
+
+                if (!$eligible) {
+                    continue;
+                }
+
                 $appliesToProduct = $discount->apply_on === 'Product'
                     && $discount->products->contains('id', $productId);
                 $appliesToErpCategory = $discount->apply_on === 'Category'
@@ -510,14 +511,6 @@ class EcommerceSaleOrderController extends Controller
                     && $discount->ecommerceCategories->pluck('id')->intersect($line['discount_ecommerce_category_ids'])->isNotEmpty();
 
                 if (!$appliesToProduct && !$appliesToErpCategory && !$appliesToEcommerceCategory) {
-                    continue;
-                }
-
-                $eligible = $discount->minimum_based_on === 'Quantity of Items'
-                    ? ($productMetric['quantity'] ?? 0) >= (float) $discount->minimum_qty_or_amount
-                    : ($productMetric['total'] ?? 0) >= (float) $discount->minimum_qty_or_amount;
-
-                if (!$eligible) {
                     continue;
                 }
 
