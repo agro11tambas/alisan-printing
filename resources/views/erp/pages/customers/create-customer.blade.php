@@ -90,7 +90,7 @@
                                         data-select2-selector="tag">
                                         <option value="">Choose existing contact</option>
                                         @foreach ($customerAccounts as $account)
-                                            <option value="{{ $account->id }}">
+                                            <option value="{{ $account->id }}" data-name="{{ $account->name ?? '-' }}" data-whatsapp="{{ $account->whatsapp_number ?? '-' }}">
                                                 {{ $account->name ?? '-' }} - {{ $account->whatsapp_number }}
                                             </option>
                                         @endforeach
@@ -195,6 +195,7 @@
 @endsection
 
 @push('modals')
+    @include('erp.pages.customers.partials.existing-account-match-modal')
     <!-- Modal Konfirmasi Hapus -->
     <div class="modal fade" id="deleteAddressModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -266,6 +267,7 @@
 @endpush
 
 @push('scripts')
+    @include('erp.pages.customers.partials.existing-account-match-script')
     <script>
         let addressIndex = 1;
 
@@ -401,7 +403,7 @@
                 }
             });
 
-            if (isValid) form.submit();
+            if (isValid && !handleExistingAccountMatches(form)) form.submit();
         });
 
         function showError(input, message) {

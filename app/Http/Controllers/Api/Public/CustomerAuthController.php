@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Customers;
 use App\Models\CustomerAccount;
 use App\Models\CustomerPasswordResetToken;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -18,9 +19,17 @@ class CustomerAuthController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|unique:customer_accounts,email',
-            'whatsapp_number' => 'required|string|max:20|unique:customer_accounts,whatsapp_number',
+            'whatsapp_number' => 'required|string|max:20',
             'password' => 'required|string|min:8|confirmed',
         ]);
+
+        $validated['whatsapp_number'] = PhoneNumber::normalizeIndonesian($validated['whatsapp_number']);
+
+        if (CustomerAccount::findByEquivalentWhatsapp($validated['whatsapp_number'])) {
+            throw ValidationException::withMessages([
+                'whatsapp_number' => ['Nomor WhatsApp sudah terdaftar.'],
+            ]);
+        }
 
         return DB::transaction(function () use ($validated) {
             $customer = Customers::create([
@@ -236,8 +245,16 @@ class CustomerAuthController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'whatsapp_number' => 'required|string|max:20|unique:customer_accounts,whatsapp_number,' . $user->id,
+            'whatsapp_number' => 'required|string|max:20',
         ]);
+
+        $validated['whatsapp_number'] = PhoneNumber::normalizeIndonesian($validated['whatsapp_number']);
+
+        if (CustomerAccount::findByEquivalentWhatsapp($validated['whatsapp_number'], (int) $user->id)) {
+            throw ValidationException::withMessages([
+                'whatsapp_number' => ['Nomor WhatsApp sudah digunakan oleh akun lain.'],
+            ]);
+        }
 
         $user->update([
             'name' => $validated['name'],

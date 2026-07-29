@@ -8,7 +8,7 @@
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
-                <li class="breadcrumb-item"><a href="/erp/customer-accounts">Customer Accounts</a></li>
+                <li class="breadcrumb-item"><a href="/erp/customers?tab=accounts">Customer Accounts</a></li>
                 <li class="breadcrumb-item">Create</li>
             </ul>
         </div>
@@ -16,7 +16,7 @@
         <div class="page-header-right ms-auto">
             <div class="page-header-right-items">
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="/erp/customer-accounts" class="btn btn-light-brand">
+                    <a href="/erp/customers?tab=accounts" class="btn btn-light-brand">
                         <i class="feather-arrow-left me-2"></i>
                         <span>Back</span>
                     </a>

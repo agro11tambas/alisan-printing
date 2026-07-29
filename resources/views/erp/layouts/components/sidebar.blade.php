@@ -459,14 +459,8 @@
                             @if (Auth::user()->hasPermission('customer'))
                                 <li class="nxl-item">
                                     <a href="/erp/customers"
-                                        class="nxl-link {{ request()->is('erp/customers*') ? 'active' : '' }}">
-                                        <span>Customers</span>
-                                    </a>
-                                </li>
-                                <li class="nxl-item">
-                                    <a href="/erp/customer-accounts"
-                                        class="nxl-link {{ request()->is('erp/customers-accounts*') ? 'active' : '' }}">
-                                        <span>Customer Accounts</span>
+                                        class="nxl-link {{ request()->is('erp/customers*') || request()->is('erp/customer-accounts*') ? 'active' : '' }}">
+                                        <span>Customer</span>
                                     </a>
                                 </li>
                             @endif

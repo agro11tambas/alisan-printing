@@ -178,6 +178,9 @@
                 lengthChange: false,
                 info: false,
                 pagingType: "simple",
+                order: [
+                    [2, 'asc']
+                ],
                 ajax: {
                     url: "{{ url('/erp/customer-accounts/data') }}",
                     data: function(d) {

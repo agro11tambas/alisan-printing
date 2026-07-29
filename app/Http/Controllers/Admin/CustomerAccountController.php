@@ -8,7 +8,8 @@ use App\Models\CustomerPasswordResetToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use App\Support\PhoneNumber;
 use Yajra\DataTables\Facades\DataTables;
 
 
@@ -16,12 +17,13 @@ class CustomerAccountController extends Controller
 {
     public function index()
     {
-        return view('erp.pages.customer-accounts.index');
+        return redirect('/erp/customers?tab=accounts');
     }
 
     public function data(Request $request)
     {
-        $customerAccounts = CustomerAccount::with(['passwordResetToken', 'customers', 'customer'])->latest();
+        $customerAccounts = CustomerAccount::with(['passwordResetToken', 'customers', 'customer'])
+            ->orderBy('name');
 
         if ($request->filled('name')) {
             $keyword = trim($request->name);
@@ -86,24 +88,32 @@ class CustomerAccountController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'whatsapp_number' => 'required|string|unique:customer_accounts,whatsapp_number',
+            'whatsapp_number' => 'required|string|max:20',
             'is_active' => 'nullable|boolean',
         ]);
+
+        $phone = PhoneNumber::normalizeIndonesian($request->whatsapp_number);
+
+        if (CustomerAccount::findByEquivalentWhatsapp($phone)) {
+            throw ValidationException::withMessages([
+                'whatsapp_number' => ['Nomor WhatsApp sudah terdaftar sebagai Customer Account.'],
+            ]);
+        }
 
         DB::beginTransaction();
 
         try {
             CustomerAccount::create([
                 'name' => $request->name,
-                'whatsapp_number' => preg_replace('/\D/', '', $request->whatsapp_number),
-                'password' => bcrypt(preg_replace('/\D/', '', $request->whatsapp_number)),
+                'whatsapp_number' => $phone,
+                'password' => bcrypt($phone),
                 'auth_provider' => 'phone',
                 'is_active' => $request->boolean('is_active'),
             ]);
 
             DB::commit();
 
-            return redirect('/erp/customer-accounts')
+            return redirect('/erp/customers?tab=accounts')
                 ->with('success', 'Customer account berhasil ditambahkan');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -163,19 +173,21 @@ class CustomerAccountController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'whatsapp_number' => [
-                'required',
-                'string',
-                Rule::unique('customer_accounts', 'whatsapp_number')->ignore($customerAccount->id),
-            ],
+            'whatsapp_number' => 'required|string|max:20',
+
             'is_active' => 'nullable|boolean',
         ]);
 
+        $phone = PhoneNumber::normalizeIndonesian($request->whatsapp_number);
+
+        if (CustomerAccount::findByEquivalentWhatsapp($phone, (int) $customerAccount->id)) {
+            throw ValidationException::withMessages([
+                'whatsapp_number' => ['Nomor WhatsApp sudah digunakan oleh Customer Account lain.'],
+            ]);
+        }
         DB::beginTransaction();
 
         try {
-            $phone = preg_replace('/\D/', '', $request->whatsapp_number);
-
             $customerAccount->update([
                 'name' => $request->name,
                 'whatsapp_number' => $phone,
@@ -185,7 +197,7 @@ class CustomerAccountController extends Controller
 
             DB::commit();
 
-            return redirect('/erp/customer-accounts')
+            return redirect('/erp/customers?tab=accounts')
                 ->with('success', 'Customer account berhasil diperbarui');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -215,7 +227,7 @@ class CustomerAccountController extends Controller
         // Soft delete account
         $account->delete();
 
-        return redirect('/erp/customer-accounts')
+        return redirect('/erp/customers?tab=accounts')
             ->with('success', 'Customer account berhasil dihapus.');
     }
 }

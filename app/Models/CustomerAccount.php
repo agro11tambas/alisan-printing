@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\PhoneNumber;
+
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
@@ -78,6 +80,21 @@ class CustomerAccount extends Authenticatable
             'last_login_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
+    }
+
+    public static function findByEquivalentWhatsapp(?string $phone, ?int $ignoreId = null): ?self
+    {
+        $normalizedPhone = PhoneNumber::normalizeIndonesian($phone);
+
+        if (! $normalizedPhone) {
+            return null;
+        }
+
+        return static::query()
+            ->whereIn('whatsapp_number', PhoneNumber::equivalentIndonesianFormats($normalizedPhone))
+            ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+            ->orderBy('id')
+            ->first();
     }
 
     public function customers()

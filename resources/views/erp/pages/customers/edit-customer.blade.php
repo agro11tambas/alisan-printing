@@ -243,6 +243,7 @@
 @endsection
 
 @push('modals')
+    @include('erp.pages.customers.partials.existing-account-match-modal')
     <!-- Modal Konfirmasi Hapus -->
     <div class="modal fade" id="deleteAddressModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -316,6 +317,7 @@
 @endpush
 
 @push('scripts')
+    @include('erp.pages.customers.partials.existing-account-match-script')
     <script>
         let addressIndex = {{ $customer->addresses->count() }};
 
@@ -455,7 +457,7 @@
                 }
             });
 
-            if (isValid) form.submit();
+            if (isValid && !handleExistingAccountMatches(form)) form.submit();
         });
 
         function showError(input, message) {

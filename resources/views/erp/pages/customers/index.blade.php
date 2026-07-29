@@ -34,11 +34,11 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Customers</h5>
+                <h5 class="m-b-10">Customer</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
-                <li class="breadcrumb-item">Customers</li>
+                <li class="breadcrumb-item">Customer</li>
             </ul>
         </div>
         <div class="page-header-right ms-auto">
@@ -48,12 +48,7 @@
                         <i class="feather-arrow-left me-2"></i><span>Back</span>
                     </a>
                 </div>
-                <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="/erp/customers/create-customer" class="btn btn-primary">
-                        <i class="feather-plus me-2"></i>
-                        <span>Create Customer</span>
-                    </a>
-                </div>
+
             </div>
             <div class="d-md-none d-flex align-items-center">
                 <a href="javascript:void(0)" class="page-header-right-open-toggle">
@@ -83,25 +78,44 @@
             });
         </script>
     @endif
+    @php($accountsTabActive = request('tab') === 'accounts')
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
-        <div class="row">
+        <ul class="nav nav-tabs mb-3" id="customerModuleTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {{ $accountsTabActive ? '' : 'active' }}" id="customers-tab"
+                    data-bs-toggle="tab" data-bs-target="#customers-tab-pane" type="button" role="tab"
+                    aria-controls="customers-tab-pane" aria-selected="{{ $accountsTabActive ? 'false' : 'true' }}">
+                    Customer
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {{ $accountsTabActive ? 'active' : '' }}" id="customer-accounts-tab"
+                    data-bs-toggle="tab" data-bs-target="#customer-accounts-tab-pane" type="button" role="tab"
+                    aria-controls="customer-accounts-tab-pane" aria-selected="{{ $accountsTabActive ? 'true' : 'false' }}">
+                    Customer Account
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="customerModuleTabContent">
+            <div class="tab-pane fade {{ $accountsTabActive ? '' : 'show active' }}" id="customers-tab-pane" role="tabpanel"
+                aria-labelledby="customers-tab" tabindex="0">
+                <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
-                        <div class="row g-3 p-2 justify-content-between">
-                            <div class="col-lg-4 me-2">
-
+                        <div class="row g-3 p-2 justify-content-end align-items-end">
+                            <div class="col-lg-2">
+                                <label for="name" class="fw-semibold fs-12">Customer Name</label>
+                                <input type="text" id="name" name="name" class="form-control"
+                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
+                                    autocomplete="off" placeholder="Search Customer Name...">
                             </div>
-                            <div class="col-lg-4">
-                                <div class="row g-3 justify-content-end">
-                                    <div class="col-lg-6">
-                                        <label for="name" class="fw-semibold fs-12">Customer Name</label>
-                                        <input type="text" id="name" name="name" class="form-control"
-                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
-                                            autocomplete="off"
-                                            placeholder="Search Customer Name...">
-                                    </div>
-                                </div>
+                            <div class="col-auto">
+                                <a href="/erp/customers/create-customer" class="btn btn-primary text-nowrap">
+                                    <i class="feather-plus me-2"></i>
+                                    <span>Create Customer</span>
+                                </a>
                             </div>
                         </div>
                         <div class="table-responsive">
@@ -123,6 +137,10 @@
                     </div>
                 </div>
             </div>
+                </div>
+            </div>
+
+            @include('erp.pages.customer-accounts.partials.list-tab')
         </div>
     </div>
 @endsection
@@ -225,6 +243,9 @@
                 pagingType: "simple",
                 stateSave: true,
                 stateDuration: -1,
+                order: [
+                    [1, 'asc']
+                ],
 
                 stateSaveParams: function(settings, data) {
                     data.customer_name_filter = $('#name').val();

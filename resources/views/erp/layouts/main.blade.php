@@ -18,13 +18,8 @@
 
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/vendors.min.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/dataTables.bs5.min.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/tagify.min.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/tagify-data.min.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/select2.min.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/select2-theme.min.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/jquery.steps.min.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/quill.min.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/datepicker.min.css') }}">
 
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/theme.min.css') }}">
 
@@ -39,8 +34,6 @@
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
         /* Default (desktop) */
@@ -759,24 +752,15 @@
     <script src="{{ asset('assets/vendors/js/vendors.min.js') }}"></script>
     <script src="{{ asset('assets/vendors/js/dataTables.min.js') }}"></script>
     <script src="{{ asset('assets/vendors/js/dataTables.bs5.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/tagify.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/tagify-data.min.js') }}"></script>
     <script src="{{ asset('assets/vendors/js/select2.min.js') }}"></script>
     <script src="{{ asset('assets/vendors/js/select2-active.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/jquery.steps.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/jquery.validate.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/quill.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/lslstrength.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/jquery.print.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/datepicker.min.js') }}"></script>
     <script src="{{ asset('assets/js/common-init.min.js') }}"></script>
-    <script src="{{ asset('assets/js/customers-init.min.js') }}"></script>
-    <script src="{{ asset('assets/js/proposal-create-init.min.j') }}s"></script>
-    <script src="{{ asset('assets/js/invoice-view-init.min.js') }}"></script>
-    <script src="{{ asset('assets/js/theme-customizer-init.min.js') }}"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/js/lightbox.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    @if (request()->is('erp/sales/*') || request()->is('erp/orders/*'))
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    @endif
 
     {{-- <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>

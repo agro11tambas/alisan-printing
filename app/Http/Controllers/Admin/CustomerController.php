@@ -9,6 +9,7 @@ use App\Models\CustomerAddresses;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Models\CustomerAccount;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Yajra\DataTables\Facades\DataTables;
@@ -23,7 +24,7 @@ class CustomerController extends Controller
     public function data(Request $request)
     {
         $user = Auth::user();
-        $customers = Customers::with('addresses')->latest();
+        $customers = Customers::query()->with('user')->orderBy('name');
 
         if ($user->role === 'Sales') {
             $customers->where('user_id', $user->id);
@@ -64,7 +65,12 @@ class CustomerController extends Controller
 
     public function create()
     {
-        $customerAccounts = CustomerAccount::orderBy('name', 'asc')->get();
+        $customerAccounts = CustomerAccount::query()
+            ->orderBy('id')
+            ->get()
+            ->unique(fn (CustomerAccount $account) => PhoneNumber::normalizeIndonesian($account->whatsapp_number) ?? 'account-'.$account->id)
+            ->sortBy(fn (CustomerAccount $account) => mb_strtolower($account->name ?? ''))
+            ->values();
 
         return view('erp.pages.customers.create-customer', compact('customerAccounts'));
     }
@@ -151,20 +157,17 @@ class CustomerController extends Controller
 
             // Create account baru
             foreach ($request->accounts ?? [] as $accountInput) {
-                $phone = $accountInput['whatsapp_number'] ?? null;
+                $phone = PhoneNumber::normalizeIndonesian($accountInput['whatsapp_number'] ?? null);
 
                 if (! $phone) {
                     continue;
                 }
 
-                $existingAccount = CustomerAccount::where('whatsapp_number', $phone)->first();
+                $existingAccount = CustomerAccount::findByEquivalentWhatsapp($phone);
 
                 if ($existingAccount) {
-                    DB::rollBack();
-
-                    return back()
-                        ->withInput()
-                        ->with('error', 'Nomor ' . $phone . ' sudah terdaftar. Silakan pilih dari Account Existing.');
+                    $customer->accounts()->syncWithoutDetaching([$existingAccount->id]);
+                    continue;
                 }
 
                 $account = CustomerAccount::create([
@@ -209,7 +212,12 @@ class CustomerController extends Controller
     {
         $customer = Customers::with(['addresses', 'accounts'])->findOrFail($id);
 
-        $customerAccounts = CustomerAccount::orderBy('name', 'asc')->get();
+        $customerAccounts = CustomerAccount::query()
+            ->orderBy('id')
+            ->get()
+            ->unique(fn (CustomerAccount $account) => PhoneNumber::normalizeIndonesian($account->whatsapp_number) ?? 'account-'.$account->id)
+            ->sortBy(fn (CustomerAccount $account) => mb_strtolower($account->name ?? ''))
+            ->values();
 
         return view('erp.pages.customers.edit-customer', compact('customer', 'customerAccounts'));
     }
@@ -244,13 +252,13 @@ class CustomerController extends Controller
     //         $accountIds = $request->existing_account_ids ?? [];
 
     //         foreach ($request->accounts ?? [] as $accountInput) {
-    //             $phone = $accountInput['whatsapp_number'] ?? null;
+    //             $phone = PhoneNumber::normalizeIndonesian($accountInput['whatsapp_number'] ?? null);
 
     //             if (! $phone) {
     //                 continue;
     //             }
 
-    //             $existingAccount = CustomerAccount::where('whatsapp_number', $phone)->first();
+    //             $existingAccount = CustomerAccount::findByEquivalentWhatsapp($phone);
 
     //             if ($existingAccount) {
     //                 DB::rollBack();
@@ -336,12 +344,11 @@ class CustomerController extends Controller
                     continue;
                 }
 
-                $phone = $accountInput['whatsapp_number'] ?? null;
+                $phone = PhoneNumber::normalizeIndonesian($accountInput['whatsapp_number'] ?? null);
 
                 if ($phone) {
-                    $phoneUsed = CustomerAccount::where('whatsapp_number', $phone)
-                        ->where('id', '!=', $accountId)
-                        ->exists();
+                    $phoneUsed = CustomerAccount::findByEquivalentWhatsapp($phone, (int) $accountId);
+
 
                     if ($phoneUsed) {
                         DB::rollBack();
@@ -360,20 +367,17 @@ class CustomerController extends Controller
 
             // Create account baru
             foreach ($request->accounts ?? [] as $accountInput) {
-                $phone = $accountInput['whatsapp_number'] ?? null;
+                $phone = PhoneNumber::normalizeIndonesian($accountInput['whatsapp_number'] ?? null);
 
                 if (! $phone) {
                     continue;
                 }
 
-                $existingAccount = CustomerAccount::where('whatsapp_number', $phone)->first();
+                $existingAccount = CustomerAccount::findByEquivalentWhatsapp($phone);
 
                 if ($existingAccount) {
-                    DB::rollBack();
-
-                    return back()
-                        ->withInput()
-                        ->with('error', 'Nomor ' . $phone . ' sudah terdaftar. Silakan pilih dari Account Existing.');
+                    $accountIds[] = $existingAccount->id;
+                    continue;
                 }
 
                 $account = CustomerAccount::create([
