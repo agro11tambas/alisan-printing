@@ -42,6 +42,121 @@
             }
 
         }
+
+        /* Mobile History Stock In: flat-card pattern */
+        .stockin-history-mobile { display: none; }
+
+        @media (max-width: 767.98px) {
+            #stockInHistoryTable_wrapper { display: none !important; }
+            .stockin-history-mobile { display: block !important; }
+            .history-mobile-card {
+                background: transparent;
+                border-radius: 0;
+                padding: 8px 14px;
+                margin: 0 0 5px;
+                box-shadow: none;
+                border-bottom: 1px solid #e5e9ef;
+            }
+            .history-mobile-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .history-mobile-title {
+                min-width: 0;
+                color: #4b5563;
+                font-size: 12px;
+                font-weight: 600;
+                overflow-wrap: anywhere;
+            }
+            .history-mobile-date {
+                flex: 0 0 auto;
+                color: #ef4444;
+                font-size: 11px;
+                text-align: right;
+            }
+            .history-mobile-meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px 12px;
+                margin-top: 4px;
+                color: #6b7280;
+                font-size: 11px;
+            }
+            .history-mobile-waybill {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 10px;
+                margin-top: 5px;
+            }
+            .history-mobile-waybill-number {
+                color: #4b5563;
+                font-size: 11px;
+                overflow-wrap: anywhere;
+            }
+            .history-mobile-waybill-image img,
+            .history-mobile-waybill-image div {
+                width: 72px !important;
+                max-width: 72px !important;
+                border-radius: 5px !important;
+            }
+            .history-mobile-items { margin-top: 7px; }
+            .history-mobile-items .table-responsive { overflow: visible; }
+            .history-mobile-items table {
+                width: 100%;
+                margin: 0 !important;
+                border: 0 !important;
+            }
+            .history-mobile-items thead { display: none; }
+            .history-mobile-items tbody,
+            .history-mobile-items tr {
+                display: block;
+                width: 100%;
+            }
+            .history-mobile-items tr {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 3px 8px;
+                padding: 6px 0;
+                border: 0;
+                border-top: 1px dashed #d8dde5;
+            }
+            .history-mobile-items td {
+                display: block;
+                padding: 0 !important;
+                border: 0 !important;
+                color: #4b5563;
+                font-size: 11px;
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+            .history-mobile-items td:first-child { font-weight: 600; }
+            .history-mobile-items td:nth-child(2) {
+                color: #16a34a;
+                font-weight: 600;
+                text-align: right;
+            }
+            .history-mobile-items td:nth-child(3) {
+                grid-column: 1;
+                color: #9ca3af;
+            }
+            .history-mobile-items td:nth-child(4) {
+                grid-column: 2;
+                grid-row: 2;
+                text-align: right;
+            }
+            .history-mobile-items .btn {
+                padding: 2px 8px;
+                font-size: 10px;
+            }
+        }
+
+        @media (min-width: 768px) {
+            #stockInHistoryTable_wrapper { display: block !important; }
+            .stockin-history-mobile { display: none !important; }
+        }
     </style>
 @endpush
 
@@ -177,7 +292,7 @@
                                 <tbody>
                                 </tbody>
                             </table>
-                            <div id="stockInHistoryMobile" class="stockin-history-mobile">TEst</div>
+                            <div id="stockInHistoryMobile" class="stockin-history-mobile"></div>
 
                         </div>
                     </div>
@@ -281,7 +396,7 @@
             });
 
             dataTable.on('xhr', function(e, settings, json) {
-                if (window.innerWidth >= 992) return;
+                if (window.innerWidth >= 768) return;
                 if (json && json.data) {
                     renderStockInHistoryMobile(json.data);
                 }
@@ -345,52 +460,36 @@
         });
 
         function renderStockInHistoryMobile(data) {
-            if (window.innerWidth >= 992) return;
+            if (window.innerWidth >= 768) return;
 
             const container = $('#stockInHistoryMobile');
             container.html('');
 
-            if (!data.length) {
-                container.html('<div class="text-center text-muted py-2">No history data</div>');
+            if (!data || !data.length) {
+                container.html('<div class="text-center text-muted py-3">No history data</div>');
                 return;
             }
 
             data.forEach((row) => {
                 container.append(`
-            <div class="history-mobile-card">
-                <div class="history-mobile-title">
-                    ${row.invoice_number ?? '-'}
-                </div>
-
-                <div class="history-mobile-row">
-                    <span class="history-mobile-label">Date:</span>
-                    ${row.change_date ?? '-'}
-                </div>
-
-                <div class="history-mobile-row">
-                    <span class="history-mobile-label">Updated By:</span>
-                    ${row.user_name ?? '-'}
-                </div>
-
-                <div class="history-mobile-row">
-                    <span class="history-mobile-label">Waybill:</span>
-                    ${row.waybill_number ?? '-'}
-                </div>
-
-                <div class="history-mobile-row">
-                    <span class="history-mobile-label">Stock In:</span>
-                    ${row.stock_in ?? '-'}
-                </div>
-            </div>
-        `);
+                    <div class="history-mobile-card">
+                        <div class="history-mobile-header">
+                            <div class="history-mobile-title">${row.invoice_number ?? '-'}</div>
+                            <div class="history-mobile-date">${row.change_date ?? '-'}</div>
+                        </div>
+                        <div class="history-mobile-meta">
+                            <span><strong>Updated by:</strong> ${row.user_name ?? '-'}</span>
+                        </div>
+                        <div class="history-mobile-waybill">
+                            <div class="history-mobile-waybill-number">
+                                <strong>Waybill:</strong> ${row.waybill_number || '-'}
+                            </div>
+                            <div class="history-mobile-waybill-image">${row.waybill_image ?? '-'}</div>
+                        </div>
+                        <div class="history-mobile-items">${row.stock_in ?? '-'}</div>
+                    </div>
+                `);
             });
         }
-
-
-        $('#stockInHistoryTable').on('xhr.dt', function(e, settings, json) {
-            if (json && json.data) {
-                renderStockInHistoryMobile(json.data);
-            }
-        });
     </script>
 @endpush

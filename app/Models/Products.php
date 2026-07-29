@@ -23,6 +23,8 @@ class Products extends Model
         'price',
         'sku',
         'base_unit_id',
+        'sale_unit_id',
+        'purchase_unit_id',
         'stock',
         'image',
         'gallery',
@@ -54,6 +56,16 @@ class Products extends Model
     public function baseUnit()
     {
         return $this->belongsTo(ProductUnit::class, 'base_unit_id');
+    }
+
+    public function saleUnit()
+    {
+        return $this->belongsTo(ProductUnit::class, 'sale_unit_id');
+    }
+
+    public function purchaseUnit()
+    {
+        return $this->belongsTo(ProductUnit::class, 'purchase_unit_id');
     }
 
     public function unitConversions()

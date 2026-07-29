@@ -523,6 +523,7 @@ class PurchaseListController extends Controller
                 'price' => $product->price,
                 'last_price' => $product->last_price,
                 'last_freight' => $product->last_freight,
+                'purchase_unit_id' => $product->purchase_unit_id,
 
                 'units' => $product->unitConversions->map(function ($conversion) {
                     return [
@@ -893,6 +894,7 @@ class PurchaseListController extends Controller
                 'price' => $product->price,
                 'last_price' => $product->last_price,
                 'last_freight' => $product->last_freight,
+                'purchase_unit_id' => $product->purchase_unit_id,
                 'units' => $product->unitConversions->map(function ($conversion) {
                     return [
                         'id' => $conversion->id,
@@ -1399,7 +1401,13 @@ class PurchaseListController extends Controller
 
             DB::commit();
 
-            return redirect('/erp/purchases/purchase-list')->with('success', 'Purchase updated successfully.');
+            $redirectUrl = '/erp/purchases/purchase-list';
+
+            if ($purchase->parent_purchase_id) {
+                $redirectUrl .= '?purchase_order_id='.$purchase->parent_purchase_id;
+            }
+
+            return redirect($redirectUrl)->with('success', 'Purchase updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Purchase Update Error', [

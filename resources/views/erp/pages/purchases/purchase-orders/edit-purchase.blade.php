@@ -377,12 +377,13 @@
         $productUnitsJson = $products->mapWithKeys(function ($product) {
             return [
                 $product->id => $product->unitConversions
-                    ->map(function ($conversion) {
+                    ->map(function ($conversion) use ($product) {
                         return [
                             'id' => $conversion->id,
                             'unit_name' => optional($conversion->unit)->name ?? 'Pcs',
                             'ratio_value' => $conversion->ratio_value ?? 1,
                             'conversion_value' => $conversion->conversion_value ?? 1,
+                            'is_purchase_unit' => (int) $conversion->unit_id === (int) $product->purchase_unit_id,
                         ];
                     })
                     ->values(),
@@ -406,20 +407,28 @@
                 <option value="${unit.id}"
                     data-name="${unit.unit_name}"
                     data-ratio="${unit.ratio_value}"
-                    data-conversion="${unit.conversion_value}">
+                    data-conversion="${unit.conversion_value}"
+                    data-is-purchase-unit="${unit.is_purchase_unit ? 1 : 0}">
                     ${unit.unit_name}
                 </option>
             `);
                 });
 
-                const $baseUnit = $unitSelect.find('option').filter(function() {
-                    return Number($(this).data('conversion')) === 1;
+                const $purchaseUnit = $unitSelect.find('option').filter(function() {
+                    return Number($(this).data('is-purchase-unit')) === 1;
                 });
 
-                if ($baseUnit.length) {
-                    $unitSelect.val($baseUnit.val());
+                if ($purchaseUnit.length) {
+                    $unitSelect.val($purchaseUnit.first().val());
                 } else {
-                    $unitSelect.prop('selectedIndex', 0);
+                    const $fallbackUnit = $unitSelect.find('option').toArray().reduce((largest, option) => {
+                        if (!largest) return option;
+
+                        return Number($(option).data('conversion')) >
+                            Number($(largest).data('conversion')) ? option : largest;
+                    }, null);
+
+                    $unitSelect.val($fallbackUnit?.value ?? '');
                 }
 
                 syncSelectedUnit($row);

@@ -419,7 +419,7 @@
                                     <!--  -->
                                     <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
-                                            <label for="customers" class="fw-semibold">Customer:</label>
+                                            <label for="customers" class="fw-semibold">Business:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
@@ -434,7 +434,7 @@
                                                 @endphp
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="customers" name="customer_id">
-                                                    <option disabled selected hidden>Choose Customer</option>
+                                                    <option disabled selected hidden>Choose Business</option>
                                                     @foreach ($customers as $index => $customer)
                                                         @php
                                                             $bg = $bgColors[$loop->index % count($bgColors)];
@@ -448,14 +448,14 @@
                                     </div>
                                     <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
-                                            <label for="customer_accounts" class="fw-semibold">Customer Account:</label>
+                                            <label for="customer_accounts" class="fw-semibold">Contact:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="customer_accounts"
                                                     name="customer_account_id">
-                                                    <option disabled selected hidden>Pilih customer account</option>
+                                                    <option disabled selected hidden>Choose Contact</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -468,7 +468,7 @@
                                             <div class="input-group">
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="addresses" name="customer_address_id">
-                                                    <option disabled selected hidden>Pilih alamat</option>
+                                                    <option disabled selected hidden>Choose Address</option>
                                                 </select>
                                             </div>
                                             <div id="google-maps-link" class="mt-1"></div>
@@ -1261,7 +1261,8 @@
             row.find('.bundle-wrapper').addClass('d-none');
             row.find('.bundle-secondary-product').val('');
 
-            fillProductUnits(row, units, price, false, selectedItem?.base_unit_id);
+            const defaultSaleUnitId = selectedItem?.sale_unit_id || selectedItem?.base_unit_id;
+            fillProductUnits(row, units, price, false, defaultSaleUnitId);
 
             recalcAllRows();
         });
@@ -1301,7 +1302,8 @@
 
                 const selectedItem = allProducts.find(item => String(item.id) === selectedId);
 
-                fillProductUnits(row, units, price, false, selectedItem?.base_unit_id);
+                const defaultSaleUnitId = selectedItem?.sale_unit_id || selectedItem?.base_unit_id;
+                fillProductUnits(row, units, price, false, defaultSaleUnitId);
             }
 
             recalcAllRows();
@@ -1469,7 +1471,7 @@
                 const customerId = $(this).val();
 
                 const addresses = customerAddresses[customerId] || [];
-                $('#addresses').empty().append('<option disabled selected hidden>Pilih alamat</option>');
+                $('#addresses').empty().append('<option disabled selected hidden>Choose Address</option>');
                 addresses.forEach((address) => {
                     $('#addresses').append(
                         `<option value="${address.id}" data-map="${address.google_maps}">
@@ -1482,7 +1484,7 @@
 
                 const accounts = customerAccounts[customerId] || [];
                 $('#customer_accounts').empty().append(
-                    '<option disabled selected hidden>Pilih customer account</option>');
+                    '<option disabled selected hidden>Choose Contact</option>');
                 accounts.forEach((account) => {
                     $('#customer_accounts').append(
                         `<option value="${account.id}">
@@ -1585,19 +1587,19 @@
             const customerSelect = $('#customers');
             if (!customerSelect.val()) {
                 isValid = false;
-                showError(customerSelect[0], 'Customer wajib dipilih');
+                showError(customerSelect[0], 'Business wajib dipilih');
             }
 
             const customerAccountSelect = $('#customer_accounts');
             if (!customerAccountSelect.val()) {
                 isValid = false;
-                showError(customerAccountSelect[0], 'Customer account wajib dipilih');
+                showError(customerAccountSelect[0], 'Contact wajib dipilih');
             }
 
             const addressSelect = $('#addresses');
             if (!addressSelect.val()) {
                 isValid = false;
-                showError(addressSelect[0], 'Alamat wajib dipilih');
+                showError(addressSelect[0], 'Address wajib dipilih');
             }
 
             $('.product-item').each(function() {

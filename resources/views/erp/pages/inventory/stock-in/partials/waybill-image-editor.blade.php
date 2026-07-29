@@ -1,7 +1,32 @@
-<div class="input-group">
+<div class="input-group" id="waybill-file-input-group">
     <input type="file" class="form-control" id="waybill_image" name="waybill_image" accept="image/*"
         @if ($capture ?? false) capture="environment" @endif>
 </div>
+
+@if ($capture ?? false)
+    <div id="waybill-mobile-camera" class="d-none">
+        <button type="button" class="btn btn-primary w-100" id="open-waybill-camera">
+            <i class="feather-camera me-2"></i> Buka Kamera
+        </button>
+        <div id="waybill-camera-panel" class="d-none mt-2">
+            <div class="overflow-hidden rounded-3 bg-dark">
+                <video id="waybill-camera-video" class="w-100 d-block" playsinline muted
+                    style="max-height: 65vh; object-fit: cover;"></video>
+            </div>
+            <div class="d-flex gap-2 mt-2">
+                <button type="button" class="btn btn-primary flex-fill" id="capture-waybill-photo">
+                    <i class="feather-camera me-1"></i> Ambil Foto
+                </button>
+                <button type="button" class="btn btn-light flex-fill" id="cancel-waybill-camera">
+                    Batal
+                </button>
+            </div>
+        </div>
+        <small class="text-muted d-block mt-1">
+            Waybill wajib difoto langsung menggunakan kamera belakang.
+        </small>
+    </div>
+@endif
 
 <div id="waybill-image-editor" class="mt-3" style="display: none;">
     <div class="border rounded-3 bg-light p-2 text-center">
@@ -141,5 +166,113 @@
                 renderImage(true);
             });
         });
+    </script>
+
+    <script>
+        @if ($capture ?? false)
+            $(document).ready(function() {
+                const isMobile = window.matchMedia('(max-width: 767.98px)').matches;
+                if (!isMobile) return;
+
+                const fileGroup = document.getElementById('waybill-file-input-group');
+                const cameraWrapper = document.getElementById('waybill-mobile-camera');
+                const cameraPanel = document.getElementById('waybill-camera-panel');
+                const openButton = document.getElementById('open-waybill-camera');
+                const captureButton = document.getElementById('capture-waybill-photo');
+                const cancelButton = document.getElementById('cancel-waybill-camera');
+                const video = document.getElementById('waybill-camera-video');
+                const input = document.getElementById('waybill_image');
+                let cameraStream = null;
+
+                fileGroup.classList.add('d-none');
+                cameraWrapper.classList.remove('d-none');
+
+                function stopCamera() {
+                    if (cameraStream) {
+                        cameraStream.getTracks().forEach(track => track.stop());
+                        cameraStream = null;
+                    }
+                    video.srcObject = null;
+                    cameraPanel.classList.add('d-none');
+                    openButton.classList.remove('d-none');
+                }
+
+                async function startCamera() {
+                    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Kamera Tidak Tersedia',
+                            text: 'Kamera mobile hanya dapat digunakan melalui koneksi HTTPS.'
+                        });
+                        return;
+                    }
+
+                    try {
+                        cameraStream = await navigator.mediaDevices.getUserMedia({
+                            audio: false,
+                            video: {
+                                facingMode: { ideal: 'environment' }
+                            }
+                        });
+                        video.srcObject = cameraStream;
+                        await video.play();
+                        openButton.classList.add('d-none');
+                        cameraPanel.classList.remove('d-none');
+                    } catch (error) {
+                        stopCamera();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Izin Kamera Diperlukan',
+                            text: 'Aktifkan izin kamera pada browser untuk mengambil foto waybill.'
+                        });
+                    }
+                }
+
+                openButton.addEventListener('click', startCamera);
+                cancelButton.addEventListener('click', stopCamera);
+
+                captureButton.addEventListener('click', function() {
+                    if (!video.videoWidth || !video.videoHeight) return;
+
+                    const maxDimension = 2000;
+                    const scale = Math.min(1, maxDimension / Math.max(video.videoWidth, video.videoHeight));
+                    const photoCanvas = document.createElement('canvas');
+                    photoCanvas.width = Math.round(video.videoWidth * scale);
+                    photoCanvas.height = Math.round(video.videoHeight * scale);
+                    photoCanvas.getContext('2d').drawImage(
+                        video,
+                        0,
+                        0,
+                        photoCanvas.width,
+                        photoCanvas.height
+                    );
+
+                    photoCanvas.toBlob(function(blob) {
+                        if (!blob) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal',
+                                text: 'Foto waybill tidak dapat diproses.'
+                            });
+                            return;
+                        }
+
+                        const file = new File([blob], `waybill_${Date.now()}.jpg`, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        const transfer = new DataTransfer();
+                        transfer.items.add(file);
+                        input.files = transfer.files;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+
+                        stopCamera();
+                        openButton.innerHTML = '<i class="feather-camera me-2"></i> Ambil Ulang Foto';
+                    }, 'image/jpeg', 0.9);
+                });
+
+                window.addEventListener('pagehide', stopCamera);
+            });
+        @endif
     </script>
 @endpush

@@ -27,6 +27,7 @@ use App\Models\ProductUnitConversion;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ProductsController extends Controller
 {
@@ -51,6 +52,8 @@ class ProductsController extends Controller
             'inventoryStock',
             'unitConversions.unit',
             'baseUnit',
+            'saleUnit',
+            'purchaseUnit',
         ])
             ->orderBy('name', 'asc');
 
@@ -98,6 +101,8 @@ class ProductsController extends Controller
                     'name' => e($product->name),
                     'base_unit_id' => $product->base_unit_id,
                     'base_unit_name' => e($product->baseUnit?->name ?? '-'),
+                    'sale_unit_name' => e($product->saleUnit?->name ?? '-'),
+                    'purchase_unit_name' => e($product->purchaseUnit?->name ?? '-'),
                     'categories' => $product->categories->map(
                         fn($c) => '<span class="badge bg-soft-primary text-primary">'
                             . e($c->name) . '</span>'
@@ -132,10 +137,21 @@ class ProductsController extends Controller
 
     public function store(Request $request)
     {
+        $configuredUnitIds = collect($request->input('units', []))
+            ->pluck('unit_id')
+            ->push($request->input('base_unit_id'))
+            ->filter()
+            ->map(fn ($unitId) => (int) $unitId)
+            ->unique()
+            ->values()
+            ->all();
+
         $request->validate([
             'name' => 'required',
             'sku' => 'required|string',
             'base_unit_id' => 'required|exists:product_units,id',
+            'sale_unit_id' => ['required', 'exists:product_units,id', Rule::in($configuredUnitIds)],
+            'purchase_unit_id' => ['required', 'exists:product_units,id', Rule::in($configuredUnitIds)],
 
             // price product tetap dikirim hidden = 0
             'price' => 'nullable|numeric|min:0',
@@ -152,6 +168,9 @@ class ProductsController extends Controller
             'units.*.sale_price' => 'nullable|numeric|min:0',
             'units.*.fixed_cost' => 'nullable|numeric|min:0',
             'units.*.margin' => 'nullable|numeric|min:0',
+        ], [
+            'sale_unit_id.in' => 'Sale Unit harus dipilih dari Product Units.',
+            'purchase_unit_id.in' => 'Purchase Unit harus dipilih dari Product Units.',
         ]);
 
         if (Products::where('sku', $request->sku)->exists()) {
@@ -181,6 +200,8 @@ class ProductsController extends Controller
                     'name' => $request->name,
                     'sku' => $request->sku,
                     'base_unit_id' => $request->base_unit_id,
+                    'sale_unit_id' => $request->sale_unit_id,
+                    'purchase_unit_id' => $request->purchase_unit_id,
 
                     // price product dipaksa 0
                     'price' => 0,
@@ -435,10 +456,21 @@ class ProductsController extends Controller
 
     public function update(Request $request, $id)
     {
+        $configuredUnitIds = collect($request->input('units', []))
+            ->pluck('unit_id')
+            ->push($request->input('base_unit_id'))
+            ->filter()
+            ->map(fn ($unitId) => (int) $unitId)
+            ->unique()
+            ->values()
+            ->all();
+
         $request->validate([
             'name' => 'required',
             'sku' => 'required|string',
             'base_unit_id' => 'required|exists:product_units,id',
+            'sale_unit_id' => ['required', 'exists:product_units,id', Rule::in($configuredUnitIds)],
+            'purchase_unit_id' => ['required', 'exists:product_units,id', Rule::in($configuredUnitIds)],
 
             // Product price tetap hidden / default 0
             'price' => 'nullable|numeric|min:0',
@@ -456,6 +488,9 @@ class ProductsController extends Controller
             'units.*.sale_price' => 'nullable|numeric|min:0',
             'units.*.fixed_cost' => 'nullable|numeric|min:0',
             'units.*.margin' => 'nullable|numeric|min:0',
+        ], [
+            'sale_unit_id.in' => 'Sale Unit harus dipilih dari Product Units.',
+            'purchase_unit_id.in' => 'Purchase Unit harus dipilih dari Product Units.',
         ]);
 
         if (Products::where('sku', $request->sku)->where('id', '!=', $id)->exists()) {
@@ -487,6 +522,8 @@ class ProductsController extends Controller
                     'name' => $request->name,
                     'sku' => $request->sku,
                     'base_unit_id' => $request->base_unit_id,
+                    'sale_unit_id' => $request->sale_unit_id,
+                    'purchase_unit_id' => $request->purchase_unit_id,
 
                     // product price/fixed_cost tidak dipakai lagi
                     'price' => 0,

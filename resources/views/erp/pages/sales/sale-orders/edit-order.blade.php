@@ -365,7 +365,7 @@
                                     <!--  -->
                                     <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
-                                            <label for="customers" class="fw-semibold">Customer:</label>
+                                            <label for="customers" class="fw-semibold">Business:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
@@ -380,7 +380,7 @@
                                                 @endphp
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="customers" name="customer_id">
-                                                    <option disabled selected hidden>Choose Customer</option>
+                                                    <option disabled selected hidden>Choose Business</option>
                                                     @foreach ($customers as $index => $customer)
                                                         @php
                                                             $bg = $bgColors[$loop->index % count($bgColors)];
@@ -395,14 +395,14 @@
                                     </div>
                                     <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
-                                            <label for="customer_accounts" class="fw-semibold">Customer Account:</label>
+                                            <label for="customer_accounts" class="fw-semibold">Contact:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="customer_accounts"
                                                     name="customer_account_id">
-                                                    <option disabled hidden>Pilih customer account</option>
+                                                    <option disabled hidden>Choose Contact</option>
 
                                                     @if ($order->customer)
                                                         @foreach ($order->customer->accounts as $account)
@@ -425,7 +425,7 @@
                                             <div class="input-group">
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="addresses" name="customer_address_id">
-                                                    <option disabled hidden>Pilih alamat</option>
+                                                    <option disabled hidden>Choose Address</option>
                                                     @if ($order->customer)
                                                         @foreach ($order->customer->addresses as $index => $address)
                                                             <option value="{{ $address->id }}"
@@ -1346,7 +1346,7 @@
             const addressSelect = $('#addresses');
             const selectedAddressId = "{{ $order->customer_address_id ?? '' }}";
 
-            addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
+            addressSelect.empty().append('<option disabled hidden>Choose Address</option>');
 
             addresses.forEach(function(address) {
                 const isSelected = String(address.id) === String(selectedAddressId);
@@ -1368,7 +1368,7 @@
             const accountSelect = $('#customer_accounts');
             const selectedAccountId = "{{ $order->customer_account_id ?? '' }}";
 
-            accountSelect.empty().append('<option disabled hidden>Pilih customer account</option>');
+            accountSelect.empty().append('<option disabled hidden>Choose Contact</option>');
 
             accounts.forEach(function(account) {
                 const isSelected = String(account.id) === String(selectedAccountId);
@@ -1571,7 +1571,8 @@
 
             let units = selectedItem?.units || [];
 
-            fillProductUnits(row, units, selectedItem?.base_unit_id);
+            const defaultSaleUnitId = selectedItem?.sale_unit_id || selectedItem?.base_unit_id;
+            fillProductUnits(row, units, defaultSaleUnitId);
 
             row.find('.add-bundle-check').prop('checked', false);
             row.find('.bundle-wrapper').addClass('d-none');
@@ -1730,7 +1731,8 @@
 
                 const selectedData = findSelectedProductData(selectedVal);
                 if (selectedData) {
-                    fillProductUnits(row, selectedData.units || [], selectedData.base_unit_id);
+                    const defaultSaleUnitId = selectedData.sale_unit_id || selectedData.base_unit_id;
+                    fillProductUnits(row, selectedData.units || [], defaultSaleUnitId);
                 }
             } else {
                 row.find('.product-type').val('satuan');
@@ -1739,7 +1741,8 @@
 
                 const selectedData = findSelectedProductData(selectedVal);
                 if (selectedData) {
-                    fillProductUnits(row, selectedData.units || [], selectedData.base_unit_id);
+                    const defaultSaleUnitId = selectedData.sale_unit_id || selectedData.base_unit_id;
+                    fillProductUnits(row, selectedData.units || [], defaultSaleUnitId);
                 }
             }
 
@@ -1764,17 +1767,17 @@
             let valid = true;
 
             if (!$('#customers').val()) {
-                showError($('#customers'), 'Customer wajib dipilih');
+                showError($('#customers'), 'Business wajib dipilih');
                 valid = false;
             }
 
             if (!$('#customer_accounts').val()) {
-                showError($('#customer_accounts'), 'Customer account wajib dipilih');
+                showError($('#customer_accounts'), 'Contact wajib dipilih');
                 valid = false;
             }
 
             if (!$('#addresses').val()) {
-                showError($('#addresses'), 'Alamat wajib dipilih');
+                showError($('#addresses'), 'Address wajib dipilih');
                 valid = false;
             }
 

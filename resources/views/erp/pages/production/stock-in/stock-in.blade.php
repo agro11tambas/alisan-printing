@@ -31,6 +31,132 @@
         #inventoryTable tbody tr {
             animation: fadeIn 0.3s ease-in;
         }
+
+        /* Mobile Stock In: same flat-card pattern as Sale List */
+        #stockInMobile {
+            display: none;
+        }
+
+        @media (max-width: 767.98px) {
+            #inventoryTable_wrapper {
+                display: none !important;
+            }
+
+            #stockInMobile {
+                display: block !important;
+            }
+
+            .stockin-mobile-card {
+                border-radius: 0;
+                padding: 8px 14px;
+                margin: 0 0 5px;
+                overflow: visible !important;
+                position: relative;
+                border-bottom: 1px solid #e5e9ef;
+                box-shadow: none;
+            }
+
+            .stockin-mobile-card.active {
+                background-color: #e5e9ef;
+            }
+
+            .stockin-mobile-header,
+            .stockin-mobile-info {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 12px;
+                width: 100%;
+            }
+
+            .stockin-number {
+                min-width: 0;
+                color: #4b5563;
+                font-size: 12px;
+                overflow-wrap: anywhere;
+            }
+
+            .stockin-status {
+                flex: 0 0 auto;
+                font-size: 11px;
+            }
+
+            .stockin-meta {
+                color: #9ca3af;
+                font-size: 11px;
+                margin-top: 2px;
+            }
+
+            .stockin-partner {
+                color: #4b5563;
+                font-size: 12px;
+                font-weight: 600;
+                margin-top: 4px;
+            }
+
+            .stockin-items {
+                margin-top: 5px;
+            }
+
+            .stockin-product {
+                padding: 5px 0;
+                border-bottom: 1px dashed #d8dde5;
+            }
+
+            .stockin-product:last-child {
+                border-bottom: 0;
+            }
+
+            .stockin-product-name {
+                color: #4b5563;
+                font-size: 12px;
+                font-weight: 600;
+                overflow-wrap: anywhere;
+            }
+
+            .stockin-product-values {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 6px;
+                margin-top: 2px;
+                font-size: 11px;
+            }
+
+            .stockin-product-values span {
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+
+            .stockin-product-values span:nth-child(2) {
+                text-align: center;
+            }
+
+            .stockin-product-values span:last-child {
+                text-align: right;
+            }
+
+            .stockin-mobile-action {
+                display: none;
+                margin-top: 8px;
+                padding-top: 8px;
+                border-top: 1px dashed #d8dde5;
+            }
+
+            .stockin-mobile-card.active .stockin-mobile-action,
+            .stockin-mobile-card.active .dropdown-menu {
+                display: block !important;
+            }
+        }
+
+        @media (min-width: 768px) {
+            #inventoryTable_wrapper {
+                display: block !important;
+            }
+
+            #stockInMobile {
+                display: none !important;
+            }
+        }
     </style>
 @endpush
 
@@ -161,6 +287,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="stockInMobile" class="px-0 pb-2"></div>
                     </div>
                 </div>
             </div>
@@ -250,6 +377,7 @@
                                 let newNodes = dataTable.rows.add(response.data).nodes();
                                 $(dataTable.table().body()).append(newNodes);
                             }
+                            renderStockInMobile();
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -286,8 +414,10 @@
             function resetAndReload() {
                 allData = [];
                 currentPage = 0;
+                mobilePage = 0;
                 hasMoreData = true;
                 dataTable.clear().draw();
+                $('#stockInMobile').html('');
                 loadMoreData();
             }
 
@@ -416,6 +546,63 @@
                             }
                         });
                 }
+            });
+
+            let mobilePage = 0;
+            const MOBILE_LIMIT = 50;
+
+            function renderStockInMobile() {
+                if (window.innerWidth >= 768) return;
+
+                const container = $('#stockInMobile');
+                if (!allData.length) {
+                    container.html('<div class="text-center text-muted py-3">No stock in data</div>');
+                    return;
+                }
+
+                const end = (mobilePage + 1) * MOBILE_LIMIT;
+                const slicedData = allData.slice(0, end);
+                container.html('');
+
+                slicedData.forEach(row => {
+                    container.append(`
+                        <div class="stockin-mobile-card" data-id="${row.id}">
+                            <div class="stockin-mobile-main">
+                                <div class="stockin-mobile-header">
+                                    <div class="stockin-number">${row.transaction_mobile}</div>
+                                    <div class="stockin-status">${row.status_mobile}</div>
+                                </div>
+                                <div class="stockin-meta">${row.meta_mobile}</div>
+                                <div class="stockin-mobile-info">
+                                    <div class="stockin-partner">
+                                        ${row.type_mobile} ${row.partner_mobile}
+                                    </div>
+                                </div>
+                                <div class="stockin-items">${row.items_mobile}</div>
+                            </div>
+                            <div class="stockin-mobile-action">${row.action_mobile}</div>
+                        </div>
+                    `);
+                });
+            }
+
+            $(window).on('scroll', function() {
+                if (window.innerWidth >= 768 || isLoading || !hasMoreData) return;
+                if ($(window).scrollTop() + $(window).height() >= $(document).height() - 200) {
+                    mobilePage++;
+                    loadMoreData();
+                }
+            });
+
+            $(document).on('click', '.stockin-mobile-card', function(e) {
+                if ($(e.target).closest('.stockin-mobile-action, a, button').length) return;
+                $('.stockin-mobile-card').not(this).removeClass('active');
+                $(this).toggleClass('active');
+            });
+
+            $(document).on('click', function(e) {
+                if ($(e.target).closest('.stockin-mobile-card').length) return;
+                $('.stockin-mobile-card').removeClass('active');
             });
         });
 

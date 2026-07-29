@@ -274,6 +274,7 @@ class SaleOrderController extends Controller
                 'sale_price' => $product->sale_price,
                 'discounts' => $product->discounts->toArray(),
                 'base_unit_id' => $product->base_unit_id,
+                'sale_unit_id' => $product->sale_unit_id,
                 'categories' => $product->categories->map(function ($cat) {
                     return [
                         'id' => $cat->id,
@@ -694,6 +695,7 @@ class SaleOrderController extends Controller
                 'price' => $product->price,
                 'sale_price' => $product->sale_price,
                 'base_unit_id' => $product->base_unit_id,
+                'sale_unit_id' => $product->sale_unit_id,
                 'discounts' => $product->discounts->toArray(),
                 'categories' => $product->categories->map(function ($cat) {
                     return [
@@ -1134,6 +1136,7 @@ class SaleOrderController extends Controller
     {
         $request->merge([
             'paid_amount' => str_replace('.', '', $request->paid_amount),
+            'deposit_used' => str_replace('.', '', $request->input('deposit_used', 0)),
         ]);
 
         $rules = [
@@ -1145,6 +1148,8 @@ class SaleOrderController extends Controller
             'notes' => 'nullable|string',
             'note' => 'nullable|string',
             'particular' => 'nullable|string',
+            'deposit_used' => 'nullable|numeric|min:0',
+            'use_write_off_only' => 'nullable|boolean',
         ];
 
         if ($request->payment_status !== 'Unpaid') {
@@ -1198,13 +1203,36 @@ class SaleOrderController extends Controller
                     $dueDate = null;
             }
 
-            $paidAmount = $request->paid_amount ?? 0;
-            $totalAmount = $order->grand_total;
-            $remainingAmount = $totalAmount - $paidAmount;
+            $paidAmount = (float) ($request->paid_amount ?? 0);
+            $depositUsed = (float) ($request->deposit_used ?? 0);
+            $totalAmount = (float) $order->grand_total;
+            $previousPaidAmount = (float) $order->paid_amount;
+            $outstandingAmount = max(0, $totalAmount - $previousPaidAmount);
+            $useWriteOff = $request->boolean('use_write_off_only');
 
-            if ($paidAmount <= 0) {
+            if (($paidAmount + $depositUsed) > $outstandingAmount) {
+                throw new \RuntimeException('Total pembayaran dan deposit tidak boleh melebihi remaining.');
+            }
+
+            if ($depositUsed > (float) ($order->customer?->customer_deposit ?? 0)) {
+                throw new \RuntimeException('Customer deposit tidak mencukupi.');
+            }
+
+
+            if ($paidAmount > 0 && !$request->filled('cash_bank_account_id')) {
+                throw new \RuntimeException('Pilih cash atau bank account untuk pembayaran.');
+            }
+
+            $newPaidAmount = $previousPaidAmount + $paidAmount + $depositUsed;
+            $remainingAmount = max(0, $totalAmount - $newPaidAmount);
+            $writeOffAmount = $useWriteOff ? $remainingAmount : 0;
+
+            if ($useWriteOff) {
+                $remainingAmount = 0;
+                $paymentStatus = 'Paid';
+            } elseif ($newPaidAmount <= 0) {
                 $paymentStatus = 'Unpaid';
-            } elseif ($paidAmount < $totalAmount) {
+            } elseif ($newPaidAmount < $totalAmount) {
                 $paymentStatus = 'Partially Paid';
             } else {
                 $paymentStatus = 'Paid';
@@ -1253,11 +1281,59 @@ class SaleOrderController extends Controller
                 $order->save();
             }
 
+            if ($depositUsed > 0) {
+                $customerDepositAccount = Account::where('type', 'Customer Deposit')->firstOrFail();
+
+                $order->customer->decrement('customer_deposit', $depositUsed);
+
+                AccountTransaction::create([
+                    'order_id' => $order->id,
+                    'customer_id' => $order->customer_id,
+                    'order_number' => $order->order_number,
+                    'transaction_date' => $request->transaction_date,
+                    'account_id' => $customerDepositAccount->id,
+                    'debit' => $depositUsed,
+                    'credit' => 0,
+                    'note' => 'Deposit used for payment',
+                    'particular' => 'Use Deposit',
+                    'transaction_group_id' => $groupId,
+                    'verified' => 1,
+                ]);
+
+                $customerDepositAccount->decrement('closing_balance', $depositUsed);
+            }
+
+            if ($writeOffAmount > 0) {
+                $expenseAccount = Account::firstOrCreate(
+                    ['type' => 'Write Off'],
+                    [
+                        'name' => 'Expense',
+                        'opening_balance' => 0,
+                        'closing_balance' => 0,
+                    ]
+                );
+
+                AccountTransaction::create([
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'transaction_date' => $request->transaction_date,
+                    'account_id' => $expenseAccount->id,
+                    'debit' => $writeOffAmount,
+                    'credit' => 0,
+                    'note' => 'Write off remaining balance',
+                    'particular' => 'Write Off - '.$order->order_number,
+                    'transaction_group_id' => $groupId,
+                    'verified' => 1,
+                ]);
+
+                $expenseAccount->increment('closing_balance', $writeOffAmount);
+            }
+
             $order->update([
                 'status' => $status,
                 'order_date' => $request->order_date,
                 'due_date' => $dueDate,
-                'paid_amount' => $request->paid_amount ?? 0,
+                'paid_amount' => $newPaidAmount,
                 'remaining_amount' => $remainingAmount,
                 'payment_status' => $paymentStatus,
                 'transaction_type' => $request->transaction_type ?? null,

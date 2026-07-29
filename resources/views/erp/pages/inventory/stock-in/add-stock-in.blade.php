@@ -283,21 +283,43 @@
                         {{-- MOBILE --}}
                         <div class="stockin-mobile-wrapper">
                             @foreach ($mergedItems as $index => $item)
+                                @php
+                                    $conv = max(1, (float) ($item->unit_conversion_value ?? 1));
+                                    $unit = $item->unit_name ?? 'Pcs';
+                                    $stockInUnit = $item->stock_in / $conv;
+                                    $remainingUnit = $item->remaining / $conv;
+                                @endphp
                                 <div class="stockin-mobile-card">
                                     <h5>{{ $item->product->name ?? '-' }}</h5>
 
                                     <div class="stockin-mobile-label">Total Quantity</div>
-                                    <div class="stockin-mobile-value">{{ number_format($item->quantity, 0, ',', '.') }}
+                                    <div class="stockin-mobile-value">
+                                        {{ number_format($item->quantity, 0, ',', '.') }} {{ $unit }}
+                                        @if ($conv > 1)
+                                            <small class="text-muted">
+                                                ({{ number_format($item->qty_base, 0, ',', '.') }} Pcs)
+                                            </small>
+                                        @endif
                                     </div>
 
                                     <div class="stockin-mobile-label">Already Stock In</div>
                                     <div class="stockin-mobile-value text-success">
-                                        {{ number_format($item->stock_in, 0, ',', '.') }}
+                                        {{ number_format($stockInUnit, 0, ',', '.') }} {{ $unit }}
+                                        @if ($conv > 1)
+                                            <small class="text-muted">
+                                                ({{ number_format($item->stock_in, 0, ',', '.') }} Pcs)
+                                            </small>
+                                        @endif
                                     </div>
 
                                     <div class="stockin-mobile-label">Remaining</div>
                                     <div class="stockin-mobile-value text-danger">
-                                        {{ number_format($item->remaining, 0, ',', '.') }}
+                                        {{ number_format($remainingUnit, 0, ',', '.') }} {{ $unit }}
+                                        @if ($conv > 1)
+                                            <small class="text-muted">
+                                                ({{ number_format($item->remaining, 0, ',', '.') }} Pcs)
+                                            </small>
+                                        @endif
                                     </div>
 
                                     <div class="stockin-mobile-label">Add Stock In</div>
@@ -307,12 +329,17 @@
                                     @endforeach
                                     <input type="hidden" name="items[{{ $index }}][product_id]"
                                         value="{{ $item->product_id }}">
+                                    <input type="hidden" name="items[{{ $index }}][unit_conversion_value]"
+                                        value="{{ $conv }}">
                                     <input type="text" inputmode="numeric"
                                         name="items[{{ $index }}][stock_in]"
                                         class="form-control form-control-sm mb-1 stock-in-input" value="0"
-                                        data-max="{{ $item->remaining }}">
+                                        data-max="{{ $remainingUnit }}" placeholder="Jumlah ({{ $unit }})">
                                     <small class="text-muted d-block mb-1">
-                                        Sisa: {{ number_format($item->remaining, 0, ',', '.') }}
+                                        Sisa: {{ number_format($remainingUnit, 0, ',', '.') }} {{ $unit }}
+                                        @if ($conv > 1)
+                                            = {{ number_format($item->remaining, 0, ',', '.') }} Pcs
+                                        @endif
                                     </small>
 
                                     <div class="stockin-mobile-label">Notes</div>
@@ -320,8 +347,7 @@
                                         class="form-control form-control-sm mb-1">
                                 </div>
                             @endforeach
-                        </div>
-                    </div>
+                        </div>                    </div>
                 </form>
             </div>
         </div>
@@ -384,9 +410,9 @@
                         message + '</div>');
                 }
 
-                // 🔥 DISABLE INPUT YANG HIDDEN (MOBILE ATAU DESKTOP)
-                $('.stockin-desktop-table:hidden .stock-in-input').prop('disabled', true);
-                $('.stockin-mobile-wrapper:hidden .stock-in-input').prop('disabled', true);
+                // Hanya layout yang terlihat yang boleh ikut dikirim.
+                $('.stockin-desktop-table:hidden :input').prop('disabled', true);
+                $('.stockin-mobile-wrapper:hidden :input').prop('disabled', true);
 
                 // 🔥 HAPUS TITIK DARI INPUT YANG VISIBLE AJA
                 $('.stock-in-input:not(:disabled)').each(function() {

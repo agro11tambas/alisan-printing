@@ -142,7 +142,9 @@
                                         <th>Name</th>
                                         <th>Categories</th>
                                         <th>Merek</th>
-                                        <th>Base Unit</th>
+                                        <th>Internal Unit</th>
+                                        <th>Sale Unit</th>
+                                        <th>Purchase Unit</th>
                                         <th>SKU</th>
                                         <th>Product Units</th>
                                         <th>Avg Cost</th>
@@ -239,6 +241,12 @@
                     },
                     {
                         data: 'base_unit_name'
+                    },
+                    {
+                        data: 'sale_unit_name'
+                    },
+                    {
+                        data: 'purchase_unit_name'
                     },
                     {
                         data: 'sku'

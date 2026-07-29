@@ -294,13 +294,14 @@ class InventoryController extends Controller
                     'partner_name'       => $partner,
                     'stock_in'           => $stockInHtml,
                     'action'             => $actionHtml,
-                    'transaction_mobile' => '
-                <div>
-                    <div class="d-flex align-items-center gap-1">' . $badge . $completeIcon . '</div>
-                    <div class="fw-semibold">' . $partner . '</div>
-                    <small class="text-muted">' . $monthLabel . ' · ' . $items->count() . ' transactions</small>
-                </div>',
-                    'partner_mobile'     => '<div class="fw-semibold">' . $partner . '</div>',
+                    'transaction_mobile' => $numberHtml,
+                    'status_mobile'      => $isCompleted
+                        ? '<span class="badge bg-soft-success text-success">Completed</span>'
+                        : '<span class="badge bg-soft-warning text-warning">Progress</span>',
+                    'meta_mobile'        => Carbon::parse($groupDate)->format('j M y')
+                        . ' Â· ' . $items->count() . ' transactions',
+                    'type_mobile'        => $badge,
+                    'partner_mobile'     => $partner,
                     'items_mobile'       => view(
                         'erp.pages.inventory.stock-in.partials.product-stock-in-mobile',
                         ['inventory' => $fakeInventory]

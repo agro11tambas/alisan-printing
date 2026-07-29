@@ -650,7 +650,7 @@
                     <div class="modal-footer d-flex justify-content-between">
                         <div>
                             <div class="col-md-6">
-                                <p class="m-0">Balance:</p>
+                                <p class="m-0">Remaining:</p>
                                 <h5 class="fw-semibold text-danger" id="total_amount_display">0</h5>
                             </div>
                         </div>
@@ -789,7 +789,7 @@
                     <div class="modal-footer d-flex justify-content-between">
                         <div>
                             <div class="col-md-6">
-                                <p class="m-0">Balance:</p>
+                                <p class="m-0">Remaining:</p>
                                 <h5 class="fw-semibold text-danger" id="return_balance_display">0</h5>
                             </div>
                         </div>
@@ -1717,7 +1717,7 @@
                     showError('error_transaction_date', 'Tanggal transaksi wajib diisi');
                     valid = false;
                 }
-                if (!cashBankAccount) {
+                if (parseInt(paidAmount, 10) > 0 && !cashBankAccount) {
                     showError('error_cash_bank_account_id', 'Pilih cash atau bank account');
                     valid = false;
                 }
@@ -2079,6 +2079,7 @@
             // 🔥 Handler checkbox Write Off
             $('#use_write_off').on('change', function() {
                 if ($(this).is(':checked')) {
+                    $('#use_write_off_only').prop('checked', false);
                     $('#write_off_container').removeClass('d-none');
 
                     // Set max deposit yang bisa dipakai = min(balance, customer_deposit)
@@ -2116,6 +2117,19 @@
             });
 
             // 🔥 Fungsi update Paid Amount berdasarkan deposit
+            function updatePaymentRemaining() {
+                const cashPaid = parseInt($('#paid_amount').val().replace(/\D/g, "")) || 0;
+                const depositUsed = $('#use_write_off').is(':checked')
+                    ? (parseInt($('#customer_deposit_amount').val().replace(/\D/g, "")) || 0)
+                    : 0;
+                const remaining = $('#use_write_off_only').is(':checked')
+                    ? 0
+                    : Math.max(0, currentBalance - cashPaid - depositUsed);
+
+                $('#paid_amount_display').text('Paid: Rp. ' + new Intl.NumberFormat('id-ID').format(cashPaid));
+                $('#total_amount_display').html('Rp.&nbsp;' + new Intl.NumberFormat('id-ID').format(remaining));
+            }
+
             function updatePaidAmountWithDeposit() {
                 const depositUsed = parseInt($('#customer_deposit_amount').val().replace(/\D/g, "")) || 0;
                 const newPaidAmount = originalPaidAmount - depositUsed;
@@ -2184,9 +2198,17 @@
 
                 // 🔥 Reset write off state
                 $('#use_write_off').prop('checked', false);
+                $('#use_write_off_only').prop('checked', false);
                 $('#write_off_container').addClass('d-none');
                 $('#customer_deposit_amount').val('0');
+                updatePaymentRemaining();
             });
+
+            $(document).on('input change',
+                '#paid_amount, #customer_deposit_amount, #use_write_off, #use_write_off_only',
+                function() {
+                    updatePaymentRemaining();
+                });
 
             let mobilePage = 0;
             const MOBILE_LIMIT = 50;

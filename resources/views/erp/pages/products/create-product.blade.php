@@ -169,11 +169,11 @@
 
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
-                                    <label for="base_unit_id" class="fw-semibold">Base Unit</label>
+                                    <label for="base_unit_id" class="fw-semibold">Internal Unit</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
                                     <select class="form-control" id="base_unit_id" name="base_unit_id">
-                                        <option value="">Choose Base Unit</option>
+                                        <option value="">Choose Internal Unit</option>
                                         @foreach ($productUnits as $unit)
                                             <option value="{{ $unit->id }}"
                                                 {{ old('base_unit_id') == $unit->id ? 'selected' : '' }}>
@@ -182,8 +182,42 @@
                                         @endforeach
                                     </select>
                                     <small class="text-muted">
-                                        Base unit adalah satuan terkecil produk. Contoh: pcs.
+                                        Internal unit adalah satuan terkecil produk. Contoh: pcs.
                                     </small>
+                                </div>
+                            </div>
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-lg-2">
+                                    <label for="sale_unit_id" class="fw-semibold">Sale Unit</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <select class="form-control" id="sale_unit_id" name="sale_unit_id" required>
+                                        <option value="">Choose Sale Unit</option>
+                                        @foreach ($productUnits as $unit)
+                                            <option value="{{ $unit->id }}"
+                                                {{ old('sale_unit_id') == $unit->id ? 'selected' : '' }}>
+                                                {{ $unit->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted">Unit default untuk Sale Order dan Sale List.</small>
+                                </div>
+                            </div>
+                            <div class="row mb-2 align-items-center">
+                                <div class="col-lg-2">
+                                    <label for="purchase_unit_id" class="fw-semibold">Purchase Unit</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <select class="form-control" id="purchase_unit_id" name="purchase_unit_id" required>
+                                        <option value="">Choose Purchase Unit</option>
+                                        @foreach ($productUnits as $unit)
+                                            <option value="{{ $unit->id }}"
+                                                {{ old('purchase_unit_id') == $unit->id ? 'selected' : '' }}>
+                                                {{ $unit->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted">Unit default untuk Purchase Order dan Purchase List.</small>
                                 </div>
                             </div>
                             <div class="row mb-2 align-items-start">
@@ -197,7 +231,7 @@
                                             <thead>
                                                 <tr>
                                                     <th style="width: 20%">Unit</th>
-                                                    {{-- <th style="width: 18%">Conversion to Base Unit</th>
+                                                    {{-- <th style="width: 18%">Conversion to Internal Unit</th>
                                                      --}}
                                                     <th style="width: 18%">Rasio</th>
                                                     <th style="width: 18%">Fixed Cost</th>
@@ -746,7 +780,7 @@
 
                 const baseUnitSelect = $('#base_unit_id');
                 if (!baseUnitSelect.val()) {
-                    showError(baseUnitSelect, 'Base Unit wajib dipilih');
+                    showError(baseUnitSelect, 'Internal Unit wajib dipilih');
                     isValid = false;
                 }
 

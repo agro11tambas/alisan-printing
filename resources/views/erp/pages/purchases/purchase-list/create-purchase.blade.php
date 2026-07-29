@@ -550,7 +550,7 @@
             calc_total();
         }
 
-        function fillProductUnits(row, units) {
+        function fillProductUnits(row, units, defaultUnitId = null) {
             const unitSelect = row.find('.product-unit');
 
             unitSelect.empty().append('<option value="">Pilih unit</option>');
@@ -566,6 +566,7 @@
 
                 unitSelect.append(`
             <option value="${unit.id}"
+                data-unit-id="${unit.unit_id}"
                 data-unit-name="${unitName}"
                 data-conversion-value="${conversionValue}">
                 ${unitName}
@@ -573,7 +574,8 @@
         `);
             });
 
-            unitSelect.val(unitSelect.find('option:eq(1)').val()).trigger('change');
+            const defaultOption = unitSelect.find(`option[data-unit-id="${defaultUnitId}"]`).val();
+            unitSelect.val(defaultOption || unitSelect.find('option:eq(1)').val()).trigger('change');
         }
 
         $(document).on('change', '.product-unit', function() {
@@ -703,7 +705,7 @@
                 row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
                 row.find('.freight').val(formatRibuan(lastFreight.toFixed(2)));
 
-                fillProductUnits(row, units);
+                fillProductUnits(row, units, selectedProduct?.purchase_unit_id);
                 updateRowTotal(row);
             });
 

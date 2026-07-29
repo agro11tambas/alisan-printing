@@ -461,6 +461,48 @@
                         </div>
                         <div class="row g-3 mb-2">
                             <div class="col-md-6">
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="use_customer_deposit"
+                                        name="use_customer_deposit">
+                                    <label class="form-check-label fw-semibold" for="use_customer_deposit">
+                                        Use Customer Deposit
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-2 d-none" id="customer_deposit_container">
+                            <div class="col-md-12">
+                                <label for="deposit_used" class="fw-semibold">Customer Deposit Amount:</label>
+                                <input type="text" class="form-control" id="deposit_used" name="deposit_used"
+                                    value="0">
+                                <small class="text-muted">Max: <span id="max_deposit_display">Rp. 0</span></small><br>
+                                <small class="text-info">Customer Total Deposit:
+                                    <span id="customer_deposit_display">Rp. 0</span>
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="use_write_off_only"
+                                        name="use_write_off_only" value="1">
+                                    <label class="form-check-label fw-semibold" for="use_write_off_only">
+                                        Write Off (hapus sisa piutang)
+                                    </label>
+                                </div>
+                                <small class="text-muted">Sisa setelah pembayaran dan deposit akan dianggap write-off.</small>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
                                 <label for="transaction_type" class="fw-semibold">Sale:</label>
                                 <div class="input-group">
                                     <select class="form-select form-control max-select" data-select2-selector="tag"
@@ -517,11 +559,9 @@
                         </div> --}}
                     </div>
                     <div class="modal-footer d-flex justify-content-between">
-                        <div>
-                            <div class="col-md-6">
-                                <p class="m-0">Balance:</p>
-                                <h5 class="fw-semibold text-danger" id="total_amount_display">0</h5>
-                            </div>
+                        <div class="text-nowrap">
+                            <p class="m-0">Remaining:</p>
+                            <h5 class="fw-semibold text-danger mb-0 text-nowrap" id="total_amount_display">0</h5>
                         </div>
                         <button type="submit" class="btn btn-primary">Mark As Sale List</button>
                     </div>
@@ -950,7 +990,21 @@
                 const url = button.getAttribute('data-url');
                 const totalAmount = parseFloat(button.getAttribute('data-total-amount')) || 0;
                 const paidAmount = parseFloat(button.getAttribute('data-paid-amount')) || 0;
-                const remainingAmount = totalAmount - paidAmount;
+                const customerDeposit = parseFloat(button.getAttribute('data-deposit')) || 0;
+                const remainingAmount = Math.max(0, totalAmount - paidAmount);
+
+                saleOrderOutstanding = remainingAmount;
+                saleOrderCustomerDeposit = customerDeposit;
+
+                $('#use_customer_deposit').prop('checked', false);
+                $('#customer_deposit_container').addClass('d-none');
+                $('#deposit_used').val('0');
+                $('#use_write_off_only').prop('checked', false);
+                $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(remainingAmount));
+                $('#customer_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(customerDeposit));
+                $('#max_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(
+                    Math.min(remainingAmount, customerDeposit)
+                ));
 
                 const orderDate = document.getElementById('order_date').value;
 
@@ -961,8 +1015,7 @@
                 document.getElementById('modal_order_number').value = button.getAttribute('data-order-number');
                 document.getElementById('order_id').value = orderId;
                 document.getElementById('markAsSaleForm').setAttribute('action', url);
-                document.getElementById('total_amount_display').innerText =
-                    new Intl.NumberFormat('id-ID').format(remainingAmount);
+                updateSaleOrderPaymentSummary();
             }
         });
 
@@ -1052,15 +1105,84 @@
             }
         });
 
+        let saleOrderOutstanding = 0;
+        let saleOrderCustomerDeposit = 0;
         const paidInput = document.getElementById("paid_amount");
+
+        function parseSalePaymentAmount(value) {
+            return parseInt(String(value || '').replace(/\D/g, ''), 10) || 0;
+        }
+
+        function updateSaleOrderPaymentSummary() {
+            const cashPaid = parseSalePaymentAmount($('#paid_amount').val());
+            const depositUsed = $('#use_customer_deposit').is(':checked')
+                ? parseSalePaymentAmount($('#deposit_used').val())
+                : 0;
+            const remaining = $('#use_write_off_only').is(':checked')
+                ? 0
+                : Math.max(0, saleOrderOutstanding - cashPaid - depositUsed);
+
+            $('#total_amount_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(remaining));
+        }
+
+        paidInput.addEventListener("input", function() {
+            let angka = this.value.replace(/\D/g, "") || "0";
+            const depositUsed = $('#use_customer_deposit').is(':checked')
+                ? parseSalePaymentAmount($('#deposit_used').val())
+                : 0;
+            angka = Math.min(parseInt(angka, 10) || 0, Math.max(0, saleOrderOutstanding - depositUsed)).toString();
+            this.value = new Intl.NumberFormat('id-ID').format(angka);
+            updateSaleOrderPaymentSummary();
+        });
+
+        $('#use_customer_deposit').on('change', function() {
+            if ($(this).is(':checked')) {
+                $('#use_write_off_only').prop('checked', false);
+                $('#customer_deposit_container').removeClass('d-none');
+                const maxDeposit = Math.min(saleOrderOutstanding, saleOrderCustomerDeposit);
+                $('#deposit_used').val(new Intl.NumberFormat('id-ID').format(maxDeposit));
+                $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(
+                    Math.max(0, saleOrderOutstanding - maxDeposit)
+                ));
+            } else {
+                $('#customer_deposit_container').addClass('d-none');
+                $('#deposit_used').val('0');
+                $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(saleOrderOutstanding));
+            }
+            updateSaleOrderPaymentSummary();
+        });
+
+        $('#deposit_used').on('input', function() {
+            const maxDeposit = Math.min(saleOrderOutstanding, saleOrderCustomerDeposit);
+            const depositUsed = Math.min(parseSalePaymentAmount(this.value), maxDeposit);
+            this.value = new Intl.NumberFormat('id-ID').format(depositUsed);
+            $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(
+                Math.max(0, saleOrderOutstanding - depositUsed)
+            ));
+            updateSaleOrderPaymentSummary();
+        });
+
+        $('#use_write_off_only').on('change', function() {
+            if ($(this).is(':checked')) {
+                $('#use_customer_deposit').prop('checked', false);
+                $('#customer_deposit_container').addClass('d-none');
+                $('#deposit_used').val('0');
+                $('#paid_amount').val('0');
+            } else {
+                $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(saleOrderOutstanding));
+            }
+            updateSaleOrderPaymentSummary();
+        });
 
         paidInput.addEventListener("input", function() {
             let angka = this.value.replace(/\D/g, "") || "0";
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
 
-        document.querySelector("form").addEventListener("submit", function() {
+        document.getElementById("markAsSaleForm").addEventListener("submit", function() {
             paidInput.value = paidInput.value.replace(/\./g, "");
+            document.getElementById("deposit_used").value =
+                document.getElementById("deposit_used").value.replace(/\./g, "");
         });
 
         document.addEventListener("DOMContentLoaded", function() {

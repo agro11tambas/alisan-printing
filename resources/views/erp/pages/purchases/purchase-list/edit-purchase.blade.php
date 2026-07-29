@@ -677,7 +677,7 @@
             calc_total();
         }
 
-        function fillProductUnits(row, units, selectedUnitId = null) {
+        function fillProductUnits(row, units, selectedUnitId = null, defaultUnitId = null) {
             const unitSelect = row.find('.product-unit');
 
             unitSelect.empty().append('<option value="">Pilih unit</option>');
@@ -692,6 +692,7 @@
 
                 unitSelect.append(`
             <option value="${unit.id}"
+                data-unit-id="${unit.unit_id}"
                 data-unit-name="${unitName}"
                 data-conversion-value="${conversionValue}">
                 ${unitName}
@@ -702,7 +703,8 @@
             if (selectedUnitId) {
                 unitSelect.val(String(selectedUnitId));
             } else {
-                unitSelect.val(unitSelect.find('option:eq(1)').val());
+                const defaultOption = unitSelect.find(`option[data-unit-id="${defaultUnitId}"]`).val();
+                unitSelect.val(defaultOption || unitSelect.find('option:eq(1)').val());
             }
 
             unitSelect.trigger('change');
@@ -831,7 +833,7 @@
                 row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
                 row.find('.freight').val('');
 
-                fillProductUnits(row, units);
+                fillProductUnits(row, units, null, selectedProduct?.purchase_unit_id);
                 updateRowTotal(row);
             });
 

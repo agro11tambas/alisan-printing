@@ -397,6 +397,19 @@ class ProductionController extends Controller
                     'partner_name'       => $partner,
                     'stock_in'           => $stockInHtml,
                     'action'             => $actionHtml,
+                    'transaction_mobile' => $numberHtml,
+                    'status_mobile'      => $isGroupCompleted
+                        ? '<span class="badge bg-soft-success text-success">Completed</span>'
+                        : '<span class="badge bg-soft-warning text-warning">Progress</span>',
+                    'meta_mobile'        => Carbon::parse($groupDate)->format('j M y')
+                        . ' Â· ' . $items->count() . ' transactions',
+                    'type_mobile'        => $badge,
+                    'partner_mobile'     => $partner,
+                    'items_mobile'       => view(
+                        'erp.pages.production.stock-in.partials.product-stock-in-mobile',
+                        ['inventory' => $fakeInventory]
+                    )->render(),
+                    'action_mobile'      => $actionHtml,
                 ];
             })->values(),
             'has_more' => $totalData > ($start + $length),

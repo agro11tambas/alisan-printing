@@ -1107,6 +1107,7 @@ class SaleListController extends Controller
                 'price' => $product->price,
                 'sale_price' => $product->sale_price,
                 'base_unit_id' => $product->base_unit_id,
+                'sale_unit_id' => $product->sale_unit_id,
                 'discounts' => $product->discounts->toArray(),
                 'categories' => $product->categories->map(function ($cat) {
                     return [
@@ -1660,6 +1661,7 @@ class SaleListController extends Controller
                 'price' => $product->price,
                 'sale_price' => $product->sale_price,
                 'base_unit_id' => $product->base_unit_id,
+                'sale_unit_id' => $product->sale_unit_id,
                 'discounts' => $product->discounts->toArray(),
                 'categories' => $product->categories->map(function ($cat) {
                     return [
@@ -4732,7 +4734,7 @@ class SaleListController extends Controller
         $request->validate([
             'order_id' => 'required|exists:orders,id',
             'paid_amount' => 'required|numeric|min:0',
-            'cash_bank_account_id' => 'required|exists:accounts,id',
+            'cash_bank_account_id' => 'nullable|exists:accounts,id',
             'transaction_date' => 'required|date',
             'transaction_type' => 'required|exists:accounts,id',
             'note' => 'nullable|string',
@@ -4744,11 +4746,13 @@ class SaleListController extends Controller
             'use_write_off_only' => 'nullable|boolean',
         ]);
 
-        $exists = AccountTransaction::where('order_id', $request->order_id)
-            ->where('debit', $request->paid_amount)
-            ->where('transaction_date', $request->transaction_date)
-            ->where('created_at', '>=', now()->subSeconds(5))
-            ->exists();
+        $exists = (float) $request->paid_amount > 0
+            && AccountTransaction::where('order_id', $request->order_id)
+                ->where('account_id', $request->cash_bank_account_id)
+                ->where('debit', $request->paid_amount)
+                ->where('transaction_date', $request->transaction_date)
+                ->where('created_at', '>=', now()->subSeconds(5))
+                ->exists();
 
         if ($exists) {
             return response()->json([
@@ -4760,7 +4764,26 @@ class SaleListController extends Controller
         DB::beginTransaction();
 
         try {
-            $order = Order::findOrFail($request->order_id);
+            $order = Order::with('customer')->findOrFail($request->order_id);
+            $paidAmount = (float) $request->paid_amount;
+            $depositUsed = (float) ($request->deposit_used ?? 0);
+            $outstandingAmount = max(0, (float) $order->grand_total - (float) $order->paid_amount);
+
+            if (($paidAmount + $depositUsed) > $outstandingAmount) {
+                throw new \RuntimeException('Total pembayaran dan deposit tidak boleh melebihi remaining.');
+            }
+
+            if ($depositUsed > (float) ($order->customer?->customer_deposit ?? 0)) {
+                throw new \RuntimeException('Customer deposit tidak mencukupi.');
+            }
+
+            if (($paidAmount + $depositUsed) <= 0 && !$request->boolean('use_write_off_only')) {
+                throw new \RuntimeException('Isi pembayaran, gunakan customer deposit, atau pilih write off.');
+            }
+
+            if ($paidAmount > 0 && !$request->filled('cash_bank_account_id')) {
+                throw new \RuntimeException('Pilih cash atau bank account untuk pembayaran.');
+            }
 
             // Ambil transaction_group_id yang sudah ada (jika tidak ada, generate baru)
             // $groupId = Str::uuid();
@@ -4770,7 +4793,9 @@ class SaleListController extends Controller
             $writeOffGroupId = Str::uuid();
 
             $saleAccount = Account::findOrFail($request->transaction_type); // Akun pembelian (debit)
-            $cashBankAccount = Account::findOrFail($request->cash_bank_account_id); // Akun kas/bank (kredit)
+            $cashBankAccount = $paidAmount > 0
+                ? Account::findOrFail($request->cash_bank_account_id)
+                : null; // Akun kas/bank (kredit)
 
             // =====================================================
             // 🔹 Handle Multiple Uploads (bukti + note)
@@ -4803,13 +4828,13 @@ class SaleListController extends Controller
             // ===============================
             // 🔹 Hanya buat transaksi bank jika paid_amount > 0
             // ===============================
-            if ($request->paid_amount > 0) {
+            if ($paidAmount > 0) {
                 AccountTransaction::create([
                     'order_id' => $order->id,
                     'order_number' => $order->order_number,
                     'transaction_date' => $request->transaction_date,
                     'account_id' => $cashBankAccount->id,
-                    'debit' => $request->paid_amount,
+                    'debit' => $paidAmount,
                     'credit' => 0,
                     'note' => $request->note ?? '',
                     'particular' => $saleAccount->name . ' - ' . $saleAccount->type,
@@ -4817,18 +4842,18 @@ class SaleListController extends Controller
                     'proof' => $proofJson,
                 ]);
 
-                $cashBankAccount->closing_balance += $request->paid_amount;
+                $cashBankAccount->closing_balance += $paidAmount;
                 $cashBankAccount->save();
             }
 
-            if ($request->deposit_used > 0) {
+            if ($depositUsed > 0) {
 
                 // Kurangi deposit customer
-                $order->customer->customer_deposit -= $request->deposit_used;
+                $order->customer->customer_deposit -= $depositUsed;
                 $order->customer->save();
 
                 // Buat transaksi pengurangan deposit
-                $customerDepositAccount = Account::where('type', 'Customer Deposit')->first();
+                $customerDepositAccount = Account::where('type', 'Customer Deposit')->firstOrFail();
 
                 AccountTransaction::create([
                     'order_id' => $order->id,
@@ -4836,7 +4861,7 @@ class SaleListController extends Controller
                     'order_number' => $order->order_number,
                     'transaction_date' => $request->transaction_date,
                     'account_id' => $customerDepositAccount->id,
-                    'debit' => $request->deposit_used,
+                    'debit' => $depositUsed,
                     'credit' => 0, // deposit berkurang
                     'note' => 'Deposit used for payment',
                     'particular' => 'Use Deposit',
@@ -4844,13 +4869,13 @@ class SaleListController extends Controller
                     'proof' => $proofJson,
                 ]);
 
-                $customerDepositAccount->closing_balance -= $request->deposit_used;
+                $customerDepositAccount->closing_balance -= $depositUsed;
                 $customerDepositAccount->save();
             }
 
             // Update nilai paid_amount di orders (bertambah)
-            $order->paid_amount += $request->paid_amount + $request->deposit_used;
-            $order->remaining_amount = $order->grand_total - $order->paid_amount;
+            $order->paid_amount += $paidAmount + $depositUsed;
+            $order->remaining_amount = max(0, $order->grand_total - $order->paid_amount);
 
             // Kalau sebelumnya Unpaid, bisa ubah jadi Partially Paid atau Paid        
 
@@ -4888,7 +4913,6 @@ class SaleListController extends Controller
                     $expenseAccount->closing_balance += $writeOffAmount;
                     $expenseAccount->save();
 
-                    $order->paid_amount = 0;
                     $order->remaining_amount = 0;
                     $order->payment_status = 'Paid';
                 }

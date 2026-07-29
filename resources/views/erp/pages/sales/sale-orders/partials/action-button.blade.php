@@ -17,7 +17,7 @@
                 data-name="{{ $order->order_number }}"
                 data-order-number="{{ $order->order_number }}"
                 data-total-amount="{{ $order->grand_total }}"
-                data-paid-amount="{{ $order->paid_amount }}"
+                data-paid-amount="{{ $order->paid_amount }}" data-deposit="{{ $order->customer?->customer_deposit ?? 0 }}"
                 data-url="{{ url('/erp/sales/mark-as-sale-list/' . $order->id) }}">
                 <i class="feather feather-check"></i>
                 <span>Mark as Sale List</span>

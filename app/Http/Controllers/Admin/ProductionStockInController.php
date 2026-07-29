@@ -347,7 +347,7 @@ class ProductionStockInController extends Controller
         $request->validate([
             'change_date'                  => 'required|date',
             'waybill_number'               => 'nullable|string',
-            'waybill_image'                => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'waybill_image'                => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
             'items'                        => 'required|array',
             'items.*.product_id'           => 'required|exists:products,id',
             'items.*.inventory_item_ids'   => 'required|array',
