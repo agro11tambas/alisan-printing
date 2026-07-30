@@ -421,13 +421,6 @@ class DesignController extends Controller
                 return redirect()->back()->with('error', 'Tidak ada item yang perlu diverifikasi.');
             }
 
-            $hasPrinting = $verifyItems->contains(function ($designItem) {
-                return $designItem->orderItem?->mode === 'printing';
-            });
-
-            $hasPolosan = $verifyItems->contains(function ($designItem) {
-                return $designItem->orderItem?->mode === 'polosan';
-            });
 
             $design->update([
                 'verification_status' => 'approved',
@@ -446,20 +439,13 @@ class DesignController extends Controller
                 'order_id'       => $order->id,
                 'design_id'      => $design->id,
                 'date'           => now()->format('Y-m-d'),
-
-                // Kalau semua polosan, progress langsung completed.
-                // Kalau ada printing, tetap pending.
-                'status'         => $hasPrinting ? 'Pending' : 'Completed',
-
+                'status'         => 'Pending',
                 'notes'          => null,
                 'invoice_number' => $order->order_number,
             ]);
 
             foreach ($verifyItems as $designItem) {
-                $isPolosan = $designItem->orderItem?->mode === 'polosan';
-                $isPrinting = $designItem->orderItem?->mode === 'printing';
-
-                $progressItem = OrderProgressItem::create([
+                OrderProgressItem::create([
                     'order_progress_id'          => $orderProgress->id,
                     'design_item_id'             => $designItem->id,
                     'order_item_id'              => $designItem->order_item_id,
@@ -470,31 +456,28 @@ class DesignController extends Controller
                     'unit_conversion_value'      => $designItem->unit_conversion_value,
 
                     'quantity'                   => $designItem->quantity,
-
-                    // Polosan langsung completed, printing belum
-                    'completed_quantity'         => $isPolosan ? $designItem->quantity : 0,
+                    'completed_quantity'         => 0,
                 ]);
 
-                // PRINTING SAJA yang masuk pending_waiting_list produksi
-                if ($isPrinting) {
-                    $productionStock = \App\Models\ProductionStock::firstOrCreate(
-                        [
-                            'product_id' => $designItem->product_id,
-                            'production_warehouse_id' => 2,
-                        ],
-                        [
-                            'opening_stock'          => 0,
-                            'available_quantity'    => 0,
-                            'finished_product_stock' => 0,
-                            'canceled_product_stock' => 0,
-                            'pending_waiting_list'   => 0,
-                        ]
-                    );
+                // Semua mode mengikuti alur produksi yang sama:
+                // waiting list -> assign -> assign list -> progress -> delivery.
+                $productionStock = \App\Models\ProductionStock::firstOrCreate(
+                    [
+                        'product_id' => $designItem->product_id,
+                        'production_warehouse_id' => 2,
+                    ],
+                    [
+                        'opening_stock'          => 0,
+                        'available_quantity'    => 0,
+                        'finished_product_stock' => 0,
+                        'canceled_product_stock' => 0,
+                        'pending_waiting_list'   => 0,
+                    ]
+                );
 
-                    $qtyBase = $designItem->quantity * ($designItem->unit_conversion_value ?? 1);
+                $qtyBase = $designItem->quantity * ($designItem->unit_conversion_value ?? 1);
 
-                    $productionStock->increment('pending_waiting_list', $qtyBase);
-                }
+                $productionStock->increment('pending_waiting_list', $qtyBase);
             }
 
             $deliveryOrder = DeliveryOrder::firstOrCreate(
@@ -514,11 +497,9 @@ class DesignController extends Controller
                 ]
             );
 
-            $orderProgress->load('items.orderItem');
+            $orderProgress->load('items');
 
             foreach ($orderProgress->items as $progressItem) {
-                $isPolosan = $progressItem->orderItem?->mode === 'polosan';
-
                 DeliveryOrderItem::create([
                     'delivery_order_id'       => $deliveryOrder->id,
                     'order_progress_id'       => $orderProgress->id,
@@ -526,19 +507,11 @@ class DesignController extends Controller
                     'order_progress_item_id'  => $progressItem->id,
                     'design_item_id'          => $progressItem->design_item_id,
                     'product_id'              => $progressItem->product_id,
-
-                    // Polosan langsung completed, printing pending
-                    'status'                  => $isPolosan ? 'Completed' : 'Pending',
-
+                    'status'                  => 'Pending',
                     'progress_qty'            => $progressItem->quantity,
-
-                    // Polosan langsung ready, printing belum ready
-                    'ready_qty'               => $isPolosan ? $progressItem->quantity : 0,
-
+                    'ready_qty'               => 0,
                     'shipped_qty'             => 0,
                     'note'                    => null,
-
-                    // Kalau kolom unit sudah ada di delivery_order_items
                     'product_unit_conversion_id' => $progressItem->product_unit_conversion_id,
                     'unit_name'                  => $progressItem->unit_name,
                     'unit_conversion_value'      => $progressItem->unit_conversion_value,
@@ -596,7 +569,9 @@ class DesignController extends Controller
                         ->first();
 
                     if ($productionStock) {
-                        $productionStock->decrement('pending_waiting_list', $progressItem->quantity);
+                        $qtyBase = $progressItem->quantity * ($progressItem->unit_conversion_value ?? 1);
+
+                        $productionStock->decrement('pending_waiting_list', $qtyBase);
                         if ($productionStock->pending_waiting_list < 0) {
                             $productionStock->update(['pending_waiting_list' => 0]);
                         }

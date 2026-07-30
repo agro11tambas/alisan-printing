@@ -240,8 +240,9 @@ class SaleListController extends Controller
                     ])
                     ->get()
                     ->map(function ($item) {
-                        // $displayQty = $item->qty_base ?? ($item->quantity * ($item->unit_conversion_value ?? 1));
                         $displayQty = $item->quantity;
+                        $unitConversionValue = max((float) ($item->unit_conversion_value ?? 1), 1);
+                        $requiredQtyBase = (float) ($item->qty_base ?: ($item->quantity * $unitConversionValue));
                         // Ambil deliveryData dan deliveryListItems (sama untuk semua tipe)
                         $deliveryData = $item->order
                             ->deliveryOrders()
@@ -281,6 +282,7 @@ class SaleListController extends Controller
                                 'on_delivery'       => number_format($onDeliveryQty, 0, ',', '.'),
                                 'raw_progress_qty'  => $progressQty,
                                 'raw_delivered_qty' => $deliveredQty,
+                                'raw_qty'           => $requiredQtyBase,
                                 'is_bundle_header'  => false,
                             ]];
                         }
@@ -311,6 +313,9 @@ class SaleListController extends Controller
                             $totalDelivered = collect($bundleChildren)->sum(function ($child) {
                                 return (int) str_replace('.', '', $child['delivered']);
                             });
+                            $requiredBundleQty = $item->productBundle->items->sum(
+                                fn($bundleItem) => $requiredQtyBase * (float) ($bundleItem->quantity ?? 1)
+                            );
 
                             return [[
                                 'name'              => e($bundleNames) . ' <span class="badge bg-soft-primary text-primary">Bundle</span>',
@@ -326,6 +331,7 @@ class SaleListController extends Controller
                                 'on_delivery'       => '-',
                                 'raw_progress_qty'  => 0,
                                 'raw_delivered_qty' => $totalDelivered,
+                                'raw_qty'           => $requiredBundleQty,
                                 'is_bundle_header'  => true,
                                 'bundle_children'   => $bundleChildren,
                             ]];
@@ -344,6 +350,7 @@ class SaleListController extends Controller
                             'on_delivery'       => '0',
                             'raw_progress_qty'  => 0,
                             'raw_delivered_qty' => 0,
+                            'raw_qty'           => 0,
                             'is_bundle_header'  => false,
                         ]];
                     })
@@ -352,8 +359,11 @@ class SaleListController extends Controller
 
 
 
-                $isCompleted = $items->every(function ($i) {
-                    return $i['raw_delivered_qty'] >= ($i['raw_qty'] ?? 0);
+                $isCompleted = $items->isNotEmpty() && $items->every(function ($i) {
+                    $requiredQty = (float) ($i['raw_qty'] ?? 0);
+
+                    return $requiredQty > 0
+                        && (float) $i['raw_delivered_qty'] === $requiredQty;
                 });
 
                 // $businessName = e($order->customerAddress->business_name ?? '-');
@@ -653,7 +663,9 @@ class SaleListController extends Controller
                     ])
                     ->get()
                     ->map(function ($item) {
-                        $displayQty = $item->qty_base ?? ($item->quantity * ($item->unit_conversion_value ?? 1));
+                        $unitConversionValue = max((float) ($item->unit_conversion_value ?? 1), 1);
+                        $requiredQtyBase = (float) ($item->qty_base ?: ($item->quantity * $unitConversionValue));
+                        $displayQty = $requiredQtyBase;
                         // Ambil deliveryData dan deliveryListItems (sama untuk semua tipe)
                         $deliveryData = $item->order
                             ->deliveryOrders()
@@ -691,6 +703,7 @@ class SaleListController extends Controller
                                 'on_delivery'       => number_format($onDeliveryQty, 0, ',', '.'),
                                 'raw_progress_qty'  => $progressQty,
                                 'raw_delivered_qty' => $deliveredQty,
+                                'raw_qty'           => $requiredQtyBase,
                                 'is_bundle_header'  => false,
                             ]];
                         }
@@ -721,6 +734,9 @@ class SaleListController extends Controller
                             $totalDelivered = collect($bundleChildren)->sum(function ($child) {
                                 return (int) str_replace('.', '', $child['delivered']);
                             });
+                            $requiredBundleQty = $item->productBundle->items->sum(
+                                fn($bundleItem) => $requiredQtyBase * (float) ($bundleItem->quantity ?? 1)
+                            );
 
                             return [[
                                 'name'              => e($bundleNames) . ' <span class="badge bg-soft-primary text-primary">Bundle</span>',
@@ -734,6 +750,7 @@ class SaleListController extends Controller
                                 'on_delivery'       => '-',
                                 'raw_progress_qty'  => 0,
                                 'raw_delivered_qty' => $totalDelivered,
+                                'raw_qty'           => $requiredBundleQty,
                                 'is_bundle_header'  => true,
                                 'bundle_children'   => $bundleChildren,
                             ]];
@@ -752,14 +769,18 @@ class SaleListController extends Controller
                             'on_delivery'       => '0',
                             'raw_progress_qty'  => 0,
                             'raw_delivered_qty' => 0,
+                            'raw_qty'           => 0,
                             'is_bundle_header'  => false,
                         ]];
                     })
                     ->flatten(1)
                     ->values();
 
-                $isCompleted = $items->every(function ($i) {
-                    return $i['raw_delivered_qty'] >= ($i['raw_qty'] ?? 0);
+                $isCompleted = $items->isNotEmpty() && $items->every(function ($i) {
+                    $requiredQty = (float) ($i['raw_qty'] ?? 0);
+
+                    return $requiredQty > 0
+                        && (float) $i['raw_delivered_qty'] === $requiredQty;
                 });
 
                 $businessName = e($order->customerAddress->business_name ?? '-');
