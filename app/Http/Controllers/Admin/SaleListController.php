@@ -405,7 +405,7 @@ class SaleListController extends Controller
                     'order_date' => $date,
 
                     'customer' => '
-                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
+                        <div style="white-space: normal; word-break: break-word; max-width:230px;">
 
                             <div class="d-flex align-items-center fw-semibold">
                                 ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
@@ -819,7 +819,7 @@ class SaleListController extends Controller
                     'order_date' => $date,
 
                     'customer' => '
-                        <div style="white-space: normal; word-break: break-word; max-width:180px;">
+                        <div style="white-space: normal; word-break: break-word; max-width:230px;">
 
                             <div class="d-flex align-items-center fw-semibold">
                                 ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '

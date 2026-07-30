@@ -376,13 +376,13 @@
                                             <tr>
                                                 <th style="width:3%;"></th>
                                                 <th style="width:18%;">Invoice Number</th>
-                                                <th style="width:18%;">Customer</th>
+                                                <th style="width:21%;">Customer</th>
                                                 <th style="width:10%;">Grand Total</th>
                                                 <th style="width:10%;">Paid Amount</th>
                                                 <th style="width:12%;">Payment</th>
                                                 <th style="width:8%;">User</th>
                                                 {{-- <th style="width:6%;">Type</th> --}}
-                                                <th style="width:15%;">Note</th>
+                                                <th style="width:12%;">Note</th>
                                                 <th style="width:6%;">Chat</th>
                                             </tr>
                                         </thead>
