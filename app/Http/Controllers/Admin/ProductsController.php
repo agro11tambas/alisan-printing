@@ -326,23 +326,39 @@ class ProductsController extends Controller
 
     public function delete($id)
     {
-        $product = Products::findOrFail($id);
+        DB::transaction(function () use ($id) {
+            $product = Products::findOrFail($id);
 
-        $bundles = ProductBundle::whereHas('items', function ($q) use ($id) {
-            $q->where('product_id', $id);
-        })->get();
+            $bundles = ProductBundle::withTrashed()
+                ->whereHas('items', function ($q) use ($id) {
+                    $q->withTrashed()->where('product_id', $id);
+                })
+                ->get();
 
-        foreach ($bundles as $bundle) {
-            $bundle->items()->delete();
+            foreach ($bundles as $bundle) {
+                $bundle->items()->delete();
+                $bundle->update([
+                    'sku' => $this->makeDeletedSku($bundle->sku),
+                ]);
+                if (!$bundle->trashed()) {
+                    $bundle->delete();
+                }
+            }
 
-            $bundle->delete();
-        }
-
-        $product->update(['sku' => null]);
-
-        $product->delete();
+            $product->update([
+                'sku' => $this->makeDeletedSku($product->sku),
+            ]);
+            $product->delete();
+        });
 
         return redirect('/erp/products')->with('success', 'Produk dan semua bundle yang terkait berhasil dihapus.');
+    }
+
+    private function makeDeletedSku(string $sku): string
+    {
+        $prefix = 'deleted-' . Str::random(10) . '-';
+
+        return $prefix . Str::limit($sku, 255 - strlen($prefix), '');
     }
 
     public function edit($id)
