@@ -29,6 +29,8 @@
             ->groupBy(fn($item) => $item->product->name ?? '-')
             ->map(function ($group, $name) {
                 $totalQty = $group->sum('shipped_quantity');
+                $unitName = $group->pluck('unit_name')
+                    ->first(fn($name) => filled($name));
 
                 // Gabungkan semua note berdasarkan product_id
                 $notes = $group->pluck('note')->filter()->unique()->implode(', ');
