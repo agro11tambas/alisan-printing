@@ -184,7 +184,7 @@ class CustomerPhonePasswordLoginTest extends TestCase
         $this->getJson('/api/v1/ecommerce/auth/google/callback')->assertNotFound();
     }
 
-    public function test_erp_generates_a_hashed_password_reset_link_valid_for_thirty_minutes(): void
+    public function test_erp_generates_a_hashed_password_reset_link_valid_for_twenty_four_hours(): void
     {
         config(['app.frontend_website_url' => 'https://shop.example.test']);
 
@@ -213,7 +213,7 @@ class CustomerPhonePasswordLoginTest extends TestCase
         );
         $this->assertSame(hash('sha256', $query['token']), $storedToken->token_hash);
         $this->assertNotSame($query['token'], $storedToken->token_hash);
-        $this->assertTrue($storedToken->expires_at->between(now()->addMinutes(29), now()->addMinutes(31)));
+        $this->assertTrue($storedToken->expires_at->between(now()->addHours(24)->subMinute(), now()->addHours(24)->addMinute()));
 
         $storedToken->update(['expires_at' => now()->subSecond()]);
         $this->assertSame('expired', $account->fresh()->password_reset_status);
@@ -239,7 +239,7 @@ class CustomerPhonePasswordLoginTest extends TestCase
         CustomerPasswordResetToken::create([
             'customer_account_id' => $account->id,
             'token_hash' => hash('sha256', $plainToken),
-            'expires_at' => now()->addMinutes(30),
+            'expires_at' => now()->addHours(24),
         ]);
 
         $this->getJson('/api/v1/ecommerce/auth/password-reset/validate?token='.$plainToken)

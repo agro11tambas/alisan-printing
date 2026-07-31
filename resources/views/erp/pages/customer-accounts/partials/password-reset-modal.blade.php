@@ -18,7 +18,7 @@
                             <strong id="resetPasswordCustomerName"></strong>?
                         </p>
                         <p class="text-muted mb-0">
-                            Link hanya berlaku selama 30 menit. Pembuatan link baru akan membatalkan link sebelumnya.
+                            Link hanya berlaku selama 24 jam. Pembuatan link baru akan membatalkan link sebelumnya.
                         </p>
                     </div>
 

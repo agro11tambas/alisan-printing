@@ -32,8 +32,19 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        $exceptions->renderable(function (\Illuminate\Session\TokenMismatchException $e, $request) {
-            return redirect('/')
-                ->with('error', 'Session expired, silakan login kembali.');
+        $exceptions->renderable(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, $request) {
+            if ($e->getStatusCode() !== 419) {
+                return null;
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Session expired, silakan login kembali.',
+                    'redirect' => '/login',
+                ], 419);
+            }
+
+            return redirect()->route('login')
+                ->with('logout_notice', 'Sesi Anda telah berakhir. Silakan login kembali.');
         });
     })->create();

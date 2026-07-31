@@ -143,7 +143,7 @@ class CustomerAccountController extends Controller
         }
 
         $plainToken = Str::random(64);
-        $expiresAt = now()->addMinutes(30);
+        $expiresAt = now()->addHours(24);
 
         CustomerPasswordResetToken::updateOrCreate(
             ['customer_account_id' => $customerAccount->id],
@@ -159,7 +159,7 @@ class CustomerAccountController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Link reset password berhasil dibuat dan berlaku selama 30 menit.',
+            'message' => 'Link reset password berhasil dibuat dan berlaku selama 24 jam.',
             'data' => [
                 'reset_url' => $resetUrl,
                 'expires_at' => $expiresAt->toIso8601String(),

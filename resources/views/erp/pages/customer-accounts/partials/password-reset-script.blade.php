@@ -73,7 +73,7 @@
                     'Silakan buat baru/reset password akun Anda melalui link berikut:',
                     payload.data.reset_url,
                     '',
-                    'Link berlaku selama 30 menit.',
+                    'Link berlaku selama 24 jam.',
                 ].join('\n');
                 if (resetCustomerPhone) {
                     whatsappButton.href =

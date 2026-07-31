@@ -1128,6 +1128,39 @@
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
         });
+        (function installExpiredSessionRedirect() {
+            if (window.__erpExpiredSessionRedirectInstalled) {
+                return;
+            }
+
+            window.__erpExpiredSessionRedirectInstalled = true;
+
+            function redirectToLogin() {
+                window.location.replace('/login');
+            }
+
+            $(document).on('ajaxError.erpExpiredSession', function(event, xhr) {
+                if (xhr.status === 419) {
+                    redirectToLogin();
+                }
+            });
+
+            if (window.fetch) {
+                const originalFetch = window.fetch.bind(window);
+
+                window.fetch = async function(...args) {
+                    const response = await originalFetch(...args);
+                    const redirectedToLogin = response.redirected
+                        && new URL(response.url, window.location.origin).pathname === '/login';
+
+                    if (response.status === 419 || redirectedToLogin) {
+                        redirectToLogin();
+                    }
+
+                    return response;
+                };
+            }
+        })();
         (function installRequestDiagnostics() {
             if (window.__erpRequestDiagnosticsInstalled) {
                 return;
