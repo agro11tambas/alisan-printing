@@ -62,7 +62,7 @@ class EcommerceProductController extends Controller
                     <img src="' . $url . '" class="rounded" style="width:48px;height:48px;object-fit:cover;" alt="Product Image">
                 </a>';
             })
-            ->addColumn('title', fn($product) => e($product->title))
+            ->addColumn('title', fn($product) => $product->title)
             ->addColumn('status', function ($product) {
                 if ($product->is_active) {
                     return '<span class="badge bg-success">Active</span>';
@@ -71,9 +71,9 @@ class EcommerceProductController extends Controller
             })
             ->addColumn('category', function ($product) {
                 if ($product->categories->isEmpty()) return '-';
-                return $product->categories->pluck('name')->map(fn($name) => e($name))->implode(', ');
+                return $product->categories->pluck('name')->implode(', ');
             })
-            ->addColumn('unit', fn($product) => e($product->unit?->name ?? '-'))
+            ->addColumn('unit', fn($product) => $product->unit?->name ?? '-')
             ->addColumn('created_at', fn($product) => optional($product->created_at)->format('d M Y H:i'))
             ->addColumn('action', function ($product) {
                 return view('erp.pages.ecommerce-products.partials.action-button', compact('product'))->render();

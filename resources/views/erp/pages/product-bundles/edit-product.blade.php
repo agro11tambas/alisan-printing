@@ -40,7 +40,13 @@
                             @php
                                 $selectedItems = $bundle->items->values();
                                 $primaryItem = $selectedItems->first();
-                                $secondaryItems = $selectedItems->slice(1)->values();
+                                $secondaryItems = $selectedItems
+                                    ->slice(1)
+                                    ->sortBy(
+                                        fn($item) => $item->product?->name ?? '',
+                                        SORT_NATURAL | SORT_FLAG_CASE,
+                                    )
+                                    ->values();
                             @endphp
 
                             <div class="row mb-2 align-items-start">
