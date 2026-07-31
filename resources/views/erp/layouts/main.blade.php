@@ -12,7 +12,7 @@
 
     <title>Alisan</title>
 
-    <link rel="shortcut icon" type="image/x-icon" href="#">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
 
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/bootstrap.min.css') }}">
 
@@ -23,8 +23,8 @@
 
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/theme.min.css') }}">
 
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/css/lightbox.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.datatables.net/scroller/2.3.0/css/scroller.dataTables.min.css">
+    <link href="{{ asset('assets/vendors/css/lightbox.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('assets/vendors/css/scroller.dataTables.min.css') }}">
 
     <style>
         div.dataTables_wrapper .row:first-child {
@@ -33,7 +33,6 @@
         }
     </style>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         /* Default (desktop) */
@@ -756,16 +755,14 @@
     <script src="{{ asset('assets/vendors/js/select2-active.min.js') }}"></script>
     <script src="{{ asset('assets/js/common-init.min.js') }}"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/js/lightbox.min.js"></script>
+    <script src="{{ asset('assets/vendors/js/lightbox.min.js') }}"></script>
 
     @if (request()->is('erp/sales/*') || request()->is('erp/orders/*'))
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <script src="{{ asset('assets/vendors/js/html2canvas.min.js') }}"></script>
     @endif
 
-    {{-- <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script> --}}
-    <script src="https://cdn.datatables.net/scroller/2.4.1/js/dataTables.scroller.min.js"></script>
+
+    <script src="{{ asset('assets/vendors/js/dataTables.scroller.min.js') }}"></script>
 
     <script>
         window.initRowActionHandler = function(tableSelector) {
@@ -898,11 +895,19 @@
         (function() {
             'use strict';
 
-            const buttonState = new WeakMap();
-            const clickTimestamps = new WeakMap();
-            let currentLockedButtons = [];
+            if (window.__erpSubmitProtectionInitialized) {
+                return;
+            }
+
+            window.__erpSubmitProtectionInitialized = true;
+
+            const currentLockedButtons = new Set();
 
             function lockButton(btn) {
+                if (!btn || btn.disabled) {
+                    return;
+                }
+
                 btn.disabled = true;
 
                 if (!btn.dataset.originalText) {
@@ -911,139 +916,74 @@
 
                 btn.innerHTML = '<i class="feather-loader me-2 spin"></i> Processing...';
                 btn.style.pointerEvents = 'none';
-                buttonState.set(btn, true);
-
-                if (!currentLockedButtons.includes(btn)) {
-                    currentLockedButtons.push(btn);
-                }
+                currentLockedButtons.add(btn);
             }
 
             function unlockButton(btn) {
+                if (!btn) {
+                    return;
+                }
+
                 btn.disabled = false;
                 btn.style.pointerEvents = '';
-                buttonState.delete(btn);
 
                 if (btn.dataset.originalText) {
                     btn.innerHTML = btn.dataset.originalText;
                 }
 
-                const index = currentLockedButtons.indexOf(btn);
-                if (index > -1) {
-                    currentLockedButtons.splice(index, 1);
-                }
+                currentLockedButtons.delete(btn);
             }
 
             function unlockAllCurrentButtons() {
-                currentLockedButtons.forEach(function(btn) {
-                    unlockButton(btn);
-                });
-                currentLockedButtons = [];
-            }
+                [...currentLockedButtons].forEach(unlockButton);
 
-            function initProtection() {
-
-                document.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function(btn) {
-
-                    if (btn.dataset.protected) return;
-                    btn.dataset.protected = 'true';
-
-                    btn.addEventListener('click', function(e) {
-                        const now = Date.now();
-                        const lastClick = clickTimestamps.get(btn) || 0;
-
-                        if (now - lastClick < 2000) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                            console.warn('⚠️ Tolong tunggu sebentar...');
-                            return false;
-                        }
-
-                        clickTimestamps.set(btn, now);
-
-                        setTimeout(() => lockButton(btn), 10);
-
-                        setTimeout(() => unlockButton(btn), 5000);
-
-                    }, true);
-
-                });
-
-                document.querySelectorAll('form').forEach(function(form) {
-
-                    if (form.dataset.protected) return;
-                    form.dataset.protected = 'true';
-
-                    form.addEventListener('invalid', function(e) {
-                        setTimeout(function() {
-                            unlockAllCurrentButtons();
-                        }, 100);
-                    }, true);
-
-                    form.addEventListener('submit', function(e) {
-                        setTimeout(function() {
-                            unlockAllCurrentButtons();
-                        }, 5000);
-                    });
-
-                });
-
-                document.addEventListener('click', function(e) {
-                    if (!e.target.matches('button[type="submit"], input[type="submit"]')) {
-                        unlockAllCurrentButtons();
-                    }
-                }, true);
-
-                document.addEventListener('keydown', function(e) {
-                    if (e.key !== 'Tab') {
-                        unlockAllCurrentButtons();
-                    }
-                }, true);
-
-                const observer = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        mutation.addedNodes.forEach(function(node) {
-                            if (node.nodeType === 1) {
-                                if (node.matches(
-                                        'form, button[type="submit"], input[type="submit"]')) {
-                                    initProtection();
-                                }
-                                if (node.querySelectorAll) {
-                                    const forms = node.querySelectorAll('form');
-                                    const buttons = node.querySelectorAll(
-                                        'button[type="submit"], input[type="submit"]');
-                                    if (forms.length > 0 || buttons.length > 0) {
-                                        initProtection();
-                                    }
-                                }
-                            }
-                        });
-                    });
-                });
-
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true
+                document.querySelectorAll('form[data-submitting="true"]').forEach(function(form) {
+                    delete form.dataset.submitting;
                 });
             }
 
-            // 🚀 INIT
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initProtection);
-            } else {
-                initProtection();
-            }
+            document.addEventListener('submit', function(event) {
+                const form = event.target;
 
-            if (typeof jQuery !== 'undefined') {
-                jQuery(document).ready(initProtection);
-            }
+                if (!(form instanceof HTMLFormElement)) {
+                    return;
+                }
 
-            // 🎯 Global unlock function
-            window.unlockAllButtons = function() {
-                unlockAllCurrentButtons();
-                console.log('✅ Semua button di-unlock');
-            };
+                // Form-level validation and AJAX handlers run before this delegated handler.
+                if (event.defaultPrevented) {
+                    delete form.dataset.submitting;
+                    return;
+                }
 
+                if (form.dataset.submitting === 'true') {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    return;
+                }
+
+                form.dataset.submitting = 'true';
+
+                const submitter = event.submitter
+                    || form.querySelector('button[type="submit"], input[type="submit"]');
+
+                lockButton(submitter);
+            });
+
+            document.addEventListener('invalid', function(event) {
+                const form = event.target?.form;
+
+                if (!form) {
+                    return;
+                }
+
+                delete form.dataset.submitting;
+                form.querySelectorAll('button[type="submit"], input[type="submit"]')
+                    .forEach(unlockButton);
+            }, true);
+
+            window.addEventListener('pageshow', unlockAllCurrentButtons);
+
+            window.unlockAllButtons = unlockAllCurrentButtons;
         })();
     </script>
 
@@ -1188,6 +1128,59 @@
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
         });
+        (function installRequestDiagnostics() {
+            if (window.__erpRequestDiagnosticsInstalled) {
+                return;
+            }
+
+            window.__erpRequestDiagnosticsInstalled = true;
+
+            function diagnosticsEnabled() {
+                try {
+                    return window.localStorage.getItem('erp_debug_requests') === '1';
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            $(document)
+                .on('ajaxSend.erpDiagnostics', function(event, xhr, settings) {
+                    xhr.__erpStartedAt = performance.now();
+
+                    if (diagnosticsEnabled()) {
+                        console.debug('[ERP AJAX:start]', settings.type || 'GET', settings.url);
+                    }
+                })
+                .on('ajaxComplete.erpDiagnostics', function(event, xhr, settings) {
+                    if (!diagnosticsEnabled()) {
+                        return;
+                    }
+
+                    const duration = xhr.__erpStartedAt
+                        ? Math.round(performance.now() - xhr.__erpStartedAt)
+                        : null;
+
+                    console.debug(
+                        '[ERP AJAX:end]',
+                        settings.type || 'GET',
+                        settings.url,
+                        xhr.status,
+                        duration === null ? '-' : `${duration}ms`
+                    );
+                });
+
+            window.addEventListener('error', function(event) {
+                if (diagnosticsEnabled()) {
+                    console.error('[ERP JS:error]', event.error || event.message);
+                }
+            });
+
+            window.addEventListener('unhandledrejection', function(event) {
+                if (diagnosticsEnabled()) {
+                    console.error('[ERP Promise:unhandled]', event.reason);
+                }
+            });
+        })();
 
         document.addEventListener("DOMContentLoaded", function() {
 

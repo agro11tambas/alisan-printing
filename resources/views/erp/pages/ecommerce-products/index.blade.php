@@ -107,6 +107,7 @@
                                         <th>Category</th>
                                         <th>Unit</th>
                                         <th>Created At</th>
+                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -148,6 +149,12 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            if ($.fn.DataTable.isDataTable('#ecommerceProductTable')) {
+                return;
+            }
+
+            let currentTableRequest = null;
+
             const dataTable = $('#ecommerceProductTable').DataTable({
                 processing: true,
                 serverSide: true,
@@ -159,12 +166,40 @@
                 lengthChange: false,
                 info: false,
                 pagingType: 'simple',
-                ajax: {
-                    url: "{{ route('erp.ecommerce-products.data') }}",
-                    data: function(d) {
-                        d.search_keyword = $('#search_keyword').val();
-                        d.category_id = $('#category_id').val();
-                    }
+                ajax: function(data, callback) {
+                    currentTableRequest?.abort();
+
+                    data.search_keyword = $('#search_keyword').val();
+                    data.category_id = $('#category_id').val();
+
+                    const request = $.ajax({
+                        url: "{{ route('erp.ecommerce-products.data') }}",
+                        data,
+                        dataType: 'json'
+                    });
+
+                    currentTableRequest = request;
+
+                    request
+                        .done(callback)
+                        .fail(function(xhr, status, error) {
+                            if (status === 'abort') {
+                                return;
+                            }
+
+                            console.error('Gagal memuat DataTable ecommerce product:', error);
+                            callback({
+                                draw: data.draw,
+                                recordsTotal: 0,
+                                recordsFiltered: 0,
+                                data: []
+                            });
+                        })
+                        .always(function() {
+                            if (currentTableRequest === request) {
+                                currentTableRequest = null;
+                            }
+                        });
                 },
                 columns: [{
                         data: 'image',
@@ -208,15 +243,34 @@
             });
 
             let searchTimer = null;
-
-            $('#search_keyword').on('keyup', function() {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(() => dataTable.ajax.reload(), 200);
+            let lastFilterKey = JSON.stringify({
+                search: '',
+                category: ''
             });
 
-            $('#category_id').on('change', function() {
+            function reloadIfFiltersChanged() {
+                const filterKey = JSON.stringify({
+                    search: $('#search_keyword').val() || '',
+                    category: $('#category_id').val() || ''
+                });
+
+                if (filterKey === lastFilterKey) {
+                    return;
+                }
+
+                lastFilterKey = filterKey;
                 dataTable.ajax.reload();
+            }
+
+            $('#search_keyword').off('.ecommerceProducts').on('input.ecommerceProducts', function() {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(reloadIfFiltersChanged, 350);
             });
+
+            $('#category_id').off('.ecommerceProducts').on(
+                'change.ecommerceProducts',
+                reloadIfFiltersChanged
+            );
 
             $('#ecommerceProductTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('a, button, form').length) return;

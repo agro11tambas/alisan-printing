@@ -610,6 +610,12 @@
         }
 
         $(document).ready(function() {
+            if (window.__erpEcommerceProductFormInitialized) {
+                return;
+            }
+
+            window.__erpEcommerceProductFormInitialized = true;
+
             const form = $('#ecommerceProductForm');
 
             function escapeHtml(value) {
@@ -750,6 +756,18 @@
 
             // Store bundle pairs from API
             let bundlePairs = [];
+            let secondaryFetchController = null;
+            let activeSecondaryRequestKey = null;
+            let secondaryFetchTimer = null;
+            let lastCompletedSecondaryRequestKey = null;
+
+            function requestDiagnosticsEnabled() {
+                try {
+                    return window.localStorage.getItem('erp_debug_requests') === '1';
+                } catch (error) {
+                    return false;
+                }
+            }
 
             function renderCombinations() {
                 const groups = getProductGroupsData();
@@ -846,13 +864,22 @@
                 });
             }
 
-            function fetchSecondaryProducts() {
+            function scheduleSecondaryProductsFetch(delay = 150) {
+                clearTimeout(secondaryFetchTimer);
+                secondaryFetchTimer = setTimeout(fetchSecondaryProducts, delay);
+            }
+
+            async function fetchSecondaryProducts() {
                 const groups = getProductGroupsData();
                 if (groups.length === 0) return;
-                
+
                 const productIds = groups[0].options.map(o => o.productId);
                 if (productIds.length === 0) {
-                    // Remove lid option group if empty
+                    secondaryFetchController?.abort();
+                    secondaryFetchController = null;
+                    activeSecondaryRequestKey = null;
+                    lastCompletedSecondaryRequestKey = null;
+
                     const lidGroup = $('.variant-group-item').eq(1);
                     if (lidGroup.length) lidGroup.remove();
                     bundlePairs = [];
@@ -860,83 +887,145 @@
                     return;
                 }
 
-                $.ajax({
-                    url: '{{ route("erp.ecommerce-products.bundle-secondary") }}',
-                    data: { 
-                        product_ids: productIds,
-                        unit_id: $('#unit_id').val()
-                    },
-                    success: function(response) {
-                        const secondaries = response.secondaries || [];
-                        bundlePairs = response.pairs || [];
+                const unitId = $('#unit_id').val() || '';
+                const requestKey = JSON.stringify({
+                    productIds: productIds.map(String).sort(),
+                    unitId: String(unitId)
+                });
 
-                        if (secondaries.length === 0) {
-                            const lidGroup = $('.variant-group-item').eq(1);
-                            if (lidGroup.length) lidGroup.remove();
-                        } else {
-                            let lidGroup = $('.variant-group-item').eq(1);
-                            if (!lidGroup.length) {
-                                $('#variantGroupList').append(groupTemplate(nextGroupIndex));
-                                lidGroup = $('.variant-group-item').last();
-                                nextGroupIndex++;
+                if (
+                    requestKey === lastCompletedSecondaryRequestKey
+                    || (requestKey === activeSecondaryRequestKey && secondaryFetchController)
+                ) {
+                    return;
+                }
+
+                secondaryFetchController?.abort();
+                const controller = new AbortController();
+                secondaryFetchController = controller;
+                activeSecondaryRequestKey = requestKey;
+
+                const params = new URLSearchParams();
+                productIds.forEach(productId => params.append('product_ids[]', productId));
+                if (unitId) {
+                    params.set('unit_id', unitId);
+                }
+
+                const combinationsSection = document.getElementById('variantCombinationsSection');
+                combinationsSection?.setAttribute('aria-busy', 'true');
+
+                const requestStartedAt = performance.now();
+                if (requestDiagnosticsEnabled()) {
+                    console.debug('[ERP fetch:start]', requestKey);
+                }
+
+                try {
+                    const response = await fetch(
+                        `{{ route("erp.ecommerce-products.bundle-secondary") }}?${params.toString()}`,
+                        {
+                            signal: controller.signal,
+                            headers: {
+                                Accept: 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const payload = await response.json();
+
+                    if (controller !== secondaryFetchController) {
+                        return;
+                    }
+
+                    const secondaries = payload.secondaries || [];
+                    bundlePairs = payload.pairs || [];
+                    lastCompletedSecondaryRequestKey = requestKey;
+
+                    if (secondaries.length === 0) {
+                        const lidGroup = $('.variant-group-item').eq(1);
+                        if (lidGroup.length) lidGroup.remove();
+                    } else {
+                        let lidGroup = $('.variant-group-item').eq(1);
+                        if (!lidGroup.length) {
+                            $('#variantGroupList').append(groupTemplate(nextGroupIndex));
+                            lidGroup = $('.variant-group-item').last();
+                            nextGroupIndex++;
+                        }
+
+                        lidGroup.find('.add-variant-option').hide();
+                        lidGroup.find('.remove-variant-group').hide();
+
+                        const tbody = lidGroup.find('.variant-option-list');
+                        const groupIndex = lidGroup.data('group-index');
+                        const existingRows = {};
+
+                        tbody.find('.variant-option-row').each(function() {
+                            const prodId = $(this).find('.option-product-select').val();
+                            if (prodId) {
+                                existingRows[prodId] = $(this).detach();
+                            } else {
+                                $(this).remove();
+                            }
+                        });
+
+                        secondaries.forEach((sec, idx) => {
+                            let row;
+                            if (existingRows[sec.id]) {
+                                row = existingRows[sec.id];
+                                tbody.append(row);
+                            } else {
+                                row = $(optionRowTemplate(groupIndex, idx));
+                                row.find('.option-product-select').val(sec.id);
+                                row.find('.option-product-select')
+                                    .css('pointer-events', 'none')
+                                    .css('background-color', '#e9ecef');
+                                row.find('.remove-variant-option').hide();
+                                tbody.append(row);
                             }
 
-                            // lidGroup.find('.variant-group-name').val('LID OPTION').prop('readonly', true);
-                            lidGroup.find('.add-variant-option').hide();
-                            lidGroup.find('.remove-variant-group').hide();
-                            
-                            const tbody = lidGroup.find('.variant-option-list');
-                            const groupIndex = lidGroup.data('group-index');
-                            
-                            // Keep existing row values for image/video
-                            const existingRows = {};
-                            tbody.find('.variant-option-row').each(function() {
-                                const prodId = $(this).find('.option-product-select').val();
-                                if (prodId) {
-                                    existingRows[prodId] = $(this).detach();
-                                } else {
-                                    $(this).remove();
+                            row.find('input, select, textarea').each(function() {
+                                let name = $(this).attr('name');
+                                if (name) {
+                                    name = name.replace(/\[options\]\[\d+\]/, '[options][' + idx + ']');
+                                    $(this).attr('name', name);
                                 }
                             });
 
-                            secondaries.forEach((sec, idx) => {
-                                let row;
-                                if (existingRows[sec.id]) {
-                                    row = existingRows[sec.id];
-                                    tbody.append(row);
-                                } else {
-                                    row = $(optionRowTemplate(groupIndex, idx));
-                                    row.find('.option-product-select').val(sec.id);
-                                    
-                                    // Make readonly
-                                    row.find('.option-product-select').css('pointer-events', 'none').css('background-color', '#e9ecef');
-                                    row.find('.remove-variant-option').hide();
-                                    
-                                    tbody.append(row);
-                                }
-                                
-                                // Re-index all name attributes to prevent collisions
-                                row.find('input, select, textarea').each(function() {
-                                    let name = $(this).attr('name');
-                                    if (name) {
-                                        // Update the [options][<number>] part to [options][idx]
-                                        name = name.replace(/\[options\]\[\d+\]/, '[options][' + idx + ']');
-                                        $(this).attr('name', name);
-                                    }
-                                });
-                                
-                                // Update Price based on selected unit
-                                const secPrice = getProductPrice(sec.id);
-                                row.find('td:nth-child(2)').html(`<span class="badge bg-soft-success text-success">Rp ${formatPrice(secPrice)}</span>`);
-                            });
-                            
-                            initSelect2(lidGroup);
-                        }
-                        renderCombinations();
+                            const secPrice = getProductPrice(sec.id);
+                            row.find('td:nth-child(2)').html(
+                                `<span class="badge bg-soft-success text-success">Rp ${formatPrice(secPrice)}</span>`
+                            );
+                        });
+
+                        initSelect2(lidGroup);
                     }
-                });
-            }
 
+                    renderCombinations();
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('Gagal memuat secondary product:', error);
+                    }
+                } finally {
+                    if (requestDiagnosticsEnabled()) {
+                        console.debug(
+                            '[ERP fetch:end]',
+                            requestKey,
+                            Math.round(performance.now() - requestStartedAt) + 'ms',
+                            controller.signal.aborted ? 'aborted' : 'settled'
+                        );
+                    }
+
+                    if (controller === secondaryFetchController) {
+                        secondaryFetchController = null;
+                        activeSecondaryRequestKey = null;
+                        combinationsSection?.removeAttribute('aria-busy');
+                    }
+                }
+            }
             $(document).on('change', '.variant-group-item:first-child .option-product-select', function() {
                 const tr = $(this).closest('tr');
                 const productId = $(this).val();
@@ -947,7 +1036,7 @@
                     tr.find('td:nth-child(2)').html(`<span class="badge bg-soft-secondary text-secondary">-</span>`);
                 }
                 
-                fetchSecondaryProducts();
+                scheduleSecondaryProductsFetch();
             });
 
             $(document).on('change', '.option-product-select', function() {
@@ -997,11 +1086,11 @@
             // When unit changes, refresh ALL prices + re-fetch combinations
             $(document).on('change', '#unit_id', function() {
                 refreshAllVariantPrices();
-                fetchSecondaryProducts();
+                scheduleSecondaryProductsFetch();
             });
 
             // Call on load
-            setTimeout(() => {
+            secondaryFetchTimer = setTimeout(() => {
                 refreshAllVariantPrices();
                 fetchSecondaryProducts();
             }, 500);
@@ -1345,7 +1434,7 @@
 
                     if (groupIndex === 0) {
                         $(`.primary-image-card[data-option-index="${optionIndex}"]`).remove();
-                        fetchSecondaryProducts();
+                        scheduleSecondaryProductsFetch();
                     } else {
                         renderCombinations();
                     }

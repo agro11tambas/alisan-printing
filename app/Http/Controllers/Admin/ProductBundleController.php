@@ -855,6 +855,13 @@ class ProductBundleController extends Controller
     {
         $bundle = ProductBundle::findOrFail($id);
 
+        $this->archiveBundle($bundle);
+
+        return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dihapus!');
+    }
+
+    private function archiveBundle(ProductBundle $bundle): void
+    {
         $new_sku = 'deleted-' . Str::random(10) . '-' . $bundle->sku;
 
         if (strlen($new_sku) > 255) {
@@ -865,8 +872,6 @@ class ProductBundleController extends Controller
         $bundle->save();
 
         $bundle->delete();
-
-        return redirect('/erp/products/product-bundles')->with('success', 'Product Bundle berhasil dihapus!');
     }
 
     public function addMoreProduct($primaryProductId)
@@ -946,6 +951,26 @@ class ProductBundleController extends Controller
             DB::transaction(function () use ($primaryProductId, $secondaryIds) {
                 $primary = Products::with(['unitConversions', 'baseUnit'])
                     ->findOrFail($primaryProductId);
+
+                $connectedBundles = ProductBundle::with('items')
+                    ->whereHas('items', function ($q) use ($primaryProductId) {
+                        $q->where('role', 'primary')
+                            ->where('product_id', $primaryProductId);
+                    })
+                    ->get();
+
+                foreach ($connectedBundles as $connectedBundle) {
+                    $secondaryProductId = $connectedBundle->items
+                        ->firstWhere('role', 'secondary')
+                        ?->product_id;
+
+                    if (
+                        $secondaryProductId !== null
+                        && !$secondaryIds->contains(fn($id) => (int) $id === (int) $secondaryProductId)
+                    ) {
+                        $this->archiveBundle($connectedBundle);
+                    }
+                }
 
                 foreach ($secondaryIds as $secondaryId) {
                     $secondary = Products::with(['unitConversions', 'baseUnit'])

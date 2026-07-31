@@ -81,7 +81,7 @@
                             </a>
                         </div>
                         <div class="notifications-item">
-                            <img src="./../assets/images/avatar/2.png" alt="" class="rounded me-3 border">
+                            <img src="{{ asset('assets/images/avatar/2.png') }}" alt="" class="rounded me-3 border">
                             <div class="notifications-desc">
                                 <a href="javascript:void(0);" class="font-body text-truncate-2-line"> <span class="fw-semibold text-dark">Malanie Hanvey</span> We should talk about that at lunch!</a>
                                 <div class="d-flex justify-content-between align-items-center">
@@ -96,7 +96,7 @@
                             </div>
                         </div>
                         <div class="notifications-item">
-                            <img src="./../assets/images/avatar/3.png" alt="" class="rounded me-3 border">
+                            <img src="{{ asset('assets/images/avatar/3.png') }}" alt="" class="rounded me-3 border">
                             <div class="notifications-desc">
                                 <a href="javascript:void(0);" class="font-body text-truncate-2-line"> <span class="fw-semibold text-dark">Valentine Maton</span> You can download the latest invoices now.</a>
                                 <div class="d-flex justify-content-between align-items-center">
@@ -111,7 +111,7 @@
                             </div>
                         </div>
                         <div class="notifications-item">
-                            <img src="./../assets/images/avatar/4.png" alt="" class="rounded me-3 border">
+                            <img src="{{ asset('assets/images/avatar/4.png') }}" alt="" class="rounded me-3 border">
                             <div class="notifications-desc">
                                 <a href="javascript:void(0);" class="font-body text-truncate-2-line"> <span class="fw-semibold text-dark">Archie Cantones</span> Don't forget to pickup Jeremy after school!</a>
                                 <div class="d-flex justify-content-between align-items-center">
@@ -133,7 +133,7 @@
                 <div class="dropdown nxl-h-item">
                     <a href="javascript:void(0);" data-bs-toggle="dropdown" role="button"
                         data-bs-auto-close="outside">
-                        <img src="./../assets/images/avatar/1.png" alt="user-image"
+                        <img src="{{ asset('assets/images/avatar/1.png') }}" alt="User avatar"
                             class="img-fluid user-avtar me-0">
                     </a>
                     <div class="dropdown-menu dropdown-menu-end nxl-h-dropdown nxl-user-dropdown">
