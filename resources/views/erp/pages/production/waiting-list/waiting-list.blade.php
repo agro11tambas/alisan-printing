@@ -91,19 +91,23 @@
 @section('content')
     @if (session('success'))
         <script>
-            Swal.fire({
-                icon: 'success',
-                title: 'Berhasil!',
-                text: "{{ session('success') }}",
+            window.addEventListener('load', function() {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil!',
+                    text: @json(session('success')),
+                });
             });
         </script>
     @endif
     @if (session('error'))
         <script>
-            Swal.fire({
-                icon: 'error',
-                title: 'Gagal!',
-                text: "{{ session('error') }}",
+            window.addEventListener('load', function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal!',
+                    text: @json(session('error')),
+                });
             });
         </script>
     @endif
