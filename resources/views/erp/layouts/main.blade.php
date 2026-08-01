@@ -757,7 +757,14 @@
 
     <script src="{{ asset('assets/vendors/js/lightbox.min.js') }}"></script>
 
-    @if (request()->is('erp/sales/*') || request()->is('erp/orders/*'))
+    @if (request()->is(
+            'erp/sales/sale-orders',
+            'erp/sales/sale-orders/invoice/*',
+            'erp/sales/sale-list',
+            'erp/sales/sale-list/invoice/*',
+            'erp/sales/sale-list/invoice-image/*',
+            'erp/sales/sale-returns/invoice/*'
+        ))
         <script src="{{ asset('assets/vendors/js/html2canvas.min.js') }}"></script>
     @endif
 
@@ -847,13 +854,6 @@
                 $tr.after($actionRow).addClass('action-shown action-active');
             });
 
-            $(document).on('click', function(e) {
-                if (!$(e.target).closest(`${tableSelector}`).length) {
-                    $(`${tableSelector} tbody tr`)
-                        .removeClass('action-shown action-active')
-                        .next('.action-row').remove();
-                }
-            });
         };
 
         $(document).ready(function() {
@@ -888,6 +888,14 @@
             initRowActionHandler('#ShopManagerList');
             initRowActionHandler('#OperatorList');
             initRowActionHandler('#supplierList');
+
+            $(document).on('click.erpRowActions', function(e) {
+                if ($(e.target).closest('table.dataTable').length) return;
+
+                $('table.dataTable tbody tr.action-shown')
+                    .removeClass('action-shown action-active')
+                    .next('.action-row').remove();
+            });
         });
     </script>
 

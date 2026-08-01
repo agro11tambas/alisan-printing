@@ -91,6 +91,7 @@ class UserController extends Controller
         // 🔹 SIMPAN RELASI
         $user->permissions()->sync($request->permissions ?? []);
         $user->permissionSubItems()->sync($request->permission_sub_items ?? []);
+        $user->forgetPermissionCache();
 
         return redirect('/erp/shop-manager/users')->with('success', 'User berhasil dibuat');
     }
@@ -190,6 +191,7 @@ class UserController extends Controller
 
         // update sub permissions
         $user->permissionSubItems()->sync($request->permission_sub_items ?? []);
+        $user->forgetPermissionCache();
 
         return redirect('/erp/shop-manager/users')->with('success', 'Data berhasil diperbarui');
     }

@@ -841,7 +841,19 @@
             });
 
             $(document).on('input', 'input[name*="[sale_price]"]', function() {
+                const row = $(this).closest('tr');
+                const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+                const marginInput = row.find('input[name*="[margin]"]');
+
+                const fixedCost = parseFloat(normalizeMoneyValue(fixedCostInput.val())) || 0;
+                const salePrice = parseFloat(normalizeMoneyValue($(this).val())) || 0;
+                const margin = salePrice - fixedCost;
+
+                marginInput.val(formatMoneyID(margin));
+                marginInput[0].dataset.raw = margin.toString();
+
                 removeError($(this));
+                removeError(marginInput);
             });
 
             ['name', 'sku', 'price', 'fixed_cost'].forEach(id => {

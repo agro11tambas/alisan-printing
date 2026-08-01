@@ -10,6 +10,7 @@ use App\Models\Permission;
 use App\Models\PermissionSubItem;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Cache;
 
 class User extends Authenticatable
 {
@@ -75,7 +76,7 @@ class User extends Authenticatable
      */
     public function hasPermission(string $slug): bool
     {
-        return $this->permissions->contains('slug', $slug);
+        return in_array($slug, $this->permissionSlugs(), true);
     }
 
     /**
@@ -83,7 +84,44 @@ class User extends Authenticatable
      */
     public function hasSubPermission(string $slug): bool
     {
-        return $this->permissionSubItems->contains('slug', $slug);
+        return in_array($slug, $this->subPermissionSlugs(), true);
+    }
+
+    public function forgetPermissionCache(): void
+    {
+        Cache::forget($this->permissionCacheKey('permissions'));
+        Cache::forget($this->permissionCacheKey('sub-permissions'));
+    }
+
+    private function permissionSlugs(): array
+    {
+        if ($this->relationLoaded('permissions')) {
+            return $this->permissions->pluck('slug')->all();
+        }
+
+        return Cache::remember(
+            $this->permissionCacheKey('permissions'),
+            now()->addMinutes(10),
+            fn () => $this->permissions()->pluck('permissions.slug')->all()
+        );
+    }
+
+    private function subPermissionSlugs(): array
+    {
+        if ($this->relationLoaded('permissionSubItems')) {
+            return $this->permissionSubItems->pluck('slug')->all();
+        }
+
+        return Cache::remember(
+            $this->permissionCacheKey('sub-permissions'),
+            now()->addMinutes(10),
+            fn () => $this->permissionSubItems()->pluck('permission_sub_items.slug')->all()
+        );
+    }
+
+    private function permissionCacheKey(string $type): string
+    {
+        return "user:{$this->getKey()}:{$type}";
     }
 
     public function defectProducts()

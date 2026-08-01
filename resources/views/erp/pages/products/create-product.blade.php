@@ -653,7 +653,19 @@
             });
 
             $(document).on('input', 'input[name*="[sale_price]"]', function() {
+                const row = $(this).closest('tr');
+                const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
+                const marginInput = row.find('input[name*="[margin]"]');
+
+                const fixedCost = parseMoneyValue(fixedCostInput.val());
+                const salePrice = parseMoneyValue($(this).val());
+                const margin = salePrice - fixedCost;
+
+                marginInput.val(formatRupiahValue(margin));
+                marginInput[0].dataset.raw = margin.toString();
+
                 removeError($(this));
+                removeError(marginInput);
             });
 
             const imageInput = document.getElementById('image');
