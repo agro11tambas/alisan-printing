@@ -395,13 +395,33 @@ class DesignController extends Controller
         DB::beginTransaction();
 
         try {
+            // Serialize concurrent verify requests for the same design.
             $design = Design::with([
                 'order.customer',
                 'items.product',
                 'items.orderItem',
-            ])->findOrFail($id);
+            ])->whereKey($id)->lockForUpdate()->firstOrFail();
 
             $order = $design->order;
+            // Verification is idempotent: an active progress means this design
+            // has already entered the production workflow.
+            $existingProgress = OrderProgress::where('design_id', $design->id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($existingProgress) {
+                DB::commit();
+
+                if ($request->ajax()) {
+                    return response()->json([
+                        'success' => true,
+                        'already_verified' => true,
+                        'message' => 'Design sudah diverifikasi sebelumnya.'
+                    ]);
+                }
+
+                return redirect()->back()->with('success', 'Design sudah diverifikasi sebelumnya.');
+            }
 
             // AMBIL PRINTING + POLOSAN
             $verifyItems = $design->items->filter(function ($designItem) {
@@ -558,11 +578,16 @@ class DesignController extends Controller
             }
 
             // Ambil OrderProgress dan DeliveryOrder terkait design ini
-            $orderProgress = OrderProgress::where('design_id', $design->id)->first();
-            $deliveryOrder = DeliveryOrder::where('design_id', $design->id)->first();
+            $orderProgresses = OrderProgress::with('items')
+                ->where('design_id', $design->id)
+                ->lockForUpdate()
+                ->get();
+            $deliveryOrders = DeliveryOrder::where('design_id', $design->id)
+                ->lockForUpdate()
+                ->get();
 
             // 🔹 Kembalikan stok pending_waiting_list di ProductionStock
-            if ($orderProgress && $orderProgress->items) {
+            foreach ($orderProgresses as $orderProgress) {
                 foreach ($orderProgress->items as $progressItem) {
                     $productionStock = \App\Models\ProductionStock::where('product_id', $progressItem->product_id)
                         ->where('production_warehouse_id', 2)
@@ -580,13 +605,13 @@ class DesignController extends Controller
             }
 
             // 🔹 Hapus DeliveryOrderItem dan DeliveryOrder
-            if ($deliveryOrder) {
+            foreach ($deliveryOrders as $deliveryOrder) {
                 $deliveryOrder->items()->delete();
                 $deliveryOrder->delete();
             }
 
             // 🔹 Hapus OrderProgressItem dan OrderProgress
-            if ($orderProgress) {
+            foreach ($orderProgresses as $orderProgress) {
                 $orderProgress->items()->delete();
                 $orderProgress->delete();
             }

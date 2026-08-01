@@ -1839,24 +1839,8 @@ class SaleListController extends Controller
 
             $order->refresh();
 
-            $hasPrintingItem = $order->orderItems
-                ->contains(fn($item) => $item->mode === 'printing');
-
-            $designAlreadyVerified = \App\Models\Design::where('order_id', $order->id)
-                ->where(function ($q) {
-                    $q->whereRaw('LOWER(status) = ?', ['verified'])
-                        ->orWhereRaw('LOWER(verification_status) = ?', ['approved']);
-                })
-                ->exists();
-
-            if ($hasPrintingItem && $designAlreadyVerified) {
-                DB::rollBack();
-
-                return back()->with(
-                    'error',
-                    'Order ini tidak bisa diupdate karena design printing sudah diverifikasi. Silakan buat invoice baru jika ada perubahan.'
-                );
-            }
+            // A verified design alone must not lock Sale List edits. Structural
+            // changes are blocked later only when assign/history already exists.
 
             $mapItems = function ($items) {
                 return $items->values()->mapWithKeys(function ($item, $index) {
@@ -2349,7 +2333,10 @@ class SaleListController extends Controller
             })
                 ->get()
                 ->groupBy('product_id')
-                ->map(fn($g) => $g->sum('quantity'));
+                ->map(fn($items) => $items->sum(function ($item) {
+                    $conversion = (float) ($item->unit_conversion_value ?? 1);
+                    return (float) $item->quantity * ($conversion > 0 ? $conversion : 1);
+                }));
 
             $newKeys = [];
             $polosanToPrintingOrderItemIds = [];
@@ -2558,7 +2545,10 @@ class SaleListController extends Controller
                         }
                     }
 
-                    if ($designVerified) {
+                    // Pending production stock is reconciled once from the complete
+                    // before/after snapshots below. Keep the legacy inline branch
+                    // disabled to prevent double increments on product/qty changes.
+                    if (false && $designVerified) {
                         Log::info("🧩 Design verified for order {$order->order_number}");
 
                         // Tetapkan warehouse produksi FIX

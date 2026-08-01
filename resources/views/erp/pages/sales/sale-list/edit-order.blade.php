@@ -1390,7 +1390,7 @@
             // unitSelect.val(baseOption || firstOption).trigger('change');
         }
 
-        function updatePriceFromSelectedUnit(row) {
+        function updatePriceFromSelectedUnit(row, replacePrice = true) {
             const selectedUnit = row.find('.product-unit option:selected');
 
             if (!selectedUnit.val()) {
@@ -1406,8 +1406,10 @@
             row.find('.unit-name').val(unitName);
             row.find('.unit-conversion-value').val(conversionValue);
 
-            row.find('.price_before_discount').val(salePrice.toFixed(2));
-            row.find('.price_before_discount_display').val(formatNumber(salePrice));
+            if (replacePrice) {
+                row.find('.price_before_discount').val(salePrice.toFixed(2));
+                row.find('.price_before_discount_display').val(formatNumber(salePrice));
+            }
 
             row.find('.product-unit').css({
                 color: unitColor,
@@ -1708,7 +1710,7 @@
                         //     selectedUnitId,
                         //     parseFloat(bundle.price || 0)
                         // );
-                        row.find('.product-unit').trigger('change');
+                        updatePriceFromSelectedUnit(row, false);
                     }
                 } else {
                     const selectedData = findSelectedProductData(select.val());
@@ -1721,7 +1723,7 @@
 
                     if (type === 'satuan') {
                         // fillProductUnits(row, units, selectedUnitId, defaultPrice, false);
-                        row.find('.product-unit').trigger('change');
+                        updatePriceFromSelectedUnit(row, false);
                     } else {
                         row.find('.product-unit-wrapper').hide();
                         row.find('.product-unit').val('');

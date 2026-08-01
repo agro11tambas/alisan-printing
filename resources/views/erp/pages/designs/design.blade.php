@@ -677,7 +677,17 @@
 
             $('#formVerifyDesign').on('submit', function(e) {
                 e.preventDefault();
-                const url = $(this).attr('action');
+                const $form = $(this);
+
+                if ($form.data('submitting')) {
+                    return;
+                }
+
+                $form.data('submitting', true);
+                const $submitButton = $form.find('button[type="submit"]');
+                $submitButton.prop('disabled', true);
+
+                const url = $form.attr('action');
                 const token = $('meta[name="csrf-token"]').attr('content');
 
                 $.ajax({
@@ -703,6 +713,10 @@
                             title: 'Gagal',
                             text: err.responseJSON?.message || 'Terjadi kesalahan'
                         });
+                    },
+                    complete: function() {
+                        $form.data('submitting', false);
+                        $submitButton.prop('disabled', false);
                     }
                 });
             });
