@@ -40,7 +40,7 @@
         $customerJs = [
             'name' => $deliveryList->deliveryOrder->order->customer->name ?? '-',
             'address' => $deliveryList->deliveryOrder->shipping_address ?? '-',
-            'phone' => $deliveryList->deliveryOrder->order->customer->phone ?? '-',
+            'phone' => $deliveryList->deliveryOrder->order->order_whatsapp_number ?? '-',
         ];
     @endphp
 

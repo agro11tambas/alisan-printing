@@ -13,6 +13,7 @@ class DeliveryListPrintWaybillTest extends TestCase
             'business_name' => 'Customer Test',
             'customer' => (object) ['phone' => '08123456789'],
             'notes' => null,
+            'order_whatsapp_number' => '6281266064331',
         ];
 
         $deliveryList = (object) [
@@ -39,5 +40,6 @@ class DeliveryListPrintWaybillTest extends TestCase
         )->render();
 
         $this->assertStringContainsString('"unit_name":"Box"', $html);
+        $this->assertStringContainsString('"phone":"6281266064331"', $html);
     }
 }

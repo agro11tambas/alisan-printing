@@ -556,6 +556,7 @@ class DeliveryListController extends Controller
     {
         $deliveryList = DeliveryList::with([
             'deliveryOrder.order.customer',
+            'deliveryOrder.order.customerAccount',
             'items.product'
         ])->findOrFail($id);
 
