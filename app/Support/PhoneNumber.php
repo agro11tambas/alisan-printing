@@ -23,6 +23,21 @@ class PhoneNumber
         return $digits;
     }
 
+    public static function toLocalIndonesian(?string $value): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $value);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        if (str_starts_with($digits, '62')) {
+            return '0'.substr($digits, 2);
+        }
+
+        return str_starts_with($digits, '8') ? '0'.$digits : $digits;
+    }
+
     public static function equivalentIndonesianFormats(?string $value): array
     {
         $normalized = self::normalizeIndonesian($value);

@@ -40,6 +40,6 @@ class DeliveryListPrintWaybillTest extends TestCase
         )->render();
 
         $this->assertStringContainsString('"unit_name":"Box"', $html);
-        $this->assertStringContainsString('"phone":"6281266064331"', $html);
+        $this->assertStringContainsString('"phone":"081266064331"', $html);
     }
 }

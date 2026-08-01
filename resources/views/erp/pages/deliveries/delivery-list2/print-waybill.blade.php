@@ -103,7 +103,7 @@
     $customerJs = [
     'name' => $order->customer->name ?? ($order->customer_name ?? '-'),
     'address' => $order->shipping_address ?? ($order->customer_addr ?? '-'),
-    'phone' => $order->order_whatsapp_number ?? ($order->customer_phone ?? '-'),
+    'phone' => \App\Support\PhoneNumber::toLocalIndonesian($order->order_whatsapp_number ?? $order->customer_phone) ?? '-',
     ];
     @endphp
 

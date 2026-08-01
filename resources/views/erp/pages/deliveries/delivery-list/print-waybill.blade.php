@@ -52,7 +52,7 @@
         $customerJs = [
             'name' => $deliveryList->deliveryOrder->order->business_name ?? '-',
             'address' => $deliveryList->deliveryOrder->shipping_address ?? '-',
-            'phone' => $deliveryList->deliveryOrder->order->order_whatsapp_number ?? '-',
+            'phone' => \App\Support\PhoneNumber::toLocalIndonesian($deliveryList->deliveryOrder->order->order_whatsapp_number) ?? '-',
             'note' => $deliveryList->note ?? '-',
             'order_note' => $deliveryList->deliveryOrder->order->notes ?? '-',
         ];
