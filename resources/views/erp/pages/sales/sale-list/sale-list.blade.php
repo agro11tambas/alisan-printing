@@ -2554,7 +2554,9 @@
                 });
 
                 const result = await response.json();
-                if (!result.success) return;
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Gagal mengunggah gambar invoice.');
+                }
 
                 const message = [
                     `Kepada *${business}*`,
@@ -2582,6 +2584,15 @@
 
             } catch (e) {
                 console.error(e);
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Share invoice gagal',
+                        text: e.message || 'Terjadi kesalahan saat menyiapkan invoice.'
+                    });
+                } else {
+                    alert(e.message || 'Share invoice gagal.');
+                }
             }
         });
 

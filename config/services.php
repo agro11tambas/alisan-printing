@@ -41,4 +41,9 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'image_upload' => [
+        'token' => env('IMAGE_UPLOAD_TOKEN'),
+        'url' => env('IMAGE_UPLOAD_URL', 'https://image.alisanprinting.com/upload12552.php'),
+    ],
+
 ];

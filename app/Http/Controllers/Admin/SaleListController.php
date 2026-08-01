@@ -5021,15 +5021,15 @@ class SaleListController extends Controller
             $orderId = $request->input('order_id');
 
             // Debug token
-            $uploadToken = env('IMAGE_UPLOAD_TOKEN');
+            $uploadToken = config('services.image_upload.token');
+            $uploadUrl = config('services.image_upload.url');
 
             Log::info('=== UPLOAD DEBUG START ===');
-            Log::info('Token from env', ['token' => $uploadToken]);
             Log::info('Order ID', ['order_id' => $orderId]);
             Log::info('Image data length', ['length' => strlen($imageData)]);
 
-            if (!$uploadToken) {
-                throw new \Exception('IMAGE_UPLOAD_TOKEN not found in .env file!');
+            if (!$uploadToken || !$uploadUrl) {
+                throw new \RuntimeException('Invoice image upload service is not configured.');
             }
 
             // Upload
@@ -5042,7 +5042,7 @@ class SaleListController extends Controller
                     'X-Upload-Token' => $uploadToken,
                 ])
                 ->asJson()
-                ->post('https://image.alisanprinting.com/upload12552.php', [
+                ->post($uploadUrl, [
                     'image' => $imageData,
                     'order_id' => $orderId,
                     'invoice_number' => $invoiceNumber,
@@ -5085,7 +5085,7 @@ class SaleListController extends Controller
                 'success' => false,
                 'message' => 'Connection error: ' . $e->getMessage()
             ], 500);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('General error', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
