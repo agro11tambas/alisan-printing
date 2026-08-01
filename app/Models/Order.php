@@ -123,6 +123,12 @@ class Order extends Model
         return $this->belongsTo(CustomerAccount::class, 'customer_account_id');
     }
 
+    public function getOrderWhatsappNumberAttribute(): ?string
+    {
+        return $this->customerAccount?->whatsapp_number
+            ?: $this->customer?->phone;
+    }
+
     // public function updatePaymentStatus()
     // {
     //     if ($this->paid_amount >= $this->grand_total) {

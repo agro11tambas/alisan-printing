@@ -73,7 +73,7 @@ class SaleListController extends Controller
         $length = (int) $request->input('length', 50);
         $start = (int) $request->input('start', 0);
 
-        $orders = Order::with(['customer', 'user', 'customerAddress'])
+        $orders = Order::with(['customer', 'customerAccount', 'user', 'customerAddress'])
             ->where('status', 'sale list')
             ->orderBy('order_date', 'desc');
 
@@ -375,7 +375,7 @@ class SaleListController extends Controller
                 $businessName = $order->customerAddress->business_name ?? null;
                 $customer = $order->customer->name ?? null;
                 $customerAccount = $order->customerAccount->name ?? null;
-                $customerAccountNumber = $order->customerAccount->whatsapp_number ?? null;
+                $customerAccountNumber = $order->order_whatsapp_number;
 
                 $orderMonthStart = Carbon::parse($order->order_date)->startOfMonth();
                 $orderMonthEnd   = Carbon::parse($order->order_date)->endOfMonth();
@@ -473,7 +473,7 @@ class SaleListController extends Controller
                             }
                             return $num;
                         }
-                    )($order->customer->phone) . '"
+                    )($order->order_whatsapp_number) . '"
                             target="_blank"
                             class="btn btn-success btn-sm"
                             style="padding:6px 10px;">
@@ -498,7 +498,7 @@ class SaleListController extends Controller
         $length = (int) $request->input('length', 50);
         $start = (int) $request->input('start', 0);
 
-        $orders = Order::with(['customer', 'user', 'customerAddress'])
+        $orders = Order::with(['customer', 'customerAccount', 'user', 'customerAddress'])
             ->where('status', 'sale list')
             ->where('status_edited', 1)
             ->orderBy('order_date', 'desc');
@@ -790,6 +790,9 @@ class SaleListController extends Controller
                     : '';
 
                 $businessName = $order->customerAddress->business_name ?? null;
+                $customer = $order->customer->name ?? null;
+                $customerAccount = $order->customerAccount->name ?? null;
+                $customerAccountNumber = $order->order_whatsapp_number;
 
                 $orderMonthStart = Carbon::parse($order->order_date)->startOfMonth();
                 $orderMonthEnd   = Carbon::parse($order->order_date)->endOfMonth();
@@ -885,7 +888,7 @@ class SaleListController extends Controller
                             }
                             return $num;
                         }
-                    )($order->customer->phone) . '"
+                    )($order->order_whatsapp_number) . '"
                             target="_blank"
                             class="btn btn-success btn-sm"
                             style="padding:6px 10px;">
