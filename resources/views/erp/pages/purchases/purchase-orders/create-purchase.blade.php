@@ -77,6 +77,7 @@
             width: 44px;
             padding: 0;
         }
+        @include('erp.pages.partials.transaction-form-mobile-styles')
     </style>
 @endpush
 
@@ -129,7 +130,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
+    <div class="main-content transaction-form-page m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="/erp/purchases/purchase-orders/store" method="POST" id="purchaseForm"
@@ -315,6 +316,11 @@
                     </div>
                     {{-- <div class="card stretch stretch-full">
                     </div> --}}
+                    @include('erp.pages.partials.transaction-mobile-actions', [
+                        'backUrl' => '/erp/purchases/purchase-orders',
+                        'formId' => 'purchaseForm',
+                        'submitLabel' => 'Store Purchase Order',
+                    ])
                 </form>
             </div>
         </div>
