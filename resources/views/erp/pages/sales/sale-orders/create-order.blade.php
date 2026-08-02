@@ -423,7 +423,7 @@
                                             <label for="customers" class="fw-semibold">Business:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
-                                            <div class="input-group">
+                                            <div class="input-group sales-business-field">
                                                 @php
                                                     $bgColors = [
                                                         'bg-danger',
@@ -435,12 +435,13 @@
                                                 @endphp
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="customers" name="customer_id">
-                                                    <option disabled selected hidden>Choose Business</option>
+                                                    <option value="" disabled selected hidden>Choose Business</option>
                                                     @foreach ($customers as $index => $customer)
                                                         @php
                                                             $bg = $bgColors[$loop->index % count($bgColors)];
                                                         @endphp
-                                                        <option value="{{ $customer->id }}" data-bg="{{ $bg }}">
+                                                        <option value="{{ $customer->id }}" data-bg="{{ $bg }}"
+                                                            data-business-name="{{ $customer->name }}">
                                                             {{ $customer->name }}</option>
                                                     @endforeach
                                                 </select>
@@ -452,11 +453,11 @@
                                             <label for="customer_accounts" class="fw-semibold">Contact:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
-                                            <div class="input-group">
+                                            <div class="input-group sales-contact-field">
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="customer_accounts"
                                                     name="customer_account_id">
-                                                    <option disabled selected hidden>Choose Contact</option>
+                                                    <option value="" disabled selected hidden>Choose Contact</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -466,10 +467,10 @@
                                             <label for="addresses" class="fw-semibold">Address:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
-                                            <div class="input-group">
+                                            <div class="input-group sales-address-field">
                                                 <select class="form-select form-control max-select"
                                                     data-select2-selector="tag" id="addresses" name="customer_address_id">
-                                                    <option disabled selected hidden>Choose Address</option>
+                                                    <option value="" disabled selected hidden>Choose Address</option>
                                                 </select>
                                             </div>
                                             <div id="google-maps-link" class="mt-1"></div>
@@ -937,6 +938,8 @@
 
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
+
+        @include('erp.pages.partials.sales-create-address-script')
 
         // const allProducts = [
         //     ...products.map(p => ({
@@ -1473,42 +1476,17 @@
             });
 
         $(document).ready(function() {
+            initSalesCustomerSelects();
             $('#customers').on('change', function() {
                 const customerId = $(this).val();
 
                 const addresses = customerAddresses[customerId] || [];
-                $('#addresses').empty().append('<option disabled selected hidden>Choose Address</option>');
-                addresses.forEach((address) => {
-                    $('#addresses').append(
-                        `<option value="${address.id}" data-map="${address.google_maps}">
-                ${address.business_name ?? 'None'} - ${address.address}
-            </option>`
-                    );
-                });
-
-                $('#google-maps-link').empty();
+                resetSalesAddressOptions(addresses);
 
                 const accounts = customerAccounts[customerId] || [];
-                $('#customer_accounts').empty().append(
-                    '<option disabled selected hidden>Choose Contact</option>');
-                accounts.forEach((account) => {
-                    $('#customer_accounts').append(
-                        `<option value="${account.id}">
-                ${account.name ?? '-'} - ${account.whatsapp_number ?? account.email ?? '-'}
-            </option>`
-                    );
-                });
+                resetSalesContactOptions(accounts);
             });
-            $('#addresses').on('change', function() {
-                const mapUrl = $(this).find('option:selected').data('map');
-                if (mapUrl) {
-                    $('#google-maps-link').html(
-                        `<a href="${mapUrl}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">Lihat di Google Maps</a>`
-                    );
-                } else {
-                    $('#google-maps-link').empty();
-                }
-            });
+            $('#addresses').on('change', renderSelectedSalesAddressMap);
         });
 
         document.addEventListener('DOMContentLoaded', function() {

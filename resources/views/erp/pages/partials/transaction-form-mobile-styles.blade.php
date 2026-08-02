@@ -223,3 +223,138 @@
     .transaction-form-page .product-item { padding: 10px !important; }
     .transaction-form-page .product-item .product-grid { gap: 8px !important; }
 }
+/* Sales customer fields: Address may grow, Business and Contact keep standard field size. */
+.sales-business-field .select2-selection__rendered,
+.sales-contact-field .select2-selection__rendered,
+.sales-address-field .select2-selection__rendered {
+    font-weight: 400 !important;
+}
+.sales-address-field .select2-container {
+    width: 100% !important;
+}
+
+.sales-address-field .select2-container--bootstrap-5 .select2-selection--single {
+    height: auto !important;
+    min-height: 52px !important;
+    padding: 6px 34px 6px 10px !important;
+}
+
+.sales-address-field .select2-selection__rendered {
+    overflow: visible !important;
+    padding: 0 !important;
+    line-height: 1.3 !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+}
+
+.sales-business-option,
+.sales-business-selection,
+.sales-address-option,
+.sales-address-selection,
+.sales-contact-option,
+.sales-contact-selection {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 0;
+    white-space: normal;
+}
+
+.sales-business-option__name,
+.sales-address-option__business,
+.sales-contact-option__name {
+    color: #1e293b;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.sales-business-option__text,
+.sales-address-option__text,
+.sales-contact-option__text {
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.sales-business-selection,
+.sales-contact-selection {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.sales-business-selection .sales-business-option__name,
+.sales-business-selection .sales-business-option__text,
+.sales-contact-selection .sales-contact-option__name,
+.sales-contact-selection .sales-contact-option__text {
+    min-width: 0;
+    overflow: hidden;
+    line-height: inherit;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+    .sales-address-field .select2-container--bootstrap-5 .select2-selection--single {
+        min-height: 64px !important;
+        padding: 9px 38px 9px 12px !important;
+    }
+
+    .sales-business-option,
+    .sales-business-selection,
+    .sales-address-option,
+    .sales-address-selection,
+    .sales-contact-option,
+    .sales-contact-selection {
+        gap: 4px;
+        padding: 4px 0;
+    }
+
+    .sales-address-option__business {
+        font-size: 14px;
+        line-height: 1.3;
+    }
+
+    .sales-business-option__name,
+    .sales-contact-option__name {
+        font-size: 14px;
+        line-height: 1.2;
+    }
+
+    .sales-address-option__text {
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    .sales-business-option__text,
+    .sales-contact-option__text {
+        font-size: 13px;
+        line-height: 1.3;
+    }
+
+    .sales-business-selection,
+    .sales-contact-selection {
+        padding: 0;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .transaction-form-page .sales-address-field .select2-container--bootstrap-5 .select2-selection--single {
+        height: auto !important;
+        min-height: 58px !important;
+        padding: 7px 34px 7px 10px !important;
+    }
+
+    .transaction-form-page .sales-address-field .select2-selection__rendered {
+        font-size: 14px !important;
+        line-height: 1.35 !important;
+    }
+}

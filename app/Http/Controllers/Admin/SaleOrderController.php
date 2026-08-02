@@ -291,17 +291,30 @@ class SaleOrderController extends Controller
         })->toArray();
         // The form only needs bundle membership, not the full pricing/discount graph.
         $productBundles = ProductBundle::query()
-            ->select(['id'])
+            ->select(['id', 'base_unit_id', 'price'])
             ->with([
                 'primaryItem:id,bundle_id,product_id,role',
                 'secondaryItems:id,bundle_id,product_id,role',
                 'secondaryItems.product:id,name,sku',
+                'unitConversions:id,product_bundle_id,unit_id,conversion_value,sale_price',
+                'unitConversions.unit:id,name',
             ])
             ->get();
 
         $productBundlesJson = $productBundles->map(function ($bundle) {
             return [
                 'id' => $bundle->id,
+                'base_unit_id' => $bundle->base_unit_id,
+                'price' => $bundle->price,
+                'units' => $bundle->unitConversions->map(function ($conversion) {
+                    return [
+                        'id' => $conversion->id,
+                        'unit_id' => $conversion->unit_id,
+                        'unit_name' => optional($conversion->unit)->name,
+                        'conversion_value' => $conversion->conversion_value,
+                        'sale_price' => $conversion->sale_price,
+                    ];
+                })->values()->toArray(),
                 'primary_item' => $bundle->primaryItem ? [
                     'product_id' => $bundle->primaryItem->product_id,
                 ] : null,
@@ -324,7 +337,7 @@ class SaleOrderController extends Controller
             ->select(['id', 'name', 'user_id'])
             ->with([
                 'addresses:id,customer_id,business_name,address,google_maps',
-                'accounts:id,name,email,whatsapp_number',
+                'accounts:id,name,whatsapp_number',
             ])
             ->when($user->role === 'Sales', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
