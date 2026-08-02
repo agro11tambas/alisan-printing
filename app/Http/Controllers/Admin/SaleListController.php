@@ -1104,41 +1104,43 @@ class SaleListController extends Controller
 
     public function create()
     {
-        $products = Products::with([
-            'categories',
-            'discounts',
-            'categories.discounts',
-            'unitConversions.unit',
-        ])
+        $products = Products::query()
+            ->select([
+                'id',
+                'name',
+                'sku',
+                'price',
+                'sale_price',
+                'base_unit_id',
+                'sale_unit_id',
+            ])
+            ->with([
+                'discounts',
+                'categories:id',
+                'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
+                'unitConversions.unit:id,name',
+            ])
             ->orderBy('name', 'asc')
             ->get();
-
-        $productBundles = ProductBundle::with([
-            'primaryItem.product.categories.discounts',
-            'primaryItem.product.discounts',
-
-            'secondaryItems.product.categories.discounts',
-            'secondaryItems.product.discounts',
-
-            'unitConversions.unit',
-        ])->orderBy('name', 'asc')->get();
 
         $productsJson = $products->map(function ($product) {
             return [
                 'id' => $product->id,
                 'name' => $product->name,
-                'sku'  => $product->sku,
+                'sku' => $product->sku,
                 'price' => $product->price,
                 'sale_price' => $product->sale_price,
                 'base_unit_id' => $product->base_unit_id,
                 'sale_unit_id' => $product->sale_unit_id,
                 'discounts' => $product->discounts->toArray(),
-                'categories' => $product->categories->map(function ($cat) {
+                'categories' => $product->categories->map(function ($category) {
                     return [
-                        'id' => $cat->id,
-                        'discounts' => $cat->discounts->map(function ($d) use ($cat) {
-                            return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                        })->toArray()
+                        'id' => $category->id,
+                        'discounts' => $category->discounts->map(function ($discount) use ($category) {
+                            return array_merge($discount->toArray(), [
+                                'category_id' => $category->id,
+                            ]);
+                        })->toArray(),
                     ];
                 })->toArray(),
                 'units' => $product->unitConversions->map(function ($conversion) {
@@ -1152,89 +1154,49 @@ class SaleListController extends Controller
                 })->values()->toArray(),
             ];
         })->toArray();
+        // The form only needs bundle membership, not the full pricing/discount graph.
+        $productBundles = ProductBundle::query()
+            ->select(['id'])
+            ->with([
+                'primaryItem:id,bundle_id,product_id,role',
+                'secondaryItems:id,bundle_id,product_id,role',
+                'secondaryItems.product:id,name,sku',
+            ])
+            ->get();
 
         $productBundlesJson = $productBundles->map(function ($bundle) {
-            $bundleDiscounts = [];
-            $bundleCategories = [];
-
-            foreach ($bundle->items as $item) {
-                $product = $item->product;
-
-                // Diskon langsung dari produk
-                foreach ($product->discounts as $discount) {
-                    $bundleDiscounts[] = $discount;
-                }
-
-                // Kategori + diskon kategori
-                foreach ($product->categories as $cat) {
-                    $bundleCategories[] = [
-                        'id' => $cat->id,
-                        'discounts' => $cat->discounts->map(function ($d) use ($cat) {
-                            return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                        })->toArray()
-                    ];
-                }
-            }
-
-            // 🔹 Buat nama bundle otomatis dari nama produk di dalamnya
-            $bundleName = $bundle->items->map(function ($item) {
-                return $item->product->name ?? '-';
-            })->implode(' + ');
-
             return [
                 'id' => $bundle->id,
-                'name' => $bundleName ?: $bundle->name,
-                'sku'  => $bundle->sku,
-                'price' => $bundle->price,
-                'base_unit_id' => $bundle->base_unit_id,
-                'discounts' => $bundleDiscounts,
-                'categories' => $bundleCategories,
-
                 'primary_item' => $bundle->primaryItem ? [
                     'product_id' => $bundle->primaryItem->product_id,
-                    'product' => $bundle->primaryItem->product,
                 ] : null,
-
                 'secondary_items' => $bundle->secondaryItems->map(function ($item) {
                     return [
                         'product_id' => $item->product_id,
-                        'product' => $item->product,
-                    ];
-                })->values()->toArray(),
-
-                'units' => $bundle->unitConversions->map(function ($conversion) {
-                    return [
-                        'id' => $conversion->id,
-                        'unit_id' => $conversion->unit_id,
-                        'unit_name' => optional($conversion->unit)->name,
-                        'conversion_value' => $conversion->conversion_value,
-                        'sale_price' => $conversion->sale_price,
+                        'product' => $item->product ? [
+                            'id' => $item->product->id,
+                            'name' => $item->product->name,
+                            'sku' => $item->product->sku,
+                        ] : null,
                     ];
                 })->values()->toArray(),
             ];
         })->toArray();
-
         // $customers = Customers::with('addresses')->get();
         $user = Auth::user();
 
-        $customers = Customers::with(['addresses', 'accounts'])
+        $customers = Customers::query()
+            ->select(['id', 'name', 'user_id'])
+            ->with([
+                'addresses:id,customer_id,business_name,address,google_maps',
+                'accounts:id,name,email,whatsapp_number',
+            ])
             ->when($user->role === 'Sales', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
             ->get();
-        $discount = Discount::first();
-        $transactionTypes = Account::where('name', 'Order')->get();
-        $cashAccounts = Account::where('name', 'Cash')->get();
-        $bankAccounts = Account::where('name', 'Bank')->get();
-
         return view('erp.pages.sales.sale-list.create-order', compact(
-            'products',
-            'productBundles',
             'customers',
-            'discount',
-            'cashAccounts',
-            'bankAccounts',
-            'transactionTypes',
             'productsJson',
             'productBundlesJson'
         ));

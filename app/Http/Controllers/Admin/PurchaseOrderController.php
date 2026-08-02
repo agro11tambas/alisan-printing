@@ -189,10 +189,14 @@ class PurchaseOrderController extends Controller
 
     public function create()
     {
-        $products = Products::with('unitConversions.unit')
+        $products = Products::query()
+            ->select(['id', 'name', 'sku', 'purchase_unit_id'])
+            ->with([
+                'unitConversions:id,product_id,unit_id,ratio_value,conversion_value',
+                'unitConversions.unit:id,name',
+            ])
             ->orderBy('name', 'asc')
             ->get();
-
         $suppliers = Supplier::orderBy('name', 'asc')->get();
 
         return view('erp.pages.purchases.purchase-orders.create-purchase', compact(
