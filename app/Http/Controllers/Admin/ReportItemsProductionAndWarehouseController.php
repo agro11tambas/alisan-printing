@@ -71,14 +71,16 @@ class ReportItemsProductionAndWarehouseController extends Controller
         $completedByProduct = DB::table('order_progress_items')
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
+            ->selectRaw('product_id, COALESCE(SUM(completed_quantity), 0) AS total')
             ->groupBy('product_id')
-            ->pluck(DB::raw('SUM(completed_quantity)'), 'product_id');
+            ->pluck('total', 'product_id');
 
         $deliveryOrderByProduct = DB::table('delivery_order_items')
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
+            ->selectRaw('product_id, COALESCE(SUM(shipped_qty), 0) AS total')
             ->groupBy('product_id')
-            ->pluck(DB::raw('SUM(shipped_qty)'), 'product_id');
+            ->pluck('total', 'product_id');
 
         $designByProduct = DB::table('design_items')
             ->whereIn('product_id', $productIds)
@@ -90,8 +92,9 @@ class ReportItemsProductionAndWarehouseController extends Controller
         $assignedByProduct = DB::table('order_progress_assigns')
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
+            ->selectRaw('product_id, COALESCE(SUM(assigned_quantity), 0) AS total')
             ->groupBy('product_id')
-            ->pluck(DB::raw('SUM(assigned_quantity)'), 'product_id');
+            ->pluck('total', 'product_id');
 
         $polosanProductIds = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
@@ -134,8 +137,9 @@ class ReportItemsProductionAndWarehouseController extends Controller
             ->whereNull('deleted_at');
         $filteredAssignQuery = $this->applyDateFilter($filteredAssignQuery, $request);
         $filteredAssignedByProduct = $filteredAssignQuery
+            ->selectRaw('product_id, COALESCE(SUM(assigned_quantity), 0) AS total')
             ->groupBy('product_id')
-            ->pluck(DB::raw('SUM(assigned_quantity)'), 'product_id');
+            ->pluck('total', 'product_id');
 
         $finishedDeliveryQuery = DB::table('delivery_list_items')
             ->join('delivery_lists', 'delivery_lists.id', '=', 'delivery_list_items.delivery_list_id')
@@ -145,8 +149,9 @@ class ReportItemsProductionAndWarehouseController extends Controller
             ->where('delivery_lists.status', 'finished');
         $finishedDeliveryQuery = $this->applyDateFilter($finishedDeliveryQuery, $request, 'delivery_list_items.created_at');
         $finishedDeliveryByProduct = $finishedDeliveryQuery
+            ->selectRaw('delivery_list_items.product_id, COALESCE(SUM(delivery_list_items.shipped_quantity), 0) AS total')
             ->groupBy('delivery_list_items.product_id')
-            ->pluck(DB::raw('SUM(delivery_list_items.shipped_quantity)'), 'delivery_list_items.product_id');
+            ->pluck('total', 'delivery_list_items.product_id');
 
         $data = $products->map(function ($product) use (
             $request,
