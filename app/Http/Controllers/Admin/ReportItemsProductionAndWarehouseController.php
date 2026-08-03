@@ -45,7 +45,9 @@ class ReportItemsProductionAndWarehouseController extends Controller
     public function dataCombinedReportItems(Request $request)
     {
         // 🔹 Ambil semua produk aktif beserta relasinya
-        $products = Products::whereNull('deleted_at')
+        $totalProducts = Products::whereNull('deleted_at')->count();
+
+        $productQuery = Products::whereNull('deleted_at')
             ->with(['productionStocks', 'inventoryStock', 'unitConversions'])
             ->when($request->filled('product_name'), function ($q) use ($request) {
                 $search = $request->product_name;
@@ -54,7 +56,15 @@ class ReportItemsProductionAndWarehouseController extends Controller
                         ->orWhere('sku', 'like', '%' . $search . '%');
                 });
             })
-            ->orderBy('name', 'asc') // urut di query juga (optional)
+            ->orderBy('name', 'asc');
+
+        $filteredProducts = (clone $productQuery)->count();
+        $start = max(0, $request->integer('start', 0));
+        $length = min(200, max(1, $request->integer('length', 200)));
+
+        $products = $productQuery
+            ->skip($start)
+            ->take($length)
             ->get();
         $productIds = $products->pluck('id');
 
@@ -548,29 +558,17 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 'fixed_cost' =>
                 '<span class="text-dark">' . number_format($fixedRounded, 2, ',', '.') . '</span>',
             ];
+        })->values()->map(function (array $row, int $index) use ($start) {
+            $row['DT_RowIndex'] = $start + $index + 1;
+
+            return $row;
         });
 
-        return DataTables::of($data)
-            ->addIndexColumn()
-            ->rawColumns([
-                'production_available',
-                'finished_product_stock',
-                'order_progress_remaining',
-                'avg_cost',
-                'fixed_cost',
-                'incoming_stock_production',
-                'inventory_stock',
-                'opening_stock_warehouse',
-                'production_opening_stock',
-                'incoming_stock',
-                'outgoing_stock',
-                'incoming_stock_completed',
-                'outgoing_stock_completed',
-                'incoming_stock_production_completed',
-                'pending_waiting_list',
-                'assigned_minus_completed',
-                'on_delivery',
-            ])
-            ->make(true);
+        return response()->json([
+            'draw' => $request->integer('draw', 0),
+            'recordsTotal' => $totalProducts,
+            'recordsFiltered' => $filteredProducts,
+            'data' => $data,
+        ]);
     }
 }

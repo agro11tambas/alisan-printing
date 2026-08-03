@@ -46,7 +46,7 @@ class ReportItemsProductionController extends Controller
                     AND order_progress_assigns.deleted_at IS NULL
                 ),0),
                 0
-            ) AS pending_waiting_list
+            ) AS pending_waiting_list_calc
         ')
             )
             ->selectRaw("
@@ -105,7 +105,7 @@ class ReportItemsProductionController extends Controller
                     WHERE product_id = production_stocks.product_id AND deleted_at IS NULL
                     AND DATE(created_at) = ?), 0) AS assign_today_calc
             ", [$today])
-            ->orderByDesc('pending_waiting_list');
+            ->orderByDesc('pending_waiting_list_calc');
 
 
         if ($request->filled('product_name')) {
@@ -200,7 +200,7 @@ class ReportItemsProductionController extends Controller
 
             ->addColumn(
                 'pending_waiting_list',
-                fn($item) => number_format($item->pending_waiting_list ?? 0, 0, ',', '.')
+                fn($item) => number_format($item->pending_waiting_list_calc ?? 0, 0, ',', '.')
             )
 
             ->addColumn('assigned_minus_completed', function ($item) {
