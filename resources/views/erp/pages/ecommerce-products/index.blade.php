@@ -17,6 +17,29 @@
             min-height: calc(100vh - 260px) !important;
             max-height: calc(100vh - 260px) !important;
         }
+
+        .ecommerce-delete-modal .modal-content {
+            border: 0;
+            border-radius: 14px;
+            box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+        }
+
+        .ecommerce-delete-modal .modal-header,
+        .ecommerce-delete-modal .modal-footer {
+            border: 0;
+        }
+
+        .ecommerce-delete-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(220, 53, 69, 0.12);
+            color: #dc3545;
+            font-size: 28px;
+        }
     </style>
 @endpush
 
@@ -45,31 +68,21 @@
 @endsection
 
 @section('content')
-    @if (session('success'))
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Berhasil!',
-                    text: @json(session('success')),
-                });
-            });
-        </script>
-    @endif
-
-    @if (session('error'))
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Gagal!',
-                    text: @json(session('error')),
-                });
-            });
-        </script>
-    @endif
-
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
+        @if (session('success'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                {{ session('success') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+            </div>
+        @endif
+
+        @if (session('error'))
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ session('error') }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+            </div>
+        @endif
+
         <div class="row">
             <div class="col-lg-12">
                 <div class="card stretch stretch-full">
@@ -121,25 +134,33 @@
 @endsection
 
 @push('modals')
-    <div class="modal fade" id="modalDeleteProduct" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <form method="POST" id="formDeleteProduct">
+    <div class="modal fade ecommerce-delete-modal" id="modalDeleteProduct" tabindex="-1"
+        aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" id="formDeleteProduct" class="modal-content">
                 @csrf
                 @method('DELETE')
-                <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title text-white" id="deleteModalLabel">Hapus Product</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                            aria-label="Close"></button>
+                <div class="modal-header pb-0">
+                    <span></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <div class="modal-body text-center px-4 pt-2 pb-4">
+                    <span class="ecommerce-delete-icon mb-3">
+                        <i class="feather-trash-2"></i>
+                    </span>
+                    <h4 class="fw-bold mb-2" id="deleteModalLabel">Hapus Product?</h4>
+                    <p class="text-muted mb-4">
+                        Product <strong id="ProductName" class="text-dark"></strong> beserta variant-nya akan dihapus.
+                    </p>
+                    <div class="rounded-3 bg-light p-3 text-start">
+                        Data akan masuk ke soft delete dan masih dapat direstore kembali.
                     </div>
-                    <div class="modal-body">
-                        <p>Apakah Anda yakin ingin menghapus Product <strong id="ProductName"></strong>?</p>
-                        <p class="text-muted">Product dan option akan masuk ke soft delete.</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-md" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-danger btn-md">Hapus</button>
-                    </div>
+                </div>
+                <div class="modal-footer px-4 pb-4 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="feather-trash-2 me-2"></i>Hapus Product
+                    </button>
                 </div>
             </form>
         </div>

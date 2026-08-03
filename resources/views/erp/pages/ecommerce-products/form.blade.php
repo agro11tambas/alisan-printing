@@ -143,7 +143,59 @@
         .select2-selection.is-invalid {
             border-color: #dc3545 !important;
         }
+
+        .ecommerce-delete-modal .modal-content {
+            border: 0;
+            border-radius: 14px;
+            box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+        }
+
+        .ecommerce-delete-modal .modal-header,
+        .ecommerce-delete-modal .modal-footer {
+            border: 0;
+        }
+
+        .ecommerce-delete-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(220, 53, 69, 0.12);
+            color: #dc3545;
+            font-size: 28px;
+        }
     </style>
+@endpush
+
+@push('modals')
+    <div class="modal fade ecommerce-delete-modal" id="modalDeleteVariant" tabindex="-1"
+        aria-labelledby="deleteVariantModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header pb-0">
+                    <span></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <div class="modal-body text-center px-4 pt-2 pb-4">
+                    <span class="ecommerce-delete-icon mb-3">
+                        <i class="feather-trash-2"></i>
+                    </span>
+                    <h4 class="fw-bold mb-2" id="deleteVariantModalLabel">Hapus Variant?</h4>
+                    <p class="text-muted mb-0" id="deleteVariantMessage">
+                        Variant yang dipilih akan dihapus dari product ini.
+                    </p>
+                </div>
+                <div class="modal-footer px-4 pb-4 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteVariant">
+                        <i class="feather-trash-2 me-2"></i>Hapus
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endpush
 
 <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
@@ -617,6 +669,26 @@
             window.__erpEcommerceProductFormInitialized = true;
 
             const form = $('#ecommerceProductForm');
+            const removalModalElement = document.getElementById('modalDeleteVariant');
+            const removalModal = removalModalElement
+                ? bootstrap.Modal.getOrCreateInstance(removalModalElement)
+                : null;
+            const removalMessage = document.getElementById('deleteVariantMessage');
+            const removalConfirmButton = document.getElementById('confirmDeleteVariant');
+            let pendingRemoval = null;
+
+            removalConfirmButton?.addEventListener('click', function() {
+                if (!pendingRemoval) return;
+
+                const callback = pendingRemoval;
+                pendingRemoval = null;
+                removalModal?.hide();
+                callback();
+            });
+
+            removalModalElement?.addEventListener('hidden.bs.modal', function() {
+                pendingRemoval = null;
+            });
 
             function escapeHtml(value) {
                 return String(value ?? '')
@@ -693,27 +765,11 @@
             }
 
             function confirmRemoval(message, onConfirmed) {
-                if (typeof Swal === 'undefined') {
-                    if (window.confirm(message)) {
-                        onConfirmed();
-                    }
-                    return;
-                }
+                if (!removalModal || !removalMessage) return;
 
-                Swal.fire({
-                    title: 'Konfirmasi',
-                    text: message,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Ya, hapus!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed || result.value === true) {
-                        onConfirmed();
-                    }
-                });
+                pendingRemoval = onConfirmed;
+                removalMessage.textContent = message;
+                removalModal.show();
             }
 
             function getNextIndex(selector, dataName) {

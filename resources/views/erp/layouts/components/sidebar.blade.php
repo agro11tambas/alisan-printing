@@ -492,6 +492,13 @@
                             <span class="nxl-mtext ">Settings</span><span class="nxl-arrow"></span>
                         </a>
                     </li>
+                    <li class="nxl-item nxl-hasmenu">
+                        <a href="/erp/reset-stock"
+                            class="nxl-link {{ request()->is('erp/reset-stock*') ? 'active' : '' }}">
+                            <span class="nxl-micon"><i class="feather-refresh-cw"></i></span>
+                            <span class="nxl-mtext">Reset Stock</span><span class="nxl-arrow"></span>
+                        </a>
+                    </li>
                 @endif
             </ul>
         </div>

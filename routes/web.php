@@ -58,6 +58,7 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\StockOpnameController;
 use App\Http\Controllers\Admin\StockOpnameProductionController;
 use App\Http\Controllers\Admin\StockRequestController;
+use App\Http\Controllers\Admin\StockResetController;
 use App\Http\Controllers\AuthController;
 
 use App\Http\Controllers\UserController;
@@ -746,5 +747,8 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
     Route::middleware(['web.auth', 'permission:settings'])->group(function () {
         Route::get('/erp/settings',              [SettingController::class, 'index'])->name('settings.index');
         Route::post('/erp/settings/toggle/{key}', [SettingController::class, 'toggle'])->name('settings.toggle');
+
+        Route::get('/erp/reset-stock', [StockResetController::class, 'index'])->name('stock-reset.index');
+        Route::post('/erp/reset-stock', [StockResetController::class, 'reset'])->name('stock-reset.reset');
     });
 });
