@@ -32,6 +32,7 @@ class DesignController extends Controller
 
         $designs = Design::with([
             'order.customer',
+            'order.customerAccount',
             'order.customerAddress',
             'items.product',
             'items.orderItem',
@@ -198,10 +199,16 @@ class DesignController extends Controller
                 $allUploaded = $design->items->every(fn($item) => !empty($item->preview_image));
                 $actionButtons = view('erp.pages.designs.partials.action-button', compact('design', 'allUploaded'))->render();
 
+                $customerName = $design->order?->customer?->name ?? '-';
+                $customerAccountName = $design->order?->customerAccount?->name ?? '-';
+                $customerAccountNumber = $design->order?->order_whatsapp_number ?? '-';
+                $businessName = $design->order?->customerAddress?->business_name ?? '-';
+
                 $customerHtml = '
                     <div style="white-space: normal; word-break: break-word; max-width:180px;">
-                        <div class="fw-semibold">' . e($design->order?->customerAddress?->business_name ?? '-') . '</div>
-                        <small class="text-muted">' . e($design->order?->customer?->name ?? '-') . '</small>
+                        <div class="fw-semibold">' . e($customerName) . '</div>
+                        <small class="text-muted d-block">' . e($customerAccountName) . ' - ' . e($customerAccountNumber) . '</small>
+                        <small class="text-muted d-block">' . e($businessName) . '</small>
                     </div>
                 ';
 
@@ -216,7 +223,7 @@ class DesignController extends Controller
                     }
 
                     return $num;
-                })($design->order?->customer?->phone);
+                })($design->order?->order_whatsapp_number);
 
                 $orderNote = $design->order?->notes
                     ? '<div class="text-muted small mt-1" style="white-space:normal;">' . e($design->order->notes) . '</div>'

@@ -10,11 +10,15 @@
         </thead>
         <tbody>
             @foreach ($design->items as $item)
+                @php
+                    $unitName = $item->unit_name ?: $item->orderItem?->unit_name ?: '-';
+                @endphp
                 <tr>
                     <td class="fw-semibold text-dark">
                         {{ $item->product->name ?? '-' }}
+                        <small class="text-muted d-block fw-normal">Unit: {{ $unitName }}</small>
                     </td>
-                    <td>{{ number_format($item->quantity, 0, ',', '.') }} {{ $item->unit_name ?? '-' }}</td>
+                    <td>{{ number_format($item->quantity, 0, ',', '.') }} {{ $unitName }}</td>
                     <td>
                         @php
                             $images = json_decode($item->preview_image ?? '[]', true);

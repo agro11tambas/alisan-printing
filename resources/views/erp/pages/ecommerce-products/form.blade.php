@@ -710,7 +710,7 @@
                     confirmButtonText: 'Ya, hapus!',
                     cancelButtonText: 'Batal'
                 }).then((result) => {
-                    if (result.isConfirmed) {
+                    if (result.isConfirmed || result.value === true) {
                         onConfirmed();
                     }
                 });

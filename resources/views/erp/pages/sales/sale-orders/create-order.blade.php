@@ -986,6 +986,16 @@
             });
         }
 
+        function hasSecondaryBundleProduct(primaryProductId) {
+            return bundles.some(bundle => {
+                const primaryItem = bundle.primary_item || bundle.items?.find(item => item.role === 'primary');
+                if (!primaryItem || String(primaryItem.product_id) !== String(primaryProductId)) return false;
+
+                const secondaryItems = bundle.secondary_items || bundle.items?.filter(item => item.role === 'secondary') || [];
+                return secondaryItems.some(item => item.product);
+            });
+        }
+
         function populateSecondaryBundleProducts(row, primaryProductId) {
             const select = row.find('.bundle-secondary-product');
 
@@ -1289,6 +1299,21 @@
                 }
 
                 const primaryProductId = selectedVal.split('_')[1];
+
+                if (!hasSecondaryBundleProduct(primaryProductId)) {
+                    const productName = productSelect.find('option:selected').text().trim();
+                    $(this).prop('checked', false);
+                    row.find('.product-type').val('satuan');
+                    row.find('.bundle-wrapper').addClass('d-none');
+                    row.find('.bundle-secondary-product').empty().append('<option value="">Pilih product bundle</option>');
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Bundle tidak tersedia',
+                        text: `${productName} tidak memiliki bundle.`
+                    });
+                    return;
+                }
 
                 row.find('.product-type').val('bundle');
                 row.find('.bundle-wrapper').removeClass('d-none');
