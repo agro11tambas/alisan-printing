@@ -13,8 +13,7 @@ class ProductCategoriesController extends Controller
 {
     public function index()
     {
-        $categories = ProductCategory::all();
-        return view('erp.pages.product-categories.index', compact('categories'));
+        return view('erp.pages.product-categories.index');
     }
 
     public function data(Request $request)
@@ -25,7 +24,7 @@ class ProductCategoriesController extends Controller
             $categories->where('name', 'like', '%' . $request->name . '%');
         }
 
-        $categories = $categories->orderBy('name', 'asc')->get();
+        $categories = $categories->orderBy('name', 'asc');
 
         return DataTables::of($categories)
             ->addIndexColumn()

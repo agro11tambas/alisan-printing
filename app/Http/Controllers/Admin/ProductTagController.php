@@ -13,8 +13,7 @@ class ProductTagController extends Controller
 {
     public function index()
     {
-        $tags = ProductTag::all();
-        return view('erp.pages.product-tags.index', compact('tags'));
+        return view('erp.pages.product-tags.index');
     }
 
     public function data(Request $request)
@@ -25,7 +24,7 @@ class ProductTagController extends Controller
             $tags->where('name', 'like', '%' . $request->name . '%');
         }
 
-        $tags = $tags->orderBy('name', 'asc')->get();
+        $tags = $tags->orderBy('name', 'asc');
 
         return DataTables::of($tags)
             ->addIndexColumn()

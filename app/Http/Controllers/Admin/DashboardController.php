@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\AccountTransaction;
 use Illuminate\Http\Request;
 use App\Models\BankAccount;
 use App\Models\OpeningBalance;
@@ -36,11 +37,21 @@ class DashboardController extends Controller
         $PURCHASE_ORDER   = 'Purchase Orders';
         $PURCHASE_LIST    = 'Purchase List';
 
-        $accounts = Account::with(['transactions' => function ($q) use ($startDate, $endDate) {
+        $accounts = Account::all();
+        $transactionTotals = collect();
+
+        if ($filter !== 'all') {
+            $transactionQuery = AccountTransaction::query();
             if ($startDate && $endDate) {
-                $q->whereBetween('transaction_date', [$startDate, $endDate]);
+                $transactionQuery->whereBetween('transaction_date', [$startDate, $endDate]);
             }
-        }])->get();
+
+            $transactionTotals = $transactionQuery
+                ->selectRaw('account_id, SUM(debit) AS debit, SUM(credit) AS credit')
+                ->groupBy('account_id')
+                ->get()
+                ->keyBy('account_id');
+        }
 
         $response = [
             'totalSaleOrder' => 0,
@@ -71,8 +82,9 @@ class DashboardController extends Controller
         ];
 
         foreach ($accounts as $acc) {
-            $debit  = $acc->transactions->sum('debit');
-            $credit = $acc->transactions->sum('credit');
+            $transactionTotal = $transactionTotals->get($acc->id);
+            $debit = (float) ($transactionTotal?->debit ?? 0);
+            $credit = (float) ($transactionTotal?->credit ?? 0);
 
             $total = ($filter === 'all')
                 ? ($acc->opening_balance ?? 0) + ($acc->closing_balance ?? 0)
@@ -96,46 +108,60 @@ class DashboardController extends Controller
             $saleBase->whereBetween('order_date', [$startDate, $endDate]);
         }
 
-        $saleOrderQ = (clone $saleBase)->where($docColumn, $SALE_ORDER);
-        $response['totalSaleOrder'] = $saleOrderQ->sum('grand_total');
-        $response['countSaleOrder'] = $saleOrderQ->count();
+        $saleSummary = $saleBase->selectRaw(
+            "COALESCE(SUM(CASE WHEN status = 'Sale Order' THEN grand_total ELSE 0 END), 0) AS total_sale_order,
+            SUM(CASE WHEN status = 'Sale Order' THEN 1 ELSE 0 END) AS count_sale_order,
+            COALESCE(SUM(CASE WHEN status = 'Sale List' THEN grand_total ELSE 0 END), 0) AS total_sale_list,
+            SUM(CASE WHEN status = 'Sale List' THEN 1 ELSE 0 END) AS count_sale_list,
+            SUM(CASE WHEN status = 'Sale List' AND payment_status = 'Paid' THEN 1 ELSE 0 END) AS paid_count,
+            SUM(CASE WHEN status = 'Sale List' AND payment_status = 'Unpaid' THEN 1 ELSE 0 END) AS unpaid_count,
+            SUM(CASE WHEN status = 'Sale List' AND payment_status = 'Overdue' THEN 1 ELSE 0 END) AS overdue_count,
+            SUM(CASE WHEN status = 'Sale List' AND payment_status = 'Partially Paid' THEN 1 ELSE 0 END) AS partially_paid_count,
+            COALESCE(SUM(CASE WHEN status = 'Sale List' THEN paid_amount ELSE 0 END), 0) AS received_total"
+        )->first();
 
-        $saleListQ = (clone $saleBase)->where($docColumn, $SALE_LIST);
-        $response['totalSaleList'] = $saleListQ->sum('grand_total');
-        $response['countSaleList'] = $saleListQ->count();
-
+        $response['totalSaleOrder'] = (float) $saleSummary->total_sale_order;
+        $response['countSaleOrder'] = (int) $saleSummary->count_sale_order;
+        $response['totalSaleList'] = (float) $saleSummary->total_sale_list;
+        $response['countSaleList'] = (int) $saleSummary->count_sale_list;
         $response['saleListStatus'] = [
-            'paid'           => (clone $saleListQ)->where('payment_status', 'Paid')->count(),
-            'unpaid'         => (clone $saleListQ)->where('payment_status', 'Unpaid')->count(),
-            'overdue'        => (clone $saleListQ)->where('payment_status', 'Overdue')->count(),
-            'partially_paid' => (clone $saleListQ)->where('payment_status', 'Partially Paid')->count(),
+            'paid' => (int) $saleSummary->paid_count,
+            'unpaid' => (int) $saleSummary->unpaid_count,
+            'overdue' => (int) $saleSummary->overdue_count,
+            'partially_paid' => (int) $saleSummary->partially_paid_count,
         ];
-
-        $response['receivedFromCustomer']   = $saleListQ->sum('paid_amount');
-        $response['receivableFromCustomer'] = $saleListQ->sum('grand_total') - $saleListQ->sum('paid_amount');
+        $response['receivedFromCustomer'] = (float) $saleSummary->received_total;
+        $response['receivableFromCustomer'] = (float) $saleSummary->total_sale_list - (float) $saleSummary->received_total;
 
         $purchaseBase = Purchase::query();
         if ($startDate && $endDate) {
             $purchaseBase->whereBetween('purchase_date', [$startDate, $endDate]);
         }
 
-        $purchaseOrderQ = (clone $purchaseBase)->where($docColumn, $PURCHASE_ORDER);
-        $response['totalPurchaseOrder'] = $purchaseOrderQ->sum('total_amount');
-        $response['countPurchaseOrder'] = $purchaseOrderQ->count();
+        $purchaseSummary = $purchaseBase->selectRaw(
+            "COALESCE(SUM(CASE WHEN status = 'Purchase Orders' THEN total_amount ELSE 0 END), 0) AS total_purchase_order,
+            SUM(CASE WHEN status = 'Purchase Orders' THEN 1 ELSE 0 END) AS count_purchase_order,
+            COALESCE(SUM(CASE WHEN status = 'Purchase List' THEN total_amount ELSE 0 END), 0) AS total_purchase_list,
+            SUM(CASE WHEN status = 'Purchase List' THEN 1 ELSE 0 END) AS count_purchase_list,
+            SUM(CASE WHEN status = 'Purchase List' AND payment_status = 'Paid' THEN 1 ELSE 0 END) AS paid_count,
+            SUM(CASE WHEN status = 'Purchase List' AND payment_status = 'Unpaid' THEN 1 ELSE 0 END) AS unpaid_count,
+            SUM(CASE WHEN status = 'Purchase List' AND payment_status = 'Overdue' THEN 1 ELSE 0 END) AS overdue_count,
+            SUM(CASE WHEN status = 'Purchase List' AND payment_status = 'Partially Paid' THEN 1 ELSE 0 END) AS partially_paid_count,
+            COALESCE(SUM(CASE WHEN status = 'Purchase List' THEN COALESCE(paid_amount_product, 0) + COALESCE(paid_amount_freight, 0) ELSE 0 END), 0) AS paid_total"
+        )->first();
 
-        $purchaseListQ = (clone $purchaseBase)->where($docColumn, $PURCHASE_LIST);
-        $response['totalPurchaseList'] = $purchaseListQ->sum('total_amount');
-        $response['countPurchaseList'] = $purchaseListQ->count();
-
+        $response['totalPurchaseOrder'] = (float) $purchaseSummary->total_purchase_order;
+        $response['countPurchaseOrder'] = (int) $purchaseSummary->count_purchase_order;
+        $response['totalPurchaseList'] = (float) $purchaseSummary->total_purchase_list;
+        $response['countPurchaseList'] = (int) $purchaseSummary->count_purchase_list;
         $response['purchaseListStatus'] = [
-            'paid'           => (clone $purchaseListQ)->where('payment_status', 'Paid')->count(),
-            'unpaid'         => (clone $purchaseListQ)->where('payment_status', 'Unpaid')->count(),
-            'overdue'        => (clone $purchaseListQ)->where('payment_status', 'Overdue')->count(),
-            'partially_paid' => (clone $purchaseListQ)->where('payment_status', 'Partially Paid')->count(),
+            'paid' => (int) $purchaseSummary->paid_count,
+            'unpaid' => (int) $purchaseSummary->unpaid_count,
+            'overdue' => (int) $purchaseSummary->overdue_count,
+            'partially_paid' => (int) $purchaseSummary->partially_paid_count,
         ];
-
-        $response['paidToSupplier'] = $purchaseListQ->sum(DB::raw('COALESCE(paid_amount_product,0) + COALESCE(paid_amount_freight,0)'));
-        $response['payableToSupplier'] = $purchaseListQ->sum(DB::raw('total_amount - (COALESCE(paid_amount_product,0) + COALESCE(paid_amount_freight,0))'));
+        $response['paidToSupplier'] = (float) $purchaseSummary->paid_total;
+        $response['payableToSupplier'] = (float) $purchaseSummary->total_purchase_list - (float) $purchaseSummary->paid_total;
 
         $response['grossProfit'] = $response['totalSaleList'] - $response['totalPurchaseList'];
         $response['netProfit']   = $response['grossProfit'] - $response['totalExpenseAccount'];

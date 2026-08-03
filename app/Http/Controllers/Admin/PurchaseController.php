@@ -28,7 +28,7 @@ class PurchaseController extends Controller
 
     public function dataPurchaseOrders(Request $request)
     {
-        $purchases = Purchase::with('supplier')
+        $purchases = Purchase::with(['supplier', 'purchaseAccount'])
             ->where('status', 'Purchase Orders');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
@@ -45,7 +45,7 @@ class PurchaseController extends Controller
             });
         }
 
-        $purchases = $purchases->latest()->get();
+        $purchases = $purchases->latest();
 
         return DataTables::of($purchases)
             ->addIndexColumn()
@@ -108,7 +108,7 @@ class PurchaseController extends Controller
 
     public function dataPurchaseList(Request $request)
     {
-        $purchases = Purchase::with('supplier')
+        $purchases = Purchase::with(['supplier', 'purchaseAccount'])
             ->where('status', 'Purchase List');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
@@ -125,7 +125,7 @@ class PurchaseController extends Controller
             });
         }
 
-        $purchases = $purchases->latest()->get();
+        $purchases = $purchases->latest();
 
         return DataTables::of($purchases)
             ->addIndexColumn()

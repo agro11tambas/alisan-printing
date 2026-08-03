@@ -1117,17 +1117,9 @@
         });
 
         document.addEventListener("DOMContentLoaded", function() {
-
-            const observer = new MutationObserver(() => {
-                document.querySelectorAll(".nxl-submenu").forEach(menu => {
-                    menu.style.background = "";
-                    menu.style.border = "";
-                });
-            });
-
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
+            document.querySelectorAll(".nxl-submenu").forEach(menu => {
+                menu.style.background = "";
+                menu.style.border = "";
             });
         });
 

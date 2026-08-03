@@ -28,7 +28,7 @@ class InventoryController extends Controller
         $start = (int) $request->input('start', 0);
 
         $inventory = Inventory::with([
-            'items',
+            'items.product',
             'purchase.supplier',
             'purchase.parentPurchase',
             'order.customer',
@@ -517,7 +517,7 @@ class InventoryController extends Controller
         $start = (int) $request->input('start', 0);
 
         $inventory = Inventory::with([
-            'items',
+            'items.product',
             'purchaseReturn.supplier',
             'order.customer',
             'materialRequest.requestedBy',
@@ -770,6 +770,43 @@ class InventoryController extends Controller
 
         $reportItems = $reportItems->get();
 
+        $productIds = $reportItems->pluck('product_id')->unique()->values();
+        $productionStockByProduct = \App\Models\ProductionStock::query()
+            ->whereIn('product_id', $productIds)
+            ->groupBy('product_id')
+            ->selectRaw('product_id, SUM(available_quantity) AS total')
+            ->pluck('total', 'product_id');
+        $designQtyByProduct = \App\Models\DesignItem::query()
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at')
+            ->groupBy('product_id')
+            ->selectRaw('product_id, SUM(quantity) AS total')
+            ->pluck('total', 'product_id');
+        $assignedQtyByProduct = \App\Models\OrderProgressAssign::query()
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at')
+            ->groupBy('product_id')
+            ->selectRaw('product_id, SUM(assigned_quantity) AS total')
+            ->pluck('total', 'product_id');
+        $polosanProductIds = \App\Models\OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereIn('order_items.product_id', $productIds)
+            ->where('orders.status', 'sale list')
+            ->where('orders.mode', 'polosan')
+            ->pluck('order_items.product_id')
+            ->unique();
+        $inventoryFlowsByProduct = DB::table('inventory_items_2')
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at')
+            ->groupBy('product_id')
+            ->selectRaw(
+                'product_id,
+                SUM(CASE WHEN purchase_item_id IS NOT NULL AND inventory_warehouse_id IS NOT NULL THEN remaining_stock_in - stock_in ELSE 0 END) AS incoming,
+                SUM(CASE WHEN material_request_item_id IS NOT NULL THEN remaining_stock_in - stock_out - stock_in ELSE 0 END) AS outgoing'
+            )
+            ->get()
+            ->keyBy('product_id');
+
         return DataTables::of($reportItems)
             ->addIndexColumn()
             ->addColumn('name', fn($item) => e($item->product->name))
@@ -793,7 +830,7 @@ class InventoryController extends Controller
 
             //     return $formatted;
             // })
-            ->addColumn('stock_after_sales', function ($item) {
+            ->addColumn('stock_after_sales', function ($item) use ($productionStockByProduct, $designQtyByProduct, $assignedQtyByProduct, $polosanProductIds) {
 
                 $productId = $item->product_id;
 
@@ -801,8 +838,7 @@ class InventoryController extends Controller
                 $inventoryStock = (int) $item->inventory_stock;
 
                 // 2. Production stock (available_quantity)
-                $productionStock = \App\Models\ProductionStock::where('product_id', $productId)
-                    ->sum('available_quantity');
+                $productionStock = (float) $productionStockByProduct->get($productId, 0);
 
                 /**
                  * --------------------------------------------------
@@ -810,13 +846,9 @@ class InventoryController extends Controller
                  * pending = total design - total assigned
                  * --------------------------------------------------
                  */
-                $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
-                    ->whereNull('deleted_at')
-                    ->sum('quantity');
+                $totalDesignQty = (float) $designQtyByProduct->get($productId, 0);
 
-                $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
-                    ->whereNull('deleted_at')
-                    ->sum('assigned_quantity');
+                $totalAssignedQty = (float) $assignedQtyByProduct->get($productId, 0);
 
                 $pendingWaitingList = $totalDesignQty - $totalAssignedQty;
                 if ($pendingWaitingList < 0) $pendingWaitingList = 0;
@@ -827,12 +859,7 @@ class InventoryController extends Controller
                  * Polosan → tidak mengurangi stock sama sekali
                  * --------------------------------------------------
                  */
-                $isPolosan = \App\Models\OrderItem::query()
-                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
-                    ->where('order_items.product_id', $productId)
-                    ->where('orders.status', 'sale list')
-                    ->where('orders.mode', 'polosan')
-                    ->exists();
+                $isPolosan = $polosanProductIds->contains($productId);
 
                 /**
                  * --------------------------------------------------
@@ -863,24 +890,14 @@ class InventoryController extends Controller
             //     fn($item) =>
             //     number_format($item->incoming_stock ?? 0, 0, ',', '.')
             // )
-            ->addColumn('incoming_stock', function ($item) {
-                $incoming = DB::table('inventory_items_2')
-                    ->where('product_id', $item->product_id)
-                    ->whereNull('deleted_at')
-                    ->whereNotNull(['purchase_item_id', 'inventory_warehouse_id'])
-                    ->selectRaw('SUM(remaining_stock_in - stock_in) AS incoming')
-                    ->value('incoming');
+            ->addColumn('incoming_stock', function ($item) use ($inventoryFlowsByProduct) {
+                $incoming = $inventoryFlowsByProduct->get($item->product_id)?->incoming;
 
                 return number_format($incoming ?? 0, 0, ',', '.');
             })
-            ->addColumn('outgoing_stock', function ($item) {
+            ->addColumn('outgoing_stock', function ($item) use ($inventoryFlowsByProduct) {
 
-                $outgoing = DB::table('inventory_items_2')
-                    ->where('product_id', $item->product_id)
-                    ->whereNull('deleted_at')
-                    ->whereNotNull('material_request_item_id')
-                    ->selectRaw('SUM(remaining_stock_in - stock_out - stock_in) AS outgoing')
-                    ->value('outgoing');
+                $outgoing = $inventoryFlowsByProduct->get($item->product_id)?->outgoing;
 
                 return number_format($outgoing ?? 0, 0, ',', '.');
             })

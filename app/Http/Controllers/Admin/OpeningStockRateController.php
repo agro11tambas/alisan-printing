@@ -22,8 +22,7 @@ class OpeningStockRateController extends Controller
     public function dataOpeningStockOverview(Request $request)
     {
         $products = Products::with(['inventoryStock', 'productionStocks'])
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
 
         return DataTables::of($products)
             ->addIndexColumn()

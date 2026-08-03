@@ -190,7 +190,7 @@ class MaterialRequestController extends Controller
             }
         }
 
-        $materialRequest = $materialRequest->latest()->get();
+        $materialRequest = $materialRequest->latest();
 
         return DataTables::of($materialRequest)
             ->addIndexColumn()

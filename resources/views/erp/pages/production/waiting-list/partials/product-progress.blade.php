@@ -11,10 +11,10 @@
         <tbody>
             @foreach ($progress->items as $item)
                 @php
-                    $totalAssigned = $item->assigns()->sum('assigned_quantity');
-                    $totalCompleted = $item->assigns()->sum('completed_quantity');
-                    $totalDefect = $item->assigns()->sum('defect_quantity');
-                    $totalReject = $item->assigns()->sum('reject_quantity');
+                    $totalAssigned = $item->assigns->sum('assigned_quantity');
+                    $totalCompleted = $item->assigns->sum('completed_quantity');
+                    $totalDefect = $item->assigns->sum('defect_quantity');
+                    $totalReject = $item->assigns->sum('reject_quantity');
 
                     $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
 

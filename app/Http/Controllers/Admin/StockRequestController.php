@@ -23,7 +23,7 @@ class StockRequestController extends Controller
 
     public function dataStockRequest(Request $request)
     {
-        $inventory = Inventory::with(['items', 'purchase.supplier', 'order.customer'])
+        $inventory = Inventory::with(['items.product', 'purchase.supplier', 'order.customer'])
             ->where('status', 'Stock Out');
 
         if ($request->filter) {
@@ -92,7 +92,7 @@ class StockRequestController extends Controller
             }
         }
 
-        $inventory = $inventory->latest()->get();
+        $inventory = $inventory->latest();
 
         return DataTables::of($inventory)
             ->addIndexColumn()

@@ -94,23 +94,24 @@ class FinancialStatementController extends Controller
         [$start, $end] = $this->getDateRange($filter, $start, $end);
 
         $reports = FinancialReport::whereBetween('date', [$start, $end])
-            ->orderBy('date', 'asc')
+            ->selectRaw('DATE(date) AS report_date')
+            ->selectRaw('SUM(revenue) AS revenue, SUM(cogs) AS cogs, SUM(cogs_fixed_cost) AS cogs_fixed')
+            ->selectRaw('SUM(gross_profit) AS gross_profit, SUM(gross_profit_at_fixed_cost) AS gross_profit_fixed')
+            ->selectRaw('SUM(expense) AS expenses, SUM(net_profit) AS net_profit, SUM(net_profit_at_fixed_cost) AS net_profit_fixed')
+            ->groupByRaw('DATE(date)')
+            ->orderBy('report_date')
             ->get()
-            ->groupBy(fn($r) => \Carbon\Carbon::parse($r->date)->toDateString())
-            ->map(function ($group) {
-                return [
-                    'date'                => $group->first()->date->toDateString(),
-                    'revenue'             => $group->sum('revenue'),
-                    'cogs'                => $group->sum('cogs'),
-                    'cogs_fixed'          => $group->sum('cogs_fixed_cost'),
-                    'grossProfit'         => $group->sum('gross_profit'),
-                    'grossProfitFixed'    => $group->sum('gross_profit_at_fixed_cost'),
-                    'expenses'            => $group->sum('expense'),
-                    'netProfit'           => $group->sum('net_profit'),
-                    'netProfitFixed'      => $group->sum('net_profit_at_fixed_cost'),
-                ];
-            })
-            ->values();
+            ->map(fn($report) => [
+                'date' => $report->report_date,
+                'revenue' => (float) $report->revenue,
+                'cogs' => (float) $report->cogs,
+                'cogs_fixed' => (float) $report->cogs_fixed,
+                'grossProfit' => (float) $report->gross_profit,
+                'grossProfitFixed' => (float) $report->gross_profit_fixed,
+                'expenses' => (float) $report->expenses,
+                'netProfit' => (float) $report->net_profit,
+                'netProfitFixed' => (float) $report->net_profit_fixed,
+            ]);
 
         // 🔹 Pagination (lazy-load)
         $length = (int) $request->input('length', 15);
@@ -164,20 +165,25 @@ class FinancialStatementController extends Controller
 
     private function calculatePL($start, $end)
     {
-        $reports = \App\Models\FinancialReport::whereBetween('date', [$start, $end]);
+        $totals = FinancialReport::whereBetween('date', [$start, $end])
+            ->selectRaw("COALESCE(SUM(CASE WHEN transaction_type <> 'sale_return' OR transaction_type IS NULL THEN revenue ELSE 0 END), 0) AS revenue")
+            ->selectRaw("COALESCE(SUM(CASE WHEN transaction_type = 'sale_return' THEN revenue ELSE 0 END), 0) AS sale_return")
+            ->selectRaw('COALESCE(SUM(cogs), 0) AS cogs, COALESCE(SUM(cogs_fixed_cost), 0) AS cogs_fixed')
+            ->selectRaw('COALESCE(SUM(expense), 0) AS expense')
+            ->first();
 
         // 🔹 Ambil total untuk versi avg cost
-        $totalRevenue = (clone $reports)->whereNotIn('transaction_type', ['sale_return'])->sum('revenue');
-        $totalCogs    = (clone $reports)->sum('cogs');
-        $totalExpense = (clone $reports)->sum('expense');
-        $saleReturn   = (clone $reports)->where('transaction_type', 'sale_return')->sum('revenue');
+        $totalRevenue = (float) $totals->revenue;
+        $totalCogs = (float) $totals->cogs;
+        $totalExpense = (float) $totals->expense;
+        $saleReturn = (float) $totals->sale_return;
 
         // 🔹 Hitungan normal (avg cost)
         $grossProfit  = $totalRevenue - $totalCogs - abs($saleReturn);
         $netProfit    = $grossProfit - $totalExpense;
 
         // 🔹 Tambahkan hitungan versi Fixed Cost
-        $totalCogsFixed = (clone $reports)->sum('cogs_fixed_cost');
+        $totalCogsFixed = (float) $totals->cogs_fixed;
         $grossProfitFixed = $totalRevenue - $totalCogsFixed - abs($saleReturn);
         $netProfitFixed   = $grossProfitFixed - $totalExpense;
 

@@ -28,7 +28,12 @@ class DeliveryListController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $deliveryLists = DeliveryList::with(['deliveryOrder', 'items.product']);
+        $deliveryLists = DeliveryList::with([
+            'deliveryOrder.order.customer',
+            'deliveryOrder.order.customerAddress',
+            'deliveryOrder',
+            'items.product',
+        ]);
 
         // 🔎 Filter by date
         if ($request->filter) {

@@ -35,7 +35,7 @@
                         <span>Payment History</span>
                     </a>
                 </li>
-                @if (!$purchase->is_fully_returned && $purchase->hasStockIn())
+                @if (!$purchase->is_fully_returned && $hasStockIn)
                     {{-- <li>
                         <hr class="my-1">
                     </li> --}}
@@ -70,10 +70,8 @@
                         <span>Edit History</span>
                     </a>
                 </li>
-                @if ($purchase->hasInventoryStockIn())
-                    @php
-                        $inventory = $purchase->firstInventoryForStockIn();
-                    @endphp
+                @if ($firstStockInInventory)
+                    @php $inventory = $firstStockInInventory; @endphp
 
                     @if ($inventory)
                         <li>

@@ -4,18 +4,20 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Models\Permission;
-use App\Models\PermissionSubItem;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\Cache;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+
+    private ?array $permissionSlugMemo = null;
+
+    private ?array $subPermissionSlugMemo = null;
 
     /**
      * The attributes that are mass assignable.
@@ -91,15 +93,21 @@ class User extends Authenticatable
     {
         Cache::forget($this->permissionCacheKey('permissions'));
         Cache::forget($this->permissionCacheKey('sub-permissions'));
+        $this->permissionSlugMemo = null;
+        $this->subPermissionSlugMemo = null;
     }
 
     private function permissionSlugs(): array
     {
-        if ($this->relationLoaded('permissions')) {
-            return $this->permissions->pluck('slug')->all();
+        if ($this->permissionSlugMemo !== null) {
+            return $this->permissionSlugMemo;
         }
 
-        return Cache::remember(
+        if ($this->relationLoaded('permissions')) {
+            return $this->permissionSlugMemo = $this->permissions->pluck('slug')->all();
+        }
+
+        return $this->permissionSlugMemo = Cache::remember(
             $this->permissionCacheKey('permissions'),
             now()->addMinutes(10),
             fn () => $this->permissions()->pluck('permissions.slug')->all()
@@ -108,11 +116,15 @@ class User extends Authenticatable
 
     private function subPermissionSlugs(): array
     {
-        if ($this->relationLoaded('permissionSubItems')) {
-            return $this->permissionSubItems->pluck('slug')->all();
+        if ($this->subPermissionSlugMemo !== null) {
+            return $this->subPermissionSlugMemo;
         }
 
-        return Cache::remember(
+        if ($this->relationLoaded('permissionSubItems')) {
+            return $this->subPermissionSlugMemo = $this->permissionSubItems->pluck('slug')->all();
+        }
+
+        return $this->subPermissionSlugMemo = Cache::remember(
             $this->permissionCacheKey('sub-permissions'),
             now()->addMinutes(10),
             fn () => $this->permissionSubItems()->pluck('permission_sub_items.slug')->all()

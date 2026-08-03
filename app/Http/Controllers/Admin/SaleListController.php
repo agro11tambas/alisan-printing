@@ -52,9 +52,75 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Collection;
 
 class SaleListController extends Controller
 {
+    private function monthlyOrderGroupKeyForOrder(Order $order): string
+    {
+        $businessName = $order->customerAddress?->business_name;
+        $month = Carbon::parse($order->order_date)->format('Y-m');
+
+        return implode('|', [
+            $order->customer_id,
+            $month,
+            $businessName ?: '*',
+        ]);
+    }
+
+    private function buildMonthlyOrderSequences(Collection $pageOrders): Collection
+    {
+        if ($pageOrders->isEmpty()) {
+            return collect();
+        }
+
+        $groups = $pageOrders
+            ->mapWithKeys(fn(Order $order) => [
+                $this->monthlyOrderGroupKeyForOrder($order) => [
+                    'customer_id' => $order->customer_id,
+                    'business_name' => $order->customerAddress?->business_name,
+                    'month' => Carbon::parse($order->order_date)->format('Y-m'),
+                ],
+            ]);
+
+        $dates = $pageOrders->map(fn(Order $order) => Carbon::parse($order->order_date));
+        $rangeStart = $dates->min()->copy()->startOfMonth();
+        $rangeEnd = $dates->max()->copy()->endOfMonth();
+
+        $candidates = Order::query()
+            ->with('customerAddress:id,business_name')
+            ->where('status', 'sale list')
+            ->whereIn('customer_id', $groups->pluck('customer_id')->unique())
+            ->whereBetween('order_date', [$rangeStart, $rangeEnd])
+            ->orderBy('order_date')
+            ->orderBy('id')
+            ->get(['id', 'customer_id', 'customer_address_id', 'order_date']);
+
+        return $groups->map(function (array $group) use ($candidates) {
+            $matches = $candidates->filter(function (Order $candidate) use ($group) {
+                if ((int) $candidate->customer_id !== (int) $group['customer_id']) {
+                    return false;
+                }
+
+                if (Carbon::parse($candidate->order_date)->format('Y-m') !== $group['month']) {
+                    return false;
+                }
+
+                return !$group['business_name']
+                    || $candidate->customerAddress?->business_name === $group['business_name'];
+            })->values();
+
+            $total = $matches->count();
+
+            return $matches->mapWithKeys(fn(Order $candidate, int $index) => [
+                $candidate->id => [
+                    'position' => $index + 1,
+                    'total' => $total,
+                ],
+            ]);
+        });
+    }
+
     public function getSaleList()
     {
         $order_number = Order::first();
@@ -73,7 +139,17 @@ class SaleListController extends Controller
         $length = (int) $request->input('length', 50);
         $start = (int) $request->input('start', 0);
 
-        $orders = Order::with(['customer', 'customerAccount', 'user', 'customerAddress'])
+        $orders = Order::with([
+            'customer',
+            'customerAccount',
+            'user',
+            'customerAddress',
+            'saleReturns',
+            'orderItems.product',
+            'orderItems.productBundle.items.product',
+            'deliveryOrders.items.deliveryListItems.shipment',
+            'deliveryOrders.items.deliveryListItems.deliveryOrderItem',
+        ])
             ->where('status', 'sale list')
             ->orderBy('order_date', 'desc');
 
@@ -157,9 +233,10 @@ class SaleListController extends Controller
         $totalData = $totalQuery->count();
 
         $data = $orders->skip($start)->take($length)->get();
+        $monthlyOrderSequences = $this->buildMonthlyOrderSequences($data);
 
         return response()->json([
-            'data' => $data->map(function ($order) {
+            'data' => $data->map(function ($order) use ($monthlyOrderSequences) {
                 $orderCreatedAt = Carbon::parse($order->order_date)->format('d M y H:i');
                 $date = Carbon::parse($order->order_date)->format('j M y H:i');
                 $dueDate = $order->due_date ? Carbon::parse($order->due_date)->format('j M y') : '-';
@@ -168,7 +245,7 @@ class SaleListController extends Controller
                     ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
                     : '';
 
-                $returnBadge = $order->saleReturns()->exists()
+                $returnBadge = $order->saleReturns->isNotEmpty()
                     ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Sale Return</span></div>'
                     : '';
 
@@ -232,33 +309,18 @@ class SaleListController extends Controller
                 $modeBadge = '<div class="badge ' . $modeBadgeClass . '">' . ucfirst($mode) . '</div>';
 
 
-                $items = $order->orderItems()
-                    ->with([
-                        'product' => fn($q) => $q->withTrashed(),
-                        'productBundle.items.product' => fn($q) => $q->withTrashed(),
-                        'deliveryListItems.shipment.deliveryOrder',
-                    ])
-                    ->get()
-                    ->map(function ($item) {
+                $items = $order->orderItems
+                    ->map(function ($item) use ($order) {
                         $displayQty = $item->quantity;
                         $unitConversionValue = max((float) ($item->unit_conversion_value ?? 1), 1);
                         $requiredQtyBase = (float) ($item->qty_base ?: ($item->quantity * $unitConversionValue));
-                        // Ambil deliveryData dan deliveryListItems (sama untuk semua tipe)
-                        $deliveryData = $item->order
-                            ->deliveryOrders()
-                            ->with(['items' => function ($q) use ($item) {
-                                $q->where('order_item_id', $item->id);
-                            }])
-                            ->get()
-                            ->pluck('items')
-                            ->flatten();
 
-                        $deliveryListItems = $item->order->deliveryOrders()
-                            ->with(['items.deliveryListItems.shipment', 'items.deliveryListItems.deliveryOrderItem'])
-                            ->get()
-                            ->pluck('items')->flatten()
-                            ->filter(fn($d) => $d->order_item_id === $item->id)
-                            ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
+                        $deliveryData = $order->deliveryOrders
+                            ->flatMap(fn($deliveryOrder) => $deliveryOrder->items)
+                            ->where('order_item_id', $item->id);
+
+                        $deliveryListItems = $deliveryData
+                            ->flatMap(fn($deliveryOrderItem) => $deliveryOrderItem->deliveryListItems);
 
                         // ── SATUAN ──
                         if ($item->product) {
@@ -377,25 +439,12 @@ class SaleListController extends Controller
                 $customerAccount = $order->customerAccount->name ?? null;
                 $customerAccountNumber = $order->order_whatsapp_number;
 
-                $orderMonthStart = Carbon::parse($order->order_date)->startOfMonth();
-                $orderMonthEnd   = Carbon::parse($order->order_date)->endOfMonth();
+                $sequence = $monthlyOrderSequences
+                    ->get($this->monthlyOrderGroupKeyForOrder($order), collect())
+                    ->get($order->id);
 
-                $ordersInMonth = Order::where('status', 'sale list')
-                    ->where('customer_id', $order->customer_id)
-                    ->whereBetween('order_date', [$orderMonthStart, $orderMonthEnd])
-                    ->when($businessName, function ($q) use ($businessName) {
-                        $q->whereHas('customerAddress', function ($sub) use ($businessName) {
-                            $sub->where('business_name', $businessName);
-                        });
-                    })
-                    ->orderBy('order_date')
-                    ->pluck('id');
-
-                $totalOrders = $ordersInMonth->count();
-                $currentIndex = $ordersInMonth->search($order->id);
-
-                $sequenceLabel = $currentIndex !== false
-                    ? '(' . ($currentIndex + 1) . '/' . $totalOrders . ')'
+                $sequenceLabel = $sequence
+                    ? "({$sequence['position']}/{$sequence['total']})"
                     : '';
 
                 return [
@@ -498,7 +547,17 @@ class SaleListController extends Controller
         $length = (int) $request->input('length', 50);
         $start = (int) $request->input('start', 0);
 
-        $orders = Order::with(['customer', 'customerAccount', 'user', 'customerAddress'])
+        $orders = Order::with([
+            'customer',
+            'customerAccount',
+            'user',
+            'customerAddress',
+            'saleReturns',
+            'orderItems.product',
+            'orderItems.productBundle.items.product',
+            'deliveryOrders.items.deliveryListItems.shipment',
+            'deliveryOrders.items.deliveryListItems.deliveryOrderItem',
+        ])
             ->where('status', 'sale list')
             ->where('status_edited', 1)
             ->orderBy('order_date', 'desc');
@@ -579,9 +638,10 @@ class SaleListController extends Controller
         $totalData = $totalQuery->count();
 
         $data = $orders->skip($start)->take($length)->get();
+        $monthlyOrderSequences = $this->buildMonthlyOrderSequences($data);
 
         return response()->json([
-            'data' => $data->map(function ($order) {
+            'data' => $data->map(function ($order) use ($monthlyOrderSequences) {
                 $orderCreatedAt = Carbon::parse($order->order_date)->format('d M y H:i');
                 $date = Carbon::parse($order->order_date)->format('j M y H:i');
                 $dueDate = $order->due_date ? Carbon::parse($order->due_date)->format('j M y') : '-';
@@ -590,7 +650,7 @@ class SaleListController extends Controller
                     ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
                     : '';
 
-                $returnBadge = $order->saleReturns()->exists()
+                $returnBadge = $order->saleReturns->isNotEmpty()
                     ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Sale Return</span></div>'
                     : '';
 
@@ -655,33 +715,18 @@ class SaleListController extends Controller
                 $modeBadge = '<div class="badge ' . $modeBadgeClass . '">' . ucfirst($mode) . '</div>';
 
 
-                $items = $order->orderItems()
-                    ->with([
-                        'product' => fn($q) => $q->withTrashed(),
-                        'productBundle.items.product' => fn($q) => $q->withTrashed(),
-                        'deliveryListItems.shipment.deliveryOrder',
-                    ])
-                    ->get()
-                    ->map(function ($item) {
+                $items = $order->orderItems
+                    ->map(function ($item) use ($order) {
                         $unitConversionValue = max((float) ($item->unit_conversion_value ?? 1), 1);
                         $requiredQtyBase = (float) ($item->qty_base ?: ($item->quantity * $unitConversionValue));
                         $displayQty = $requiredQtyBase;
-                        // Ambil deliveryData dan deliveryListItems (sama untuk semua tipe)
-                        $deliveryData = $item->order
-                            ->deliveryOrders()
-                            ->with(['items' => function ($q) use ($item) {
-                                $q->where('order_item_id', $item->id);
-                            }])
-                            ->get()
-                            ->pluck('items')
-                            ->flatten();
 
-                        $deliveryListItems = $item->order->deliveryOrders()
-                            ->with(['items.deliveryListItems.shipment', 'items.deliveryListItems.deliveryOrderItem'])
-                            ->get()
-                            ->pluck('items')->flatten()
-                            ->filter(fn($d) => $d->order_item_id === $item->id)
-                            ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
+                        $deliveryData = $order->deliveryOrders
+                            ->flatMap(fn($deliveryOrder) => $deliveryOrder->items)
+                            ->where('order_item_id', $item->id);
+
+                        $deliveryListItems = $deliveryData
+                            ->flatMap(fn($deliveryOrderItem) => $deliveryOrderItem->deliveryListItems);
 
                         // ── SATUAN ──
                         if ($item->product) {
@@ -794,25 +839,12 @@ class SaleListController extends Controller
                 $customerAccount = $order->customerAccount->name ?? null;
                 $customerAccountNumber = $order->order_whatsapp_number;
 
-                $orderMonthStart = Carbon::parse($order->order_date)->startOfMonth();
-                $orderMonthEnd   = Carbon::parse($order->order_date)->endOfMonth();
+                $sequence = $monthlyOrderSequences
+                    ->get($this->monthlyOrderGroupKeyForOrder($order), collect())
+                    ->get($order->id);
 
-                $ordersInMonth = Order::where('status', 'sale list')
-                    ->where('customer_id', $order->customer_id)
-                    ->whereBetween('order_date', [$orderMonthStart, $orderMonthEnd])
-                    ->when($businessName, function ($q) use ($businessName) {
-                        $q->whereHas('customerAddress', function ($sub) use ($businessName) {
-                            $sub->where('business_name', $businessName);
-                        });
-                    })
-                    ->orderBy('order_date')
-                    ->pluck('id');
-
-                $totalOrders = $ordersInMonth->count();
-                $currentIndex = $ordersInMonth->search($order->id);
-
-                $sequenceLabel = $currentIndex !== false
-                    ? '(' . ($currentIndex + 1) . '/' . $totalOrders . ')'
+                $sequenceLabel = $sequence
+                    ? "({$sequence['position']}/{$sequence['total']})"
                     : '';
 
                 return [

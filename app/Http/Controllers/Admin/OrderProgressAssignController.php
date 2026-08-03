@@ -571,7 +571,11 @@ class OrderProgressAssignController extends Controller
 
         $batches = OrderProgressAssignBatch::with([
             'assigns.operator',
-            'orderProgress.order.customer'
+            'assigns.progressItem.product',
+            'assigns.progressItem.designItem',
+            'assigns.progressItem.progress.order',
+            'orderProgress.order.customer',
+            'orderProgress.order.customerAddress',
         ]);
 
         if ($request->filled('progress_status')) {
@@ -717,13 +721,14 @@ class OrderProgressAssignController extends Controller
                 // $assigns = OrderProgressAssign::with(['operator', 'progressItem.product'])
                 //     ->where('assign_batch_id', $batch->id)
                 //     ->get();
-                $assigns = OrderProgressAssign::with([
+                $assigns = $batch->assigns; /* Previous per-batch query:
                     'operator',
                     'progressItem.product',
                     'progressItem.designItem' // ⬅️ tambah ini
                 ])
                     ->where('assign_batch_id', $batch->id)
                     ->get();
+                */
 
                 $assignProducts = view('erp.pages.production.assign-list.partials.assign-product', compact('assigns'))->render();
 
@@ -732,10 +737,8 @@ class OrderProgressAssignController extends Controller
                     return $assign->change_quantity >= $assign->assigned_quantity;
                 });
 
-                $hasOnlyProgressStatus = !DB::table('order_progress_assigns')
-                    ->where('assign_batch_id', $batch->id)
-                    ->where('status', '!=', 'progress')
-                    ->exists();
+                $hasOnlyProgressStatus = $batch->assigns
+                    ->every(fn ($assign) => $assign->status === 'progress');
 
                 $action = view('erp.pages.production.assign-list.partials.assign-action-button', compact(
                     'batch',

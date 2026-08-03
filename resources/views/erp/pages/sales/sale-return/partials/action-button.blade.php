@@ -4,9 +4,9 @@
             <div class="action-col">
                 @php
                     // Cek apakah masih ada canceled product yang belum di-return semua
-                    $hasRemainingCanceled = \App\Models\CanceledProduct::where('sale_return_id', $return->id)
-                        ->whereRaw('quantity > completed_quantity')
-                        ->exists();
+                    $hasRemainingCanceled = $hasRemainingCanceled ?? false;
+                    // Status sudah dihitung dari relasi yang di-eager-load controller.
+                    // Tidak ada query database saat partial ini dirender.
                 @endphp
 
                 @if ($hasRemainingCanceled)
@@ -137,7 +137,7 @@
                         <span>Edit History</span>
                     </a>
                 </li>
-                @if (!$return->hasStockIn())
+                @if (!$hasStockIn)
                     <li>
                         <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
                             data-bs-target="#modalDeleteOrder" data-id="{{ $return->id }}"

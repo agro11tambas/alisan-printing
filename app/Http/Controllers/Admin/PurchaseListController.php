@@ -62,7 +62,14 @@ class PurchaseListController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $purchases = Purchase::with(['supplier', 'parentPurchase', 'purchaseItems.purchaseProduct', 'inventories.stockIns'])
+        $purchases = Purchase::with([
+            'supplier',
+            'parentPurchase',
+            'purchaseItems.purchaseProduct',
+            'purchaseReturn.items',
+            'inventories.items',
+            'inventories.stockIns',
+        ])
             ->where('status', 'Purchase List')
             ->orderByDesc('id');
 
@@ -144,17 +151,17 @@ class PurchaseListController extends Controller
                     ? ' <span class="badge bg-soft-primary text-primary ms-1">Edited</span>'
                     : '';
 
-                $returnBadge = $purchase->purchaseReturn()->exists()
+                $returnBadge = $purchase->purchaseReturn->isNotEmpty()
                     ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Purchase Return</span></div>'
                     : '';
 
                 // 🔥 Cek apakah semua Stock In sudah complete
-                $stockInCompleted = InventoryItem::whereHas('inventory', function ($q) use ($purchase) {
-                    $q->where('purchase_id', $purchase->id)
-                        ->where('note', 'Purchase Account');
-                })
-                    ->whereColumn('stock_in', '<', 'quantity')
-                    ->doesntExist();
+                $inventoryItems = $purchase->inventories
+                    ->where('note', 'Purchase Account')
+                    ->flatMap(fn ($inventory) => $inventory->items);
+                $stockInCompleted = $inventoryItems->every(
+                    fn ($item) => (float) $item->stock_in >= (float) $item->quantity
+                );
 
                 // Icon centang
                 $completeIcon = $stockInCompleted
@@ -236,15 +243,19 @@ class PurchaseListController extends Controller
                 $paymentMethod = e($purchase->payment_method ?? '-');
 
                 // 📦 Products list (sudah + tax)
-                $items = $purchase->purchaseItems()->with(['purchaseProduct' => fn ($q) => $q->withTrashed()])->get();
+                $items = $purchase->purchaseItems;
+                $stockInByPurchaseItem = $purchase->inventories
+                    ->flatMap(fn ($inventory) => $inventory->items)
+                    ->groupBy('purchase_item_id')
+                    ->map(fn ($items) => (float) $items->sum('stock_in'));
                 $taxPercent = $purchase->tax_percent ?? 0;
-                $products = $items->map(function ($item) use ($taxPercent) {
+                $products = $items->map(function ($item) use ($taxPercent, $stockInByPurchaseItem) {
                     $price = $item->price ?? 0;
                     $freight = $item->freight ?? 0;
                     $priceWithTax = $price + ($price * ($taxPercent / 100));
                     $total = ($priceWithTax + $freight) * $item->quantity;
 
-                    $stockInBase = InventoryItem::where('purchase_item_id', $item->id)->sum('stock_in');
+                    $stockInBase = $stockInByPurchaseItem->get($item->id, 0);
                     $stockIn = $stockInBase / max(1, $item->unit_conversion_value ?? 1);
 
                     return [
@@ -268,16 +279,30 @@ class PurchaseListController extends Controller
                 };
 
                 // ⚙️ Action Button Partial
-                $purchase->is_fully_returned = $purchase->purchaseItems->every(function ($item) use ($purchase) {
-                    $returnedQty = PurchaseReturnItem::where('product_id', $item->product_id)
-                        ->whereHas('purchaseReturn', function ($q) use ($purchase) {
-                            $q->where('purchase_id', $purchase->id);
-                        })->sum('quantity');
+                $returnedQtyByProduct = $purchase->purchaseReturn
+                    ->flatMap(fn ($return) => $return->items)
+                    ->groupBy('product_id')
+                    ->map(fn ($items) => (float) $items->sum('quantity'));
+
+                $purchase->is_fully_returned = $purchase->purchaseItems->every(function ($item) use ($returnedQtyByProduct) {
+                    $returnedQty = $returnedQtyByProduct->get($item->product_id, 0);
 
                     return $returnedQty >= $item->quantity;
                 });
 
-                $actionHtml = view('erp.pages.purchases.purchase-list.partials.action-button', compact('purchase'))->render();
+                $hasStockIn = $purchase->inventories
+                    ->where('status', 'Stock In')
+                    ->contains(fn ($inventory) => $inventory->items->contains(
+                        fn ($item) => (float) $item->stock_in > 0
+                    ));
+                $firstStockInInventory = $purchase->inventories
+                    ->first(fn ($inventory) => $inventory->stockIns->isNotEmpty());
+
+                $actionHtml = view('erp.pages.purchases.purchase-list.partials.action-button', compact(
+                    'purchase',
+                    'hasStockIn',
+                    'firstStockInInventory'
+                ))->render();
 
                 return [
                     'id' => $purchase->id,

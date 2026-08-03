@@ -55,7 +55,13 @@ class SaleOrderController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $orders = Order::with(['customer', 'customerAddress'])
+        $orders = Order::with([
+            'customer',
+            'customerAddress',
+            'customerAccount',
+            'orderItems.product',
+            'orderItems.productBundle.items.product',
+        ])
             ->where('status', 'sale order')
             ->orderBy('order_date', 'desc');
 
@@ -148,12 +154,7 @@ class SaleOrderController extends Controller
                 $modeBadge = '<div class="badge ' . $modeBadgeClass . '">' . ucfirst($mode) . '</div>';
 
                 // 🔹 Produk (termasuk bundle & soft deleted)
-                $items = $order->orderItems()
-                    ->with([
-                        'product' => fn($q) => $q->withTrashed(),
-                        'productBundle.items.product'
-                    ])
-                    ->get()
+                $items = $order->orderItems
                     ->map(function ($item) {
                         if ($item->product) {
                             $name = $item->product->name;

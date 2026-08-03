@@ -33,11 +33,10 @@ class ProductsController extends Controller
 {
     public function index()
     {
-        $products = Products::latest()->get();
         $categories = ProductCategory::all();
         $tags = ProductTag::all();
 
-        return view('erp.pages.products.index', compact('products', 'categories', 'tags'));
+        return view('erp.pages.products.index', compact('categories', 'tags'));
     }
 
     public function data(Request $request)

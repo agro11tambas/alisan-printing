@@ -183,7 +183,7 @@ class ProductionController extends Controller
         $start  = (int) $request->input('start', 0);
 
         $inventory = Inventory::with([
-            'items',
+            'items.product',
             'purchase.supplier',
             'purchase.parentPurchase',
             'order.customer',

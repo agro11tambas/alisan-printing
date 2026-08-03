@@ -48,7 +48,7 @@ class HistoryProgressOrderController extends Controller
 
     public function dataOrderHistory(Request $request, $id)
     {
-        $batches = OrderProgressBatch::with(['user', 'histories.progressItem', 'histories.operators',])
+        $batches = OrderProgressBatch::with(['user', 'histories.progressItem.product', 'histories.operators'])
             ->where('order_progress_id', $id)
             ->latest();
 
@@ -86,7 +86,7 @@ class HistoryProgressOrderController extends Controller
             });
         }
 
-        $batches = $query->get();
+        $batches = $query;
 
         try {
             return DataTables::of($batches)
@@ -104,9 +104,7 @@ class HistoryProgressOrderController extends Controller
                     return $batch->note ?? '-';
                 })
                 ->addColumn('products', function ($batch) {
-                    $items = OrderProgressHistory::with(['operators', 'progressItem.product'])
-                        ->where('order_progress_batch_id', $batch->id)
-                        ->get();
+                    $items = $batch->histories;
 
                     return view('erp.pages.production.waiting-list.partials.product-progress-histories', compact('items'))->render();
                 })

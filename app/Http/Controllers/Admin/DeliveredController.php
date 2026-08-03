@@ -22,7 +22,7 @@ class DeliveredController extends Controller
 
     public function dataDeliveryList(Request $request)
     {
-        $orders = Order::with('customer')
+        $orders = Order::with(['customer', 'orderItems.product', 'orderItems.productBundle.items.product'])
             ->whereIn('status', ['sale list']);
 
         if ($request->filter) {
@@ -79,7 +79,7 @@ class DeliveredController extends Controller
             }
         }
 
-        $orders = $orders->latest()->get();
+        $orders = $orders->latest();
 
         return DataTables::of($orders)
             ->addIndexColumn()

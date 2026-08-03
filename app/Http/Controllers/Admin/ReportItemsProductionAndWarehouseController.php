@@ -11,25 +11,25 @@ use Yajra\DataTables\Facades\DataTables;
 
 class ReportItemsProductionAndWarehouseController extends Controller
 {
-    private function applyDateFilter($query, Request $request)
+    private function applyDateFilter($query, Request $request, string $column = 'created_at')
     {
         switch ($request->filter) {
             case 'today':
-                return $query->whereDate('created_at', Carbon::today());
+                return $query->whereDate($column, Carbon::today());
             case 'last_7_days':
-                return $query->whereBetween('created_at', [Carbon::now()->subDays(7), Carbon::now()]);
+                return $query->whereBetween($column, [Carbon::now()->subDays(7), Carbon::now()]);
             case 'this_month':
-                return $query->whereMonth('created_at', Carbon::now()->month)
-                    ->whereYear('created_at', Carbon::now()->year);
+                return $query->whereMonth($column, Carbon::now()->month)
+                    ->whereYear($column, Carbon::now()->year);
             case 'last_30_days':
-                return $query->whereBetween('created_at', [Carbon::now()->subDays(30), Carbon::now()]);
+                return $query->whereBetween($column, [Carbon::now()->subDays(30), Carbon::now()]);
             case 'year_to_date':
-                return $query->whereBetween('created_at', [Carbon::now()->startOfYear(), Carbon::now()]);
+                return $query->whereBetween($column, [Carbon::now()->startOfYear(), Carbon::now()]);
             case 'yearly':
-                return $query->whereYear('created_at', Carbon::now()->year);
+                return $query->whereYear($column, Carbon::now()->year);
             case 'custom':
                 if ($request->start_date && $request->end_date) {
-                    return $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
+                    return $query->whereBetween($column, [$request->start_date, $request->end_date]);
                 }
                 return $query;
             default:
@@ -56,8 +56,100 @@ class ReportItemsProductionAndWarehouseController extends Controller
             })
             ->orderBy('name', 'asc') // urut di query juga (optional)
             ->get();
+        $productIds = $products->pluck('id');
 
-        $data = $products->map(function ($product) use ($request) {
+        $completedByProduct = DB::table('order_progress_items')
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at')
+            ->groupBy('product_id')
+            ->pluck(DB::raw('SUM(completed_quantity)'), 'product_id');
+
+        $deliveryOrderByProduct = DB::table('delivery_order_items')
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at')
+            ->groupBy('product_id')
+            ->pluck(DB::raw('SUM(shipped_qty)'), 'product_id');
+
+        $designByProduct = DB::table('design_items')
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at')
+            ->selectRaw('product_id, COALESCE(SUM(quantity * COALESCE(unit_conversion_value, 1)), 0) AS total')
+            ->groupBy('product_id')
+            ->pluck('total', 'product_id');
+
+        $assignedByProduct = DB::table('order_progress_assigns')
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at')
+            ->groupBy('product_id')
+            ->pluck(DB::raw('SUM(assigned_quantity)'), 'product_id');
+
+        $polosanProductIds = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->whereIn('order_items.product_id', $productIds)
+            ->whereNull('order_items.deleted_at')
+            ->whereNull('orders.deleted_at')
+            ->where('orders.status', 'sale list')
+            ->where('orders.mode', 'polosan')
+            ->pluck('order_items.product_id')
+            ->flip();
+
+        $inventoryFlowQuery = DB::table('inventory_items_2')
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at');
+        $inventoryFlowQuery = $this->applyDateFilter($inventoryFlowQuery, $request);
+        $inventoryFlowsByProduct = $inventoryFlowQuery
+            ->selectRaw('product_id')
+            ->selectRaw('SUM(CASE WHEN purchase_item_id IS NOT NULL AND inventory_warehouse_id IS NOT NULL THEN remaining_stock_in - stock_in ELSE 0 END) AS incoming')
+            ->selectRaw('SUM(CASE WHEN purchase_item_id IS NOT NULL AND inventory_warehouse_id IS NOT NULL THEN stock_in ELSE 0 END) AS incoming_completed')
+            ->selectRaw('SUM(CASE WHEN material_request_item_id IS NOT NULL THEN remaining_stock_in - stock_out - stock_in ELSE 0 END) AS outgoing')
+            ->selectRaw('SUM(CASE WHEN material_request_item_id IS NOT NULL THEN stock_out - stock_in ELSE 0 END) AS outgoing_completed')
+            ->selectRaw('SUM(CASE WHEN purchase_item_id IS NOT NULL AND production_warehouse_id IS NOT NULL THEN remaining_stock_in - stock_in ELSE 0 END) AS production_incoming')
+            ->selectRaw('SUM(CASE WHEN purchase_item_id IS NOT NULL AND production_warehouse_id IS NOT NULL THEN stock_in ELSE 0 END) AS production_completed')
+            ->groupBy('product_id')
+            ->get()
+            ->keyBy('product_id');
+
+        $materialFlowQuery = DB::table('material_request_items')
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at');
+        $materialFlowQuery = $this->applyDateFilter($materialFlowQuery, $request);
+        $materialFlowsByProduct = $materialFlowQuery
+            ->selectRaw('product_id, SUM(requested_qty - received_qty) AS incoming, SUM(received_qty) AS completed')
+            ->groupBy('product_id')
+            ->get()
+            ->keyBy('product_id');
+
+        $filteredAssignQuery = DB::table('order_progress_assigns')
+            ->whereIn('product_id', $productIds)
+            ->whereNull('deleted_at');
+        $filteredAssignQuery = $this->applyDateFilter($filteredAssignQuery, $request);
+        $filteredAssignedByProduct = $filteredAssignQuery
+            ->groupBy('product_id')
+            ->pluck(DB::raw('SUM(assigned_quantity)'), 'product_id');
+
+        $finishedDeliveryQuery = DB::table('delivery_list_items')
+            ->join('delivery_lists', 'delivery_lists.id', '=', 'delivery_list_items.delivery_list_id')
+            ->whereIn('delivery_list_items.product_id', $productIds)
+            ->whereNull('delivery_list_items.deleted_at')
+            ->whereNull('delivery_lists.deleted_at')
+            ->where('delivery_lists.status', 'finished');
+        $finishedDeliveryQuery = $this->applyDateFilter($finishedDeliveryQuery, $request, 'delivery_list_items.created_at');
+        $finishedDeliveryByProduct = $finishedDeliveryQuery
+            ->groupBy('delivery_list_items.product_id')
+            ->pluck(DB::raw('SUM(delivery_list_items.shipped_quantity)'), 'delivery_list_items.product_id');
+
+        $data = $products->map(function ($product) use (
+            $request,
+            $completedByProduct,
+            $deliveryOrderByProduct,
+            $designByProduct,
+            $assignedByProduct,
+            $polosanProductIds,
+            $inventoryFlowsByProduct,
+            $materialFlowsByProduct,
+            $filteredAssignedByProduct,
+            $finishedDeliveryByProduct
+        ) {
             $prod = $product->productionStocks;
             $inv  = $product->inventoryStock;
 
@@ -85,6 +177,28 @@ class ReportItemsProductionAndWarehouseController extends Controller
             $avgRounded = $customRound($avg);
             $fixedRounded = $customRound($fixed);
 
+            $productId = $product->id;
+            $completed = (float) ($completedByProduct[$productId] ?? 0);
+            $deliveryOrderShipped = (float) ($deliveryOrderByProduct[$productId] ?? 0);
+            $finishedProductStock = max(0, $completed - $deliveryOrderShipped);
+            $designQuantity = (float) ($designByProduct[$productId] ?? 0);
+            $assignedQuantity = (float) ($assignedByProduct[$productId] ?? 0);
+            $pendingWaitingList = max(0, $designQuantity - $assignedQuantity);
+            $productionAvailable = (float) ($prod->available_quantity ?? 0);
+            $inventoryStock = (float) ($inv->inventory_stock ?? 0);
+            $stockAfterSales = $polosanProductIds->has($productId)
+                ? $inventoryStock + $productionAvailable + $pendingWaitingList
+                : $inventoryStock + $productionAvailable - $pendingWaitingList;
+            $inventoryFlow = $inventoryFlowsByProduct->get($productId);
+            $materialFlow = $materialFlowsByProduct->get($productId);
+            $productionIncoming = (float) ($materialFlow->incoming ?? 0)
+                + (float) ($inventoryFlow->production_incoming ?? 0);
+            $productionCompleted = (float) ($materialFlow->completed ?? 0)
+                + (float) ($inventoryFlow->production_completed ?? 0);
+            $assignedMinusCompleted = max(0, $assignedQuantity - $completed);
+            $finishedDelivery = (float) ($finishedDeliveryByProduct[$productId] ?? 0);
+            $onDelivery = max(0, $deliveryOrderShipped - $finishedDelivery);
+
             return [
                 'name' => $product->name,
                 'production_available' =>
@@ -93,7 +207,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 '<span class="text-dark">' . number_format($prod->opening_stock ?? 0, 0, ',', '.') . '</span>',
                 // 'finished_product_stock' =>
                 // '<span class="text-dark">' . number_format($prod->finished_product_stock ?? 0, 0, ',', '.') . '</span>',
-                'finished_product_stock' => (function () use ($product) {
+                'finished_product_stock' => (function () use ($product, $finishedProductStock) {
+                    return '<span class="text-dark">' . number_format($finishedProductStock, 0, ',', '.') . '</span>';
 
                     $productId = $product->id;
 
@@ -120,7 +235,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 number_format($inv->inventory_stock ?? 0, 0, ',', '.'),
                 // 'stock_after_sales' =>
                 // number_format($inv->stock_after_sales ?? 0, 0, ',', '.'),
-                'stock_after_sales' => (function () use ($product, $inv) {
+                'stock_after_sales' => (function () use ($product, $inv, $stockAfterSales) {
+                    return number_format($stockAfterSales, 0, ',', '.');
 
                     $productId = $product->id;
 
@@ -172,7 +288,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                     return number_format($final, 0, ',', '.');
                 })(),
                 // hitung incoming stock aktual dari inventory_items_2
-                'incoming_stock' => (function () use ($product, $request) {
+                'incoming_stock' => (function () use ($product, $request, $inventoryFlow) {
+                    return number_format($inventoryFlow->incoming ?? 0, 0, ',', '.');
                     // $incoming = DB::table('inventory_items_2')
                     //     ->where('product_id', $product->id)
                     //     ->whereNotNull('purchase_item_id')
@@ -193,7 +310,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($incoming ?? 0, 0, ',', '.');
                 })(),
-                'incoming_stock_completed' => (function () use ($product, $request) {
+                'incoming_stock_completed' => (function () use ($product, $request, $inventoryFlow) {
+                    return number_format($inventoryFlow->incoming_completed ?? 0, 0, ',', '.');
                     $incomingQuery = DB::table('inventory_items_2')
                         ->where('product_id', $product->id)
                         ->whereNotNull(['purchase_item_id', 'inventory_warehouse_id']);
@@ -207,7 +325,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($incoming ?? 0, 0, ',', '.');
                 })(),
-                'outgoing_stock' => (function () use ($product, $request) {
+                'outgoing_stock' => (function () use ($product, $request, $inventoryFlow) {
+                    return number_format($inventoryFlow->outgoing ?? 0, 0, ',', '.');
                     // $outgoing = DB::table('inventory_items_2')
                     //     ->where('product_id', $product->id)
                     //     ->whereNotNull('material_request_item_id')
@@ -227,7 +346,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($outgoing ?? 0, 0, ',', '.');
                 })(),
-                'outgoing_stock_completed' => (function () use ($product, $request) {
+                'outgoing_stock_completed' => (function () use ($product, $request, $inventoryFlow) {
+                    return number_format($inventoryFlow->outgoing_completed ?? 0, 0, ',', '.');
                     // $outgoing = DB::table('inventory_items_2')
                     //     ->where('product_id', $product->id)
                     //     ->whereNotNull('material_request_item_id')
@@ -262,7 +382,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                 //     return number_format($incomingProd ?? 0, 0, ',', '.');
                 // })(),
-                'incoming_stock_production' => (function () use ($product, $request) {
+                'incoming_stock_production' => (function () use ($product, $request, $productionIncoming) {
+                    return number_format($productionIncoming, 0, ',', '.');
 
                     // 1️⃣ Dari material_request_items
                     $incomingMaterialQuery = DB::table('material_request_items')
@@ -292,7 +413,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($totalIncoming, 0, ',', '.');
                 })(),
-                'incoming_stock_production_completed' => (function () use ($product, $request) {
+                'incoming_stock_production_completed' => (function () use ($product, $request, $productionCompleted) {
+                    return number_format($productionCompleted, 0, ',', '.');
 
                     // 1️⃣ Material request yang sudah diterima
                     $incomingMaterialQuery = DB::table('material_request_items')
@@ -324,7 +446,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 })(),
 
                 // Pending Waiting List
-                'pending_waiting_list' => (function () use ($product) {
+                'pending_waiting_list' => (function () use ($product, $pendingWaitingList) {
+                    return number_format($pendingWaitingList, 0, ',', '.');
 
                     $productId = $product->id;
 
@@ -343,7 +466,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                     return number_format($pending, 0, ',', '.');
                 })(),
                 // Assigned Minus Completed
-                'assigned_minus_completed' => (function () use ($product) {
+                'assigned_minus_completed' => (function () use ($product, $assignedMinusCompleted) {
+                    return number_format($assignedMinusCompleted, 0, ',', '.');
 
                     $productId = $product->id;
 
@@ -361,7 +485,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
                     return number_format($result, 0, ',', '.');
                 })(),
 
-                'assigned_total' => (function () use ($product, $request) {
+                'assigned_total' => (function () use ($product, $request, $filteredAssignedByProduct) {
+                    return number_format($filteredAssignedByProduct[$product->id] ?? 0, 0, ',', '.');
 
                     $query = \App\Models\OrderProgressAssign::where('product_id', $product->id)
                         ->whereNull('deleted_at');
@@ -373,7 +498,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($assigned ?? 0, 0, ',', '.');
                 })(),
-                'on_delivery' => (function () use ($product) {
+                'on_delivery' => (function () use ($product, $onDelivery) {
+                    return number_format($onDelivery, 0, ',', '.');
 
                     $productId = $product->id;
 
@@ -396,7 +522,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
                     return number_format($onDelivery, 0, ',', '.');
                 })(),
-                'completed_delivery' => (function () use ($product, $request) {
+                'completed_delivery' => (function () use ($product, $request, $finishedDelivery) {
+                    return number_format($finishedDelivery, 0, ',', '.');
 
                     $query = \App\Models\DeliveryListItem::where('product_id', $product->id)
                         ->whereNull('deleted_at')

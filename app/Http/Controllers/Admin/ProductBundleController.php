@@ -17,8 +17,7 @@ class ProductBundleController extends Controller
 {
     public function getProductBundles()
     {
-        $bundles = ProductBundle::with('items.product')->get();
-        return view('erp.pages.product-bundles.index', compact('bundles'));
+        return view('erp.pages.product-bundles.index');
     }
 
     public function dataProductBundles(Request $request)
@@ -27,7 +26,7 @@ class ProductBundleController extends Controller
         $start = (int) $request->input('start', 0);
 
         $query = ProductBundle::with([
-            'items.product',
+            'items.product.unitConversions',
             'unitConversions.unit',
         ]);
 

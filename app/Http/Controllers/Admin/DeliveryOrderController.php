@@ -253,7 +253,7 @@ class DeliveryOrderController extends Controller
             });
         }
 
-        $shipments = $query->get();
+        $shipments = $query;
 
         return DataTables::of($shipments)
             ->addIndexColumn()

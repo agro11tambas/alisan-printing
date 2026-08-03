@@ -52,7 +52,7 @@ class SaleReturnController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
-        $returns = SaleReturn::with(['customer', 'customerAddress', 'items', 'saleOrder'])
+        $returns = SaleReturn::with(['customer', 'customerAccount', 'customerAddress', 'items.product', 'saleOrder', 'canceledProducts'])
             ->where('status', 'sale returns')
             ->orderBy('created_at', 'desc');
 
@@ -151,6 +151,10 @@ class SaleReturnController extends Controller
         return response()->json([
             'data' => $data->map(function ($return) {
                 $totalCanceledQty = $return->items->sum('canceled_quantity');
+                $hasRemainingCanceled = $return->canceledProducts
+                    ->contains(fn($canceled) => $canceled->quantity > $canceled->completed_quantity);
+                $hasStockIn = $return->canceledProducts
+                    ->contains(fn($canceled) => $canceled->completed_quantity > 0);
 
                 $date = Carbon::parse($return->return_date)->format('j M y H:i');
 
@@ -228,11 +232,7 @@ class SaleReturnController extends Controller
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($return->status) . '</div>';
 
                 // 🔸 Produk (termasuk soft deleted)
-                $items = $return->items()
-                    ->with([
-                        'product' => fn($q) => $q->withTrashed(),
-                    ])
-                    ->get()
+                $items = $return->items
                     ->map(function ($item) {
                         $product = $item->product;
                         return [
@@ -283,6 +283,8 @@ class SaleReturnController extends Controller
                         [
                             'return' => $return,
                             'totalCanceledQty' => $totalCanceledQty,
+                            'hasRemainingCanceled' => $hasRemainingCanceled,
+                            'hasStockIn' => $hasStockIn,
                         ]
                     )->render(),
                 ];
@@ -326,11 +328,7 @@ class SaleReturnController extends Controller
             </div>';
 
                 // 🔹 Produk (termasuk soft deleted)
-                $items = $return->items()
-                    ->with([
-                        'product' => fn($q) => $q->withTrashed(),
-                    ])
-                    ->get()
+                $items = $return->items
                     ->map(function ($item) {
                         $product = $item->product;
 

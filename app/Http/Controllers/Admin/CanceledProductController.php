@@ -223,7 +223,7 @@ class CanceledProductController extends Controller
             }
         }
 
-        $histories = $histories->latest()->get();
+        $histories = $histories->latest();
 
         return DataTables::of($histories)
             ->addIndexColumn()

@@ -41,6 +41,7 @@ class PurchaseOrderController extends Controller
         $purchases = Purchase::with([
             'supplier',
             'purchaseAccount',
+            'user',
             'purchaseItems.purchaseProduct',
             'purchaseItems.purchaseListItems.inventoryItems',
         ])

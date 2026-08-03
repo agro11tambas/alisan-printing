@@ -49,6 +49,62 @@ class ReportItemsProductionController extends Controller
             ) AS pending_waiting_list
         ')
             )
+            ->selectRaw("
+                GREATEST(
+                    COALESCE((SELECT SUM(completed_quantity) FROM order_progress_items
+                        WHERE product_id = production_stocks.product_id AND deleted_at IS NULL), 0)
+                    - COALESCE((SELECT SUM(shipped_qty * COALESCE(unit_conversion_value, 1)) FROM delivery_order_items
+                        WHERE product_id = production_stocks.product_id AND deleted_at IS NULL), 0),
+                    0
+                ) AS finished_product_stock_calc
+            ")
+            ->selectRaw("
+                COALESCE((SELECT SUM(requested_qty - received_qty) FROM material_request_items
+                    WHERE product_id = production_stocks.product_id AND deleted_at IS NULL), 0)
+                + COALESCE((SELECT SUM(remaining_stock_in - stock_in) FROM inventory_items_2
+                    WHERE product_id = production_stocks.product_id AND deleted_at IS NULL
+                    AND purchase_item_id IS NOT NULL AND production_warehouse_id IS NOT NULL), 0)
+                AS incoming_stock_calc
+            ")
+            ->selectRaw("
+                GREATEST(COALESCE((SELECT SUM(
+                    assigned_quantity - completed_quantity - defect_quantity - reject_quantity
+                ) FROM order_progress_assigns
+                    WHERE product_id = production_stocks.product_id AND deleted_at IS NULL), 0), 0)
+                AS assigned_minus_completed_calc
+            ")
+            ->selectRaw("
+                GREATEST(
+                    COALESCE((SELECT SUM(shipped_qty * COALESCE(unit_conversion_value, 1)) FROM delivery_order_items
+                        WHERE product_id = production_stocks.product_id AND deleted_at IS NULL), 0)
+                    - COALESCE((SELECT SUM(dli.shipped_quantity * COALESCE(dli.unit_conversion_value, 1))
+                        FROM delivery_list_items dli
+                        INNER JOIN delivery_lists dl ON dl.id = dli.delivery_list_id
+                        WHERE dli.product_id = production_stocks.product_id
+                        AND dli.deleted_at IS NULL AND dl.deleted_at IS NULL AND dl.status = 'finished'), 0),
+                    0
+                ) AS on_delivery_calc
+            ")
+            ->selectRaw("
+                COALESCE((SELECT SUM(received_qty) FROM material_request_items
+                    WHERE product_id = production_stocks.product_id AND deleted_at IS NULL
+                    AND DATE(created_at) = ?), 0)
+                + COALESCE((SELECT SUM(h.stock_in)
+                    FROM inventory_stock_in_histories_2 h
+                    INNER JOIN inventory_stock_ins_2 s ON s.id = h.inventory_stock_in_id
+                    INNER JOIN inventory_items_2 i ON i.id = h.inventory_item_id
+                    INNER JOIN inventories_2 inv ON inv.id = i.inventory_id
+                    WHERE i.product_id = production_stocks.product_id
+                    AND inv.status = 'Stock In Production'
+                    AND h.deleted_at IS NULL AND s.deleted_at IS NULL
+                    AND DATE(s.created_at) = ?), 0)
+                AS stock_in_today_calc
+            ", [$today, $today])
+            ->selectRaw("
+                COALESCE((SELECT SUM(assigned_quantity) FROM order_progress_assigns
+                    WHERE product_id = production_stocks.product_id AND deleted_at IS NULL
+                    AND DATE(created_at) = ?), 0) AS assign_today_calc
+            ", [$today])
             ->orderByDesc('pending_waiting_list');
 
 
@@ -70,7 +126,7 @@ class ReportItemsProductionController extends Controller
         );
 
         // ✅ Eksekusi query
-        $reportItems = $reportItems->get();
+        // Biarkan sebagai query agar DataTables melakukan count, limit, dan offset di database.
 
         // 🔹 DataTables response
         return DataTables::of($reportItems)
@@ -85,6 +141,7 @@ class ReportItemsProductionController extends Controller
             //     fn($item) => number_format($item->finished_product_stock ?? 0, 0, ',', '.')
             // )
             ->addColumn('finished_product_stock', function ($item) {
+                return number_format($item->finished_product_stock_calc ?? 0, 0, ',', '.');
 
                 $productId = $item->product_id;
 
@@ -116,6 +173,7 @@ class ReportItemsProductionController extends Controller
             // })
 
             ->addColumn('incoming_stock', function ($item) {
+                return number_format($item->incoming_stock_calc ?? 0, 0, ',', '.');
 
                 $productId = $item->product_id;
 
@@ -146,6 +204,7 @@ class ReportItemsProductionController extends Controller
             )
 
             ->addColumn('assigned_minus_completed', function ($item) {
+                return number_format($item->assigned_minus_completed_calc ?? 0, 0, ',', '.');
 
                 $productId = $item->product_id;
 
@@ -167,6 +226,7 @@ class ReportItemsProductionController extends Controller
                 return number_format($result, 0, ',', '.');
             })
             ->addColumn('on_delivery', function ($item) {
+                return number_format($item->on_delivery_calc ?? 0, 0, ',', '.');
 
                 $productId = $item->product_id;
 
@@ -239,6 +299,7 @@ class ReportItemsProductionController extends Controller
             // })
 
             ->addColumn('stock_in_today', function ($item) use ($today) {
+                return number_format($item->stock_in_today_calc ?? 0, 0, ',', '.');
                 $productId = $item->product_id;
 
                 // 1️⃣ received_qty dari material_request_items hari ini
@@ -274,6 +335,7 @@ class ReportItemsProductionController extends Controller
             })
 
             ->addColumn('assign_today', function ($item) use ($today) {
+                return number_format($item->assign_today_calc ?? 0, 0, ',', '.');
                 $productId = $item->product_id;
 
                 $assignToday = \App\Models\OrderProgressAssign::where('product_id', $productId)

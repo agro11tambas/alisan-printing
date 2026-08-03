@@ -105,29 +105,14 @@ class WaitingListController extends Controller
         }
 
         // 1️⃣ Hitung total data untuk lazy load
-        $totalData = (clone $baseQuery)->count();
 
         // 1️⃣ Hitung pending dari ORDER PROGRESS (yang sudah ada)
-        $orderProgressPending = OrderProgress::with('items.product.categories')
-            ->get()
-            ->sum(function ($progress) {
-                return $progress->items->sum(function ($item) {
-                    $product = $item->product;
-                    if (!$product) return 0;
-
-                    // filter hanya sablon
-                    $isSablon = $product->categories->contains(function ($category) {
-                        return str_contains(strtolower($category->name), 'sablon');
-                    });
-
-                    if (!$isSablon) return 0;
-
-                    $completed = $item->completed_quantity ?? 0;
-                    $qty = $item->quantity ?? 0;
-
-                    return max($qty - $completed, 0);
-                });
-            });
+        $orderProgressPending = (float) \App\Models\OrderProgressItem::query()
+            ->whereHas('product.categories', function ($query) {
+                $query->whereRaw('LOWER(name) LIKE ?', ['%sablon%']);
+            })
+            ->selectRaw('SUM(CASE WHEN quantity > COALESCE(completed_quantity, 0) THEN quantity - COALESCE(completed_quantity, 0) ELSE 0 END) AS total')
+            ->value('total');
 
         // 2️⃣ Tambahkan TOTAL DESIGN ITEM qty dimana status = Pending
         $designPending = DesignItem::whereNull('deleted_at')
@@ -142,16 +127,8 @@ class WaitingListController extends Controller
         // 3️⃣ TOTAL REMAINING = progress pending + design pending
         $totalRemaining = $orderProgressPending + $designPending;
 
-        if ($request->filled('progress_status')) {
-            if ($request->progress_status === 'completed') {
-                $baseQuery->whereDoesntHave('items', function ($q) {
-                    $q->whereRaw('completed_quantity < (quantity * COALESCE(unit_conversion_value, 1))');
-                })->orderBy('created_at', 'desc');
-            } elseif ($request->progress_status === 'progress') {
-                $baseQuery->whereHas('items', function ($q) {
-                    $q->whereRaw('completed_quantity < (quantity * COALESCE(unit_conversion_value, 1))');
-                })->orderBy('created_at', 'asc');
-            }
+        if ($request->progress_status === 'progress') {
+            $baseQuery->orderBy('created_at', 'asc');
         } else {
             $baseQuery->orderBy('created_at', 'desc');
         }
@@ -163,7 +140,9 @@ class WaitingListController extends Controller
         $data = (clone $baseQuery)
             ->with([
                 'order.customer',
+                'order.customerAddress',
                 'items.assigns',
+                'items.designItem',
                 'items.product.productionStocks',
                 'items.product.categories'
             ])
@@ -278,7 +257,11 @@ class WaitingListController extends Controller
 
     public function dataCompleteList(Request $request)
     {
-        $orders = Order::with('customer')
+        $orders = Order::with([
+            'customer',
+            'orderItems.product',
+            'orderItems.productBundle.items.product',
+        ])
             ->where('status', 'complete list');
 
         if ($request->filled('start_date') && $request->filled('end_date')) {
@@ -296,7 +279,7 @@ class WaitingListController extends Controller
             });
         }
 
-        $orders = $orders->latest()->get();
+        $orders = $orders->latest();
 
         return DataTables::of($orders)
             ->addIndexColumn()
