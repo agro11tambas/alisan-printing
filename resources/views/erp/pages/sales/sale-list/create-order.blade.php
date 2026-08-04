@@ -672,8 +672,11 @@
                                     <div class="form-group">
                                         <label>Mode</label>
                                         <select name="mode[]" class="form-control item-mode">
-                                            <option value="printing" selected>Printing</option>
-                                            <option value="polosan">Polosan</option>
+                                            @foreach ($priceModes as $priceMode)
+                                                <option value="{{ $priceMode->slug }}" @selected($priceMode->slug === 'printing')>
+                                                    {{ $priceMode->name }}
+                                                </option>
+                                            @endforeach
                                         </select>
                                     </div>
 
@@ -803,8 +806,11 @@
                                     <div class="form-group">
                                         <label>Mode</label>
                                         <select name="mode[]" class="form-control item-mode">
-                                            <option value="printing" selected>Printing</option>
-                                            <option value="polosan">Polosan</option>
+                                            @foreach ($priceModes as $priceMode)
+                                                <option value="{{ $priceMode->slug }}" @selected($priceMode->slug === 'printing')>
+                                                    {{ $priceMode->name }}
+                                                </option>
+                                            @endforeach
                                         </select>
                                     </div>
 
@@ -1400,7 +1406,13 @@
                 fontWeight: '600'
             });
 
-            recalcAllRows();
+            const row = $(this).closest('.product-item');
+            if ($(this).data('mode-price-ready')) {
+                updatePriceFromSelectedUnit(row);
+            } else {
+                $(this).data('mode-price-ready', true);
+                recalcAllRows();
+            }
         });
 
         $(document).on('change', '.add-bundle-check', function() {
@@ -1856,12 +1868,14 @@
 
                 const unitColor = getUnitColor(unitName);
 
+                const dynamicPrices = encodeURIComponent(JSON.stringify(unit.prices || []));
                 unitSelect.append(`
                     <option value="${id}"
                         data-unit-id="${unitId}"
                         data-unit-name="${unitName}"
                         data-conversion-value="${conversionValue}"
                         data-sale-price="${salePrice}"
+                        data-prices="${dynamicPrices}"
                         data-color="${unitColor}">
                         ${unitName}
                     </option>
@@ -1874,12 +1888,28 @@
             unitSelect.val(baseOption || firstOption).trigger('change');
         }
 
+        function getModePrice(row, selectedUnit) {
+            const fallback = parseFloat(selectedUnit.data('sale-price') || 0);
+            const encoded = selectedUnit.attr('data-prices') || '';
+            if (!encoded) return fallback;
+
+            try {
+                const prices = JSON.parse(decodeURIComponent(encoded));
+                const mode = row.find('.item-mode').val();
+                const selected = prices.find(price => price.mode === mode);
+                return selected ? parseFloat(selected.sale_price || 0) : fallback;
+            } catch (error) {
+                console.warn('Dynamic price tidak dapat dibaca', error);
+                return fallback;
+            }
+        }
+
         function updatePriceFromSelectedUnit(row) {
             const selectedUnit = row.find('.product-unit option:selected');
 
             const unitName = selectedUnit.data('unit-name') || '';
             const conversionValue = selectedUnit.data('conversion-value') || '';
-            const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
+            const salePrice = getModePrice(row, selectedUnit);
             const unitColor = selectedUnit.data('color') || '#0d6efd';
 
             row.find('.unit-name').val(unitName);

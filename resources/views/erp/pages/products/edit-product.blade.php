@@ -406,6 +406,7 @@
                                     </small>
                                 </div>
                             </div>
+                            @include('erp.pages.products.partials.dynamic-prices')
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="description" class="fw-semibold">Description:</label>

@@ -91,6 +91,16 @@
                                         <div>Rp {{ number_format($product->price ?? 0, 0, ',', '.') }}</div>
                                     </div>
                                     <div class="col-md-4">
+                                        <div class="fw-semibold">Mode (Website Variant)</div>
+                                        <div class="d-flex flex-wrap gap-1 mt-1">
+                                            @forelse ($product->priceModes as $priceMode)
+                                                <span class="badge bg-soft-primary text-primary">{{ $priceMode->name }}</span>
+                                            @empty
+                                                <span class="text-muted">-</span>
+                                            @endforelse
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
                                         <div class="fw-semibold">Brand</div>
                                         <div>{{ $product->brand ?? '-' }}</div>
                                     </div>
@@ -128,7 +138,6 @@
                                             <thead class="table-light">
                                                 <tr>
                                                     <th>ERP Product</th>
-                                                    <th>Price</th>
                                                     <th>Alias</th>
                                                     @if ($groupIndex === 0)
                                                         <th>Tanpa Tutup</th>
@@ -140,7 +149,6 @@
                                                 @foreach ($group->options as $option)
                                                     <tr>
                                                         <td>{{ $option->product?->name ?? '-' }}</td>
-                                                        <td>Rp {{ number_format($option->price ?? 0, 0, ',', '.') }}</td>
                                                         <td>{{ $option->alias }}</td>
                                                         @if ($groupIndex === 0)
                                                             <td>
@@ -198,7 +206,7 @@
                                     <thead class="table-success">
                                         <tr>
                                             <th>Product Option + Lid Option</th>
-                                            <th>Price</th>
+                                            <th>Mode Prices</th>
                                             <th>Image</th>
                                             <th>Status</th>
                                         </tr>
@@ -207,7 +215,17 @@
                                             @foreach ($product->variantCombinations as $comb)
                                                 <tr>
                                                     <td>{{ $comb->productOption?->alias ?? $comb->productOption?->product?->name ?? '-' }} <span class="text-muted mx-1">+</span> {{ $comb->lidOption?->alias ?? $comb->lidOption?->product?->name ?? '-' }}</td>
-                                                    <td>Rp {{ number_format($comb->price ?? 0, 0, ',', '.') }}</td>
+                                                    <td>
+                                                        <div class="d-flex flex-wrap gap-1">
+                                                            @forelse (($comb->mode_prices ?? []) as $modePrice)
+                                                                <span class="badge bg-soft-success text-success">
+                                                                    {{ $modePrice['name'] }}: Rp {{ number_format($modePrice['price'], 0, ',', '.') }}
+                                                                </span>
+                                                            @empty
+                                                                <span class="text-muted">-</span>
+                                                            @endforelse
+                                                        </div>
+                                                    </td>
                                                     <td>
                                                         @if ($comb->image)
                                                             <a href="{{ asset('uploads/' . $comb->image) }}"

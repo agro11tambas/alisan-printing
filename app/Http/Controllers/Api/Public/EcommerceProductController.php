@@ -3,199 +3,189 @@
 namespace App\Http\Controllers\Api\Public;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-
 use App\Models\EcommerceProduct;
+use App\Services\EcommercePricingService;
 
 class EcommerceProductController extends Controller
 {
+    public function __construct(private EcommercePricingService $pricingService)
+    {
+    }
+
     public function index()
     {
-        $products = EcommerceProduct::with([
-                'categories',
-                'unit',
-                'galleryImages',
-                'variantGroups.options.product.categories',
-                'variantCombinations.productOption.product',
-                'variantCombinations.lidOption.product'
-            ])
+        $products = EcommerceProduct::with($this->relations())
             ->where('is_active', true)
-            ->orderBy('sort_order', 'asc')
+            ->orderBy('sort_order')
             ->get()
-            ->map(function ($product) {
-                return $this->formatProduct($product);
-            });
-            
+            ->map(fn ($product) => $this->formatProduct($product));
+
         return response()->json([
             'success' => true,
-            'data' => $products
+            'data' => $products,
         ]);
     }
 
     public function show($slug)
     {
-        $product = EcommerceProduct::with([
-            'categories', 
-            'unit',
-            'galleryImages',
-            'variantGroups.options.product.categories', 
-            'variantCombinations.productOption.product',
-            'variantCombinations.lidOption.product'
-        ])
-        ->where('slug', $slug)
-        ->where('is_active', true)
-        ->first();
+        $product = EcommerceProduct::with($this->relations())
+            ->where('slug', $slug)
+            ->where('is_active', true)
+            ->first();
 
         if (!$product) {
             return response()->json([
                 'success' => false,
-                'message' => 'Product not found'
+                'message' => 'Product not found',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $this->formatProduct($product)
+            'data' => $this->formatProduct($product),
         ]);
     }
 
-    private function resolveImageUrl($path) {
-        if (empty($path)) return $path;
-        if (str_starts_with($path, 'http')) return $path;
-        
+    private function relations(): array
+    {
+        return [
+            'categories',
+            'unit',
+            'galleryImages',
+            'priceModes',
+            'variantGroups.options.product.categories',
+            'variantGroups.options.product.unitConversions.prices.priceMode',
+            'variantCombinations.productOption.product',
+            'variantCombinations.lidOption.product',
+        ];
+    }
+
+    private function resolveImageUrl($path)
+    {
+        if (empty($path) || str_starts_with($path, 'http')) {
+            return $path;
+        }
+
         if (file_exists(public_path('storage/' . $path))) {
             return asset('storage/' . $path);
-        } else if (file_exists(public_path('uploads/' . $path))) {
+        }
+
+        if (file_exists(public_path('uploads/' . $path))) {
             return asset('uploads/' . $path);
         }
-        
+
         return asset('storage/' . $path);
     }
 
-    private function formatProduct($product)
+    private function formatProduct(EcommerceProduct $product): array
     {
-        // Calculate dynamic prices for options based on live ERP product sale_price
-        if ($product->relationLoaded('variantGroups')) {
-            foreach ($product->variantGroups as $group) {
-                foreach ($group->options as $opt) {
-                    $originalPrice = (float)$opt->price;
-                    
-                    if ($opt->relationLoaded('product') && $opt->product && (float)$opt->product->sale_price > 0) {
-                        $opt->original_price = $originalPrice;
-                        $opt->sale_price = (float)$opt->product->sale_price + (float)$opt->extra_price;
-                    } else {
-                        $opt->original_price = $originalPrice;
-                        $opt->sale_price = null;
-                    }
+        $unitId = (int) $product->unit_id;
+        $allowedModeSlugs = $product->priceModes->pluck('slug')->all();
+        $defaultPrices = [];
+
+        foreach ($product->variantGroups as $group) {
+            foreach ($group->options as $option) {
+                $modePrices = $option->product
+                    ? $this->pricingService->productModePrices(
+                        $option->product,
+                        $unitId,
+                        (float) $option->extra_price
+                    )
+                    : [];
+                $modePrices = array_values(array_filter($modePrices,
+                    fn ($price) => in_array($price['slug'], $allowedModeSlugs, true)
+                ));
+                $modePrices = array_values(array_filter($modePrices,
+                fn ($price) => in_array($price['slug'], $allowedModeSlugs, true)
+            ));
+            $defaultPrice = $this->pricingService->defaultPrice($modePrices);
+                $price = (float) ($defaultPrice['price'] ?? $option->price ?? 0);
+
+                $option->setAttribute('mode_prices', $modePrices);
+                $option->setAttribute('original_price', $price);
+                $option->setAttribute('price', $price);
+                $option->setAttribute('sale_price', null);
+
+                if ($price > 0) {
+                    $defaultPrices[] = $price;
                 }
             }
         }
 
-        // Calculate dynamic prices for combinations based on live ERP product sale_price
-        if ($product->relationLoaded('variantCombinations')) {
-            foreach ($product->variantCombinations as $comb) {
-                $originalPrice = 0;
-                $salePrice = 0;
-                $hasDiscount = false;
-                
-                if ($comb->relationLoaded('productOption') && $comb->productOption) {
-                    $optPrice = (float)$comb->productOption->price;
-                    $originalPrice += $optPrice;
-                    
-                    $erpSalePrice = 0;
-                    if ($comb->productOption->relationLoaded('product') && $comb->productOption->product) {
-                        $erpSalePrice = (float)$comb->productOption->product->sale_price;
-                    }
-                    
-                    if ($erpSalePrice > 0) {
-                        $salePrice += $erpSalePrice + (float)$comb->productOption->extra_price;
-                        $hasDiscount = true;
-                    } else {
-                        $salePrice += $optPrice;
-                    }
-                }
-                
-                if ($comb->relationLoaded('lidOption') && $comb->lidOption) {
-                    $optPrice = (float)$comb->lidOption->price;
-                    $originalPrice += $optPrice;
-                    
-                    $erpSalePrice = 0;
-                    if ($comb->lidOption->relationLoaded('product') && $comb->lidOption->product) {
-                        $erpSalePrice = (float)$comb->lidOption->product->sale_price;
-                    }
-                    
-                    if ($erpSalePrice > 0) {
-                        $salePrice += $erpSalePrice + (float)$comb->lidOption->extra_price;
-                        $hasDiscount = true;
-                    } else {
-                        $salePrice += $optPrice;
-                    }
-                }
+        foreach ($product->variantCombinations as $combination) {
+            $primaryProductId = $combination->productOption?->product_id;
+            $secondaryProductId = $combination->lidOption?->product_id;
+            $bundle = $primaryProductId && $secondaryProductId
+                ? $this->pricingService->bundleForPair((int) $primaryProductId, (int) $secondaryProductId)
+                : null;
+            $modePrices = $bundle
+                ? $this->pricingService->bundleModePrices($bundle, $unitId)
+                : [];
+            $modePrices = array_values(array_filter($modePrices,
+                fn ($price) => in_array($price['slug'], $allowedModeSlugs, true)
+            ));
+            $defaultPrice = $this->pricingService->defaultPrice($modePrices);
+            $price = (float) ($defaultPrice['price'] ?? $combination->price ?? 0);
 
-                if ($originalPrice > 0) {
-                    $comb->original_price = $originalPrice;
-                    $comb->price = $originalPrice; // By default price is original
-                } else {
-                    $comb->original_price = (float)$comb->price;
-                }
-                
-                // Add explicit sale_price to combination to be sent via API
-                $comb->sale_price = $hasDiscount && $salePrice > 0 && $salePrice < $originalPrice ? $salePrice : null;
-            }
+            $combination->setAttribute('mode_prices', $modePrices);
+            $combination->setAttribute('original_price', $price);
+            $combination->setAttribute('price', $price);
+            $combination->setAttribute('sale_price', null);
+        }
+
+        if (!empty($defaultPrices)) {
+            $product->setAttribute('price', min($defaultPrices));
         }
 
         $data = $product->toArray();
+
         if (!empty($data['main_image'])) {
             $data['main_image'] = $this->resolveImageUrl($data['main_image']);
         }
         if (!empty($data['main_video'])) {
             $data['main_video'] = $this->resolveImageUrl($data['main_video']);
         }
-        if (isset($data['categories'])) {
-            foreach ($data['categories'] as &$category) {
-                if (!empty($category['image'])) {
-                    $category['image'] = $this->resolveImageUrl($category['image']);
-                }
+
+        foreach ($data['categories'] ?? [] as &$category) {
+            if (!empty($category['image'])) {
+                $category['image'] = $this->resolveImageUrl($category['image']);
             }
         }
-        if (isset($data['gallery_images'])) {
-            foreach ($data['gallery_images'] as &$gallery) {
-                if (!empty($gallery['image'])) {
-                    $gallery['image_url'] = $this->resolveImageUrl($gallery['image']);
-                }
+        unset($category);
+
+        foreach ($data['gallery_images'] ?? [] as &$gallery) {
+            if (!empty($gallery['image'])) {
+                $gallery['image_url'] = $this->resolveImageUrl($gallery['image']);
             }
         }
-        if (isset($data['variant_groups'])) {
-            foreach ($data['variant_groups'] as &$group) {
-                if (isset($group['options'])) {
-                    foreach ($group['options'] as &$opt) {
-                        if (!empty($opt['image'])) {
-                            $opt['image'] = $this->resolveImageUrl($opt['image']);
-                        }
-                        if (isset($opt['product'])) {
-                            $opt['erp_product_id'] = $opt['product']['id'];
-                            if (isset($opt['product']['categories'])) {
-                                $opt['erp_category_ids'] = collect($opt['product']['categories'])->pluck('id')->toArray();
-                            }
-                        }
-                        unset($opt['product']);
-                    }
+        unset($gallery);
+
+        foreach ($data['variant_groups'] ?? [] as &$group) {
+            foreach ($group['options'] ?? [] as &$option) {
+                if (!empty($option['image'])) {
+                    $option['image'] = $this->resolveImageUrl($option['image']);
                 }
+                if (isset($option['product'])) {
+                    $option['erp_product_id'] = $option['product']['id'];
+                    $option['erp_category_ids'] = collect($option['product']['categories'] ?? [])->pluck('id')->all();
+                }
+                unset($option['product']);
             }
+            unset($option);
         }
-        if (isset($data['variant_combinations'])) {
-            foreach ($data['variant_combinations'] as &$variant) {
-                if (!empty($variant['image'])) {
-                    $variant['image'] = $this->resolveImageUrl($variant['image']);
-                }
-                if (!empty($variant['video'])) {
-                    $variant['video'] = $this->resolveImageUrl($variant['video']);
-                }
-                // Clean up nested relations to keep payload clean
-                unset($variant['product_option']['product']);
-                unset($variant['lid_option']['product']);
+        unset($group);
+
+        foreach ($data['variant_combinations'] ?? [] as &$variant) {
+            if (!empty($variant['image'])) {
+                $variant['image'] = $this->resolveImageUrl($variant['image']);
             }
+            if (!empty($variant['video'])) {
+                $variant['video'] = $this->resolveImageUrl($variant['video']);
+            }
+            unset($variant['product_option']['product'], $variant['lid_option']['product']);
         }
+        unset($variant);
+
         return $data;
     }
 }

@@ -18,6 +18,7 @@ class PermissionSubItemSeeder extends Seeder
                 ['name' => 'Kategori Produk', 'slug' => 'product-categories'],
                 ['name' => 'Merek Produk', 'slug' => 'product-tags'],
                 ['name' => 'Product Unit', 'slug' => 'product-units'],
+                ['name' => 'Mode', 'slug' => 'price-modes'],
             ],
 
             // Inventory Module

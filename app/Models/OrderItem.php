@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 
 class OrderItem extends Model
 {
@@ -17,6 +18,7 @@ class OrderItem extends Model
         'product_bundle_id',
         'status',
         'product_name',
+        'price_mode_id',
         'satuan',
         'mode',
         'quantity',
@@ -73,6 +75,25 @@ class OrderItem extends Model
         return $this->hasMany(DeliveryListItem::class, 'delivery_order_item_id');
     }
 
+    public function priceMode(): BelongsTo
+    {
+        return $this->belongsTo(PriceMode::class);
+    }
+
+    public function usesProductionFlow(): bool
+    {
+        if ($this->relationLoaded('priceMode') || $this->price_mode_id) {
+            return ($this->priceMode?->production_flow ?? 'production') === 'production';
+        }
+
+        return $this->mode !== 'polosan';
+    }
+
+    public function usesPolosanFlow(): bool
+    {
+        return !$this->usesProductionFlow();
+    }
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Products::class, 'product_id')->withTrashed();
@@ -112,6 +133,12 @@ class OrderItem extends Model
 
     protected static function booted()
     {
+        static::saving(function ($orderItem) {
+            if ($orderItem->mode && Schema::hasTable('price_modes')) {
+                $orderItem->price_mode_id = PriceMode::where('slug', $orderItem->mode)->value('id');
+            }
+        });
+
         static::deleting(function ($orderItem) {
             if ($orderItem->isForceDeleting()) {
                 // ✅ Force delete semua relasi anak

@@ -607,8 +607,12 @@
                                     <div class="form-group">
                                         <label>Mode</label>
                                         <select name="mode[]" class="form-control item-mode">
-                                            <option value="printing" selected>Printing</option>
-                                            <option value="polosan">Polosan</option>
+                                            @foreach ($priceModes as $priceMode)
+                                                <option value="{{ $priceMode->slug }}"
+                                                    {{ $priceMode->slug === 'printing' ? 'selected' : '' }}>
+                                                    {{ $priceMode->name }}
+                                                </option>
+                                            @endforeach
                                         </select>
                                     </div>
 
@@ -705,8 +709,12 @@
                                     <div class="form-group">
                                         <label>Mode</label>
                                         <select name="mode[]" class="form-control item-mode">
-                                            <option value="printing" selected>Printing</option>
-                                            <option value="polosan">Polosan</option>
+                                            @foreach ($priceModes as $priceMode)
+                                                <option value="{{ $priceMode->slug }}"
+                                                    {{ $priceMode->slug === 'printing' ? 'selected' : '' }}>
+                                                    {{ $priceMode->name }}
+                                                </option>
+                                            @endforeach
                                         </select>
                                     </div>
 
@@ -1775,7 +1783,13 @@
 
             const unitName = selectedUnit.data('unit-name') || 'Pcs';
             const conversionValue = selectedUnit.data('conversion-value') || 1;
-            const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
+            const fallbackPrice = parseFloat(selectedUnit.data('sale-price') || 0);
+            const selectedProductValue = String(row.find('select[name="product[]"]').val() || '');
+            const selectedProductId = selectedProductValue.replace('satuan_', '');
+            const product = allProducts.find(item => String(item.id) === selectedProductId);
+            const unit = product?.units?.find(item => String(item.id) === String(selectedUnit.val()));
+            const mode = row.find('.item-mode').val();
+            const salePrice = parseFloat(unit?.dynamic_prices?.[mode] ?? fallbackPrice);
             const unitColor = selectedUnit.data('color') || getUnitColor(unitName);
 
             row.find('.unit-name').val(unitName);
@@ -1800,11 +1814,11 @@
 
         $(document).on('change', '.item-mode', function() {
             $(this).css({
-                color: this.value === 'printing' ? '#198754' : '#dc3545',
+                color: '#198754',
                 fontWeight: '600'
             });
 
-            recalcAllRows();
+            updatePriceFromSelectedUnit($(this).closest('.product-item'));
         });
 
         $('.product-unit').trigger('change');

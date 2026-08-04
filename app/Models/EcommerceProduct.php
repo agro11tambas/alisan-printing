@@ -43,6 +43,15 @@ class EcommerceProduct extends Model
     {
         return $this->belongsTo(ProductUnit::class, 'unit_id');
     }
+    public function priceModes()
+    {
+        return $this->belongsToMany(
+            PriceMode::class,
+            'ecommerce_product_price_modes',
+            'ecommerce_product_id',
+            'price_mode_id'
+        )->withTimestamps()->orderBy('sort_order');
+    }
 
     public function galleryImages()
     {

@@ -257,6 +257,38 @@
                                 </div>
                             </div>
 
+                            <div class="row mb-2 align-items-start">
+                                <div class="col-lg-2">
+                                    <label class="fw-semibold">Mode <span class="text-danger">*</span></label>
+                                    <small class="text-muted d-block">Website Variant</small>
+                                </div>
+                                <div class="col-lg-10 field-wrapper">
+                                    @php
+                                        $defaultModeIds = isset($product)
+                                            ? $product->priceModes->pluck('id')->all()
+                                            : $priceModes->pluck('id')->all();
+                                        $selectedModeIds = array_map('intval', old('price_mode_ids', $defaultModeIds));
+                                    @endphp
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @foreach ($priceModes as $priceMode)
+                                            <label class="d-flex align-items-center gap-2 border rounded px-3 py-2 mb-0 bg-white">
+                                                <input type="checkbox" class="form-check-input mt-0 ecommerce-price-mode"
+                                                    name="price_mode_ids[]" value="{{ $priceMode->id }}"
+                                                    data-mode-slug="{{ $priceMode->slug }}"
+                                                    {{ in_array((int) $priceMode->id, $selectedModeIds, true) ? 'checked' : '' }}>
+                                                <span class="fw-semibold">{{ $priceMode->name }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <small class="text-muted d-block mt-1">Pilih Mode yang boleh dibeli customer untuk seluruh variant produk dan bundle.</small>
+                                    @error('price_mode_ids')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                    @error('price_mode_ids.*')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="title" class="fw-semibold">Title</label>
@@ -481,7 +513,6 @@
                                                 <thead class="table-light">
                                                     <tr>
                                                         <th>ERP Product</th>
-                                                        <th>Price (Saved)</th>
                                                         <th>Alias</th>
                                                         @if ($groupIndex === 0)
                                                             <th>Tanpa Tutup</th>
@@ -510,13 +541,7 @@
                                                                     @endforeach
                                                                 </select>
                                                             </td>
-                                                            <td class="field-wrapper align-middle">
-                                                                @if(isset($optionRow['price']))
-                                                                    <span class="badge bg-soft-success text-success">Rp {{ $formatNumber($optionRow['price'] ?? 0) }}</span>
-                                                                @else
-                                                                    <span class="badge bg-soft-secondary text-secondary">-</span>
-                                                                @endif
-                                                            </td>
+
                                                             <td class="field-wrapper">
                                                                 <input type="text"
                                                                     class="form-control option-alias-input"
@@ -614,7 +639,7 @@
                                     <thead class="table-success">
                                         <tr>
                                             <th>Product Option + Lid Option</th>
-                                            <th>Price (Saved)</th>
+                                            <th>Mode Prices</th>
                                             <th>Image</th>
                                             <th>Is Active</th>
                                         </tr>
@@ -639,27 +664,31 @@
     $erpProductsJson = $erpProducts->map(fn($item) => [
         'id' => $item->id,
         'text' => trim($item->name . ' - ' . $item->sku),
-        'base_price' => $item->sale_price > 0 ? $item->sale_price : $item->price,
-        'conversions' => $item->unitConversions->map(fn($c) => [
-            'unit_id' => $c->unit_id,
-            'sale_price' => $c->sale_price,
-        ])->values(),
+
     ])->values();
 @endphp
         const erpProducts = @json($erpProductsJson);
 
-        function getProductPrice(productId) {
-            const product = erpProducts.find(p => String(p.id) === String(productId));
-            if (!product) return 0;
-            const unitId = $('#unit_id').val();
-            if (unitId && product.conversions) {
-                const conv = product.conversions.find(c => String(c.unit_id) === String(unitId));
-                if (conv && parseFloat(conv.sale_price) > 0) {
-                    return parseFloat(conv.sale_price);
-                }
-            }
-            return parseFloat(product.base_price) || 0;
+
+        function selectedWebsiteModes() {
+            return $('.ecommerce-price-mode:checked').map((_, element) => element.dataset.modeSlug).get();
         }
+
+        function renderModePrices(prices, fallbackPrice = 0) {
+            const selectedModes = selectedWebsiteModes();
+            const visiblePrices = Array.isArray(prices)
+                ? prices.filter(price => selectedModes.includes(price.slug))
+                : [];
+            if (visiblePrices.length) {
+                return visiblePrices.map(price =>
+                    `<span class="badge bg-soft-success text-success me-1 mb-1">${price.name}: Rp ${formatPrice(price.price)}</span>`
+                ).join('');
+            }
+            return fallbackPrice > 0
+                ? `<span class="badge bg-soft-success text-success">Polos: Rp ${formatPrice(fallbackPrice)}</span>`
+                : `<span class="badge bg-soft-secondary text-secondary">-</span>`;
+        }
+
 
         $(document).ready(function() {
             if (window.__erpEcommerceProductFormInitialized) {
@@ -879,9 +908,7 @@
                     const lidLabel = escapeHtml(lidAliasMap[pair.secondary_product_id] || '');
                     
                     const displayPrice = pair.price !== undefined && pair.price !== null ? pair.price : existing.price;
-                    const priceLabel = displayPrice !== undefined && displayPrice !== null
-                        ? `<span class="badge bg-soft-success text-success">Rp ${formatPrice(displayPrice)}</span>`
-                        : `<span class="badge bg-soft-secondary text-secondary">-</span>`;
+                    const priceLabel = renderModePrices(pair.mode_prices, Number(displayPrice) || 0);
 
                     const tr = `
                         <tr>
@@ -966,6 +993,9 @@
                 if (unitId) {
                     params.set('unit_id', unitId);
                 }
+                $('.ecommerce-price-mode:checked').each(function() {
+                    params.append('price_mode_ids[]', this.value);
+                });
 
                 const combinationsSection = document.getElementById('variantCombinationsSection');
                 combinationsSection?.setAttribute('aria-busy', 'true');
@@ -1051,10 +1081,7 @@
                                 }
                             });
 
-                            const secPrice = getProductPrice(sec.id);
-                            row.find('td:nth-child(2)').html(
-                                `<span class="badge bg-soft-success text-success">Rp ${formatPrice(secPrice)}</span>`
-                            );
+
                         });
 
                         initSelect2(lidGroup);
@@ -1083,15 +1110,6 @@
                 }
             }
             $(document).on('change', '.variant-group-item:first-child .option-product-select', function() {
-                const tr = $(this).closest('tr');
-                const productId = $(this).val();
-                if (productId) {
-                    const price = getProductPrice(productId);
-                    tr.find('td:nth-child(2)').html(`<span class="badge bg-soft-success text-success">Rp ${formatPrice(price)}</span>`);
-                } else {
-                    tr.find('td:nth-child(2)').html(`<span class="badge bg-soft-secondary text-secondary">-</span>`);
-                }
-                
                 scheduleSecondaryProductsFetch();
             });
 
@@ -1127,27 +1145,17 @@
                 }
             });
             
-            // Refresh all variant option prices based on selected unit
-            function refreshAllVariantPrices() {
-                $('.variant-group-item .variant-option-row').each(function() {
-                    const priceCell = $(this).find('td:nth-child(2)');
-                    const productId = $(this).find('.option-product-select').val();
-                    if (productId) {
-                        const price = getProductPrice(productId);
-                        priceCell.html(`<span class="badge bg-soft-success text-success">Rp ${formatPrice(price)}</span>`);
-                    }
-                });
-            }
 
             // When unit changes, refresh ALL prices + re-fetch combinations
             $(document).on('change', '#unit_id', function() {
-                refreshAllVariantPrices();
+                scheduleSecondaryProductsFetch();
+            });
+            $(document).on('change', '.ecommerce-price-mode', function() {
                 scheduleSecondaryProductsFetch();
             });
 
             // Call on load
             secondaryFetchTimer = setTimeout(() => {
-                refreshAllVariantPrices();
                 fetchSecondaryProducts();
             }, 500);
 
@@ -1163,9 +1171,7 @@
                                 ${optionsHtml(erpProducts)}
                             </select>
                         </td>
-                        <td class="field-wrapper align-middle">
-                            <span class="badge bg-soft-secondary text-secondary">-</span>
-                        </td>
+
                         <td class="field-wrapper">
                             <input type="text" class="form-control option-alias-input" name="variant_groups[${groupIndex}][options][${optionIndex}][alias]" placeholder="Alias">
                         </td>
@@ -1250,7 +1256,6 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>ERP Product</th>
-                                        <th>Price (Saved)</th>
                                         <th>Alias</th>
                                         ${groupIndex === 0 ? '<th>Tanpa Tutup</th>' : ''}
                                         <th>Is Active</th>

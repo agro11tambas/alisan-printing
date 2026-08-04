@@ -9,12 +9,17 @@ use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
 use App\Http\Controllers\Controller;
 use App\Models\ProductBundleUnitConversion;
+use App\Services\ProductBundlePricingService;
 use App\Models\ProductUnit;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class ProductBundleController extends Controller
 {
+    public function __construct(private ProductBundlePricingService $bundlePricingService)
+    {
+    }
+
     public function getProductBundles()
     {
         return view('erp.pages.product-bundles.index');
@@ -26,8 +31,9 @@ class ProductBundleController extends Controller
         $start = (int) $request->input('start', 0);
 
         $query = ProductBundle::with([
-            'items.product.unitConversions',
+            'items.product.unitConversions.prices.priceMode',
             'unitConversions.unit',
+            'unitConversions.prices.priceMode',
         ]);
 
         if ($request->filled('search_type') && $request->filled('search_keyword')) {
@@ -395,37 +401,8 @@ class ProductBundleController extends Controller
                         'role' => 'secondary',
                     ]);
 
-                    $primaryUnits = $primary->unitConversions->keyBy('unit_id');
-                    $secondaryUnits = $secondary->unitConversions->keyBy('unit_id');
+                    $this->bundlePricingService->sync($bundle);
 
-                    foreach ($primaryUnits as $unitId => $primaryUnit) {
-                        $secondaryUnit = $secondaryUnits->get($unitId);
-
-                        $primarySalePrice = (float) ($primaryUnit->sale_price ?? 0);
-                        $secondarySalePrice = $secondaryUnit ? (float) ($secondaryUnit->sale_price ?? 0) : 0;
-
-                        ProductBundleUnitConversion::create([
-                            'product_bundle_id' => $bundle->id,
-                            'unit_id' => $unitId,
-                            'conversion_value' => $primaryUnit->conversion_value ?? 1,
-                            'ratio_value' => $primaryUnit->ratio_value ?? $primaryUnit->conversion_value ?? 1,
-                            'sale_price' => $primarySalePrice + $secondarySalePrice,
-                        ]);
-                    }
-
-                    foreach ($secondaryUnits as $unitId => $secondaryUnit) {
-                        if ($primaryUnits->has($unitId)) {
-                            continue;
-                        }
-
-                        ProductBundleUnitConversion::create([
-                            'product_bundle_id' => $bundle->id,
-                            'unit_id' => $unitId,
-                            'conversion_value' => $secondaryUnit->conversion_value ?? 1,
-                            'ratio_value' => $secondaryUnit->ratio_value ?? $secondaryUnit->conversion_value ?? 1,
-                            'sale_price' => $secondaryUnit->sale_price ?? 0,
-                        ]);
-                    }
                 }
             });
 
@@ -799,39 +776,8 @@ class ProductBundleController extends Controller
                     'role' => 'secondary',
                 ]);
 
-                ProductBundleUnitConversion::where('product_bundle_id', $bundle->id)->delete();
+                $this->bundlePricingService->sync($bundle);
 
-                $primaryUnits = $primary->unitConversions->keyBy('unit_id');
-                $secondaryUnits = $secondary->unitConversions->keyBy('unit_id');
-
-                foreach ($primaryUnits as $unitId => $primaryUnit) {
-                    $secondaryUnit = $secondaryUnits->get($unitId);
-
-                    $primarySalePrice = (float) ($primaryUnit->sale_price ?? 0);
-                    $secondarySalePrice = $secondaryUnit ? (float) ($secondaryUnit->sale_price ?? 0) : 0;
-
-                    ProductBundleUnitConversion::create([
-                        'product_bundle_id' => $bundle->id,
-                        'unit_id' => $unitId,
-                        'conversion_value' => $primaryUnit->conversion_value ?? 1,
-                        'ratio_value' => $primaryUnit->ratio_value ?? $primaryUnit->conversion_value ?? 1,
-                        'sale_price' => $primarySalePrice + $secondarySalePrice,
-                    ]);
-                }
-
-                foreach ($secondaryUnits as $unitId => $secondaryUnit) {
-                    if ($primaryUnits->has($unitId)) {
-                        continue;
-                    }
-
-                    ProductBundleUnitConversion::create([
-                        'product_bundle_id' => $bundle->id,
-                        'unit_id' => $unitId,
-                        'conversion_value' => $secondaryUnit->conversion_value ?? 1,
-                        'ratio_value' => $secondaryUnit->ratio_value ?? $secondaryUnit->conversion_value ?? 1,
-                        'sale_price' => $secondaryUnit->sale_price ?? 0,
-                    ]);
-                }
             });
 
             return redirect('/erp/products/product-bundles')
@@ -1032,37 +978,8 @@ class ProductBundleController extends Controller
                         'role' => 'secondary',
                     ]);
 
-                    $primaryUnits = $primary->unitConversions->keyBy('unit_id');
-                    $secondaryUnits = $secondary->unitConversions->keyBy('unit_id');
+                    $this->bundlePricingService->sync($bundle);
 
-                    foreach ($primaryUnits as $unitId => $primaryUnit) {
-                        $secondaryUnit = $secondaryUnits->get($unitId);
-
-                        $primarySalePrice = (float) ($primaryUnit->sale_price ?? 0);
-                        $secondarySalePrice = $secondaryUnit ? (float) ($secondaryUnit->sale_price ?? 0) : 0;
-
-                        ProductBundleUnitConversion::create([
-                            'product_bundle_id' => $bundle->id,
-                            'unit_id' => $unitId,
-                            'conversion_value' => $primaryUnit->conversion_value ?? 1,
-                            'ratio_value' => $primaryUnit->ratio_value ?? $primaryUnit->conversion_value ?? 1,
-                            'sale_price' => $primarySalePrice + $secondarySalePrice,
-                        ]);
-                    }
-
-                    foreach ($secondaryUnits as $unitId => $secondaryUnit) {
-                        if ($primaryUnits->has($unitId)) {
-                            continue;
-                        }
-
-                        ProductBundleUnitConversion::create([
-                            'product_bundle_id' => $bundle->id,
-                            'unit_id' => $unitId,
-                            'conversion_value' => $secondaryUnit->conversion_value ?? 1,
-                            'ratio_value' => $secondaryUnit->ratio_value ?? $secondaryUnit->conversion_value ?? 1,
-                            'sale_price' => $secondaryUnit->sale_price ?? 0,
-                        ]);
-                    }
                 }
             });
 

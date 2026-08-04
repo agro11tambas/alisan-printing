@@ -16,14 +16,20 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemComponent;
 use App\Models\Products;
+use App\Services\EcommercePricingService;
 use App\Services\InvoiceNumberService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class EcommerceSaleOrderController extends Controller
 {
+    public function __construct(private EcommercePricingService $pricingService)
+    {
+    }
+
     public function index(Request $request)
     {
         $account = $this->customerAccount($request);
@@ -72,7 +78,10 @@ class EcommerceSaleOrderController extends Controller
             'items.*.variant_option_ids' => ['nullable', 'array'],
             'items.*.variant_option_ids.*' => ['integer', 'distinct', 'exists:ecommerce_variant_options,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.mode' => ['nullable', 'in:printing,polosan'],
+            'items.*.mode' => [
+                'required',
+                Rule::exists('price_modes', 'slug')->where('is_active', true),
+            ],
         ]);
 
         $account = $this->customerAccount($request, $validated['shipping'] ?? []);
@@ -136,9 +145,7 @@ class EcommerceSaleOrderController extends Controller
                 $isBundle = $line['is_bundle'];
                 $erpItem = $line['erp_item'];
 
-                $conversionId = $erpItem->unitConversions()
-                    ->where('conversion_value', 1)
-                    ->value('id') ?? $erpItem->unitConversions()->value('id');
+                $conversionId = $line['unit_conversion_id'];
 
                 $orderItem = OrderItem::create([
                     'order_id' => $order->id,
@@ -147,8 +154,8 @@ class EcommerceSaleOrderController extends Controller
                     'product_unit_conversion_id' => $isBundle ? null : $conversionId,
                     'product_bundle_unit_conversion_id' => $isBundle ? $conversionId : null,
                     'unit_name' => $line['unit_name'],
-                    'unit_conversion_value' => 1,
-                    'qty_base' => $line['quantity'],
+                    'unit_conversion_value' => $line['unit_conversion_value'],
+                    'qty_base' => $line['quantity'] * $line['unit_conversion_value'],
                     'product_name' => $line['erp_item']->name,
                     'satuan' => $line['is_bundle'] ? 'bundle' : 'satuan',
                     'quantity' => $line['quantity'],
@@ -328,7 +335,7 @@ class EcommerceSaleOrderController extends Controller
         $lineItems = [];
 
         foreach ($items as $index => $item) {
-            $ecommerceProduct = EcommerceProduct::with(['categories', 'unit', 'variantGroups'])
+            $ecommerceProduct = EcommerceProduct::with(['categories', 'unit', 'variantGroups', 'priceModes'])
                 ->whereKey($item['ecommerce_product_id'])
                 ->where('is_active', true)
                 ->whereHas('categories', fn ($query) => $query->where('is_active', true))
@@ -341,6 +348,13 @@ class EcommerceSaleOrderController extends Controller
             }
 
             $quantity = (int) $item['quantity'];
+            $mode = (string) $item['mode'];
+            $unitId = (int) $ecommerceProduct->unit_id;
+            if (!$ecommerceProduct->priceModes->contains('slug', $mode)) {
+                throw ValidationException::withMessages([
+                    "items.$index.mode" => 'Mode tidak diaktifkan untuk Ecommerce Product ini.',
+                ]);
+            }
             $this->validateQuantity($ecommerceProduct, $quantity, $index);
 
             if (!empty($item['ecommerce_variant_combination_id'])) {
@@ -365,10 +379,10 @@ class EcommerceSaleOrderController extends Controller
                     ]);
                 }
 
-                $bundle = ProductBundle::with(['items.product', 'baseUnit'])
-                    ->whereHas('items', fn ($q) => $q->where('role', 'primary')->where('product_id', $primaryProductId))
-                    ->whereHas('items', fn ($q) => $q->where('role', 'secondary')->where('product_id', $secondaryProductId))
-                    ->first();
+                $bundle = $this->pricingService->bundleForPair(
+                    (int) $primaryProductId,
+                    (int) $secondaryProductId
+                );
 
                 if (!$bundle) {
                     throw ValidationException::withMessages([
@@ -376,7 +390,14 @@ class EcommerceSaleOrderController extends Controller
                     ]);
                 }
 
-                $unitPrice = (float) $combination->price;
+                $priceData = $this->pricingService->bundlePrice($bundle, $unitId, $mode);
+                $conversion = $bundle->unitConversions->firstWhere('unit_id', $unitId);
+                if (!$priceData || !$conversion) {
+                    throw ValidationException::withMessages([
+                        "items.$index.mode" => 'Mode tidak tersedia untuk kombinasi produk dan unit ini.',
+                    ]);
+                }
+                $unitPrice = (float) $priceData['price'];
 
                 $bundleItems = [];
                 foreach ($bundle->items as $bItem) {
@@ -404,12 +425,14 @@ class EcommerceSaleOrderController extends Controller
                     'variant_group' => null,
                     'variant_alias' => null,
                     'quantity' => $quantity,
-                    'mode' => $item['mode'] ?? 'printing',
+                    'mode' => $mode,
                     'unit_name' => $ecommerceProduct->unit?->name ?? $bundle->baseUnit?->name ?? 'Pcs',
                     'unit_price' => $unitPrice,
                     'subtotal' => $unitPrice * $quantity,
+                    'unit_conversion_id' => $conversion->id,
+                    'unit_conversion_value' => (float) $conversion->conversion_value,
                     'avg_cost' => 0,
-                    'fixed_cost' => 0,
+                    'fixed_cost' => (float) $priceData['fixed_cost'],
                 ];
 
             } else {
@@ -422,7 +445,12 @@ class EcommerceSaleOrderController extends Controller
                 }
 
                 if (!empty($optionIds)) {
-                    $options = EcommerceVariantOption::with(['group', 'product.baseUnit', 'product.categories'])
+                    $options = EcommerceVariantOption::with([
+                        'group',
+                        'product.baseUnit',
+                        'product.categories',
+                        'product.unitConversions.prices.priceMode',
+                    ])
                         ->whereIn('id', $optionIds)
                         ->where('is_active', true)
                         ->get();
@@ -465,7 +493,19 @@ class EcommerceSaleOrderController extends Controller
                             ]);
                         }
 
-                        $unitPrice = (float) $option->price;
+                        $priceData = $this->pricingService->productPrice(
+                            $product,
+                            $unitId,
+                            $mode,
+                            (float) $option->extra_price
+                        );
+                        $conversion = $product->unitConversions->firstWhere('unit_id', $unitId);
+                        if (!$priceData || !$conversion) {
+                            throw ValidationException::withMessages([
+                                "items.$index.mode" => 'Mode tidak tersedia untuk salah satu produk pada unit ini.',
+                            ]);
+                        }
+                        $unitPrice = (float) $priceData['price'];
 
                         $lineItems[] = [
                             'is_bundle' => false,
@@ -480,14 +520,16 @@ class EcommerceSaleOrderController extends Controller
                             'variant_group' => $option->group?->name,
                             'variant_alias' => $option->alias,
                             'quantity' => $quantity,
-                            'mode' => $item['mode'] ?? 'printing',
+                            'mode' => $mode,
                             'unit_name' => $ecommerceProduct->unit?->name
                                 ?? $product->baseUnit?->name
                                 ?? 'Pcs',
                             'unit_price' => $unitPrice,
                             'subtotal' => $unitPrice * $quantity,
+                            'unit_conversion_id' => $conversion->id,
+                            'unit_conversion_value' => (float) $conversion->conversion_value,
                             'avg_cost' => (float) ($product->avg_cost ?? 0),
-                            'fixed_cost' => (float) ($product->fixed_cost ?? 0),
+                            'fixed_cost' => (float) $priceData['fixed_cost'],
                         ];
                     }
                 }

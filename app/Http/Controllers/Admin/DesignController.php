@@ -432,7 +432,7 @@ class DesignController extends Controller
 
             // AMBIL PRINTING + POLOSAN
             $verifyItems = $design->items->filter(function ($designItem) {
-                return in_array($designItem->orderItem?->mode, ['printing', 'polosan']);
+                return in_array($designItem->orderItem?->mode, ['printing', 'polosan', 'sablon'], true);
             });
 
             if ($verifyItems->isEmpty()) {

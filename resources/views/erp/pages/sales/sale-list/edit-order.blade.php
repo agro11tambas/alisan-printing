@@ -704,6 +704,7 @@
                                                             data-unit-name="{{ optional($conversion->unit)->name }}"
                                                             data-conversion-value="{{ $conversion->conversion_value }}"
                                                             data-sale-price="{{ $conversion->sale_price }}"
+                                                            data-prices="{{ rawurlencode(json_encode($conversion->prices ?? [])) }}"
                                                             {{ (int) $item->product_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
                                                             {{ optional($conversion->unit)->name }}
                                                         </option>
@@ -749,14 +750,13 @@
                                         <div class="form-group">
                                             <label>Mode</label>
                                             <select name="mode[]" class="form-control item-mode">
-                                                <option value="printing"
-                                                    {{ ($item->mode ?? 'printing') === 'printing' ? 'selected' : '' }}>
-                                                    Printing
-                                                </option>
-                                                <option value="polosan"
-                                                    {{ ($item->mode ?? 'printing') === 'polosan' ? 'selected' : '' }}>
-                                                    Polosan
-                                                </option>
+                                                @foreach ($priceModes as $priceMode)
+                                                    <option value="{{ $priceMode->slug }}"
+                                                        @selected(($item->mode ?? 'printing') === $priceMode->slug)
+                                                        @disabled(!$priceMode->is_active && ($item->mode ?? '') !== $priceMode->slug)>
+                                                        {{ $priceMode->name }}{{ $priceMode->is_active ? '' : ' (Inactive)' }}
+                                                    </option>
+                                                @endforeach
                                             </select>
                                         </div>
 
@@ -857,14 +857,13 @@
                                     <div class="form-group">
                                         <label>Mode</label>
                                         <select name="mode[]" class="form-control item-mode">
-                                            <option value="printing"
-                                                {{ ($item->mode ?? 'printing') === 'printing' ? 'selected' : '' }}>
-                                                Printing
-                                            </option>
-                                            <option value="polosan"
-                                                {{ ($item->mode ?? 'printing') === 'polosan' ? 'selected' : '' }}>
-                                                Polosan
-                                            </option>
+                                            @foreach ($priceModes as $priceMode)
+                                                <option value="{{ $priceMode->slug }}"
+                                                    @selected(($item->mode ?? 'printing') === $priceMode->slug)
+                                                    @disabled(!$priceMode->is_active && ($item->mode ?? '') !== $priceMode->slug)>
+                                                    {{ $priceMode->name }}{{ $priceMode->is_active ? '' : ' (Inactive)' }}
+                                                </option>
+                                            @endforeach
                                         </select>
                                     </div>
 
@@ -1375,12 +1374,14 @@
 
                 const unitColor = getUnitColor(unitName);
 
+                const dynamicPrices = encodeURIComponent(JSON.stringify(unit.prices || []));
                 unitSelect.append(`
                     <option value="${id}"
                         data-unit-id="${unitId}"
                         data-unit-name="${unitName}"
                         data-conversion-value="${conversionValue}"
                         data-sale-price="${salePrice}"
+                        data-prices="${dynamicPrices}"
                         data-color="${unitColor}">
                         ${unitName}
                     </option>
@@ -1406,6 +1407,22 @@
             // unitSelect.val(baseOption || firstOption).trigger('change');
         }
 
+        function getModePrice(row, selectedUnit) {
+            const fallback = parseFloat(selectedUnit.data('sale-price') || 0);
+            const encoded = selectedUnit.attr('data-prices') || '';
+            if (!encoded) return fallback;
+
+            try {
+                const prices = JSON.parse(decodeURIComponent(encoded));
+                const mode = row.find('.item-mode').val();
+                const selected = prices.find(price => price.mode === mode);
+                return selected ? parseFloat(selected.sale_price || 0) : fallback;
+            } catch (error) {
+                console.warn('Dynamic price tidak dapat dibaca', error);
+                return fallback;
+            }
+        }
+
         function updatePriceFromSelectedUnit(row, replacePrice = true) {
             const selectedUnit = row.find('.product-unit option:selected');
 
@@ -1415,7 +1432,7 @@
 
             const unitName = selectedUnit.data('unit-name') || 'Pcs';
             const conversionValue = selectedUnit.data('conversion-value') || 1;
-            const salePrice = parseFloat(selectedUnit.data('sale-price') || 0);
+            const salePrice = getModePrice(row, selectedUnit);
 
             const unitColor = selectedUnit.data('color') || getUnitColor(unitName);
 
@@ -2224,7 +2241,13 @@
                 fontWeight: '600'
             });
 
-            recalcAllRows();
+            const row = $(this).closest('.product-item');
+            if ($(this).data('mode-price-ready')) {
+                updatePriceFromSelectedUnit(row);
+            } else {
+                $(this).data('mode-price-ready', true);
+                recalcAllRows();
+            }
         });
 
         $('.item-mode').trigger('change');

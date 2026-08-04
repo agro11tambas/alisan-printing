@@ -79,6 +79,12 @@
                                             Produk</span></a></li>
                             @endif
 
+                            @if (Auth::user()->hasSubPermission('price-modes'))
+                                <li class="nxl-item {{ request()->is('products/price-modes*') ? 'active' : '' }}">
+                                    <a class="nxl-link" href="/erp/products/price-modes"><span>Mode</span></a>
+                                </li>
+                            @endif
+
                         </ul>
                     </li>
                 @endif

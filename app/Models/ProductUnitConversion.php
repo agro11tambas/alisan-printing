@@ -34,4 +34,9 @@ class ProductUnitConversion extends Model
     {
         return $this->belongsTo(ProductUnit::class, 'unit_id');
     }
+
+    public function prices()
+    {
+        return $this->hasMany(ProductUnitPrice::class, 'product_unit_conversion_id');
+    }
 }

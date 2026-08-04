@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class EcommerceProductStoreRequest extends FormRequest
 {
@@ -50,6 +51,12 @@ class EcommerceProductStoreRequest extends FormRequest
             'category_ids' => ['required', 'array', 'min:1'],
             'category_ids.*' => ['exists:ecommerce_product_categories,id'],
             'unit_id' => ['required', 'exists:product_units,id'],
+            'price_mode_ids' => ['required', 'array', 'min:1'],
+            'price_mode_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('price_modes', 'id')->where('is_active', true),
+            ],
             'title' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:ecommerce_products,slug'],
             'brand' => ['nullable', 'string', 'max:255'],
@@ -99,6 +106,9 @@ class EcommerceProductStoreRequest extends FormRequest
             'category_ids.array' => 'Format category tidak valid.',
             'category_ids.min' => 'Minimal satu Category wajib dipilih.',
             'unit_id.required' => 'Unit wajib dipilih.',
+            'price_mode_ids.required' => 'Minimal satu Mode wajib dipilih.',
+            'price_mode_ids.min' => 'Minimal satu Mode wajib dipilih.',
+            'price_mode_ids.*.exists' => 'Mode yang dipilih tidak valid.',
             'title.required' => 'Title wajib diisi.',
             'slug.required' => 'Slug wajib diisi.',
             'slug.unique' => 'Slug product sudah digunakan.',

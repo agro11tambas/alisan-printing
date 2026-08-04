@@ -7,7 +7,7 @@ use App\Models\InventoryStock;
 use App\Models\InventoryWarehouse;
 use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
-use App\Models\ProductBundleUnitConversion;
+use App\Services\ProductBundlePricingService;
 use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Http;
@@ -24,6 +24,8 @@ use App\Models\ProductionStock;
 use App\Models\ProductionWarehouse;
 use App\Models\ProductUnit;
 use App\Models\ProductUnitConversion;
+use App\Models\ProductUnitPrice;
+use App\Models\PriceMode;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +52,7 @@ class ProductsController extends Controller
             'tags',
             'inventoryStock',
             'unitConversions.unit',
+            'unitConversions.prices.priceMode',
             'baseUnit',
             'saleUnit',
             'purchaseUnit',
@@ -130,8 +133,9 @@ class ProductsController extends Controller
         $categories = ProductCategory::all();
         $tags = ProductTag::all();
         $productUnits = ProductUnit::orderBy('name', 'asc')->get();
+        $priceModes = PriceMode::active()->orderBy('sort_order')->orderBy('name')->get();
 
-        return view('erp.pages.products.create-product', compact('categories', 'tags', 'productUnits'));
+        return view('erp.pages.products.create-product', compact('categories', 'tags', 'productUnits', 'priceModes'));
     }
 
     public function store(Request $request)
@@ -167,6 +171,12 @@ class ProductsController extends Controller
             'units.*.sale_price' => 'nullable|numeric|min:0',
             'units.*.fixed_cost' => 'nullable|numeric|min:0',
             'units.*.margin' => 'nullable|numeric|min:0',
+            'prices' => 'nullable|array',
+            'prices.*.price_mode_id' => ['required', Rule::exists('price_modes', 'id')->where('is_active', true)],
+            'prices.*.unit_id' => 'required|exists:product_units,id',
+            'prices.*.fixed_cost' => 'nullable|numeric|min:0',
+            'prices.*.margin' => 'nullable|numeric|min:0',
+            'prices.*.sale_price' => 'nullable|numeric|min:0',
         ], [
             'sale_unit_id.in' => 'Sale Unit harus dipilih dari Product Units.',
             'purchase_unit_id.in' => 'Purchase Unit harus dipilih dari Product Units.',
@@ -284,6 +294,8 @@ class ProductsController extends Controller
                     ]);
                 }
 
+                $this->syncDynamicPrices($product, $request->input('prices', []));
+
                 ProductionWarehouse::firstOrCreate(
                     ['id' => 2],
                     [
@@ -366,12 +378,14 @@ class ProductsController extends Controller
             'categories:id,name',
             'tags:id,name',
             'unitConversions.unit',
+            'unitConversions.prices.priceMode',
         ])->findOrFail($id);
 
         $categories = ProductCategory::all();
         $tags = ProductTag::all();
 
         $productUnits = ProductUnit::orderBy('name', 'asc')->get();
+        $priceModes = PriceMode::orderBy('sort_order')->orderBy('name')->get();
 
         $pcsUnit = ProductUnit::whereRaw('LOWER(name) = ?', ['pcs'])->first();
 
@@ -380,7 +394,8 @@ class ProductsController extends Controller
             'categories',
             'tags',
             'productUnits',
-            'pcsUnit'
+            'pcsUnit',
+            'priceModes'
         ));
     }
 
@@ -389,84 +404,11 @@ class ProductsController extends Controller
         $bundleIds = ProductBundleItem::where('product_id', $productId)
             ->pluck('bundle_id')
             ->unique();
+        $service = app(ProductBundlePricingService::class);
 
-        foreach ($bundleIds as $bundleId) {
-            $bundle = ProductBundle::with([
-                'items.product.unitConversions',
-                'items.product.baseUnit',
-            ])->find($bundleId);
-
-            if (!$bundle) {
-                continue;
-            }
-
-            $primaryItem = $bundle->items->where('role', 'primary')->first();
-            $secondaryItem = $bundle->items->where('role', 'secondary')->first();
-
-            if (!$primaryItem || !$secondaryItem) {
-                continue;
-            }
-
-            $primary = $primaryItem->product;
-            $secondary = $secondaryItem->product;
-
-            if (!$primary || !$secondary) {
-                continue;
-            }
-
-            $baseUnitId = null;
-
-            if (
-                !empty($primary->base_unit_id) &&
-                !empty($secondary->base_unit_id) &&
-                (int) $primary->base_unit_id === (int) $secondary->base_unit_id
-            ) {
-                $baseUnitId = $primary->base_unit_id;
-            }
-
-            $primaryUnits = $primary->unitConversions->keyBy('unit_id');
-            $secondaryUnits = $secondary->unitConversions->keyBy('unit_id');
-
-            ProductBundleUnitConversion::where('product_bundle_id', $bundle->id)->delete();
-
-            foreach ($primaryUnits as $unitId => $primaryUnit) {
-                $secondaryUnit = $secondaryUnits->get($unitId);
-
-                $primarySalePrice = (float) ($primaryUnit->sale_price ?? 0);
-                $secondarySalePrice = $secondaryUnit ? (float) ($secondaryUnit->sale_price ?? 0) : 0;
-
-                ProductBundleUnitConversion::create([
-                    'product_bundle_id' => $bundle->id,
-                    'unit_id' => $unitId,
-                    'conversion_value' => $primaryUnit->conversion_value ?? 1,
-                    'ratio_value' => $primaryUnit->ratio_value ?? $primaryUnit->conversion_value ?? 1,
-                    'sale_price' => $primarySalePrice + $secondarySalePrice,
-                ]);
-            }
-
-            foreach ($secondaryUnits as $unitId => $secondaryUnit) {
-                if ($primaryUnits->has($unitId)) {
-                    continue;
-                }
-
-                ProductBundleUnitConversion::create([
-                    'product_bundle_id' => $bundle->id,
-                    'unit_id' => $unitId,
-                    'conversion_value' => $secondaryUnit->conversion_value ?? 1,
-                    'ratio_value' => $secondaryUnit->ratio_value ?? $secondaryUnit->conversion_value ?? 1,
-                    'sale_price' => $secondaryUnit->sale_price ?? 0,
-                ]);
-            }
-
-            $bundlePrice = ProductBundleUnitConversion::where('product_bundle_id', $bundle->id)
-                ->orderBy('id', 'asc')
-                ->value('sale_price') ?? 0;
-
-            $bundle->update([
-                'price' => $bundlePrice,
-                'base_unit_id' => $baseUnitId,
-            ]);
-        }
+        ProductBundle::whereIn('id', $bundleIds)->each(
+            fn (ProductBundle $bundle) => $service->sync($bundle)
+        );
     }
 
     public function update(Request $request, $id)
@@ -503,6 +445,12 @@ class ProductsController extends Controller
             'units.*.sale_price' => 'nullable|numeric|min:0',
             'units.*.fixed_cost' => 'nullable|numeric|min:0',
             'units.*.margin' => 'nullable|numeric|min:0',
+            'prices' => 'nullable|array',
+            'prices.*.price_mode_id' => ['required', 'exists:price_modes,id'],
+            'prices.*.unit_id' => 'required|exists:product_units,id',
+            'prices.*.fixed_cost' => 'nullable|numeric|min:0',
+            'prices.*.margin' => 'nullable|numeric|min:0',
+            'prices.*.sale_price' => 'nullable|numeric|min:0',
         ], [
             'sale_unit_id.in' => 'Sale Unit harus dipilih dari Product Units.',
             'purchase_unit_id.in' => 'Purchase Unit harus dipilih dari Product Units.',
@@ -641,6 +589,8 @@ class ProductsController extends Controller
                     ->delete();
 
                 // $bundleIds = \App\Models\ProductBundleItem::where('product_id', $id)
+
+                $this->syncDynamicPrices($product, $request->input('prices', []));
                 //     ->pluck('bundle_id')
                 //     ->unique();
 
@@ -666,5 +616,63 @@ class ProductsController extends Controller
                 ->withInput()
                 ->with('error', 'Gagal memperbarui produk: ' . $e->getMessage());
         }
+    }
+    private function syncDynamicPrices(Products $product, array $prices): void
+    {
+        $conversions = $product->unitConversions()->get()->keyBy(fn ($conversion) => (int) $conversion->unit_id);
+        $keepPriceIds = [];
+        $seen = [];
+
+        foreach ($prices as $price) {
+            $unitId = (int) ($price['unit_id'] ?? 0);
+            $priceModeId = (int) ($price['price_mode_id'] ?? 0);
+            $conversion = $conversions->get($unitId);
+            $priceMode = PriceMode::find($priceModeId);
+
+            if (!$conversion || !$priceMode) {
+                continue;
+            }
+
+            $key = $conversion->id . ':' . $priceModeId;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
+            $fixedCost = (float) ($price['fixed_cost'] ?? $conversion->fixed_cost ?? 0);
+            $margin = (float) ($price['margin'] ?? 0);
+            $salePrice = array_key_exists('sale_price', $price) && $price['sale_price'] !== null
+                ? (float) $price['sale_price']
+                : $fixedCost + $margin;
+
+            $dynamicPrice = ProductUnitPrice::updateOrCreate(
+                [
+                    'product_unit_conversion_id' => $conversion->id,
+                    'price_mode_id' => $priceModeId,
+                ],
+                [
+                    'fixed_cost' => $fixedCost,
+                    'margin' => $margin,
+                    'sale_price' => $salePrice,
+                ]
+            );
+
+            $keepPriceIds[] = $dynamicPrice->id;
+
+            // Keep legacy consumers working: the unit's default price is Polosan.
+            if ($priceMode->slug === 'polosan') {
+                $conversion->update([
+                    'fixed_cost' => $fixedCost,
+                    'margin' => $margin,
+                    'sale_price' => $salePrice,
+                ]);
+            }
+        }
+
+        $query = ProductUnitPrice::whereIn('product_unit_conversion_id', $conversions->pluck('id'));
+        if ($keepPriceIds) {
+            $query->whereNotIn('id', $keepPriceIds);
+        }
+        $query->delete();
     }
 }

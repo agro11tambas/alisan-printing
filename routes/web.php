@@ -43,6 +43,7 @@ use App\Http\Controllers\Admin\ProductionController;
 use App\Http\Controllers\Admin\ProductionStockInController;
 use App\Http\Controllers\Admin\ProductionStockSnapshotController;
 use App\Http\Controllers\Admin\ProductUnitController;
+use App\Http\Controllers\Admin\PriceModeController;
 use App\Http\Controllers\Admin\PurchaseDetailController;
 use App\Http\Controllers\Admin\PurchaseListController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
@@ -110,6 +111,16 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::put('/erp/products/units/update/{id}', [ProductUnitController::class, 'update']);
             Route::delete('/erp/products/units/delete/{id}', [ProductUnitController::class, 'delete']);
         });
+        Route::middleware(['web.auth', 'subpermission:price-modes'])->group(function () {
+            Route::get('/erp/products/price-modes/data', [PriceModeController::class, 'data']);
+            Route::get('/erp/products/price-modes', [PriceModeController::class, 'index']);
+            Route::get('/erp/products/price-modes/create', [PriceModeController::class, 'create']);
+            Route::post('/erp/products/price-modes', [PriceModeController::class, 'store']);
+            Route::get('/erp/products/price-modes/{priceMode}/edit', [PriceModeController::class, 'edit']);
+            Route::put('/erp/products/price-modes/{priceMode}', [PriceModeController::class, 'update']);
+            Route::delete('/erp/products/price-modes/{priceMode}', [PriceModeController::class, 'delete']);
+        });
+
 
         Route::middleware(['web.auth', 'subpermission:product-list'])->group(function () {
             Route::get('/erp/products/data', [ProductsController::class, 'data']);

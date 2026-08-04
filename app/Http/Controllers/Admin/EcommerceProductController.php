@@ -13,6 +13,7 @@ use App\Models\EcommerceVariantCombination;
 use App\Models\Products;
 use App\Models\ProductBundle;
 use App\Models\ProductUnit;
+use App\Services\EcommercePricingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +21,10 @@ use Yajra\DataTables\Facades\DataTables;
 
 class EcommerceProductController extends Controller
 {
+    public function __construct(private EcommercePricingService $pricingService)
+    {
+    }
+
     public function index()
     {
         $categories = EcommerceProductCategory::orderBy('name')->get();
@@ -91,6 +96,7 @@ class EcommerceProductController extends Controller
     {
         $productIds = $request->input('product_ids', []);
         $unitId = $request->input('unit_id');
+        $allowedModeIds = array_map('intval', $request->input('price_mode_ids', []));
 
         if (empty($productIds)) {
             return response()->json(['secondaries' => [], 'pairs' => []]);
@@ -100,7 +106,7 @@ class EcommerceProductController extends Controller
         $bundles = ProductBundle::whereHas('items', function ($query) use ($productIds) {
             $query->whereIn('product_id', $productIds)
                   ->where('role', 'primary');
-        })->with(['items.product', 'unitConversions'])->get();
+        })->with(['items.product', 'unitConversions.prices.priceMode'])->get();
 
         $secondaryProducts = collect();
         $pairs = [];
@@ -120,23 +126,22 @@ class EcommerceProductController extends Controller
                 'sku' => $secondaryItem->product->sku,
             ]);
 
-            // Calculate price based on unit
-            $price = 0;
-            if ($unitId) {
-                $conversion = $bundle->unitConversions->firstWhere('unit_id', $unitId);
-                if ($conversion && $conversion->sale_price > 0) {
-                    $price = $conversion->sale_price;
-                }
+            $modePrices = $unitId
+                ? $this->pricingService->bundleModePrices($bundle, (int) $unitId)
+                : [];
+            if (!empty($allowedModeIds)) {
+                $modePrices = array_values(array_filter(
+                    $modePrices,
+                    fn ($modePrice) => in_array($modePrice['price_mode_id'], $allowedModeIds, true)
+                ));
             }
-            if ($price == 0) {
-                $price = $bundle->sale_price > 0 ? $bundle->sale_price : $bundle->price;
-            }
+            $defaultPrice = $this->pricingService->defaultPrice($modePrices);
 
-            // Collect the actual pair
             $pairs[] = [
                 'primary_product_id' => $primaryItem->product_id,
                 'secondary_product_id' => $secondaryItem->product_id,
-                'price' => $price
+                'price' => $defaultPrice['price'] ?? 0,
+                'mode_prices' => $modePrices,
             ];
         }
 
@@ -153,10 +158,27 @@ class EcommerceProductController extends Controller
         $product->load([
             'categories',
             'unit',
+            'priceModes',
             'variantGroups.options.product',
             'variantCombinations.productOption',
             'variantCombinations.lidOption',
         ]);
+
+        $allowedModeIds = $product->priceModes->pluck('id')->map(fn ($id) => (int) $id)->all();
+        foreach ($product->variantCombinations as $combination) {
+            $primaryProductId = $combination->productOption?->product_id;
+            $secondaryProductId = $combination->lidOption?->product_id;
+            $bundle = $primaryProductId && $secondaryProductId
+                ? $this->pricingService->bundleForPair((int) $primaryProductId, (int) $secondaryProductId)
+                : null;
+            $modePrices = $bundle
+                ? $this->pricingService->bundleModePrices($bundle, (int) $product->unit_id)
+                : [];
+            $combination->setAttribute('mode_prices', array_values(array_filter(
+                $modePrices,
+                fn ($modePrice) => in_array($modePrice['price_mode_id'], $allowedModeIds, true)
+            )));
+        }
 
         return view('erp.pages.ecommerce-products.detail-product', compact('product'));
     }
@@ -168,6 +190,7 @@ class EcommerceProductController extends Controller
                 $product = EcommerceProduct::create($this->productPayload($request));
 
                 $product->categories()->sync($request->category_ids);
+                $product->priceModes()->sync($request->price_mode_ids);
                 $this->syncVariantGroups($product, $request);
                 $this->syncVariantCombinations($product, $request);
                 $this->syncBasePrice($product);
@@ -190,6 +213,7 @@ class EcommerceProductController extends Controller
         $product->load([
             'variantGroups.options.product',
             'variantCombinations',
+            'priceModes',
         ]);
 
         return view('erp.pages.ecommerce-products.edit-product', array_merge(
@@ -205,6 +229,7 @@ class EcommerceProductController extends Controller
                 $product->update($this->productPayload($request, $product));
 
                 $product->categories()->sync($request->category_ids);
+                $product->priceModes()->sync($request->price_mode_ids);
                 $this->syncVariantGroups($product, $request);
                 $this->syncVariantCombinations($product, $request);
                 $this->syncBasePrice($product);
@@ -260,7 +285,8 @@ class EcommerceProductController extends Controller
         return [
             'categories' => EcommerceProductCategory::orderBy('name')->get(),
             'productUnits' => ProductUnit::orderBy('name')->get(),
-            'erpProducts' => Products::with('unitConversions')->orderBy('name')->get(),
+            'priceModes' => \App\Models\PriceMode::active()->ordered()->get(),
+            'erpProducts' => Products::with('unitConversions.prices.priceMode')->orderBy('name')->get(),
         ];
     }
 
@@ -285,6 +311,7 @@ class EcommerceProductController extends Controller
     private function syncVariantGroups(EcommerceProduct $product, Request $request): void
     {
         $keptGroupIds = [];
+        $allowedModeIds = array_map('intval', $request->input('price_mode_ids', []));
 
         foreach ($request->input('variant_groups', []) as $groupIndex => $groupData) {
             $group = null;
@@ -325,16 +352,17 @@ class EcommerceProductController extends Controller
                 $erpProduct = null;
                 $price = 0;
                 if (!empty($optionData['product_id'])) {
-                    $erpProduct = \App\Models\Products::find($optionData['product_id']);
+                    $erpProduct = Products::with('unitConversions.prices.priceMode')
+                        ->find($optionData['product_id']);
                     if ($erpProduct) {
-                        $unitId = $request->unit_id;
-                        $conversion = $erpProduct->unitConversions()->where('unit_id', $unitId)->first();
-                        
-                        if ($conversion && $conversion->sale_price > 0) {
-                            $price = $conversion->sale_price;
-                        } else {
-                            $price = $erpProduct->sale_price > 0 ? $erpProduct->sale_price : $erpProduct->price;
-                        }
+                        $modePrices = $this->pricingService->productModePrices(
+                            $erpProduct,
+                            (int) $request->unit_id
+                        );                        $modePrices = array_values(array_filter(
+                            $modePrices,
+                            fn ($modePrice) => in_array($modePrice['price_mode_id'], $allowedModeIds, true)
+                        ));
+                        $price = $this->pricingService->defaultPrice($modePrices)['price'] ?? 0;
                     }
                 }
 
@@ -381,6 +409,7 @@ class EcommerceProductController extends Controller
     private function syncVariantCombinations(EcommerceProduct $product, Request $request): void
     {
         $keptCombinationIds = [];
+        $allowedModeIds = array_map('intval', $request->input('price_mode_ids', []));
         $combinations = $request->input('variant_combinations', []);
         
         // Refresh product to get newly created groups and options
@@ -416,30 +445,17 @@ class EcommerceProductController extends Controller
                     ->first();
             }
 
-            // Fetch bundle price
-            $bundleId = \App\Models\ProductBundleItem::where('product_id', $combData['product_option_product_id'])
-                ->where('role', 'primary')
-                ->whereHas('bundle', function ($q) use ($combData) {
-                    $q->whereHas('items', function ($q2) use ($combData) {
-                        $q2->where('product_id', $combData['lid_option_product_id'])
-                           ->where('role', 'secondary');
-                    });
-                })->value('bundle_id');
-
-            $price = 0;
-            if ($bundleId) {
-                $bundle = \App\Models\ProductBundle::find($bundleId);
-                if ($bundle) {
-                    $unitId = $request->unit_id;
-                    $conversion = $bundle->unitConversions()->where('unit_id', $unitId)->first();
-                    
-                    if ($conversion && $conversion->sale_price > 0) {
-                        $price = $conversion->sale_price;
-                    } else {
-                        $price = $bundle->sale_price > 0 ? $bundle->sale_price : $bundle->price;
-                    }
-                }
-            }
+            $bundle = $this->pricingService->bundleForPair(
+                (int) $combData['product_option_product_id'],
+                (int) $combData['lid_option_product_id']
+            );
+            $modePrices = $bundle
+                ? $this->pricingService->bundleModePrices($bundle, (int) $request->unit_id)
+                : [];            $modePrices = array_values(array_filter(
+                $modePrices,
+                fn ($modePrice) => in_array($modePrice['price_mode_id'], $allowedModeIds, true)
+            ));
+            $price = $this->pricingService->defaultPrice($modePrices)['price'] ?? 0;
 
             $oldImage = $combination?->image;
             $payload = [

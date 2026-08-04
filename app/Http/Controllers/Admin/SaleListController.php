@@ -40,6 +40,7 @@ use App\Models\OrderProgress;
 use App\Models\OrderProgressAssign;
 use App\Models\OrderProgressAssignBatch;
 use App\Models\OrderProgressHistory;
+use App\Models\PriceMode;
 use App\Models\OrderProgressItem;
 use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
@@ -48,6 +49,7 @@ use App\Models\PurchaseItem;
 use App\Models\SaleReturn;
 use App\Services\InvoiceNumberService;
 use App\Services\ProductCostService;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -1151,6 +1153,8 @@ class SaleListController extends Controller
                 'categories:id',
                 'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
                 'unitConversions.unit:id,name',
+                'unitConversions.prices:id,product_unit_conversion_id,price_mode_id,fixed_cost,margin,sale_price',
+                'unitConversions.prices.priceMode:id,name,slug',
             ])
             ->orderBy('name', 'asc')
             ->get();
@@ -1182,6 +1186,14 @@ class SaleListController extends Controller
                         'unit_name' => optional($conversion->unit)->name,
                         'conversion_value' => $conversion->conversion_value,
                         'sale_price' => $conversion->sale_price,
+                        'prices' => $conversion->prices->map(fn ($price) => [
+                            'price_mode_id' => $price->price_mode_id,
+                            'mode' => $price->priceMode?->slug,
+                            'mode_name' => $price->priceMode?->name,
+                            'fixed_cost' => $price->fixed_cost,
+                            'margin' => $price->margin,
+                            'sale_price' => $price->sale_price,
+                        ])->values()->toArray(),
                     ];
                 })->values()->toArray(),
             ];
@@ -1195,6 +1207,7 @@ class SaleListController extends Controller
                 'secondaryItems.product:id,name,sku',
                 'unitConversions:id,product_bundle_id,unit_id,conversion_value,sale_price',
                 'unitConversions.unit:id,name',
+                'unitConversions.prices.priceMode',
             ])
             ->get();
 
@@ -1210,6 +1223,14 @@ class SaleListController extends Controller
                         'unit_name' => optional($conversion->unit)->name,
                         'conversion_value' => $conversion->conversion_value,
                         'sale_price' => $conversion->sale_price,
+                        'prices' => $conversion->prices->map(fn ($price) => [
+                            'price_mode_id' => $price->price_mode_id,
+                            'mode' => $price->priceMode?->slug,
+                            'mode_name' => $price->priceMode?->name,
+                            'fixed_cost' => $price->fixed_cost,
+                            'margin' => $price->margin,
+                            'sale_price' => $price->sale_price,
+                        ])->values()->toArray(),
                     ];
                 })->values()->toArray(),
                 'primary_item' => $bundle->primaryItem ? [
@@ -1240,10 +1261,12 @@ class SaleListController extends Controller
                 $query->where('user_id', $user->id);
             })
             ->get();
+        $priceModes = PriceMode::active()->orderBy('sort_order')->orderBy('name')->get();
         return view('erp.pages.sales.sale-list.create-order', compact(
             'customers',
             'productsJson',
-            'productBundlesJson'
+            'productBundlesJson',
+            'priceModes'
         ));
     }
 
@@ -1264,7 +1287,7 @@ class SaleListController extends Controller
             'qty'                  => 'required|array',
             'qty.*'                => 'numeric|min:1',
             'mode'   => 'required|array',
-            'mode.*' => 'required|in:printing,polosan',
+            'mode.*' => ['required', Rule::exists('price_modes', 'slug')->where('is_active', true)],
             'price_before_discount' => 'required|array',
             'price_before_discount.*' => 'numeric|min:0',
             'total_before_discount' => 'required|array',
@@ -1661,6 +1684,7 @@ class SaleListController extends Controller
             'orderItems.product.unitConversions.unit',
             'orderItems.productBundle.unitConversions.unit',
             'customer.addresses',
+            'orderItems.product.unitConversions.prices.priceMode',
             'customer.accounts',
             'customerAddress',
         ])->findOrFail($id);
@@ -1670,6 +1694,7 @@ class SaleListController extends Controller
             'discounts',
             'categories.discounts',
             'unitConversions.unit',
+            'unitConversions.prices.priceMode',
         ])
             ->orderBy('name', 'asc')
             ->get();
@@ -1682,6 +1707,7 @@ class SaleListController extends Controller
             'secondaryItems.product',
 
             'unitConversions.unit',
+            'unitConversions.prices.priceMode',
         ])->orderBy('name', 'asc')->get();
 
         $productsJson = $products->map(function ($product) {
@@ -1709,6 +1735,14 @@ class SaleListController extends Controller
                         'unit_name' => optional($conversion->unit)->name,
                         'conversion_value' => $conversion->conversion_value,
                         'sale_price' => $conversion->sale_price,
+                        'prices' => $conversion->prices->map(fn ($price) => [
+                            'price_mode_id' => $price->price_mode_id,
+                            'mode' => $price->priceMode?->slug,
+                            'mode_name' => $price->priceMode?->name,
+                            'fixed_cost' => $price->fixed_cost,
+                            'margin' => $price->margin,
+                            'sale_price' => $price->sale_price,
+                        ])->values()->toArray(),
                     ];
                 })->values()->toArray(),
             ];
@@ -1767,6 +1801,14 @@ class SaleListController extends Controller
                         'unit_name' => optional($conversion->unit)->name,
                         'conversion_value' => $conversion->conversion_value,
                         'sale_price' => $conversion->sale_price,
+                        'prices' => $conversion->prices->map(fn ($price) => [
+                            'price_mode_id' => $price->price_mode_id,
+                            'mode' => $price->priceMode?->slug,
+                            'mode_name' => $price->priceMode?->name,
+                            'fixed_cost' => $price->fixed_cost,
+                            'margin' => $price->margin,
+                            'sale_price' => $price->sale_price,
+                        ])->values()->toArray(),
                     ];
                 })->values()->toArray(),
             ];
@@ -1785,6 +1827,8 @@ class SaleListController extends Controller
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
+        $priceModes = PriceMode::orderBy('sort_order')->orderBy('name')->get();
+
         return view('erp.pages.sales.sale-list.edit-order', compact(
             'order',
             'products',
@@ -1795,7 +1839,8 @@ class SaleListController extends Controller
             'bankAccounts',
             'transactionTypes',
             'productsJson',
-            'productBundlesJson'
+            'productBundlesJson',
+            'priceModes'
         ));
     }
 
@@ -1829,7 +1874,7 @@ class SaleListController extends Controller
             'total_amount'            => 'required|numeric|min:0',
             'edit_note'               => 'required|string|max:500',
             'mode'   => 'required|array',
-            'mode.*' => 'required|in:printing,polosan',
+            'mode.*' => ['required', 'exists:price_modes,slug'],
 
             'product_unit_id' => 'nullable|array',
             'product_unit_id.*' => 'nullable',
@@ -3132,7 +3177,7 @@ class SaleListController extends Controller
 
                         $inventoryStock->increment('stock_after_sales', $restoreQty);
 
-                        if ($item->mode === 'polosan') {
+                        if ($item->usesPolosanFlow()) {
                             $inventoryStock->increment('inventory_stock', $restoreQty);
                         }
                     } elseif ($item->satuan === 'bundle') {
@@ -3153,7 +3198,7 @@ class SaleListController extends Controller
 
                                 $inventoryStock->increment('stock_after_sales', $restoreQty);
 
-                                if ($item->mode === 'polosan') {
+                                if ($item->usesPolosanFlow()) {
                                     $inventoryStock->increment('inventory_stock', $restoreQty);
                                 }
                             }
@@ -3314,8 +3359,8 @@ class SaleListController extends Controller
                 'customer',
             ]);
 
-            $printingOrderItems = $order->orderItems->where('mode', 'printing');
-            $polosanOrderItems  = $order->orderItems->where('mode', 'polosan');
+            $printingOrderItems = $order->orderItems->filter->usesProductionFlow();
+            $polosanOrderItems  = $order->orderItems->filter->usesPolosanFlow();
 
 
             // =======================================================
@@ -3343,7 +3388,7 @@ class SaleListController extends Controller
                 $design->load('items');
 
                 $existingDesignItems = $design->items
-                    ->filter(fn($item) => $item->orderItem?->mode === 'printing')
+                    ->filter(fn($item) => $item->orderItem?->usesProductionFlow())
                     ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
 
                 $components = \App\Models\OrderItemComponent::whereIn(
@@ -3357,7 +3402,7 @@ class SaleListController extends Controller
 
                 foreach ($components as $component) {
                     $orderItem = $component->orderItem;
-                    if (!$orderItem || $orderItem->mode !== 'printing') {
+                    if (!$orderItem || !$orderItem->usesProductionFlow()) {
                         continue;
                     }
 
@@ -3404,14 +3449,14 @@ class SaleListController extends Controller
                     ]);
 
                     $existingProgressItems = $orderProgress->items
-                        ->filter(fn($item) => $item->orderItem?->mode === 'printing')
+                        ->filter(fn($item) => $item->orderItem?->usesProductionFlow())
                         ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
 
                     $newProgressKeys = [];
 
                     foreach ($components as $component) {
                         $orderItem = $component->orderItem;
-                        if (!$orderItem || $orderItem->mode !== 'printing') {
+                        if (!$orderItem || !$orderItem->usesProductionFlow()) {
                             continue;
                         }
 
@@ -3470,14 +3515,14 @@ class SaleListController extends Controller
                         ]);
 
                         $existingDoItems = $deliveryOrder->items
-                            ->filter(fn($item) => $item->orderItem?->mode === 'printing')
+                            ->filter(fn($item) => $item->orderItem?->usesProductionFlow())
                             ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
 
                         $newDoKeys = [];
 
                         foreach ($components as $component) {
                             $orderItem = $component->orderItem;
-                            if (!$orderItem || $orderItem->mode !== 'printing') {
+                            if (!$orderItem || !$orderItem->usesProductionFlow()) {
                                 continue;
                             }
 
@@ -3560,7 +3605,7 @@ class SaleListController extends Controller
                 $design->load('items');
 
                 $existingDesignItems = $design->items
-                    ->filter(fn($item) => $item->orderItem?->mode === 'polosan')
+                    ->filter(fn($item) => $item->orderItem?->usesPolosanFlow())
                     ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
 
                 $components = \App\Models\OrderItemComponent::whereIn(
@@ -3574,7 +3619,7 @@ class SaleListController extends Controller
 
                 foreach ($components as $component) {
                     $orderItem = $component->orderItem;
-                    if (!$orderItem || $orderItem->mode !== 'polosan') {
+                    if (!$orderItem || !$orderItem->usesPolosanFlow()) {
                         continue;
                     }
 
@@ -3639,14 +3684,14 @@ class SaleListController extends Controller
                 $orderProgress->load('items');
 
                 $existingProgressItems = $orderProgress->items
-                    ->filter(fn($item) => $item->orderItem?->mode === 'polosan')
+                    ->filter(fn($item) => $item->orderItem?->usesPolosanFlow())
                     ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
 
                 $newProgressKeys = [];
 
                 foreach ($components as $component) {
                     $orderItem = $component->orderItem;
-                    if (!$orderItem || $orderItem->mode !== 'polosan') {
+                    if (!$orderItem || !$orderItem->usesPolosanFlow()) {
                         continue;
                     }
 

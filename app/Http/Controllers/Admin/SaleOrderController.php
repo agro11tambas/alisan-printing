@@ -31,8 +31,10 @@ use App\Models\OrderProgressHistory;
 use App\Models\OrderProgressItem;
 use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
+use App\Models\PriceMode;
 use App\Services\InvoiceNumberService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -255,6 +257,7 @@ class SaleOrderController extends Controller
                 'categories:id',
                 'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
                 'unitConversions.unit:id,name',
+                'unitConversions.prices.priceMode',
             ])
             ->orderBy('name', 'asc')
             ->get();
@@ -286,6 +289,9 @@ class SaleOrderController extends Controller
                         'unit_name' => optional($conversion->unit)->name,
                         'conversion_value' => $conversion->conversion_value,
                         'sale_price' => $conversion->sale_price,
+                        'dynamic_prices' => $conversion->relationLoaded('prices')
+                            ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
+                            : [],
                     ];
                 })->values()->toArray(),
             ];
@@ -299,6 +305,7 @@ class SaleOrderController extends Controller
                 'secondaryItems.product:id,name,sku',
                 'unitConversions:id,product_bundle_id,unit_id,conversion_value,sale_price',
                 'unitConversions.unit:id,name',
+                'unitConversions.prices.priceMode',
             ])
             ->get();
 
@@ -314,6 +321,9 @@ class SaleOrderController extends Controller
                         'unit_name' => optional($conversion->unit)->name,
                         'conversion_value' => $conversion->conversion_value,
                         'sale_price' => $conversion->sale_price,
+                        'dynamic_prices' => $conversion->relationLoaded('prices')
+                            ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
+                            : [],
                     ];
                 })->values()->toArray(),
                 'primary_item' => $bundle->primaryItem ? [
@@ -344,10 +354,12 @@ class SaleOrderController extends Controller
                 $query->where('user_id', $user->id);
             })
             ->get();
+        $priceModes = PriceMode::active()->ordered()->get();
         return view('erp.pages.sales.sale-orders.create-order', compact(
             'customers',
             'productsJson',
-            'productBundlesJson'
+            'productBundlesJson',
+            'priceModes'
         ));
     }
 
@@ -377,7 +389,7 @@ class SaleOrderController extends Controller
             'total_discount'       => 'required|numeric|min:0',
             'total_amount'         => 'required|numeric|min:0',
             'mode'   => 'required|array',
-            'mode.*' => 'required|in:printing,polosan',
+            'mode.*' => ['required', Rule::exists('price_modes', 'slug')->where('is_active', true)],
             'product_unit_id' => 'nullable|array',
             'product_unit_id.*' => 'nullable',
 
@@ -624,6 +636,7 @@ class SaleOrderController extends Controller
             'secondaryItems.product',
 
             'unitConversions.unit',
+            'unitConversions.prices.priceMode',
         ])->orderBy('name', 'asc')->get();
 
         // Kalau belum ada relasi diskon di bundle, beri array kosong
@@ -637,6 +650,7 @@ class SaleOrderController extends Controller
             'discounts',
             'categories.discounts',
             'unitConversions.unit',
+            'unitConversions.prices.priceMode',
         ])
             ->orderBy('name', 'asc')
             ->get();
@@ -678,6 +692,9 @@ class SaleOrderController extends Controller
                         'unit_name' => optional($conversion->unit)->name,
                         'conversion_value' => $conversion->conversion_value,
                         'sale_price' => $conversion->sale_price,
+                        'dynamic_prices' => $conversion->relationLoaded('prices')
+                            ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
+                            : [],
                     ];
                 })->values()->toArray(),
             ];
@@ -727,6 +744,9 @@ class SaleOrderController extends Controller
                         'unit_name' => optional($conversion->unit)->name,
                         'conversion_value' => $conversion->conversion_value,
                         'sale_price' => $conversion->sale_price,
+                        'dynamic_prices' => $conversion->relationLoaded('prices')
+                            ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
+                            : [],
                     ];
                 })->values()->toArray(),
                 'primary_item' => $bundle->primaryItem ? [
@@ -743,6 +763,8 @@ class SaleOrderController extends Controller
             ];
         })->toArray();
 
+        $priceModes = PriceMode::active()->ordered()->get();
+
         return view('erp.pages.sales.sale-orders.edit-order', compact(
             'order',
             'products',
@@ -751,7 +773,8 @@ class SaleOrderController extends Controller
             'productsJson',
             'productBundlesJson',
             'dueDateOption',
-            'customDueDate'
+            'customDueDate',
+            'priceModes'
         ));
     }
 
@@ -781,7 +804,7 @@ class SaleOrderController extends Controller
             'total_discount'          => 'required|numeric|min:0',
             'total_amount'            => 'required|numeric|min:0',
             'mode'   => 'required|array',
-            'mode.*' => 'required|in:printing,polosan',
+            'mode.*' => ['required', Rule::exists('price_modes', 'slug')->where('is_active', true)],
             'product_unit_id' => 'nullable|array',
             'product_unit_id.*' => 'nullable',
 
