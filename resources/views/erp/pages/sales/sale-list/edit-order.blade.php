@@ -1437,6 +1437,7 @@
 
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
+            const itemMode = row.find('select[name="mode[]"]').val();
 
             let manualPriceRaw = row.find('input.price_before_discount').val();
 
@@ -1466,6 +1467,10 @@
                 });
 
                 allDiscounts.forEach(discount => {
+                    if (discount.mode && discount.mode !== itemMode) {
+                        return;
+                    }
+
                     let eligible = false;
 
                     if (discount.apply_on === 'Product') {
@@ -1479,6 +1484,45 @@
                         if (
                             discount.minimum_based_on === 'Purchase Amount' &&
                             totalBeforeDiscount >= discount.minimum_qty_or_amount
+                        ) {
+                            eligible = true;
+                        }
+                    } else if (discount.apply_on === 'Category') {
+                        let totalQtyCategory = 0;
+                        let totalAmountCategory = 0;
+
+                        $('select[name="product[]"]').each(function() {
+                            const productSelect = $(this);
+                            const productRow = productSelect.closest('.product-item');
+                            const productCategories = productSelect.find('option:selected').data('categories') || [];
+
+                            if (!productCategories.some(category =>
+                                String(category.id) === String(discount.category_id)
+                            )) {
+                                return;
+                            }
+
+                            const productQty = parseFloat(
+                                productRow.find('input[name="qty[]"]').val().replace(/\./g, '')
+                            ) || 0;
+                            const productPrice = parseFloat(
+                                productRow.find('input.price_before_discount').val()
+                            ) || 0;
+
+                            totalQtyCategory += productQty;
+                            totalAmountCategory += productPrice * productQty;
+                        });
+
+                        if (
+                            discount.minimum_based_on === 'Quantity of Items' &&
+                            totalQtyCategory >= discount.minimum_qty_or_amount
+                        ) {
+                            eligible = true;
+                        }
+
+                        if (
+                            discount.minimum_based_on === 'Purchase Amount' &&
+                            totalAmountCategory >= discount.minimum_qty_or_amount
                         ) {
                             eligible = true;
                         }
@@ -2179,6 +2223,8 @@
                 color: this.value === 'printing' ? '#198754' : '#dc3545',
                 fontWeight: '600'
             });
+
+            recalcAllRows();
         });
 
         $('.item-mode').trigger('change');
