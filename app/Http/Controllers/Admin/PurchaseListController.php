@@ -992,7 +992,9 @@ class PurchaseListController extends Controller
                 if ((int) $request->suppliers !== (int) $parent->supplier_id) {
                     throw new \RuntimeException('Supplier PL harus sama dengan supplier PO.');
                 }
-                if ($request->stock_destination !== $parent->stock_destination) {
+                // PO tidak lagi menyimpan stock destination; batasan ini hanya berlaku
+                // untuk PO lama yang masih punya nilai tersebut.
+                if ($parent->stock_destination && $request->stock_destination !== $parent->stock_destination) {
                     throw new \RuntimeException('Tujuan stok PL harus sama dengan tujuan stok PO.');
                 }
 

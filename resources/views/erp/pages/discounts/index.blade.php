@@ -19,6 +19,17 @@
             /* background: #fff !important; */
             background-image: none !important;
         }
+
+        /* DataTables mereservasi ruang scrollbar di tabel header lewat padding-right,
+           padahal body-nya belum tentu punya scrollbar -> sisa ruang kosong di ujung thead. */
+        #discountList_wrapper .dataTables_scrollHeadInner {
+            width: 100% !important;
+            padding-right: 0 !important;
+        }
+
+        #discountList_wrapper .dataTables_scrollHeadInner>table {
+            width: 100% !important;
+        }
     </style>
 @endpush
 
@@ -109,6 +120,7 @@
                                         <th>Amount</th>
                                         <th>Min Based On</th>
                                         <th>Min Qty or Purchase Amount</th>
+                                        <th>Apply On</th>
                                         <th>Status</th>
                                         <!-- <th class="text-end">Actions</th> -->
                                     </tr>
@@ -201,6 +213,10 @@
                     {
                         data: 'minimum_qty_or_amount',
                         name: 'minimum_qty_or_amount',
+                    },
+                    {
+                        data: 'apply_on',
+                        name: 'apply_on',
                     },
                     {
                         data: 'is_active',

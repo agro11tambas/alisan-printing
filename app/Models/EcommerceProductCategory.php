@@ -10,6 +10,7 @@ class EcommerceProductCategory extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'parent_id',
         'name',
         'slug',
         'description',
@@ -30,6 +31,48 @@ class EcommerceProductCategory extends Model
     public function products()
     {
         return $this->belongsToMany(EcommerceProduct::class, 'ecommerce_product_category_pivot', 'ecommerce_product_category_id', 'ecommerce_product_id');
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(self::class, 'parent_id')
+            ->orderBy('sort_order')
+            ->orderBy('name');
+    }
+
+    public function descendants()
+    {
+        return $this->children()->with('descendants');
+    }
+
+    public function scopeRoot($query)
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * ID kategori ini beserta seluruh turunannya. Dipakai untuk mencegah
+     * sebuah kategori dijadikan child dari keturunannya sendiri (siklus).
+     */
+    public function descendantIds(): array
+    {
+        $ids = [$this->id];
+
+        foreach ($this->children as $child) {
+            $ids = array_merge($ids, $child->descendantIds());
+        }
+
+        return $ids;
     }
 
     public function getImageUrlAttribute()

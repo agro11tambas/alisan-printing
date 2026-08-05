@@ -145,6 +145,8 @@
                                         <option value="Category"
                                             {{ $discount->apply_on == 'Category' ? 'selected' : '' }}>Product Category
                                         </option>
+                                        <option value="Mode" {{ $discount->apply_on == 'Mode' ? 'selected' : '' }}>
+                                            Mode</option>
                                     </select>
                                 </div>
                             </div>
@@ -174,6 +176,21 @@
                                             <option value="{{ $category->id }}"
                                                 {{ $discount->categories->contains($category->id) ? 'selected' : '' }}>
                                                 {{ $category->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="mode_group" class="row mb-2 align-items-center" style="display: none;">
+                                <div class="col-lg-2">
+                                    <label for="price_modes" class="fw-semibold">Select Mode(s):</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <select name="price_modes[]" id="price_modes" class="form-control"
+                                        data-select2-selector="tag" multiple>
+                                        @foreach ($priceModes as $priceMode)
+                                            <option value="{{ $priceMode->id }}"
+                                                {{ $discount->priceModes->contains($priceMode->id) ? 'selected' : '' }}>
+                                                {{ $priceMode->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -209,15 +226,16 @@
 @push('scripts')
     <script>
         function toggleApplyOnFields(value) {
+            $('#product_group').hide();
+            $('#category_group').hide();
+            $('#mode_group').hide();
+
             if (value === 'Product') {
                 $('#product_group').show();
-                $('#category_group').hide();
             } else if (value === 'Category') {
-                $('#product_group').hide();
                 $('#category_group').show();
-            } else {
-                $('#product_group').hide();
-                $('#category_group').hide();
+            } else if (value === 'Mode') {
+                $('#mode_group').show();
             }
         }
 
@@ -292,6 +310,15 @@
                     }
                 }
             });
+
+            const applyOnEl = form.querySelector('select[name="apply_on"]');
+            if (applyOnEl && applyOnEl.value === 'Mode') {
+                const modeEl = form.querySelector('select[name="price_modes[]"]');
+                if (modeEl && modeEl.selectedOptions.length === 0) {
+                    showError(modeEl, 'Mode wajib dipilih minimal satu');
+                    isValid = false;
+                }
+            }
 
             if (isValid) form.submit();
         });

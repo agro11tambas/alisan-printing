@@ -38,6 +38,7 @@ class Purchase extends Model
         'status',
         'verified',
         'image',
+        'waybill_image',
         'supplier_id',
         'transaction_group_id',
         'transaction_type',

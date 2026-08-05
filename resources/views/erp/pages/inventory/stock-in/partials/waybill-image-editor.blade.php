@@ -1,3 +1,7 @@
+@php
+    // Form pemilik input ini, dipakai untuk men-disable tombol submit saat gambar diproses.
+    $waybillFormId = $formId ?? 'stockInForm';
+@endphp
 <div class="input-group" id="waybill-file-input-group">
     <input type="file" class="form-control" id="waybill_image" name="waybill_image" accept="image/*"
         @if ($capture ?? false) capture="environment" @endif>
@@ -61,7 +65,8 @@
             function setProcessing(value) {
                 processing = value;
                 rotateButtons.forEach(button => button.disabled = value);
-                document.querySelectorAll('[type="submit"][form="stockInForm"], #stockInForm [type="submit"]')
+                document.querySelectorAll(
+                        '[type="submit"][form="{{ $waybillFormId }}"], #{{ $waybillFormId }} [type="submit"]')
                     .forEach(button => button.disabled = value);
                 status.textContent = value ? 'Memproses gambar...' :
                     (rotation === 0 ? 'Posisi asli' : `Diputar ${rotation}°`);

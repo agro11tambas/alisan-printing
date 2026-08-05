@@ -135,6 +135,7 @@
                                         <option value="" disabled selected hidden>Choose Apply Type</option>
                                         <option value="Product">Product</option>
                                         <option value="Category">Product Category</option>
+                                        <option value="Mode">Mode</option>
                                     </select>
                                 </div>
                             </div>
@@ -160,6 +161,19 @@
                                         data-select2-selector="tag" multiple>
                                         @foreach ($categories as $category)
                                             <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="mode_group" class="row mb-2 align-items-center" style="display: none;">
+                                <div class="col-lg-2">
+                                    <label for="price_modes" class="fw-semibold">Select Mode(s):</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <select name="price_modes[]" id="price_modes" class="form-control"
+                                        data-select2-selector="tag" multiple>
+                                        @foreach ($priceModes as $priceMode)
+                                            <option value="{{ $priceMode->id }}">{{ $priceMode->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -196,15 +210,19 @@
             const applySelect = document.getElementById('apply_on');
             const productGroup = document.getElementById('product_group');
             const categoryGroup = document.getElementById('category_group');
+            const modeGroup = document.getElementById('mode_group');
 
             function toggleApplyOn() {
                 productGroup.style.display = 'none';
                 categoryGroup.style.display = 'none';
+                modeGroup.style.display = 'none';
 
                 if (applySelect.value === 'Product') {
                     productGroup.style.display = 'flex';
                 } else if (applySelect.value === 'Category') {
                     categoryGroup.style.display = 'flex';
+                } else if (applySelect.value === 'Mode') {
+                    modeGroup.style.display = 'flex';
                 }
             }
 
@@ -272,6 +290,15 @@
                     }
                 }
             });
+
+            const applyOnEl = this.querySelector('select[name="apply_on"]');
+            if (applyOnEl && applyOnEl.value === 'Mode') {
+                const modeEl = this.querySelector('select[name="price_modes[]"]');
+                if (modeEl && modeEl.selectedOptions.length === 0) {
+                    showError(modeEl, 'Mode wajib dipilih minimal satu');
+                    isValid = false;
+                }
+            }
 
             if (isValid) this.submit();
         });

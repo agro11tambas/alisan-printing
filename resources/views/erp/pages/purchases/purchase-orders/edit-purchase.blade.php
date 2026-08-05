@@ -166,28 +166,6 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="row mb-2 align-items-center">
-                                <div class="col-lg-2">
-                                    <label for="stock_destination" class="fw-semibold">
-                                        Stock Destination:
-                                    </label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <select class="form-select" name="stock_destination" id="stock_destination" required>
-                                        <option value="production"
-                                            {{ old('stock_destination', $purchase->stock_destination) === 'production' ? 'selected' : '' }}>
-                                            Production
-                                        </option>
-                                        <option value="warehouse"
-                                            {{ old('stock_destination', $purchase->stock_destination) === 'warehouse' ? 'selected' : '' }}>
-                                            Inventory Warehouse
-                                        </option>
-                                    </select>
-                                </div>
-                            </div>
-                            <input type="hidden" name="inventory_warehouse_id" id="inventory_warehouse_id" value="1">
-                            <input type="hidden" name="production_warehouse_id" id="production_warehouse_id"
-                                value="2">
                         </div>
                     </div>
                     <div class="card stretch stretch-full">

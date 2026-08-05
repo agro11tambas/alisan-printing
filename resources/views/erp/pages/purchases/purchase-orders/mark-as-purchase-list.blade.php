@@ -1,5 +1,104 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        /* 🔹 Perbesar font di dalam Select2 container */
+        .select2-container--bootstrap-5 .select2-selection--single {
+            height: 42px !important;
+            font-size: 16px !important;
+            line-height: 42px !important;
+        }
+
+        .select2-selection__rendered {
+            font-size: 16px !important;
+            line-height: 42px !important;
+            padding-left: 10px !important;
+        }
+
+        .select2-results__option {
+            font-size: 16px !important;
+            padding: 4px 8px !important;
+        }
+
+        .select2-selection__arrow {
+            height: 42px !important;
+            right: 10px !important;
+        }
+
+        .product-item {
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns:
+                minmax(240px, 4fr) 90px 90px 90px 90px 120px 120px 120px 130px;
+            gap: 10px;
+            align-items: start;
+        }
+
+        /* 🔹 Perbesar font untuk kolom Qty, Price, Freight, dan Total */
+        .product-grid input.qty,
+        .product-grid input.price,
+        .product-grid input.freight,
+        .product-grid input.total {
+            font-size: 16px !important;
+            font-weight: 600;
+            height: 44px !important;
+        }
+
+        /* 🔹 Untuk tampilan readonly total biar lebih kontras */
+        .product-grid input.total[readonly] {
+            color: #198754 !important;
+        }
+
+        /* 🔹 Perbesar font Grand Total biar seragam */
+        #tab_logic_total input.form-control {
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            height: 44px !important;
+        }
+
+        .product-grid-header {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .product-col-span-2 {
+            grid-column: span 1;
+        }
+
+        .product-grid .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-grid .form-group>label {
+            display: none !important;
+        }
+
+        .product-grid .form-control {
+            height: 44px !important;
+        }
+
+        @include('erp.pages.partials.transaction-form-mobile-styles')
+
+        /* Mobile: tanpa card per produk, sama seperti Sale List. */
+        @media (max-width: 767.98px) {
+            .transaction-form-page .product-item {
+                margin-bottom: 8px !important;
+                padding: 0 !important;
+                border: 0 !important;
+                border-radius: 8px !important;
+                background: transparent !important;
+                box-shadow: none !important;
+            }
+        }
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -47,7 +146,7 @@
             });
         </script>
     @endif
-    <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
+    <div class="main-content transaction-form-page m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
                 <form action="{{ route('purchase-orders.update-purchase-list', $purchase->id) }}" method="POST"
@@ -145,165 +244,212 @@
                                             </label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
-                                            <select class="form-select" id="stock_destination_display" disabled>
-                                                <option value="production" {{ $purchase->stock_destination === 'production' ? 'selected' : '' }}>Production</option>
-                                                <option value="warehouse" {{ $purchase->stock_destination === 'warehouse' ? 'selected' : '' }}>Inventory Warehouse</option>
+                                            <select class="form-select" name="stock_destination" id="stock_destination">
+                                                <option value="" disabled
+                                                    {{ old('stock_destination', $purchase->stock_destination) ? '' : 'selected' }}>
+                                                    Choose stock destination
+                                                </option>
+                                                <option value="production"
+                                                    {{ old('stock_destination', $purchase->stock_destination) === 'production' ? 'selected' : '' }}>
+                                                    Production
+                                                </option>
+                                                <option value="warehouse"
+                                                    {{ old('stock_destination', $purchase->stock_destination) === 'warehouse' ? 'selected' : '' }}>
+                                                    Inventory Warehouse
+                                                </option>
                                             </select>
-                                            <input type="hidden" name="stock_destination" id="stock_destination" value="{{ $purchase->stock_destination }}">
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="waybill_image" class="fw-semibold">Waybill Image</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            @include('erp.pages.inventory.stock-in.partials.waybill-image-editor', [
+                                                'capture' => true,
+                                                'formId' => 'purchaseForm',
+                                            ])
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card stretch stretch-full">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <div class="mb-2">
-                                        <h5 class="fw-bold">Products from PO {{ $purchase->purchase_number }}</h5>
-                                    </div>
-                                    <div class="table-responsive">
-                                        <input type="hidden" name="inventory_warehouse_id" id="inventory_warehouse_id"
-                                            value="1">
-                                        <table class="table table-bordered overflow-hidden" id="tab_logic">
-                                            <thead>
-                                                <tr class="single-item">
-                                                    <th class="text-center wd-50">#</th>
-                                                    <th class="text-center wd-500">Product</th>
-                                                    <th class="text-start wd-80">Unit</th>
-                                                    <th class="text-start wd-80">PO Qty</th>
-                                                    <th class="text-start wd-80">Verify Qty</th>
-                                                    <th class="text-start wd-80">Remaining</th>
-                                                    <th class="text-center" style="width: 120px; min-width: 120px;">Qty PL</th>
-                                                    <th class="text-center" style="width: 120px; min-width: 120px;">Price</th>
-                                                    <th class="text-center" style="width: 120px; min-width: 120px;">Freight</th>
-                                                    <th class="text-center" style="width: 120px; min-width: 120px;">Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach ($purchase->purchaseItems as $i => $item)
-                                                    <tr>
-                                                        <td>{{ $i + 1 }}</td>
-                                                        <td>
-                                                            <span class="fw-semibold">{{ $item->purchaseProduct->name }}</span>
-                                                            <input type="hidden" name="product[]" value="{{ $item->product_id }}">
-                                                            <input type="hidden" name="source_purchase_item_id[]" value="{{ $item->id }}">
-                                                        </td>
-                                                        <td class="text-start">
-                                                            {{ $item->unit_name ?? 'Pcs' }}
-                                                            <input type="hidden" name="product_unit_id[]" value="{{ $item->product_unit_conversion_id }}">
+                    <div class="mt-2">
 
-                                                            <input type="hidden" name="unit_name[]" class="unit-name"
-                                                                value="{{ $item->unit_name ?? 'Pcs' }}">
+                    <div class="mb-2">
+                        <h5 class="fw-bold">Products from PO {{ $purchase->purchase_number }}</h5>
+                    </div>
+                    <input type="hidden" name="inventory_warehouse_id" id="inventory_warehouse_id"
+                        value="1">
 
-                                                            <input type="hidden" name="unit_conversion_value[]"
-                                                                class="unit-conversion-value"
-                                                                value="{{ $item->unit_conversion_value ?? 1 }}">
-                                                        </td>
-                                                        <td class="text-start fw-bold text-primary">{{ number_format($item->quantity, 0, ',', '.') }}</td>
-                                                        <td class="text-start fw-bold text-success">{{ number_format($item->approved_quantity, 0, ',', '.') }}</td>
-                                                        <td class="text-start fw-bold text-danger">{{ number_format($item->remaining_quantity, 0, ',', '.') }}</td>
-                                                        <td><input type="text" inputmode="numeric" name="qty[]"
-                                                                class="form-control qty" value="0"
-                                                                max="{{ $item->remaining_quantity }}"
-                                                                data-max="{{ $item->remaining_quantity }}">
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" inputmode="numeric" name="price[]"
-                                                                class="form-control price" value="0">
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" inputmode="numeric" name="freight[]"
-                                                                class="form-control freight" value="0">
-                                                        </td>
-                                                        <td>
-                                                            <input type="text" inputmode="numeric" name="total[]"
-                                                                class="form-control total" readonly value="0">
-                                                        </td>
-                                                    </tr>
-                                                @endforeach
-                                            </tbody>
-                                        </table>
+                    <div class="product-grid product-grid-header mb-1">
+                        <div class="product-col-span-2">Product</div>
+                        <div>Unit</div>
+                        <div>PO Qty</div>
+                        <div>Verify Qty</div>
+                        <div>Remaining</div>
+                        <div>Qty PL</div>
+                        <div>Price</div>
+                        <div>Freight</div>
+                        <div>Total</div>
+                    </div>
+
+                    <div id="product_list">
+                        @foreach ($purchase->purchaseItems as $i => $item)
+                            <div class="product-item" data-index="{{ $i }}">
+                                <div class="product-grid">
+                                    <div class="form-group product-col-span-2">
+                                        <label>Product</label>
+                                        <input type="text" class="form-control product-name-display"
+                                            value="{{ $item->purchaseProduct->name }}" readonly>
+                                        <input type="hidden" name="product[]"
+                                            value="{{ $item->product_id }}">
+                                        <input type="hidden" name="source_purchase_item_id[]"
+                                            value="{{ $item->id }}">
                                     </div>
 
-                                    <div class="row justify-content-end">
-                                        <div class="col-lg-4 mt-2">
-                                            <div class="mb-2">
-                                                <h5 class="fw-bold">Grand Total:</h5>
-                                            </div>
-                                            <div class="table-responsive">
-                                                <table class="table table-bordered" id="tab_logic_total">
-                                                    <tbody>
-                                                        <tr>
-                                                            <th>Total Product</th>
-                                                            <td>
-                                                                <input type="text" id="total_amount_product_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                                <input type="hidden" name="total_amount_product"
-                                                                    id="total_amount_product">
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th>Total Freight</th>
-                                                            <td>
-                                                                <input type="text" id="total_amount_freight_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                                <input type="hidden" name="total_amount_freight"
-                                                                    id="total_amount_freight">
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th>Sub Total</th>
-                                                            <td>
-                                                                <input type="text" id="sub_total_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                                <input type="hidden" name="sub_total" id="sub_total">
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th>Tax (%)</th>
-                                                            <td>
-                                                                <div class="input-group">
-                                                                    <input type="number" name="tax_percent"
-                                                                        id="tax_percent"
-                                                                        class="form-control border-0 bg-transparent p-0"
-                                                                        value="0" min="0">
-                                                                    <span class="input-group-text">%</span>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <th>Tax Amount</th>
-                                                            <td>
-                                                                <input type="text" id="tax_amount_display"
-                                                                    class="form-control border-0 bg-transparent p-0"
-                                                                    readonly>
-                                                                <input type="hidden" name="tax_amount" id="tax_amount">
-                                                            </td>
-                                                        </tr>
-                                                        <tr class="fw-bold">
-                                                            <th>Grand Total</th>
-                                                            <td>
-                                                                <input type="text" id="total_amount_display"
-                                                                    class="form-control border-0 bg-transparent p-0 fw-bold"
-                                                                    readonly>
-                                                                <input type="hidden" name="total_amount"
-                                                                    id="total_amount">
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
+                                    <div class="form-group">
+                                        <label>Unit</label>
+                                        <input type="text" class="form-control"
+                                            value="{{ $item->unit_name ?? 'Pcs' }}" readonly>
+                                        <input type="hidden" name="product_unit_id[]"
+                                            value="{{ $item->product_unit_conversion_id }}">
+                                        <input type="hidden" name="unit_name[]" class="unit-name"
+                                            value="{{ $item->unit_name ?? 'Pcs' }}">
+                                        <input type="hidden" name="unit_conversion_value[]"
+                                            class="unit-conversion-value"
+                                            value="{{ $item->unit_conversion_value ?? 1 }}">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>PO Qty</label>
+                                        <input type="text" class="form-control fw-bold text-primary"
+                                            value="{{ number_format($item->quantity, 0, ',', '.') }}"
+                                            readonly>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Verify Qty</label>
+                                        <input type="text" class="form-control fw-bold text-success"
+                                            value="{{ number_format($item->approved_quantity, 0, ',', '.') }}"
+                                            readonly>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Remaining</label>
+                                        <input type="text" class="form-control fw-bold text-danger"
+                                            value="{{ number_format($item->remaining_quantity, 0, ',', '.') }}"
+                                            readonly>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Qty PL</label>
+                                        <input type="text" inputmode="numeric" name="qty[]"
+                                            class="form-control qty" value="0"
+                                            max="{{ $item->remaining_quantity }}"
+                                            data-max="{{ $item->remaining_quantity }}">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Price</label>
+                                        <input type="text" inputmode="numeric" name="price[]"
+                                            class="form-control price" value="0">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Freight</label>
+                                        <input type="text" inputmode="numeric" name="freight[]"
+                                            class="form-control freight" value="0">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Total</label>
+                                        <input type="text" inputmode="numeric" name="total[]"
+                                            class="form-control total" readonly value="0">
                                     </div>
                                 </div>
                             </div>
+                        @endforeach
+                    </div>
+
+                    <div class="row justify-content-end mt-2">
+                        <div class="col-lg-4">
+                            <h5 class="fw-bold mb-2">Grand Total:</h5>
+
+                            <table class="table table-bordered" id="tab_logic_total">
+                                <tbody>
+                                    <tr>
+                                        <th>Total Product</th>
+                                        <td>
+                                            <input type="text" id="total_amount_product_display"
+                                                class="form-control"
+                                                readonly>
+                                            <input type="hidden" name="total_amount_product"
+                                                id="total_amount_product">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Total Freight</th>
+                                        <td>
+                                            <input type="text" id="total_amount_freight_display"
+                                                class="form-control"
+                                                readonly>
+                                            <input type="hidden" name="total_amount_freight"
+                                                id="total_amount_freight">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Sub Total</th>
+                                        <td>
+                                            <input type="text" id="sub_total_display"
+                                                class="form-control"
+                                                readonly>
+                                            <input type="hidden" name="sub_total" id="sub_total">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Tax (%)</th>
+                                        <td>
+                                            <div class="input-group">
+                                                <input type="number" name="tax_percent"
+                                                    id="tax_percent"
+                                                    class="form-control"
+                                                    value="0" min="0">
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>Tax Amount</th>
+                                        <td>
+                                            <input type="text" id="tax_amount_display"
+                                                class="form-control"
+                                                readonly>
+                                            <input type="hidden" name="tax_amount" id="tax_amount">
+                                        </td>
+                                    </tr>
+                                    <tr class="fw-bold">
+                                        <th class="bg-gray-100">Grand Total</th>
+                                        <td>
+                                            <input type="text" id="total_amount_display"
+                                                class="form-control fw-bold text-success bg-gray-100"
+                                                readonly>
+                                            <input type="hidden" name="total_amount"
+                                                id="total_amount">
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
+                    </div>
+
+                    @include('erp.pages.partials.transaction-mobile-actions', [
+                        'backUrl' => '/erp/purchases/purchase-orders',
+                        'formId' => 'purchaseForm',
+                        'submitLabel' => 'Save Purchase List',
+                    ])
                 </form>
             </div>
         </div>
@@ -436,7 +582,7 @@
                 subtotalFreight = 0;
 
             let hasPositiveQty = false;
-            $('#tab_logic tbody tr').each(function() {
+            $('#product_list .product-item').each(function() {
                 const row = $(this);
                 syncSelectedUnit(row);
                 // ✅ Qty harus dianggap bilangan bulat (hapus titik)
@@ -492,12 +638,12 @@
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
-            $('#tab_logic tbody tr').each(function() {
+            $('#product_list .product-item').each(function() {
                 syncSelectedUnit($(this));
             });
 
             $(document).on('change', '.select-unit', function() {
-                syncSelectedUnit($(this).closest('tr'));
+                syncSelectedUnit($(this).closest('.product-item'));
             });
 
             // Format awal
@@ -520,7 +666,7 @@
             });
 
             // Auto price dari data attribute
-            $('#tab_logic tbody tr').each(function() {
+            $('#product_list .product-item').each(function() {
                 const row = $(this);
                 syncSelectedUnit(row);
                 const selected = row.find('.select-product option:selected');
@@ -532,33 +678,11 @@
             });
             calc_total();
 
-            /* Tambah baris baru */
-            $('#add_row').on('click', function() {
-                const $tbody = $('#tab_logic tbody');
-                const $newRow = $tbody.find('tr:first').clone();
-                const newIndex = $tbody.find('tr').length;
-
-                $newRow.attr('id', 'addr' + newIndex);
-                $newRow.find('td:first').text(newIndex + 1);
-                $newRow.find('input').val('0'); // Set default ke 0
-                $newRow.find('.select2').remove();
-                $newRow.find('select').removeClass('select2-hidden-accessible').val('');
-
-                $tbody.append($newRow);
-                initSelect2($newRow.find('.select-product'));
-            });
-
-            /* Hapus baris */
-            $(document).on('click', '.delete-row', function() {
-                if ($('#tab_logic tbody tr').length > 1) {
-                    $(this).closest('tr').remove();
-                    calc_total();
-                }
-            });
+            /* Produk PL selalu mengikuti item PO, jadi tidak ada tambah/hapus baris di sini. */
 
             /* ==================== INPUT HANDLER ==================== */
             $(document).on('change', '.select-product', function() {
-                const row = $(this).closest('tr');
+                const row = $(this).closest('.product-item');
                 loadProductUnits(row);
                 const selectedOption = $(this).find('option:selected');
                 const productId = selectedOption.val();
@@ -622,7 +746,7 @@
                 clampQtyToRemaining(this);
 
                 // ✅ Hitung total realtime
-                updateRowTotal($(this).closest('tr'));
+                updateRowTotal($(this).closest('.product-item'));
             });
 
 
@@ -660,28 +784,41 @@
                 }
 
                 // ✅ Hitung total realtime tiap ketik
-                const row = $(this).closest('tr');
+                const row = $(this).closest('.product-item');
                 updateRowTotal(row);
+            });
+
+            // Tandai field yang dikosongkan otomatis saat fokus, supaya bisa dibedakan
+            // dari field yang memang sengaja dikosongkan user (harus kena validasi required).
+            $(document).on('input', '.qty, .price, .freight', function() {
+                $(this).removeData('autoCleared');
             });
 
             $(document).on('focus', '.qty', function() {
                 const val = unformatRibuan($(this).val());
                 if (val === 0 || $(this).val().trim() === '') {
+                    $(this).data('autoCleared', true);
                     $(this).val(''); // kosongkan saat fokus
+                } else {
+                    $(this).removeData('autoCleared');
                 }
             });
 
             $(document).on('blur', '.qty', function() {
                 let val = $(this).val().trim();
-                const row = $(this).closest('tr');
+                const row = $(this).closest('.product-item');
 
-                if (val === '' || val === null || val === undefined) {
-                    $(this).val('0');
+                if (val === '') {
+                    // Hanya dikembalikan ke 0 kalau user tidak mengetik apa pun.
+                    if ($(this).data('autoCleared')) {
+                        $(this).val('0');
+                    }
                 } else {
                     const num = unformatRibuan(val); // ✅ fix: unformat dulu
                     $(this).val(formatRibuan(num)); // baru format ulang
                 }
 
+                $(this).removeData('autoCleared');
                 clampQtyToRemaining(this);
                 updateRowTotal(row);
             });
@@ -690,22 +827,29 @@
             $(document).on('focus', '.price, .freight', function() {
                 const val = unformatRibuan($(this).val());
                 if (val === 0 || $(this).val().trim() === '') {
+                    $(this).data('autoCleared', true);
                     $(this).val(''); // kosongkan saat fokus
+                } else {
+                    $(this).removeData('autoCleared');
                 }
             });
 
             $(document).on('blur', '.price, .freight', function() {
                 let val = $(this).val().trim();
-                const row = $(this).closest('tr');
+                const row = $(this).closest('.product-item');
 
-                if (val === '' || val === null || val === undefined) {
-                    $(this).val('0');
+                if (val === '') {
+                    // Hanya dikembalikan ke 0 kalau user tidak mengetik apa pun.
+                    if ($(this).data('autoCleared')) {
+                        $(this).val('0');
+                    }
                 } else {
                     // 💡 konversi dulu ke angka real (support koma)
                     const num = unformatRibuan(val);
                     $(this).val(formatRibuan(num));
                 }
 
+                $(this).removeData('autoCleared');
                 updateRowTotal(row);
             });
 
@@ -788,7 +932,7 @@
         }
 
         $(document).on("change input",
-            "#purchase_number, #purchase_date, #suppliers, #transaction_type, select[name='product[]'], input[name='qty[]'], input[name='price[]']",
+            "#purchase_number, #purchase_date, #suppliers, #transaction_type, #stock_destination, select[name='product[]'], input[name='qty[]'], input[name='price[]'], input[name='freight[]']",
             function() {
                 if ($(this).hasClass("select2-hidden-accessible")) {
                     $(this).next('.select2').next('.invalid-feedback').remove();
@@ -827,6 +971,12 @@
                 showError(supplier[0], 'Supplier wajib dipilih');
             }
 
+            const stockDestination = $('#stock_destination');
+            if (!stockDestination.val()) {
+                isValid = false;
+                showError(stockDestination[0], 'Stock destination wajib dipilih');
+            }
+
             // const editNote = $('#edit_note');
             // if (!editNote.val().trim()) {
             //     isValid = false;
@@ -840,7 +990,7 @@
             }
 
             // 🔹 Validasi setiap baris produk
-            $('#tab_logic tbody tr').each(function() {
+            $('#product_list .product-item').each(function() {
                 const row = $(this);
                 syncSelectedUnit(row);
                 const product = row.find('input[name="product[]"]');
@@ -853,31 +1003,42 @@
                     showError(product[0], 'Produk wajib dipilih');
                 }
 
-                const qtyNumber = parseFloat(unformatRibuan(qty.val())) || 0;
+                // 🔹 Qty PL wajib diisi
+                const qtyVal = (qty.val() ?? '').trim();
+                const qtyNumber = parseFloat(unformatRibuan(qtyVal)) || 0;
                 const maxQty = parseFloat(qty.data('max')) || 0;
-                if (qtyNumber < 0 || qtyNumber > maxQty) {
+                if (qtyVal === '') {
+                    isValid = false;
+                    showError(qty[0], 'Qty PL wajib diisi');
+                } else if (qtyNumber < 0 || qtyNumber > maxQty) {
                     isValid = false;
                     showError(qty[0], `Qty harus antara 0 dan ${formatRibuan(maxQty)}`);
                 }
 
                 if (qtyNumber > 0) hasPositiveQty = true;
 
-                if (qtyNumber > 0 && (!price.val() || parseFloat(unformatRibuan(price.val())) <= 0)) {
+                // 🔹 Price wajib diisi
+                const priceVal = (price.val() ?? '').trim();
+                const priceNumber = unformatRibuan(priceVal);
+                if (priceVal === '') {
                     isValid = false;
-                    showError(price[0], 'Harga wajib diisi dan harus lebih dari 0');
+                    showError(price[0], 'Price wajib diisi');
+                } else if (priceNumber < 0) {
+                    isValid = false;
+                    showError(price[0], 'Price harus berupa angka valid (minimal 0)');
+                } else if (qtyNumber > 0 && priceNumber <= 0) {
+                    isValid = false;
+                    showError(price[0], 'Price harus lebih dari 0');
                 }
 
-                const freightVal = freight.val().trim();
-                if (freightVal === '' || freightVal === null) {
+                // 🔹 Freight wajib diisi
+                const freightVal = (freight.val() ?? '').trim();
+                if (freightVal === '') {
                     isValid = false;
-                    showError(freight[0], 'Freight harus diisi (minimal 0)');
-                    freight.val('0');
-                } else {
-                    const freightNum = unformatRibuan(freightVal);
-                    if (isNaN(freightNum) || freightNum < 0) {
-                        isValid = false;
-                        showError(freight[0], 'Freight harus berupa angka valid (minimal 0)');
-                    }
+                    showError(freight[0], 'Freight wajib diisi');
+                } else if (unformatRibuan(freightVal) < 0) {
+                    isValid = false;
+                    showError(freight[0], 'Freight harus berupa angka valid (minimal 0)');
                 }
             });
 

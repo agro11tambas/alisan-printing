@@ -15,12 +15,20 @@ class EcommerceProductCategoryController extends Controller
 {
     public function index()
     {
-        return view('erp.pages.ecommerce-product-categories.index');
+        $parentOptions = $this->parentOptions();
+
+        return view('erp.pages.ecommerce-product-categories.index', compact('parentOptions'));
     }
 
     public function data(Request $request)
     {
-        $query = EcommerceProductCategory::query();
+        $query = EcommerceProductCategory::query()->with('parent');
+
+        if ($request->filled('parent_id')) {
+            $request->parent_id === 'root'
+                ? $query->root()
+                : $query->where('parent_id', $request->parent_id);
+        }
 
         if ($request->filled('search_keyword')) {
             $keyword = $request->search_keyword;
@@ -48,18 +56,25 @@ class EcommerceProductCategoryController extends Controller
                 </a>';
             })
             ->addColumn('name', fn($category) => e($category->name))
+            ->addColumn('parent', function ($category) {
+                return $category->parent
+                    ? '<span class="badge bg-soft-primary text-primary">' . e($category->parent->name) . '</span>'
+                    : '<span class="text-muted">-</span>';
+            })
             ->addColumn('slug', fn($category) => e($category->slug))
             ->addColumn('description', fn($category) => e(Str::limit($category->description ?? '-', 80)))
             ->addColumn('action', function ($category) {
                 return view('erp.pages.ecommerce-product-categories.partials.action-button', compact('category'))->render();
             })
-            ->rawColumns(['image', 'action'])
+            ->rawColumns(['image', 'parent', 'action'])
             ->make(true);
     }
 
     public function create()
     {
-        return view('erp.pages.ecommerce-product-categories.create-category');
+        $parentOptions = $this->parentOptions();
+
+        return view('erp.pages.ecommerce-product-categories.create-category', compact('parentOptions'));
     }
 
     public function store(EcommerceProductCategoryStoreRequest $request)
@@ -78,7 +93,9 @@ class EcommerceProductCategoryController extends Controller
 
     public function edit(EcommerceProductCategory $category)
     {
-        return view('erp.pages.ecommerce-product-categories.edit-category', compact('category'));
+        $parentOptions = $this->parentOptions($category);
+
+        return view('erp.pages.ecommerce-product-categories.edit-category', compact('category', 'parentOptions'));
     }
 
     public function update(EcommerceProductCategoryUpdateRequest $request, EcommerceProductCategory $category)
@@ -97,6 +114,10 @@ class EcommerceProductCategoryController extends Controller
 
     public function destroy(EcommerceProductCategory $category)
     {
+        // Soft delete tidak men-trigger FK nullOnDelete, jadi child-nya dinaikkan
+        // manual ke parent di atasnya supaya tidak nyangkut ke category terhapus.
+        $category->children()->update(['parent_id' => $category->parent_id]);
+
         $category->delete();
 
         return redirect()
@@ -112,6 +133,42 @@ class EcommerceProductCategoryController extends Controller
         return redirect()
             ->route('erp.ecommerce-product-categories.index')
             ->with('success', 'Ecommerce Product Category berhasil direstore.');
+    }
+
+    /**
+     * Daftar kandidat parent, urut sebagai tree dengan indentasi.
+     * Category yang sedang diedit beserta seluruh turunannya dikecualikan
+     * supaya tidak bisa bikin siklus.
+     */
+    private function parentOptions(?EcommerceProductCategory $exclude = null): array
+    {
+        $excludedIds = $exclude ? $exclude->descendantIds() : [];
+
+        $categories = EcommerceProductCategory::orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'parent_id', 'name']);
+
+        $build = function ($parentId, $depth) use (&$build, $categories, $excludedIds) {
+            $options = [];
+
+            foreach ($categories->where('parent_id', $parentId) as $category) {
+                if (in_array($category->id, $excludedIds, true)) {
+                    continue;
+                }
+
+                $options[] = [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'depth' => $depth,
+                ];
+
+                $options = array_merge($options, $build($category->id, $depth + 1));
+            }
+
+            return $options;
+        };
+
+        return $build(null, 0);
     }
 
     private function storeFile($file, ?string $oldPath = null): ?string

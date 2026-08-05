@@ -235,8 +235,6 @@ class PurchaseOrderController extends Controller
             'unit_conversion_value.*' => 'nullable|numeric|min:0.01',
             'unit_name' => 'nullable|array',
             'unit_name.*' => 'nullable|string',
-
-            'stock_destination' => 'required|in:warehouse,production',
         ]);
 
         DB::beginTransaction();
@@ -259,7 +257,8 @@ class PurchaseOrderController extends Controller
                 'total_amount_freight' => 0,
                 'paid_amount' => 0,
                 'remaining_amount' => 0,
-                'stock_destination' => $request->stock_destination,
+                // Stock destination ditentukan saat pembuatan Purchase List, bukan di PO.
+                'stock_destination' => null,
             ]);
 
             foreach ($request->product as $index => $productId) {
@@ -286,13 +285,9 @@ class PurchaseOrderController extends Controller
                     'unit_conversion_value' => $unitConversionValue,
                     'qty_base' => $qtyBase,
 
-                    'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
-                        ? $request->inventory_warehouse_id
-                        : null,
-
-                    'production_warehouse_id' => $request->stock_destination === 'production'
-                        ? $request->production_warehouse_id
-                        : null,
+                    // Gudang tujuan baru diisi saat Purchase List dibuat.
+                    'inventory_warehouse_id' => null,
+                    'production_warehouse_id' => null,
 
                     'product_name' => $product->name,
                     'quantity' => $qty,
@@ -367,7 +362,6 @@ class PurchaseOrderController extends Controller
             // 'total_amount_product'   => 'required|numeric|min:0',
             // 'total_amount_freight'   => 'required|numeric|min:0',
             // 'total_amount'           => 'required|numeric|min:0',
-            'stock_destination' => 'required|in:warehouse,production',
             'product_unit_id' => 'nullable|array',
             'product_unit_id.*' => 'nullable',
             'unit_conversion_value' => 'nullable|array',
@@ -434,7 +428,6 @@ class PurchaseOrderController extends Controller
                 'remaining_amount' => $remainingAmount,
                 'status' => $status,
                 'notes' => $request->notes,
-                'stock_destination' => $request->stock_destination,
             ]);
 
             // ===== 4️⃣ UPDATE / INSERT ITEM BARU =====
@@ -465,13 +458,9 @@ class PurchaseOrderController extends Controller
                         'product_id' => $productId,
                     ],
                     [
-                        'inventory_warehouse_id' => $request->stock_destination === 'warehouse'
-                            ? $request->inventory_warehouse_id
-                            : null,
-
-                        'production_warehouse_id' => $request->stock_destination === 'production'
-                            ? $request->production_warehouse_id
-                            : null,
+                        // Gudang tujuan baru diisi saat Purchase List dibuat.
+                        'inventory_warehouse_id' => null,
+                        'production_warehouse_id' => null,
 
                         'product_unit_conversion_id' => $unitConversionId,
                         'unit_name' => $unitName,
@@ -1010,6 +999,7 @@ class PurchaseOrderController extends Controller
             'freight.*' => 'numeric|min:0',
             'tax_percent' => 'nullable|numeric|min:0',
             'stock_destination' => 'required|in:warehouse,production',
+            'waybill_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
         ]);
 
         DB::beginTransaction();
@@ -1074,6 +1064,30 @@ class PurchaseOrderController extends Controller
                 throw new \RuntimeException('Isi minimal satu quantity produk untuk membuat Purchase List.');
             }
 
+            // Waybill difoto/diupload saat Purchase List dibuat (pola sama dengan Stock In).
+            $waybillImagePath = null;
+            if ($request->hasFile('waybill_image')) {
+                $image = $request->file('waybill_image');
+                $filename = time().'_'.uniqid().'.'.$image->getClientOriginalExtension();
+                $uploadPath = base_path('public/uploads/waybill_image');
+
+                if (! file_exists($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+
+                $image->move($uploadPath, $filename);
+                $waybillImagePath = 'uploads/waybill_image/'.$filename;
+            }
+
+            // Stock destination ditentukan di form Purchase List (PO tidak lagi menyimpannya).
+            $stockDestination = $validated['stock_destination'];
+            $inventoryWarehouseId = $stockDestination === 'warehouse'
+                ? ($request->inventory_warehouse_id ?? 1)
+                : null;
+            $productionWarehouseId = $stockDestination === 'production'
+                ? ($request->production_warehouse_id ?? 2)
+                : null;
+
             $taxPercent = (float) ($validated['tax_percent'] ?? 0);
             $taxAmount = $subtotalProduct * $taxPercent / 100;
             $totalProduct = $subtotalProduct + $taxAmount;
@@ -1088,7 +1102,7 @@ class PurchaseOrderController extends Controller
                 'status' => 'Purchase List',
                 'approval_status' => 'Approved',
                 'payment_status' => 'Unpaid',
-                'stock_destination' => $order->stock_destination,
+                'stock_destination' => $stockDestination,
                 'sub_total' => $subtotalProduct + $subtotalFreight,
                 'tax_percent' => $taxPercent,
                 'tax_amount' => $taxAmount,
@@ -1102,10 +1116,11 @@ class PurchaseOrderController extends Controller
                 'paid_amount' => 0,
                 'remaining_amount' => $grandTotal,
                 'notes' => $request->notes,
+                'waybill_image' => $waybillImagePath,
                 'user_id' => auth()->id(),
             ]);
 
-            $inventoryStatus = $order->stock_destination === 'production'
+            $inventoryStatus = $stockDestination === 'production'
                 ? 'Stock In Production'
                 : 'Stock In';
             $inventory = Inventory::create([
@@ -1134,8 +1149,8 @@ class PurchaseOrderController extends Controller
                     'unit_name' => $sourceItem->unit_name,
                     'unit_conversion_value' => $conversion,
                     'qty_base' => $qtyBase,
-                    'inventory_warehouse_id' => $sourceItem->inventory_warehouse_id,
-                    'production_warehouse_id' => $sourceItem->production_warehouse_id,
+                    'inventory_warehouse_id' => $inventoryWarehouseId,
+                    'production_warehouse_id' => $productionWarehouseId,
                     'status' => 'Purchase Account',
                     'quantity' => $qty,
                     'price' => $price,
@@ -1162,7 +1177,7 @@ class PurchaseOrderController extends Controller
                     'stock_out' => 0,
                 ]);
 
-                if ($order->stock_destination === 'warehouse') {
+                if ($stockDestination === 'warehouse') {
                     InventoryStock::firstOrCreate([
                         'product_id' => $item->product_id,
                         'inventory_warehouse_id' => $item->inventory_warehouse_id ?? 1,

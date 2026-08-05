@@ -59,6 +59,31 @@
 
                         <div class="row mb-2 align-items-center">
                             <div class="col-lg-2">
+                                <label for="parent_id" class="fw-semibold">Parent Category</label>
+                            </div>
+                            <div class="col-lg-10 mb-0">
+                                <div class="input-group">
+                                    <div class="input-group-text"><i class="feather-git-merge"></i></div>
+                                    <select class="form-control @error('parent_id') is-invalid @enderror" id="parent_id"
+                                        name="parent_id">
+                                        <option value="">-- Tanpa parent (kategori utama) --</option>
+                                        @foreach ($parentOptions ?? [] as $option)
+                                            <option value="{{ $option['id'] }}"
+                                                @selected((string) old('parent_id', $category->parent_id ?? '') === (string) $option['id'])>
+                                                {!! str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $option['depth']) !!}{{ $option['depth'] > 0 ? '└ ' : '' }}{{ $option['name'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('parent_id')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                                <small class="text-muted">Kosongkan kalau ini kategori level teratas.</small>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-lg-2">
                                 <label for="slug" class="fw-semibold">Slug</label>
                             </div>
                             <div class="col-lg-10 mb-0">

@@ -10,7 +10,7 @@ class EcommerceDiscountController extends Controller
     public function index()
     {
         $today = now()->toDateString();
-        $discounts = Discount::with(['products', 'categories', 'ecommerceCategories'])
+        $discounts = Discount::with(['products', 'categories', 'ecommerceCategories', 'priceModes'])
             ->where('is_active', 1)
             ->where(fn ($query) => $query->whereNull('start_date')->orWhereDate('start_date', '<=', $today))
             ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $today))
@@ -30,6 +30,8 @@ class EcommerceDiscountController extends Controller
                     'products' => $discount->products->pluck('id'),
                     'categories' => $discount->categories->pluck('id'),
                     'ecommerce_categories' => $discount->ecommerceCategories->pluck('id'),
+                    'price_modes' => $discount->priceModes->pluck('id'),
+                    'price_mode_slugs' => $discount->priceModes->pluck('slug'),
                 ];
             });
 

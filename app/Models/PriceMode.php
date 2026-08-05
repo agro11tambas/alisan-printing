@@ -28,6 +28,11 @@ class PriceMode extends Model
         return $this->hasMany(PurchaseItem::class);
     }
 
+    public function discounts()
+    {
+        return $this->belongsToMany(Discount::class, 'discount_price_modes', 'price_mode_id', 'discount_id');
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);

@@ -375,11 +375,13 @@ class SaleOrderController extends Controller
             })
             ->get();
         $priceModes = PriceMode::active()->ordered()->get();
+        $modeDiscounts = Discount::modeDiscountsPayload();
         return view('erp.pages.sales.sale-orders.create-order', compact(
             'customers',
             'productsJson',
             'productBundlesJson',
-            'priceModes'
+            'priceModes',
+            'modeDiscounts'
         ));
     }
 
@@ -784,6 +786,7 @@ class SaleOrderController extends Controller
         })->toArray();
 
         $priceModes = PriceMode::active()->ordered()->get();
+        $modeDiscounts = Discount::modeDiscountsPayload();
 
         return view('erp.pages.sales.sale-orders.edit-order', compact(
             'order',
@@ -794,7 +797,8 @@ class SaleOrderController extends Controller
             'productBundlesJson',
             'dueDateOption',
             'customDueDate',
-            'priceModes'
+            'priceModes',
+            'modeDiscounts'
         ));
     }
 

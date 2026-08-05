@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,16 @@ class ProductionStockSnapshot extends Model
 
     public static function adjustStockOpname(int $productId, CarbonInterface|string $date, int $adjustment): void
     {
+        static::adjustColumn('stock_opname_today', $productId, $date, $adjustment);
+    }
+
+    public static function adjustAssign(int $productId, CarbonInterface|string $date, int $adjustment): void
+    {
+        static::adjustColumn('assign_today', $productId, $date, $adjustment);
+    }
+
+    protected static function adjustColumn(string $column, int $productId, CarbonInterface|string $date, int $adjustment): void
+    {
         if ($adjustment === 0) {
             return;
         }
@@ -35,7 +46,7 @@ class ProductionStockSnapshot extends Model
         $snapshot = static::firstOrCreate(
             [
                 'product_id' => $productId,
-                'snapshot_date' => $date,
+                'snapshot_date' => Carbon::parse($date)->startOfDay(),
             ],
             [
                 'opening_stock' => ProductionStock::where('product_id', $productId)
@@ -43,7 +54,7 @@ class ProductionStockSnapshot extends Model
             ]
         );
 
-        $snapshot->increment('stock_opname_today', $adjustment);
+        $snapshot->increment($column, $adjustment);
     }
 
     // ── Relations ──────────────────────────────────────────

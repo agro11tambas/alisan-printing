@@ -180,20 +180,6 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        <div class="row mb-2 align-items-center">
-                                            <div class="col-lg-2">
-                                                <label for="stock_destination" class="fw-semibold">
-                                                    Stock Destination:
-                                                </label>
-                                            </div>
-                                            <div class="col-lg-10 mb-0">
-                                                <select class="form-select" name="stock_destination" id="stock_destination"
-                                                    required>
-                                                    <option value="production">Production</option>
-                                                    <option value="warehouse">Inventory Warehouse</option>
-                                                </select>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -322,14 +308,6 @@
                         'submitLabel' => 'Store Purchase Order',
                     ])
                 </form>
-            </div>
-        </div>
-        <div class="col-lg-12">
-            <div class="card stretch stretch-full">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                    </div>
-                </div>
             </div>
         </div>
     </div>

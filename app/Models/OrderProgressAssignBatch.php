@@ -43,15 +43,17 @@ class OrderProgressAssignBatch extends Model
     protected static function booted()
     {
         static::deleting(function ($batch) {
+            // dihapus per-model, bukan mass delete, supaya event di
+            // OrderProgressAssign (histories + assign_today) tetap jalan
             if ($batch->isForceDeleting()) {
-                $batch->assigns()->forceDelete();
+                $batch->assigns()->withTrashed()->get()->each->forceDelete();
             } else {
-                $batch->assigns()->delete();
+                $batch->assigns()->get()->each->delete();
             }
         });
 
         static::restoring(function ($batch) {
-            $batch->assigns()->withTrashed()->restore();
+            $batch->assigns()->withTrashed()->get()->each->restore();
         });
     }
 }

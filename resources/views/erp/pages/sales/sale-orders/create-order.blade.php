@@ -946,6 +946,35 @@
 
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
+        const modeDiscounts = @json($modeDiscounts ?? []);
+
+        // 🔹 Diskon dengan Apply On = Mode: berlaku untuk baris yang mode-nya cocok
+        function discountsForMode(mode) {
+            if (!mode) return [];
+            return modeDiscounts.filter(d => (d.price_mode_slugs || []).includes(mode));
+        }
+
+        // 🔹 Akumulasi qty & nominal dari semua baris dengan mode yang sama
+        function modeTotals(mode) {
+            let qty = 0,
+                amount = 0;
+
+            $('.product-item').each(function() {
+                const r = $(this);
+                if (r.find('select[name="mode[]"]').val() !== mode) return;
+
+                const rowQty = parseFloat((r.find('input[name="qty[]"]').val() || '').replace(/\./g, '')) || 0;
+                const rowPrice = parseFloat(r.find('input.price_before_discount').val()) || 0;
+
+                qty += rowQty;
+                amount += rowPrice * rowQty;
+            });
+
+            return {
+                qty,
+                amount
+            };
+        }
 
         @include('erp.pages.partials.sales-create-address-script')
 
@@ -1174,6 +1203,8 @@
                     }
                 });
 
+                allDiscounts = allDiscounts.concat(discountsForMode(itemMode));
+
                 allDiscounts.forEach(discount => {
                     if (discount.mode && discount.mode !== itemMode) {
                         return;
@@ -1210,6 +1241,16 @@
                             .minimum_qty_or_amount) {
                             eligible = true;
                         } else if (discount.minimum_based_on === 'Purchase Amount' && totalAmountCategory >=
+                            discount.minimum_qty_or_amount) {
+                            eligible = true;
+                        }
+                    } else if (discount.apply_on === 'Mode') {
+                        const totals = modeTotals(itemMode);
+
+                        if (discount.minimum_based_on === 'Quantity of Items' && totals.qty >= discount
+                            .minimum_qty_or_amount) {
+                            eligible = true;
+                        } else if (discount.minimum_based_on === 'Purchase Amount' && totals.amount >=
                             discount.minimum_qty_or_amount) {
                             eligible = true;
                         }

@@ -1,5 +1,11 @@
 @extends('erp.layouts.main')
 
+@push('styles')
+    <style>
+        @include('erp.pages.partials.transaction-table-mobile-styles')
+    </style>
+@endpush
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
@@ -56,7 +62,7 @@
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
-                                    <table class="table">
+                                    <table class="table table-mobile-cards">
                                         <thead>
                                             <tr>
                                                 <th>Product</th>
@@ -68,11 +74,11 @@
                                         <tbody>
                                             @foreach ($purchase->purchaseItems as $item)
                                                 <tr>
-                                                    <td>{{ $item->purchaseProduct->name }}</td>
+                                                    <td class="mobile-card-title">{{ $item->purchaseProduct->name }}</td>
                                                     @php($approved = $item->purchaseListItems->sum('quantity'))
-                                                    <td>{{ number_format($item->quantity, 0, ',', '.') }} {{ $item->unit_name }}</td>
-                                                    <td>{{ number_format($approved, 0, ',', '.') }} {{ $item->unit_name }}</td>
-                                                    <td class="fw-bold text-primary">{{ number_format(max(0, $item->quantity - $approved), 0, ',', '.') }} {{ $item->unit_name }}</td>
+                                                    <td data-label="PO Qty">{{ number_format($item->quantity, 0, ',', '.') }} {{ $item->unit_name }}</td>
+                                                    <td data-label="Verify ke PL">{{ number_format($approved, 0, ',', '.') }} {{ $item->unit_name }}</td>
+                                                    <td class="fw-bold text-primary" data-label="Sisa">{{ number_format(max(0, $item->quantity - $approved), 0, ',', '.') }} {{ $item->unit_name }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>
@@ -86,7 +92,7 @@
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
-                                    <table class="table mb-0">
+                                    <table class="table mb-0 table-mobile-cards">
                                         <thead>
                                             <tr>
                                                 <th>PL Number</th>
@@ -98,10 +104,10 @@
                                         <tbody>
                                             @forelse ($purchase->purchaseLists as $purchaseList)
                                                 <tr>
-                                                    <td><a href="/erp/purchases/purchase-list/detail-purchase/{{ $purchaseList->id }}">{{ $purchaseList->purchase_number }}</a></td>
-                                                    <td>{{ $purchaseList->purchase_date?->format('d M Y') }}</td>
-                                                    <td>{{ number_format($purchaseList->purchaseItems->sum('quantity'), 0, ',', '.') }}</td>
-                                                    <td>Rp. {{ number_format($purchaseList->total_amount, 0, ',', '.') }}</td>
+                                                    <td class="mobile-card-title"><a href="/erp/purchases/purchase-list/detail-purchase/{{ $purchaseList->id }}">{{ $purchaseList->purchase_number }}</a></td>
+                                                    <td data-label="Date">{{ $purchaseList->purchase_date?->format('d M Y') }}</td>
+                                                    <td data-label="Products">{{ number_format($purchaseList->purchaseItems->sum('quantity'), 0, ',', '.') }}</td>
+                                                    <td data-label="Total">Rp. {{ number_format($purchaseList->total_amount, 0, ',', '.') }}</td>
                                                 </tr>
                                             @empty
                                                 <tr><td colspan="4" class="text-center text-muted">Belum ada Purchase List.</td></tr>

@@ -1276,11 +1276,13 @@ class SaleListController extends Controller
             })
             ->get();
         $priceModes = PriceMode::active()->orderBy('sort_order')->orderBy('name')->get();
+        $modeDiscounts = Discount::modeDiscountsPayload();
         return view('erp.pages.sales.sale-list.create-order', compact(
             'customers',
             'productsJson',
             'productBundlesJson',
-            'priceModes'
+            'priceModes',
+            'modeDiscounts'
         ));
     }
 
@@ -1699,6 +1701,7 @@ class SaleListController extends Controller
             'orderItems.productBundle.unitConversions.unit',
             'customer.addresses',
             'orderItems.product.unitConversions.prices.priceMode',
+            'orderItems.productBundle.unitConversions.prices.priceMode',
             'customer.accounts',
             'customerAddress',
         ])->findOrFail($id);
@@ -1842,6 +1845,7 @@ class SaleListController extends Controller
         $bankAccounts = Account::where('name', 'Bank')->get();
 
         $priceModes = PriceMode::orderBy('sort_order')->orderBy('name')->get();
+        $modeDiscounts = Discount::modeDiscountsPayload();
 
         return view('erp.pages.sales.sale-list.edit-order', compact(
             'order',
@@ -1854,7 +1858,8 @@ class SaleListController extends Controller
             'transactionTypes',
             'productsJson',
             'productBundlesJson',
-            'priceModes'
+            'priceModes',
+            'modeDiscounts'
         ));
     }
 

@@ -630,6 +630,13 @@
                                         $secondaryProductId = optional($item->productBundle->secondaryItems->first())
                                             ->product_id;
                                     }
+
+                                    // FK unit conversion bisa jadi NULL (nullOnDelete) kalau unit conversion
+                                    // produk/bundle pernah di-resync ulang. Fallback ke unit_name yang tersimpan.
+                                    $selectedConversionId = $isBundle
+                                        ? $item->product_bundle_unit_conversion_id
+                                        : $item->product_unit_conversion_id;
+                                    $fallbackUnitName = $item->unit_name;
                                 @endphp
                                 <div class="product-item" data-index="{{ $index }}">
                                     <input type="hidden" name="order_item_id[]" value="{{ $item->id }}">
@@ -699,25 +706,40 @@
 
                                                 @if ($item->satuan === 'satuan' && $item->product)
                                                     @foreach ($item->product->unitConversions as $conversion)
+                                                        @php
+                                                            $conversionUnitName = optional($conversion->unit)->name;
+                                                            $isSelectedUnit = $selectedConversionId
+                                                                ? (int) $selectedConversionId === (int) $conversion->id
+                                                                : ($fallbackUnitName &&
+                                                                    strcasecmp($fallbackUnitName, (string) $conversionUnitName) === 0);
+                                                        @endphp
                                                         <option value="{{ $conversion->id }}"
                                                             data-unit-id="{{ $conversion->unit_id }}"
-                                                            data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                            data-unit-name="{{ $conversionUnitName }}"
                                                             data-conversion-value="{{ $conversion->conversion_value }}"
                                                             data-sale-price="{{ $conversion->sale_price }}"
                                                             data-prices="{{ rawurlencode(json_encode($conversion->prices ?? [])) }}"
-                                                            {{ (int) $item->product_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
-                                                            {{ optional($conversion->unit)->name }}
+                                                            @selected($isSelectedUnit)>
+                                                            {{ $conversionUnitName }}
                                                         </option>
                                                     @endforeach
                                                 @elseif ($item->satuan === 'bundle' && $item->productBundle)
                                                     @foreach ($item->productBundle->unitConversions as $conversion)
+                                                        @php
+                                                            $conversionUnitName = optional($conversion->unit)->name;
+                                                            $isSelectedUnit = $selectedConversionId
+                                                                ? (int) $selectedConversionId === (int) $conversion->id
+                                                                : ($fallbackUnitName &&
+                                                                    strcasecmp($fallbackUnitName, (string) $conversionUnitName) === 0);
+                                                        @endphp
                                                         <option value="{{ $conversion->id }}"
                                                             data-unit-id="{{ $conversion->unit_id }}"
-                                                            data-unit-name="{{ optional($conversion->unit)->name }}"
+                                                            data-unit-name="{{ $conversionUnitName }}"
                                                             data-conversion-value="{{ $conversion->conversion_value }}"
                                                             data-sale-price="{{ $conversion->sale_price }}"
-                                                            {{ (int) $item->product_bundle_unit_conversion_id === (int) $conversion->id ? 'selected' : '' }}>
-                                                            {{ optional($conversion->unit)->name }}
+                                                            data-prices="{{ rawurlencode(json_encode($conversion->prices ?? [])) }}"
+                                                            @selected($isSelectedUnit)>
+                                                            {{ $conversionUnitName }}
                                                         </option>
                                                     @endforeach
                                                 @endif
@@ -1111,6 +1133,35 @@
 
         const products = @json($productsJson);
         const bundles = @json($productBundlesJson);
+        const modeDiscounts = @json($modeDiscounts ?? []);
+
+        // 🔹 Diskon dengan Apply On = Mode: berlaku untuk baris yang mode-nya cocok
+        function discountsForMode(mode) {
+            if (!mode) return [];
+            return modeDiscounts.filter(d => (d.price_mode_slugs || []).includes(mode));
+        }
+
+        // 🔹 Akumulasi qty & nominal dari semua baris dengan mode yang sama
+        function modeTotals(mode) {
+            let qty = 0,
+                amount = 0;
+
+            $('.product-item').each(function() {
+                const r = $(this);
+                if (r.find('select[name="mode[]"]').val() !== mode) return;
+
+                const rowQty = parseFloat((r.find('input[name="qty[]"]').val() || '').replace(/\./g, '')) || 0;
+                const rowPrice = parseFloat(r.find('input.price_before_discount').val()) || 0;
+
+                qty += rowQty;
+                amount += rowPrice * rowQty;
+            });
+
+            return {
+                qty,
+                amount
+            };
+        }
 
         // const allProducts = [
         //     ...products.map(p => ({
@@ -1483,6 +1534,8 @@
                     }
                 });
 
+                allDiscounts = allDiscounts.concat(discountsForMode(itemMode));
+
                 allDiscounts.forEach(discount => {
                     if (discount.mode && discount.mode !== itemMode) {
                         return;
@@ -1540,6 +1593,22 @@
                         if (
                             discount.minimum_based_on === 'Purchase Amount' &&
                             totalAmountCategory >= discount.minimum_qty_or_amount
+                        ) {
+                            eligible = true;
+                        }
+                    } else if (discount.apply_on === 'Mode') {
+                        const totals = modeTotals(itemMode);
+
+                        if (
+                            discount.minimum_based_on === 'Quantity of Items' &&
+                            totals.qty >= discount.minimum_qty_or_amount
+                        ) {
+                            eligible = true;
+                        }
+
+                        if (
+                            discount.minimum_based_on === 'Purchase Amount' &&
+                            totals.amount >= discount.minimum_qty_or_amount
                         ) {
                             eligible = true;
                         }

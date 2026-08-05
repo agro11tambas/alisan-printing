@@ -75,7 +75,20 @@
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
                         <div class="row g-3 p-2 justify-content-between">
-                            <div class="col-lg-5"></div>
+                            <div class="col-lg-2">
+                                <label for="filter_parent_id" class="fw-semibold fs-12">Parent</label>
+                                <select id="filter_parent_id" class="form-control"
+                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                    <option value="">Semua parent</option>
+                                    <option value="root">Kategori utama saja</option>
+                                    @foreach ($parentOptions ?? [] as $option)
+                                        <option value="{{ $option['id'] }}">
+                                            {!! str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $option['depth']) !!}{{ $option['depth'] > 0 ? '└ ' : '' }}{{ $option['name'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-lg-3"></div>
                             <div class="col-lg-3">
                                 <label for="search_keyword" class="fw-semibold fs-12">Search</label>
                                 <input type="text" id="search_keyword" class="form-control"
@@ -90,6 +103,7 @@
                                         <th class="wd-30">No</th>
                                         <th>Image</th>
                                         <th>Name</th>
+                                        <th>Parent</th>
                                         <th>Slug</th>
                                         <th>Description</th>
                                     </tr>
@@ -148,6 +162,7 @@
                     url: "{{ route('erp.ecommerce-product-categories.data') }}",
                     data: function(d) {
                         d.search_keyword = $('#search_keyword').val();
+                        d.parent_id = $('#filter_parent_id').val();
                     }
                 },
                 columns: [{
@@ -165,6 +180,12 @@
                     {
                         data: 'name',
                         name: 'name'
+                    },
+                    {
+                        data: 'parent',
+                        name: 'parent',
+                        orderable: false,
+                        searchable: false
                     },
                     {
                         data: 'slug',
@@ -189,6 +210,10 @@
             $('#search_keyword').on('keyup', function() {
                 clearTimeout(searchTimer);
                 searchTimer = setTimeout(() => dataTable.ajax.reload(), 200);
+            });
+
+            $('#filter_parent_id').on('change', function() {
+                dataTable.ajax.reload();
             });
 
             $('#ecommerceCategoryTable tbody').on('click', 'tr', function(e) {

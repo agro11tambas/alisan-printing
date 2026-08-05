@@ -9,6 +9,7 @@ use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
 use App\Models\Products;
 use App\Models\ProductCategory;
+use App\Models\PriceMode;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -21,7 +22,11 @@ class DiscountController extends Controller
     }
     public function dataDiscount()
     {
-        $discount = Discount::all();
+        $discount = Discount::with([
+            'products:id,name',
+            'categories:id,name',
+            'priceModes:id,name',
+        ])->get();
 
         return DataTables::of($discount)
             ->addIndexColumn()
@@ -56,6 +61,30 @@ class DiscountController extends Controller
                     return '-';
                 }
             })
+            ->addColumn('apply_on', function ($discount) {
+                $label = match ($discount->apply_on) {
+                    'Product' => 'Product',
+                    'Category' => 'Product Category',
+                    'Mode' => 'Mode',
+                    default => null,
+                };
+
+                if (!$label) {
+                    return '-';
+                }
+
+                $targets = match ($discount->apply_on) {
+                    'Product' => $discount->products->pluck('name'),
+                    'Category' => $discount->categories->pluck('name'),
+                    'Mode' => $discount->priceModes->pluck('name'),
+                };
+
+                if ($targets->isEmpty()) {
+                    return e($label);
+                }
+
+                return e($label) . '<div class="fs-11 text-muted">' . e($targets->implode(', ')) . '</div>';
+            })
             ->addColumn('start_date', function ($discount) {
                 return $discount->start_date;
             })
@@ -72,7 +101,7 @@ class DiscountController extends Controller
             ->addColumn('action', function ($discount) {
                 return view('erp.pages.discounts.partials.action-button', compact('discount'))->render();
             })
-            ->rawColumns(['action', 'is_active'])
+            ->rawColumns(['action', 'is_active', 'apply_on'])
             ->make(true);
     }
 
@@ -80,7 +109,8 @@ class DiscountController extends Controller
     {
         $products = Products::all();
         $categories = ProductCategory::all();
-        return view('erp.pages.discounts.create-discount', compact('products', 'categories'));
+        $priceModes = PriceMode::active()->ordered()->get();
+        return view('erp.pages.discounts.create-discount', compact('products', 'categories', 'priceModes'));
     }
 
     public function store(Request $request)
@@ -94,11 +124,13 @@ class DiscountController extends Controller
             'minimum_qty_or_amount' => 'required|numeric|min:0',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
-            'apply_on' => 'required|in:Product,Category',
+            'apply_on' => 'required|in:Product,Category,Mode',
             'products' => 'nullable|array',
             'products.*' => 'exists:products,id',
             'categories' => 'nullable|array',
             'categories.*' => 'exists:product_categories,id',
+            'price_modes' => 'required_if:apply_on,Mode|nullable|array',
+            'price_modes.*' => 'exists:price_modes,id',
             'status' => 'required|in:1,0',
         ]);
 
@@ -122,6 +154,8 @@ class DiscountController extends Controller
                 $discount->products()->sync($validated['products'] ?? []);
             } elseif ($validated['apply_on'] === 'Category') {
                 $discount->categories()->sync($validated['categories'] ?? []);
+            } elseif ($validated['apply_on'] === 'Mode') {
+                $discount->priceModes()->sync($validated['price_modes'] ?? []);
             }
 
             DB::commit();
@@ -135,10 +169,11 @@ class DiscountController extends Controller
 
     public function edit($id)
     {
-        $discount = Discount::with(['products', 'categories'])->where('id', $id)->first();
+        $discount = Discount::with(['products', 'categories', 'priceModes'])->where('id', $id)->first();
         $products = Products::all();
         $categories = ProductCategory::all();
-        return view('erp.pages.discounts.edit-discount', compact('discount', 'products', 'categories'));
+        $priceModes = PriceMode::active()->ordered()->get();
+        return view('erp.pages.discounts.edit-discount', compact('discount', 'products', 'categories', 'priceModes'));
     }
 
     public function update(Request $request, $id)
@@ -151,18 +186,20 @@ class DiscountController extends Controller
             'minimum_qty_or_amount' => 'required|numeric|min:0',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
-            'apply_on' => 'required|in:Product,Category',
+            'apply_on' => 'required|in:Product,Category,Mode',
             'products' => 'nullable|array',
             'products.*' => 'exists:products,id',
             'categories' => 'nullable|array',
             'categories.*' => 'exists:product_categories,id',
+            'price_modes' => 'required_if:apply_on,Mode|nullable|array',
+            'price_modes.*' => 'exists:price_modes,id',
             'status' => 'required|in:1,0',
         ]);
 
         try {
             DB::beginTransaction();
 
-            $discount = Discount::with(['products', 'categories'])->findOrFail($id);
+            $discount = Discount::with(['products', 'categories', 'priceModes'])->findOrFail($id);
 
             // 2. UPDATE DATA DISCOUNT
             $discount->update([
@@ -181,9 +218,15 @@ class DiscountController extends Controller
             if ($validated['apply_on'] === 'Product') {
                 $discount->products()->sync($validated['products'] ?? []);
                 $discount->categories()->detach();
+                $discount->priceModes()->detach();
             } elseif ($validated['apply_on'] === 'Category') {
                 $discount->categories()->sync($validated['categories'] ?? []);
                 $discount->products()->detach();
+                $discount->priceModes()->detach();
+            } elseif ($validated['apply_on'] === 'Mode') {
+                $discount->priceModes()->sync($validated['price_modes'] ?? []);
+                $discount->products()->detach();
+                $discount->categories()->detach();
             }
 
             DB::commit();
@@ -212,6 +255,7 @@ class DiscountController extends Controller
             // Hapus relasi pivot dulu
             $discount->products()->detach();
             $discount->categories()->detach();
+            $discount->priceModes()->detach();
 
             // Lalu hapus discount-nya
             $discount->delete();

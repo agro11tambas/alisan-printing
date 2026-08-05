@@ -17,12 +17,14 @@ class EcommerceProductCategoryStoreRequest extends FormRequest
         $this->merge([
             'slug' => Str::slug($this->input('slug') ?: $this->input('name')),
             'sort_order' => 0,
+            'parent_id' => $this->input('parent_id') ?: null,
         ]);
     }
 
     public function rules(): array
     {
         return [
+            'parent_id' => ['nullable', 'integer', 'exists:ecommerce_product_categories,id'],
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:ecommerce_product_categories,slug'],
             'description' => ['nullable', 'string'],
@@ -34,6 +36,7 @@ class EcommerceProductCategoryStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'parent_id.exists' => 'Parent category tidak ditemukan.',
             'name.required' => 'Nama category wajib diisi.',
             'slug.required' => 'Slug wajib diisi.',
             'slug.unique' => 'Slug category sudah digunakan.',

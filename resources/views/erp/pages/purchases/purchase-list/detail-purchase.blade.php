@@ -174,6 +174,23 @@
                                     </div>
                                     <div class="row align-items-center mb-2 task-list-row">
                                         <div class="col-6">
+                                            <i class="feather-image me-2"></i>
+                                            <span class="fw-semibold">Waybill Image:</span>
+                                        </div>
+                                        <div class="col-6 d-flex">
+                                            @if ($purchase->waybill_image)
+                                                <a href="{{ asset($purchase->waybill_image) }}"
+                                                    data-lightbox="waybill-{{ $purchase->id }}">
+                                                    <img src="{{ asset($purchase->waybill_image) }}" alt="Waybill Image"
+                                                        style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; object-position: center;">
+                                                </a>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="row align-items-center mb-2 task-list-row">
+                                        <div class="col-6">
                                             <i class="feather-dollar-sign me-2"></i>
                                             <span class="fw-semibold">Total Amount:</span>
                                         </div>
