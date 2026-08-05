@@ -63,9 +63,11 @@ class CustomerAddresses extends Model
         'business_name',
         'address',
         'google_maps',
+        'is_default',
     ];
 
     protected $casts = [
+        'is_default' => 'boolean',
         'deleted_at' => 'datetime',
     ];
 

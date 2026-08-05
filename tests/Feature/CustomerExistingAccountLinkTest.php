@@ -70,6 +70,7 @@ class CustomerExistingAccountLinkTest extends TestCase
             $table->string('business_name')->nullable();
             $table->text('address');
             $table->text('google_maps');
+            $table->boolean('is_default')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });
@@ -113,6 +114,38 @@ class CustomerExistingAccountLinkTest extends TestCase
         $this->assertSame(1, CustomerAccount::query()->count());
     }
 
+
+    public function test_create_customer_marks_only_the_selected_address_as_default(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $request = Request::create('/erp/customers/store', 'POST', [
+            'name' => 'Outlet Dengan Cabang',
+            'primary_address_index' => 1,
+            'addresses' => [
+                [
+                    'business_name' => 'Pusat',
+                    'address' => 'Alamat Pusat',
+                    'google_maps' => 'https://maps.example.test/pusat',
+                ],
+                [
+                    'business_name' => 'Cabang',
+                    'address' => 'Alamat Cabang',
+                    'google_maps' => 'https://maps.example.test/cabang',
+                ],
+            ],
+        ]);
+
+        app(CustomerController::class)->store($request);
+
+        $customer = Customers::query()->where('name', 'Outlet Dengan Cabang')->firstOrFail();
+        $defaultAddress = $customer->addresses()->where('is_default', true)->firstOrFail();
+
+        $this->assertSame(1, $customer->addresses()->where('is_default', true)->count());
+        $this->assertSame('Cabang', $defaultAddress->business_name);
+    }
+
     public function test_edit_customer_links_matching_existing_account_instead_of_creating_duplicate(): void
     {
         $user = User::factory()->create();
@@ -145,6 +178,48 @@ class CustomerExistingAccountLinkTest extends TestCase
 
         $this->assertTrue($customer->fresh()->accounts()->whereKey($account->id)->exists());
         $this->assertSame(1, CustomerAccount::query()->count());
+    }
+
+    public function test_editing_selected_account_to_an_existing_number_replaces_the_customer_link(): void
+    {
+        $user = User::factory()->create();
+        $selectedAccount = $this->createCustomerAccount('6281111111111');
+        $matchingAccount = $this->createCustomerAccount('6282222222222');
+        $customer = Customers::query()->create([
+            'name' => 'Outlet Lama',
+            'user_id' => $user->id,
+        ]);
+        $customer->accounts()->attach($selectedAccount->id);
+        $customer->addresses()->create([
+            'business_name' => 'Lama',
+            'address' => 'Alamat Lama',
+            'google_maps' => 'https://maps.example.test/lama',
+        ]);
+        $this->actingAs($user);
+
+        $request = Request::create('/erp/customers/update/' . $customer->id, 'PUT', [
+            'name' => 'Outlet Diperbarui',
+            'existing_account_ids' => [$selectedAccount->id],
+            'existing_accounts' => [
+                $selectedAccount->id => [
+                    'name' => 'Nama Input Manual',
+                    'whatsapp_number' => '082222222222',
+                ],
+            ],
+            'addresses' => [[
+                'business_name' => 'Baru',
+                'address' => 'Alamat Baru',
+                'google_maps' => 'https://maps.example.test/baru',
+            ]],
+        ]);
+
+        app(CustomerController::class)->update($request, $customer->id);
+
+        $linkedAccountIds = $customer->fresh()->accounts()->pluck('customer_accounts.id')->all();
+
+        $this->assertSame([$matchingAccount->id], $linkedAccountIds);
+        $this->assertSame('Account Existing', $matchingAccount->fresh()->name);
+        $this->assertSame(2, CustomerAccount::query()->count());
     }
 
     public function test_customer_account_creation_rejects_equivalent_local_and_international_numbers(): void

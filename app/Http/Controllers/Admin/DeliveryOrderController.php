@@ -27,6 +27,7 @@ class DeliveryOrderController extends Controller
             'order.customerAddress',              // 🔥 dipakai kolom customer, tanpa ini N+1
             'items.product',                      // 🔥 load semua item barang
             'items.orderProgress.items',          // 🔥 load progress per item
+            'items.orderProgressItem',            // 🔥 dipakai partial product-list, relasi ini beda dari orderProgress.items
             'items.deliveryListItems.shipment',   // 🔥 load list pengiriman
         ]);
 

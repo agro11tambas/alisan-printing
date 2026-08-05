@@ -126,4 +126,11 @@ return [
     'frontend_website_url' => env('FRONTEND_WEBSITE_URL', 'http://localhost:3000'),
 
     'slow_request_log_ms' => (float) env('SLOW_REQUEST_LOG_MS', 1000),
+
+    /*
+     * Catat relasi yang di-load satu per satu (N+1) ke channel log performance.
+     * Dibaca lewat config, bukan env() langsung, karena env() tidak terbaca
+     * ketika config sudah di-cache di produksi.
+     */
+    'detect_lazy_loading' => (bool) env('DETECT_LAZY_LOADING', false),
 ];

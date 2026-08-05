@@ -192,9 +192,10 @@
                                 </div>
                                 <div class="col-lg-10">
                                     <div id="addresses">
+                                        @php($primaryAddressIndex = (int) old('primary_address_index', $customer->addresses->search(fn ($item) => $item->is_default) ?: 0))
                                         @foreach ($customer->addresses as $index => $address)
                                             <div class="mb-2 row address-group">
-                                                <div class="col-lg-3">
+                                                <div class="col-lg-2">
                                                     <div class="input-group">
                                                         <div class="input-group-text"><i class="feather-briefcase"></i>
                                                         </div>
@@ -204,7 +205,7 @@
                                                             placeholder="Branch Name">
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-5 mb-0">
+                                                <div class="col-lg-4 mb-0">
                                                     <div class="input-group">
                                                         <div class="input-group-text"><i class="feather-book"></i></div>
                                                         <textarea class="form-control" name="addresses[{{ $index }}][address]" placeholder="Address">{{ old("addresses.$index.address", $address->address) }}</textarea>
@@ -218,6 +219,14 @@
                                                             name="addresses[{{ $index }}][google_maps]"
                                                             value="{{ old("addresses.$index.google_maps", $address->google_maps) }}"
                                                             placeholder="Google Map">
+                                                    </div>
+                                                </div>
+                                                <div class="col-lg-2 d-flex align-items-center">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input primary-address-radio" type="radio"
+                                                            name="primary_address_index" value="{{ $index }}" id="primary-address-{{ $index }}"
+                                                            {{ $primaryAddressIndex === $index ? 'checked' : '' }}>
+                                                        <label class="form-check-label" for="primary-address-{{ $index }}">Alamat Utama</label>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-1">
@@ -331,19 +340,24 @@
                     btn.classList.remove('d-none');
                 }
             });
+
+            const primaryRadios = Array.from(document.querySelectorAll('.primary-address-radio'));
+            if (primaryRadios.length && !primaryRadios.some(radio => radio.checked)) {
+                primaryRadios[0].checked = true;
+            }
         }
 
         document.getElementById('add-address').addEventListener('click', function() {
             const wrapper = document.createElement('div');
             wrapper.classList.add('mb-2', 'row', 'address-group');
             wrapper.innerHTML = `
-                <div class="col-lg-3">
+                <div class="col-lg-2">
                     <div class="input-group">
                         <div class="input-group-text"><i class="feather-briefcase"></i></div>
                         <input type="text" class="form-control" name="addresses[${addressIndex}][business_name]" placeholder="Branch Name">
                     </div>
                 </div>
-                <div class="col-lg-5 mb-0">
+                <div class="col-lg-4 mb-0">
                     <div class="input-group">
                         <div class="input-group-text"><i class="feather-book"></i></div>
                         <textarea class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address"></textarea>
@@ -353,6 +367,13 @@
                     <div class="input-group">
                         <div class="input-group-text"><i class="feather-map-pin"></i></div>
                         <input type="text" class="form-control" name="addresses[${addressIndex}][google_maps]" placeholder="Google Map">
+                    </div>
+                </div>
+                <div class="col-lg-2 d-flex align-items-center">
+                    <div class="form-check">
+                        <input class="form-check-input primary-address-radio" type="radio"
+                            name="primary_address_index" value="${addressIndex}" id="primary-address-${addressIndex}">
+                        <label class="form-check-label" for="primary-address-${addressIndex}">Alamat Utama</label>
                     </div>
                 </div>
                 <div class="col-lg-1">

@@ -152,7 +152,7 @@
                                 <div class="col-lg-10">
                                     <div id="addresses">
                                         <div class="address-item mb-1 row">
-                                            <div class="col-lg-3">
+                                            <div class="col-lg-2">
                                                 <div class="input-group">
                                                     <div class="input-group-text"><i class="feather-briefcase"></i></div>
                                                     <input type="text" class="form-control"
@@ -161,7 +161,7 @@
                                                         placeholder="Branch Name">
                                                 </div>
                                             </div>
-                                            <div class="col-lg-5">
+                                            <div class="col-lg-4">
                                                 <div class="input-group">
                                                     <div class="input-group-text"><i class="feather-book"></i></div>
                                                     <textarea class="form-control" name="addresses[0][address]" placeholder="Address">{{ old('addresses.0.address') }}</textarea>
@@ -174,6 +174,14 @@
                                                         name="addresses[0][google_maps]"
                                                         value="{{ old('addresses.0.google_maps') }}"
                                                         placeholder="Google Map">
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-2 d-flex align-items-center">
+                                                <div class="form-check">
+                                                    <input class="form-check-input primary-address-radio" type="radio"
+                                                        name="primary_address_index" value="0" id="primary-address-0"
+                                                        {{ (int) old('primary_address_index', 0) === 0 ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="primary-address-0">Alamat Utama</label>
                                                 </div>
                                             </div>
                                             <div class="col-lg-1 d-flex">
@@ -281,19 +289,24 @@
                     removeBtn.classList.remove('d-none');
                 }
             });
+
+            const primaryRadios = Array.from(document.querySelectorAll('.primary-address-radio'));
+            if (primaryRadios.length && !primaryRadios.some(radio => radio.checked)) {
+                primaryRadios[0].checked = true;
+            }
         }
 
         document.getElementById('add-address').addEventListener('click', function() {
             const wrapper = document.createElement('div');
             wrapper.className = 'address-item mb-1 row';
             wrapper.innerHTML = `
-            <div class="col-lg-3">
+            <div class="col-lg-2">
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-briefcase"></i></div>
                     <input type="text" class="form-control" name="addresses[${addressIndex}][business_name]" placeholder="Branch Name">
                 </div>
             </div>
-            <div class="col-lg-5">
+            <div class="col-lg-4">
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-book"></i></div>
                     <textarea class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address"></textarea>
@@ -303,6 +316,13 @@
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-map-pin"></i></div>
                     <input type="text" class="form-control" name="addresses[${addressIndex}][google_maps]" placeholder="Google Map">
+                </div>
+            </div>
+            <div class="col-lg-2 d-flex align-items-center">
+                <div class="form-check">
+                    <input class="form-check-input primary-address-radio" type="radio"
+                        name="primary_address_index" value="${addressIndex}" id="primary-address-${addressIndex}">
+                    <label class="form-check-label" for="primary-address-${addressIndex}">Alamat Utama</label>
                 </div>
             </div>
             <div class="col-lg-1 d-flex">

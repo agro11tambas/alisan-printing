@@ -140,7 +140,10 @@ class CustomerController extends Controller
             'addresses.*.business_name' => 'nullable|string',
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
+            'primary_address_index' => 'nullable|integer|min:0',
         ]);
+
+        $primaryAddressIndex = $this->resolvePrimaryAddressIndex($request);
 
         DB::beginTransaction();
 
@@ -181,11 +184,12 @@ class CustomerController extends Controller
                 $customer->accounts()->attach($account->id);
             }
 
-            foreach ($request->addresses as $addr) {
+            foreach ($request->addresses as $index => $addr) {
                 $customer->addresses()->create([
                     'business_name' => $addr['business_name'] ?? null,
                     'address' => $addr['address'],
                     'google_maps' => $addr['google_maps'],
+                    'is_default' => (int) $index === $primaryAddressIndex,
                 ]);
             }
 
@@ -327,7 +331,10 @@ class CustomerController extends Controller
             'addresses.*.business_name' => 'nullable|string',
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
+            'primary_address_index' => 'nullable|integer|min:0',
         ]);
+
+        $primaryAddressIndex = $this->resolvePrimaryAddressIndex($request);
 
         DB::beginTransaction();
 
@@ -336,26 +343,34 @@ class CustomerController extends Controller
                 'name' => $request->name,
             ]);
 
-            $accountIds = $request->existing_account_ids ?? [];
+            $accountIds = array_map('intval', $request->existing_account_ids ?? []);
 
             // Update account existing yang diedit di form
             foreach ($request->existing_accounts ?? [] as $accountId => $accountInput) {
-                if (! in_array($accountId, $accountIds)) {
+                $accountId = (int) $accountId;
+
+                if (! in_array($accountId, $accountIds, true)) {
                     continue;
                 }
 
                 $phone = PhoneNumber::normalizeIndonesian($accountInput['whatsapp_number'] ?? null);
 
                 if ($phone) {
-                    $phoneUsed = CustomerAccount::findByEquivalentWhatsapp($phone, (int) $accountId);
+                    $phoneUsed = CustomerAccount::query()
+                        ->whereIn('whatsapp_number', PhoneNumber::equivalentIndonesianFormats($phone))
+                        ->orderByRaw('CASE WHEN whatsapp_number = ? THEN 0 ELSE 1 END', [$phone])
+                        ->orderBy('id')
+                        ->first();
 
+                    if ($phoneUsed && $phoneUsed->id !== $accountId) {
+                        $accountIds = array_map(
+                            fn (int $selectedAccountId) => $selectedAccountId === $accountId
+                                ? $phoneUsed->id
+                                : $selectedAccountId,
+                            $accountIds
+                        );
 
-                    if ($phoneUsed) {
-                        DB::rollBack();
-
-                        return back()
-                            ->withInput()
-                            ->with('error', 'Nomor ' . $phone . ' sudah terdaftar di account lain.');
+                        continue;
                     }
                 }
 
@@ -391,15 +406,16 @@ class CustomerController extends Controller
                 $accountIds[] = $account->id;
             }
 
-            $customer->accounts()->sync($accountIds);
+            $customer->accounts()->sync(array_values(array_unique($accountIds)));
 
             $customer->addresses()->delete();
 
-            foreach ($request->addresses as $addr) {
+            foreach ($request->addresses as $index => $addr) {
                 $customer->addresses()->create([
                     'business_name' => $addr['business_name'] ?? null,
                     'address' => $addr['address'],
                     'google_maps' => $addr['google_maps'],
+                    'is_default' => (int) $index === $primaryAddressIndex,
                 ]);
             }
 
@@ -430,6 +446,22 @@ class CustomerController extends Controller
         $customer->delete();
 
         return redirect('/erp/customers')->with('success', 'Customer berhasil dihapus.');
+    }
+
+    private function resolvePrimaryAddressIndex(Request $request): int
+    {
+        $addresses = $request->input('addresses', []);
+        $primaryAddressIndex = $request->filled('primary_address_index')
+            ? (int) $request->input('primary_address_index')
+            : (int) array_key_first($addresses);
+
+        if (! array_key_exists($primaryAddressIndex, $addresses)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'primary_address_index' => 'Alamat utama yang dipilih tidak valid.',
+            ]);
+        }
+
+        return $primaryAddressIndex;
     }
 
     public function updateDeposit(Request $request, Customers $customer)
