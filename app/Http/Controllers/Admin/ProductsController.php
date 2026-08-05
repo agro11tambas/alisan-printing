@@ -88,12 +88,8 @@ class ProductsController extends Controller
             );
         }
 
-        // ✅ Hindari query count dua kali
-        $totalQuery = clone $products;
-        $totalData = $totalQuery->count();
-
-        // ✅ Ambil data sesuai offset dan limit
-        $data = $products->skip($start)->take($length)->get();
+        // ✅ Satu query saja, tanpa count() terpisah
+        [$data, $hasMore] = $this->lazyLoadPage($products, $start, $length);
 
         // ✅ Return format ringan dan cocok untuk lazy load (bukan DataTables draw)
         return response()->json([
@@ -124,7 +120,7 @@ class ProductsController extends Controller
                     'action' => view('erp.pages.products.partials.action-button', compact('product'))->render(),
                 ];
             }),
-            'has_more' => $totalData > ($start + $length), // ✅ untuk infinite scroll
+            'has_more' => $hasMore, // ✅ untuk infinite scroll
         ]);
     }
 

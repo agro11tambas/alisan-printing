@@ -254,7 +254,7 @@ class ProductionController extends Controller
         if ($request->filled('search_product')) {
             $productKeyword = trim(strtolower($request->search_product));
             $inventory->whereHas('items.product', function ($q) use ($productKeyword) {
-                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                $q->where('name', 'like', "%{$productKeyword}%");
             });
         }
 

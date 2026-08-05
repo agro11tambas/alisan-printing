@@ -24,10 +24,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->isProduction()) {
+            // Ambang ini kumulatif: callback jalan sekali saat total waktu query
+            // pada satu request melewati 1 detik. $event adalah query yang
+            // melewati ambang, belum tentu query paling lambatnya.
             DB::whenQueryingForLongerThan(1000, function (Connection $connection, QueryExecuted $event): void {
-                Log::warning('Slow database request detected.', [
+                Log::channel('performance')->warning('performance.query_budget_exceeded', [
                     'connection' => $connection->getName(),
-                    'query' => $event->sql,
+                    'query_at_threshold' => $event->sql,
                     'query_time_ms' => $event->time,
                 ]);
             });

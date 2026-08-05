@@ -100,8 +100,7 @@ class InventoryController extends Controller
             $productKeyword = trim(strtolower($request->search_product));
 
             $inventory->whereHas('items.product', function ($q) use ($productKeyword) {
-                // gunakan COLLATE biar bisa handle tanda kurung
-                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                $q->where('name', 'like', "%{$productKeyword}%");
             });
         }
 
@@ -585,8 +584,7 @@ class InventoryController extends Controller
             $productKeyword = trim(strtolower($request->search_product));
 
             $inventory->whereHas('items.product', function ($q) use ($productKeyword) {
-                // gunakan COLLATE biar bisa handle tanda kurung
-                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                $q->where('name', 'like', "%{$productKeyword}%");
             });
         }
 

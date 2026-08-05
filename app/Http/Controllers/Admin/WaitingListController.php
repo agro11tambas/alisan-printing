@@ -86,8 +86,8 @@ class WaitingListController extends Controller
 
             $baseQuery->whereHas('items.product', function ($q) use ($productKeyword) {
                 $q->where(function ($sub) use ($productKeyword) {
-                    $sub->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"])
-                        ->orWhereRaw("LOWER(sku) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                    $sub->where('name', 'like', "%{$productKeyword}%")
+                        ->orWhere('sku', 'like', "%{$productKeyword}%");
                 });
             });
         }

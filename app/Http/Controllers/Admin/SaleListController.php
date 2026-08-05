@@ -231,10 +231,8 @@ class SaleListController extends Controller
             }
         }
 
-        $totalQuery = clone $orders;
-        $totalData = $totalQuery->count();
-
-        $data = $orders->skip($start)->take($length)->get();
+        // 🔹 Satu query saja, tanpa count() terpisah
+        [$data, $hasMore] = $this->lazyLoadPage($orders, $start, $length);
         $monthlyOrderSequences = $this->buildMonthlyOrderSequences($data);
 
         return response()->json([
@@ -539,7 +537,7 @@ class SaleListController extends Controller
                     'action_mobile' => view('erp.pages.sales.sale-list.partials.action-button-mobile', compact('order'))->render(),
                 ];
             })->values(),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -636,10 +634,8 @@ class SaleListController extends Controller
             }
         }
 
-        $totalQuery = clone $orders;
-        $totalData = $totalQuery->count();
-
-        $data = $orders->skip($start)->take($length)->get();
+        // 🔹 Satu query saja, tanpa count() terpisah
+        [$data, $hasMore] = $this->lazyLoadPage($orders, $start, $length);
         $monthlyOrderSequences = $this->buildMonthlyOrderSequences($data);
 
         return response()->json([
@@ -937,7 +933,7 @@ class SaleListController extends Controller
                     'action_mobile' => view('erp.pages.sales.sale-list.partials.action-button-mobile', compact('order'))->render(),
                 ];
             })->values(),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -988,12 +984,8 @@ class SaleListController extends Controller
             });
         }
 
-        // 🔹 Hindari query count dua kali
-        $totalQuery = clone $orders;
-        $totalData = $totalQuery->count();
-
-        // 🔹 Ambil data sesuai offset dan limit
-        $data = $orders->skip($start)->take($length)->get();
+        // 🔹 Satu query saja, tanpa count() terpisah
+        [$data, $hasMore] = $this->lazyLoadPage($orders, $start, $length);
 
         return response()->json([
             'data' => $data->map(function ($order) {
@@ -1131,7 +1123,7 @@ class SaleListController extends Controller
                     'action'           => $action,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -2258,7 +2250,7 @@ class SaleListController extends Controller
                 if ($oldProductValue !== $newProductValue) {
                     $isProductChanged = true;
 
-                    Log::info("🔄 Product changed on order_item_id {$orderItemId}: {$oldProductValue} → {$newProductValue}");
+                    Log::debug("🔄 Product changed on order_item_id {$orderItemId}: {$oldProductValue} → {$newProductValue}");
                     break;
                 }
             }
@@ -2372,7 +2364,7 @@ class SaleListController extends Controller
                 })
                 ->exists();
 
-            Log::info("🔎 DEBUG Design Check", [
+            Log::debug("🔎 DEBUG Design Check", [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
                 'designVerified' => $designVerified ? 'TRUE' : 'FALSE',
@@ -2604,7 +2596,7 @@ class SaleListController extends Controller
                     // before/after snapshots below. Keep the legacy inline branch
                     // disabled to prevent double increments on product/qty changes.
                     if (false && $designVerified) {
-                        Log::info("🧩 Design verified for order {$order->order_number}");
+                        Log::debug("🧩 Design verified for order {$order->order_number}");
 
                         // Tetapkan warehouse produksi FIX
                         \App\Models\Design::where('order_id', $order->id)->update([
@@ -2622,7 +2614,7 @@ class SaleListController extends Controller
 
                             // Jika produk BERUBAH (A → B)
                             if ($oldProductId != $newProductId) {
-                                Log::info("🔄 Product changed from {$oldProductId} → {$newProductId}");
+                                Log::debug("🔄 Product changed from {$oldProductId} → {$newProductId}");
 
                                 // 🔻 Kurangi pending_waiting_list produk lama
                                 $oldStock = \App\Models\ProductionStock::where([
@@ -2634,7 +2626,7 @@ class SaleListController extends Controller
                                     $dec = min($oldStock->pending_waiting_list, $oldQtyBase);
                                     if ($dec > 0) {
                                         $oldStock->decrement('pending_waiting_list', $dec);
-                                        Log::info("✅ DECREMENT {$dec} from old product {$oldProductId}");
+                                        Log::debug("✅ DECREMENT {$dec} from old product {$oldProductId}");
                                     }
                                 }
 
@@ -2653,7 +2645,7 @@ class SaleListController extends Controller
                                 );
 
                                 $newStock->increment('pending_waiting_list', $qtyBase);
-                                Log::info("✅ INCREMENT {$qty} to new product {$newProductId}");
+                                Log::debug("✅ INCREMENT {$qty} to new product {$newProductId}");
                             }
 
                             // Jika produk sama tapi QTY BERUBAH
@@ -2684,7 +2676,7 @@ class SaleListController extends Controller
 
                             // Jika BUNDLE berubah
                             if ($oldBundleId != $newBundleId) {
-                                Log::info("🔄 Bundle changed from {$oldBundleId} → {$newBundleId}");
+                                Log::debug("🔄 Bundle changed from {$oldBundleId} → {$newBundleId}");
 
                                 // 🔻 Kurangi semua product bundle lama
                                 $oldBundle = \App\Models\ProductBundle::with('items')->find($oldBundleId);
@@ -2707,7 +2699,7 @@ class SaleListController extends Controller
 
                                             if ($dec > 0) {
                                                 $oldStock->decrement('pending_waiting_list', $dec);
-                                                Log::info("✅ Bundle old: DECREMENT {$dec} from product {$bi->product_id}");
+                                                Log::debug("✅ Bundle old: DECREMENT {$dec} from product {$bi->product_id}");
                                             }
                                         }
                                     }
@@ -2738,7 +2730,7 @@ class SaleListController extends Controller
                                         );
 
                                         $newStock->increment('pending_waiting_list', $newComponentQty);
-                                        Log::info("✅ Bundle new: INCREMENT {$newComponentQty} to product {$bi->product_id}");
+                                        Log::debug("✅ Bundle new: INCREMENT {$newComponentQty} to product {$bi->product_id}");
                                     }
                                 }
                             }
@@ -2828,7 +2820,7 @@ class SaleListController extends Controller
                     }
 
                     if ($isProductChanged) {
-                        Log::info("🔄 UPDATE COMPONENT PRODUCT ID", [
+                        Log::debug("🔄 UPDATE COMPONENT PRODUCT ID", [
                             'order_item_id' => $orderItem->id,
                             'old_product_id' => $oldProductIdForComponent,
                             'new_product_id' => $productId,
@@ -2846,7 +2838,7 @@ class SaleListController extends Controller
                                 'total_fixed_cost'   => ($newProduct->fixed_cost ?? 0) * $qtyBase,
                             ]);
 
-                            Log::info("✅ COMPONENT UPDATED to product {$newProduct->name}");
+                            Log::debug("✅ COMPONENT UPDATED to product {$newProduct->name}");
                         } elseif ($type === 'bundle') {
                             $bundle = \App\Models\ProductBundle::with('items.product')->find($productId);
 
@@ -2923,7 +2915,7 @@ class SaleListController extends Controller
                     // 🧠 force refresh setelah update
                     $orderItem->refresh();
 
-                    Log::info("🎯 FINAL COMPONENT COUNT", [
+                    Log::debug("🎯 FINAL COMPONENT COUNT", [
                         'order_item_id' => $orderItem->id,
                         'count' => $orderItem->components()->count(),
                     ]);
@@ -3292,7 +3284,7 @@ class SaleListController extends Controller
                 ->exists();
 
             if ($designVerifiedFinal) {
-                Log::info("🧩 FINAL VERIFIED HANDLER FIX for Order {$order->order_number}");
+                Log::debug("🧩 FINAL VERIFIED HANDLER FIX for Order {$order->order_number}");
 
                 $warehouseId = 2;
 
@@ -3333,15 +3325,15 @@ class SaleListController extends Controller
 
                     if ($diff > 0) {
                         $ps->increment('pending_waiting_list', $diff);
-                        Log::info("⬆️ Added {$diff} pending_waiting_list to product {$productId}");
+                        Log::debug("⬆️ Added {$diff} pending_waiting_list to product {$productId}");
                     } elseif ($diff < 0) {
                         $dec = min(abs($diff), $ps->pending_waiting_list);
                         $ps->decrement('pending_waiting_list', $dec);
-                        Log::info("⬇️ Reduced {$dec} pending_waiting_list from product {$productId}");
+                        Log::debug("⬇️ Reduced {$dec} pending_waiting_list from product {$productId}");
                     }
                 }
 
-                Log::info("✅ Pending waiting list fully synced for verified design order {$order->order_number}");
+                Log::debug("✅ Pending waiting list fully synced for verified design order {$order->order_number}");
             }
 
             // ==============================
@@ -4333,7 +4325,7 @@ class SaleListController extends Controller
 
                     // ✅ Cegah double rollback kalau produk sudah di-handle
                     if (in_array($item->product_id, $processedProducts)) {
-                        Log::info('Skip rollback SATUAN (already processed)', [
+                        Log::debug('Skip rollback SATUAN (already processed)', [
                             'product_id' => $item->product_id,
                         ]);
                         continue;
@@ -4444,7 +4436,7 @@ class SaleListController extends Controller
                     }
                     $ps->save();
 
-                    Log::info('Force delete rollback SATUAN', [
+                    Log::debug('Force delete rollback SATUAN', [
                         'order_id'          => $order->id,
                         'product_id'        => $item->product_id,
                         'qty'               => $qty,
@@ -4517,7 +4509,7 @@ class SaleListController extends Controller
                             $ps->pending_waiting_list = max(0, $ps->pending_waiting_list - $componentQty);
                             $ps->save();
 
-                            Log::info('Decrement pending (skip bundle handled by single)', [
+                            Log::debug('Decrement pending (skip bundle handled by single)', [
                                 'component_id' => $bundleItem->product_id,
                                 'bundle_id' => $item->product_bundle_id,
                                 'componentQty' => $componentQty,
@@ -4624,7 +4616,7 @@ class SaleListController extends Controller
                     }
                     $ps->save();
 
-                    Log::info('Force delete rollback BUNDLE', [
+                    Log::debug('Force delete rollback BUNDLE', [
                         'bundle_id' => $item->product_bundle_id,
                         'component_id' => $bundleItem->product_id,
                         'component_qty' => $componentQty,
@@ -5079,16 +5071,16 @@ class SaleListController extends Controller
             $uploadToken = config('services.image_upload.token');
             $uploadUrl = config('services.image_upload.url');
 
-            Log::info('=== UPLOAD DEBUG START ===');
-            Log::info('Order ID', ['order_id' => $orderId]);
-            Log::info('Image data length', ['length' => strlen($imageData)]);
+            Log::debug('=== UPLOAD DEBUG START ===');
+            Log::debug('Order ID', ['order_id' => $orderId]);
+            Log::debug('Image data length', ['length' => strlen($imageData)]);
 
             if (!$uploadToken || !$uploadUrl) {
                 throw new \RuntimeException('Invoice image upload service is not configured.');
             }
 
             // Upload
-            Log::info('Sending request to image server...');
+            Log::debug('Sending request to image server...');
 
             $invoiceNumber = $request->input('order_number');
 
@@ -5103,7 +5095,7 @@ class SaleListController extends Controller
                     'invoice_number' => $invoiceNumber,
                 ]);
 
-            Log::info('Response received', [
+            Log::debug('Response received', [
                 'status' => $response->status(),
                 'body' => $response->body(),
                 'headers' => $response->headers()
@@ -5123,7 +5115,7 @@ class SaleListController extends Controller
             }
 
             $result = $response->json();
-            Log::info('Upload success!', $result);
+            Log::debug('Upload success!', $result);
 
             return response()->json([
                 'success' => true,

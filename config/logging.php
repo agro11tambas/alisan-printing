@@ -73,6 +73,23 @@ return [
             'replace_placeholders' => true,
         ],
 
+        /*
+         * Channel khusus diagnosa performa (request lambat dan query lambat).
+         *
+         * Sengaja TIDAK memakai LOG_LEVEL. Di produksi LOG_LEVEL=error, padahal
+         * catatan performa ditulis di level warning, sehingga selama ini semua
+         * catatan itu dibuang diam-diam dan tidak ada bukti apa pun saat ERP
+         * melambat. File ini terpisah supaya tidak tenggelam di antara error
+         * aplikasi, dan dirotasi supaya tidak membengkak.
+         */
+        'performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/performance.log'),
+            'level' => 'debug',
+            'days' => env('PERFORMANCE_LOG_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

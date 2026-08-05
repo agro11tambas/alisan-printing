@@ -33,6 +33,9 @@ class DeliveryListController extends Controller
             'deliveryOrder.order.customerAddress',
             'deliveryOrder',
             'items.product',
+            // Dipakai partial product-list untuk menampilkan unit_name. Tanpa ini
+            // setiap item memicu query sendiri saat render.
+            'items.deliveryOrderItem',
         ]);
 
         // 🔎 Filter by date
@@ -69,8 +72,7 @@ class DeliveryListController extends Controller
             $productKeyword = trim(strtolower($request->search_product));
 
             $deliveryLists->whereHas('items.product', function ($q) use ($productKeyword) {
-                // gunakan COLLATE biar bisa handle tanda kurung
-                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                $q->where('name', 'like', "%{$productKeyword}%");
             });
         }
 
@@ -109,12 +111,6 @@ class DeliveryListController extends Controller
             }
         }
 
-        // ✅ Hitung total sebelum paginasi
-        $totalQuery = clone $deliveryLists;
-        $totalData = $totalQuery->count();
-
-        // ✅ Ambil data sesuai offset dan limit
-        // $data = $deliveryLists->latest()->skip($start)->take($length)->get();
         $status = strtolower($request->input('status', ''));
 
         if ($status === 'finished') {
@@ -125,7 +121,8 @@ class DeliveryListController extends Controller
             $deliveryLists->orderBy('shipment_date', 'desc'); // default
         }
 
-        $data = $deliveryLists->skip($start)->take($length)->get();
+        // ✅ Satu query saja, tanpa count() terpisah
+        [$data, $hasMore] = $this->lazyLoadPage($deliveryLists, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -335,7 +332,7 @@ class DeliveryListController extends Controller
                     'created_at' => $dl->created_at,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

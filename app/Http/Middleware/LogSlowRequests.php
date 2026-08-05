@@ -27,7 +27,7 @@ class LogSlowRequests
         $thresholdMs = (float) config('app.slow_request_log_ms', 1000);
 
         if ($durationMs >= $thresholdMs) {
-            Log::warning('performance.slow_request', [
+            Log::channel('performance')->warning('performance.slow_request', [
                 'method' => $request->method(),
                 'path' => $request->path(),
                 'route' => $request->route()?->getName(),

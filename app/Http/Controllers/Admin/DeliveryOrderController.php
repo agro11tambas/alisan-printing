@@ -24,6 +24,7 @@ class DeliveryOrderController extends Controller
 
         $deliveryOrders = DeliveryOrder::with([
             'order.customer',
+            'order.customerAddress',              // 🔥 dipakai kolom customer, tanpa ini N+1
             'items.product',                      // 🔥 load semua item barang
             'items.orderProgress.items',          // 🔥 load progress per item
             'items.deliveryListItems.shipment',   // 🔥 load list pengiriman
@@ -92,7 +93,7 @@ class DeliveryOrderController extends Controller
             $productKeyword = trim(strtolower($request->search_product));
 
             $deliveryOrders->whereHas('items.product', function ($q) use ($productKeyword) {
-                $q->whereRaw("LOWER(name) COLLATE utf8mb4_general_ci LIKE ?", ["%{$productKeyword}%"]);
+                $q->where('name', 'like', "%{$productKeyword}%");
             });
         }
 
@@ -106,12 +107,8 @@ class DeliveryOrderController extends Controller
             $deliveryOrders->orderByDesc('id'); // default
         }
 
-        // ✅ Hindari query count dua kali
-        $totalQuery = clone $deliveryOrders;
-        $totalData = $totalQuery->count();
-
-        // ✅ Ambil data sesuai offset dan limit
-        $data = $deliveryOrders->skip($start)->take($length)->get();
+        // ✅ Satu query saja, tanpa count() terpisah
+        [$data, $hasMore] = $this->lazyLoadPage($deliveryOrders, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -172,7 +169,7 @@ class DeliveryOrderController extends Controller
                     'created_at' => $do->created_at,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

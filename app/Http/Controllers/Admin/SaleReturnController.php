@@ -1353,7 +1353,7 @@ class SaleReturnController extends Controller
                     ->where('order_item_id', $item->order_item_id)
                     ->delete();
 
-                Log::info('Force delete SaleReturn rollback stok', [
+                Log::debug('Force delete SaleReturn rollback stok', [
                     'sale_return_id' => $saleReturn->id,
                     'product_id' => $productId,
                     'qty' => $qty,
@@ -2103,7 +2103,7 @@ class SaleReturnController extends Controller
 
     public function getCanceledProducts($id)
     {
-        Log::info("Getting canceled products for sale return ID: {$id}");
+        Log::debug("Getting canceled products for sale return ID: {$id}");
 
         try {
             $saleReturn = SaleReturn::with([
@@ -2111,13 +2111,13 @@ class SaleReturnController extends Controller
                 'canceledProducts.product'
             ])->findOrFail($id);
 
-            Log::info("Sale Return found: " . $saleReturn->order_number);
+            Log::debug("Sale Return found: " . $saleReturn->order_number);
 
             $canceledProducts = CanceledProduct::where('sale_return_id', $id)
                 ->with('product')
                 ->get();
 
-            Log::info("Canceled Products count: " . $canceledProducts->count());
+            Log::debug("Canceled Products count: " . $canceledProducts->count());
 
             $mapped = $canceledProducts->map(function ($item) {
                 $remainingQty = $item->quantity - $item->completed_quantity;
@@ -2133,7 +2133,7 @@ class SaleReturnController extends Controller
                 ];
             })->filter(fn($item) => $item['remaining_quantity'] > 0);
 
-            Log::info("Mapped data: ", $mapped->toArray());
+            Log::debug("Mapped data: ", $mapped->toArray());
 
             return response()->json([
                 'success' => true,
@@ -2225,7 +2225,7 @@ class SaleReturnController extends Controller
 
     //         DB::commit();
 
-    //         Log::info("Return to Warehouse Success - Sale Return: {$saleReturn->order_number}, Inventory ID: {$inventory->id}, Total: {$totalProcessed}, Products: " . implode(', ', $processedProducts));
+    //         Log::debug("Return to Warehouse Success - Sale Return: {$saleReturn->order_number}, Inventory ID: {$inventory->id}, Total: {$totalProcessed}, Products: " . implode(', ', $processedProducts));
 
     //         return response()->json([
     //             'success' => true,
@@ -2358,7 +2358,7 @@ class SaleReturnController extends Controller
 
             DB::commit();
 
-            Log::info("Return to {$request->stock_destination} Success - Sale Return: {$saleReturn->order_number}, Inventory ID: {$inventory->id}, Total: {$totalProcessed}, Products: " . implode(', ', $processedProducts));
+            Log::debug("Return to {$request->stock_destination} Success - Sale Return: {$saleReturn->order_number}, Inventory ID: {$inventory->id}, Total: {$totalProcessed}, Products: " . implode(', ', $processedProducts));
 
             return response()->json([
                 'success' => true,
