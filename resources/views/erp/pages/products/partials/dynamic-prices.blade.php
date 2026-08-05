@@ -58,7 +58,7 @@
                             </td>
                             <td><input type="text" name="prices[{{ $index }}][fixed_cost]"
                                 class="form-control dynamic-money dynamic-fixed-cost"
-                                value="{{ number_format((float) ($dynamicPrice['fixed_cost'] ?? 0), 2, ',', '.') }}"></td>
+                                value="{{ number_format((float) ($dynamicPrice['fixed_cost'] ?? 0), 2, ',', '.') }}" readonly></td>
                             <td><input type="text" name="prices[{{ $index }}][margin]"
                                 class="form-control dynamic-money dynamic-margin"
                                 value="{{ number_format((float) ($dynamicPrice['margin'] ?? 0), 2, ',', '.') }}"></td>
@@ -134,6 +134,10 @@
             calculate(row);
         }
 
+        function syncUnitFixedCosts() {
+            body.querySelectorAll('tr').forEach(row => copyUnitFixedCost(row));
+        }
+
         addButton.addEventListener('click', () => {
             const row = document.createElement('tr');
             row.innerHTML =
@@ -141,7 +145,7 @@
                 availablePriceModes.map(mode => '<option value="' + mode.id + '">' + mode.name + '</option>').join('') +
                 '</select></td>' +
                 '<td><select name="prices[' + priceIndex + '][unit_id]" class="form-control dynamic-unit" required></select></td>' +
-                '<td><input type="text" name="prices[' + priceIndex + '][fixed_cost]" class="form-control dynamic-money dynamic-fixed-cost" value="0"></td>' +
+                '<td><input type="text" name="prices[' + priceIndex + '][fixed_cost]" class="form-control dynamic-money dynamic-fixed-cost" value="0" readonly></td>' +
                 '<td><input type="text" name="prices[' + priceIndex + '][margin]" class="form-control dynamic-money dynamic-margin" value="0"></td>' +
                 '<td><input type="text" name="prices[' + priceIndex + '][sale_price]" class="form-control dynamic-money dynamic-sale-price" value="0" readonly></td>' +
                 '<td class="text-center"><button type="button" class="btn btn-danger btn-sm btn-remove-price"><i class="feather-trash-2"></i></button></td>';
@@ -164,7 +168,18 @@
             }
         });
         document.addEventListener('change', event => {
-            if (event.target.matches('#productUnitBody .unit-select')) refreshUnitOptions();
+            if (event.target.matches('#productUnitBody .unit-select')) {
+                refreshUnitOptions();
+                syncUnitFixedCosts();
+            }
+        });
+        document.addEventListener('input', event => {
+            if (event.target.matches('#productUnitBody .conversion-input, #productUnitBody input[name*="[fixed_cost]"]')) {
+                // Product Units recalculates derived fixed costs in its own input handler.
+                // Run after all handlers for this event have completed so Dynamic Prices
+                // receives the latest value for the selected unit.
+                queueMicrotask(syncUnitFixedCosts);
+            }
         });
         form.addEventListener('submit', () => {
             refreshUnitOptions();
@@ -176,5 +191,6 @@
             input.value = formatMoney(numberValue(input.value));
         });
         body.querySelectorAll('tr').forEach(row => calculate(row));
+        syncUnitFixedCosts();
     })();
 </script>

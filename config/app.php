@@ -124,4 +124,6 @@ return [
     ],
 
     'frontend_website_url' => env('FRONTEND_WEBSITE_URL', 'http://localhost:3000'),
+
+    'slow_request_log_ms' => (float) env('SLOW_REQUEST_LOG_MS', 1000),
 ];

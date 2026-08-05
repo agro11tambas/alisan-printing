@@ -9,9 +9,9 @@ use Illuminate\Support\Collection;
 
 class ProductBundlePricingService
 {
-    public function sync(ProductBundle $bundle): void
+    public function sync(ProductBundle $bundle, ?Collection $activePriceModes = null): void
     {
-        $bundle->load([
+        $bundle->loadMissing([
             'items.product.unitConversions.prices.priceMode',
             'items.product.baseUnit',
         ]);
@@ -27,8 +27,9 @@ class ProductBundlePricingService
             return;
         }
 
-        $polosanMode = PriceMode::where('slug', 'polosan')->first();
-        $activeModeIds = PriceMode::active()->pluck('id')->map(fn ($id) => (int) $id);
+        $activePriceModes ??= PriceMode::active()->get(['id', 'slug']);
+        $polosanMode = $activePriceModes->firstWhere('slug', 'polosan');
+        $activeModeIds = $activePriceModes->pluck('id')->map(fn ($id) => (int) $id);
         $unitIds = $items
             ->flatMap(fn ($item) => $item->product->unitConversions->pluck('unit_id'))
             ->filter()

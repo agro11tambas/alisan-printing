@@ -414,7 +414,7 @@
                                 <div class="col-lg-10 mb-0">
                                     <div class="input-group">
                                         <textarea name="description" id="description" cols="30" rows="5" placeholder="Description"
-                                            class="form-control" value="{{ old('description') }}">{{ strip_tags(old('description', $product->description)) }}</textarea>
+                                            class="form-control">{{ strip_tags(old('description', $product->description) ?? '') }}</textarea>
                                     </div>
                                 </div>
                             </div>

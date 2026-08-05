@@ -7,6 +7,7 @@ use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
 use App\Models\Products;
 use App\Models\ProductUnitConversion;
+use App\Http\Controllers\Admin\ProductsController;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -170,6 +171,8 @@ class ProductUnitDynamicPriceTest extends TestCase
         $this->assertStringContainsString('Sablon', $html);
         $this->assertStringContainsString('Printing', $html);
         $this->assertStringContainsString("addButton.addEventListener('click'", $html);
+        $this->assertMatchesRegularExpression('/dynamic-fixed-cost[^>]*readonly/', $html);
+        $this->assertStringContainsString('queueMicrotask(syncUnitFixedCosts)', $html);
         $this->assertStringContainsString('event.target.value = formatMoney(numberValue(event.target.value))', $html);
         $this->assertLessThan(
             strpos($html, 'const numberValue'),
@@ -177,6 +180,36 @@ class ProductUnitDynamicPriceTest extends TestCase
         );
     }
 
+    public function test_dynamic_price_uses_product_unit_fixed_cost_and_ignores_submitted_total(): void
+    {
+        $product = Products::create([
+            'name' => 'Kaos',
+            'sku' => 'KAOS-001',
+        ]);
+        $conversion = ProductUnitConversion::create([
+            'product_id' => $product->id,
+            'unit_id' => 2,
+            'conversion_value' => 1,
+            'fixed_cost' => 200,
+        ]);
+        $mode = PriceMode::where('slug', 'sablon')->firstOrFail();
+
+        $method = new \ReflectionMethod(ProductsController::class, 'syncDynamicPrices');
+        $method->setAccessible(true);
+        $method->invoke(app(ProductsController::class), $product, [[
+            'unit_id' => $conversion->unit_id,
+            'price_mode_id' => $mode->id,
+            'fixed_cost' => 999,
+            'margin' => 50,
+            'sale_price' => 9999,
+        ]]);
+
+        $price = $conversion->prices()->where('price_mode_id', $mode->id)->firstOrFail();
+
+        $this->assertSame('200.00', $price->fixed_cost);
+        $this->assertSame('50.00', $price->margin);
+        $this->assertSame('250.00', $price->sale_price);
+    }
     public function test_bundle_prices_are_merged_by_unit_with_polosan_fallback(): void
     {
         DB::table('product_units')->insert([

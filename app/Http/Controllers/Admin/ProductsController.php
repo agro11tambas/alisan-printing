@@ -48,7 +48,7 @@ class ProductsController extends Controller
 
         // ✅ Tambahkan inventoryStock ke eager loading biar gak N+1 query
         $products = Products::with([
-            'categories',
+            'categories' => fn ($query) => $query->without('discounts'),
             'tags',
             'inventoryStock',
             'unitConversions.unit',
@@ -375,7 +375,9 @@ class ProductsController extends Controller
     public function edit($id)
     {
         $product = Products::with([
-            'categories:id,name',
+            'categories' => fn ($query) => $query
+                ->select('product_categories.id', 'product_categories.name')
+                ->without('discounts'),
             'tags:id,name',
             'unitConversions.unit',
             'unitConversions.prices.priceMode',
@@ -387,7 +389,9 @@ class ProductsController extends Controller
         $productUnits = ProductUnit::orderBy('name', 'asc')->get();
         $priceModes = PriceMode::orderBy('sort_order')->orderBy('name')->get();
 
-        $pcsUnit = ProductUnit::whereRaw('LOWER(name) = ?', ['pcs'])->first();
+        $pcsUnit = $productUnits->first(
+            fn (ProductUnit $unit) => strtolower($unit->name) === 'pcs'
+        );
 
         return view('erp.pages.products.edit-product', compact(
             'product',
@@ -403,12 +407,39 @@ class ProductsController extends Controller
     {
         $bundleIds = ProductBundleItem::where('product_id', $productId)
             ->pluck('bundle_id')
-            ->unique();
-        $service = app(ProductBundlePricingService::class);
+            ->unique()
+            ->values();
 
-        ProductBundle::whereIn('id', $bundleIds)->each(
-            fn (ProductBundle $bundle) => $service->sync($bundle)
-        );
+        if ($bundleIds->isEmpty()) {
+            return;
+        }
+
+        $service = app(ProductBundlePricingService::class);
+        $activePriceModes = PriceMode::active()->get(['id', 'slug']);
+
+        ProductBundle::whereIn('id', $bundleIds)
+            ->with([
+                'items.product.unitConversions.prices.priceMode',
+                'items.product.baseUnit',
+            ])
+            ->get()
+            ->each(
+                fn (ProductBundle $bundle) => $service->sync($bundle, $activePriceModes)
+            );
+    }
+
+    private function refreshBundlesAfterResponse(int $productId): void
+    {
+        app()->terminating(function () use ($productId) {
+            try {
+                $this->refreshBundlesByProduct($productId);
+            } catch (\Throwable $e) {
+                Log::error('Failed to refresh product bundles after product update.', [
+                    'product_id' => $productId,
+                    'exception' => $e,
+                ]);
+            }
+        });
     }
 
     public function update(Request $request, $id)
@@ -604,11 +635,13 @@ class ProductsController extends Controller
                 //     ]);
                 // }
 
-                $this->refreshBundlesByProduct($product->id);
-
                 $product->categories()->sync($request->categories ?? []);
                 $product->tags()->sync($request->tags ?? []);
             });
+
+            // Bundle prices are derived data. Recalculate after the response so
+            // editing one product does not keep the product transaction locked.
+            $this->refreshBundlesAfterResponse((int) $id);
 
             return redirect('/erp/products')->with('success', 'Produk berhasil diperbarui.');
         } catch (\Throwable $e) {
@@ -620,6 +653,10 @@ class ProductsController extends Controller
     private function syncDynamicPrices(Products $product, array $prices): void
     {
         $conversions = $product->unitConversions()->get()->keyBy(fn ($conversion) => (int) $conversion->unit_id);
+        $priceModes = PriceMode::whereIn(
+            'id',
+            collect($prices)->pluck('price_mode_id')->filter()->unique()
+        )->get()->keyBy(fn (PriceMode $mode) => (int) $mode->id);
         $keepPriceIds = [];
         $seen = [];
 
@@ -627,7 +664,7 @@ class ProductsController extends Controller
             $unitId = (int) ($price['unit_id'] ?? 0);
             $priceModeId = (int) ($price['price_mode_id'] ?? 0);
             $conversion = $conversions->get($unitId);
-            $priceMode = PriceMode::find($priceModeId);
+            $priceMode = $priceModes->get($priceModeId);
 
             if (!$conversion || !$priceMode) {
                 continue;
@@ -639,11 +676,11 @@ class ProductsController extends Controller
             }
             $seen[$key] = true;
 
-            $fixedCost = (float) ($price['fixed_cost'] ?? $conversion->fixed_cost ?? 0);
+            // Fixed cost is owned by Product Units. Dynamic Price only controls the
+            // margin and always derives its total from the selected unit.
+            $fixedCost = (float) ($conversion->fixed_cost ?? 0);
             $margin = (float) ($price['margin'] ?? 0);
-            $salePrice = array_key_exists('sale_price', $price) && $price['sale_price'] !== null
-                ? (float) $price['sale_price']
-                : $fixedCost + $margin;
+            $salePrice = $fixedCost + $margin;
 
             $dynamicPrice = ProductUnitPrice::updateOrCreate(
                 [
