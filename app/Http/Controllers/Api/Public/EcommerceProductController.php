@@ -17,13 +17,40 @@ class EcommerceProductController extends Controller
         $products = EcommerceProduct::with($this->relations())
             ->where('is_active', true)
             ->orderBy('sort_order')
-            ->get()
-            ->map(fn ($product) => $this->formatProduct($product));
+            ->get();
+
+        // Muat seluruh bundle sekaligus sebelum memformat. Tanpa ini setiap
+        // kombinasi varian menembak query bundle-nya sendiri.
+        $this->pricingService->preloadBundlesForPairs(
+            $this->bundlePairs($products)
+        );
 
         return response()->json([
             'success' => true,
-            'data' => $products,
+            'data' => $products->map(fn ($product) => $this->formatProduct($product)),
         ]);
+    }
+
+    /**
+     * Kumpulkan pasangan produk primary/secondary dari semua kombinasi varian.
+     *
+     * @param  \Illuminate\Support\Collection<int, EcommerceProduct>  $products
+     * @return array<int, array{0: int, 1: int}>
+     */
+    private function bundlePairs($products): array
+    {
+        return $products
+            ->flatMap(fn (EcommerceProduct $product) => $product->variantCombinations)
+            ->map(function ($combination) {
+                $primary = $combination->productOption?->product_id;
+                $secondary = $combination->lidOption?->product_id;
+
+                return $primary && $secondary ? [(int) $primary, (int) $secondary] : null;
+            })
+            ->filter()
+            ->unique(fn (array $pair) => $pair[0].':'.$pair[1])
+            ->values()
+            ->all();
     }
 
     public function show($slug)

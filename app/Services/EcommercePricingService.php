@@ -10,6 +10,66 @@ class EcommercePricingService
 {
     private array $bundleCache = [];
 
+    private ?PriceMode $fallbackModeMemo = null;
+
+    private bool $fallbackModeResolved = false;
+
+    /**
+     * Muat semua bundle untuk sekumpulan pasangan produk sekaligus.
+     *
+     * bundleForPair() menembak satu query per pasangan, dan tiap query membawa
+     * lima eager load. Halaman katalog toko yang berisi banyak kombinasi varian
+     * jadi menghasilkan ratusan query untuk satu request.
+     *
+     * @param  array<int, array{0: int, 1: int}>  $pairs  daftar [id primary, id secondary]
+     */
+    public function preloadBundlesForPairs(array $pairs): void
+    {
+        $pending = array_filter(
+            $pairs,
+            fn (array $pair) => ! array_key_exists($pair[0].':'.$pair[1], $this->bundleCache)
+        );
+
+        if ($pending === []) {
+            return;
+        }
+
+        $primaryIds = array_unique(array_column($pending, 0));
+        $secondaryIds = array_unique(array_column($pending, 1));
+
+        $bundles = ProductBundle::with([
+            'items.product',
+            'baseUnit',
+            'unitConversions.prices.priceMode',
+        ])
+            ->whereHas('items', fn ($query) => $query
+                ->where('role', 'primary')
+                ->whereIn('product_id', $primaryIds))
+            ->whereHas('items', fn ($query) => $query
+                ->where('role', 'secondary')
+                ->whereIn('product_id', $secondaryIds))
+            ->get();
+
+        foreach ($bundles as $bundle) {
+            $primary = $bundle->items->firstWhere('role', 'primary');
+            $secondary = $bundle->items->firstWhere('role', 'secondary');
+
+            if ($primary && $secondary) {
+                $this->bundleCache[$primary->product_id.':'.$secondary->product_id] = $bundle;
+            }
+        }
+
+        // Pasangan yang memang tidak punya bundle ikut ditandai, supaya
+        // bundleForPair() tidak menanyakannya lagi satu per satu.
+        foreach ($pending as $pair) {
+            $key = $pair[0].':'.$pair[1];
+
+            if (! array_key_exists($key, $this->bundleCache)) {
+                $this->bundleCache[$key] = null;
+            }
+        }
+    }
+
     public function productModePrices(Products $product, int $unitId, float $extraPrice = 0): array
     {
         $conversion = $product->relationLoaded('unitConversions')
@@ -135,17 +195,37 @@ class EcommercePricingService
         return collect($prices)->firstWhere('slug', $mode);
     }
 
+    /**
+     * Mode harga cadangan, ditanyakan sekali saja per request.
+     *
+     * legacyPrices() dipanggil untuk setiap opsi varian yang tidak punya harga
+     * dinamis, dan sebelumnya setiap panggilan menembak query baru ke tabel
+     * price_modes meski jawabannya selalu sama.
+     */
+    private function fallbackMode(): ?PriceMode
+    {
+        if ($this->fallbackModeResolved) {
+            return $this->fallbackModeMemo;
+        }
+
+        $this->fallbackModeResolved = true;
+
+        $this->fallbackModeMemo = PriceMode::query()
+            ->where('slug', 'polosan')
+            ->where('is_active', true)
+            ->first()
+            ?? PriceMode::query()->where('is_active', true)->orderBy('sort_order')->first();
+
+        return $this->fallbackModeMemo;
+    }
+
     private function legacyPrices(float $price, float $extraPrice = 0): array
     {
         if ($price <= 0 && $extraPrice <= 0) {
             return [];
         }
 
-        $mode = PriceMode::query()
-            ->where('slug', 'polosan')
-            ->where('is_active', true)
-            ->first()
-            ?? PriceMode::query()->where('is_active', true)->orderBy('sort_order')->first();
+        $mode = $this->fallbackMode();
 
         if (!$mode) {
             return [];
