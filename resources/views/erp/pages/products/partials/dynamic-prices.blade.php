@@ -173,14 +173,7 @@
                 syncUnitFixedCosts();
             }
         });
-        document.addEventListener('input', event => {
-            if (event.target.matches('#productUnitBody .conversion-input, #productUnitBody input[name*="[fixed_cost]"]')) {
-                // Product Units recalculates derived fixed costs in its own input handler.
-                // Run after all handlers for this event have completed so Dynamic Prices
-                // receives the latest value for the selected unit.
-                queueMicrotask(syncUnitFixedCosts);
-            }
-        });
+        document.addEventListener('product-units:pricing-updated', syncUnitFixedCosts);
         form.addEventListener('submit', () => {
             refreshUnitOptions();
             body.querySelectorAll('.dynamic-money').forEach(input => input.value = numberValue(input.value).toFixed(2));

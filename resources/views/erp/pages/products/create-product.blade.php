@@ -552,6 +552,8 @@
                     removeError(fixedCostInput);
                     removeError(salePriceInput);
                 });
+
+                document.dispatchEvent(new CustomEvent('product-units:pricing-updated'));
             }
 
             function syncBaseUnitConversion() {
@@ -630,7 +632,7 @@
             //         calculateUnitPrices();
             //     });
 
-            $(document).on('input', 'input[name*="[fixed_cost]"], input[name*="[margin]"]', function() {
+            $(document).on('input', '#productUnitBody input[name*="[fixed_cost]"], #productUnitBody input[name*="[margin]"]', function() {
                 const row = $(this).closest('tr');
 
                 const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
@@ -646,14 +648,20 @@
                 salePriceInput[0].dataset.raw = salePrice.toString();
 
                 if ($(this).is('input[name*="[fixed_cost]"]')) {
-                    calculateUnitPrices();
+                    const ratio = parseFloat(row.find('.conversion-input').val().replace(',', '.')) || 0;
+
+                    if (ratio === 1) {
+                        calculateUnitPrices();
+                    } else {
+                        document.dispatchEvent(new CustomEvent('product-units:pricing-updated'));
+                    }
                 }
 
                 removeError($(this));
                 removeError(salePriceInput);
             });
 
-            $(document).on('input', 'input[name*="[sale_price]"]', function() {
+            $(document).on('input', '#productUnitBody input[name*="[sale_price]"]', function() {
                 const row = $(this).closest('tr');
                 const fixedCostInput = row.find('input[name*="[fixed_cost]"]');
                 const marginInput = row.find('input[name*="[margin]"]');

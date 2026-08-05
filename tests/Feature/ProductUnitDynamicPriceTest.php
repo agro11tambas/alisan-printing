@@ -172,7 +172,7 @@ class ProductUnitDynamicPriceTest extends TestCase
         $this->assertStringContainsString('Printing', $html);
         $this->assertStringContainsString("addButton.addEventListener('click'", $html);
         $this->assertMatchesRegularExpression('/dynamic-fixed-cost[^>]*readonly/', $html);
-        $this->assertStringContainsString('queueMicrotask(syncUnitFixedCosts)', $html);
+        $this->assertStringContainsString("addEventListener('product-units:pricing-updated', syncUnitFixedCosts)", $html);
         $this->assertStringContainsString('event.target.value = formatMoney(numberValue(event.target.value))', $html);
         $this->assertLessThan(
             strpos($html, 'const numberValue'),
@@ -180,6 +180,22 @@ class ProductUnitDynamicPriceTest extends TestCase
         );
     }
 
+    public function test_product_unit_forms_sync_after_calculation_and_keep_non_base_fixed_cost_editable(): void
+    {
+        foreach (['create-product.blade.php', 'edit-product.blade.php'] as $view) {
+            $source = file_get_contents(resource_path('views/erp/pages/products/' . $view));
+
+            $this->assertStringContainsString(
+                "document.dispatchEvent(new CustomEvent('product-units:pricing-updated'))",
+                $source
+            );
+            $this->assertStringContainsString("if (ratio === 1)", $source);
+            $this->assertStringContainsString(
+                '#productUnitBody input[name*="[fixed_cost]"]',
+                $source
+            );
+        }
+    }
     public function test_dynamic_price_uses_product_unit_fixed_cost_and_ignores_submitted_total(): void
     {
         $product = Products::create([
