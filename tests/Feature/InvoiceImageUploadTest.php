@@ -39,6 +39,26 @@ class InvoiceImageUploadTest extends TestCase
         );
     }
 
+    /**
+     * Upload ini terjadi di tengah request user, jadi user ikut menunggu.
+     * Timeout 30 detik membuat ERP terasa nge-buffer belasan detik kalau
+     * server gambar tersendat, tanpa jejak apa pun di grafik CPU Hostinger.
+     */
+    public function test_invoice_upload_timeouts_stay_short_enough_for_a_user_request(): void
+    {
+        $this->assertLessThanOrEqual(
+            15,
+            config('services.image_upload.timeout'),
+            'Timeout upload gambar tidak boleh lebih dari 15 detik.'
+        );
+
+        $this->assertLessThanOrEqual(
+            5,
+            config('services.image_upload.connect_timeout'),
+            'connectTimeout harus pendek supaya masalah jaringan gagal cepat.'
+        );
+    }
+
     public function test_invoice_image_upload_reports_missing_configuration(): void
     {
         config()->set('services.image_upload.token', null);

@@ -41,9 +41,17 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    /*
+     * Upload gambar invoice dikirim ke server luar di tengah request user,
+     * sehingga user ikut menunggu jawabannya. Timeout dibuat pendek dan bisa
+     * diatur: kalau server gambar tersendat, lebih baik gagal cepat daripada
+     * menahan halaman belasan detik.
+     */
     'image_upload' => [
         'token' => env('IMAGE_UPLOAD_TOKEN'),
         'url' => env('IMAGE_UPLOAD_URL', 'https://image.alisanprinting.com/upload12552.php'),
+        'timeout' => (int) env('IMAGE_UPLOAD_TIMEOUT', 15),
+        'connect_timeout' => (int) env('IMAGE_UPLOAD_CONNECT_TIMEOUT', 5),
     ],
 
 ];

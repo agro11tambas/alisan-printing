@@ -43,7 +43,7 @@ class EcommerceSaleOrderController extends Controller
                     $query->orWhereIn('customer_id', $customerIds);
                 }
             })
-            ->where('status', 'Sale Order')
+            ->whereIn('status', ['Sale Order', 'Sale List'])
             ->latest('order_date')
             ->paginate((int) $request->input('per_page', 10));
 

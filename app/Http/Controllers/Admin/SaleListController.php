@@ -5061,6 +5061,28 @@ class SaleListController extends Controller
         }
     }
 
+    /**
+     * Catat kalau upload gambar invoice ke server luar memakan waktu lama.
+     *
+     * Menunggu jawaban server lain tidak memakai CPU, jadi kejadian ini tidak
+     * muncul di grafik resource Hostinger sama sekali. Hanya catatan inilah
+     * yang bisa membuktikannya.
+     */
+    private function logSlowImageUpload(float $startedAt, $orderId, int $payloadBytes): void
+    {
+        $elapsedMs = (hrtime(true) - $startedAt) / 1_000_000;
+
+        if ($elapsedMs < 1000) {
+            return;
+        }
+
+        Log::channel('performance')->warning('performance.image_upload_slow', [
+            'order_id' => $orderId,
+            'upload_ms' => round($elapsedMs, 2),
+            'payload_kb' => round($payloadBytes / 1024, 1),
+        ]);
+    }
+
     public function convertToImage(Request $request)
     {
         try {
@@ -5084,7 +5106,15 @@ class SaleListController extends Controller
 
             $invoiceNumber = $request->input('order_number');
 
-            $response = Http::timeout(30)
+            // Panggilan ke server luar ini terjadi di tengah request user, jadi
+            // user ikut menunggu. Timeout 30 detik terlalu lama untuk itu:
+            // kalau server gambar tersendat, ERP ikut terasa nge-buffer padahal
+            // CPU kosong. connectTimeout dipisah supaya masalah jaringan atau
+            // DNS gagal cepat, bukan menggantung sampai batas total.
+            $uploadStartedAt = hrtime(true);
+
+            $response = Http::connectTimeout((int) config('services.image_upload.connect_timeout', 5))
+                ->timeout((int) config('services.image_upload.timeout', 15))
                 ->withHeaders([
                     'X-Upload-Token' => $uploadToken,
                 ])
@@ -5094,6 +5124,8 @@ class SaleListController extends Controller
                     'order_id' => $orderId,
                     'invoice_number' => $invoiceNumber,
                 ]);
+
+            $this->logSlowImageUpload($uploadStartedAt, $orderId, strlen((string) $imageData));
 
             Log::debug('Response received', [
                 'status' => $response->status(),
