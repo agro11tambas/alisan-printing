@@ -552,6 +552,9 @@
                                         @endforeach
                                     </select>
                                 </div>
+                                <div id="cash_bank_account_error" class="text-danger fs-12 mt-1 d-none">
+                                    Cash/Bank Account wajib dipilih.
+                                </div>
                             </div>
                         </div>
                         {{-- <div class="row g-3 mb-2">
@@ -1004,6 +1007,8 @@
                 $('#deposit_used').val('0');
                 $('#use_write_off_only').prop('checked', false);
                 $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(remainingAmount));
+                $('#cash_bank_account_id').val('').trigger('change');
+                clearCashBankAccountError();
                 $('#customer_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(customerDeposit));
                 $('#max_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(
                     Math.min(remainingAmount, customerDeposit)
@@ -1182,7 +1187,32 @@
             this.value = new Intl.NumberFormat('id-ID').format(angka);
         });
 
-        document.getElementById("markAsSaleForm").addEventListener("submit", function() {
+        function clearCashBankAccountError() {
+            $('#cash_bank_account_id').removeClass('is-invalid');
+            $('#cash_bank_account_id').next('.select2').find('.select2-selection').removeClass('is-invalid');
+            $('#cash_bank_account_error').addClass('d-none');
+        }
+
+        $('#cash_bank_account_id').on('change', function() {
+            if (this.value) {
+                clearCashBankAccountError();
+            }
+        });
+
+        document.getElementById("markAsSaleForm").addEventListener("submit", function(event) {
+            const cashBankAccount = document.getElementById('cash_bank_account_id');
+            const paidAmount = parseSalePaymentAmount(paidInput.value);
+
+            if (paidAmount > 0 && !cashBankAccount.value) {
+                event.preventDefault();
+                cashBankAccount.classList.add('is-invalid');
+                $('#cash_bank_account_id').next('.select2').find('.select2-selection').addClass('is-invalid');
+                $('#cash_bank_account_error').removeClass('d-none');
+                cashBankAccount.focus();
+                return;
+            }
+
+            clearCashBankAccountError();
             paidInput.value = paidInput.value.replace(/\./g, "");
             document.getElementById("deposit_used").value =
                 document.getElementById("deposit_used").value.replace(/\./g, "");

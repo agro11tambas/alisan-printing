@@ -1144,13 +1144,19 @@ class SaleOrderController extends Controller
         if ($request->payment_status !== 'Unpaid') {
             $rules = array_merge($rules, [
                 'paid_amount' => 'nullable|numeric|min:0',
-                'cash_bank_account_id' => 'nullable|exists:accounts,id',
+                'cash_bank_account_id' => [
+                    'nullable',
+                    Rule::requiredIf(fn () => (float) $request->input('paid_amount', 0) > 0),
+                    'exists:accounts,id',
+                ],
                 'transaction_date' => 'nullable|date',
                 'transaction_type' => 'nullable|exists:accounts,id',
             ]);
         }
 
-        $request->validate($rules);
+        $request->validate($rules, [
+            'cash_bank_account_id.required' => 'Cash/Bank Account wajib dipilih.',
+        ]);
 
         DB::beginTransaction();
 

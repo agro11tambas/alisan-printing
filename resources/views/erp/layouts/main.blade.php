@@ -1272,13 +1272,35 @@
         });
     </script>
 
-    @if (session('logout_notice'))
+    @php
+        $flashAlert = match (true) {
+            session()->has('logout_notice') => [
+                'icon' => 'warning',
+                'title' => 'Session Expired',
+                'text' => session('logout_notice'),
+            ],
+            session()->has('error') => [
+                'icon' => 'error',
+                'title' => 'Gagal!',
+                'text' => session('error'),
+            ],
+            session()->has('warning') => [
+                'icon' => 'warning',
+                'title' => 'Perhatian!',
+                'text' => session('warning'),
+            ],
+            session()->has('success') => [
+                'icon' => 'success',
+                'title' => 'Berhasil!',
+                'text' => session('success'),
+            ],
+            default => null,
+        };
+    @endphp
+
+    @if ($flashAlert)
         <script>
-            Swal.fire({
-                icon: "warning",
-                title: "Session Expired",
-                text: "{{ session('logout_notice') }}",
-            });
+            Swal.fire({{ \Illuminate\Support\Js::from($flashAlert) }});
         </script>
     @endif
 
