@@ -18,6 +18,13 @@
             min-width: 0;
         }
 
+        #saleListTable_wrapper .dataTables_scrollHeadInner,
+        #editedSaleListTable_wrapper .dataTables_scrollHeadInner,
+        #saleListTable_wrapper .dataTables_scrollHeadInner table,
+        #editedSaleListTable_wrapper .dataTables_scrollHeadInner table {
+            width: 100% !important;
+        }
+
         #saleListTable td.action-cell,
         #editedSaleListTable td.action-cell {
             display: none;
@@ -378,13 +385,13 @@
                                         <thead>
                                             <tr>
                                                 <th style="width:3%;"></th>
-                                                <th style="width:18%;">Invoice Number</th>
-                                                <th style="width:21%;">Customer</th>
+                                                <th style="width:15%;">Invoice Number</th>
+                                                <th style="width:18%;">Customer</th>
                                                 <th style="width:10%;">Grand Total</th>
                                                 <th style="width:10%;">Paid Amount</th>
                                                 <th style="width:12%;">Payment</th>
                                                 <th style="width:8%;">User</th>
-                                                {{-- <th style="width:6%;">Type</th> --}}
+                                                <th class="text-center" style="width:6%;">Mode</th>
                                                 <th style="width:12%;">Note</th>
                                                 <th style="width:6%;">Chat</th>
                                             </tr>
@@ -409,7 +416,7 @@
                                                 <th>Paid Amount</th>
                                                 <th>Payment</th>
                                                 <th>User</th>
-                                                {{-- <th>Type</th> --}}
+                                                <th class="text-center">Mode</th>
                                                 <th>Note</th>
                                             </tr>
                                         </thead>
@@ -969,9 +976,10 @@
                     {
                         data: 'user'
                     },
-                    // {
-                    //     data: 'mode'
-                    // },
+                    {
+                        data: 'mode',
+                        className: 'text-center align-middle'
+                    },
                     {
                         data: 'notes'
                     },
@@ -1037,6 +1045,7 @@
                                 }
                             }
                             renderMobileFromAllData();
+                            requestAnimationFrame(() => dataTable.columns.adjust());
                             currentPage++;
                             hasMoreData = true;
                         } else {
@@ -1279,9 +1288,10 @@
                         {
                             data: 'user'
                         },
-                        // {
-                        //     data: 'mode'
-                        // },
+                        {
+                            data: 'mode',
+                            className: 'text-center align-middle'
+                        },
                         {
                             data: 'notes'
                         },
@@ -1404,6 +1414,7 @@
                                     $(editedTable.table().body()).append(newNodes);
                                 }
                             }
+                            requestAnimationFrame(() => editedTable.columns.adjust());
                             editedPage++;
                             editedHasMoreData = true;
                         } else {

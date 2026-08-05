@@ -58,6 +58,32 @@ use Illuminate\Support\Collection;
 
 class SaleListController extends Controller
 {
+    private function renderOrderItemModes(Order $order): string
+    {
+        $modes = $order->orderItems
+            ->pluck('mode')
+            ->filter()
+            ->map(fn ($mode) => strtolower(trim($mode)))
+            ->unique()
+            ->values();
+
+        if ($modes->isEmpty()) {
+            return '<span class="text-muted">-</span>';
+        }
+
+        return '<div class="d-flex flex-column align-items-center gap-1">' .
+            $modes->map(function ($mode) {
+                $badgeClass = match ($mode) {
+                    'printing' => 'bg-soft-success text-success',
+                    'polosan' => 'bg-soft-primary text-primary',
+                    default => 'bg-soft-dark text-dark',
+                };
+
+                return '<span class="badge ' . $badgeClass . '">' . e(ucfirst($mode)) . '</span>';
+            })->implode('') .
+            '</div>';
+    }
+
     private function monthlyOrderGroupKeyForOrder(Order $order): string
     {
         $businessName = $order->customerAddress?->business_name;
@@ -147,6 +173,10 @@ class SaleListController extends Controller
             'user',
             'customerAddress',
             'saleReturns',
+            // Dipakai accessor is_fully_returned dan has_delivery_list di
+            // partial action-button. Tanpa ini keduanya query per baris.
+            'saleReturns.items:id,sale_return_id,quantity',
+            'deliveryOrders.shipments:id,delivery_order_id,status',
             'orderItems.product',
             'orderItems.productBundle.items.product',
             'deliveryOrders.items.deliveryListItems.shipment',
@@ -300,13 +330,7 @@ class SaleListController extends Controller
 
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
 
-                $mode = strtolower($order->mode ?? 'printing');
-                $modeBadgeClass = match ($mode) {
-                    'printing' => 'bg-soft-success text-success',
-                    'polosan'    => 'bg-soft-primary text-primary',
-                    default  => 'bg-soft-dark text-dark',
-                };
-                $modeBadge = '<div class="badge ' . $modeBadgeClass . '">' . ucfirst($mode) . '</div>';
+                $modeBadge = $this->renderOrderItemModes($order);
 
 
                 $items = $order->orderItems
@@ -553,6 +577,10 @@ class SaleListController extends Controller
             'user',
             'customerAddress',
             'saleReturns',
+            // Dipakai accessor is_fully_returned dan has_delivery_list di
+            // partial action-button. Tanpa ini keduanya query per baris.
+            'saleReturns.items:id,sale_return_id,quantity',
+            'deliveryOrders.shipments:id,delivery_order_id,status',
             'orderItems.product',
             'orderItems.productBundle.items.product',
             'deliveryOrders.items.deliveryListItems.shipment',
@@ -704,13 +732,7 @@ class SaleListController extends Controller
 
                 $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
 
-                $mode = strtolower($order->mode ?? 'printing');
-                $modeBadgeClass = match ($mode) {
-                    'printing' => 'bg-soft-success text-success',
-                    'polosan'    => 'bg-soft-primary text-primary',
-                    default  => 'bg-soft-dark text-dark',
-                };
-                $modeBadge = '<div class="badge ' . $modeBadgeClass . '">' . ucfirst($mode) . '</div>';
+                $modeBadge = $this->renderOrderItemModes($order);
 
 
                 $items = $order->orderItems

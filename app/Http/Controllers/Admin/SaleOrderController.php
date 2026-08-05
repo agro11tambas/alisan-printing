@@ -40,6 +40,32 @@ use Yajra\DataTables\Facades\DataTables;
 
 class SaleOrderController extends Controller
 {
+    private function renderOrderItemModes(Order $order): string
+    {
+        $modes = $order->orderItems
+            ->pluck('mode')
+            ->filter()
+            ->map(fn ($mode) => strtolower(trim($mode)))
+            ->unique()
+            ->values();
+
+        if ($modes->isEmpty()) {
+            return '<span class="text-muted">-</span>';
+        }
+
+        return '<div class="d-flex flex-column align-items-center gap-1">' .
+            $modes->map(function ($mode) {
+                $badgeClass = match ($mode) {
+                    'printing' => 'bg-soft-success text-success',
+                    'polosan' => 'bg-soft-primary text-primary',
+                    default => 'bg-soft-dark text-dark',
+                };
+
+                return '<span class="badge ' . $badgeClass . '">' . e(ucfirst($mode)) . '</span>';
+            })->implode('') .
+            '</div>';
+    }
+
     public function getSaleOrder()
     {
         $order_number = Order::first();
@@ -147,13 +173,7 @@ class SaleOrderController extends Controller
                     default => '<div class="badge bg-soft-warning text-warning">' . e($order->payment_status) . '</div>',
                 };
 
-                $mode = strtolower($order->mode ?? 'printing');
-                $modeBadgeClass = match ($mode) {
-                    'printing' => 'bg-soft-success text-success',
-                    'polosan'    => 'bg-soft-primary text-primary',
-                    default  => 'bg-soft-dark text-dark',
-                };
-                $modeBadge = '<div class="badge ' . $modeBadgeClass . '">' . ucfirst($mode) . '</div>';
+                $modeBadge = $this->renderOrderItemModes($order);
 
                 // 🔹 Produk (termasuk bundle & soft deleted)
                 $items = $order->orderItems

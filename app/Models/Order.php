@@ -173,26 +173,79 @@ class Order extends Model
         })->where('stock_out', '>', 0)->exists();
     }
 
-    public function getIsFullyReturnedAttribute()
+    /*
+     * Dua accessor di bawah dipanggil per baris oleh partial action-button di
+     * halaman Sale List. Versi lamanya selalu menembak query baru, jadi satu
+     * halaman berisi 15 order membayar 45 query tambahan hanya untuk mengisi
+     * dua tombol.
+     *
+     * Sekarang keduanya memakai relasi yang sudah di-eager-load kalau ada, dan
+     * baru jatuh ke query kalau relasinya memang belum dimuat — supaya
+     * pemanggil lain yang tidak eager load tetap benar hasilnya.
+     */
+
+    public function getIsFullyReturnedAttribute(): bool
     {
-        // total qty order
-        $totalOrdered = $this->orderItems()->sum('quantity');
+        $totalOrdered = $this->relationLoaded('orderItems')
+            ? (float) $this->orderItems->sum('quantity')
+            : (float) $this->orderItems()->sum('quantity');
 
-        // total qty yang sudah direturn
-        $totalReturned = \App\Models\SaleReturnItem::whereHas('saleReturn', function ($q) {
-            $q->where('sale_order_id', $this->id);
-        })->sum('quantity');
+        if ($totalOrdered <= 0) {
+            return false;
+        }
 
-        return $totalOrdered > 0 && $totalOrdered <= $totalReturned;
+        $totalReturned = $this->returnedQuantityFromLoadedRelations()
+            ?? (float) \App\Models\SaleReturnItem::whereHas(
+                'saleReturn',
+                fn ($q) => $q->where('sale_order_id', $this->id)
+            )->sum('quantity');
+
+        return $totalOrdered <= $totalReturned;
     }
 
     public function getHasDeliveryListAttribute(): bool
     {
+        if ($this->relationLoaded('deliveryOrders')) {
+            $allShipmentsLoaded = $this->deliveryOrders->every(
+                fn ($deliveryOrder) => $deliveryOrder->relationLoaded('shipments')
+            );
+
+            if ($allShipmentsLoaded) {
+                return $this->deliveryOrders->contains(
+                    fn ($deliveryOrder) => $deliveryOrder->shipments->contains('status', 'Finished')
+                );
+            }
+        }
+
         return $this->deliveryOrders()
             ->whereHas('shipments', function ($q) {
                 $q->where('status', 'Finished');
             })
             ->exists();
+    }
+
+    /**
+     * Total qty yang sudah diretur, dihitung dari relasi yang sudah dimuat.
+     * Mengembalikan null kalau datanya belum lengkap, supaya pemanggil tahu
+     * harus jatuh ke query.
+     */
+    private function returnedQuantityFromLoadedRelations(): ?float
+    {
+        if (! $this->relationLoaded('saleReturns')) {
+            return null;
+        }
+
+        $itemsLoaded = $this->saleReturns->every(
+            fn ($saleReturn) => $saleReturn->relationLoaded('items')
+        );
+
+        if (! $itemsLoaded) {
+            return null;
+        }
+
+        return (float) $this->saleReturns->sum(
+            fn ($saleReturn) => $saleReturn->items->sum('quantity')
+        );
     }
 
     protected static function booted()

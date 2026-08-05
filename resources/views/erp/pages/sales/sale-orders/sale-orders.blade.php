@@ -18,6 +18,13 @@
             min-width: 0;
         }
 
+        #saleOrderTable_wrapper .dataTables_scrollHeadInner,
+        #editedOrderTable_wrapper .dataTables_scrollHeadInner,
+        #saleOrderTable_wrapper .dataTables_scrollHeadInner table,
+        #editedOrderTable_wrapper .dataTables_scrollHeadInner table {
+            width: 100% !important;
+        }
+
         #saleOrderTable td.action-cell,
         #editedOrderTable td.action-cell {
             display: none;
@@ -360,7 +367,7 @@
                                         <th class="d-none d-md-table-cell">Customer</th>
                                         <th>Grand Total</th>
                                         <th>User</th>
-                                        {{-- <th>Type</th> --}}
+                                        <th class="text-center">Mode</th>
                                         <th>Notes</th>
                                     </tr>
                                 </thead>
@@ -649,9 +656,10 @@
                     {
                         data: 'user'
                     },
-                    // {
-                    //     data: 'mode'
-                    // },
+                    {
+                        data: 'mode',
+                        className: 'text-center align-middle'
+                    },
                     {
                         data: 'notes'
                     },
@@ -698,6 +706,7 @@
                                 $(dataTable.table().body()).append(newNodes);
                             }
                             renderMobileFromAllData();
+                            requestAnimationFrame(() => dataTable.columns.adjust());
                             currentPage++;
                         } else {
                             hasMoreData = false;
