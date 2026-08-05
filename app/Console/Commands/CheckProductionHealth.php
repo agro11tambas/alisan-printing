@@ -52,13 +52,16 @@ class CheckProductionHealth extends Command
             'Channel "performance" harus level debug. Kalau ikut LOG_LEVEL=error, catatan request lambat dibuang diam-diam.'
         );
 
-        $problems += $this->check(
+        // Pencegahan, bukan masalah aktif: selama laravel.log masih kecil,
+        // rotasi belum mendesak. Ukuran storage/logs dilaporkan di bawah.
+        $this->advise(
             'Log aplikasi dirotasi',
             in_array('daily', explode(',', (string) env('LOG_STACK', 'single')), true),
-            'LOG_STACK=single membuat laravel.log tumbuh tanpa batas. Pakai LOG_STACK=daily dan LOG_DAILY_DAYS=14.'
+            'LOG_STACK=single tidak pernah dirotasi. Pakai LOG_STACK=daily dan LOG_DAILY_DAYS=14 sebelum filenya membesar.'
         );
 
         $problems += $this->reportSessionTable();
+        $problems += $this->checkPendingMigrations();
 
         $problems += $this->check(
             'Config ter-cache',
@@ -126,16 +129,76 @@ class CheckProductionHealth extends Command
             return 0;
         }
 
-        if ($lifetimeDays <= 90 && $rows < 50_000) {
+        // Yang membebani adalah jumlah barisnya, bukan panjang lifetime-nya.
+        // Lifetime panjang hanya berarti pembersihan otomatis tidak jalan, dan
+        // itu tidak jadi masalah selama tabelnya masih kecil.
+        if ($rows < 25_000) {
             $this->line("  <fg=green>OK</>    tabel {$table} ({$rows} baris, kedaluwarsa {$lifetimeDays} hari)");
 
             return 0;
         }
 
         $this->line("  <fg=yellow>BESAR</> tabel {$table} ({$rows} baris, kedaluwarsa {$lifetimeDays} hari)");
-        $this->line('          → Sesi lama tidak pernah terhapus. Turunkan SESSION_LIFETIME, atau hapus manual baris lama di tabel ini.');
+        $this->line('          → Setiap request membaca dan menulis tabel ini. Turunkan SESSION_LIFETIME supaya');
+        $this->line('            Laravel membersihkan sendiri, atau hapus baris lama secara manual.');
 
         return 1;
+    }
+
+    /**
+     * Index dan perubahan skema hanya berguna kalau migrasinya benar-benar
+     * jalan di server. Deploy yang gagal di langkah migrate mudah terlewat
+     * karena aplikasinya tetap hidup, cuma tetap lambat.
+     */
+    private function checkPendingMigrations(): int
+    {
+        $migrator = $this->laravel->make('migrator');
+
+        try {
+            if (! $migrator->repositoryExists()) {
+                $this->line('  <fg=red>MASALAH</> Migrasi belum pernah dijalankan');
+                $this->line('          → Jalankan: php artisan migrate --force');
+
+                return 1;
+            }
+
+            $files = $migrator->getMigrationFiles($this->laravel->databasePath('migrations'));
+            $pending = array_diff(array_keys($files), $migrator->getRepository()->getRan());
+        } catch (\Throwable $e) {
+            $this->line('  <fg=yellow>LEWAT</> status migrasi tidak bisa dibaca: '.$e->getMessage());
+
+            return 0;
+        }
+
+        if ($pending === []) {
+            $this->line('  <fg=green>OK</>    Tidak ada migrasi tertunda');
+
+            return 0;
+        }
+
+        $this->line('  <fg=red>MASALAH</> '.count($pending).' migrasi belum dijalankan');
+        foreach (array_slice($pending, 0, 5) as $migration) {
+            $this->line("          · {$migration}");
+        }
+        $this->line('          → Jalankan: php artisan migrate --force');
+
+        return 1;
+    }
+
+    /**
+     * Saran yang tidak dihitung sebagai masalah, supaya ringkasan di akhir
+     * hanya memuat hal yang benar-benar perlu ditindak sekarang.
+     */
+    private function advise(string $label, bool $passed, string $suggestion): void
+    {
+        if ($passed) {
+            $this->line("  <fg=green>OK</>    {$label}");
+
+            return;
+        }
+
+        $this->line("  <fg=cyan>SARAN</> {$label}");
+        $this->line("          → {$suggestion}");
     }
 
     private function check(string $label, bool $passed, string $fix): int
