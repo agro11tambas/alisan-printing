@@ -100,6 +100,8 @@ class ProductionStockSnapshotTest extends TestCase
         $snapshot = ProductionStockSnapshot::firstOrFail();
         $this->assertSame(100, $snapshot->opening_stock);
         $this->assertSame(10, $snapshot->stock_opname_today);
+        // stock opname tidak masuk rumus closing
+        $this->assertSame(100, $snapshot->closing_stock);
 
         $stockOpname->update([
             'available_quantity' => 4,
@@ -137,10 +139,12 @@ class ProductionStockSnapshotTest extends TestCase
         ]);
 
         $this->assertSame(20, $snapshot->fresh()->assign_today);
+        $this->assertSame(80, $snapshot->fresh()->closing_stock);
 
         $assign->update(['assigned_quantity' => 8]);
 
         $this->assertSame(13, $snapshot->fresh()->assign_today);
+        $this->assertSame(87, $snapshot->fresh()->closing_stock);
 
         $assign->delete();
 
@@ -155,5 +159,66 @@ class ProductionStockSnapshotTest extends TestCase
         $assign->forceDelete();
 
         $this->assertSame(5, $snapshot->fresh()->assign_today);
+    }
+
+    public function test_opening_stock_is_taken_from_the_previous_day_closing_stock(): void
+    {
+        ProductionStock::create([
+            'product_id' => 1,
+            'available_quantity' => 100,
+        ]);
+
+        // Snapshot kemarin: closing 70
+        ProductionStockSnapshot::create([
+            'product_id' => 1,
+            'snapshot_date' => today()->subDay(),
+            'opening_stock' => 90,
+            'closing_stock' => 70,
+        ]);
+
+        OrderProgressAssign::create([
+            'product_id' => 1,
+            'assigned_quantity' => 15,
+        ]);
+
+        $snapshot = ProductionStockSnapshot::whereDate('snapshot_date', today())->firstOrFail();
+
+        // Opening hari ini = closing kemarin, bukan available_quantity (100)
+        $this->assertSame(70, $snapshot->opening_stock);
+        $this->assertSame(15, $snapshot->assign_today);
+        $this->assertSame(55, $snapshot->closing_stock); // 70 - 15 + 0
+    }
+
+    public function test_opening_stock_never_changes_once_the_snapshot_exists(): void
+    {
+        ProductionStock::create([
+            'product_id' => 1,
+            'available_quantity' => 100,
+        ]);
+
+        ProductionStockSnapshot::create([
+            'product_id' => 1,
+            'snapshot_date' => today()->subDay(),
+            'opening_stock' => 90,
+            'closing_stock' => 70,
+        ]);
+
+        OrderProgressAssign::create([
+            'product_id' => 1,
+            'assigned_quantity' => 15,
+        ]);
+
+        // Stok real berubah setelah snapshot hari ini terbentuk
+        ProductionStock::where('product_id', 1)->update(['available_quantity' => 42]);
+
+        OrderProgressAssign::create([
+            'product_id' => 1,
+            'assigned_quantity' => 5,
+        ]);
+
+        $snapshot = ProductionStockSnapshot::whereDate('snapshot_date', today())->firstOrFail();
+
+        $this->assertSame(70, $snapshot->opening_stock);
+        $this->assertSame(50, $snapshot->closing_stock); // 70 - 20 + 0
     }
 }

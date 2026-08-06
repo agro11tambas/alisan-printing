@@ -89,9 +89,19 @@ class ProductionStockSnapshotController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        $result = $stocks->map(function ($stock) use ($snapshots, $date, $isToday) {
+        // closing_stock hari sebelumnya, dipakai sebagai opening kalau snapshot
+        // tanggal ini belum sempat dibuat oleh cron job.
+        $previousClosings = ProductionStockSnapshot::previousClosingStocks($date);
+
+        $result = $stocks->map(function ($stock) use ($snapshots, $previousClosings, $date, $isToday) {
             $snap = $snapshots->get($stock->product_id);
             $productId = $stock->product_id;
+
+            // Opening: kalau snapshot hari ini sudah ada pakai nilai tersimpan (tidak pernah berubah),
+            // kalau belum ada ambil dari closing hari sebelumnya.
+            $openingStock = $snap !== null
+                ? (int) $snap->opening_stock
+                : (int) ($previousClosings[$productId] ?? ($isToday ? ($stock->available_quantity ?? 0) : 0));
 
             if ($isToday) {
                 // 🔥 Real-time, sama persis kayak dataReportItems
@@ -124,17 +134,19 @@ class ProductionStockSnapshotController extends Controller
                     ->whereDate('date', $date)
                     ->get()
                     ->sum(fn (StockOpnameProduction $stockOpname) => $stockOpname->signedQuantity());
-
-                $openingStock = $snap?->opening_stock ?? 0; // tetap dari snapshot kalau ada
-                $closingStock = $stock->available_quantity ?? 0; // real-time
             } else {
                 // 📦 Dari snapshot tersimpan
                 $stockInToday = $snap?->stock_in_today ?? 0;
                 $assignToday = $snap?->assign_today ?? 0;
                 $stockOpnameToday = $snap?->stock_opname_today ?? 0;
-                $openingStock = $snap?->opening_stock ?? 0;
-                $closingStock = $snap?->closing_stock ?? 0;
             }
+
+            // Closing selalu turunan dari rumus: opening - assign today + stock in today
+            $closingStock = ProductionStockSnapshot::calculateClosingStock(
+                $openingStock,
+                (int) $assignToday,
+                (int) $stockInToday,
+            );
 
             return [
                 'product_name' => $stock->product->name ?? '-',

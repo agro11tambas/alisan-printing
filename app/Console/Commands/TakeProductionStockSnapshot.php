@@ -30,13 +30,12 @@ class TakeProductionStockSnapshot extends Command
                 'snapshot_date' => $today,
             ]);
 
-            // opening_stock hanya diset saat pertama kali (record baru)
+            // opening_stock hanya diset saat pertama kali (record baru) dan
+            // diambil dari closing_stock hari sebelumnya. Setelah itu tidak pernah berubah,
+            // berapa kali pun command ini jalan di hari yang sama.
             if (! $snapshot->exists) {
-                $snapshot->opening_stock = $stock->available_quantity ?? 0;
+                $snapshot->opening_stock = ProductionStockSnapshot::resolveOpeningStock($productId, $today);
             }
-
-            // closing_stock selalu update = stok real-time saat command jalan
-            $snapshot->closing_stock = $stock->available_quantity ?? 0;
 
             // stock_in_today
             $fromMaterial = DB::table('material_request_items')
@@ -68,6 +67,13 @@ class TakeProductionStockSnapshot extends Command
                 ->whereDate('date', $today)
                 ->get()
                 ->sum(fn (StockOpnameProduction $stockOpname) => $stockOpname->signedQuantity());
+
+            // closing_stock selalu dihitung ulang: opening - assign today + stock in today
+            $snapshot->closing_stock = ProductionStockSnapshot::calculateClosingStock(
+                (int) $snapshot->opening_stock,
+                (int) $snapshot->assign_today,
+                (int) $snapshot->stock_in_today,
+            );
 
             $snapshot->save();
         }
