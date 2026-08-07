@@ -21,7 +21,7 @@
                     </a>
                     <button type="submit" class="btn btn-primary" form="categoryForm">
                         <i class="feather-plus me-2"></i>
-                        <span>Add Category</span>
+                        <span>Add Main Category</span>
                     </button>
                 </div>
             </div>

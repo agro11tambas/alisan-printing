@@ -7,6 +7,7 @@ use App\Http\Requests\EcommerceProductCategoryStoreRequest;
 use App\Http\Requests\EcommerceProductCategoryUpdateRequest;
 use App\Models\EcommerceProductCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
@@ -72,19 +73,27 @@ class EcommerceProductCategoryController extends Controller
 
     public function create()
     {
-        $parentOptions = $this->parentOptions();
+        $subcategoryOptions = $this->subcategoryOptions();
 
-        return view('erp.pages.ecommerce-product-categories.create-category', compact('parentOptions'));
+        return view('erp.pages.ecommerce-product-categories.create-category', compact('subcategoryOptions'));
     }
 
     public function store(EcommerceProductCategoryStoreRequest $request)
     {
-        $data = $request->safe()->except('image');
-        $data['image'] = $this->storeFile($request->file('image'));
-        $data['is_active'] = true;
-        $data['sort_order'] = 0;
+        DB::transaction(function () use ($request) {
+            // Form ini cuma bikin main category; sub category-nya menyusul di syncSubcategories().
+            $category = EcommerceProductCategory::create([
+                'parent_id' => null,
+                'name' => $request->validated('name'),
+                'slug' => $request->validated('slug'),
+                'description' => $request->validated('description'),
+                'image' => $this->storeFile($request->file('image')),
+                'is_active' => true,
+                'sort_order' => 0,
+            ]);
 
-        EcommerceProductCategory::create($data);
+            $this->syncSubcategories($category, $request);
+        });
 
         return redirect()
             ->route('erp.ecommerce-product-categories.index')
@@ -93,19 +102,27 @@ class EcommerceProductCategoryController extends Controller
 
     public function edit(EcommerceProductCategory $category)
     {
-        $parentOptions = $this->parentOptions($category);
+        $category->load('children');
 
-        return view('erp.pages.ecommerce-product-categories.edit-category', compact('category', 'parentOptions'));
+        $subcategoryOptions = $this->subcategoryOptions($category);
+
+        return view('erp.pages.ecommerce-product-categories.edit-category', compact('category', 'subcategoryOptions'));
     }
 
     public function update(EcommerceProductCategoryUpdateRequest $request, EcommerceProductCategory $category)
     {
-        $data = $request->safe()->except('image');
-        $data['image'] = $this->storeFile($request->file('image'), $category->image);
-        $data['is_active'] = true;
-        $data['sort_order'] = 0;
+        DB::transaction(function () use ($request, $category) {
+            $category->update([
+                'name' => $request->validated('name'),
+                'slug' => $request->validated('slug'),
+                'description' => $request->validated('description'),
+                'image' => $this->storeFile($request->file('image'), $category->image),
+                'is_active' => true,
+                'sort_order' => 0,
+            ]);
 
-        $category->update($data);
+            $this->syncSubcategories($category, $request);
+        });
 
         return redirect()
             ->route('erp.ecommerce-product-categories.index')
@@ -136,26 +153,107 @@ class EcommerceProductCategoryController extends Controller
     }
 
     /**
-     * Daftar kandidat parent, urut sebagai tree dengan indentasi.
-     * Category yang sedang diedit beserta seluruh turunannya dikecualikan
-     * supaya tidak bisa bikin siklus.
+     * Simpan sub category dari form main category:
+     * - category existing yang dipilih dipindah jadi child di sini
+     * - sub category yang dilepas dari list dikembalikan jadi main category (tidak dihapus)
+     * - baris sub category baru dibuat sebagai child
      */
-    private function parentOptions(?EcommerceProductCategory $exclude = null): array
+    private function syncSubcategories(EcommerceProductCategory $category, Request $request): void
     {
-        $excludedIds = $exclude ? $exclude->descendantIds() : [];
+        // Category ini sendiri dan ancestor-nya tidak boleh jadi child (bikin siklus).
+        $forbiddenIds = array_merge([$category->id], $category->ancestorIds());
 
+        $keepIds = collect($request->input('existing_child_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->reject(fn (int $id) => in_array($id, $forbiddenIds, true))
+            ->unique()
+            ->values()
+            ->all();
+
+        // Rename sub category existing yang diedit langsung di form
+        foreach ($request->input('existing_children', []) as $childId => $childInput) {
+            $childId = (int) $childId;
+
+            if (!in_array($childId, $keepIds, true)) {
+                continue;
+            }
+
+            $name = trim($childInput['name'] ?? '');
+
+            if ($name === '') {
+                continue;
+            }
+
+            EcommerceProductCategory::where('id', $childId)->update(['name' => $name]);
+        }
+
+        EcommerceProductCategory::where('parent_id', $category->id)
+            ->whereNotIn('id', $keepIds)
+            ->update(['parent_id' => null]);
+
+        if ($keepIds) {
+            EcommerceProductCategory::whereIn('id', $keepIds)->update(['parent_id' => $category->id]);
+        }
+
+        foreach ($request->input('subcategories', []) as $index => $subcategoryInput) {
+            $name = trim($subcategoryInput['name'] ?? '');
+
+            if ($name === '') {
+                continue;
+            }
+
+            EcommerceProductCategory::create([
+                'parent_id' => $category->id,
+                'name' => $name,
+                'slug' => EcommerceProductCategory::generateUniqueSlug($name),
+                'description' => $subcategoryInput['description'] ?? null,
+                'image' => $this->storeFile($request->file("subcategories.{$index}.image")),
+                'is_active' => true,
+                'sort_order' => 0,
+            ]);
+        }
+
+        $category->unsetRelation('children');
+    }
+
+    /**
+     * Kandidat sub category: semua category yang belum punya turunan sendiri
+     * (biar struktur tetap dua level), kecuali category ini dan ancestor-nya.
+     */
+    private function subcategoryOptions(?EcommerceProductCategory $category = null): array
+    {
+        $forbiddenIds = $category ? array_merge([$category->id], $category->ancestorIds()) : [];
+
+        return EcommerceProductCategory::query()
+            ->with('parent')
+            ->withCount('children')
+            ->whereNotIn('id', $forbiddenIds)
+            ->orderBy('name')
+            ->get()
+            ->filter(fn ($item) => $item->children_count === 0)
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'parent_name' => $item->parent?->name,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Daftar parent untuk filter di halaman index, urut sebagai tree
+     * dengan indentasi.
+     */
+    private function parentOptions(): array
+    {
         $categories = EcommerceProductCategory::orderBy('sort_order')
             ->orderBy('name')
             ->get(['id', 'parent_id', 'name']);
 
-        $build = function ($parentId, $depth) use (&$build, $categories, $excludedIds) {
+        $build = function ($parentId, $depth) use (&$build, $categories) {
             $options = [];
 
             foreach ($categories->where('parent_id', $parentId) as $category) {
-                if (in_array($category->id, $excludedIds, true)) {
-                    continue;
-                }
-
                 $options[] = [
                     'id' => $category->id,
                     'name' => $category->name,

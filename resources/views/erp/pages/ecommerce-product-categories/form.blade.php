@@ -3,6 +3,37 @@
     $action = $isEdit
         ? route('erp.ecommerce-product-categories.update', $category->id)
         : route('erp.ecommerce-product-categories.store');
+
+    $subcategoryOptions = $subcategoryOptions ?? [];
+
+    // Sub category yang sudah nempel di main category ini. Kalau habis gagal
+    // validasi, dipakai lagi dari old() supaya pilihan user tidak hilang.
+    $oldChildIds = old('existing_child_ids');
+
+    if (is_array($oldChildIds)) {
+        $oldChildNames = old('existing_children', []);
+
+        $selectedChildren = collect($oldChildIds)
+            ->map(function ($childId) use ($oldChildNames, $subcategoryOptions) {
+                $childId = (int) $childId;
+                $option = collect($subcategoryOptions)->firstWhere('id', $childId);
+
+                return [
+                    'id' => $childId,
+                    'name' => $oldChildNames[$childId]['name'] ?? ($option['name'] ?? ''),
+                ];
+            });
+    } else {
+        $selectedChildren = $isEdit
+            ? $category->children->map(fn($child) => ['id' => $child->id, 'name' => $child->name])
+            : collect();
+    }
+
+    $newSubcategories = collect(old('subcategories', []))->values();
+
+    if ($newSubcategories->isEmpty()) {
+        $newSubcategories = collect([['name' => '', 'description' => '']]);
+    }
 @endphp
 
 @if ($errors->any())
@@ -54,31 +85,8 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-                            </div>
-                        </div>
-
-                        <div class="row mb-2 align-items-center">
-                            <div class="col-lg-2">
-                                <label for="parent_id" class="fw-semibold">Parent Category</label>
-                            </div>
-                            <div class="col-lg-10 mb-0">
-                                <div class="input-group">
-                                    <div class="input-group-text"><i class="feather-git-merge"></i></div>
-                                    <select class="form-control @error('parent_id') is-invalid @enderror" id="parent_id"
-                                        name="parent_id">
-                                        <option value="">-- Tanpa parent (kategori utama) --</option>
-                                        @foreach ($parentOptions ?? [] as $option)
-                                            <option value="{{ $option['id'] }}"
-                                                @selected((string) old('parent_id', $category->parent_id ?? '') === (string) $option['id'])>
-                                                {!! str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $option['depth']) !!}{{ $option['depth'] > 0 ? '└ ' : '' }}{{ $option['name'] }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('parent_id')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                                <small class="text-muted">Kosongkan kalau ini kategori level teratas.</small>
+                                <small class="text-muted">Form ini untuk main category. Sub category-nya diatur di
+                                    bawah.</small>
                             </div>
                         </div>
 
@@ -137,12 +145,169 @@
                             </div>
                         </div>
 
+                        <hr class="my-3">
+
+                        <div class="row mb-2 align-items-start">
+                            <div class="col-lg-2">
+                                <label class="fw-semibold">Choose Existing Sub Category:</label>
+                            </div>
+                            <div class="col-lg-10">
+                                <select id="existing_subcategory_picker" class="form-select"
+                                    data-select2-selector="tag">
+                                    <option value="">Choose existing category</option>
+                                    @foreach ($subcategoryOptions as $option)
+                                        <option value="{{ $option['id'] }}" data-name="{{ $option['name'] }}">
+                                            {{ $option['name'] }}{{ $option['parent_name'] ? ' — sub dari ' . $option['parent_name'] : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+
+                                <small class="text-muted">
+                                    Pilih ini kalau category-nya sudah pernah dibuat. Category yang dipilih akan
+                                    dipindah jadi sub category di sini.
+                                </small>
+
+                                <div id="selectedSubcategoryList" class="mt-2">
+                                    @foreach ($selectedChildren as $child)
+                                        <div class="selected-subcategory-item border rounded p-1 mb-1">
+                                            <div class="row align-items-center">
+                                                <div class="col-lg-10">
+                                                    <div class="input-group">
+                                                        <div class="input-group-text"><i class="feather-tag"></i></div>
+                                                        <input type="text"
+                                                            class="form-control selected-subcategory-name"
+                                                            name="existing_children[{{ $child['id'] }}][name]"
+                                                            value="{{ $child['name'] }}" readonly>
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-lg-2 d-flex gap-1">
+                                                    <button type="button"
+                                                        class="btn btn-warning btn-sm btn-edit-selected-subcategory">
+                                                        <i class="feather-edit"></i>
+                                                    </button>
+
+                                                    <button type="button"
+                                                        class="btn btn-danger btn-sm btn-remove-selected-subcategory">
+                                                        <i class="feather-x"></i>
+                                                    </button>
+                                                </div>
+
+                                                <input type="hidden" name="existing_child_ids[]"
+                                                    value="{{ $child['id'] }}">
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2 align-items-start">
+                            <div class="col-lg-2">
+                                <label class="fw-semibold">Sub Category Baru:</label>
+                            </div>
+                            <div class="col-lg-10">
+                                <div id="subcategories">
+                                    @foreach ($newSubcategories as $index => $subcategory)
+                                        <div class="subcategory-item mb-1 row">
+                                            <div class="col-lg-4">
+                                                <div class="input-group">
+                                                    <div class="input-group-text"><i class="feather-tag"></i></div>
+                                                    <input type="text" class="form-control subcategory-name"
+                                                        name="subcategories[{{ $index }}][name]"
+                                                        value="{{ $subcategory['name'] ?? '' }}"
+                                                        placeholder="Sub Category Name">
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-4">
+                                                <div class="input-group">
+                                                    <div class="input-group-text"><i class="feather-align-left"></i>
+                                                    </div>
+                                                    <input type="text" class="form-control"
+                                                        name="subcategories[{{ $index }}][description]"
+                                                        value="{{ $subcategory['description'] ?? '' }}"
+                                                        placeholder="Description (optional)">
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-3">
+                                                <input type="file" class="form-control"
+                                                    name="subcategories[{{ $index }}][image]"
+                                                    accept="image/*">
+                                            </div>
+
+                                            <div class="col-lg-1 d-flex">
+                                                <button type="button"
+                                                    class="btn btn-danger btn-remove-subcategory">
+                                                    <i class="feather-x"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                <button type="button" class="btn btn-success mt-1" id="add-subcategory">
+                                    <i class="feather-plus"></i> Add Sub Category
+                                </button>
+
+                                <div>
+                                    <small class="text-muted">Slug sub category dibuat otomatis dari namanya.</small>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+@push('modals')
+    <div class="modal fade" id="deleteSubcategoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white">Hapus Baris Sub Category?</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Apakah Anda yakin ingin menghapus baris sub category ini?
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="confirmDeleteSubcategoryBtn" class="btn btn-danger">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="deleteSelectedSubcategoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title text-white">Lepas Sub Category?</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    Sub category ini akan dilepas dari main category dan kembali jadi main category sendiri
+                    (datanya tidak dihapus).
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="confirmDeleteSelectedSubcategoryBtn" class="btn btn-danger">
+                        Yes, Remove
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endpush
 
 @push('scripts')
     <script>
@@ -203,6 +368,194 @@
                     nameInput.closest('.input-group').insertAdjacentHTML('beforeend',
                         '<div class="invalid-feedback client-error">Nama category wajib diisi.</div>');
                 }
+            });
+        });
+    </script>
+
+    <script>
+        $(document).ready(function() {
+            let subcategoryIndex = {{ $newSubcategories->count() }};
+
+            const subcategoriesWrapper = document.getElementById('subcategories');
+
+            document.getElementById('add-subcategory').addEventListener('click', function() {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'subcategory-item mb-1 row';
+
+                wrapper.innerHTML = `
+                    <div class="col-lg-4">
+                        <div class="input-group">
+                            <div class="input-group-text"><i class="feather-tag"></i></div>
+                            <input type="text"
+                                class="form-control subcategory-name"
+                                name="subcategories[${subcategoryIndex}][name]"
+                                placeholder="Sub Category Name">
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="input-group">
+                            <div class="input-group-text"><i class="feather-align-left"></i></div>
+                            <input type="text"
+                                class="form-control"
+                                name="subcategories[${subcategoryIndex}][description]"
+                                placeholder="Description (optional)">
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3">
+                        <input type="file"
+                            class="form-control"
+                            name="subcategories[${subcategoryIndex}][image]"
+                            accept="image/*">
+                    </div>
+
+                    <div class="col-lg-1 d-flex">
+                        <button type="button" class="btn btn-danger btn-remove-subcategory">
+                            <i class="feather-x"></i>
+                        </button>
+                    </div>
+                `;
+
+                subcategoriesWrapper.appendChild(wrapper);
+                subcategoryIndex++;
+            });
+
+            let subcategoryToDelete = null;
+
+            subcategoriesWrapper.addEventListener('click', function(e) {
+                const btn = e.target.closest('.btn-remove-subcategory');
+                if (!btn) return;
+
+                subcategoryToDelete = btn.closest('.subcategory-item');
+
+                const modalEl = document.getElementById('deleteSubcategoryModal');
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            });
+
+            document.getElementById('confirmDeleteSubcategoryBtn').addEventListener('click', function() {
+                if (subcategoryToDelete) {
+                    subcategoryToDelete.remove();
+                    subcategoryToDelete = null;
+                }
+
+                const modalEl = document.getElementById('deleteSubcategoryModal');
+                bootstrap.Modal.getInstance(modalEl).hide();
+            });
+
+            $('#existing_subcategory_picker').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Choose existing category',
+                width: '100%',
+                dropdownParent: $('#categoryForm'),
+                minimumResultsForSearch: 0,
+                allowClear: true,
+            });
+
+            $('#existing_subcategory_picker').on('change', function() {
+                const subcategoryId = $(this).val();
+
+                if (!subcategoryId) return;
+
+                const alreadySelected = document.querySelector(
+                    `input[name="existing_child_ids[]"][value="${subcategoryId}"]`
+                );
+
+                if (alreadySelected) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Sudah dipilih',
+                        text: 'Sub category ini sudah ada di list.',
+                    });
+
+                    $(this).val('').trigger('change');
+                    return;
+                }
+
+                const subcategoryName = $('#existing_subcategory_picker option:selected').data('name') ?? '-';
+
+                const item = `
+                    <div class="selected-subcategory-item border rounded p-1 mb-1">
+                        <div class="row align-items-center">
+                            <div class="col-lg-10">
+                                <div class="input-group">
+                                    <div class="input-group-text"><i class="feather-tag"></i></div>
+                                    <input type="text"
+                                        class="form-control selected-subcategory-name"
+                                        name="existing_children[${subcategoryId}][name]"
+                                        value="${subcategoryName}"
+                                        readonly>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2 d-flex gap-1">
+                                <button type="button" class="btn btn-warning btn-sm btn-edit-selected-subcategory">
+                                    <i class="feather-edit"></i>
+                                </button>
+
+                                <button type="button" class="btn btn-danger btn-sm btn-remove-selected-subcategory">
+                                    <i class="feather-x"></i>
+                                </button>
+                            </div>
+
+                            <input type="hidden" name="existing_child_ids[]" value="${subcategoryId}">
+                        </div>
+                    </div>
+                `;
+
+                $('#selectedSubcategoryList').append(item);
+
+                $(this).val('').trigger('change');
+            });
+
+            let selectedSubcategoryToDelete = null;
+
+            $('#selectedSubcategoryList').on('click', '.btn-remove-selected-subcategory', function() {
+                selectedSubcategoryToDelete = $(this).closest('.selected-subcategory-item');
+
+                const modalEl = document.getElementById('deleteSelectedSubcategoryModal');
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            });
+
+            $('#confirmDeleteSelectedSubcategoryBtn').on('click', function() {
+                if (selectedSubcategoryToDelete) {
+                    selectedSubcategoryToDelete.remove();
+                    selectedSubcategoryToDelete = null;
+                }
+
+                const modalEl = document.getElementById('deleteSelectedSubcategoryModal');
+                bootstrap.Modal.getInstance(modalEl).hide();
+            });
+
+            $('#selectedSubcategoryList').on('click', '.btn-edit-selected-subcategory', function() {
+                const nameInput = $(this).closest('.selected-subcategory-item')
+                    .find('.selected-subcategory-name');
+
+                const isReadOnly = nameInput.prop('readonly');
+
+                nameInput.prop('readonly', !isReadOnly);
+
+                if (isReadOnly) {
+                    $(this)
+                        .removeClass('btn-warning')
+                        .addClass('btn-success')
+                        .html('<i class="feather-check"></i>');
+
+                    nameInput.focus();
+                } else {
+                    $(this)
+                        .removeClass('btn-success')
+                        .addClass('btn-warning')
+                        .html('<i class="feather-edit"></i>');
+                }
+            });
+
+            $(document).on('select2:open', () => {
+                setTimeout(() => {
+                    document.querySelector('.select2-container--open .select2-search__field')?.focus();
+                }, 50);
             });
         });
     </script>

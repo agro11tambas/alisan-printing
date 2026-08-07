@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class EcommerceProductCategory extends Model
 {
@@ -73,6 +74,45 @@ class EcommerceProductCategory extends Model
         }
 
         return $ids;
+    }
+
+    /**
+     * ID seluruh ancestor (parent, kakeknya, dst). Dipakai untuk mencegah
+     * sebuah ancestor dijadikan sub category dari turunannya sendiri.
+     */
+    public function ancestorIds(): array
+    {
+        $ids = [];
+        $parent = $this->parent;
+
+        while ($parent) {
+            $ids[] = $parent->id;
+            $parent = $parent->parent;
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Slug unik dari sebuah nama. Dipakai waktu sub category dibuat langsung
+     * dari form main category, jadi user tidak perlu isi slug manual.
+     */
+    public static function generateUniqueSlug(string $value, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($value) ?: 'category';
+        $slug = $base;
+        $suffix = 2;
+
+        while (
+            static::withTrashed()
+                ->where('slug', $slug)
+                ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $slug = $base . '-' . $suffix++;
+        }
+
+        return $slug;
     }
 
     public function getImageUrlAttribute()

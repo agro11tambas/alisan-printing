@@ -674,6 +674,14 @@
             return $('.ecommerce-price-mode:checked').map((_, element) => element.dataset.modeSlug).get();
         }
 
+        function formatPrice(value) {
+            if (value === undefined || value === null || value === '') return '0';
+            let num = parseFloat(value);
+            if (isNaN(num)) num = 0;
+            num = Math.floor(num);
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+
         function renderModePrices(prices, fallbackPrice = 0) {
             const selectedModes = selectedWebsiteModes();
             const visiblePrices = Array.isArray(prices)
@@ -740,14 +748,6 @@
                 const digits = String(value ?? '').replace(/\D/g, '');
 
                 return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            }
-
-            function formatPrice(value) {
-                if (value === undefined || value === null || value === '') return '0';
-                let num = parseFloat(value);
-                if (isNaN(num)) num = 0;
-                num = Math.floor(num);
-                return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
             function optionsHtml(items, selectedValue = '') {
@@ -1087,7 +1087,11 @@
                         initSelect2(lidGroup);
                     }
 
-                    renderCombinations();
+                    try {
+                        renderCombinations();
+                    } catch (renderError) {
+                        console.error('Gagal render variant combinations:', renderError);
+                    }
                 } catch (error) {
                     if (error.name !== 'AbortError') {
                         console.error('Gagal memuat secondary product:', error);
