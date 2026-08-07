@@ -260,6 +260,12 @@
                     </a>
                 </div>
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
+                    {{-- Tombol export disembunyikan sementara. Endpoint /erp/sales/sale-list/export tetap aktif.
+                    <a href="javascript:void(0)" id="btnExportSaleList" class="btn btn-light-brand">
+                        <i class="feather-download me-2"></i>
+                        <span>Export Excel</span>
+                    </a>
+                    --}}
                     <a href="/erp/sales/sale-list/create-order" class="btn btn-primary">
                         <i class="feather-plus me-2"></i>
                         <span>Create Sale List</span>
@@ -267,6 +273,13 @@
                 </div>
             </div>
             <div class="d-md-none d-flex align-items-center">
+                {{-- Tombol export disembunyikan sementara.
+                <a href="javascript:void(0)" id="btnExportSaleListMobile"
+                    class="btn btn-light-brand transaction-list-mobile-action">
+                    <i class="feather-download"></i>
+                    <span>Export</span>
+                </a>
+                --}}
                 <a href="/erp/sales/sale-list/create-order"
                     class="btn btn-primary transaction-list-mobile-action">
                     <i class="feather-plus"></i>
@@ -1097,6 +1110,22 @@
                 $('#saleListMobile').html('');
                 loadMoreData();
             }
+
+            // Export Excel mengikuti filter yang sedang aktif di halaman
+            $('#btnExportSaleList, #btnExportSaleListMobile').on('click', function() {
+                const params = $.param({
+                    filter: $('#filter').val() || '',
+                    start_date: $('#start_date').val() || '',
+                    end_date: $('#end_date').val() || '',
+                    search_type: $('#search_type').val() || '',
+                    search_keyword: $('#search_keyword').val() || '',
+                    payment_status: $('#search_payment_status').val() || '',
+                    due_date_order: $('#due_date_order').val() || '',
+                    show_edited: $('#edited-sale-list-tab').hasClass('active') ? 1 : 0,
+                });
+
+                window.location.href = "{{ url('/erp/sales/sale-list/export') }}?" + params;
+            });
 
             // Event handlers untuk filter SALE LIST
             $('#filter').on('change', function() {

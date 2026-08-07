@@ -282,6 +282,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         });
 
         Route::middleware(['web.auth', 'subpermission:sale-list'])->group(function () {
+            Route::get('/erp/sales/sale-list/export', [SaleListController::class, 'exportExcel'])->name('sale-list.export');
             Route::get('/erp/sales/sale-list/data', [SaleListController::class, 'dataSaleList']);
             Route::get('/erp/sales/sale-list', [SaleListController::class, 'getSaleList']);
             Route::get('/erp/sales/sale-list/create-order', [SaleListController::class, 'create']);
@@ -487,6 +488,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
     Route::middleware(['web.auth', 'permission:purchases'])->group(function () {
         Route::middleware(['web.auth', 'subpermission:purchase-orders'])->group(function () {
             Route::get('/erp/purchases/purchase-orders/detail-purchase/{id}', [PurchaseDetailController::class, 'getPurchaseOrderDetail']);
+            Route::get('/erp/purchases/purchase-orders/export', [PurchaseOrderController::class, 'exportExcel'])->name('purchase-orders.export');
             Route::get('/erp/purchases/purchase-orders/data', [PurchaseOrderController::class, 'dataPurchaseOrders']);
             Route::get('/erp/purchases/purchase-orders', [PurchaseOrderController::class, 'getPurchaseOrders']);
             Route::get('/erp/purchases/purchase-orders/create-purchase', [PurchaseOrderController::class, 'create']);

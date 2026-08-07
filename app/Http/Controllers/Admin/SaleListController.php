@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\SaleListExport;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Order;
@@ -161,38 +162,12 @@ class SaleListController extends Controller
         return view('erp.pages.sales.sale-list.sale-list', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount'));
     }
 
-    public function dataSaleList(Request $request)
+    /**
+     * Filter tanggal, payment status, sorting due date, dan pencarian keyword.
+     * Dipakai bersama oleh listing dan export Excel supaya hasilnya identik.
+     */
+    private function applySaleListFilters($orders, Request $request)
     {
-        $user = Auth::user();
-        $length = (int) $request->input('length', 50);
-        $start = (int) $request->input('start', 0);
-
-        $orders = Order::with([
-            'customer',
-            'customerAccount',
-            'user',
-            'customerAddress',
-            'saleReturns',
-            // Dipakai accessor is_fully_returned dan has_delivery_list di
-            // partial action-button. Tanpa ini keduanya query per baris.
-            'saleReturns.items:id,sale_return_id,quantity',
-            'deliveryOrders.shipments:id,delivery_order_id,status',
-            'orderItems.product',
-            'orderItems.productBundle.items.product',
-            'deliveryOrders.items.deliveryListItems.shipment',
-            'deliveryOrders.items.deliveryListItems.deliveryOrderItem',
-        ])
-            ->where('status', 'sale list')
-            ->orderBy('order_date', 'desc');
-
-        if (in_array($user->role, ['Sales'])) {
-            $orders->where('user_id', $user->id);
-        }
-
-        if ($request->filled('show_edited') && $request->show_edited == 1) {
-            $orders->where('status_edited', 1);
-        }
-
         // 🔹 Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
@@ -242,7 +217,6 @@ class SaleListController extends Controller
         // 🔹 Pencarian keyword
         elseif ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
-                // $keyword = '%' . $request->search_keyword . '%';
                 $keyword = '%' . $request->search_keyword . '%';
 
                 $orders->where(function ($q) use ($keyword) {
@@ -260,6 +234,67 @@ class SaleListController extends Controller
                 $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
             }
         }
+
+        return $orders;
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $user = Auth::user();
+
+        $orders = Order::query()
+            ->where('status', 'sale list')
+            ->orderBy('order_date', 'desc')
+            ->orderBy('id', 'desc');
+
+        if (in_array($user->role, ['Sales'])) {
+            $orders->where('user_id', $user->id);
+        }
+
+        if ($request->filled('show_edited') && $request->show_edited == 1) {
+            $orders->where('status_edited', 1);
+        }
+
+        $this->applySaleListFilters($orders, $request);
+
+        $filename = 'sale-list-' . Carbon::now()->format('Ymd-His') . '.xlsx';
+
+        return (new SaleListExport($orders))->download($filename);
+    }
+
+    public function dataSaleList(Request $request)
+    {
+        $user = Auth::user();
+        $length = (int) $request->input('length', 50);
+        $start = (int) $request->input('start', 0);
+
+        $orders = Order::with([
+            'customer',
+            'customerAccount',
+            'user',
+            'customerAddress',
+            'saleReturns',
+            // Dipakai accessor is_fully_returned dan has_delivery_list di
+            // partial action-button. Tanpa ini keduanya query per baris.
+            'saleReturns.items:id,sale_return_id,quantity',
+            'deliveryOrders.shipments:id,delivery_order_id,status',
+            'orderItems.product',
+            'orderItems.productBundle.items.product',
+            'deliveryOrders.items.deliveryListItems.shipment',
+            'deliveryOrders.items.deliveryListItems.deliveryOrderItem',
+        ])
+            ->where('status', 'sale list')
+            ->orderBy('order_date', 'desc');
+
+        if (in_array($user->role, ['Sales'])) {
+            $orders->where('user_id', $user->id);
+        }
+
+        if ($request->filled('show_edited') && $request->show_edited == 1) {
+            $orders->where('status_edited', 1);
+        }
+
+        $this->applySaleListFilters($orders, $request);
 
         // 🔹 Satu query saja, tanpa count() terpisah
         [$data, $hasMore] = $this->lazyLoadPage($orders, $start, $length);
@@ -594,73 +629,7 @@ class SaleListController extends Controller
             $orders->where('user_id', $user->id);
         }
 
-        // 🔹 Filter tanggal
-        if ($request->filter) {
-            switch ($request->filter) {
-                case 'today':
-                    $orders->whereDate('order_date', Carbon::today());
-                    break;
-                case 'last_7_days':
-                    $orders->whereBetween('order_date', [Carbon::now()->subDays(7), Carbon::now()]);
-                    break;
-                case 'this_month':
-                    $orders->whereMonth('order_date', Carbon::now()->month)
-                        ->whereYear('order_date', Carbon::now()->year);
-                    break;
-                case 'last_30_days':
-                    $orders->whereBetween('order_date', [Carbon::now()->subDays(30), Carbon::now()]);
-                    break;
-                case 'year_to_date':
-                    $orders->whereBetween('order_date', [Carbon::now()->startOfYear(), Carbon::now()]);
-                    break;
-                case 'yearly':
-                    $orders->whereYear('order_date', Carbon::now()->year);
-                    break;
-                case 'custom':
-                    if ($request->filled('start_date') && $request->filled('end_date')) {
-                        $orders->whereBetween('order_date', [$request->start_date, $request->end_date]);
-                    }
-                    break;
-            }
-        }
-
-        // 🔹 Filter payment status
-        if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
-            if ($request->payment_status === 'Paid') {
-                $orders->whereIn('payment_status', ['Paid', 'Overpaid']);
-            } else if ($request->payment_status === 'Unpaid') {
-                $orders->whereIn('payment_status', ['Unpaid', 'Partially Paid']);
-            } else {
-                $orders->where('payment_status', $request->payment_status);
-            }
-        }
-        // 🔹 Sort by due_date
-        elseif ($request->search_type === 'due_date') {
-            $direction = strtolower($request->due_date_order ?? 'asc');
-            $orders->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
-                ->orderBy('due_date', $direction);
-        }
-        // 🔹 Pencarian keyword
-        elseif ($request->filled('search_keyword')) {
-            if ($request->search_type === 'customer') {
-                // $keyword = '%' . $request->search_keyword . '%';
-                $keyword = '%' . $request->search_keyword . '%';
-
-                $orders->where(function ($q) use ($keyword) {
-                    // Cari berdasarkan nama customer
-                    $q->whereHas('customer', function ($query) use ($keyword) {
-                        $query->where('name', 'like', $keyword);
-                    });
-
-                    // Cari berdasarkan business_name
-                    $q->orWhereHas('customerAddress', function ($query) use ($keyword) {
-                        $query->where('business_name', 'like', $keyword);
-                    });
-                });
-            } else {
-                $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
-            }
-        }
+        $this->applySaleListFilters($orders, $request);
 
         // 🔹 Satu query saja, tanpa count() terpisah
         [$data, $hasMore] = $this->lazyLoadPage($orders, $start, $length);

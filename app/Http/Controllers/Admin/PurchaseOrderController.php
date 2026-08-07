@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\PurchaseOrderExport;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\AccountTransaction;
@@ -33,21 +34,12 @@ class PurchaseOrderController extends Controller
         return view('erp.pages.purchases.purchase-orders.purchase-orders', compact('purchase_number', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
     }
 
-    public function dataPurchaseOrders(Request $request)
+    /**
+     * Filter tanggal dan pencarian keyword.
+     * Dipakai bersama oleh listing dan export Excel supaya hasilnya identik.
+     */
+    private function applyPurchaseOrderFilters($purchases, Request $request)
     {
-        $length = (int) $request->input('length', 15);
-        $start = (int) $request->input('start', 0);
-
-        $purchases = Purchase::with([
-            'supplier',
-            'purchaseAccount',
-            'user',
-            'purchaseItems.purchaseProduct',
-            'purchaseItems.purchaseListItems.inventoryItems',
-        ])
-            ->where('status', 'Purchase Orders')
-            ->orderByDesc('purchase_date');
-
         // ✅ Filter tanggal
         if ($request->filter) {
             switch ($request->filter) {
@@ -91,6 +83,40 @@ class PurchaseOrderController extends Controller
                 $purchases->where('purchase_number', 'like', $request->search_keyword.'%');
             }
         }
+
+        return $purchases;
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $purchases = Purchase::query()
+            ->where('status', 'Purchase Orders')
+            ->orderByDesc('purchase_date')
+            ->orderByDesc('id');
+
+        $this->applyPurchaseOrderFilters($purchases, $request);
+
+        $filename = 'purchase-order-'.Carbon::now()->format('Ymd-His').'.xlsx';
+
+        return (new PurchaseOrderExport($purchases))->download($filename);
+    }
+
+    public function dataPurchaseOrders(Request $request)
+    {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
+        $purchases = Purchase::with([
+            'supplier',
+            'purchaseAccount',
+            'user',
+            'purchaseItems.purchaseProduct',
+            'purchaseItems.purchaseListItems.inventoryItems',
+        ])
+            ->where('status', 'Purchase Orders')
+            ->orderByDesc('purchase_date');
+
+        $this->applyPurchaseOrderFilters($purchases, $request);
 
         // ✅ Hitung total data sebelum pagination
         $totalQuery = clone $purchases;

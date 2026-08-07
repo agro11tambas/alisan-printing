@@ -173,45 +173,55 @@ class EcommerceProductController extends Controller
             $data['main_video'] = $this->resolveImageUrl($data['main_video']);
         }
 
-        foreach ($data['categories'] ?? [] as &$category) {
+        // `$data[...] ?? []` menghasilkan salinan sementara, jadi iterasi harus
+        // menulis balik lewat index ke `$data` — bukan lewat reference.
+        foreach (array_keys($data['categories'] ?? []) as $categoryIndex) {
+            $category = &$data['categories'][$categoryIndex];
+
             if (!empty($category['image'])) {
                 $category['image'] = $this->resolveImageUrl($category['image']);
             }
         }
         unset($category);
 
-        foreach ($data['gallery_images'] ?? [] as &$gallery) {
+        foreach (array_keys($data['gallery_images'] ?? []) as $galleryIndex) {
+            $gallery = &$data['gallery_images'][$galleryIndex];
+
             if (!empty($gallery['image'])) {
                 $gallery['image_url'] = $this->resolveImageUrl($gallery['image']);
             }
         }
         unset($gallery);
 
-        foreach ($data['variant_groups'] ?? [] as &$group) {
-            foreach ($group['options'] ?? [] as &$option) {
+        foreach (array_keys($data['variant_groups'] ?? []) as $groupIndex) {
+            foreach (array_keys($data['variant_groups'][$groupIndex]['options'] ?? []) as $optionIndex) {
+                $option = &$data['variant_groups'][$groupIndex]['options'][$optionIndex];
+
                 if (!empty($option['image'])) {
                     $option['image'] = $this->resolveImageUrl($option['image']);
+                }
+                if (!empty($option['video'])) {
+                    $option['video'] = $this->resolveImageUrl($option['video']);
                 }
                 if (isset($option['product'])) {
                     $option['erp_product_id'] = $option['product']['id'];
                     $option['erp_category_ids'] = collect($option['product']['categories'] ?? [])->pluck('id')->all();
                 }
-                unset($option['product']);
+                unset($option['product'], $option);
             }
-            unset($option);
         }
-        unset($group);
 
-        foreach ($data['variant_combinations'] ?? [] as &$variant) {
+        foreach (array_keys($data['variant_combinations'] ?? []) as $variantIndex) {
+            $variant = &$data['variant_combinations'][$variantIndex];
+
             if (!empty($variant['image'])) {
                 $variant['image'] = $this->resolveImageUrl($variant['image']);
             }
             if (!empty($variant['video'])) {
                 $variant['video'] = $this->resolveImageUrl($variant['video']);
             }
-            unset($variant['product_option']['product'], $variant['lid_option']['product']);
+            unset($variant['product_option']['product'], $variant['lid_option']['product'], $variant);
         }
-        unset($variant);
 
         return $data;
     }
