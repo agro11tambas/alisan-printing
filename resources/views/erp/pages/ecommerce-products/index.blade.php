@@ -180,6 +180,9 @@
                 lengthChange: false,
                 info: false,
                 pagingType: 'simple',
+                order: [
+                    [1, 'asc']
+                ],
                 ajax: function(data, callback) {
                     currentTableRequest?.abort();
 

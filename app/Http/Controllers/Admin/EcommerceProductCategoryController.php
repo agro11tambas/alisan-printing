@@ -16,19 +16,26 @@ class EcommerceProductCategoryController extends Controller
 {
     public function index()
     {
-        $parentOptions = $this->parentOptions();
+        $mainCategoryOptions = EcommerceProductCategory::root()
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        return view('erp.pages.ecommerce-product-categories.index', compact('parentOptions'));
+        return view('erp.pages.ecommerce-product-categories.index', compact('mainCategoryOptions'));
     }
 
     public function data(Request $request)
     {
-        $query = EcommerceProductCategory::query()->with('parent');
+        $query = EcommerceProductCategory::query()->with('parent')->withCount('children');
+
+        // Tab main category cuma nampilin yang tanpa parent, tab sub category kebalikannya.
+        if ($request->input('scope') === 'root') {
+            $query->root();
+        } elseif ($request->input('scope') === 'sub') {
+            $query->whereNotNull('parent_id');
+        }
 
         if ($request->filled('parent_id')) {
-            $request->parent_id === 'root'
-                ? $query->root()
-                : $query->where('parent_id', $request->parent_id);
+            $query->where('parent_id', $request->parent_id);
         }
 
         if ($request->filled('search_keyword')) {
@@ -62,12 +69,17 @@ class EcommerceProductCategoryController extends Controller
                     ? '<span class="badge bg-soft-primary text-primary">' . e($category->parent->name) . '</span>'
                     : '<span class="text-muted">-</span>';
             })
+            ->addColumn('subcategories', function ($category) {
+                return $category->children_count > 0
+                    ? '<span class="badge bg-soft-success text-success">' . $category->children_count . ' sub</span>'
+                    : '<span class="text-muted">-</span>';
+            })
             ->addColumn('slug', fn($category) => e($category->slug))
             ->addColumn('description', fn($category) => e(Str::limit($category->description ?? '-', 80)))
             ->addColumn('action', function ($category) {
                 return view('erp.pages.ecommerce-product-categories.partials.action-button', compact('category'))->render();
             })
-            ->rawColumns(['image', 'parent', 'action'])
+            ->rawColumns(['image', 'parent', 'subcategories', 'action'])
             ->make(true);
     }
 
@@ -125,7 +137,7 @@ class EcommerceProductCategoryController extends Controller
         });
 
         return redirect()
-            ->route('erp.ecommerce-product-categories.index')
+            ->route('erp.ecommerce-product-categories.index', $this->indexTabFor($category))
             ->with('success', 'Ecommerce Product Category berhasil diperbarui.');
     }
 
@@ -138,7 +150,7 @@ class EcommerceProductCategoryController extends Controller
         $category->delete();
 
         return redirect()
-            ->route('erp.ecommerce-product-categories.index')
+            ->route('erp.ecommerce-product-categories.index', $this->indexTabFor($category))
             ->with('success', 'Ecommerce Product Category berhasil dihapus.');
     }
 
@@ -148,8 +160,17 @@ class EcommerceProductCategoryController extends Controller
         $category->restore();
 
         return redirect()
-            ->route('erp.ecommerce-product-categories.index')
+            ->route('erp.ecommerce-product-categories.index', $this->indexTabFor($category))
             ->with('success', 'Ecommerce Product Category berhasil direstore.');
+    }
+
+    /**
+     * Balik ke tab yang sesuai: sub category ke tab Sub Category,
+     * sisanya ke tab Main Category.
+     */
+    private function indexTabFor(EcommerceProductCategory $category): array
+    {
+        return $category->parent_id ? ['tab' => 'sub'] : [];
     }
 
     /**
@@ -238,35 +259,6 @@ class EcommerceProductCategoryController extends Controller
             ])
             ->values()
             ->all();
-    }
-
-    /**
-     * Daftar parent untuk filter di halaman index, urut sebagai tree
-     * dengan indentasi.
-     */
-    private function parentOptions(): array
-    {
-        $categories = EcommerceProductCategory::orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['id', 'parent_id', 'name']);
-
-        $build = function ($parentId, $depth) use (&$build, $categories) {
-            $options = [];
-
-            foreach ($categories->where('parent_id', $parentId) as $category) {
-                $options[] = [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'depth' => $depth,
-                ];
-
-                $options = array_merge($options, $build($category->id, $depth + 1));
-            }
-
-            return $options;
-        };
-
-        return $build(null, 0);
     }
 
     private function storeFile($file, ?string $oldPath = null): ?string

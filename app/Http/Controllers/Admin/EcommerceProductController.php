@@ -52,7 +52,7 @@ class EcommerceProductController extends Controller
             });
         }
 
-        $query->orderByDesc('created_at');
+        $query->orderBy('title');
 
         return DataTables::of($query)
             ->addIndexColumn()

@@ -2,20 +2,22 @@
 
 @push('styles')
     <style>
-        #ecommerceCategoryTable {
+        #ecommerceMainCategoryTable,
+        #ecommerceSubCategoryTable {
             width: 100% !important;
             min-width: 0;
         }
 
-        #ecommerceCategoryTable_wrapper .dataTables_scrollBody {
+        #ecommerceMainCategoryTable_wrapper .dataTables_scrollBody,
+        #ecommerceSubCategoryTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
         }
 
         .dataTables_scrollBody {
             scroll-behavior: smooth;
-            height: calc(100vh - 260px) !important;
-            min-height: calc(100vh - 260px) !important;
-            max-height: calc(100vh - 260px) !important;
+            height: calc(100vh - 300px) !important;
+            min-height: calc(100vh - 300px) !important;
+            max-height: calc(100vh - 300px) !important;
         }
     </style>
 @endpush
@@ -30,16 +32,6 @@
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Ecommerce Product Category</li>
             </ul>
-        </div>
-        <div class="page-header-right ms-auto">
-            <div class="page-header-right-items">
-                <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="{{ route('erp.ecommerce-product-categories.create') }}" class="btn btn-primary">
-                        <i class="feather-plus me-2"></i>
-                        <span>Create Category</span>
-                    </a>
-                </div>
-            </div>
         </div>
     </div>
 @endsection
@@ -69,47 +61,117 @@
         </script>
     @endif
 
+    @php($subTabActive = request('tab') === 'sub')
+
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
-        <div class="row">
-            <div class="col-lg-12">
-                <div class="card stretch stretch-full">
-                    <div class="card-body p-0">
-                        <div class="row g-3 p-2 justify-content-between">
-                            <div class="col-lg-2">
-                                <label for="filter_parent_id" class="fw-semibold fs-12">Parent</label>
-                                <select id="filter_parent_id" class="form-control"
-                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
-                                    <option value="">Semua parent</option>
-                                    <option value="root">Kategori utama saja</option>
-                                    @foreach ($parentOptions ?? [] as $option)
-                                        <option value="{{ $option['id'] }}">
-                                            {!! str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $option['depth']) !!}{{ $option['depth'] > 0 ? '└ ' : '' }}{{ $option['name'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-lg-3"></div>
-                            <div class="col-lg-3">
-                                <label for="search_keyword" class="fw-semibold fs-12">Search</label>
-                                <input type="text" id="search_keyword" class="form-control"
-                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search category...">
+        <ul class="nav nav-tabs mb-3" id="categoryModuleTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {{ $subTabActive ? '' : 'active' }}" id="main-categories-tab"
+                    data-bs-toggle="tab" data-bs-target="#main-categories-tab-pane" type="button" role="tab"
+                    aria-controls="main-categories-tab-pane" aria-selected="{{ $subTabActive ? 'false' : 'true' }}">
+                    Main Category
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {{ $subTabActive ? 'active' : '' }}" id="sub-categories-tab"
+                    data-bs-toggle="tab" data-bs-target="#sub-categories-tab-pane" type="button" role="tab"
+                    aria-controls="sub-categories-tab-pane" aria-selected="{{ $subTabActive ? 'true' : 'false' }}">
+                    Sub Category
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="categoryModuleTabContent">
+            <div class="tab-pane fade {{ $subTabActive ? '' : 'show active' }}" id="main-categories-tab-pane"
+                role="tabpanel" aria-labelledby="main-categories-tab" tabindex="0">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="card stretch stretch-full">
+                            <div class="card-body p-0">
+                                <div class="row g-3 p-2 justify-content-end align-items-end">
+                                    <div class="col-lg-3">
+                                        <label for="main_search_keyword" class="fw-semibold fs-12">Search</label>
+                                        <input type="text" id="main_search_keyword" class="form-control"
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" autocomplete="off"
+                                            placeholder="Search main category...">
+                                    </div>
+                                    <div class="col-auto">
+                                        <a href="{{ route('erp.ecommerce-product-categories.create') }}"
+                                            class="btn btn-primary text-nowrap">
+                                            <i class="feather-plus me-2"></i>
+                                            <span>Create Main Category</span>
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table table-hover bg-transparent" id="ecommerceMainCategoryTable">
+                                        <thead>
+                                            <tr>
+                                                <th class="wd-30">No</th>
+                                                <th>Image</th>
+                                                <th>Name</th>
+                                                <th>Sub Category</th>
+                                                <th>Slug</th>
+                                                <th>Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
 
-                        <div class="table-responsive">
-                            <table class="table table-hover bg-transparent" id="ecommerceCategoryTable">
-                                <thead>
-                                    <tr>
-                                        <th class="wd-30">No</th>
-                                        <th>Image</th>
-                                        <th>Name</th>
-                                        <th>Parent</th>
-                                        <th>Slug</th>
-                                        <th>Description</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+            <div class="tab-pane fade {{ $subTabActive ? 'show active' : '' }}" id="sub-categories-tab-pane"
+                role="tabpanel" aria-labelledby="sub-categories-tab" tabindex="0">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="card stretch stretch-full">
+                            <div class="card-body p-0">
+                                <div class="row g-3 p-2 justify-content-end align-items-end">
+                                    <div class="col-lg-3 me-auto">
+                                        <label for="filter_main_category_id" class="fw-semibold fs-12">Main
+                                            Category</label>
+                                        <select id="filter_main_category_id" class="form-control"
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                            <option value="">Semua main category</option>
+                                            @foreach ($mainCategoryOptions as $mainCategory)
+                                                <option value="{{ $mainCategory->id }}">{{ $mainCategory->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-3">
+                                        <label for="sub_search_keyword" class="fw-semibold fs-12">Search</label>
+                                        <input type="text" id="sub_search_keyword" class="form-control"
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" autocomplete="off"
+                                            placeholder="Search sub category...">
+                                    </div>
+                                    <div class="col-auto">
+                                        <span class="text-muted fs-12">Sub category dibuat dari form main
+                                            category.</span>
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table table-hover bg-transparent" id="ecommerceSubCategoryTable">
+                                        <thead>
+                                            <tr>
+                                                <th class="wd-30">No</th>
+                                                <th>Image</th>
+                                                <th>Name</th>
+                                                <th>Main Category</th>
+                                                <th>Slug</th>
+                                                <th>Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -147,118 +209,167 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            const dataTable = $('#ecommerceCategoryTable').DataTable({
-                processing: true,
-                serverSide: true,
-                deferRender: true,
-                scrollY: 600,
-                scroller: true,
-                paging: true,
-                searching: false,
-                lengthChange: false,
-                info: false,
-                pagingType: 'simple',
-                ajax: {
-                    url: "{{ route('erp.ecommerce-product-categories.data') }}",
-                    data: function(d) {
-                        d.search_keyword = $('#search_keyword').val();
-                        d.parent_id = $('#filter_parent_id').val();
+            const dataUrl = "{{ route('erp.ecommerce-product-categories.data') }}";
+
+            function buildTable(selector, scope, extraParams, relationColumn) {
+                return $(selector).DataTable({
+                    processing: true,
+                    serverSide: true,
+                    deferRender: true,
+                    scrollY: 600,
+                    scroller: true,
+                    paging: true,
+                    searching: false,
+                    lengthChange: false,
+                    info: false,
+                    pagingType: 'simple',
+                    order: [
+                        [2, 'asc']
+                    ],
+                    ajax: {
+                        url: dataUrl,
+                        data: function(d) {
+                            d.scope = scope;
+                            extraParams(d);
+                        }
+                    },
+                    columns: [{
+                            data: 'DT_RowIndex',
+                            name: 'DT_RowIndex',
+                            orderable: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'image',
+                            name: 'image',
+                            orderable: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'name',
+                            name: 'name'
+                        },
+                        {
+                            data: relationColumn,
+                            name: relationColumn,
+                            orderable: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'slug',
+                            name: 'slug'
+                        },
+                        {
+                            data: 'description',
+                            name: 'description'
+                        },
+                        {
+                            data: 'action',
+                            name: 'action',
+                            orderable: false,
+                            searchable: false,
+                            visible: false
+                        }
+                    ]
+                });
+            }
+
+            // Baris diklik -> munculin menu action di bawahnya (sama seperti sebelumnya)
+            function bindRowActions(selector, table) {
+                $(`${selector} tbody`).on('click', 'tr', function(e) {
+                    if ($(e.target).closest('a, button, form').length) return;
+
+                    const $tr = $(this);
+                    if ($tr.hasClass('action-row')) return;
+
+                    const row = table.row($tr);
+                    if (!row.data()) return;
+
+                    $(`${selector} tbody tr`)
+                        .removeClass('action-shown action-active')
+                        .next('.action-row')
+                        .remove();
+
+                    if ($tr.hasClass('action-shown')) {
+                        $tr.removeClass('action-shown action-active');
+                        return;
                     }
-                },
-                columns: [{
-                        data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
-                    {
-                        data: 'image',
-                        name: 'image',
-                        orderable: false,
-                        searchable: false
-                    },
-                    {
-                        data: 'name',
-                        name: 'name'
-                    },
-                    {
-                        data: 'parent',
-                        name: 'parent',
-                        orderable: false,
-                        searchable: false
-                    },
-                    {
-                        data: 'slug',
-                        name: 'slug'
-                    },
-                    {
-                        data: 'description',
-                        name: 'description'
-                    },
-                    {
-                        data: 'action',
-                        name: 'action',
-                        orderable: false,
-                        searchable: false,
-                        visible: false
-                    }
-                ]
-            });
 
-            let searchTimer = null;
-
-            $('#search_keyword').on('keyup', function() {
-                clearTimeout(searchTimer);
-                searchTimer = setTimeout(() => dataTable.ajax.reload(), 200);
-            });
-
-            $('#filter_parent_id').on('change', function() {
-                dataTable.ajax.reload();
-            });
-
-            $('#ecommerceCategoryTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('a, button, form').length) return;
-
-                const $tr = $(this);
-                const row = dataTable.row($tr);
-
-                $('#ecommerceCategoryTable tbody tr')
-                    .removeClass('action-shown action-active')
-                    .next('.action-row')
-                    .remove();
-
-                if ($tr.hasClass('action-shown')) {
-                    $tr.removeClass('action-shown action-active');
-                    return;
-                }
-
-                const actionHtml = row.data().action;
-                const colCount = $tr.find('td').length;
-                const $actionRow = $(`
-                    <tr class="action-row">
-                        <td colspan="${colCount}" class="p-0">
-                            <div class="d-flex justify-content-start">
-                                <div class="dropdown w-auto position-relative">
-                                    <ul class="dropdown-menu show static-action-menu shadow border rounded-3 p-1"
-                                        style="display:block; position:absolute; left:200px; transform:none;">
-                                        ${actionHtml}
-                                    </ul>
+                    const actionHtml = row.data().action;
+                    const colCount = $tr.find('td').length;
+                    const $actionRow = $(`
+                        <tr class="action-row">
+                            <td colspan="${colCount}" class="p-0">
+                                <div class="d-flex justify-content-start">
+                                    <div class="dropdown w-auto position-relative">
+                                        <ul class="dropdown-menu show static-action-menu shadow border rounded-3 p-1"
+                                            style="display:block; position:absolute; left:200px; transform:none;">
+                                            ${actionHtml}
+                                        </ul>
+                                    </div>
                                 </div>
-                            </div>
-                        </td>
-                    </tr>
-                `);
+                            </td>
+                        </tr>
+                    `);
 
-                $tr.after($actionRow).addClass('action-shown action-active');
+                    $tr.after($actionRow).addClass('action-shown action-active');
+                });
+
+                $(document).on('click', function(e) {
+                    if ($(e.target).closest(selector).length) return;
+
+                    $(`${selector} tbody tr`)
+                        .removeClass('action-shown action-active')
+                        .next('.action-row')
+                        .remove();
+                });
+            }
+
+            const mainTable = buildTable('#ecommerceMainCategoryTable', 'root', function(d) {
+                d.search_keyword = $('#main_search_keyword').val();
+            }, 'subcategories');
+
+            const subTable = buildTable('#ecommerceSubCategoryTable', 'sub', function(d) {
+                d.search_keyword = $('#sub_search_keyword').val();
+                d.parent_id = $('#filter_main_category_id').val();
+            }, 'parent');
+
+            bindRowActions('#ecommerceMainCategoryTable', mainTable);
+            bindRowActions('#ecommerceSubCategoryTable', subTable);
+
+            let mainSearchTimer = null;
+            let subSearchTimer = null;
+
+            $('#main_search_keyword').on('keyup', function() {
+                clearTimeout(mainSearchTimer);
+                mainSearchTimer = setTimeout(() => mainTable.ajax.reload(), 200);
             });
 
-            $(document).on('click', function(e) {
-                if ($(e.target).closest('#ecommerceCategoryTable').length) return;
+            $('#sub_search_keyword').on('keyup', function() {
+                clearTimeout(subSearchTimer);
+                subSearchTimer = setTimeout(() => subTable.ajax.reload(), 200);
+            });
 
-                $('#ecommerceCategoryTable tbody tr')
-                    .removeClass('action-shown action-active')
-                    .next('.action-row')
-                    .remove();
+            $('#filter_main_category_id').on('change', function() {
+                subTable.ajax.reload();
+            });
+
+            // Tab aktif disimpan di URL biar tetap kebuka setelah create/update/delete
+            document.querySelectorAll('#categoryModuleTabs [data-bs-toggle="tab"]').forEach(function(tab) {
+                tab.addEventListener('shown.bs.tab', function(event) {
+                    const isSub = event.target.id === 'sub-categories-tab';
+                    const url = new URL(window.location.href);
+
+                    if (isSub) {
+                        url.searchParams.set('tab', 'sub');
+                        subTable.columns.adjust().draw(false);
+                    } else {
+                        url.searchParams.delete('tab');
+                        mainTable.columns.adjust().draw(false);
+                    }
+
+                    window.history.replaceState({}, '', url);
+                });
             });
         });
 

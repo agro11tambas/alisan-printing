@@ -34,6 +34,11 @@
     if ($newSubcategories->isEmpty()) {
         $newSubcategories = collect([['name' => '', 'description' => '']]);
     }
+
+    // Kalau error validasinya dari bagian sub category, tab sub yang dibuka duluan.
+    $subTabActive = collect($errors->keys())->contains(
+        fn($key) => \Illuminate\Support\Str::startsWith($key, ['subcategories', 'existing_child']),
+    );
 @endphp
 
 @if ($errors->any())
@@ -71,6 +76,32 @@
                     @endif
 
                     <div class="card-body">
+                        <ul class="nav nav-tabs mb-3" id="categoryFormTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link {{ $subTabActive ? '' : 'active' }}" id="main-category-form-tab"
+                                    data-bs-toggle="tab" data-bs-target="#main-category-form-pane" type="button"
+                                    role="tab" aria-controls="main-category-form-pane"
+                                    aria-selected="{{ $subTabActive ? 'false' : 'true' }}">
+                                    Main Category
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link {{ $subTabActive ? 'active' : '' }}" id="sub-category-form-tab"
+                                    data-bs-toggle="tab" data-bs-target="#sub-category-form-pane" type="button"
+                                    role="tab" aria-controls="sub-category-form-pane"
+                                    aria-selected="{{ $subTabActive ? 'true' : 'false' }}">
+                                    Sub Category
+                                    @if ($selectedChildren->isNotEmpty())
+                                        <span
+                                            class="badge bg-soft-primary text-primary ms-1">{{ $selectedChildren->count() }}</span>
+                                    @endif
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content" id="categoryFormTabContent">
+                        <div class="tab-pane fade {{ $subTabActive ? '' : 'show active' }}" id="main-category-form-pane"
+                            role="tabpanel" aria-labelledby="main-category-form-tab" tabindex="0">
                         <div class="row mb-2 align-items-center">
                             <div class="col-lg-2">
                                 <label for="name" class="fw-semibold">Name</label>
@@ -85,8 +116,8 @@
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-                                <small class="text-muted">Form ini untuk main category. Sub category-nya diatur di
-                                    bawah.</small>
+                                <small class="text-muted">Form ini untuk main category. Sub category-nya diatur di tab
+                                    Sub Category.</small>
                             </div>
                         </div>
 
@@ -145,8 +176,10 @@
                             </div>
                         </div>
 
-                        <hr class="my-3">
+                        </div>
 
+                        <div class="tab-pane fade {{ $subTabActive ? 'show active' : '' }}" id="sub-category-form-pane"
+                            role="tabpanel" aria-labelledby="sub-category-form-tab" tabindex="0">
                         <div class="row mb-2 align-items-start">
                             <div class="col-lg-2">
                                 <label class="fw-semibold">Choose Existing Sub Category:</label>
@@ -255,6 +288,8 @@
                                     <small class="text-muted">Slug sub category dibuat otomatis dari namanya.</small>
                                 </div>
                             </div>
+                        </div>
+                        </div>
                         </div>
 
                     </div>
@@ -367,6 +402,10 @@
                     nameInput.classList.add('is-invalid');
                     nameInput.closest('.input-group').insertAdjacentHTML('beforeend',
                         '<div class="invalid-feedback client-error">Nama category wajib diisi.</div>');
+
+                    // Errornya di tab main, jadi tabnya dibuka biar kelihatan
+                    bootstrap.Tab.getOrCreateInstance(document.getElementById('main-category-form-tab')).show();
+                    nameInput.focus();
                 }
             });
         });
@@ -556,6 +595,12 @@
                 setTimeout(() => {
                     document.querySelector('.select2-container--open .select2-search__field')?.focus();
                 }, 50);
+            });
+
+            // Select2 diinit waktu tabnya masih hidden, lebarnya perlu dibetulkan
+            // begitu tab sub category dibuka.
+            document.getElementById('sub-category-form-tab').addEventListener('shown.bs.tab', function() {
+                $('#existing_subcategory_picker').next('.select2-container').css('width', '100%');
             });
         });
     </script>

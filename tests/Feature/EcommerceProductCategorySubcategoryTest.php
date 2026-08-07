@@ -136,6 +136,34 @@ class EcommerceProductCategorySubcategoryTest extends TestCase
         $this->assertSame('kopi-2', $main->children()->firstOrFail()->slug);
     }
 
+    public function test_data_endpoint_separates_main_and_sub_categories_per_tab(): void
+    {
+        $main = EcommerceProductCategory::create(['name' => 'Minuman', 'slug' => 'minuman']);
+        EcommerceProductCategory::create(['name' => 'Kopi', 'slug' => 'kopi', 'parent_id' => $main->id]);
+        EcommerceProductCategory::create(['name' => 'Makanan', 'slug' => 'makanan']);
+
+        $controller = app(EcommerceProductCategoryController::class);
+
+        $mainRows = $this->dataRows($controller, ['scope' => 'root']);
+        $subRows = $this->dataRows($controller, ['scope' => 'sub']);
+        $filteredSubRows = $this->dataRows($controller, ['scope' => 'sub', 'parent_id' => $main->id]);
+
+        $this->assertSame(['Makanan', 'Minuman'], array_column($mainRows, 'name'));
+        $this->assertSame(['Kopi'], array_column($subRows, 'name'));
+        $this->assertSame(['Kopi'], array_column($filteredSubRows, 'name'));
+
+        $minuman = collect($mainRows)->firstWhere('name', 'Minuman');
+        $this->assertStringContainsString('1 sub', $minuman['subcategories']);
+        $this->assertStringContainsString('Minuman', $subRows[0]['parent']);
+    }
+
+    private function dataRows(EcommerceProductCategoryController $controller, array $query): array
+    {
+        $response = $controller->data(\Illuminate\Http\Request::create('/erp/ecommerce-product-categories/data', 'GET', $query));
+
+        return json_decode($response->getContent(), true)['data'];
+    }
+
     /**
      * @param  class-string<FormRequest>  $class
      */
