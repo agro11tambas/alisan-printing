@@ -67,6 +67,13 @@ class EcommerceProductController extends Controller
             ], 404);
         }
 
+        // index() sudah melakukan ini, show() belum: tanpa preload, formatProduct()
+        // menembak satu query bundle per kombinasi varian. Satu halaman detail
+        // produk tercatat 480 query di log produksi karena baris ini tidak ada.
+        $this->pricingService->preloadBundlesForPairs(
+            $this->bundlePairs(collect([$product]))
+        );
+
         return response()->json([
             'success' => true,
             'data' => $this->formatProduct($product),
@@ -122,10 +129,7 @@ class EcommerceProductController extends Controller
                 $modePrices = array_values(array_filter($modePrices,
                     fn ($price) => in_array($price['slug'], $allowedModeSlugs, true)
                 ));
-                $modePrices = array_values(array_filter($modePrices,
-                fn ($price) => in_array($price['slug'], $allowedModeSlugs, true)
-            ));
-            $defaultPrice = $this->pricingService->defaultPrice($modePrices);
+                $defaultPrice = $this->pricingService->defaultPrice($modePrices);
                 $price = (float) ($defaultPrice['price'] ?? $option->price ?? 0);
 
                 $option->setAttribute('mode_prices', $modePrices);

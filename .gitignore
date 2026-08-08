@@ -21,6 +21,15 @@
 /vendor
 Homestead.json
 Homestead.yaml
+
+# Script sekali pakai dan dump hasil debug. Jangan sampai ikut ter-commit —
+# public/ bisa diakses siapa saja tanpa login.
+/debug_*.php
+/fix-*.php
+/test*.php
+/test*.json
+/*.cjs
+/public/test*.json
 npm-debug.log
 Thumbs.db
 yarn-error.log

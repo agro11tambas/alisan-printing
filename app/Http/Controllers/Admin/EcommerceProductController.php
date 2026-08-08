@@ -165,6 +165,19 @@ class EcommerceProductController extends Controller
         ]);
 
         $allowedModeIds = $product->priceModes->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        // Satu query untuk semua pasangan, bukan satu query per kombinasi.
+        $this->pricingService->preloadBundlesForPairs(
+            $product->variantCombinations
+                ->map(fn ($combination) => [
+                    (int) ($combination->productOption?->product_id ?? 0),
+                    (int) ($combination->lidOption?->product_id ?? 0),
+                ])
+                ->filter(fn (array $pair) => $pair[0] > 0 && $pair[1] > 0)
+                ->values()
+                ->all()
+        );
+
         foreach ($product->variantCombinations as $combination) {
             $primaryProductId = $combination->productOption?->product_id;
             $secondaryProductId = $combination->lidOption?->product_id;
@@ -210,9 +223,12 @@ class EcommerceProductController extends Controller
 
     public function edit(EcommerceProduct $product)
     {
+        // Blade membaca productOption dan lidOption tiap kombinasi. Tanpa dua
+        // baris ini keduanya diambil satu per satu: 300 kombinasi = 600 query.
         $product->load([
             'variantGroups.options.product',
-            'variantCombinations',
+            'variantCombinations.productOption',
+            'variantCombinations.lidOption',
             'priceModes',
         ]);
 
@@ -286,7 +302,10 @@ class EcommerceProductController extends Controller
             'categories' => EcommerceProductCategory::orderBy('name')->get(),
             'productUnits' => ProductUnit::orderBy('name')->get(),
             'priceModes' => \App\Models\PriceMode::active()->ordered()->get(),
-            'erpProducts' => Products::with('unitConversions.prices.priceMode')->orderBy('name')->get(),
+            // Form hanya memakai id, name, dan sku untuk isi dropdown. Menarik
+            // unitConversions.prices.priceMode di sini berarti memuat seluruh
+            // harga semua produk padahal tidak satu pun dipakai di halaman ini.
+            'erpProducts' => Products::select(['id', 'name', 'sku'])->orderBy('name')->get(),
         ];
     }
 
@@ -312,8 +331,27 @@ class EcommerceProductController extends Controller
     {
         $keptGroupIds = [];
         $allowedModeIds = array_map('intval', $request->input('price_mode_ids', []));
+        $variantGroups = $request->input('variant_groups', []);
 
-        foreach ($request->input('variant_groups', []) as $groupIndex => $groupData) {
+        // Sebelumnya tiap opsi varian menembak Products::with(...)->find() sendiri,
+        // jadi form dengan puluhan opsi menghasilkan puluhan query bertingkat tiga.
+        $optionProductIds = [];
+        foreach ($variantGroups as $groupData) {
+            foreach ($groupData['options'] ?? [] as $optionData) {
+                if (!empty($optionData['product_id'])) {
+                    $optionProductIds[] = (int) $optionData['product_id'];
+                }
+            }
+        }
+
+        $erpProducts = empty($optionProductIds)
+            ? collect()
+            : Products::with('unitConversions.prices.priceMode')
+                ->whereIn('id', array_unique($optionProductIds))
+                ->get()
+                ->keyBy('id');
+
+        foreach ($variantGroups as $groupIndex => $groupData) {
             $group = null;
 
             if (!empty($groupData['id'])) {
@@ -337,28 +375,26 @@ class EcommerceProductController extends Controller
             $keptGroupIds[] = $group->id;
             $keptOptionIds = [];
 
-            foreach ($groupData['options'] ?? [] as $optionIndex => $optionData) {
-                $option = null;
+            // Satu query per grup, bukan satu query per opsi.
+            $existingOptions = $group->options()->withTrashed()->get()->keyBy('id');
 
-                if (!empty($optionData['id'])) {
-                    $option = $group->options()
-                        ->withTrashed()
-                        ->where('id', $optionData['id'])
-                        ->first();
-                }
+            foreach ($groupData['options'] ?? [] as $optionIndex => $optionData) {
+                $option = !empty($optionData['id'])
+                    ? $existingOptions->get((int) $optionData['id'])
+                    : null;
 
                 $oldImage = $option?->image;
 
                 $erpProduct = null;
                 $price = 0;
                 if (!empty($optionData['product_id'])) {
-                    $erpProduct = Products::with('unitConversions.prices.priceMode')
-                        ->find($optionData['product_id']);
+                    $erpProduct = $erpProducts->get((int) $optionData['product_id']);
                     if ($erpProduct) {
                         $modePrices = $this->pricingService->productModePrices(
                             $erpProduct,
                             (int) $request->unit_id
-                        );                        $modePrices = array_values(array_filter(
+                        );
+                        $modePrices = array_values(array_filter(
                             $modePrices,
                             fn ($modePrice) => in_array($modePrice['price_mode_id'], $allowedModeIds, true)
                         ));
@@ -425,6 +461,25 @@ class EcommerceProductController extends Controller
         $productGroup = $groups[0];
         $lidGroup = $groups[1];
 
+        // Kombinasi yang sudah ada diambil sekali, bukan satu query per baris.
+        $existingCombinations = $product->variantCombinations()->get()->keyBy('id');
+
+        // bundleForPair() menembak satu query dengan dua subquery whereHas plus
+        // lima eager load untuk tiap kombinasi. Jumlah kombinasi = opsi produk x
+        // opsi tutup, jadi pertumbuhannya kuadratik dan seluruhnya berjalan di
+        // dalam DB::transaction, sehingga request lain ikut menunggu.
+        $this->pricingService->preloadBundlesForPairs(
+            collect($combinations)
+                ->filter(fn ($combData) => !empty($combData['product_option_product_id'])
+                    && !empty($combData['lid_option_product_id']))
+                ->map(fn ($combData) => [
+                    (int) $combData['product_option_product_id'],
+                    (int) $combData['lid_option_product_id'],
+                ])
+                ->values()
+                ->all()
+        );
+
         foreach ($combinations as $index => $combData) {
             if (empty($combData['product_option_product_id']) || empty($combData['lid_option_product_id'])) {
                 continue;
@@ -437,13 +492,9 @@ class EcommerceProductController extends Controller
                 continue; // Skip if options were not saved or found
             }
 
-            $combination = null;
-
-            if (!empty($combData['id'])) {
-                $combination = $product->variantCombinations()
-                    ->where('id', $combData['id'])
-                    ->first();
-            }
+            $combination = !empty($combData['id'])
+                ? $existingCombinations->get((int) $combData['id'])
+                : null;
 
             $bundle = $this->pricingService->bundleForPair(
                 (int) $combData['product_option_product_id'],
@@ -451,7 +502,8 @@ class EcommerceProductController extends Controller
             );
             $modePrices = $bundle
                 ? $this->pricingService->bundleModePrices($bundle, (int) $request->unit_id)
-                : [];            $modePrices = array_values(array_filter(
+                : [];
+            $modePrices = array_values(array_filter(
                 $modePrices,
                 fn ($modePrice) => in_array($modePrice['price_mode_id'], $allowedModeIds, true)
             ));

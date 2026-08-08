@@ -30,21 +30,50 @@ class ProductBundleController extends Controller
         $length = (int) $request->input('length', 15);
         $start = (int) $request->input('start', 0);
 
+        $searchType = $request->filled('search_type') && $request->filled('search_keyword')
+            ? $request->search_type
+            : null;
+        $keyword = '%' . $request->search_keyword . '%';
+
+        // Daftar ini dikelompokkan per produk primary. Sebelumnya SELURUH bundle
+        // ditarik lengkap dengan relasi empat tingkat, dikelompokkan di PHP, lalu
+        // dipotong 15 baris — jadi tiap kali scroll seluruh tabel dibaca ulang.
+        // Sekarang halaman ditentukan lebih dulu di SQL, baru bundle-nya dimuat.
+        $groups = DB::table('product_bundles as pb')
+            ->join('product_bundle_items as pbi', 'pbi.bundle_id', '=', 'pb.id')
+            ->where('pbi.role', 'primary')
+            ->whereNull('pbi.deleted_at')
+            ->whereNull('pb.deleted_at')
+            ->when($searchType === 'name', fn ($q) => $q->where('pb.name', 'like', $keyword))
+            ->when($searchType === 'sku', fn ($q) => $q->where('pb.sku', 'like', $keyword))
+            ->groupBy('pbi.product_id')
+            ->select('pbi.product_id', DB::raw('MIN(pb.name) as group_name'));
+
+        $totalData = DB::query()->fromSub($groups, 'g')->count();
+
+        $pageProductIds = (clone $groups)
+            ->orderBy('group_name', 'asc')
+            ->offset($start)
+            ->limit($length)
+            ->pluck('product_id')
+            ->all();
+
+        if ($pageProductIds === []) {
+            return response()->json(['data' => [], 'has_more' => false]);
+        }
+
         $query = ProductBundle::with([
             'items.product.unitConversions.prices.priceMode',
             'unitConversions.unit',
             'unitConversions.prices.priceMode',
-        ]);
+        ])->whereHas('items', fn ($q) => $q
+            ->where('role', 'primary')
+            ->whereIn('product_id', $pageProductIds));
 
-        if ($request->filled('search_type') && $request->filled('search_keyword')) {
-            $searchType = $request->search_type;
-            $keyword = $request->search_keyword;
-
-            if ($searchType === 'name') {
-                $query->where('name', 'like', '%' . $keyword . '%');
-            } elseif ($searchType === 'sku') {
-                $query->where('sku', 'like', '%' . $keyword . '%');
-            }
+        if ($searchType === 'name') {
+            $query->where('name', 'like', $keyword);
+        } elseif ($searchType === 'sku') {
+            $query->where('sku', 'like', $keyword);
         }
 
         $bundles = $query->orderBy('name', 'asc')->get();
@@ -56,9 +85,10 @@ class ProductBundleController extends Controller
                 ?->product_id ?? 'unknown';
         });
 
-        $totalData = $grouped->count();
-
-        $pagedGroups = $grouped->slice($start, $length);
+        // Urutan grup mengikuti halaman yang sudah ditentukan di SQL.
+        $pagedGroups = collect($pageProductIds)
+            ->map(fn ($productId) => $grouped->get($productId))
+            ->filter();
 
         return response()->json([
             'data' => $pagedGroups->values()->map(function ($group, $index) use ($start) {

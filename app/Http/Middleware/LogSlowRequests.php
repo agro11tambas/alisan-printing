@@ -20,10 +20,29 @@ class LogSlowRequests
         $startedAt = hrtime(true);
         $queryCount = 0;
         $databaseTimeMs = 0.0;
+        $slowest = [];
+        $shapes = [];
 
-        DB::listen(function (QueryExecuted $query) use (&$queryCount, &$databaseTimeMs): void {
+        DB::listen(function (QueryExecuted $query) use (&$queryCount, &$databaseTimeMs, &$slowest, &$shapes): void {
             $queryCount++;
             $databaseTimeMs += $query->time;
+
+            $sql = $this->shorten($query->sql);
+
+            // Query paling lambat: cukup simpan lima teratas supaya memori tidak
+            // ikut membengkak di request yang menembak ribuan query.
+            $slowest[] = ['sql' => $sql, 'ms' => round($query->time, 2)];
+            if (count($slowest) > 25) {
+                usort($slowest, fn ($a, $b) => $b['ms'] <=> $a['ms']);
+                $slowest = array_slice($slowest, 0, 5);
+            }
+
+            // Query yang bentuknya sama dan diulang-ulang: itu tanda N+1.
+            // Dibatasi 200 bentuk supaya tidak jadi beban sendiri.
+            $shape = preg_replace('/\d+/', '?', $sql);
+            if (isset($shapes[$shape]) || count($shapes) < 200) {
+                $shapes[$shape] = ($shapes[$shape] ?? 0) + 1;
+            }
         });
 
         $response = $next($request);
@@ -31,6 +50,9 @@ class LogSlowRequests
         $thresholdMs = (float) config('app.slow_request_log_ms', 1000);
 
         if ($durationMs >= $thresholdMs) {
+            usort($slowest, fn ($a, $b) => $b['ms'] <=> $a['ms']);
+            arsort($shapes);
+
             Log::channel('performance')->warning('performance.slow_request', [
                 'method' => $request->method(),
                 'path' => $request->path(),
@@ -42,12 +64,36 @@ class LogSlowRequests
                 'bootstrap_ms' => $bootstrapMs,
                 'load_avg' => $this->loadAverage(),
                 'query_count' => $queryCount,
+                // Query paling lambat di request ini.
+                'slowest_queries' => array_slice($slowest, 0, 5),
+                // Bentuk query yang paling sering diulang. Angka tinggi di sini
+                // berarti N+1: satu query yang dijalankan ratusan kali.
+                'repeated_queries' => array_slice(
+                    array_map(
+                        fn ($shape, $count) => ['sql' => $shape, 'count' => $count],
+                        array_keys($shapes),
+                        array_values($shapes)
+                    ),
+                    0,
+                    5
+                ),
                 'user_id' => $request->user()?->getAuthIdentifier(),
                 'memory_peak_mb' => round(memory_get_peak_usage(true) / 1_048_576, 2),
             ]);
         }
 
         return $response;
+    }
+
+    /**
+     * SQL dipendekkan sebelum dicatat: log ini untuk mengenali query mana yang
+     * berat, bukan untuk menyimpan isi query lengkap.
+     */
+    private function shorten(string $sql): string
+    {
+        $sql = preg_replace('/\s+/', ' ', trim($sql));
+
+        return mb_strlen($sql) > 300 ? mb_substr($sql, 0, 300).' …' : $sql;
     }
 
     /**
