@@ -191,7 +191,10 @@
                         </a>
                     </li>
                 @endif
-                @if (Auth::check() && Auth::user()->hasPermission('production'))
+                @if (Auth::check() &&
+                        (Auth::user()->hasPermission('production') ||
+                            Auth::user()->hasPermission('operator') ||
+                            Auth::user()->hasPermission('machine')))
                     <li class="nxl-item nxl-hasmenu">
                         <a href="javascript:void(0);" class="nxl-link">
                             <span class="nxl-micon"><i class="feather-stop-circle"></i></span>
@@ -232,6 +235,16 @@
                             @if (Auth::user()->hasSubPermission('stock-in-production'))
                                 <li class="nxl-item "><a class="nxl-link" href="/erp/productions/stock-in"><span
                                             class="">Stock In</span></a></li>
+                            @endif
+                            @if (Auth::user()->hasPermission('operator'))
+                                <li class="nxl-item"><a
+                                        class="nxl-link {{ request()->is('erp/shop-manager/operators*') ? 'active' : '' }}"
+                                        href="/erp/shop-manager/operators"><span class="">Operator</span></a></li>
+                            @endif
+                            @if (Auth::user()->hasPermission('machine'))
+                                <li class="nxl-item"><a
+                                        class="nxl-link {{ request()->is('erp/productions/machines*') ? 'active' : '' }}"
+                                        href="/erp/productions/machines"><span class="">Mesin</span></a></li>
                             @endif
                         </ul>
                     </li>
@@ -433,7 +446,6 @@
                 @endif --}}
                 @if (Auth::check() &&
                         (Auth::user()->hasPermission('shop-manager') ||
-                            Auth::user()->hasPermission('operator') ||
                             Auth::user()->hasPermission('customer') ||
                             Auth::user()->hasPermission('supplier')))
                     <li class="nxl-item nxl-hasmenu">
@@ -449,15 +461,6 @@
                                     <a href="/erp/shop-manager/users"
                                         class="nxl-link {{ request()->is('erp/shop-manager/users*') ? 'active' : '' }}">
                                         <span>Shop Manager</span>
-                                    </a>
-                                </li>
-                            @endif
-
-                            @if (Auth::user()->hasPermission('operator'))
-                                <li class="nxl-item">
-                                    <a href="/erp/shop-manager/operators"
-                                        class="nxl-link {{ request()->is('erp/shop-manager/operators*') ? 'active' : '' }}">
-                                        <span>Operator</span>
                                     </a>
                                 </li>
                             @endif

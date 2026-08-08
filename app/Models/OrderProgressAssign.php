@@ -19,6 +19,7 @@ class OrderProgressAssign extends Model
         'order_progress_item_id',
         'product_id',
         'operator_id',
+        'machine_id',
         'date',
         'assigned_quantity',
         'change_quantity',
@@ -54,6 +55,11 @@ class OrderProgressAssign extends Model
     public function operator()
     {
         return $this->belongsTo(Operator::class, 'operator_id')->withTrashed();
+    }
+
+    public function machine()
+    {
+        return $this->belongsTo(Machine::class, 'machine_id')->withTrashed();
     }
 
     public function histories()
