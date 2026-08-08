@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Machine;
+use App\Models\Operator;
 use App\Models\OrderProgress;
 use App\Models\OrderProgressAssign;
 use App\Models\OrderProgressAssignBatch;
@@ -20,12 +20,29 @@ use Yajra\DataTables\Facades\DataTables;
 
 class OrderProgressAssignController extends Controller
 {
+    // public function create($id)
+    // {
+    //     $progress = OrderProgress::with(['items.product', 'order.customer'])
+    //         ->findOrFail($id);
+
+    //     $operators = Operator::where('active', 1)->orderBy('name')->get();
+
+    //     // 🔹 Generate assign code otomatis lewat service
+    //     $assignCode = AssignCode::generateAssignCode();
+
+    //     return view('erp.pages.production.assign-list.add-assign', compact(
+    //         'progress',
+    //         'operators',
+    //         'assignCode'
+    //     ));
+    // }
+
     public function create($id)
     {
         $progress = OrderProgress::with(['items.product', 'order.customer'])
             ->findOrFail($id);
 
-        $machines = Machine::where('active', 1)->orderBy('name')->get();
+        $operators = Operator::where('active', 1)->orderBy('name')->get();
 
         // 🔹 Generate assign code otomatis lewat service
         $assignCode = AssignCode::generateAssignCode();
@@ -80,7 +97,7 @@ class OrderProgressAssignController extends Controller
 
         return view('erp.pages.production.assign-list.add-assign', compact(
             'progress',
-            'machines',
+            'operators',
             'assignCode'
         ));
     }
@@ -94,8 +111,8 @@ class OrderProgressAssignController extends Controller
             'note'        => 'nullable|string',
             'items'       => 'required|array',
             'items.*.order_progress_item_id' => 'required|exists:order_progress_items,id',
-            // 🟢 validasi mesin & qty hanya wajib kalau tidak bypass
-            'items.*.machine_id'             => 'required_if:items.*.bypass,0|nullable|exists:machines,id',
+            // 🟢 validasi operator & qty hanya wajib kalau tidak bypass
+            'items.*.operator_id'            => 'required_if:items.*.bypass,0|nullable|exists:operators,id',
             'items.*.assigned_quantity'      => 'required_if:items.*.bypass,0|integer|min:0',
             'items.*.note'                   => 'nullable|string',
             'items.*.bypass'                 => 'nullable|boolean',
@@ -218,7 +235,7 @@ class OrderProgressAssignController extends Controller
                     'assign_batch_id'        => $batch->id,
                     'order_progress_item_id' => $item->id,
                     'product_id'             => $item->product_id,
-                    'machine_id'             => (int) $data['machine_id'],
+                    'operator_id'            => (int) $data['operator_id'],
                     'assigned_quantity'      => $requestedAssignQty,
                     'completed_quantity'     => 0,
                     'note'                   => $data['note'] ?? null,
@@ -257,11 +274,11 @@ class OrderProgressAssignController extends Controller
         $batch = OrderProgressAssignBatch::with([
             'orderProgress.order.customer',
             'orderProgress.items.product',
-            'assigns.machine',
+            'assigns.operator',
             'assigns.progressItem'
         ])->findOrFail($batch_id);
 
-        $machines = Machine::where('active', 1)->orderBy('name')->get();
+        $operators = Operator::where('active', 1)->orderBy('name')->get();
 
         // Ambil progress terkait agar loop item sama seperti di create()
         $progress = $batch->orderProgress;
@@ -347,7 +364,7 @@ class OrderProgressAssignController extends Controller
         return view('erp.pages.production.assign-list.edit-assign', compact(
             'batch',
             'progress',
-            'machines'
+            'operators'
         ));
     }
 
@@ -360,7 +377,7 @@ class OrderProgressAssignController extends Controller
             'items'       => 'required|array',
             'items.*.id'  => 'nullable|exists:order_progress_assigns,id',
             'items.*.order_progress_item_id' => 'required|exists:order_progress_items,id',
-            'items.*.machine_id'             => 'required_if:items.*.bypass,0|nullable|exists:machines,id',
+            'items.*.operator_id'            => 'required_if:items.*.bypass,0|nullable|exists:operators,id',
             'items.*.assigned_quantity'      => 'required_if:items.*.bypass,0|integer|min:0',
             'items.*.note'                   => 'nullable|string',
             'items.*.bypass'                 => 'nullable|boolean',
@@ -469,7 +486,7 @@ class OrderProgressAssignController extends Controller
                         }
 
                         $assign->update([
-                            'machine_id'        => $data['machine_id'],
+                            'operator_id'       => $data['operator_id'],
                             'assigned_quantity' => $newQty,
                             'note'              => $data['note'] ?? null,
                         ]);
@@ -480,7 +497,7 @@ class OrderProgressAssignController extends Controller
                         'assign_batch_id'        => $batch->id,
                         'order_progress_item_id' => $item->id,
                         'product_id'             => $item->product_id,
-                        'machine_id'             => $data['machine_id'],
+                        'operator_id'            => $data['operator_id'],
                         'assigned_quantity'      => $assignedQty,
                         'note'                   => $data['note'] ?? null,
                     ]);
@@ -553,7 +570,7 @@ class OrderProgressAssignController extends Controller
         $start = (int) $request->input('start', 0);
 
         $batches = OrderProgressAssignBatch::with([
-            'assigns.machine',
+            'assigns.operator',
             'assigns.progressItem.product',
             'assigns.progressItem.designItem',
             'assigns.progressItem.progress.order',
@@ -694,14 +711,24 @@ class OrderProgressAssignController extends Controller
                 </div>";
                 }
 
-                // ⚙️ Total item, quantity, mesin
+                // 👥 Total item, quantity, operator
                 $totalItems = $batch->assigns->count();
                 $totalQuantity = number_format($batch->assigns->sum('assigned_quantity'), 0, ',', '.');
-                $machines = $batch->assigns->pluck('machine.name')->unique()->implode(', ') ?: '-';
+                $operators = $batch->assigns->pluck('operator.name')->unique()->implode(', ') ?: '-';
                 $note = e($batch->note ?? '-');
 
                 // 📦 Assign products partial
-                $assigns = $batch->assigns;
+                // $assigns = OrderProgressAssign::with(['operator', 'progressItem.product'])
+                //     ->where('assign_batch_id', $batch->id)
+                //     ->get();
+                $assigns = $batch->assigns; /* Previous per-batch query:
+                    'operator',
+                    'progressItem.product',
+                    'progressItem.designItem' // ⬅️ tambah ini
+                ])
+                    ->where('assign_batch_id', $batch->id)
+                    ->get();
+                */
 
                 $assignProducts = view('erp.pages.production.assign-list.partials.assign-product', compact('assigns'))->render();
 
@@ -744,7 +771,7 @@ class OrderProgressAssignController extends Controller
                     'customer' => $customerHtml,
                     'total_items' => $totalItems,
                     'total_quantity' => $totalQuantity,
-                    'machines' => e($machines),
+                    'operators' => e($operators),
                     'note' => $note,
                     'assign_products' => $assignProducts,
                     'action' => $action,

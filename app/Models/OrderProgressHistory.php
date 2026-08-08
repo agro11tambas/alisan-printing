@@ -24,7 +24,6 @@ class OrderProgressHistory extends Model
         'defect_quantity',
         'reject_quantity',
         'operator_id',
-        'machine_id',
         'note'
     ];
 
@@ -50,11 +49,6 @@ class OrderProgressHistory extends Model
     public function operators()
     {
         return $this->belongsTo(Operator::class, 'operator_id', 'id')->withTrashed();
-    }
-
-    public function machines()
-    {
-        return $this->belongsTo(Machine::class, 'machine_id', 'id')->withTrashed();
     }
 
     public function assign()

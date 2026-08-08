@@ -34,7 +34,6 @@ use App\Http\Controllers\Admin\HistoryRequestStockController;
 use App\Http\Controllers\Admin\HistoryStockInController;
 use App\Http\Controllers\Admin\HistoryStockOutController;
 use App\Http\Controllers\Admin\InventoryController;
-use App\Http\Controllers\Admin\MachineController;
 use App\Http\Controllers\Admin\MaterialRequestController;
 use App\Http\Controllers\Admin\OpeningStockRateController;
 use App\Http\Controllers\Admin\OperatorController;
@@ -712,18 +711,6 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::delete('/erp/shop-manager/operators/delete/{id}', [OperatorController::class, 'delete']);
         Route::get('/erp/shop-manager/operators/{id}/detail', [OperatorController::class, 'show'])->name('operators.show');
         Route::get('/erp/shop-manager/operators/detail/{id}/data', [OperatorController::class, 'dataShow']);
-    });
-
-    Route::middleware(['web.auth', 'permission:machine'])->group(function () {
-        Route::get('/erp/productions/machines/data', [MachineController::class, 'dataMachines']);
-        Route::get('/erp/productions/machines', [MachineController::class, 'getMachines']);
-        Route::get('/erp/productions/machines/create-machine', [MachineController::class, 'create']);
-        Route::post('/erp/productions/machines/store', [MachineController::class, 'store']);
-        Route::get('/erp/productions/machines/edit-machine/{id}', [MachineController::class, 'edit']);
-        Route::put('/erp/productions/machines/update/{id}', [MachineController::class, 'update']);
-        Route::delete('/erp/productions/machines/delete/{id}', [MachineController::class, 'delete']);
-        Route::get('/erp/productions/machines/{id}/detail', [MachineController::class, 'show'])->name('machines.show');
-        Route::get('/erp/productions/machines/detail/{id}/data', [MachineController::class, 'dataShow']);
     });
 
     Route::middleware(['web.auth', 'permission:customer'])->group(function () {

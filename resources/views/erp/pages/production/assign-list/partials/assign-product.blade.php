@@ -2,7 +2,7 @@
     <table class="table table-small table-bordered">
         <thead>
             <tr>
-                <th style="width: 20%;">Mesin</th>
+                <th style="width: 20%;">Operator</th>
                 <th style="width: 15%;">Preview</th>
                 <th style="width: 20%;">Product</th>
                 <th style="width: 20%;">Assigned</th>
@@ -24,8 +24,8 @@
                 <tr>
                     <td>
                         <span class="fw-bold text-dark">
-                            @if ($assign->machine)
-                                {{ $assign->machine->name }}
+                            @if ($assign->operator)
+                                {{ $assign->operator->name }}
                             @else
                                 -
                             @endif

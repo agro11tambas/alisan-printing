@@ -151,7 +151,7 @@
                     {{-- === TABEL ASSIGN PER PRODUK === --}}
                     <div class="card">
                         <div class="card-header">
-                            <h4 class="card-title">Assign Mesin per Product</h4>
+                            <h4 class="card-title">Assign Operator per Product</h4>
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
@@ -163,7 +163,7 @@
                                             <th>Assigning</th>
                                             {{-- <th>Available</th> --}}
                                             <th>Assign Now</th>
-                                            <th>Mesin</th>
+                                            <th>Operator</th>
                                             <th>Note</th>
                                             <th>Bypass</th>
                                         </tr>
@@ -180,7 +180,7 @@
                                                     $item->id,
                                                 );
                                                 $assignedQty = $assign->assigned_quantity ?? 0;
-                                                $machineId = $assign->machine_id ?? '';
+                                                $operatorId = $assign->operator_id ?? '';
                                                 $note = $assign->note ?? '';
                                             @endphp
                                             <tr>
@@ -236,18 +236,18 @@
                                                     </small>
                                                 </td>
                                                 <td>
-                                                    <select name="items[{{ $index }}][machine_id]"
-                                                        class="form-select machine-field" data-select2-selector="tag">
-                                                        <option value="">-- Choose Mesin --</option>
-                                                        @foreach ($machines as $machine)
-                                                            <option value="{{ $machine->id }}"
-                                                                {{ $machineId == $machine->id ? 'selected' : '' }}>
-                                                                {{ $machine->name }}
+                                                    <select name="items[{{ $index }}][operator_id]"
+                                                        class="form-select operator-field" data-select2-selector="tag">
+                                                        <option value="">-- Choose Operator --</option>
+                                                        @foreach ($operators as $op)
+                                                            <option value="{{ $op->id }}"
+                                                                {{ $operatorId == $op->id ? 'selected' : '' }}>
+                                                                {{ $op->name }}
                                                             </option>
                                                         @endforeach
                                                     </select>
-                                                    <small class="text-danger error-machine d-none">
-                                                        Mesin wajib dipilih
+                                                    <small class="text-danger error-operator d-none">
+                                                        Operator wajib dipilih
                                                     </small>
                                                 </td>
                                                 <td>
@@ -262,7 +262,7 @@
                                                         <input type="checkbox" class="form-check-input bypass-check"
                                                             name="items[{{ $index }}][bypass]" value="1"
                                                             id="bypass_{{ $index }}"
-                                                            {{ $assign && $assign->machine_id == null ? 'checked' : '' }}>
+                                                            {{ $assign && $assign->operator_id == null ? 'checked' : '' }}>
                                                         <label for="bypass_{{ $index }}"
                                                             class="form-check-label small">Bypass</label>
                                                     </div>
@@ -329,24 +329,24 @@
                 const row = $(this).closest('tr');
                 const isBypass = $(this).is(':checked');
                 const qtyInput = row.find('input[name$="[assigned_quantity]"]');
-                const machineSelect = row.find('.machine-field');
+                const operatorSelect = row.find('.operator-field');
 
                 if (isBypass) {
                     qtyInput.val('0').prop('readonly', true);
-                    const name = machineSelect.attr('name');
+                    const name = operatorSelect.attr('name');
                     row.find(`input[name="${name}"]`).remove();
                     $('<input>').attr({
                         type: 'hidden',
                         name: name,
                         value: ''
                     }).appendTo(row);
-                    machineSelect.prop('disabled', true).val('').trigger('change');
-                    row.find('.error-machine').addClass('d-none');
+                    operatorSelect.prop('disabled', true).val('').trigger('change');
+                    row.find('.error-operator').addClass('d-none');
                     row.addClass('table-secondary');
                 } else {
                     qtyInput.prop('readonly', false);
-                    machineSelect.prop('disabled', false);
-                    const name = machineSelect.attr('name');
+                    operatorSelect.prop('disabled', false);
+                    const name = operatorSelect.attr('name');
                     row.find(`input[name="${name}"]`).remove();
                     row.removeClass('table-secondary');
                 }
@@ -355,7 +355,7 @@
             $('#btnSubmitForm').on('click', function(e) {
                 e.preventDefault();
                 let valid = true;
-                $('.error-machine').addClass('d-none');
+                $('.error-operator').addClass('d-none');
 
                 // 🔹 Hitung semua row & row yang bypass
                 let totalRows = $('.bypass-check').length;
@@ -395,13 +395,13 @@
                     }
                 });
 
-                // 🔹 Validasi mesin untuk row yang tidak bypass
-                $('.machine-field').each(function() {
+                // 🔹 Validasi operator untuk row yang tidak bypass
+                $('.operator-field').each(function() {
                     const row = $(this).closest('tr');
                     const isBypass = row.find('.bypass-check').is(':checked');
 
                     if (!isBypass && $(this).val() === '') {
-                        row.find('.error-machine').removeClass('d-none');
+                        row.find('.error-operator').removeClass('d-none');
                         valid = false;
                     }
                 });

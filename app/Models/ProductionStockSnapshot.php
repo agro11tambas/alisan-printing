@@ -72,11 +72,12 @@ class ProductionStockSnapshot extends Model
     }
 
     /**
-     * Closing stock = opening stock - assign hari ini + stock in hari ini.
+     * Closing stock = opening stock - assign hari ini + stock in hari ini + stock opname hari ini.
+     * stock_opname_today sudah bertanda (Loss bernilai negatif), jadi cukup ditambahkan.
      */
-    public static function calculateClosingStock(int $openingStock, int $assignToday, int $stockInToday): int
+    public static function calculateClosingStock(int $openingStock, int $assignToday, int $stockInToday, int $stockOpnameToday): int
     {
-        return $openingStock - $assignToday + $stockInToday;
+        return $openingStock - $assignToday + $stockInToday + $stockOpnameToday;
     }
 
     /**
@@ -89,6 +90,7 @@ class ProductionStockSnapshot extends Model
             (int) $this->opening_stock,
             (int) $this->assign_today,
             (int) $this->stock_in_today,
+            (int) $this->stock_opname_today,
         );
 
         $this->save();

@@ -68,11 +68,12 @@ class TakeProductionStockSnapshot extends Command
                 ->get()
                 ->sum(fn (StockOpnameProduction $stockOpname) => $stockOpname->signedQuantity());
 
-            // closing_stock selalu dihitung ulang: opening - assign today + stock in today
+            // closing_stock selalu dihitung ulang: opening - assign today + stock in today + stock opname today
             $snapshot->closing_stock = ProductionStockSnapshot::calculateClosingStock(
                 (int) $snapshot->opening_stock,
                 (int) $snapshot->assign_today,
                 (int) $snapshot->stock_in_today,
+                (int) $snapshot->stock_opname_today,
             );
 
             $snapshot->save();

@@ -100,8 +100,8 @@ class ProductionStockSnapshotTest extends TestCase
         $snapshot = ProductionStockSnapshot::firstOrFail();
         $this->assertSame(100, $snapshot->opening_stock);
         $this->assertSame(10, $snapshot->stock_opname_today);
-        // stock opname tidak masuk rumus closing
-        $this->assertSame(100, $snapshot->closing_stock);
+        // stock opname ikut rumus closing: 100 - 0 + 0 + 10
+        $this->assertSame(110, $snapshot->closing_stock);
 
         $stockOpname->update([
             'available_quantity' => 4,
@@ -109,10 +109,12 @@ class ProductionStockSnapshotTest extends TestCase
         ]);
 
         $this->assertSame(-4, $snapshot->fresh()->stock_opname_today);
+        $this->assertSame(96, $snapshot->fresh()->closing_stock); // 100 - 0 + 0 - 4
 
         $stockOpname->delete();
 
         $this->assertSame(0, $snapshot->fresh()->stock_opname_today);
+        $this->assertSame(100, $snapshot->fresh()->closing_stock);
     }
 
     public function test_assign_changes_are_synchronized_to_the_snapshot(): void

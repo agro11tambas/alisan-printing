@@ -141,11 +141,12 @@ class ProductionStockSnapshotController extends Controller
                 $stockOpnameToday = $snap?->stock_opname_today ?? 0;
             }
 
-            // Closing selalu turunan dari rumus: opening - assign today + stock in today
+            // Closing selalu turunan dari rumus: opening - assign today + stock in today + stock opname today
             $closingStock = ProductionStockSnapshot::calculateClosingStock(
                 $openingStock,
                 (int) $assignToday,
                 (int) $stockInToday,
+                (int) $stockOpnameToday,
             );
 
             return [

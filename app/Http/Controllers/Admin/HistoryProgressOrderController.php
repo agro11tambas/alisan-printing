@@ -48,7 +48,7 @@ class HistoryProgressOrderController extends Controller
 
     public function dataOrderHistory(Request $request, $id)
     {
-        $batches = OrderProgressBatch::with(['user', 'histories.progressItem.product', 'histories.operators', 'histories.machines'])
+        $batches = OrderProgressBatch::with(['user', 'histories.progressItem.product', 'histories.operators'])
             ->where('order_progress_id', $id)
             ->latest();
 
@@ -133,14 +133,11 @@ class HistoryProgressOrderController extends Controller
     {
         $batch = OrderProgressAssignBatch::with([
             'assigns.progressItem.product',
-            'assigns.machine',
+            'assigns.operator',
             'orderProgress.order.customer'
         ])->findOrFail($batch_id);
 
-        // 🔹 Operator dipilih saat input progress, bukan saat assign
-        $operators = Operator::where('active', 1)->orderBy('name')->get();
-
-        return view('erp.pages.production.assign-list.add-progress-order', compact('batch', 'operators'));
+        return view('erp.pages.production.assign-list.add-progress-order', compact('batch'));
     }
 
     public function store(Request $request, $batch_id)
@@ -150,7 +147,6 @@ class HistoryProgressOrderController extends Controller
             'note'          => 'nullable|string',
             'items'         => 'required|array',
             'items.*.assign_id'         => 'required|exists:order_progress_assigns,id',
-            'items.*.operator_id'        => 'required|exists:operators,id',
             'items.*.completed_quantity' => 'required|integer|min:0',
             'items.*.reject_quantity'     => 'nullable|integer|min:0',
             'items.*.defect_quantity'    => 'nullable|integer|min:0',
@@ -221,8 +217,7 @@ class HistoryProgressOrderController extends Controller
                     'completed_quantity'        => $completed,
                     'defect_quantity'           => $defect,
                     'reject_quantity'           => $reject,
-                    'operator_id'               => (int) $data['operator_id'],
-                    'machine_id'                => $assign->machine_id,
+                    'operator_id'               => $assign->operator_id,
                     'note'                      => $data['note'] ?? null,
                     'created_at'                => $request->progress_date,
                 ]);
