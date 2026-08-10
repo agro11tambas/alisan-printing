@@ -136,6 +136,100 @@ class EcommerceProductCategorySubcategoryTest extends TestCase
         $this->assertSame('kopi-2', $main->children()->firstOrFail()->slug);
     }
 
+    public function test_store_creates_a_sub_category_directly_under_the_chosen_main_category(): void
+    {
+        $main = EcommerceProductCategory::create(['name' => 'Minuman', 'slug' => 'minuman']);
+
+        $request = $this->formRequest(EcommerceProductCategoryStoreRequest::class, '/erp/ecommerce-product-categories', 'POST', [
+            'category_type' => 'sub',
+            'parent_id' => $main->id,
+            'name' => 'Kopi',
+            'slug' => '',
+            'description' => 'Semua kopi',
+        ]);
+
+        app(EcommerceProductCategoryController::class)->store($request);
+
+        $sub = EcommerceProductCategory::where('name', 'Kopi')->firstOrFail();
+
+        $this->assertSame($main->id, $sub->parent_id);
+        $this->assertSame('kopi', $sub->slug);
+        $this->assertSame(0, $sub->children()->count());
+    }
+
+    public function test_store_rejects_a_sub_category_without_a_main_category(): void
+    {
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        $this->formRequest(EcommerceProductCategoryStoreRequest::class, '/erp/ecommerce-product-categories', 'POST', [
+            'category_type' => 'sub',
+            'name' => 'Kopi',
+        ]);
+    }
+
+    public function test_store_rejects_a_sub_category_whose_parent_is_itself_a_sub_category(): void
+    {
+        $main = EcommerceProductCategory::create(['name' => 'Minuman', 'slug' => 'minuman']);
+        $sub = EcommerceProductCategory::create(['name' => 'Kopi', 'slug' => 'kopi', 'parent_id' => $main->id]);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        $this->formRequest(EcommerceProductCategoryStoreRequest::class, '/erp/ecommerce-product-categories', 'POST', [
+            'category_type' => 'sub',
+            'parent_id' => $sub->id,
+            'name' => 'Kopi Susu',
+        ]);
+    }
+
+    public function test_update_moves_a_sub_category_to_another_main_category(): void
+    {
+        $from = EcommerceProductCategory::create(['name' => 'Minuman', 'slug' => 'minuman']);
+        $to = EcommerceProductCategory::create(['name' => 'Makanan', 'slug' => 'makanan']);
+        $sub = EcommerceProductCategory::create(['name' => 'Kopi', 'slug' => 'kopi', 'parent_id' => $from->id]);
+
+        $request = $this->formRequest(
+            EcommerceProductCategoryUpdateRequest::class,
+            '/erp/ecommerce-product-categories/' . $sub->id,
+            'PUT',
+            [
+                'category_type' => 'sub',
+                'parent_id' => $to->id,
+                'name' => 'Kopi Susu',
+                'slug' => 'kopi',
+            ],
+            ['category' => $sub]
+        );
+
+        app(EcommerceProductCategoryController::class)->update($request, $sub);
+
+        $sub->refresh();
+
+        $this->assertSame($to->id, $sub->parent_id);
+        $this->assertSame('Kopi Susu', $sub->name);
+    }
+
+    public function test_update_rejects_turning_a_category_that_has_children_into_a_sub_category(): void
+    {
+        $main = EcommerceProductCategory::create(['name' => 'Minuman', 'slug' => 'minuman']);
+        EcommerceProductCategory::create(['name' => 'Kopi', 'slug' => 'kopi', 'parent_id' => $main->id]);
+        $other = EcommerceProductCategory::create(['name' => 'Makanan', 'slug' => 'makanan']);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+
+        $this->formRequest(
+            EcommerceProductCategoryUpdateRequest::class,
+            '/erp/ecommerce-product-categories/' . $main->id,
+            'PUT',
+            [
+                'category_type' => 'sub',
+                'parent_id' => $other->id,
+                'name' => 'Minuman',
+                'slug' => 'minuman',
+            ],
+            ['category' => $main]
+        );
+    }
+
     public function test_data_endpoint_separates_main_and_sub_categories_per_tab(): void
     {
         $main = EcommerceProductCategory::create(['name' => 'Minuman', 'slug' => 'minuman']);

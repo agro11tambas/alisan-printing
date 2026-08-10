@@ -605,6 +605,12 @@
                                 </div>
                                 <small class="text-danger d-none" id="error_paid_amount"></small>
                                 <span class="fw-semibold fs-12" id="paid_amount_display">Paid: Rp. 0</span>
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="checkbox" id="pay_full">
+                                    <label class="form-check-label fw-semibold fs-12" for="pay_full">
+                                        Bayar Full
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -2119,6 +2125,38 @@
             let customerTotalDeposit = 0;
             let currentBalance = 0;
 
+            // 🔥 Paid amount default 0 & diisi manual, kecuali checkbox "Bayar Full" dicentang
+            function isPayFull() {
+                return $('#pay_full').is(':checked');
+            }
+
+            function setPaidAmountValue(amount) {
+                const formatted = new Intl.NumberFormat('id-ID').format(Math.max(0, amount));
+                $('#paid_amount').val(formatted);
+                $('#paid_amount_display').text('Paid: Rp. ' + formatted);
+            }
+
+            // Kalau "Bayar Full" aktif -> isi otomatis sisa tagihan (dikurangi deposit yang dipakai).
+            // Kalau tidak aktif -> biarkan nilai manual user, atau reset ke 0 saat forceReset.
+            function syncPaidAmount(forceReset = false) {
+                if (isPayFull()) {
+                    const depositUsed = $('#use_write_off').is(':checked') ?
+                        (parseInt($('#customer_deposit_amount').val().replace(/\D/g, "")) || 0) :
+                        0;
+                    setPaidAmountValue(originalPaidAmount - depositUsed);
+                } else if (forceReset) {
+                    setPaidAmountValue(0);
+                }
+
+                $('#paid_amount').prop('readonly', isPayFull());
+                updatePaymentRemaining();
+            }
+
+            // 🔥 Handler checkbox Bayar Full
+            $('#pay_full').on('change', function() {
+                syncPaidAmount(true);
+            });
+
             // 🔥 Handler checkbox Write Off
             $('#use_write_off').on('change', function() {
                 if ($(this).is(':checked')) {
@@ -2131,18 +2169,12 @@
                     // Auto-isi dengan max
                     const formatted = new Intl.NumberFormat('id-ID').format(maxDeposit);
                     $('#customer_deposit_amount').val(formatted);
-
-                    // Update display
-                    updatePaidAmountWithDeposit();
                 } else {
                     $('#write_off_container').addClass('d-none');
                     $('#customer_deposit_amount').val('0');
-
-                    // Kembalikan ke original
-                    const formatted = new Intl.NumberFormat('id-ID').format(originalPaidAmount);
-                    $('#paid_amount').val(formatted);
-                    $('#paid_amount_display').text('Paid: Rp. ' + formatted);
                 }
+
+                syncPaidAmount();
             });
 
             // 🔥 Format input customer deposit
@@ -2156,7 +2188,7 @@
                 }
 
                 this.value = new Intl.NumberFormat('id-ID').format(angka);
-                updatePaidAmountWithDeposit();
+                syncPaidAmount();
             });
 
             // 🔥 Fungsi update Paid Amount berdasarkan deposit
@@ -2173,15 +2205,6 @@
                 $('#total_amount_display').html('Rp.&nbsp;' + new Intl.NumberFormat('id-ID').format(remaining));
             }
 
-            function updatePaidAmountWithDeposit() {
-                const depositUsed = parseInt($('#customer_deposit_amount').val().replace(/\D/g, "")) || 0;
-                const newPaidAmount = originalPaidAmount - depositUsed;
-
-                const formatted = new Intl.NumberFormat('id-ID').format(Math.max(0, newPaidAmount));
-                $('#paid_amount').val(formatted);
-                $('#paid_amount_display').text('Paid: Rp. ' + formatted);
-            }
-
             // 🔥 Handler checkbox Write Off Only
             $('#use_write_off_only').on('change', function() {
                 if ($(this).is(':checked')) {
@@ -2190,16 +2213,13 @@
                     $('#write_off_container').addClass('d-none');
                     $('#customer_deposit_amount').val('0');
 
-                    // SET PAID AMOUNT KE 0
-                    $('#paid_amount').val('0');
-                    $('#paid_amount_display').text('Paid: Rp. 0');
-
+                    // Matikan juga Bayar Full & SET PAID AMOUNT KE 0
+                    $('#pay_full').prop('checked', false).prop('disabled', true);
                 } else {
-                    // KEMBALIKAN KE NILAI AWAL (originalPaidAmount atau remainingAmount)
-                    const formatted = new Intl.NumberFormat('id-ID').format(originalPaidAmount);
-                    $('#paid_amount').val(formatted);
-                    $('#paid_amount_display').text('Paid: Rp. ' + formatted);
+                    $('#pay_full').prop('disabled', false);
                 }
+
+                syncPaidAmount(true);
             });
 
             // 🔥 Handler button Mark as Paid (FINAL FIX - GUARANTEED WORK!)
@@ -2227,10 +2247,10 @@
                 $('#total_amount_display').html('Rp.&nbsp;' + new Intl.NumberFormat('id-ID').format(
                     remainingAmount));
 
-                // 🔥 Set Paid Amount LANGSUNG (INI YANG PENTING BANGET!)
-                const formattedAmount = new Intl.NumberFormat('id-ID').format(remainingAmount);
-                $('#paid_amount').val(formattedAmount);
-                $('#paid_amount_display').text('Paid: Rp. ' + formattedAmount);
+                // 🔥 Paid Amount default 0, diisi manual (kecuali centang "Bayar Full")
+                $('#pay_full').prop('checked', false).prop('disabled', false);
+                $('#paid_amount').prop('readonly', false);
+                setPaidAmountValue(0);
 
                 // 🔥 Update deposit info
                 $('#customer_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(

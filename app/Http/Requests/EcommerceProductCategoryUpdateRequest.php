@@ -45,6 +45,19 @@ class EcommerceProductCategoryUpdateRequest extends FormRequest
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:4096'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
 
+            // Sama seperti form create: main category-nya wajib dipilih dan harus
+            // category tanpa parent, plus tidak boleh category ini sendiri.
+            'category_type' => ['nullable', 'in:main,sub'],
+            'parent_id' => [
+                'required_if:category_type,sub',
+                'nullable',
+                'integer',
+                Rule::exists('ecommerce_product_categories', 'id')
+                    ->whereNull('parent_id')
+                    ->whereNull('deleted_at'),
+                Rule::notIn([$categoryId]),
+            ],
+
             // Sub category yang dipilih dari category yang sudah ada
             'existing_child_ids' => ['nullable', 'array'],
             'existing_child_ids.*' => [
@@ -63,6 +76,28 @@ class EcommerceProductCategoryUpdateRequest extends FormRequest
         ];
     }
 
+    /**
+     * Struktur category dibatasi dua level, jadi category yang sudah punya sub
+     * tidak boleh dipindah jadi sub category milik orang lain.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $category = $this->route('category');
+
+            if (! $this->filled('parent_id') || ! $category instanceof EcommerceProductCategory) {
+                return;
+            }
+
+            if ($category->children()->exists()) {
+                $validator->errors()->add(
+                    'parent_id',
+                    'Category ini punya sub category, jadi tidak bisa dijadikan sub category.'
+                );
+            }
+        });
+    }
+
     public function messages(): array
     {
         return [
@@ -73,6 +108,9 @@ class EcommerceProductCategoryUpdateRequest extends FormRequest
             'image.mimes' => 'Image harus berformat jpeg, png, jpg, gif, atau webp.',
             'image.max' => 'Ukuran image maksimal 4MB.',
             'sort_order.integer' => 'Sort order harus berupa angka.',
+            'parent_id.required_if' => 'Main category wajib dipilih.',
+            'parent_id.exists' => 'Main category yang dipilih tidak ditemukan atau bukan main category.',
+            'parent_id.not_in' => 'Category tidak bisa jadi sub category dari dirinya sendiri.',
             'existing_child_ids.*.exists' => 'Sub category yang dipilih tidak ditemukan.',
             'existing_child_ids.*.not_in' => 'Sub category tidak boleh category ini sendiri atau induknya.',
             'subcategories.*.name.max' => 'Nama sub category maksimal 255 karakter.',

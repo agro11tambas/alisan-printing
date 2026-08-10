@@ -14,6 +14,10 @@
         return number_format((float) $normalizedValue, 0, ',', '.');
     };
 
+    // Dropdown ERP Product hanya perlu satu <option>: yang sedang terpilih.
+    // Sisanya diambil select2 dari array di memori saat dropdown dibuka.
+    $erpProductById = $erpProducts->keyBy('id');
+
     $oldGroups = old('variant_groups');
 
     if ($oldGroups !== null) {
@@ -310,7 +314,7 @@
                                 </div>
                                 <div class="col-lg-10 field-wrapper">
                                     <input type="text" class="form-control" value="Rp {{ $formatNumber($product->price) }}" readonly disabled>
-                                    <small class="text-muted">Auto-calculated from lowest variant option price.</small>
+                                    <small class="text-muted">Otomatis dari harga termurah yang tampil di website. Bernilai 0 kalau belum ada harga di Mode yang dipilih.</small>
                                 </div>
                             </div>
                             @endif
@@ -528,17 +532,16 @@
                                                                 <input type="hidden"
                                                                     name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][id]"
                                                                     value="{{ $optionRow['id'] ?? '' }}">
+                                                                @php
+                                                                    $selectedErpProduct = $erpProductById->get((int) ($optionRow['product_id'] ?? 0));
+                                                                @endphp
                                                                 <select
                                                                     class="form-control select2-field option-product-select"
                                                                     name="variant_groups[{{ $groupIndex }}][options][{{ $optionIndex }}][product_id]">
                                                                     <option value="">Choose Product</option>
-                                                                    @foreach ($erpProducts as $erpProduct)
-                                                                        <option value="{{ $erpProduct->id }}"
-                                                                            {{ (int) ($optionRow['product_id'] ?? 0) === (int) $erpProduct->id ? 'selected' : '' }}>
-                                                                            {{ $erpProduct->name }} -
-                                                                            {{ $erpProduct->sku }}
-                                                                        </option>
-                                                                    @endforeach
+                                                                    @if ($selectedErpProduct)
+                                                                        <option value="{{ $selectedErpProduct->id }}" selected>{{ trim($selectedErpProduct->name . ' - ' . $selectedErpProduct->sku) }}</option>
+                                                                    @endif
                                                                 </select>
                                                             </td>
 
@@ -750,47 +753,83 @@
                 return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             }
 
-            function optionsHtml(items, selectedValue = '') {
-                return items.map(item => {
-                    const selected = String(item.id) === String(selectedValue) ? 'selected' : '';
-                    return `<option value="${escapeHtml(item.id)}" ${selected}>${escapeHtml(item.text)}</option>`;
-                }).join('');
+            // Jumlah hasil per halaman di dropdown ERP Product. Dropdown-nya tidak
+            // pernah merender seluruh katalog sekaligus, sisanya menyusul saat discroll.
+            const ERP_PRODUCT_PAGE_SIZE = 30;
+
+            // Satu produk ERP hanya boleh dipakai satu kali dalam satu variant group,
+            // jadi yang sudah dipilih baris lain disaring di sini — bukan lagi dengan
+            // menulis ulang isi <option> semua dropdown tiap kali ada perubahan.
+            function productIdsTakenByOtherRows($select) {
+                const currentValue = String($select.val() || '');
+                const taken = new Set();
+
+                $select.closest('.variant-group-item').find('.option-product-select').each(function() {
+                    const value = String($(this).val() || '');
+
+                    if (value && value !== currentValue) {
+                        taken.add(value);
+                    }
+                });
+
+                return taken;
+            }
+
+            function erpProductSearchAdapter($select) {
+                return {
+                    delay: 0,
+                    // Tidak ada request ke server: transport dibajak supaya select2
+                    // membaca array erpProducts yang sudah ada di halaman.
+                    transport: function(params, success) {
+                        const term = String(params.data.term || '').toLowerCase();
+                        const page = params.data.page || 1;
+                        const taken = productIdsTakenByOtherRows($select);
+                        const matched = erpProducts.filter(product =>
+                            !taken.has(String(product.id))
+                            && (term === '' || product.text.toLowerCase().includes(term))
+                        );
+                        const offset = (page - 1) * ERP_PRODUCT_PAGE_SIZE;
+
+                        success({
+                            results: matched.slice(offset, offset + ERP_PRODUCT_PAGE_SIZE),
+                            pagination: { more: matched.length > offset + ERP_PRODUCT_PAGE_SIZE }
+                        });
+
+                        return { abort: function() {} };
+                    }
+                };
             }
 
             function initSelect2(context) {
                 $(context).find('select.select2-field').each(function() {
-                    if ($(this).hasClass('select2-hidden-accessible')) return;
+                    const $select = $(this);
 
-                    $(this).select2({
+                    if ($select.hasClass('select2-hidden-accessible')) return;
+
+                    const config = {
                         width: '100%',
                         dropdownParent: form,
                         minimumResultsForSearch: 0
-                    });
+                    };
+
+                    if ($select.hasClass('option-product-select')) {
+                        config.ajax = erpProductSearchAdapter($select);
+                    }
+
+                    $select.select2(config);
                 });
             }
 
-            function refreshVariantProductOptions(group) {
-                const $group = $(group);
-                const selectedProductIds = $group.find('.option-product-select').map(function() {
-                    return String($(this).val() || '');
-                }).get().filter(Boolean);
+            // Dipakai untuk baris yang nilainya diisi dari server (lid option): opsinya
+            // belum ada di DOM karena dropdown tidak lagi memuat seluruh katalog.
+            function setProductSelectValue($select, id, label) {
+                const value = String(id);
 
-                $group.find('.option-product-select').each(function() {
-                    const $select = $(this);
-                    const currentValue = String($select.val() || '');
-                    const unavailableIds = new Set(
-                        selectedProductIds.filter(productId => productId !== currentValue)
-                    );
-                    const availableProducts = erpProducts.filter(product => {
-                        const productId = String(product.id);
-                        return productId === currentValue || !unavailableIds.has(productId);
-                    });
+                if (!$select.find('option').filter(function() { return this.value === value; }).length) {
+                    $select.append(new Option(label, value, true, true));
+                }
 
-                    $select.html(
-                        `<option value="">Choose Product</option>${optionsHtml(availableProducts, currentValue)}`
-                    );
-                    $select.val(currentValue);
-                });
+                $select.val(value);
             }
 
             function confirmRemoval(message, onConfirmed) {
@@ -1065,7 +1104,11 @@
                                 tbody.append(row);
                             } else {
                                 row = $(optionRowTemplate(groupIndex, idx));
-                                row.find('.option-product-select').val(sec.id);
+                                setProductSelectValue(
+                                    row.find('.option-product-select'),
+                                    sec.id,
+                                    [sec.name, sec.sku].filter(Boolean).join(' - ')
+                                );
                                 row.find('.option-product-select')
                                     .css('pointer-events', 'none')
                                     .css('background-color', '#e9ecef');
@@ -1115,10 +1158,6 @@
             }
             $(document).on('change', '.variant-group-item:first-child .option-product-select', function() {
                 scheduleSecondaryProductsFetch();
-            });
-
-            $(document).on('change', '.option-product-select', function() {
-                refreshVariantProductOptions($(this).closest('.variant-group-item'));
             });
 
             $(document).on('input', '.variant-group-item[data-group-index="0"] .option-alias-input', function() {
@@ -1172,7 +1211,6 @@
                             <input type="hidden" name="variant_groups[${groupIndex}][options][${optionIndex}][id]" value="">
                             <select class="form-control select2-field option-product-select" name="variant_groups[${groupIndex}][options][${optionIndex}][product_id]">
                                 <option value="">Choose Product</option>
-                                ${optionsHtml(erpProducts)}
                             </select>
                         </td>
 
@@ -1466,7 +1504,6 @@
                 group.data('option-index', optionIndex + 1);
 
                 initSelect2(group.find('.variant-option-list tr:last'));
-                refreshVariantProductOptions(group);
 
                 if (groupIndex === 0) {
                     $('#primaryImagesList').append(primaryImageCardTemplate(optionIndex, 'Option ' + (optionIndex + 1)));
@@ -1495,7 +1532,6 @@
 
                 confirmRemoval('Apakah Anda yakin ingin menghapus opsi ini?', function() {
                     tr.remove();
-                    refreshVariantProductOptions(group);
 
                     if (groupIndex === 0) {
                         $(`.primary-image-card[data-option-index="${optionIndex}"]`).remove();
@@ -1504,10 +1540,6 @@
                         renderCombinations();
                     }
                 });
-            });
-
-            $('.variant-group-item').each(function() {
-                refreshVariantProductOptions(this);
             });
 
             form.on('submit', function(e) {

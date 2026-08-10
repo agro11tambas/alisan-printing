@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\EcommerceProductCategoryStoreRequest;
 use App\Http\Requests\EcommerceProductCategoryUpdateRequest;
 use App\Models\EcommerceProductCategory;
+use App\Services\WebsiteRevalidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -14,6 +15,10 @@ use Yajra\DataTables\Facades\DataTables;
 
 class EcommerceProductCategoryController extends Controller
 {
+    public function __construct(private WebsiteRevalidator $websiteRevalidator)
+    {
+    }
+
     public function index()
     {
         $mainCategoryOptions = EcommerceProductCategory::root()
@@ -83,8 +88,16 @@ class EcommerceProductCategoryController extends Controller
             ->make(true);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        // Sub category punya form sendiri: cukup pilih main category-nya, tidak
+        // perlu lewat form main category lagi.
+        if ($request->input('type') === 'sub') {
+            return view('erp.pages.ecommerce-product-categories.create-subcategory', [
+                'mainCategoryOptions' => $this->mainCategoryOptions(),
+            ]);
+        }
+
         $subcategoryOptions = $this->subcategoryOptions();
 
         return view('erp.pages.ecommerce-product-categories.create-category', compact('subcategoryOptions'));
@@ -92,10 +105,11 @@ class EcommerceProductCategoryController extends Controller
 
     public function store(EcommerceProductCategoryStoreRequest $request)
     {
-        DB::transaction(function () use ($request) {
-            // Form ini cuma bikin main category; sub category-nya menyusul di syncSubcategories().
+        $parentId = $request->validated('parent_id');
+
+        DB::transaction(function () use ($request, $parentId) {
             $category = EcommerceProductCategory::create([
-                'parent_id' => null,
+                'parent_id' => $parentId,
                 'name' => $request->validated('name'),
                 'slug' => $request->validated('slug'),
                 'description' => $request->validated('description'),
@@ -104,16 +118,31 @@ class EcommerceProductCategoryController extends Controller
                 'sort_order' => 0,
             ]);
 
-            $this->syncSubcategories($category, $request);
+            // Struktur category dibatasi dua level, jadi sub category tidak
+            // punya sub category sendiri.
+            if (! $parentId) {
+                $this->syncSubcategories($category, $request);
+            }
+
+            $this->websiteRevalidator->categories();
         });
 
         return redirect()
-            ->route('erp.ecommerce-product-categories.index')
-            ->with('success', 'Ecommerce Product Category berhasil dibuat.');
+            ->route('erp.ecommerce-product-categories.index', $parentId ? ['tab' => 'sub'] : [])
+            ->with('success', $parentId
+                ? 'Ecommerce Product Sub Category berhasil dibuat.'
+                : 'Ecommerce Product Category berhasil dibuat.');
     }
 
     public function edit(EcommerceProductCategory $category)
     {
+        if ($category->parent_id) {
+            return view('erp.pages.ecommerce-product-categories.edit-subcategory', [
+                'category' => $category,
+                'mainCategoryOptions' => $this->mainCategoryOptions($category),
+            ]);
+        }
+
         $category->load('children');
 
         $subcategoryOptions = $this->subcategoryOptions($category);
@@ -123,8 +152,11 @@ class EcommerceProductCategoryController extends Controller
 
     public function update(EcommerceProductCategoryUpdateRequest $request, EcommerceProductCategory $category)
     {
-        DB::transaction(function () use ($request, $category) {
+        $parentId = $request->validated('parent_id');
+
+        DB::transaction(function () use ($request, $category, $parentId) {
             $category->update([
+                'parent_id' => $parentId,
                 'name' => $request->validated('name'),
                 'slug' => $request->validated('slug'),
                 'description' => $request->validated('description'),
@@ -133,12 +165,18 @@ class EcommerceProductCategoryController extends Controller
                 'sort_order' => 0,
             ]);
 
-            $this->syncSubcategories($category, $request);
+            if (! $parentId) {
+                $this->syncSubcategories($category, $request);
+            }
+
+            $this->websiteRevalidator->categories();
         });
 
         return redirect()
             ->route('erp.ecommerce-product-categories.index', $this->indexTabFor($category))
-            ->with('success', 'Ecommerce Product Category berhasil diperbarui.');
+            ->with('success', $parentId
+                ? 'Ecommerce Product Sub Category berhasil diperbarui.'
+                : 'Ecommerce Product Category berhasil diperbarui.');
     }
 
     public function destroy(EcommerceProductCategory $category)
@@ -149,6 +187,8 @@ class EcommerceProductCategoryController extends Controller
 
         $category->delete();
 
+        $this->websiteRevalidator->categories();
+
         return redirect()
             ->route('erp.ecommerce-product-categories.index', $this->indexTabFor($category))
             ->with('success', 'Ecommerce Product Category berhasil dihapus.');
@@ -158,6 +198,8 @@ class EcommerceProductCategoryController extends Controller
     {
         $category = EcommerceProductCategory::onlyTrashed()->findOrFail($id);
         $category->restore();
+
+        $this->websiteRevalidator->categories();
 
         return redirect()
             ->route('erp.ecommerce-product-categories.index', $this->indexTabFor($category))
@@ -235,6 +277,20 @@ class EcommerceProductCategoryController extends Controller
         }
 
         $category->unsetRelation('children');
+    }
+
+    /**
+     * Kandidat main category untuk form sub category: category tanpa parent,
+     * kecuali category yang sedang diedit sendiri.
+     *
+     * @return \Illuminate\Support\Collection<int, EcommerceProductCategory>
+     */
+    private function mainCategoryOptions(?EcommerceProductCategory $category = null)
+    {
+        return EcommerceProductCategory::root()
+            ->when($category, fn ($query) => $query->whereKeyNot($category->id))
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 
     /**

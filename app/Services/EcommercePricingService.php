@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\EcommerceProduct;
 use App\Models\PriceMode;
 use App\Models\ProductBundle;
 use App\Models\Products;
@@ -188,6 +189,46 @@ class EcommercePricingService
     public function defaultPrice(array $prices): ?array
     {
         return collect($prices)->firstWhere('slug', 'polosan') ?? ($prices[0] ?? null);
+    }
+
+    /**
+     * Harga termurah yang benar-benar tampil di website untuk satu produk
+     * ecommerce: harga default tiap opsi varian, dibatasi mode yang boleh dibeli.
+     *
+     * Nilainya 0 hanya kalau tidak ada satu pun opsi yang punya harga di mode
+     * tersebut — bukan karena kolom price opsi belum terisi.
+     */
+    public function basePriceFor(EcommerceProduct $product): float
+    {
+        $product->loadMissing([
+            'priceModes',
+            'variantGroups.options.product.unitConversions.prices.priceMode',
+        ]);
+
+        $unitId = (int) $product->unit_id;
+        $allowedModeIds = $product->priceModes->map(fn ($mode) => (int) $mode->id)->all();
+        $prices = [];
+
+        foreach ($product->variantGroups as $group) {
+            foreach ($group->options as $option) {
+                if (! $option->product) {
+                    continue;
+                }
+
+                $modePrices = array_filter(
+                    $this->productModePrices($option->product, $unitId, (float) $option->extra_price),
+                    fn (array $modePrice) => in_array($modePrice['price_mode_id'], $allowedModeIds, true)
+                );
+
+                $price = (float) ($this->defaultPrice(array_values($modePrices))['price'] ?? 0);
+
+                if ($price > 0) {
+                    $prices[] = $price;
+                }
+            }
+        }
+
+        return $prices === [] ? 0.0 : min($prices);
     }
 
     private function selectMode(array $prices, string $mode): ?array

@@ -14,6 +14,7 @@ use App\Models\Products;
 use App\Models\ProductBundle;
 use App\Models\ProductUnit;
 use App\Services\EcommercePricingService;
+use App\Services\WebsiteRevalidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,8 +22,10 @@ use Yajra\DataTables\Facades\DataTables;
 
 class EcommerceProductController extends Controller
 {
-    public function __construct(private EcommercePricingService $pricingService)
-    {
+    public function __construct(
+        private EcommercePricingService $pricingService,
+        private WebsiteRevalidator $websiteRevalidator,
+    ) {
     }
 
     public function index()
@@ -208,6 +211,8 @@ class EcommerceProductController extends Controller
                 $this->syncVariantCombinations($product, $request);
                 $this->syncBasePrice($product);
                 $this->syncGalleryImages($product, $request);
+
+                $this->websiteRevalidator->product($product->slug);
             });
 
             return redirect()
@@ -242,6 +247,10 @@ class EcommerceProductController extends Controller
     {
         try {
             DB::transaction(function () use ($request, $product) {
+                // Slug lama ikut di-revalidate supaya halaman produk dengan
+                // alamat lama tidak tertinggal di cache website.
+                $previousSlug = $product->slug;
+
                 $product->update($this->productPayload($request, $product));
 
                 $product->categories()->sync($request->category_ids);
@@ -250,6 +259,9 @@ class EcommerceProductController extends Controller
                 $this->syncVariantCombinations($product, $request);
                 $this->syncBasePrice($product);
                 $this->syncGalleryImages($product, $request);
+
+                $this->websiteRevalidator->product($previousSlug);
+                $this->websiteRevalidator->product($product->slug);
             });
 
             return redirect()
@@ -271,6 +283,8 @@ class EcommerceProductController extends Controller
             EcommerceVariantOption::whereIn('variant_group_id', $groupIds)->delete();
 
             $product->delete();
+
+            $this->websiteRevalidator->product($product->slug);
         });
 
         return redirect()
@@ -289,6 +303,8 @@ class EcommerceProductController extends Controller
             EcommerceVariantOption::withTrashed()
                 ->whereIn('variant_group_id', $groupIds)
                 ->restore();
+
+            $this->websiteRevalidator->product($product->slug);
         });
 
         return redirect()
@@ -554,23 +570,7 @@ class EcommerceProductController extends Controller
 
     private function syncBasePrice(EcommerceProduct $product): void
     {
-        $minPrice = 0;
-        
-        $firstGroup = $product->variantGroups()->first();
-        
-        if ($firstGroup) {
-            $optionPrices = \App\Models\EcommerceVariantOption::where('variant_group_id', $firstGroup->id)
-                ->pluck('price')
-                ->filter(function ($price) {
-                    return $price > 0;
-                });
-            
-            if ($optionPrices->isNotEmpty()) {
-                $minPrice = $optionPrices->min();
-            }
-        }
-
-        $product->update(['price' => $minPrice]);
+        $product->update(['price' => $this->pricingService->basePriceFor($product)]);
     }
 
     private function syncGalleryImages(EcommerceProduct $product, Request $request): void

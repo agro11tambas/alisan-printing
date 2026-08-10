@@ -467,6 +467,12 @@
                                     <input type="text" class="form-control" id="paid_amount" name="paid_amount"
                                         value="0">
                                 </div>
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="checkbox" id="pay_full">
+                                    <label class="form-check-label fw-semibold fs-12" for="pay_full">
+                                        Bayar Full
+                                    </label>
+                                </div>
                             </div>
                         </div>
                         <div class="row g-3 mb-2">
@@ -1015,7 +1021,10 @@
                 $('#customer_deposit_container').addClass('d-none');
                 $('#deposit_used').val('0');
                 $('#use_write_off_only').prop('checked', false);
-                $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(remainingAmount));
+
+                // 🔥 Paid amount default 0, diisi manual (kecuali centang "Bayar Full")
+                $('#pay_full').prop('checked', false).prop('disabled', false);
+                $('#paid_amount').prop('readonly', false).val('0');
                 $('#cash_bank_account_id').val('').trigger('change');
                 clearCashBankAccountError();
                 $('#customer_deposit_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(customerDeposit));
@@ -1142,6 +1151,40 @@
             $('#total_amount_display').text('Rp. ' + new Intl.NumberFormat('id-ID').format(remaining));
         }
 
+        // 🔥 Paid amount default 0 & diisi manual, kecuali checkbox "Bayar Full" dicentang
+        function isSalePayFull() {
+            return $('#pay_full').is(':checked');
+        }
+
+        function setSalePaidAmount(amount) {
+            $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(Math.max(0, amount)));
+        }
+
+        // Kalau "Bayar Full" aktif -> isi otomatis sisa tagihan (dikurangi deposit yang dipakai).
+        // Kalau tidak aktif -> biarkan nilai manual user, atau reset ke 0 saat forceReset.
+        function syncSalePaidAmount(forceReset = false) {
+            const depositUsed = $('#use_customer_deposit').is(':checked') ?
+                parseSalePaymentAmount($('#deposit_used').val()) :
+                0;
+            const maxPaid = Math.max(0, saleOrderOutstanding - depositUsed);
+
+            if (isSalePayFull()) {
+                setSalePaidAmount(maxPaid);
+            } else if (forceReset) {
+                setSalePaidAmount(0);
+            } else {
+                // biarkan nilai manual, cuma dijaga tidak melebihi sisa tagihan
+                setSalePaidAmount(Math.min(parseSalePaymentAmount($('#paid_amount').val()), maxPaid));
+            }
+
+            $('#paid_amount').prop('readonly', isSalePayFull());
+            updateSaleOrderPaymentSummary();
+        }
+
+        $('#pay_full').on('change', function() {
+            syncSalePaidAmount(true);
+        });
+
         paidInput.addEventListener("input", function() {
             let angka = this.value.replace(/\D/g, "") || "0";
             const depositUsed = $('#use_customer_deposit').is(':checked')
@@ -1158,25 +1201,18 @@
                 $('#customer_deposit_container').removeClass('d-none');
                 const maxDeposit = Math.min(saleOrderOutstanding, saleOrderCustomerDeposit);
                 $('#deposit_used').val(new Intl.NumberFormat('id-ID').format(maxDeposit));
-                $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(
-                    Math.max(0, saleOrderOutstanding - maxDeposit)
-                ));
             } else {
                 $('#customer_deposit_container').addClass('d-none');
                 $('#deposit_used').val('0');
-                $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(saleOrderOutstanding));
             }
-            updateSaleOrderPaymentSummary();
+            syncSalePaidAmount();
         });
 
         $('#deposit_used').on('input', function() {
             const maxDeposit = Math.min(saleOrderOutstanding, saleOrderCustomerDeposit);
             const depositUsed = Math.min(parseSalePaymentAmount(this.value), maxDeposit);
             this.value = new Intl.NumberFormat('id-ID').format(depositUsed);
-            $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(
-                Math.max(0, saleOrderOutstanding - depositUsed)
-            ));
-            updateSaleOrderPaymentSummary();
+            syncSalePaidAmount();
         });
 
         $('#use_write_off_only').on('change', function() {
@@ -1184,11 +1220,11 @@
                 $('#use_customer_deposit').prop('checked', false);
                 $('#customer_deposit_container').addClass('d-none');
                 $('#deposit_used').val('0');
-                $('#paid_amount').val('0');
+                $('#pay_full').prop('checked', false).prop('disabled', true);
             } else {
-                $('#paid_amount').val(new Intl.NumberFormat('id-ID').format(saleOrderOutstanding));
+                $('#pay_full').prop('disabled', false);
             }
-            updateSaleOrderPaymentSummary();
+            syncSalePaidAmount(true);
         });
 
         paidInput.addEventListener("input", function() {

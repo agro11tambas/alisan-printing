@@ -54,4 +54,18 @@ return [
         'connect_timeout' => (int) env('IMAGE_UPLOAD_CONNECT_TIMEOUT', 5),
     ],
 
+    /*
+     * Website Next.js menyimpan halaman katalog di cache-nya sendiri. Tanpa
+     * ping ke endpoint revalidate, perubahan produk/category di ERP baru
+     * kelihatan setelah cache halaman itu kedaluwarsa.
+     *
+     * `url` dipisah dari FRONTEND_WEBSITE_URL karena alamat yang dipakai
+     * customer bisa berbeda dari alamat server Next-nya (CDN/proxy di depan).
+     */
+    'website' => [
+        'url' => env('WEBSITE_REVALIDATE_URL', env('FRONTEND_WEBSITE_URL')),
+        'secret' => env('WEBSITE_REVALIDATE_SECRET'),
+        'timeout' => (int) env('WEBSITE_REVALIDATE_TIMEOUT', 5),
+    ],
+
 ];

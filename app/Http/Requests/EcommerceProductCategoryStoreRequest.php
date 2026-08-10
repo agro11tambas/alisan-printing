@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class EcommerceProductCategoryStoreRequest extends FormRequest
 {
@@ -29,6 +30,19 @@ class EcommerceProductCategoryStoreRequest extends FormRequest
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:4096'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
 
+            // Form sub category mengirim category_type=sub, jadi main category-nya
+            // wajib dipilih. Parent harus category tanpa parent supaya strukturnya
+            // tetap dua level.
+            'category_type' => ['nullable', 'in:main,sub'],
+            'parent_id' => [
+                'required_if:category_type,sub',
+                'nullable',
+                'integer',
+                Rule::exists('ecommerce_product_categories', 'id')
+                    ->whereNull('parent_id')
+                    ->whereNull('deleted_at'),
+            ],
+
             // Sub category yang dipilih dari category yang sudah ada
             'existing_child_ids' => ['nullable', 'array'],
             'existing_child_ids.*' => ['integer', 'exists:ecommerce_product_categories,id'],
@@ -53,6 +67,8 @@ class EcommerceProductCategoryStoreRequest extends FormRequest
             'image.mimes' => 'Image harus berformat jpeg, png, jpg, gif, atau webp.',
             'image.max' => 'Ukuran image maksimal 4MB.',
             'sort_order.integer' => 'Sort order harus berupa angka.',
+            'parent_id.required_if' => 'Main category wajib dipilih.',
+            'parent_id.exists' => 'Main category yang dipilih tidak ditemukan atau bukan main category.',
             'existing_child_ids.*.exists' => 'Sub category yang dipilih tidak ditemukan.',
             'subcategories.*.name.max' => 'Nama sub category maksimal 255 karakter.',
             'subcategories.*.image.image' => 'File image sub category harus berupa gambar.',

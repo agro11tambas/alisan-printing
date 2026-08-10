@@ -151,8 +151,11 @@
                                             placeholder="Search sub category...">
                                     </div>
                                     <div class="col-auto">
-                                        <span class="text-muted fs-12">Sub category dibuat dari form main
-                                            category.</span>
+                                        <a href="{{ route('erp.ecommerce-product-categories.create', ['type' => 'sub']) }}"
+                                            class="btn btn-primary text-nowrap">
+                                            <i class="feather-plus me-2"></i>
+                                            <span>Create Sub Category</span>
+                                        </a>
                                     </div>
                                 </div>
 

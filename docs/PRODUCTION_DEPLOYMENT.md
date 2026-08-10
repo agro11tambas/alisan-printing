@@ -91,6 +91,25 @@ Run the scheduler every minute:
 * * * * * cd /path/to/application && php artisan schedule:run >> /dev/null 2>&1
 ```
 
+## Website cache invalidation
+
+The Next.js storefront caches its rendered catalogue pages. Saving, deleting, or
+restoring an ecommerce product or category makes the ERP send `POST
+/api/revalidate` to the site, so the change appears within seconds instead of
+waiting for the page cache to expire on its own.
+
+Both sides must agree on the shared secret, otherwise the ERP keeps saving fine
+but the site stays stale until its own `revalidate` window lapses:
+
+- ERP `.env`: `WEBSITE_REVALIDATE_SECRET`, and `WEBSITE_REVALIDATE_URL` pointing
+  at an address that reaches the Next server directly — bypass the CDN, whose
+  cached copy the endpoint cannot clear.
+- Website environment: `REVALIDATE_SECRET`, the same value.
+
+The call happens after the ERP response is sent and failures are only logged, so
+a website outage never blocks a save. Check `laravel.log` for
+`Revalidate website` when the storefront looks stale.
+
 ## Diagnosing intermittent slowness
 
 Start with the built-in check, which reports the settings that have actually

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\WebsiteRevalidator;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
@@ -16,7 +17,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Singleton supaya beberapa perubahan dalam satu request digabung jadi
+        // satu panggilan revalidate ke website.
+        $this->app->singleton(WebsiteRevalidator::class);
     }
 
     /**
