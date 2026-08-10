@@ -467,9 +467,9 @@
                                     <input type="text" class="form-control" id="paid_amount" name="paid_amount"
                                         value="0">
                                 </div>
-                                <div class="form-check mt-1">
-                                    <input class="form-check-input" type="checkbox" id="pay_full">
-                                    <label class="form-check-label fw-semibold fs-12" for="pay_full">
+                                <div class="mt-1">
+                                    <input type="checkbox" class="btn-check" id="pay_full" autocomplete="off">
+                                    <label class="btn btn-sm btn-outline-primary fs-12" for="pay_full">
                                         Bayar Full
                                     </label>
                                 </div>
