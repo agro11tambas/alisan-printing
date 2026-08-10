@@ -4,9 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ProductionStock;
 use App\Models\ProductionStockSnapshot;
-use App\Models\StockOpnameProduction;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TakeProductionStockSnapshot extends Command
@@ -37,36 +35,9 @@ class TakeProductionStockSnapshot extends Command
                 $snapshot->opening_stock = ProductionStockSnapshot::resolveOpeningStock($productId, $today);
             }
 
-            // stock_in_today
-            $fromMaterial = DB::table('material_request_items')
-                ->where('product_id', $productId)
-                ->whereNull('deleted_at')
-                ->whereDate('created_at', $today)
-                ->sum('received_qty');
-
-            $fromInventory = DB::table('inventory_stock_in_histories_2 as h')
-                ->join('inventory_stock_ins_2 as s', 's.id', '=', 'h.inventory_stock_in_id')
-                ->join('inventory_items_2 as i', 'i.id', '=', 'h.inventory_item_id')
-                ->join('inventories_2 as inv', 'inv.id', '=', 'i.inventory_id')
-                ->where('i.product_id', $productId)
-                ->where('inv.status', 'Stock In Production')
-                ->whereNull('h.deleted_at')
-                ->whereNull('s.deleted_at')
-                ->whereDate('s.created_at', $today)
-                ->sum('h.stock_in');
-
-            $snapshot->stock_in_today = ($fromMaterial ?? 0) + ($fromInventory ?? 0);
-
-            // assign_today
-            $snapshot->assign_today = \App\Models\OrderProgressAssign::where('product_id', $productId)
-                ->whereNull('deleted_at')
-                ->whereDate('created_at', $today)
-                ->sum('assigned_quantity');
-
-            $snapshot->stock_opname_today = StockOpnameProduction::where('product_id', $productId)
-                ->whereDate('date', $today)
-                ->get()
-                ->sum(fn (StockOpnameProduction $stockOpname) => $stockOpname->signedQuantity());
+            $snapshot->stock_in_today = ProductionStockSnapshot::stockInTodayFor($productId, $today);
+            $snapshot->assign_today = ProductionStockSnapshot::assignTodayFor($productId, $today);
+            $snapshot->stock_opname_today = ProductionStockSnapshot::stockOpnameTodayFor($productId, $today);
 
             // closing_stock selalu dihitung ulang: opening - assign today + stock in today + stock opname today
             $snapshot->closing_stock = ProductionStockSnapshot::calculateClosingStock(

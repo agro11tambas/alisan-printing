@@ -6,9 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ProductionStock;
 use App\Models\ProductionStockSnapshot;
 use App\Models\Products;
-use App\Models\StockOpnameProduction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class ProductionStockSnapshotController extends Controller
@@ -104,36 +102,10 @@ class ProductionStockSnapshotController extends Controller
                 : (int) ($previousClosings[$productId] ?? ($isToday ? ($stock->available_quantity ?? 0) : 0));
 
             if ($isToday) {
-                // 🔥 Real-time, sama persis kayak dataReportItems
-
-                $fromMaterial = DB::table('material_request_items')
-                    ->where('product_id', $productId)
-                    ->whereNull('deleted_at')
-                    ->whereDate('created_at', $date)
-                    ->sum('received_qty');
-
-                $fromInventory = DB::table('inventory_stock_in_histories_2 as h')
-                    ->join('inventory_stock_ins_2 as s', 's.id', '=', 'h.inventory_stock_in_id')
-                    ->join('inventory_items_2 as i', 'i.id', '=', 'h.inventory_item_id')
-                    ->join('inventories_2 as inv', 'inv.id', '=', 'i.inventory_id')
-                    ->where('i.product_id', $productId)
-                    ->where('inv.status', 'Stock In Production')
-                    ->whereNull('h.deleted_at')
-                    ->whereNull('s.deleted_at')
-                    ->whereDate('s.created_at', $date)
-                    ->sum('h.stock_in');
-
-                $stockInToday = ($fromMaterial ?? 0) + ($fromInventory ?? 0);
-
-                $assignToday = \App\Models\OrderProgressAssign::where('product_id', $productId)
-                    ->whereNull('deleted_at')
-                    ->whereDate('created_at', $date)
-                    ->sum('assigned_quantity');
-
-                $stockOpnameToday = StockOpnameProduction::where('product_id', $productId)
-                    ->whereDate('date', $date)
-                    ->get()
-                    ->sum(fn (StockOpnameProduction $stockOpname) => $stockOpname->signedQuantity());
+                // 🔥 Real-time, dihitung ulang dari tabel sumber (rumus yang sama dengan stock:snapshot)
+                $stockInToday = ProductionStockSnapshot::stockInTodayFor($productId, $date);
+                $assignToday = ProductionStockSnapshot::assignTodayFor($productId, $date);
+                $stockOpnameToday = ProductionStockSnapshot::stockOpnameTodayFor($productId, $date);
             } else {
                 // 📦 Dari snapshot tersimpan
                 $stockInToday = $snap?->stock_in_today ?? 0;

@@ -72,6 +72,51 @@ class ProductionStockSnapshot extends Model
     }
 
     /**
+     * Nilai stock_in_today, assign_today, dan stock_opname_today dihitung ulang dari
+     * tabel sumbernya, bukan dari kolom yang tersimpan. Dipakai bareng-bareng oleh
+     * command stock:snapshot, command perbaikan, dan report supaya rumusnya cuma ada di satu tempat.
+     */
+    public static function stockInTodayFor(int $productId, CarbonInterface|string $date): int
+    {
+        $date = Carbon::parse($date)->toDateString();
+
+        $fromMaterial = DB::table('material_request_items')
+            ->where('product_id', $productId)
+            ->whereNull('deleted_at')
+            ->whereDate('created_at', $date)
+            ->sum('received_qty');
+
+        $fromInventory = DB::table('inventory_stock_in_histories_2 as h')
+            ->join('inventory_stock_ins_2 as s', 's.id', '=', 'h.inventory_stock_in_id')
+            ->join('inventory_items_2 as i', 'i.id', '=', 'h.inventory_item_id')
+            ->join('inventories_2 as inv', 'inv.id', '=', 'i.inventory_id')
+            ->where('i.product_id', $productId)
+            ->where('inv.status', 'Stock In Production')
+            ->whereNull('h.deleted_at')
+            ->whereNull('s.deleted_at')
+            ->whereDate('s.created_at', $date)
+            ->sum('h.stock_in');
+
+        return (int) ($fromMaterial ?? 0) + (int) ($fromInventory ?? 0);
+    }
+
+    public static function assignTodayFor(int $productId, CarbonInterface|string $date): int
+    {
+        return (int) OrderProgressAssign::where('product_id', $productId)
+            ->whereNull('deleted_at')
+            ->whereDate('created_at', Carbon::parse($date)->toDateString())
+            ->sum('assigned_quantity');
+    }
+
+    public static function stockOpnameTodayFor(int $productId, CarbonInterface|string $date): int
+    {
+        return (int) StockOpnameProduction::where('product_id', $productId)
+            ->whereDate('date', Carbon::parse($date)->toDateString())
+            ->get()
+            ->sum(fn (StockOpnameProduction $stockOpname) => $stockOpname->signedQuantity());
+    }
+
+    /**
      * Closing stock = opening stock - assign hari ini + stock in hari ini + stock opname hari ini.
      * stock_opname_today sudah bertanda (Loss bernilai negatif), jadi cukup ditambahkan.
      */
@@ -96,6 +141,39 @@ class ProductionStockSnapshot extends Model
         $this->save();
 
         return $this;
+    }
+
+    /**
+     * Closing sebuah tanggal berubah => opening semua snapshot SESUDAHNYA ikut berubah,
+     * karena opening tanggal N selalu turunan dari closing tanggal N-1.
+     * Tanpa ini, koreksi stock opname (apalagi yang backdate) berhenti di tanggalnya sendiri
+     * dan hilang begitu snapshot hari berikutnya sudah terlanjur dibuat.
+     */
+    public static function rebuildChainFrom(int $productId, CarbonInterface|string $date): void
+    {
+        $date = Carbon::parse($date)->startOfDay();
+
+        $previousClosing = static::where('product_id', $productId)
+            ->whereDate('snapshot_date', '<', $date)
+            ->orderByDesc('snapshot_date')
+            ->value('closing_stock');
+
+        $snapshots = static::where('product_id', $productId)
+            ->whereDate('snapshot_date', '>=', $date)
+            ->orderBy('snapshot_date')
+            ->get();
+
+        foreach ($snapshots as $snapshot) {
+            // Snapshot paling awal tidak punya acuan sebelumnya, opening-nya dibiarkan
+            // apa adanya (titik awal dari stok real waktu snapshot itu dibuat).
+            if ($previousClosing !== null) {
+                $snapshot->opening_stock = (int) $previousClosing;
+            }
+
+            $snapshot->refreshClosingStock();
+
+            $previousClosing = (int) $snapshot->closing_stock;
+        }
     }
 
     public static function adjustStockOpname(int $productId, CarbonInterface|string $date, int $adjustment): void
@@ -128,7 +206,9 @@ class ProductionStockSnapshot extends Model
         );
 
         $snapshot->increment($column, $adjustment);
-        $snapshot->refreshClosingStock();
+
+        // Bukan cuma baris tanggal ini: rantai ke depan harus ikut dihitung ulang.
+        static::rebuildChainFrom($productId, $date);
     }
 
     // ── Relations ──────────────────────────────────────────

@@ -117,6 +117,50 @@ class ProductionStockSnapshotTest extends TestCase
         $this->assertSame(100, $snapshot->fresh()->closing_stock);
     }
 
+    public function test_stock_opname_is_carried_forward_to_snapshots_that_already_exist(): void
+    {
+        ProductionStock::create([
+            'product_id' => 1,
+            'available_quantity' => 20000,
+        ]);
+
+        // Kondisi seperti di produksi: snapshot tanggal 8 dan tanggal 10 sudah terbentuk,
+        // tanggal 9 bolong karena command harian tidak jalan.
+        ProductionStockSnapshot::create([
+            'product_id' => 1,
+            'snapshot_date' => '2026-08-08',
+            'opening_stock' => 33000,
+            'closing_stock' => 33000,
+        ]);
+
+        ProductionStockSnapshot::create([
+            'product_id' => 1,
+            'snapshot_date' => '2026-08-10',
+            'opening_stock' => 33000,
+            'closing_stock' => 25000,
+            'assign_today' => 8000,
+        ]);
+
+        // Opname Loss 5000 di tanggal 8
+        StockOpnameProduction::create([
+            'product_id' => 1,
+            'production_warehouse_id' => 1,
+            'date' => '2026-08-08',
+            'change' => 'available_quantity',
+            'available_quantity' => 5000,
+            'status' => 'Loss',
+        ]);
+
+        $eight = ProductionStockSnapshot::whereDate('snapshot_date', '2026-08-08')->firstOrFail();
+        $this->assertSame(-5000, $eight->stock_opname_today);
+        $this->assertSame(28000, $eight->closing_stock); // 33000 - 0 + 0 - 5000
+
+        // Inti bug-nya: opname tanggal 8 harus ikut menggeser tanggal 10, bukan berhenti di tanggal 8.
+        $ten = ProductionStockSnapshot::whereDate('snapshot_date', '2026-08-10')->firstOrFail();
+        $this->assertSame(28000, $ten->opening_stock);
+        $this->assertSame(20000, $ten->closing_stock); // 28000 - 8000
+    }
+
     public function test_assign_changes_are_synchronized_to_the_snapshot(): void
     {
         ProductionStock::create([
