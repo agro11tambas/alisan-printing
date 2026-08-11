@@ -3530,14 +3530,23 @@ class SaleListController extends Controller
                                 ->first();
 
                             if ($existingDoItems->has($key)) {
-                                $existingDoItems[$key]->update([
+                                $existingDoItem = $existingDoItems[$key];
+
+                                // ready_qty adalah akumulasi hasil produksi yang sudah completed,
+                                // bukan turunan dari qty sale list. Jangan direset saat edit —
+                                // selalu ikut completed_quantity pada progress item.
+                                $readyQty = $progressItem
+                                    ? $progressItem->completed_quantity
+                                    : $existingDoItem->ready_qty;
+
+                                $existingDoItem->update([
                                     'order_progress_id'      => $orderProgress->id,
                                     'order_progress_item_id' => $progressItem?->id,
                                     'design_item_id'         => $progressItem?->design_item_id,
-                                    'status'                 => 'Pending',
+                                    'status'                 => $existingDoItem->shipped_qty >= $qty ? 'Shipped' : 'Pending',
                                     'progress_qty'           => $qty,
-                                    'ready_qty'              => 0,
-                                    'note'                   => $request->notes ?? $existingDoItems[$key]->note,
+                                    'ready_qty'              => $readyQty,
+                                    'note'                   => $request->notes ?? $existingDoItem->note,
                                 ]);
                             } else {
                                 DeliveryOrderItem::create([
