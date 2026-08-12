@@ -14,6 +14,7 @@ class OrderProgressAssignBatch extends Model
 
     protected $fillable = [
         'order_progress_id',
+        'machine_id',
         'assign_code',
         'assign_date',
         'note',
@@ -33,6 +34,11 @@ class OrderProgressAssignBatch extends Model
     public function assigns()
     {
         return $this->hasMany(OrderProgressAssign::class, 'assign_batch_id');
+    }
+
+    public function machine()
+    {
+        return $this->belongsTo(Machine::class, 'machine_id')->withTrashed();
     }
 
     public function creator()

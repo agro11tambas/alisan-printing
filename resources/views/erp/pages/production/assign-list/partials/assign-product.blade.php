@@ -2,9 +2,8 @@
     <table class="table table-small table-bordered">
         <thead>
             <tr>
-                <th style="width: 20%;">Operator</th>
                 <th style="width: 15%;">Preview</th>
-                <th style="width: 20%;">Product</th>
+                <th style="width: 35%;">Product</th>
                 <th style="width: 20%;">Assigned</th>
                 {{-- <th style="width: 10%;">Defect Product</th>
                 <th style="width: 10%;">Reject Product</th> --}}
@@ -22,15 +21,6 @@
                     }
                 @endphp
                 <tr>
-                    <td>
-                        <span class="fw-bold text-dark">
-                            @if ($assign->operator)
-                                {{ $assign->operator->name }}
-                            @else
-                                -
-                            @endif
-                        </span>
-                    </td>
                     {{-- PREVIEW BUTTON --}}
                     <td>
                         @if (!empty($images))

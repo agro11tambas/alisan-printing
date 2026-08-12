@@ -72,6 +72,12 @@
                                         </div>
                                     </div>
                                     <div class="row mb-2">
+                                        <div class="col-lg-2 fw-semibold">Mesin:</div>
+                                        <div class="col-lg-10 fw-semibold">
+                                            {{ $batch->machine->name ?? '-' }}
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
                                         <div class="col-lg-2 fw-semibold">
                                             <span class="text-primary">Order Note:</span>
                                         </div>
@@ -126,7 +132,7 @@
                                         <th>Reject</th>
                                         <th>Defect</th>
                                         {{-- <th>Remaining</th> --}}
-                                        <th>Operator</th>
+                                        <th style="width: 20%;">Operator</th>
                                         <th>Note</th>
                                     </tr>
                                 </thead>
@@ -159,7 +165,20 @@
                                             {{-- <td><span
                                                     class="text-muted">{{ number_format($remaining, 0, ',', '.') }}</span>
                                             </td> --}}
-                                            <td>{{ $assign->operator->name ?? '-' }}</td>
+                                            <td>
+                                                <select name="items[{{ $index }}][operator_id]"
+                                                    class="form-select operator-field" data-select2-selector="tag">
+                                                    <option value="">-- Choose Operator --</option>
+                                                    @foreach ($operators as $op)
+                                                        <option value="{{ $op->id }}"
+                                                            {{ old("items.$index.operator_id") == $op->id ? 'selected' : '' }}>
+                                                            {{ $op->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                <small class="text-danger error-operator d-none">Operator wajib
+                                                    dipilih</small>
+                                            </td>
                                             <td>
                                                 <input type="text" name="items[{{ $index }}][note]"
                                                     class="form-control" placeholder="Catatan singkat">
@@ -253,7 +272,28 @@
                     if ($(this).val().trim() === '') $(this).val('0');
                 });
 
-            $('#progressForm').on('submit', function() {
+            $('#progressForm').on('submit', function(e) {
+                // VALIDASI OPERATOR WAJIB DIPILIH
+                let valid = true;
+                $('.error-operator').addClass('d-none');
+
+                $('.operator-field').each(function() {
+                    if ($(this).val() === '') {
+                        $(this).closest('td').find('.error-operator').removeClass('d-none');
+                        valid = false;
+                    }
+                });
+
+                if (!valid) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Tidak Valid!',
+                        text: 'Operator wajib dipilih untuk setiap produk.',
+                    });
+                    return;
+                }
+
                 $('input[name$="[completed_quantity]"], input[name$="[reject_quantity]"], input[name$="[defect_quantity]"]')
                     .each(function() {
                         this.value = this.value.replace(/\./g, '');

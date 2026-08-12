@@ -32,6 +32,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Supplier Module', 'slug' => 'supplier'],
             ['name' => 'Invoice Module', 'slug' => 'invoice'],
             ['name' => 'Operator Module', 'slug' => 'operator'],
+            ['name' => 'Machine Module', 'slug' => 'machine'],
             ['name' => 'Adjustment Module', 'slug' => 'adjustment'],
             ['name' => 'Design Module', 'slug' => 'design'],
             ['name' => 'Settings', 'slug' => 'settings'],

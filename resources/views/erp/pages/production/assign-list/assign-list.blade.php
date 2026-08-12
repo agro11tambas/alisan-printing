@@ -38,6 +38,22 @@
             animation: fadeIn 0.3s ease-in;
         }
 
+        /* Group header per mesin */
+        #assignBatchTable tbody tr.machine-group-row td {
+            background-color: #eef2ff;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: .3px;
+            text-transform: uppercase;
+            color: #3454d1;
+            padding: 8px 10px;
+            border-top: 2px solid #3454d1;
+        }
+
+        #assignBatchTable tbody tr.machine-group-row:hover td {
+            background-color: #eef2ff;
+        }
+
         .static-action-menu {
             padding: 6px;
             min-width: 500px;
@@ -346,6 +362,36 @@
             let searchTimer = null;
             let currentRequest = null;
 
+            // 🔧 Sisipkan baris header per mesin. Data dari server sudah urut per mesin,
+            // jadi cukup ditandai setiap kali nama mesin berganti.
+            function renderMachineGroups() {
+                const $body = $(batchTable.table().body());
+                const colCount = batchTable.columns(':visible').count();
+
+                $body.find('tr.machine-group-row').remove();
+
+                let lastMachine = null;
+
+                $body.find('tr').each(function() {
+                    const $tr = $(this);
+                    if ($tr.hasClass('action-row')) return;
+
+                    const rowData = batchTable.row($tr).data();
+                    if (!rowData) return;
+
+                    const machine = rowData.machine || 'Tanpa Mesin';
+
+                    if (machine !== lastMachine) {
+                        $tr.before(
+                            `<tr class="machine-group-row">
+                                <td colspan="${colCount}">Mesin: ${machine}</td>
+                            </tr>`
+                        );
+                        lastMachine = machine;
+                    }
+                });
+            }
+
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
@@ -378,6 +424,7 @@
                                 let newNodes = batchTable.rows.add(response.data).nodes();
                                 $(batchTable.table().body()).append(newNodes);
                             }
+                            renderMachineGroups();
                             currentPage++;
                         } else {
                             hasMoreData = false;
@@ -415,6 +462,7 @@
                 allData = [];
                 currentPage = 0;
                 hasMoreData = true;
+                $(batchTable.table().body()).find('tr.machine-group-row').remove();
                 batchTable.clear().draw();
                 loadMoreData();
             }
@@ -422,6 +470,9 @@
             $('#assignBatchTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
                 let $tr = $(this);
+                // header grup mesin bukan baris data
+                if ($tr.hasClass('machine-group-row') || $tr.hasClass('action-row')) return;
+                if (!batchTable.row($tr).data()) return;
                 let row = batchTable.row($tr);
                 $('#assignBatchTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 

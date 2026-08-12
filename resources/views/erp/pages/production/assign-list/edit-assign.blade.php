@@ -87,6 +87,26 @@
                                             {{ $progress->order->notes ?? '-' }}
                                         </div>
                                     </div>
+
+                                    {{-- 🔧 Mesin dipilih sekali untuk satu batch assign (satu invoice) --}}
+                                    <div class="row mb-2">
+                                        <div class="col-lg-5 fw-semibold">
+                                            <label for="machine_id">Mesin:</label>
+                                        </div>
+                                        <div class="col-lg-7">
+                                            <select name="machine_id" id="machine_id" class="form-select machine-field"
+                                                data-select2-selector="tag">
+                                                <option value="">-- Choose Mesin --</option>
+                                                @foreach ($machines as $machine)
+                                                    <option value="{{ $machine->id }}"
+                                                        {{ old('machine_id', $batch->machine_id) == $machine->id ? 'selected' : '' }}>
+                                                        {{ $machine->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <small class="text-danger error-machine d-none">Mesin wajib dipilih</small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -151,7 +171,7 @@
                     {{-- === TABEL ASSIGN PER PRODUK === --}}
                     <div class="card">
                         <div class="card-header">
-                            <h4 class="card-title">Assign Operator per Product</h4>
+                            <h4 class="card-title">Assign Product</h4>
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
@@ -163,7 +183,6 @@
                                             <th>Assigning</th>
                                             {{-- <th>Available</th> --}}
                                             <th>Assign Now</th>
-                                            <th>Operator</th>
                                             <th>Note</th>
                                             <th>Bypass</th>
                                         </tr>
@@ -180,7 +199,6 @@
                                                     $item->id,
                                                 );
                                                 $assignedQty = $assign->assigned_quantity ?? 0;
-                                                $operatorId = $assign->operator_id ?? '';
                                                 $note = $assign->note ?? '';
                                             @endphp
                                             <tr>
@@ -236,21 +254,6 @@
                                                     </small>
                                                 </td>
                                                 <td>
-                                                    <select name="items[{{ $index }}][operator_id]"
-                                                        class="form-select operator-field" data-select2-selector="tag">
-                                                        <option value="">-- Choose Operator --</option>
-                                                        @foreach ($operators as $op)
-                                                            <option value="{{ $op->id }}"
-                                                                {{ $operatorId == $op->id ? 'selected' : '' }}>
-                                                                {{ $op->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                    <small class="text-danger error-operator d-none">
-                                                        Operator wajib dipilih
-                                                    </small>
-                                                </td>
-                                                <td>
                                                     <input type="text" name="items[{{ $index }}][note]"
                                                         class="form-control" value="{{ $note }}"
                                                         placeholder="Catatan singkat">
@@ -262,7 +265,7 @@
                                                         <input type="checkbox" class="form-check-input bypass-check"
                                                             name="items[{{ $index }}][bypass]" value="1"
                                                             id="bypass_{{ $index }}"
-                                                            {{ $assign && $assign->operator_id == null ? 'checked' : '' }}>
+                                                            {{ $assign && (int) $assign->assigned_quantity <= 0 ? 'checked' : '' }}>
                                                         <label for="bypass_{{ $index }}"
                                                             class="form-check-label small">Bypass</label>
                                                     </div>
@@ -329,25 +332,12 @@
                 const row = $(this).closest('tr');
                 const isBypass = $(this).is(':checked');
                 const qtyInput = row.find('input[name$="[assigned_quantity]"]');
-                const operatorSelect = row.find('.operator-field');
 
                 if (isBypass) {
                     qtyInput.val('0').prop('readonly', true);
-                    const name = operatorSelect.attr('name');
-                    row.find(`input[name="${name}"]`).remove();
-                    $('<input>').attr({
-                        type: 'hidden',
-                        name: name,
-                        value: ''
-                    }).appendTo(row);
-                    operatorSelect.prop('disabled', true).val('').trigger('change');
-                    row.find('.error-operator').addClass('d-none');
                     row.addClass('table-secondary');
                 } else {
                     qtyInput.prop('readonly', false);
-                    operatorSelect.prop('disabled', false);
-                    const name = operatorSelect.attr('name');
-                    row.find(`input[name="${name}"]`).remove();
                     row.removeClass('table-secondary');
                 }
             });
@@ -355,7 +345,7 @@
             $('#btnSubmitForm').on('click', function(e) {
                 e.preventDefault();
                 let valid = true;
-                $('.error-operator').addClass('d-none');
+                $('.error-machine').addClass('d-none');
 
                 // 🔹 Hitung semua row & row yang bypass
                 let totalRows = $('.bypass-check').length;
@@ -395,16 +385,16 @@
                     }
                 });
 
-                // 🔹 Validasi operator untuk row yang tidak bypass
-                $('.operator-field').each(function() {
-                    const row = $(this).closest('tr');
-                    const isBypass = row.find('.bypass-check').is(':checked');
-
-                    if (!isBypass && $(this).val() === '') {
-                        row.find('.error-operator').removeClass('d-none');
-                        valid = false;
-                    }
-                });
+                // 🔹 Validasi mesin (satu mesin untuk seluruh batch)
+                if ($('#machine_id').val() === '') {
+                    $('.error-machine').removeClass('d-none');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Tidak Valid!',
+                        text: 'Mesin wajib dipilih untuk batch assign ini.',
+                    });
+                    valid = false;
+                }
 
                 if (valid) $('#assignForm').submit();
             });
