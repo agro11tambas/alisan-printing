@@ -80,24 +80,22 @@ class ProductionStockSnapshot extends Model
     {
         $date = Carbon::parse($date)->toDateString();
 
-        $fromMaterial = DB::table('material_request_items')
-            ->where('product_id', $productId)
-            ->whereNull('deleted_at')
-            ->whereDate('created_at', $date)
-            ->sum('received_qty');
-
+        // Cuma stock in yang asalnya dari pembelian (PO/Purchase List) yang dihitung.
+        // Barang dari material request tidak dihitung sebagai stock in — itu cuma
+        // pindah gudang, bukan barang baru masuk.
         $fromInventory = DB::table('inventory_stock_in_histories_2 as h')
             ->join('inventory_stock_ins_2 as s', 's.id', '=', 'h.inventory_stock_in_id')
             ->join('inventory_items_2 as i', 'i.id', '=', 'h.inventory_item_id')
             ->join('inventories_2 as inv', 'inv.id', '=', 'i.inventory_id')
             ->where('i.product_id', $productId)
             ->where('inv.status', 'Stock In Production')
+            ->whereNotNull('i.purchase_item_id')
             ->whereNull('h.deleted_at')
             ->whereNull('s.deleted_at')
             ->whereDate('s.created_at', $date)
             ->sum('h.stock_in');
 
-        return (int) ($fromMaterial ?? 0) + (int) ($fromInventory ?? 0);
+        return (int) ($fromInventory ?? 0);
     }
 
     public static function assignTodayFor(int $productId, CarbonInterface|string $date): int
@@ -184,6 +182,11 @@ class ProductionStockSnapshot extends Model
     public static function adjustAssign(int $productId, CarbonInterface|string $date, int $adjustment): void
     {
         static::adjustColumn('assign_today', $productId, $date, $adjustment);
+    }
+
+    public static function adjustStockIn(int $productId, CarbonInterface|string $date, int $adjustment): void
+    {
+        static::adjustColumn('stock_in_today', $productId, $date, $adjustment);
     }
 
     protected static function adjustColumn(string $column, int $productId, CarbonInterface|string $date, int $adjustment): void

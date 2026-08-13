@@ -2,12 +2,20 @@
 
 @push('styles')
     <style>
-        #assignMachineTable {
+        @media (max-width: 768px) {
+
+            #assignBatchTable td.desktop-only,
+            #assignBatchTable th.desktop-only {
+                display: none !important;
+            }
+        }
+
+        #assignBatchTable {
             width: 100% !important;
             min-width: 0;
         }
 
-        #assignMachineTable_wrapper .dataTables_scrollBody {
+        #assignBatchTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
             height: 60vh !important;
             overflow-y: auto !important;
@@ -26,52 +34,33 @@
             max-height: calc(100vh - 260px) !important;
         }
 
-        #assignMachineTable tbody tr {
+        #assignBatchTable tbody tr {
             animation: fadeIn 0.3s ease-in;
-        }
-
-        /* Kolom mesin */
-        #assignMachineTable td.machine-cell {
-            background-color: #eef2ff;
-            border-top: 2px solid #3454d1;
-            color: #3454d1;
-            font-weight: 700;
-            font-size: 14px;
-            letter-spacing: .3px;
-            text-transform: uppercase;
-            vertical-align: top;
-            white-space: nowrap;
-        }
-
-        #assignMachineTable td {
-            vertical-align: top;
-        }
-
-        .machine-assign-table {
-            font-size: 13px;
-        }
-
-        .machine-assign-table th {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: .3px;
-            color: #6c757d;
         }
 
         .static-action-menu {
             padding: 6px;
-            min-width: 400px;
+            min-width: 500px;
         }
 
         .action-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 8px 8px;
         }
 
         .action-col {
             display: flex;
             flex-direction: column;
+        }
+
+        .action-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #6c757d;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 7px;
+            padding-bottom: 4px;
         }
 
         .dropdown-item {
@@ -199,13 +188,15 @@
 
                         <div class="table-responsive">
                             <div class="tab-content">
-                                {{-- Tab 1: Assign List per mesin --}}
+                                {{-- Tab 1: Assign List --}}
                                 <div class="tab-pane fade show active" id="assign-list" role="tabpanel">
-                                    <table class="table table-hover bg-transparent" id="assignMachineTable">
+                                    <table class="table table-hover bg-transparent" id="assignBatchTable">
                                         <thead>
                                             <tr>
-                                                <th style="width: 12%;">Mesin</th>
+                                                <th>Invoice Number</th>
+                                                <th>Customer</th>
                                                 <th>Assign List</th>
+                                                <th>Order Notes</th>
                                             </tr>
                                         </thead>
                                         <tbody></tbody>
@@ -220,6 +211,7 @@
                                                 <th style="60%">Product</th>
                                                 <th style="20%">SKU</th>
                                                 <th style="20%">Total Assigned Qty</th>
+                                                {{-- <th class="wd-100">Unit</th> --}}
                                             </tr>
                                         </thead>
                                     </table>
@@ -234,6 +226,42 @@
 @endsection
 
 @push('modals')
+    <div class="modal fade" id="modalDeleteAssign" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="formDeleteAssign" method="POST">
+                @csrf
+                @method('DELETE')
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title text-white">Hapus Assign Batch</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <p class="fw-semibold mb-1">
+                            Yakin ingin menghapus batch ini?
+                        </p>
+                        <p class="text-muted mb-2">
+                            Semua data <strong>assign</strong> di dalam batch ini juga akan ikut terhapus.
+                        </p>
+
+                        <div class="alert alert-warning mb-0">
+                            <strong>Perhatian:</strong> Tindakan ini tidak dapat dibatalkan.
+                        </div>
+
+                        <input type="hidden" id="delete_batch_id">
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger" id="btnConfirmDelete">
+                            <i class="feather-trash-2 me-2"></i>Hapus
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
     <div class="modal fade" id="modalPreviewDesign" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content">
@@ -260,11 +288,12 @@
     <script>
         $(document).ready(function() {
 
+            let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            const machineTable = $('#assignMachineTable').DataTable({
+            const batchTable = $('#assignBatchTable').DataTable({
                 processing: false,
                 serverSide: false,
                 scrollY: '60vh',
@@ -276,12 +305,37 @@
                 ordering: false,
                 order: [],
                 data: [],
-                columns: [{
-                        data: 'machine',
-                        className: 'machine-cell'
+                columns: [
+                    // {
+                    //     data: 'DT_RowIndex',
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
+                    {
+                        data: 'assign_code'
+                    },
+                    {
+                        data: 'customer'
                     },
                     {
                         data: 'assign_products'
+                    },
+                    {
+                        data: 'order_notes'
+                    },
+                    // {
+                    //     data: 'note'
+                    // },
+                    // {
+                    //     data: 'action',
+                    //     visible: false,
+                    //     orderable: false,
+                    //     searchable: false
+                    // },
+                    {
+                        data: 'created_at',
+                        visible: false,
+                        searchable: false
                     }
                 ],
                 language: {
@@ -289,6 +343,7 @@
                 }
             });
 
+            let searchTimer = null;
             let currentRequest = null;
 
             function loadMoreData() {
@@ -301,11 +356,11 @@
                 }
 
                 currentRequest = $.ajax({
-                    url: `/erp/productions/waiting-list/assign-list/machines`,
+                    url: `/erp/productions/waiting-list/assign-list/data`,
                     type: 'GET',
                     data: {
-                        start: currentPage * 20,
-                        length: 20,
+                        start: currentPage * 50,
+                        length: 50,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -316,14 +371,14 @@
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
-                            if (machineTable.rows().count() === 0) {
-                                machineTable.rows.add(response.data).draw(false);
+                            allData = allData.concat(response.data);
+                            if (batchTable.rows().count() === 0) {
+                                batchTable.rows.add(response.data).draw(false);
                             } else {
-                                let newNodes = machineTable.rows.add(response.data).nodes();
-                                $(machineTable.table().body()).append(newNodes);
+                                let newNodes = batchTable.rows.add(response.data).nodes();
+                                $(batchTable.table().body()).append(newNodes);
                             }
                             currentPage++;
-                            hasMoreData = !!response.has_more;
                         } else {
                             hasMoreData = false;
                         }
@@ -344,6 +399,7 @@
 
             loadMoreData();
 
+
             $('.dataTables_scrollBody').on('scroll', function() {
                 const scrollTop = $(this).scrollTop();
                 const scrollHeight = $(this)[0].scrollHeight;
@@ -356,22 +412,18 @@
             });
 
             function resetAndReload() {
+                allData = [];
                 currentPage = 0;
                 hasMoreData = true;
-                machineTable.clear().draw();
+                batchTable.clear().draw();
                 loadMoreData();
             }
 
-            // 🔹 Klik baris mesin → tampilkan action button (Print / Detail)
-            $('#assignMachineTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('.preview-btn').length) return;
-
+            $('#assignBatchTable tbody').on('click', 'tr', function(e) {
+                if ($(e.target).closest('td.dt-control').length) return;
                 let $tr = $(this);
-                if ($tr.hasClass('action-row')) return;
-                if (!machineTable.row($tr).data()) return;
-
-                let row = machineTable.row($tr);
-                $('#assignMachineTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+                let row = batchTable.row($tr);
+                $('#assignBatchTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
                     $tr.removeClass('action-shown');
@@ -379,26 +431,27 @@
                     let actionHtml = row.data().action;
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                        <tr class="action-row">
-                            <td colspan="${colCount}">
-                                <div class="d-flex justify-content-center py-1">${actionHtml}</div>
-                            </td>
-                        </tr>
-                    `);
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center py-1">${actionHtml}</div>
+                    </td>
+                </tr>
+            `);
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
                 }
             });
 
             $(document).on('click', function(e) {
-                if ($(e.target).closest('#assignMachineTable').length) return;
-                $('#assignMachineTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+                if ($(e.target).closest('#assignBatchTable').length) return;
+                $('#assignBatchTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
             // ==========================
-            // 🔹 FILTER HANDLER
+            // 🔹 FILTER HANDLER — SAME AS DESIGN LIST BEHAVIOR
             // ==========================
 
+            // Kalau dropdown filter berubah
             $('#filter').on('change', function() {
                 const val = $(this).val();
 
@@ -408,16 +461,34 @@
                     return;
                 }
 
+                // Kalau bukan custom → sembunyikan input tanggal dan reload
                 $('.custom-range').addClass('d-none');
                 resetAndReload();
             });
 
+            // Tombol Apply untuk custom range
             $('#apply-filter').on('click', function() {
                 resetAndReload();
             });
 
+            // Filter lain tetap auto reload
+            // $('#progress_status, #search_type, #search_keyword, #search_product, #start_date, #end_date')
+            //     .on('change keyup input paste', function() {
+            //         clearTimeout(searchTimer);
+            //         searchTimer = setTimeout(() => resetAndReload(), 200);
+            //     });
+
+            // ==========================
+            // 🔹 FILTER HANDLER — UPDATED
+            // ==========================
+
             // Dropdown: auto reload
             $('#progress_status, #search_type').on('change', function() {
+                resetAndReload();
+            });
+
+            // Custom date range button
+            $('#apply-filter').on('click', function() {
                 resetAndReload();
             });
 
@@ -435,6 +506,8 @@
                     resetAndReload();
                 }
             });
+
+
 
             let summaryTableInitialized = false;
             let summaryTable = null;
@@ -465,6 +538,9 @@
                         {
                             data: 'total_assigned_qty'
                         },
+                        // {
+                        //     data: 'unit'
+                        // }
                     ],
                     order: [
                         [2, 'desc']
@@ -499,6 +575,39 @@
 
         });
 
+        $(document).on('click', '.btn-open-delete-modal', function() {
+            const batchId = $(this).data('id');
+            const batchCode = $(this).data('code');
+
+            $('#formDeleteAssign').attr('action', `/erp/productions/assign-list/delete/${batchId}`);
+
+            $('#modalDeleteAssign .modal-title').text(`Hapus Assign Batch ${batchCode}`);
+
+            $('#delete_batch_id').val(batchId);
+
+            $('#modalDeleteAssign').modal('show');
+        });
+
+        $('#formDeleteAssign').on('submit', function() {
+            $('#btnConfirmDelete').prop('disabled', true).html(
+                '<span class="spinner-border spinner-border-sm me-2"></span> Menghapus...');
+        });
+
+        document.addEventListener('click', function(e) {
+            const el = e.target.closest('.assign-disabled');
+
+            if (el) {
+                const title = el.getAttribute('data-title') || 'Action';
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Tidak dapat ' + title,
+                    text: 'Assign ini sudah full progress, tidak bisa diubah lagi!',
+                    confirmButtonText: 'OK'
+                });
+            }
+        });
+
         // === SHOW PREVIEW MODAL ===
         $(document).on('click', '.preview-btn', function() {
             const images = $(this).data('images');
@@ -519,7 +628,7 @@
 
                     const html = `
                 <div class="image-item border rounded p-2">
-                    <img src="${fileUrl}"
+                    <img src="${fileUrl}" 
                          class="img-fluid rounded mb-1 preview-full"
                          style="cursor:pointer;"
                          data-full="${fileUrl}">

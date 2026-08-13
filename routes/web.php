@@ -382,12 +382,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::post('/erp/productions/assign-list/add-progress/{batch_id}', [HistoryProgressOrderController::class, 'store']);
 
             Route::get('/erp/productions/waiting-list/assign-list/data', [OrderProgressAssignController::class, 'dataAssignList']);
-            Route::get('/erp/productions/waiting-list/assign-list/machines', [OrderProgressAssignController::class, 'dataAssignListMachines']);
             Route::get('/erp/productions/waiting-list/assign-list', [OrderProgressAssignController::class, 'getAssignList']);
-
-            // 🔧 Assign List per mesin: detail (per invoice) & cetak struk thermal
-            Route::get('/erp/productions/assign-list/machine/{machine}/detail', [OrderProgressAssignController::class, 'machineDetail']);
-            Route::get('/erp/productions/assign-list/machine/{machine}/print', [OrderProgressAssignController::class, 'printMachine']);
             Route::delete('/erp/productions/assign-list/delete/{id}', [OrderProgressAssignController::class, 'delete']);
 
             Route::get('/erp/productions/waiting-list/assign-batch/{batch}/assigns', [OrderProgressAssignController::class, 'getAssignsByBatch']);

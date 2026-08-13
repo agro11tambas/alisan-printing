@@ -101,6 +101,7 @@
                                         <th>Stock After Sales</th>
                                         <th>Incoming Stock</th>
                                         <th>Outgoing Stock</th>
+                                        <th>Stock In Today</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -201,6 +202,9 @@
                     },
                     {
                         data: 'outgoing_stock'
+                    },
+                    {
+                        data: 'stock_in_today'
                     },
                     {
                         data: 'action',

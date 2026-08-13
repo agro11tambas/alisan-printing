@@ -805,6 +805,23 @@ class InventoryController extends Controller
             ->get()
             ->keyBy('product_id');
 
+        // Stock In hari ini di gudang: cuma barang dari pembelian (purchase_item_id
+        // terisi) yang masuk ke inventory warehouse. Barang dari material request
+        // tidak dihitung karena itu cuma pindah gudang, bukan barang baru masuk.
+        $stockInTodayByProduct = DB::table('inventory_stock_in_histories_2 as h')
+            ->join('inventory_stock_ins_2 as s', 's.id', '=', 'h.inventory_stock_in_id')
+            ->join('inventory_items_2 as i', 'i.id', '=', 'h.inventory_item_id')
+            ->whereIn('i.product_id', $productIds)
+            ->whereNotNull('i.purchase_item_id')
+            ->whereNotNull('i.inventory_warehouse_id')
+            ->whereNull('i.deleted_at')
+            ->whereNull('h.deleted_at')
+            ->whereNull('s.deleted_at')
+            ->whereDate('s.created_at', today()->toDateString())
+            ->groupBy('i.product_id')
+            ->selectRaw('i.product_id, SUM(h.stock_in) AS total')
+            ->pluck('total', 'i.product_id');
+
         return DataTables::of($reportItems)
             ->addIndexColumn()
             ->addColumn('name', fn($item) => e($item->product->name))
@@ -898,6 +915,9 @@ class InventoryController extends Controller
                 $outgoing = $inventoryFlowsByProduct->get($item->product_id)?->outgoing;
 
                 return number_format($outgoing ?? 0, 0, ',', '.');
+            })
+            ->addColumn('stock_in_today', function ($item) use ($stockInTodayByProduct) {
+                return number_format($stockInTodayByProduct->get($item->product_id) ?? 0, 0, ',', '.');
             })
             ->addColumn(
                 'avg_cost',

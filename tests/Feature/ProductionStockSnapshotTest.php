@@ -2,6 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Inventory;
+use App\Models\InventoryItem;
+use App\Models\InventoryStockIn;
+use App\Models\InventoryStockInHistory;
 use App\Models\OrderProgressAssign;
 use App\Models\ProductionStock;
 use App\Models\ProductionStockSnapshot;
@@ -56,6 +60,42 @@ class ProductionStockSnapshotTest extends TestCase
             $table->softDeletes();
         });
 
+        Schema::create('inventories_2', function (Blueprint $table) {
+            $table->id();
+            $table->string('status')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create('inventory_items_2', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('inventory_id');
+            $table->unsignedBigInteger('product_id');
+            $table->unsignedBigInteger('purchase_item_id')->nullable();
+            $table->unsignedBigInteger('material_request_item_id')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create('inventory_stock_ins_2', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('inventory_id');
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->date('change_date')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
+        Schema::create('inventory_stock_in_histories_2', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('inventory_stock_in_id');
+            $table->unsignedBigInteger('inventory_item_id');
+            $table->integer('stock_in')->default(0);
+            $table->text('notes')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+        });
+
         Schema::create('stock_opname_productions', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('product_id');
@@ -73,6 +113,10 @@ class ProductionStockSnapshotTest extends TestCase
     protected function tearDown(): void
     {
         Schema::dropIfExists('stock_opname_productions');
+        Schema::dropIfExists('inventory_stock_in_histories_2');
+        Schema::dropIfExists('inventory_stock_ins_2');
+        Schema::dropIfExists('inventory_items_2');
+        Schema::dropIfExists('inventories_2');
         Schema::dropIfExists('order_progress_histories_2');
         Schema::dropIfExists('order_progress_assigns');
         Schema::dropIfExists('production_stock_snapshots');
@@ -205,6 +249,120 @@ class ProductionStockSnapshotTest extends TestCase
         $assign->forceDelete();
 
         $this->assertSame(5, $snapshot->fresh()->assign_today);
+    }
+
+    public function test_stock_in_production_is_recorded_to_the_snapshot_immediately(): void
+    {
+        ProductionStock::create([
+            'product_id' => 1,
+            'available_quantity' => 100,
+        ]);
+
+        $inventory = Inventory::create(['status' => 'Stock In Production']);
+        $inventoryItem = InventoryItem::create([
+            'inventory_id' => $inventory->id,
+            'product_id' => 1,
+            'purchase_item_id' => 99,
+        ]);
+        $stockIn = InventoryStockIn::create([
+            'inventory_id' => $inventory->id,
+            'change_date' => today()->toDateString(),
+        ]);
+
+        $history = InventoryStockInHistory::create([
+            'inventory_stock_in_id' => $stockIn->id,
+            'inventory_item_id' => $inventoryItem->id,
+            'stock_in' => 250,
+        ]);
+
+        // Inti bug-nya: dulu baris snapshot ini baru terisi waktu command
+        // stock:snapshot jalan (00:00 / 23:59), bukan saat stock in-nya dilakukan.
+        $snapshot = ProductionStockSnapshot::whereDate('snapshot_date', today())->firstOrFail();
+        $this->assertSame(100, $snapshot->opening_stock);
+        $this->assertSame(250, $snapshot->stock_in_today);
+        $this->assertSame(350, $snapshot->closing_stock); // 100 - 0 + 250
+
+        // Kolom tersimpan dan hitung ulang dari tabel sumber harus sama angkanya
+        $this->assertSame(250, ProductionStockSnapshot::stockInTodayFor(1, today()));
+
+        // Koreksi qty ikut jalan
+        $history->update(['stock_in' => 200]);
+
+        $this->assertSame(200, $snapshot->fresh()->stock_in_today);
+        $this->assertSame(300, $snapshot->fresh()->closing_stock);
+
+        // Dibatalkan
+        $history->delete();
+
+        $this->assertSame(0, $snapshot->fresh()->stock_in_today);
+        $this->assertSame(100, $snapshot->fresh()->closing_stock);
+
+        $history->restore();
+
+        $this->assertSame(200, $snapshot->fresh()->stock_in_today);
+
+        // force delete setelah soft delete tidak boleh mengurangi dua kali
+        $history->delete();
+        $history->forceDelete();
+
+        $this->assertSame(0, $snapshot->fresh()->stock_in_today);
+    }
+
+    public function test_stock_in_to_the_warehouse_does_not_touch_the_production_snapshot(): void
+    {
+        ProductionStock::create([
+            'product_id' => 1,
+            'available_quantity' => 100,
+        ]);
+
+        // Status 'Stock In' = masuk gudang, bukan produksi.
+        $inventory = Inventory::create(['status' => 'Stock In']);
+        $inventoryItem = InventoryItem::create([
+            'inventory_id' => $inventory->id,
+            'product_id' => 1,
+            'purchase_item_id' => 99,
+        ]);
+        $stockIn = InventoryStockIn::create([
+            'inventory_id' => $inventory->id,
+            'change_date' => today()->toDateString(),
+        ]);
+
+        InventoryStockInHistory::create([
+            'inventory_stock_in_id' => $stockIn->id,
+            'inventory_item_id' => $inventoryItem->id,
+            'stock_in' => 250,
+        ]);
+
+        $this->assertNull(ProductionStockSnapshot::whereDate('snapshot_date', today())->first());
+    }
+
+    public function test_stock_in_that_came_from_a_material_request_is_not_counted(): void
+    {
+        ProductionStock::create([
+            'product_id' => 1,
+            'available_quantity' => 100,
+        ]);
+
+        $inventory = Inventory::create(['status' => 'Stock In Production']);
+        // Barang dari material request: purchase_item_id kosong, bukan barang beli baru.
+        $inventoryItem = InventoryItem::create([
+            'inventory_id' => $inventory->id,
+            'product_id' => 1,
+            'material_request_item_id' => 7,
+        ]);
+        $stockIn = InventoryStockIn::create([
+            'inventory_id' => $inventory->id,
+            'change_date' => today()->toDateString(),
+        ]);
+
+        InventoryStockInHistory::create([
+            'inventory_stock_in_id' => $stockIn->id,
+            'inventory_item_id' => $inventoryItem->id,
+            'stock_in' => 250,
+        ]);
+
+        $this->assertNull(ProductionStockSnapshot::whereDate('snapshot_date', today())->first());
+        $this->assertSame(0, ProductionStockSnapshot::stockInTodayFor(1, today()));
     }
 
     public function test_opening_stock_is_taken_from_the_previous_day_closing_stock(): void

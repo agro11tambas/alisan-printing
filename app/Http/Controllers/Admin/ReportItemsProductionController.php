@@ -86,20 +86,18 @@ class ReportItemsProductionController extends Controller
                 ) AS on_delivery_calc
             ")
             ->selectRaw("
-                COALESCE((SELECT SUM(received_qty) FROM material_request_items
-                    WHERE product_id = production_stocks.product_id AND deleted_at IS NULL
-                    AND DATE(created_at) = ?), 0)
-                + COALESCE((SELECT SUM(h.stock_in)
+                COALESCE((SELECT SUM(h.stock_in)
                     FROM inventory_stock_in_histories_2 h
                     INNER JOIN inventory_stock_ins_2 s ON s.id = h.inventory_stock_in_id
                     INNER JOIN inventory_items_2 i ON i.id = h.inventory_item_id
                     INNER JOIN inventories_2 inv ON inv.id = i.inventory_id
                     WHERE i.product_id = production_stocks.product_id
                     AND inv.status = 'Stock In Production'
+                    AND i.purchase_item_id IS NOT NULL
                     AND h.deleted_at IS NULL AND s.deleted_at IS NULL
                     AND DATE(s.created_at) = ?), 0)
                 AS stock_in_today_calc
-            ", [$today, $today])
+            ", [$today])
             ->selectRaw("
                 COALESCE((SELECT SUM(assigned_quantity) FROM order_progress_assigns
                     WHERE product_id = production_stocks.product_id AND deleted_at IS NULL

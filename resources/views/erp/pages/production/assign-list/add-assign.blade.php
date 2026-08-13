@@ -181,7 +181,7 @@
                     </div>
                     <div class="card">
                         <div class="card-header">
-                            <h4 class="card-title">Assign Product</h4>
+                            <h4 class="card-title">Assign Operator per Product</h4>
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive p-0">
@@ -193,8 +193,8 @@
                                             <th style="width: 5%;">Assigning</th>
                                             {{-- <th>Available</th> --}}
                                             <th style="width: 5%;">Assign Now</th>
-                                            <th style="width: 20%;">Mesin</th>
-                                            <th style="width: 25%;">Note</th>
+                                            <th style="width: 25%;">Operator</th>
+                                            <th style="width: 20%;">Note</th>
                                             <th style="width: 8%;">Delete</th>
                                         </tr>
                                     </thead>
@@ -306,19 +306,16 @@
                                                         {{ number_format($item->base_available_quantity, 0, ',', '.') }}
                                                     </small>
                                                 </td>
-                                                {{-- 🔧 Mesin dipilih per produk --}}
-                                                <td style="min-width: 180px;">
-                                                    <select name="items[{{ $index }}][machine_id]"
-                                                        class="form-select machine-field" data-select2-selector="tag">
-                                                        <option value="">-- Choose Mesin --</option>
-                                                        @foreach ($machines as $machine)
-                                                            <option value="{{ $machine->id }}"
-                                                                {{ old("items.$index.machine_id") == $machine->id ? 'selected' : '' }}>
-                                                                {{ $machine->name }}
+                                                <td>
+                                                    <select name="items[{{ $index }}][operator_id]"
+                                                        class="form-select operator-field" data-select2-selector="tag">
+                                                        <option value="">-- Choose Operator --</option>
+                                                        @foreach ($operators as $op)
+                                                            <option value="{{ $op->id }}">{{ $op->name }}
                                                             </option>
                                                         @endforeach
                                                     </select>
-                                                    <small class="text-danger error-machine d-none">Mesin wajib
+                                                    <small class="text-danger error-operator d-none">Operator wajib
                                                         dipilih</small>
                                                 </td>
                                                 <td>
@@ -418,7 +415,7 @@
             $('#btnSubmitForm').on('click', function(e) {
                 e.preventDefault();
                 let valid = true;
-                $('.error-machine').addClass('d-none');
+                $('.error-operator').addClass('d-none');
 
                 // 🔹 Hitung semua row dan yang bypass
                 let totalRows = $('.bypass-check').length;
@@ -458,23 +455,14 @@
                     }
                 });
 
-                // VALIDASI MESIN WAJIB PER PRODUK (kecuali row yang delete/bypass)
-                $('tbody tr').has('.machine-field').each(function() {
-                    const row = $(this);
+                // VALIDASI OPERATOR WAJIB JIKA TIDAK BYPASS
+                $('.operator-field').each(function() {
+                    const row = $(this).closest('tr');
                     const isBypass = row.find('.bypass-check').is(':checked');
-                    const machineSelect = row.find('.machine-field');
 
-                    if (isBypass) return;
-
-                    if (!machineSelect.val()) {
-                        row.find('.error-machine').removeClass('d-none');
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Tidak Valid!',
-                            text: 'Mesin wajib dipilih untuk setiap produk yang diassign.',
-                        });
+                    if (!isBypass && $(this).val() === '') {
+                        row.find('.error-operator').removeClass('d-none');
                         valid = false;
-                        return false; // break dari loop
                     }
                 });
 
@@ -484,18 +472,27 @@
             // AUTO DISABLE row yang bypass dari awal
             $('.bypass-check:checked').each(function() {
                 const row = $(this).closest('tr');
-                row.find('.assigned-input').val('0').prop('disabled', true);
+                const qtyInput = row.find('.assigned-input');
+                const operatorSelect = row.find('.operator-field');
+
+                qtyInput.val('0').prop('disabled', true);
+                operatorSelect.val('').trigger('change').prop('disabled', true);
+                row.find('.error-operator').addClass('d-none');
             });
 
             $(document).on('change', '.bypass-check', function() {
                 const row = $(this).closest('tr');
                 const isBypass = $(this).is(':checked');
                 const qtyInput = row.find('.assigned-input');
+                const operatorSelect = row.find('.operator-field');
 
                 if (isBypass) {
                     qtyInput.val('0').prop('disabled', true);
+                    operatorSelect.val('').trigger('change').prop('disabled', true);
+                    row.find('.error-operator').addClass('d-none');
                 } else {
                     qtyInput.prop('disabled', false);
+                    operatorSelect.prop('disabled', false);
                 }
             });
         });
