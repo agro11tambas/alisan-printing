@@ -100,26 +100,6 @@
                                             <span class="text-primary">{{ $progress->order->notes ?? '-' }}</span>
                                         </div>
                                     </div>
-
-                                    {{-- 🔧 Mesin dipilih sekali untuk satu batch assign (satu invoice) --}}
-                                    <div class="row mb-2">
-                                        <div class="col-lg-5 fw-semibold">
-                                            <label for="machine_id">Mesin:</label>
-                                        </div>
-                                        <div class="col-lg-7">
-                                            <select name="machine_id" id="machine_id" class="form-select machine-field"
-                                                data-select2-selector="tag">
-                                                <option value="">-- Choose Mesin --</option>
-                                                @foreach ($machines as $machine)
-                                                    <option value="{{ $machine->id }}"
-                                                        {{ old('machine_id') == $machine->id ? 'selected' : '' }}>
-                                                        {{ $machine->name }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <small class="text-danger error-machine d-none">Mesin wajib dipilih</small>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -213,7 +193,8 @@
                                             <th style="width: 5%;">Assigning</th>
                                             {{-- <th>Available</th> --}}
                                             <th style="width: 5%;">Assign Now</th>
-                                            <th style="width: 35%;">Note</th>
+                                            <th style="width: 20%;">Mesin</th>
+                                            <th style="width: 25%;">Note</th>
                                             <th style="width: 8%;">Delete</th>
                                         </tr>
                                     </thead>
@@ -324,6 +305,21 @@
                                                         Max Base:
                                                         {{ number_format($item->base_available_quantity, 0, ',', '.') }}
                                                     </small>
+                                                </td>
+                                                {{-- 🔧 Mesin dipilih per produk --}}
+                                                <td style="min-width: 180px;">
+                                                    <select name="items[{{ $index }}][machine_id]"
+                                                        class="form-select machine-field" data-select2-selector="tag">
+                                                        <option value="">-- Choose Mesin --</option>
+                                                        @foreach ($machines as $machine)
+                                                            <option value="{{ $machine->id }}"
+                                                                {{ old("items.$index.machine_id") == $machine->id ? 'selected' : '' }}>
+                                                                {{ $machine->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <small class="text-danger error-machine d-none">Mesin wajib
+                                                        dipilih</small>
                                                 </td>
                                                 <td>
                                                     <input type="text" name="items[{{ $index }}][note]"
@@ -462,16 +458,25 @@
                     }
                 });
 
-                // VALIDASI MESIN WAJIB (satu mesin untuk seluruh batch)
-                if ($('#machine_id').val() === '') {
-                    $('.error-machine').removeClass('d-none');
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Tidak Valid!',
-                        text: 'Mesin wajib dipilih untuk batch assign ini.',
-                    });
-                    valid = false;
-                }
+                // VALIDASI MESIN WAJIB PER PRODUK (kecuali row yang delete/bypass)
+                $('tbody tr').has('.machine-field').each(function() {
+                    const row = $(this);
+                    const isBypass = row.find('.bypass-check').is(':checked');
+                    const machineSelect = row.find('.machine-field');
+
+                    if (isBypass) return;
+
+                    if (!machineSelect.val()) {
+                        row.find('.error-machine').removeClass('d-none');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Tidak Valid!',
+                            text: 'Mesin wajib dipilih untuk setiap produk yang diassign.',
+                        });
+                        valid = false;
+                        return false; // break dari loop
+                    }
+                });
 
                 if (valid) $('#assignForm').submit();
             });

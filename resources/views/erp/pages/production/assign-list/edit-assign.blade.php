@@ -87,26 +87,6 @@
                                             {{ $progress->order->notes ?? '-' }}
                                         </div>
                                     </div>
-
-                                    {{-- 🔧 Mesin dipilih sekali untuk satu batch assign (satu invoice) --}}
-                                    <div class="row mb-2">
-                                        <div class="col-lg-5 fw-semibold">
-                                            <label for="machine_id">Mesin:</label>
-                                        </div>
-                                        <div class="col-lg-7">
-                                            <select name="machine_id" id="machine_id" class="form-select machine-field"
-                                                data-select2-selector="tag">
-                                                <option value="">-- Choose Mesin --</option>
-                                                @foreach ($machines as $machine)
-                                                    <option value="{{ $machine->id }}"
-                                                        {{ old('machine_id', $batch->machine_id) == $machine->id ? 'selected' : '' }}>
-                                                        {{ $machine->name }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <small class="text-danger error-machine d-none">Mesin wajib dipilih</small>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -183,6 +163,7 @@
                                             <th>Assigning</th>
                                             {{-- <th>Available</th> --}}
                                             <th>Assign Now</th>
+                                            <th style="width: 20%;">Mesin</th>
                                             <th>Note</th>
                                             <th>Bypass</th>
                                         </tr>
@@ -200,6 +181,8 @@
                                                 );
                                                 $assignedQty = $assign->assigned_quantity ?? 0;
                                                 $note = $assign->note ?? '';
+                                                // 🔧 mesin per produk, data lama fallback ke mesin batch
+                                                $selectedMachineId = $assign->machine_id ?? $batch->machine_id;
                                             @endphp
                                             <tr>
                                                 <input type="hidden" name="items[{{ $index }}][id]"
@@ -252,6 +235,21 @@
                                                         Current Stock Production:
                                                         {{ number_format($item->production_stock, 0, ',', '.') }}
                                                     </small>
+                                                </td>
+                                                {{-- 🔧 Mesin dipilih per produk --}}
+                                                <td style="min-width: 180px;">
+                                                    <select name="items[{{ $index }}][machine_id]"
+                                                        class="form-select machine-field" data-select2-selector="tag">
+                                                        <option value="">-- Choose Mesin --</option>
+                                                        @foreach ($machines as $machine)
+                                                            <option value="{{ $machine->id }}"
+                                                                {{ old("items.$index.machine_id", $selectedMachineId) == $machine->id ? 'selected' : '' }}>
+                                                                {{ $machine->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <small class="text-danger error-machine d-none">Mesin wajib
+                                                        dipilih</small>
                                                 </td>
                                                 <td>
                                                     <input type="text" name="items[{{ $index }}][note]"
@@ -385,16 +383,25 @@
                     }
                 });
 
-                // 🔹 Validasi mesin (satu mesin untuk seluruh batch)
-                if ($('#machine_id').val() === '') {
-                    $('.error-machine').removeClass('d-none');
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Tidak Valid!',
-                        text: 'Mesin wajib dipilih untuk batch assign ini.',
-                    });
-                    valid = false;
-                }
+                // 🔹 Validasi mesin per produk (kecuali row yang dibypass)
+                $('tbody tr').has('.machine-field').each(function() {
+                    const row = $(this);
+                    const isBypass = row.find('.bypass-check').is(':checked');
+                    const machineSelect = row.find('.machine-field');
+
+                    if (isBypass) return;
+
+                    if (!machineSelect.val()) {
+                        row.find('.error-machine').removeClass('d-none');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Tidak Valid!',
+                            text: 'Mesin wajib dipilih untuk setiap produk yang diassign.',
+                        });
+                        valid = false;
+                        return false; // stop loop
+                    }
+                });
 
                 if (valid) $('#assignForm').submit();
             });

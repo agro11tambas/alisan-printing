@@ -74,7 +74,15 @@
                                     <div class="row mb-2">
                                         <div class="col-lg-2 fw-semibold">Mesin:</div>
                                         <div class="col-lg-10 fw-semibold">
-                                            {{ $batch->machine->name ?? '-' }}
+                                            @php
+                                                // 🔧 mesin per produk, data lama fallback ke mesin batch
+                                                $batchMachineNames = $batch->assigns
+                                                    ->map(fn($assign) => $assign->machine->name ?? null)
+                                                    ->filter()
+                                                    ->unique()
+                                                    ->values();
+                                            @endphp
+                                            {{ $batchMachineNames->isNotEmpty() ? $batchMachineNames->implode(', ') : $batch->machine->name ?? '-' }}
                                         </div>
                                     </div>
                                     <div class="row mb-2">
@@ -127,6 +135,7 @@
                                 <thead>
                                     <tr>
                                         <th>Product</th>
+                                        <th>Mesin</th>
                                         <th>Assigned Qty</th>
                                         <th>Completed</th>
                                         <th>Reject</th>
@@ -143,6 +152,7 @@
                                         @endphp
                                         <tr>
                                             <td>{{ $assign->progressItem->product->name ?? '-' }}</td>
+                                            <td>{{ $assign->machine->name ?? ($batch->machine->name ?? '-') }}</td>
                                             <td>{{ number_format($assign->assigned_quantity, 0, ',', '.') }}
                                             </td>
                                             <td>

@@ -1441,7 +1441,7 @@ class SaleReturnController extends Controller
             $notes = $request->note_per_image ?? [];
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = base_path('uploads/payment_proofs');
+                $uploadPath = public_path('uploads/payment_proofs');
 
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
@@ -1738,7 +1738,7 @@ class SaleReturnController extends Controller
             }
 
             if ($request->hasFile('payment_proof')) {
-                $uploadPath = base_path('uploads/payment_proofs');
+                $uploadPath = public_path('uploads/payment_proofs');
                 if (!file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }

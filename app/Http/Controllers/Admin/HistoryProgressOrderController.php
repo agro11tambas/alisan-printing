@@ -133,6 +133,7 @@ class HistoryProgressOrderController extends Controller
     {
         $batch = OrderProgressAssignBatch::with([
             'assigns.progressItem.product',
+            'assigns.machine',
             'machine',
             'orderProgress.order.customer'
         ])->findOrFail($batch_id);
@@ -222,8 +223,8 @@ class HistoryProgressOrderController extends Controller
                     'defect_quantity'           => $defect,
                     'reject_quantity'           => $reject,
                     'operator_id'               => (int) $data['operator_id'],
-                    // 🔹 mesin diambil dari batch (data lama fallback ke mesin di assign)
-                    'machine_id'                => $assignBatch->machine_id ?? $assign->machine_id,
+                    // 🔹 mesin diambil per produk (assign), data lama fallback ke mesin batch
+                    'machine_id'                => $assign->machine_id ?? $assignBatch->machine_id,
                     'note'                      => $data['note'] ?? null,
                     'created_at'                => $request->progress_date,
                 ]);
