@@ -2,18 +2,20 @@
 
 @push('styles')
     <style>
-        #assignMachineTable {
+        @media (max-width: 768px) {
+
+            #assignBatchTable td.desktop-only,
+            #assignBatchTable th.desktop-only {
+                display: none !important;
+            }
+        }
+
+        #assignBatchTable {
             width: 100% !important;
             min-width: 0;
         }
 
-        #assignMachineTable_wrapper .dataTables_scrollBody {
-            background-image: none !important;
-            height: 60vh !important;
-            overflow-y: auto !important;
-        }
-
-        #assignSummaryTable_wrapper .dataTables_scrollBody {
+        #assignBatchTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
             height: 60vh !important;
             overflow-y: auto !important;
@@ -26,46 +28,18 @@
             max-height: calc(100vh - 260px) !important;
         }
 
-        #assignMachineTable tbody tr {
+        #assignBatchTable tbody tr {
             animation: fadeIn 0.3s ease-in;
-        }
-
-        /* Kolom mesin */
-        #assignMachineTable td.machine-cell {
-            background-color: #eef2ff;
-            border-top: 2px solid #3454d1;
-            color: #3454d1;
-            font-weight: 700;
-            font-size: 14px;
-            letter-spacing: .3px;
-            text-transform: uppercase;
-            vertical-align: top;
-            white-space: nowrap;
-        }
-
-        #assignMachineTable td {
-            vertical-align: top;
-        }
-
-        .machine-assign-table {
-            font-size: 13px;
-        }
-
-        .machine-assign-table th {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: .3px;
-            color: #6c757d;
         }
 
         .static-action-menu {
             padding: 6px;
-            min-width: 400px;
+            min-width: 500px;
         }
 
         .action-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 8px 8px;
         }
 
@@ -88,13 +62,27 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Assign List</h5>
+                <h5 class="m-b-10">Assign List — {{ $machineName }}</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Production</li>
-                <li class="breadcrumb-item">Assign List</li>
+                <li class="breadcrumb-item"><a href="/erp/productions/waiting-list/assign-list">Assign List</a></li>
+                <li class="breadcrumb-item">{{ $machineName }}</li>
             </ul>
+        </div>
+        <div class="page-header-right ms-auto">
+            <div class="page-header-right-items">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/erp/productions/waiting-list/assign-list" class="btn btn-light-brand">
+                        <i class="feather-arrow-left me-2"></i><span>Back</span>
+                    </a>
+                    <a href="/erp/productions/assign-list/machine/{{ $machineKey }}/print" target="_blank"
+                        class="btn btn-primary">
+                        <i class="feather-printer me-2"></i><span>Print</span>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 @endsection
@@ -182,49 +170,19 @@
                                 </div>
                             </div>
                         </div>
-                        <ul class="nav nav-tabs mb-2" id="assignTabs" role="tablist">
-                            <li class="nav-item">
-                                <a class="nav-link active" id="assign-list-tab" data-bs-toggle="tab" href="#assign-list"
-                                    role="tab">
-                                    Assign List
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" id="assign-summary-tab" data-bs-toggle="tab" href="#assign-summary"
-                                    role="tab">
-                                    Assign Summary
-                                </a>
-                            </li>
-                        </ul>
 
                         <div class="table-responsive">
-                            <div class="tab-content">
-                                {{-- Tab 1: Assign List per mesin --}}
-                                <div class="tab-pane fade show active" id="assign-list" role="tabpanel">
-                                    <table class="table table-hover bg-transparent" id="assignMachineTable">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 12%;">Mesin</th>
-                                                <th>Assign List</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody></tbody>
-                                    </table>
-                                </div>
-
-                                {{-- Tab 2: Assign Summary --}}
-                                <div class="tab-pane fade" id="assign-summary" role="tabpanel">
-                                    <table class="table table-hover bg-transparent" id="assignSummaryTable">
-                                        <thead>
-                                            <tr>
-                                                <th style="60%">Product</th>
-                                                <th style="20%">SKU</th>
-                                                <th style="20%">Total Assigned Qty</th>
-                                            </tr>
-                                        </thead>
-                                    </table>
-                                </div>
-                            </div>
+                            <table class="table table-hover bg-transparent" id="assignBatchTable">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice Number</th>
+                                        <th>Customer</th>
+                                        <th>Assign List</th>
+                                        <th>Order Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -234,6 +192,43 @@
 @endsection
 
 @push('modals')
+    <div class="modal fade" id="modalDeleteAssign" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="formDeleteAssign" method="POST">
+                @csrf
+                @method('DELETE')
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title text-white">Hapus Assign Batch</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <p class="fw-semibold mb-1">
+                            Yakin ingin menghapus batch ini?
+                        </p>
+                        <p class="text-muted mb-2">
+                            Semua data <strong>assign</strong> di dalam batch ini juga akan ikut terhapus.
+                        </p>
+
+                        <div class="alert alert-warning mb-0">
+                            <strong>Perhatian:</strong> Tindakan ini tidak dapat dibatalkan.
+                        </div>
+
+                        <input type="hidden" id="delete_batch_id">
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger" id="btnConfirmDelete">
+                            <i class="feather-trash-2 me-2"></i>Hapus
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalPreviewDesign" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content">
@@ -258,13 +253,16 @@
 
 @push('scripts')
     <script>
+        // 🔧 Halaman detail: assign list per invoice, khusus mesin ini
+        const MACHINE_KEY = @json($machineKey);
+
         $(document).ready(function() {
 
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            const machineTable = $('#assignMachineTable').DataTable({
+            const batchTable = $('#assignBatchTable').DataTable({
                 processing: false,
                 serverSide: false,
                 scrollY: '60vh',
@@ -277,11 +275,16 @@
                 order: [],
                 data: [],
                 columns: [{
-                        data: 'machine',
-                        className: 'machine-cell'
+                        data: 'assign_code'
+                    },
+                    {
+                        data: 'customer'
                     },
                     {
                         data: 'assign_products'
+                    },
+                    {
+                        data: 'order_notes'
                     }
                 ],
                 language: {
@@ -295,17 +298,17 @@
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                // 🚫 Batalkan request sebelumnya kalau masih jalan
                 if (currentRequest) {
                     currentRequest.abort();
                 }
 
                 currentRequest = $.ajax({
-                    url: `/erp/productions/waiting-list/assign-list/machines`,
+                    url: `/erp/productions/waiting-list/assign-list/data`,
                     type: 'GET',
                     data: {
-                        start: currentPage * 20,
-                        length: 20,
+                        start: currentPage * 50,
+                        length: 50,
+                        machine_id: MACHINE_KEY,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -316,11 +319,11 @@
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
-                            if (machineTable.rows().count() === 0) {
-                                machineTable.rows.add(response.data).draw(false);
+                            if (batchTable.rows().count() === 0) {
+                                batchTable.rows.add(response.data).draw(false);
                             } else {
-                                let newNodes = machineTable.rows.add(response.data).nodes();
-                                $(machineTable.table().body()).append(newNodes);
+                                let newNodes = batchTable.rows.add(response.data).nodes();
+                                $(batchTable.table().body()).append(newNodes);
                             }
                             currentPage++;
                             hasMoreData = !!response.has_more;
@@ -349,7 +352,6 @@
                 const scrollHeight = $(this)[0].scrollHeight;
                 const clientHeight = $(this).height();
 
-                // Load earlier (70%) without delay
                 if (scrollTop + clientHeight >= scrollHeight * 0.70) {
                     loadMoreData();
                 }
@@ -358,20 +360,18 @@
             function resetAndReload() {
                 currentPage = 0;
                 hasMoreData = true;
-                machineTable.clear().draw();
+                batchTable.clear().draw();
                 loadMoreData();
             }
 
-            // 🔹 Klik baris mesin → tampilkan action button (Print / Detail)
-            $('#assignMachineTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('.preview-btn').length) return;
-
+            // 🔹 Klik baris → tampilkan tombol aksi (Add Progress / Edit / Delete)
+            $('#assignBatchTable tbody').on('click', 'tr', function(e) {
+                if ($(e.target).closest('td.dt-control').length) return;
                 let $tr = $(this);
                 if ($tr.hasClass('action-row')) return;
-                if (!machineTable.row($tr).data()) return;
-
-                let row = machineTable.row($tr);
-                $('#assignMachineTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+                if (!batchTable.row($tr).data()) return;
+                let row = batchTable.row($tr);
+                $('#assignBatchTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
                 if ($tr.hasClass('action-shown')) {
                     $tr.removeClass('action-shown');
@@ -379,20 +379,20 @@
                     let actionHtml = row.data().action;
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                        <tr class="action-row">
-                            <td colspan="${colCount}">
-                                <div class="d-flex justify-content-center py-1">${actionHtml}</div>
-                            </td>
-                        </tr>
-                    `);
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center py-1">${actionHtml}</div>
+                    </td>
+                </tr>
+            `);
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
                 }
             });
 
             $(document).on('click', function(e) {
-                if ($(e.target).closest('#assignMachineTable').length) return;
-                $('#assignMachineTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+                if ($(e.target).closest('#assignBatchTable').length) return;
+                $('#assignBatchTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
             // ==========================
@@ -402,7 +402,6 @@
             $('#filter').on('change', function() {
                 const val = $(this).val();
 
-                // Kalau custom range → tampilkan input tanggal, tapi JANGAN reload dulu
                 if (val === 'custom') {
                     $('.custom-range').removeClass('d-none');
                     return;
@@ -416,87 +415,55 @@
                 resetAndReload();
             });
 
-            // Dropdown: auto reload
             $('#progress_status, #search_type').on('change', function() {
                 resetAndReload();
             });
 
-            // Keyword search → ENTER only
             $('#search_keyword, #search_product').on('keypress', function(e) {
-                if (e.which === 13) { // ENTER
+                if (e.which === 13) {
                     e.preventDefault();
                     resetAndReload();
                 }
             });
 
-            // Jika user menghapus text (kosong), reload otomatis
             $('#search_keyword, #search_product').on('input', function() {
                 if ($(this).val().trim() === '') {
                     resetAndReload();
                 }
             });
+        });
 
-            let summaryTableInitialized = false;
-            let summaryTable = null;
+        $(document).on('click', '.btn-open-delete-modal', function() {
+            const batchId = $(this).data('id');
+            const batchCode = $(this).data('code');
 
-            function initAssignSummaryTable() {
-                if (summaryTableInitialized) return;
+            $('#formDeleteAssign').attr('action', `/erp/productions/assign-list/delete/${batchId}`);
 
-                summaryTable = $('#assignSummaryTable').DataTable({
-                    processing: true,
-                    serverSide: false,
-                    ajax: {
-                        url: "/erp/productions/waiting-list/assign-list/summary",
-                        data: function(d) {
-                            d.filter = $('#filter').val();
-                            d.start_date = $('#start_date').val();
-                            d.end_date = $('#end_date').val();
-                            d.search_type = $('#search_type').val();
-                            d.search_keyword = $('#search_keyword').val();
-                            d.product = $('#search_product').val();
-                        }
-                    },
-                    columns: [{
-                            data: 'product_name'
-                        },
-                        {
-                            data: 'sku'
-                        },
-                        {
-                            data: 'total_assigned_qty'
-                        },
-                    ],
-                    order: [
-                        [2, 'desc']
-                    ],
-                    paging: false,
-                    searching: false,
-                    info: false,
-                    scrollY: '60vh',
-                    scrollCollapse: true,
+            $('#modalDeleteAssign .modal-title').text(`Hapus Assign Batch ${batchCode}`);
+
+            $('#delete_batch_id').val(batchId);
+
+            $('#modalDeleteAssign').modal('show');
+        });
+
+        $('#formDeleteAssign').on('submit', function() {
+            $('#btnConfirmDelete').prop('disabled', true).html(
+                '<span class="spinner-border spinner-border-sm me-2"></span> Menghapus...');
+        });
+
+        document.addEventListener('click', function(e) {
+            const el = e.target.closest('.assign-disabled');
+
+            if (el) {
+                const title = el.getAttribute('data-title') || 'Action';
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Tidak dapat ' + title,
+                    text: 'Assign ini sudah full progress, tidak bisa diubah lagi!',
+                    confirmButtonText: 'OK'
                 });
-
-                summaryTableInitialized = true;
             }
-
-            // Jika tab summary dibuka
-            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
-                if ($(e.target).attr('href') === '#assign-summary') {
-                    if (!summaryTableInitialized) {
-                        initAssignSummaryTable();
-                    } else {
-                        summaryTable.ajax.reload();
-                    }
-                }
-            });
-
-            $('#filter, #start_date, #end_date, #search_product')
-                .on('change keyup', function() {
-                    if (summaryTableInitialized) {
-                        summaryTable.ajax.reload();
-                    }
-                });
-
         });
 
         // === SHOW PREVIEW MODAL ===

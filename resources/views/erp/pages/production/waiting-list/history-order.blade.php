@@ -272,7 +272,7 @@
                         </div>
 
                         <div class="mb-2">
-                            <label class="form-label">Operator</label>
+                            <label class="form-label">Mesin</label>
                             <input type="text" id="operator_name" name="operator_name" class="form-control" readonly>
                         </div>
 
