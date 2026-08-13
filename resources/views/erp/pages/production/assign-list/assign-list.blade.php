@@ -60,12 +60,12 @@
 
         .static-action-menu {
             padding: 6px;
-            min-width: 400px;
+            min-width: 620px;
         }
 
         .action-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 8px 8px;
         }
 

@@ -12,11 +12,11 @@
         <tbody>
             @forelse ($groups as $group)
                 @php
-                    $batch = $group['batch'];
+                    // 🔧 Satu blok = satu customer (bisa gabungan beberapa invoice)
+                    $order = $group['order'];
                     $groupAssigns = $group['assigns'];
-                    $order = $batch?->orderProgress?->order;
-                    $businessName = $order?->customerAddress?->business_name;
                     $customerName = $order?->customer?->name;
+                    $contact = \App\Support\PhoneNumber::toLocalIndonesian($order?->order_whatsapp_number);
                     $orderNotes = $order?->notes;
                 @endphp
 
@@ -33,19 +33,10 @@
 
                     <tr>
                         @if ($index === 0)
-                            {{-- 🔹 Satu blok customer = satu invoice (batch) --}}
+                            {{-- 🔹 Cukup nama customer + kontak, tanpa nomor invoice --}}
                             <td rowspan="{{ $groupAssigns->count() }}" class="align-top">
-                                <div class="fw-bold text-dark">{{ $businessName ?? ($customerName ?? '-') }}</div>
-                                <div class="text-muted small">{{ $order?->order_number ?? '-' }}</div>
-                                @if ($businessName && $customerName)
-                                    <div class="text-muted small">{{ $customerName }}</div>
-                                @endif
-                                @if ($orderNotes)
-                                    <div class="text-primary small mt-1"
-                                        style="white-space: normal; word-break: break-word;">
-                                        {{ $orderNotes }}
-                                    </div>
-                                @endif
+                                <div class="fw-bold text-dark">{{ $customerName ?? '-' }}</div>
+                                <div class="text-muted small">{{ $contact ?: '-' }}</div>
                             </td>
                         @endif
 

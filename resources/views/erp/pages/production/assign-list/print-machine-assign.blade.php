@@ -1,7 +1,5 @@
 @php
     $paperWidth = in_array((int) ($paperWidth ?? 80), [58, 80]) ? (int) $paperWidth : 80;
-
-    $totalItems = $groups->sum(fn($group) => count($group['assigns']));
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -143,20 +141,14 @@
 
         @forelse ($groups as $group)
             @php
-                $batch = $group['batch'];
-                $order = $batch?->orderProgress?->order;
-                $businessName = $order?->customerAddress?->business_name;
+                // 🔧 Satu blok = satu customer: nama + kontak, tanpa nomor invoice
+                $order = $group['order'];
                 $customerName = $order?->customer?->name;
+                $contact = \App\Support\PhoneNumber::toLocalIndonesian($order?->order_whatsapp_number);
             @endphp
 
-            <div class="customer">{{ $businessName ?? ($customerName ?? '-') }}</div>
-            <div class="muted">{{ $order?->order_number ?? '-' }}</div>
-            @if ($businessName && $customerName)
-                <div class="muted">{{ $customerName }}</div>
-            @endif
-            @if ($order?->notes)
-                <div class="muted">Note Order: {{ $order->notes }}</div>
-            @endif
+            <div class="customer">{{ $customerName ?? '-' }}</div>
+            <div class="muted">{{ $contact ?: '-' }}</div>
 
             <div class="sep"></div>
 
@@ -180,13 +172,10 @@
             <div class="sep-solid"></div>
         @endforelse
 
+        {{-- 🔧 Total qty semua produk, produk secondary di bundle tidak dihitung --}}
         <div class="row">
-            <div>Total Invoice</div>
-            <div class="bold">{{ $groups->count() }}</div>
-        </div>
-        <div class="row">
-            <div>Total Item</div>
-            <div class="bold">{{ $totalItems }}</div>
+            <div class="bold">TOTAL QTY</div>
+            <div class="bold">{{ number_format($totalQty, 0, ',', '.') }}</div>
         </div>
 
         <div class="sep"></div>

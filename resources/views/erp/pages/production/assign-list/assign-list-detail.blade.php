@@ -34,12 +34,12 @@
 
         .static-action-menu {
             padding: 6px;
-            min-width: 500px;
+            min-width: 260px;
         }
 
         .action-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: 1fr;
             gap: 8px 8px;
         }
 
