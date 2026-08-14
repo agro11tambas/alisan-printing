@@ -60,6 +60,14 @@
             height: 44px !important;
         }
 
+        /* 🔹 Baris dengan Qty PL = 0 tidak ikut ke Purchase List ini */
+        .product-item.row-skipped .product-name-display,
+        .product-item.row-skipped .price,
+        .product-item.row-skipped .freight,
+        .product-item.row-skipped .total {
+            opacity: .55;
+        }
+
         .product-grid-header {
             font-size: 14px;
             color: #64748b;
@@ -581,7 +589,6 @@
             let subtotalProduct = 0,
                 subtotalFreight = 0;
 
-            let hasPositiveQty = false;
             $('#product_list .product-item').each(function() {
                 const row = $(this);
                 syncSelectedUnit(row);
@@ -598,6 +605,9 @@
 
                 const totalRow = qty * (price + freight);
                 row.find('.total').val(totalRow > 0 ? formatRibuan(totalRow.toFixed(2)) : '');
+
+                // Qty 0 = produk tidak ikut PL ini, sisanya tetap di PO.
+                row.toggleClass('row-skipped', qty <= 0);
             });
 
             const taxPercent = parseFloat(unformatRibuan($("#tax_percent").val())) || 0;
@@ -1003,40 +1013,33 @@
                     showError(product[0], 'Produk wajib dipilih');
                 }
 
-                // 🔹 Qty PL wajib diisi
+                // 🔹 Qty PL boleh 0 (baris tersebut nanti dilewati / tidak ikut ke PL anak)
                 const qtyVal = (qty.val() ?? '').trim();
                 const qtyNumber = parseFloat(unformatRibuan(qtyVal)) || 0;
                 const maxQty = parseFloat(qty.data('max')) || 0;
-                if (qtyVal === '') {
-                    isValid = false;
-                    showError(qty[0], 'Qty PL wajib diisi');
-                } else if (qtyNumber < 0 || qtyNumber > maxQty) {
+                if (qtyNumber < 0 || qtyNumber > maxQty) {
                     isValid = false;
                     showError(qty[0], `Qty harus antara 0 dan ${formatRibuan(maxQty)}`);
                 }
 
-                if (qtyNumber > 0) hasPositiveQty = true;
-
-                // 🔹 Price wajib diisi
-                const priceVal = (price.val() ?? '').trim();
-                const priceNumber = unformatRibuan(priceVal);
-                if (priceVal === '') {
-                    isValid = false;
-                    showError(price[0], 'Price wajib diisi');
-                } else if (priceNumber < 0) {
-                    isValid = false;
-                    showError(price[0], 'Price harus berupa angka valid (minimal 0)');
-                } else if (qtyNumber > 0 && priceNumber <= 0) {
-                    isValid = false;
-                    showError(price[0], 'Price harus lebih dari 0');
+                // Baris dengan qty 0 di-skip: produknya tetap jadi sisa PO dan bisa
+                // dibuatkan Purchase List anak berikutnya, jadi price/freight-nya
+                // tidak perlu divalidasi.
+                if (qtyNumber <= 0) {
+                    return;
                 }
 
-                // 🔹 Freight wajib diisi
-                const freightVal = (freight.val() ?? '').trim();
-                if (freightVal === '') {
+                hasPositiveQty = true;
+
+                // 🔹 Price & Freight boleh 0, tapi tidak boleh negatif
+                const priceNumber = unformatRibuan((price.val() ?? '').trim());
+                if (priceNumber < 0) {
                     isValid = false;
-                    showError(freight[0], 'Freight wajib diisi');
-                } else if (unformatRibuan(freightVal) < 0) {
+                    showError(price[0], 'Price harus berupa angka valid (minimal 0)');
+                }
+
+                const freightNumber = unformatRibuan((freight.val() ?? '').trim());
+                if (freightNumber < 0) {
                     isValid = false;
                     showError(freight[0], 'Freight harus berupa angka valid (minimal 0)');
                 }
@@ -1044,7 +1047,11 @@
 
             if (!hasPositiveQty) {
                 isValid = false;
-                Swal.fire('Gagal', 'Isi minimal satu quantity produk untuk Purchase List.', 'error');
+                Swal.fire(
+                    'Gagal',
+                    'Minimal satu produk harus punya qty lebih dari 0 untuk membuat Purchase List.',
+                    'error'
+                );
             }
 
             // 🔹 Jika tidak valid, cegah submit
@@ -1064,8 +1071,16 @@
             let ok = true;
 
             $('.qty, .price, .freight, .total').each(function() {
-                const val = $(this).val();
-                const num = parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+                const val = ($(this).val() ?? '').toString().trim();
+
+                // Field kosong (qty/price/freight/total baris yang di-skip) dianggap 0.
+                if (val === '') {
+                    $(this).val((0).toFixed(5));
+
+                    return;
+                }
+
+                const num = parseFloat(val.replace(/\./g, '').replace(',', '.'));
                 if (isNaN(num)) {
                     ok = false;
                     $(this).addClass('is-invalid');

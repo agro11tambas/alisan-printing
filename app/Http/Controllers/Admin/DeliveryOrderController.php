@@ -25,6 +25,7 @@ class DeliveryOrderController extends Controller
         $deliveryOrders = DeliveryOrder::with([
             'order.customer',
             'order.customerAddress',              // 🔥 dipakai kolom customer, tanpa ini N+1
+            'order.customerAccount',              // 🔥 dipakai untuk kontak (WhatsApp) di kolom customer
             'items.product',                      // 🔥 load semua item barang
             'items.orderProgress.items',          // 🔥 load progress per item
             'items.orderProgressItem',            // 🔥 dipakai partial product-list, relasi ini beda dari orderProgress.items
@@ -123,13 +124,16 @@ class DeliveryOrderController extends Controller
 
                 // $customer = e($do->order?->customer?->name ?? '-');
 
-                $businessName = e($do->order?->customerAddress?->business_name ?? '-');
+                // 🔧 Nama customer + kontak + branch (alamat tetap di kolom Address)
                 $customerName = e($do->order?->customer?->name ?? '-');
+                $customerContact = \App\Support\PhoneNumber::toLocalIndonesian($do->order?->order_whatsapp_number);
+                $businessName = $do->order?->customerAddress?->business_name;
 
                 $customerHtml = '
                     <div style="white-space: normal; word-break: break-word; max-width:180px;">
-                        <div class="fw-semibold">' . $businessName . '</div>
-                        <small class="text-muted">' . $customerName . '</small>
+                        <div class="fw-semibold">' . $customerName . '</div>
+                        <small class="text-muted d-block">' . e($customerContact ?: '-') . '</small>
+                        ' . ($businessName ? '<small class="text-muted d-block">' . e($businessName) . '</small>' : '') . '
                     </div>
                 ';
 

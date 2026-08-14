@@ -141,6 +141,8 @@ class WaitingListController extends Controller
             ->with([
                 'order.customer',
                 'order.customerAddress',
+                // 🔹 dipakai untuk kontak (WhatsApp) di kolom Customer
+                'order.customerAccount',
                 'items.assigns',
                 'items.designItem',
                 'items.product.productionStocks',
@@ -190,10 +192,15 @@ class WaitingListController extends Controller
                 <small class="text-muted">' . $date . '</small>
             </div>';
 
+            // 🔧 Nama customer + kontak + branch. Alamat lengkap tidak ditampilkan.
+            $customerContact = \App\Support\PhoneNumber::toLocalIndonesian($progress->order?->order_whatsapp_number);
+            $customerBranch = $progress->order?->customerAddress?->business_name;
+
             $customerHtml = '
                 <div style="white-space:normal; word-break:break-word; max-width:180px;">
-                    <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
-                    <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
+                    <div class="fw-semibold">' . e($progress->order?->customer?->name ?? '-') . '</div>
+                    <small class="text-muted d-block">' . e($customerContact ?: '-') . '</small>
+                    ' . ($customerBranch ? '<small class="text-muted d-block">' . e($customerBranch) . '</small>' : '') . '
                 </div>
             ';
 

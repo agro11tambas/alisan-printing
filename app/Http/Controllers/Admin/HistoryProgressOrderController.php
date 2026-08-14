@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\DefectProduct;
 use App\Models\DefectProductHistory;
 use App\Models\DeliveryOrderItem;
-use App\Models\Machine;
 use App\Models\Operator;
 use Illuminate\Http\Request;
 use App\Models\Order;
@@ -49,7 +48,7 @@ class HistoryProgressOrderController extends Controller
 
     public function dataOrderHistory(Request $request, $id)
     {
-        $batches = OrderProgressBatch::with(['user', 'histories.progressItem.product', 'histories.operators', 'histories.machines'])
+        $batches = OrderProgressBatch::with(['user', 'histories.progressItem.product', 'histories.operators'])
             ->where('order_progress_id', $id)
             ->latest();
 
@@ -134,15 +133,11 @@ class HistoryProgressOrderController extends Controller
     {
         $batch = OrderProgressAssignBatch::with([
             'assigns.progressItem.product',
-            'assigns.machine',
-            'machine',
+            'assigns.operator',
             'orderProgress.order.customer'
         ])->findOrFail($batch_id);
 
-        // 🔹 Operator dipilih saat input progress, bukan saat assign
-        $operators = Operator::where('active', 1)->orderBy('name')->get();
-
-        return view('erp.pages.production.assign-list.add-progress-order', compact('batch', 'operators'));
+        return view('erp.pages.production.assign-list.add-progress-order', compact('batch'));
     }
 
     public function store(Request $request, $batch_id)
@@ -152,7 +147,6 @@ class HistoryProgressOrderController extends Controller
             'note'          => 'nullable|string',
             'items'         => 'required|array',
             'items.*.assign_id'         => 'required|exists:order_progress_assigns,id',
-            'items.*.operator_id'        => 'required|exists:operators,id',
             'items.*.completed_quantity' => 'required|integer|min:0',
             'items.*.reject_quantity'     => 'nullable|integer|min:0',
             'items.*.defect_quantity'    => 'nullable|integer|min:0',
@@ -164,16 +158,22 @@ class HistoryProgressOrderController extends Controller
             $assignBatch = OrderProgressAssignBatch::with(['assigns.progressItem.product', 'orderProgress'])
                 ->findOrFail($batch_id);
 
-            // 🔹 Buat OrderProgressBatch (utama)
-            $mainBatch = OrderProgressBatch::create([
-                'order_progress_id' => $assignBatch->order_progress_id,
-                'user_id'           => Auth::id(),
-                'date'              => $request->progress_date,
-                'note'              => $request->note,
-            ]);
+            // 🔹 Validasi + ambil hanya baris yang diisi (total > 0). Baris 0 = bypass,
+            //    tidak disimpan ke database sama sekali.
+            $filledItems = [];
 
-            // 🔹 Validasi jumlah progress harus sama dengan assigned qty
             foreach ($request->items as $data) {
+                $completed = (int) ($data['completed_quantity'] ?? 0);
+                $reject    = (int) ($data['reject_quantity'] ?? 0);
+                $defect    = (int) ($data['defect_quantity'] ?? 0);
+
+                $totalInput = $completed + $reject + $defect;
+
+                // 🟡 baris kosong → dilewati
+                if ($totalInput <= 0) {
+                    continue;
+                }
+
                 $assign = OrderProgressAssign::findOrFail($data['assign_id']);
 
                 // ⛔ BLOKIR jika assign sudah full progress
@@ -185,240 +185,45 @@ class HistoryProgressOrderController extends Controller
                     return back()->with('error', "Produk {$assign->progressItem->product->name} sudah full progress, tidak bisa ditambahkan lagi.");
                 }
 
-                $completed = (int) ($data['completed_quantity'] ?? 0);
-                $reject    = (int) ($data['reject_quantity'] ?? 0);
-                $defect    = (int) ($data['defect_quantity'] ?? 0);
-
-                $totalInput = $completed + $reject + $defect;
-
                 if ($totalInput !== (int) $assign->assigned_quantity) {
                     DB::rollBack();
                     return back()
                         ->with('error', "Total progress untuk produk {$assign->progressItem->product->name} harus sama dengan Assigned Qty (" . number_format($assign->assigned_quantity, 0, ',', '.') . ").");
                 }
+
+                $filledItems[] = $data;
             }
 
-            foreach ($request->items as $data) {
-                $assign = OrderProgressAssign::with('progressItem.product')->findOrFail($data['assign_id']);
-
-                $this->recordProgressForAssign(
-                    $assign,
-                    $data,
-                    $mainBatch,
-                    $assignBatch,
-                    $request->progress_date
-                );
+            if (empty($filledItems)) {
+                DB::rollBack();
+                return back()->with('error', 'Tidak ada progress yang diisi.');
             }
 
-            // 🔹 Update Assign Batch (cek semua assign status)
-            $batchAllCompleted = $assignBatch->assigns()->where('status', '!=', 'completed')->doesntExist();
-
-            $assignBatch->update([
-                'last_progress_date' => $request->progress_date,
-                'note'               => $assignBatch->note
-                    ? ($assignBatch->note . "\n" . ($request->note ?? ''))
-                    : ($request->note ?? null),
-                'status'             => $batchAllCompleted ? 'completed' : 'progress',
+            // 🔹 Buat OrderProgressBatch (utama)
+            $mainBatch = OrderProgressBatch::create([
+                'order_progress_id' => $assignBatch->order_progress_id,
+                'user_id'           => Auth::id(),
+                'date'              => $request->progress_date,
+                'note'              => $request->note,
             ]);
 
-            DB::commit();
-            return redirect('/erp/productions/waiting-list/assign-list')->with('success', 'Progress batch berhasil ditambahkan.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-        }
-    }
+            foreach ($filledItems as $data) {
+                $assign = OrderProgressAssign::with('progressItem.product')->findOrFail($data['assign_id']);
+                $progressItem = $assign->progressItem;
+                $product = $progressItem->product;
 
-    /**
-     * 🔧 Add Progress per MESIN: semua assign mesin tsb dari berbagai invoice.
-     */
-    public function createByMachine(Request $request, $machine)
-    {
-        $machineKey  = $machine === 'none' ? 'none' : (int) $machine;
-        $machineId   = $machineKey === 'none' ? null : $machineKey;
-        $machineName = $machineKey === 'none' ? 'Tanpa Mesin' : Machine::withTrashed()->findOrFail($machineId)->name;
+                $completed = (int) ($data['completed_quantity'] ?? 0);
+                $reject    = (int) ($data['reject_quantity'] ?? 0);
+                $defect    = (int) ($data['defect_quantity'] ?? 0);
 
-        $assigns = OrderProgressAssign::query()
-            ->when(
-                is_null($machineId),
-                fn($q) => $q->whereNull('machine_id'),
-                fn($q) => $q->where('machine_id', $machineId)
-            )
-            // 🔹 hanya yang belum full progress (data lama bisa NULL)
-            ->where(function ($q) {
-                $q->whereNull('change_quantity')
-                    ->orWhereColumn('change_quantity', '<', 'assigned_quantity');
-            })
-            ->with([
-                'progressItem.product',
-                'batch.orderProgress.order.customer',
-                'batch.orderProgress.order.customerAddress',
-            ])
-            ->get();
+                $change = $completed + $reject + $defect;
 
-        $groups = $assigns
-            ->groupBy('assign_batch_id')
-            ->map(fn($items) => [
-                'batch'   => $items->first()->batch,
-                'assigns' => $items->values(),
-            ])
-            ->sortBy(fn($group) => optional($group['batch'])->assign_date . '|' . optional($group['batch'])->id)
-            ->values();
+                // update assign quantities
+                $assign->increment('change_quantity', $change);
+                $progressItem->increment('completed_quantity', $completed);
 
-        // 🔹 Operator dipilih saat input progress, bukan saat assign
-        $operators = Operator::where('active', 1)->orderBy('name')->get();
-
-        return view('erp.pages.production.assign-list.add-progress-machine', compact(
-            'groups',
-            'operators',
-            'machineKey',
-            'machineName'
-        ));
-    }
-
-    /**
-     * 🔧 Simpan progress per MESIN. Satu OrderProgressBatch dibuat per invoice
-     *    (order progress) yang tersentuh, karena batch progress terikat ke invoice.
-     */
-    public function storeByMachine(Request $request, $machine)
-    {
-        $request->validate([
-            'progress_date' => 'required|date',
-            'note'          => 'nullable|string',
-            'items'         => 'required|array',
-            'items.*.assign_id'          => 'required|exists:order_progress_assigns,id',
-            'items.*.operator_id'        => 'required|exists:operators,id',
-            'items.*.completed_quantity' => 'required|integer|min:0',
-            'items.*.reject_quantity'    => 'nullable|integer|min:0',
-            'items.*.defect_quantity'    => 'nullable|integer|min:0',
-            'items.*.note'               => 'nullable|string',
-        ]);
-
-        $machineKey = $machine === 'none' ? 'none' : (int) $machine;
-        $machineId  = $machineKey === 'none' ? null : $machineKey;
-
-        DB::beginTransaction();
-        try {
-            $assigns = OrderProgressAssign::with(['progressItem.product', 'batch'])
-                ->whereIn('id', collect($request->items)->pluck('assign_id'))
-                ->get()
-                ->keyBy('id');
-
-            // 🔹 Validasi sebelum menyimpan apa pun
-            foreach ($request->items as $data) {
-                $assign = $assigns->get((int) $data['assign_id']);
-
-                if (!$assign) {
-                    DB::rollBack();
-                    return back()->with('error', 'Data assign tidak ditemukan.');
-                }
-
-                // ⛔ pastikan assign memang milik mesin ini
-                if ((is_null($machineId) && !is_null($assign->machine_id))
-                    || (!is_null($machineId) && (int) $assign->machine_id !== $machineId)
-                ) {
-                    DB::rollBack();
-                    return back()->with('error', "Produk {$assign->progressItem->product->name} bukan milik mesin ini.");
-                }
-
-                // ⛔ BLOKIR jika assign sudah full progress
-                if (
-                    ($assign->completed_quantity + $assign->reject_quantity + $assign->defect_quantity)
-                    >= $assign->assigned_quantity
-                ) {
-                    DB::rollBack();
-                    return back()->with('error', "Produk {$assign->progressItem->product->name} sudah full progress, tidak bisa ditambahkan lagi.");
-                }
-
-                $totalInput = (int) ($data['completed_quantity'] ?? 0)
-                    + (int) ($data['reject_quantity'] ?? 0)
-                    + (int) ($data['defect_quantity'] ?? 0);
-
-                if ($totalInput !== (int) $assign->assigned_quantity) {
-                    DB::rollBack();
-                    return back()->with('error', "Total progress untuk produk {$assign->progressItem->product->name} harus sama dengan Assigned Qty (" . number_format($assign->assigned_quantity, 0, ',', '.') . ").");
-                }
-            }
-
-            $mainBatches  = [];  // order_progress_id => OrderProgressBatch
-            $assignBatches = []; // assign_batch_id   => OrderProgressAssignBatch
-
-            foreach ($request->items as $data) {
-                $assign      = $assigns->get((int) $data['assign_id']);
-                $assignBatch = $assign->batch;
-
-                $assignBatches[$assignBatch->id] = $assignBatch;
-
-                $orderProgressId = $assignBatch->order_progress_id;
-
-                if (!isset($mainBatches[$orderProgressId])) {
-                    $mainBatches[$orderProgressId] = OrderProgressBatch::create([
-                        'order_progress_id' => $orderProgressId,
-                        'user_id'           => Auth::id(),
-                        'date'              => $request->progress_date,
-                        'note'              => $request->note,
-                    ]);
-                }
-
-                $this->recordProgressForAssign(
-                    $assign,
-                    $data,
-                    $mainBatches[$orderProgressId],
-                    $assignBatch,
-                    $request->progress_date
-                );
-            }
-
-            // 🔹 Update status tiap assign batch yang tersentuh
-            foreach ($assignBatches as $assignBatch) {
-                $batchAllCompleted = $assignBatch->assigns()->where('status', '!=', 'completed')->doesntExist();
-
-                $assignBatch->update([
-                    'last_progress_date' => $request->progress_date,
-                    'note'               => $assignBatch->note
-                        ? ($assignBatch->note . "\n" . ($request->note ?? ''))
-                        : ($request->note ?? null),
-                    'status'             => $batchAllCompleted ? 'completed' : 'progress',
-                ]);
-            }
-
-            DB::commit();
-
-            return redirect('/erp/productions/waiting-list/assign-list')
-                ->with('success', 'Progress berhasil ditambahkan.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 🔧 Catat progress untuk satu assign (history, stok, reject/defect, status).
-     *
-     * Dipakai bersama oleh input progress per batch (per invoice) dan per mesin.
-     */
-    private function recordProgressForAssign(
-        OrderProgressAssign $assign,
-        array $data,
-        OrderProgressBatch $mainBatch,
-        OrderProgressAssignBatch $assignBatch,
-        $progressDate
-    ) {
-        $progressItem = $assign->progressItem;
-        $product = $progressItem->product;
-
-        $completed = (int) ($data['completed_quantity'] ?? 0);
-        $reject    = (int) ($data['reject_quantity'] ?? 0);
-        $defect    = (int) ($data['defect_quantity'] ?? 0);
-
-        $change = $completed + $reject + $defect;
-
-        // update assign quantities
-        $assign->increment('change_quantity', $change);
-        $progressItem->increment('completed_quantity', $completed);
-
-        // ================== HISTORY ==================
-        $history = OrderProgressHistory::create([
+                // ================== HISTORY ==================
+                $history = OrderProgressHistory::create([
                     'order_progress_item_id'    => $progressItem->id,
                     'order_progress_assign_id'  => $assign->id,
                     'product_id'                => $product->id,
@@ -427,11 +232,9 @@ class HistoryProgressOrderController extends Controller
                     'completed_quantity'        => $completed,
                     'defect_quantity'           => $defect,
                     'reject_quantity'           => $reject,
-                    'operator_id'               => (int) $data['operator_id'],
-                    // 🔹 mesin diambil per produk (assign), data lama fallback ke mesin batch
-                    'machine_id'                => $assign->machine_id ?? $assignBatch->machine_id,
+                    'operator_id'               => $assign->operator_id,
                     'note'                      => $data['note'] ?? null,
-                    'created_at'                => $progressDate,
+                    'created_at'                => $request->progress_date,
                 ]);
 
 
@@ -482,7 +285,7 @@ class HistoryProgressOrderController extends Controller
                         'fixed_cost'               => $fixedCost,
                         'total_cost'               => $totalCost,
                         'total_fixed_cost'         => $totalFixedCost,
-                        'reject_date'              => $progressDate,
+                        'reject_date'              => $request->progress_date,
                         'status'                   => 'pending',
                         'note'                     => $data['note'] ?? 'Reject product from production progress',
                         'user_id'                  => Auth::id(),
@@ -517,7 +320,7 @@ class HistoryProgressOrderController extends Controller
                     DefectProduct::create([
                         'product_id'             => $product->id,
                         'quantity'               => $defect,
-                        'defect_date'            => $progressDate,
+                        'defect_date'            => $request->progress_date,
                         'defect_type'            => 'production',
                         'avg_cost'               => $avgCost,
                         'fixed_cost'             => $fixedCost,
@@ -546,11 +349,30 @@ class HistoryProgressOrderController extends Controller
                     $ps->increment('pending_waiting_list', $defect);
                 }
 
-        // ================== STATUS ASSIGN ==================
-        if ($assign->change_quantity >= $assign->assigned_quantity) {
-            $assign->update(['status' => 'completed']);
-        } elseif ($assign->change_quantity > 0) {
-            $assign->update(['status' => 'progress']);
+                // ================== STATUS ASSIGN ==================
+                if ($assign->change_quantity >= $assign->assigned_quantity) {
+                    $assign->update(['status' => 'completed']);
+                } elseif ($assign->change_quantity > 0) {
+                    $assign->update(['status' => 'progress']);
+                }
+            }
+
+            // 🔹 Update Assign Batch (cek semua assign status)
+            $batchAllCompleted = $assignBatch->assigns()->where('status', '!=', 'completed')->doesntExist();
+
+            $assignBatch->update([
+                'last_progress_date' => $request->progress_date,
+                'note'               => $assignBatch->note
+                    ? ($assignBatch->note . "\n" . ($request->note ?? ''))
+                    : ($request->note ?? null),
+                'status'             => $batchAllCompleted ? 'completed' : 'progress',
+            ]);
+
+            DB::commit();
+            return redirect('/erp/productions/waiting-list/assign-list')->with('success', 'Progress batch berhasil ditambahkan.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 

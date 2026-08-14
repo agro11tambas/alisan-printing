@@ -2,9 +2,9 @@
     <table class="table table-small table-bordered">
         <thead>
             <tr>
+                <th style="width: 20%;">Operator</th>
                 <th style="width: 15%;">Preview</th>
-                <th style="width: 25%;">Product</th>
-                <th style="width: 15%;">Mesin</th>
+                <th style="width: 20%;">Product</th>
                 <th style="width: 20%;">Assigned</th>
                 {{-- <th style="width: 10%;">Defect Product</th>
                 <th style="width: 10%;">Reject Product</th> --}}
@@ -22,6 +22,15 @@
                     }
                 @endphp
                 <tr>
+                    <td>
+                        <span class="fw-bold text-dark">
+                            @if ($assign->operator)
+                                {{ $assign->operator->name }}
+                            @else
+                                -
+                            @endif
+                        </span>
+                    </td>
                     {{-- PREVIEW BUTTON --}}
                     <td>
                         @if (!empty($images))
@@ -38,10 +47,6 @@
                     <td>
                         <span class="fw-bold text-dark">{{ $assign->progressItem?->product?->name ?? '-' }}
                         </span>
-                    </td>
-                    <td>
-                        {{-- 🔧 mesin per produk --}}
-                        <span class="fw-bold text-dark">{{ $assign->machine?->name ?? '-' }}</span>
                     </td>
                     <td><span
                             class="fw-bold text-success">{{ number_format($assign->assigned_quantity / max((float) ($assign->progressItem?->unit_conversion_value ?? 1), 1), 0, ',', '.') }}</span>

@@ -31,6 +31,8 @@ class DeliveryListController extends Controller
         $deliveryLists = DeliveryList::with([
             'deliveryOrder.order.customer',
             'deliveryOrder.order.customerAddress',
+            // 🔹 dipakai untuk kontak (WhatsApp) di kolom Customer
+            'deliveryOrder.order.customerAccount',
             'deliveryOrder',
             'items.product',
             // Dipakai partial product-list untuk menampilkan unit_name. Tanpa ini
@@ -152,13 +154,16 @@ class DeliveryListController extends Controller
                 $vehicle = e($dl->vehicle ?? '-');
                 // $customer = e($dl->deliveryOrder->customer ?? '-');
 
-                $businessName = e($dl->deliveryOrder->order?->customerAddress?->business_name ?? '-');
+                // 🔧 Nama customer + kontak + branch (alamat tetap di kolom Address)
                 $customerName = e($dl->deliveryOrder->order?->customer?->name ?? '-');
+                $customerContact = \App\Support\PhoneNumber::toLocalIndonesian($dl->deliveryOrder->order?->order_whatsapp_number);
+                $businessName = $dl->deliveryOrder->order?->customerAddress?->business_name;
 
                 $customerHtml = '
                     <div style="white-space: normal; word-break: break-word; max-width:180px;">
-                        <div class="fw-semibold">' . $businessName . '</div>
-                        <small class="text-muted">' . $customerName . '</small>
+                        <div class="fw-semibold">' . $customerName . '</div>
+                        <small class="text-muted d-block">' . e($customerContact ?: '-') . '</small>
+                        ' . ($businessName ? '<small class="text-muted d-block">' . e($businessName) . '</small>' : '') . '
                     </div>
                 ';
 
