@@ -141,28 +141,33 @@
 
         @forelse ($groups as $group)
             @php
-                // 🔧 Satu blok = satu customer: nama + kontak, tanpa nomor invoice
+                // 🔧 Satu blok = satu customer: nama + kontak + alamat, tanpa nomor invoice
                 $order = $group['order'];
                 $customerName = $order?->customer?->name;
                 $contact = \App\Support\PhoneNumber::toLocalIndonesian($order?->order_whatsapp_number);
+                $address = $order?->customerAddress?->address;
+                $businessName = $order?->customerAddress?->business_name;
             @endphp
 
             <div class="customer">{{ $customerName ?? '-' }}</div>
             <div class="muted">{{ $contact ?: '-' }}</div>
+            @if ($businessName)
+                <div class="muted">{{ $businessName }}</div>
+            @endif
+            @if ($address)
+                <div class="muted">{{ $address }}</div>
+            @endif
 
             <div class="sep"></div>
 
-            @foreach ($group['assigns'] as $assign)
-                @php
-                    $conversion = max((float) ($assign->progressItem?->unit_conversion_value ?? 1), 1);
-                    $qty = number_format($assign->assigned_quantity / $conversion, 0, ',', '.');
-                @endphp
+            {{-- 🔧 produk yang sama sudah digabung --}}
+            @foreach ($group['lines'] as $line)
                 <div class="row">
-                    <div class="product">{{ $assign->progressItem?->product?->name ?? '-' }}</div>
-                    <div class="qty">{{ $qty }} {{ $assign->progressItem?->unit_name }}</div>
+                    <div class="product">{{ $line['product'] }}</div>
+                    <div class="qty">{{ number_format($line['qty'], 0, ',', '.') }} {{ $line['unit'] }}</div>
                 </div>
-                @if ($assign->note)
-                    <div class="note muted">- {{ $assign->note }}</div>
+                @if ($line['note'])
+                    <div class="note muted">- {{ $line['note'] }}</div>
                 @endif
             @endforeach
 

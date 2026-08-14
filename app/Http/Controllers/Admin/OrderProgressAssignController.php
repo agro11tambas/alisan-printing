@@ -1289,11 +1289,59 @@ class OrderProgressAssignController extends Controller
                 $order = $items->first()->batch?->orderProgress?->order;
 
                 return [
-                    'order'   => $order, // dipakai untuk nama customer & kontak
+                    'order'   => $order, // dipakai untuk nama customer, kontak & alamat
                     'assigns' => $items->values(),
+                    // 🔧 produk yang sama digabung jadi satu baris
+                    'lines'   => $this->mergeAssignLines($items),
                 ];
             })
             ->sortBy(fn($group) => strtolower(optional($group['order'])?->customer?->name ?? ''))
+            ->values();
+    }
+
+    /**
+     * 🔹 Gabungkan assign dengan produk (dan satuan) yang sama jadi satu baris:
+     *    qty dijumlah, note & preview digabung.
+     */
+    private function mergeAssignLines($assigns)
+    {
+        return collect($assigns)
+            ->groupBy(fn($assign) => $assign->product_id . '|' . ($assign->progressItem?->unit_name ?? ''))
+            ->map(function ($items) {
+                $first = $items->first();
+
+                $qty = $items->sum(function ($assign) {
+                    $conversion = max((float) ($assign->progressItem?->unit_conversion_value ?? 1), 1);
+
+                    return (float) $assign->assigned_quantity / $conversion;
+                });
+
+                // 🔹 preview design dari semua assign yang digabung (tanpa duplikat file)
+                $images = [];
+
+                foreach ($items as $assign) {
+                    $raw = $assign->progressItem?->designItem?->preview_image;
+
+                    foreach (json_decode($raw ?? '[]', true) ?? [] as $image) {
+                        $images[$image['file'] ?? json_encode($image)] = $image;
+                    }
+                }
+
+                $notes = $items->pluck('note')
+                    ->map(fn($note) => trim((string) $note))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                return [
+                    'product' => $first->progressItem?->product?->name ?? '-',
+                    'qty'     => $qty,
+                    'unit'    => $first->progressItem?->unit_name,
+                    'note'    => $notes->isNotEmpty() ? $notes->implode(' | ') : null,
+                    'images'  => array_values($images),
+                ];
+            })
+            ->sortBy('product')
             ->values();
     }
 
