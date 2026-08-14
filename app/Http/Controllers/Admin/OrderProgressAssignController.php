@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Operator;
+use App\Models\Machine;
 use App\Models\OrderProgress;
 use App\Models\OrderProgressAssign;
 use App\Models\OrderProgressAssignBatch;
@@ -20,29 +20,12 @@ use Yajra\DataTables\Facades\DataTables;
 
 class OrderProgressAssignController extends Controller
 {
-    // public function create($id)
-    // {
-    //     $progress = OrderProgress::with(['items.product', 'order.customer'])
-    //         ->findOrFail($id);
-
-    //     $operators = Operator::where('active', 1)->orderBy('name')->get();
-
-    //     // 🔹 Generate assign code otomatis lewat service
-    //     $assignCode = AssignCode::generateAssignCode();
-
-    //     return view('erp.pages.production.assign-list.add-assign', compact(
-    //         'progress',
-    //         'operators',
-    //         'assignCode'
-    //     ));
-    // }
-
     public function create($id)
     {
         $progress = OrderProgress::with(['items.product', 'order.customer'])
             ->findOrFail($id);
 
-        $operators = Operator::where('active', 1)->orderBy('name')->get();
+        $machines = Machine::where('active', 1)->orderBy('name')->get();
 
         // 🔹 Generate assign code otomatis lewat service
         $assignCode = AssignCode::generateAssignCode();
@@ -97,7 +80,7 @@ class OrderProgressAssignController extends Controller
 
         return view('erp.pages.production.assign-list.add-assign', compact(
             'progress',
-            'operators',
+            'machines',
             'assignCode'
         ));
     }
@@ -111,8 +94,8 @@ class OrderProgressAssignController extends Controller
             'note'        => 'nullable|string',
             'items'       => 'required|array',
             'items.*.order_progress_item_id' => 'required|exists:order_progress_items,id',
-            // 🟢 validasi operator & qty hanya wajib kalau tidak bypass
-            'items.*.operator_id'            => 'required_if:items.*.bypass,0|nullable|exists:operators,id',
+            // 🟢 mesin dipilih per produk, bukan sekali per batch (per invoice)
+            'items.*.machine_id'             => 'nullable|exists:machines,id',
             'items.*.assigned_quantity'      => 'required_if:items.*.bypass,0|integer|min:0',
             'items.*.note'                   => 'nullable|string',
             'items.*.bypass'                 => 'nullable|boolean',
@@ -125,6 +108,7 @@ class OrderProgressAssignController extends Controller
             // 🟩 1. Buat satu batch assign baru
             $batch = OrderProgressAssignBatch::create([
                 'order_progress_id' => $progress->id,
+                'machine_id'        => null, // 🔹 diisi dari mesin produk pertama yang diassign
                 'assign_code'       => $progress->order->order_number,
                 'assign_date'       => $request->assign_date,
                 'note'              => $request->note,
@@ -141,6 +125,15 @@ class OrderProgressAssignController extends Controller
                 if (empty($data['assigned_quantity']) || (int)$data['assigned_quantity'] <= 0) {
                     continue;
                 }
+
+                // 🔧 mesin wajib untuk setiap produk yang benar-benar diassign
+                if (empty($data['machine_id'])) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "items.$idx.machine_id" => "Mesin wajib dipilih untuk setiap produk yang diassign.",
+                    ]);
+                }
+
+                $machineId = (int) $data['machine_id'];
 
                 // $item = OrderProgressItem::query()
                 //     ->withSum('assigns as total_completed', 'completed_quantity') // alias total_completed
@@ -231,15 +224,52 @@ class OrderProgressAssignController extends Controller
                     }
                 }
 
-                OrderProgressAssign::create([
-                    'assign_batch_id'        => $batch->id,
-                    'order_progress_item_id' => $item->id,
-                    'product_id'             => $item->product_id,
-                    'operator_id'            => (int) $data['operator_id'],
-                    'assigned_quantity'      => $requestedAssignQty,
-                    'completed_quantity'     => 0,
-                    'note'                   => $data['note'] ?? null,
-                ]);
+                // 🔧 Kalau produk ini sudah punya assign berjalan di mesin yang sama,
+                //    qty-nya digabung ke assign tersebut — tidak bikin baris baru.
+                //    Assign yang sudah full progress (completed) tidak ikut digabung,
+                //    jadi produksi berikutnya tetap terpisah.
+                $existingAssign = OrderProgressAssign::query()
+                    ->where('order_progress_item_id', $item->id)
+                    ->where('machine_id', $machineId)
+                    ->where(function ($q) {
+                        $q->whereNull('change_quantity')
+                            ->orWhereColumn('change_quantity', '<', 'assigned_quantity');
+                    })
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($existingAssign) {
+                    $existingAssign->increment('assigned_quantity', $requestedAssignQty);
+
+                    // 🔹 Note baru ditambahkan di belakang note lama (kalau ada isinya)
+                    if (!empty($data['note'])) {
+                        $existingAssign->update([
+                            'note' => $existingAssign->note
+                                ? $existingAssign->note . "\n" . $data['note']
+                                : $data['note'],
+                        ]);
+                    }
+
+                    // 🔹 Assign yang digabung balik ke status berjalan
+                    $existingAssign->update(['status' => 'progress']);
+                } else {
+                    OrderProgressAssign::create([
+                        'assign_batch_id'        => $batch->id,
+                        'order_progress_item_id' => $item->id,
+                        'product_id'             => $item->product_id,
+                        // 🔹 mesin per produk
+                        'machine_id'             => $machineId,
+                        'assigned_quantity'      => $requestedAssignQty,
+                        'completed_quantity'     => 0,
+                        'note'                   => $data['note'] ?? null,
+                    ]);
+
+                    // 🔹 Mesin batch dipakai untuk grouping di Assign List:
+                    //    ambil dari produk pertama yang diassign.
+                    if (is_null($batch->machine_id)) {
+                        $batch->update(['machine_id' => $machineId]);
+                    }
+                }
 
                 // $productionStock = ProductionStock::firstOrCreate(
                 //     [
@@ -258,10 +288,16 @@ class OrderProgressAssignController extends Controller
                 $productionStock->decrement('pending_waiting_list', $requestedAssignQty);
             }
 
+            // 🔹 Kalau semua produk digabung ke assign yang sudah ada,
+            //    batch baru ini kosong → dihapus supaya tidak jadi data sampah.
+            if ($batch->assigns()->count() === 0) {
+                $batch->forceDelete();
+            }
+
             DB::commit();
 
             return redirect('/erp/productions/waiting-list')
-                ->with('success', "Assign batch {$batch->assign_code} berhasil ditambahkan.");
+                ->with('success', "Assign {$progress->order->order_number} berhasil ditambahkan.");
         } catch (\Throwable $e) {
             DB::rollBack();
             return redirect()->back()
@@ -274,11 +310,11 @@ class OrderProgressAssignController extends Controller
         $batch = OrderProgressAssignBatch::with([
             'orderProgress.order.customer',
             'orderProgress.items.product',
-            'assigns.operator',
+            'machine',
             'assigns.progressItem'
         ])->findOrFail($batch_id);
 
-        $operators = Operator::where('active', 1)->orderBy('name')->get();
+        $machines = Machine::where('active', 1)->orderBy('name')->get();
 
         // Ambil progress terkait agar loop item sama seperti di create()
         $progress = $batch->orderProgress;
@@ -364,7 +400,7 @@ class OrderProgressAssignController extends Controller
         return view('erp.pages.production.assign-list.edit-assign', compact(
             'batch',
             'progress',
-            'operators'
+            'machines'
         ));
     }
 
@@ -377,7 +413,8 @@ class OrderProgressAssignController extends Controller
             'items'       => 'required|array',
             'items.*.id'  => 'nullable|exists:order_progress_assigns,id',
             'items.*.order_progress_item_id' => 'required|exists:order_progress_items,id',
-            'items.*.operator_id'            => 'required_if:items.*.bypass,0|nullable|exists:operators,id',
+            // 🟢 mesin dipilih per produk, bukan sekali per batch (per invoice)
+            'items.*.machine_id'             => 'nullable|exists:machines,id',
             'items.*.assigned_quantity'      => 'required_if:items.*.bypass,0|integer|min:0',
             'items.*.note'                   => 'nullable|string',
             'items.*.bypass'                 => 'nullable|boolean',
@@ -387,13 +424,15 @@ class OrderProgressAssignController extends Controller
         try {
             $batch = OrderProgressAssignBatch::findOrFail($batch_id);
 
-            // 🔹 Update batch utama
+            // 🔹 Update batch utama (mesin batch diisi ulang dari produk pertama di bawah)
             $batch->update([
                 'assign_date' => $request->assign_date,
                 'note'        => $request->note,
             ]);
 
-            foreach ($request->items as $data) {
+            $firstMachineId = null;
+
+            foreach ($request->items as $idx => $data) {
                 // 🚫 Skip kalau bypass dicentang → hapus assign lama kalau ada
                 if (!empty($data['bypass']) && (int)$data['bypass'] === 1) {
                     if (!empty($data['id'])) {
@@ -425,6 +464,19 @@ class OrderProgressAssignController extends Controller
 
                 // 🚫 Skip kalau qty kosong atau 0
                 if (empty($data['assigned_quantity']) || $data['assigned_quantity'] <= 0) continue;
+
+                // 🔧 mesin wajib untuk setiap produk yang diassign
+                if (empty($data['machine_id'])) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "items.$idx.machine_id" => "Mesin wajib dipilih untuk setiap produk yang diassign.",
+                    ]);
+                }
+
+                $machineId = (int) $data['machine_id'];
+
+                if (is_null($firstMachineId)) {
+                    $firstMachineId = $machineId;
+                }
 
                 $item = OrderProgressItem::with('product')->findOrFail($data['order_progress_item_id']);
 
@@ -486,7 +538,7 @@ class OrderProgressAssignController extends Controller
                         }
 
                         $assign->update([
-                            'operator_id'       => $data['operator_id'],
+                            'machine_id'        => $machineId,
                             'assigned_quantity' => $newQty,
                             'note'              => $data['note'] ?? null,
                         ]);
@@ -497,7 +549,7 @@ class OrderProgressAssignController extends Controller
                         'assign_batch_id'        => $batch->id,
                         'order_progress_item_id' => $item->id,
                         'product_id'             => $item->product_id,
-                        'operator_id'            => $data['operator_id'],
+                        'machine_id'             => $machineId,
                         'assigned_quantity'      => $assignedQty,
                         'note'                   => $data['note'] ?? null,
                     ]);
@@ -506,6 +558,10 @@ class OrderProgressAssignController extends Controller
                     $productionStock->decrement('pending_waiting_list', $assignedQty);
                 }
             }
+
+            // 🔹 Mesin batch dipakai untuk grouping di Assign List:
+            //    ambil dari produk pertama yang diassign.
+            $batch->update(['machine_id' => $firstMachineId]);
 
             DB::commit();
 
@@ -564,45 +620,69 @@ class OrderProgressAssignController extends Controller
         return view('erp.pages.production.assign-list.assign-list');
     }
 
-    public function dataAssignList(Request $request)
+    /**
+     * 🔧 Filter status di level PRODUK (assign):
+     *    - progress  → produk yang progressnya belum penuh
+     *    - completed → produk yang progressnya sudah penuh
+     *
+     * Dipakai supaya produk yang sudah selesai langsung pindah ke tab Completed,
+     * walaupun produk lain di invoice/batch yang sama masih berjalan.
+     */
+    private function applyAssignStateFilter($query, Request $request, string $table)
     {
-        $length = (int) $request->input('length', 15);
-        $start = (int) $request->input('start', 0);
+        $status = $request->input('progress_status');
 
-        $batches = OrderProgressAssignBatch::with([
-            'assigns.operator',
-            'assigns.progressItem.product',
-            'assigns.progressItem.designItem',
-            'assigns.progressItem.progress.order',
-            'orderProgress.order.customer',
-            'orderProgress.order.customerAddress',
-        ]);
-
-        if ($request->filled('progress_status')) {
-            switch ($request->progress_status) {
-                case 'progress':
-                    $batches->where('status', '!=', 'completed')
-                        ->orderBy('assign_date', 'asc'); // ⬅️ terlama dulu
-                    break;
-                case 'completed':
-                    $batches->where('status', 'completed')
-                        ->orderBy('assign_date', 'desc'); // ⬅️ terbaru dulu
-                    break;
-            }
-        } else {
-            $batches->orderBy('assign_date', 'desc'); // ⬅️ default = desc
+        if ($status === 'completed') {
+            $query->whereColumn("{$table}.change_quantity", '>=', "{$table}.assigned_quantity");
+        } elseif ($status === 'progress') {
+            $query->where(function ($q) use ($table) {
+                $q->whereNull("{$table}.change_quantity")
+                    ->orWhereColumn("{$table}.change_quantity", '<', "{$table}.assigned_quantity");
+            });
         }
 
-        // 🔹 Filter berdasarkan status progress
+        return $query;
+    }
+
+    /**
+     * 🔹 Apakah satu assign cocok dengan filter status yang sedang dipakai.
+     */
+    private function assignMatchesState(OrderProgressAssign $assign, Request $request): bool
+    {
+        $status = $request->input('progress_status');
+
+        $change   = (int) ($assign->change_quantity ?? 0);
+        $assigned = (int) $assign->assigned_quantity;
+
+        if ($status === 'completed') {
+            return $change >= $assigned;
+        }
+
+        if ($status === 'progress') {
+            return $change < $assigned;
+        }
+
+        return true;
+    }
+
+    /**
+     * 🔧 Query batch yang sudah kena semua filter listing (status, pencarian, tanggal).
+     *
+     * Mesin sekarang dipilih per produk, jadi query ini cuma dipakai sebagai
+     * daftar batch yang lolos filter — pemecahan per mesin dilakukan di
+     * masing-masing endpoint.
+     */
+    private function filteredBatchQuery(Request $request)
+    {
+        $batches = OrderProgressAssignBatch::query()
+            ->select('order_progress_assign_batches.id');
+
+        // 🔹 Status dihitung PER PRODUK (assign), bukan per batch. Batch ikut tampil
+        //    selama masih punya produk dengan status yang dicari.
         if ($request->filled('progress_status')) {
-            switch ($request->progress_status) {
-                case 'progress':
-                    $batches->where('status', '!=', 'completed');
-                    break;
-                case 'completed':
-                    $batches->where('status', 'completed');
-                    break;
-            }
+            $batches->whereHas('assigns', function ($q) use ($request) {
+                $this->applyAssignStateFilter($q, $request, 'order_progress_assigns');
+            });
         }
 
         // 🔹 Filter berdasarkan assign code (search)
@@ -676,16 +756,87 @@ class OrderProgressAssignController extends Controller
             }
         }
 
-        // ✅ Hindari query count dua kali
-        $totalQuery = clone $batches;
-        $totalData = $totalQuery->count();
+        return $batches;
+    }
 
-        // ✅ Ambil data sesuai offset dan limit
-        $data = $batches->skip($start)->take($length)->get();
+    public function dataAssignList(Request $request)
+    {
+        $length = (int) $request->input('length', 15);
+        $start = (int) $request->input('start', 0);
+
+        $batches = $this->filteredBatchQuery($request);
+
+        // 🔹 Urutan tanggal mengikuti filter status
+        $dateDirection = 'desc'; // ⬅️ default = terbaru dulu
+
+        if ($request->filled('progress_status') && $request->progress_status === 'progress') {
+            $dateDirection = 'asc'; // ⬅️ terlama dulu
+        }
+
+        // ✅ Design lama: satu baris = satu batch (invoice), tanpa grouping mesin.
+        //    Dipakai untuk tab Completed dan halaman Detail per mesin.
+        $rows = DB::table('order_progress_assigns as opa')
+            ->join('order_progress_assign_batches as b', 'b.id', '=', 'opa.assign_batch_id')
+            ->whereNull('opa.deleted_at')
+            ->whereIn('opa.assign_batch_id', $batches->toBase())
+            ->tap(fn($q) => $this->applyAssignStateFilter($q, $request, 'opa'))
+            ->groupBy('opa.assign_batch_id', 'b.assign_date')
+            ->select([
+                'opa.assign_batch_id',
+                'b.assign_date',
+            ])
+            ->orderBy('b.assign_date', $dateDirection)
+            // 🔹 tiebreaker biar urutannya stabil saat lazy-load per halaman
+            ->orderBy('opa.assign_batch_id', $dateDirection);
+
+        // 🔹 Halaman Detail: hanya mesin tertentu ('none' = assign tanpa mesin).
+        //    Tanpa parameter ini, semua produk batch ditampilkan (design lama).
+        $machineFilter = false;
+
+        if ($request->filled('machine_id')) {
+            if ($request->machine_id === 'none') {
+                $machineFilter = null;
+                $rows->whereNull('opa.machine_id');
+            } else {
+                $machineFilter = (int) $request->machine_id;
+                $rows->where('opa.machine_id', $machineFilter);
+            }
+        }
+
+        // ✅ Ambil satu baris lebih banyak untuk menentukan has_more (tanpa query count)
+        $pageRows = $rows->skip($start)->take($length + 1)->get();
+
+        $hasMore = $pageRows->count() > $length;
+        $pageRows = $pageRows->take($length);
+
+        // ✅ Muat batch-nya sekali saja untuk semua baris di halaman ini
+        $batchModels = OrderProgressAssignBatch::query()
+            ->whereIn('id', $pageRows->pluck('assign_batch_id')->unique()->values())
+            ->with([
+                'machine',
+                'assigns.machine',
+                'assigns.progressItem.product',
+                'assigns.progressItem.designItem',
+                'assigns.progressItem.progress.order',
+                // 🔹 operator diambil dari history progress (dipilih saat input progress),
+                //    data lama masih menyimpannya di assign
+                'assigns.histories.operators',
+                'assigns.operator',
+                'orderProgress.order.customer',
+                'orderProgress.order.customerAddress',
+            ])
+            ->get()
+            ->keyBy('id');
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
-            'data' => $data->map(function ($batch) {
+            'data' => $pageRows->map(function ($row) use ($batchModels, $machineFilter, $request) {
+                $batch = $batchModels->get($row->assign_batch_id);
+
+                if (!$batch) {
+                    return null;
+                }
+
                 $date = Carbon::parse($batch->created_at)->format('d M y H:i');
 
                 // 🧾 Assign Code + Date
@@ -711,28 +862,34 @@ class OrderProgressAssignController extends Controller
                 </div>";
                 }
 
-                // 👥 Total item, quantity, operator
-                $totalItems = $batch->assigns->count();
-                $totalQuantity = number_format($batch->assigns->sum('assigned_quantity'), 0, ',', '.');
-                $operators = $batch->assigns->pluck('operator.name')->unique()->implode(', ') ?: '-';
-                $note = e($batch->note ?? '-');
+                // 📦 Design lama: semua produk batch. Kalau dibuka dari Detail mesin,
+                //    hanya produk mesin tersebut.
+                $assigns = $batch->assigns
+                    ->filter(function ($assign) use ($machineFilter) {
+                        if ($machineFilter === false) {
+                            return true;
+                        }
 
-                // 📦 Assign products partial
-                // $assigns = OrderProgressAssign::with(['operator', 'progressItem.product'])
-                //     ->where('assign_batch_id', $batch->id)
-                //     ->get();
-                $assigns = $batch->assigns; /* Previous per-batch query:
-                    'operator',
-                    'progressItem.product',
-                    'progressItem.designItem' // ⬅️ tambah ini
-                ])
-                    ->where('assign_batch_id', $batch->id)
-                    ->get();
-                */
+                        return is_null($machineFilter)
+                            ? is_null($assign->machine_id)
+                            : (int) $assign->machine_id === $machineFilter;
+                    })
+                    // 🔧 hanya produk yang cocok dengan status yang dipilih
+                    ->filter(fn($assign) => $this->assignMatchesState($assign, $request))
+                    ->values();
+
+                // ⚙️ Total item, quantity, mesin (mesin sekarang per produk)
+                $totalItems = $assigns->count();
+                $totalQuantity = number_format($assigns->sum('assigned_quantity'), 0, ',', '.');
+                $machineName = $assigns->map(fn($assign) => $assign->machine?->name)
+                    ->filter()
+                    ->unique()
+                    ->implode(', ') ?: 'Tanpa Mesin';
+                $note = e($batch->note ?? '-');
 
                 $assignProducts = view('erp.pages.production.assign-list.partials.assign-product', compact('assigns'))->render();
 
-                // ⚙️ Action button partial
+                // ⚙️ Action button partial (aksi tetap per batch, bukan per mesin)
                 $allCompleted = $batch->assigns->every(function ($assign) {
                     return $assign->change_quantity >= $assign->assigned_quantity;
                 });
@@ -771,16 +928,514 @@ class OrderProgressAssignController extends Controller
                     'customer' => $customerHtml,
                     'total_items' => $totalItems,
                     'total_quantity' => $totalQuantity,
-                    'operators' => e($operators),
+                    'machine' => e($machineName),
                     'note' => $note,
                     'assign_products' => $assignProducts,
                     'action' => $action,
                     'order_notes' => $orderNotes,
                     'created_at' => $date,
                 ];
-            }),
-            'has_more' => $totalData > ($start + $length),
+            })->filter()->values(),
+            'has_more' => $hasMore,
         ]);
+    }
+
+    /**
+     * 🔧 Listing utama Assign List: satu baris per MESIN.
+     *
+     * Isi barisnya = tabel customer/invoice beserta produk yang diassign ke
+     * mesin tersebut. Detail per invoice ada di halaman Detail.
+     */
+    public function dataAssignListMachines(Request $request)
+    {
+        $length = (int) $request->input('length', 50);
+        $start  = (int) $request->input('start', 0);
+
+        // 🔹 Daftar mesin yang punya assign. Mesin kosong (data lama) paling bawah.
+        $machineRows = DB::table('order_progress_assigns as opa')
+            ->leftJoin('machines as m', 'm.id', '=', 'opa.machine_id')
+            ->whereNull('opa.deleted_at')
+            ->whereIn('opa.assign_batch_id', $this->filteredBatchQuery($request)->toBase())
+            ->tap(fn($q) => $this->applyAssignStateFilter($q, $request, 'opa'))
+            ->groupBy('opa.machine_id', 'm.name')
+            ->select([
+                'opa.machine_id',
+                'm.name as machine_name',
+            ])
+            ->orderByRaw('m.name IS NULL ASC')
+            ->orderBy('m.name', 'asc')
+            ->skip($start)
+            ->take($length + 1)
+            ->get();
+
+        $hasMore = $machineRows->count() > $length;
+        $machineRows = $machineRows->take($length);
+
+        $assignsByMachine = $this->assignsGroupedByMachine($request, $machineRows->pluck('machine_id'));
+        $query = $this->listingQueryString($request);
+
+        return response()->json([
+            'data' => $machineRows->map(function ($row) use ($assignsByMachine, $query) {
+                $machineKey  = $row->machine_id ?? 'none';
+                $machineName = $row->machine_name ?? 'Tanpa Mesin';
+
+                $assigns = $assignsByMachine->get($machineKey, collect());
+                // 🔧 Di listing, produk dikelompokkan per CUSTOMER (bukan per invoice).
+                //    Customer yang sama dari beberapa invoice digabung jadi satu blok.
+                $groups  = $this->groupAssignsByCustomer($assigns);
+
+                $assignProducts = view('erp.pages.production.assign-list.partials.machine-assign-table', compact('groups'))->render();
+
+                $action = view('erp.pages.production.assign-list.partials.machine-action-button', compact(
+                    'machineKey',
+                    'machineName',
+                    'query'
+                ))->render();
+
+                return [
+                    'machine_id'      => $row->machine_id,
+                    'machine'         => e($machineName),
+                    'total_items'     => $assigns->count(),
+                    'total_quantity'  => number_format($assigns->sum('assigned_quantity'), 0, ',', '.'),
+                    'total_customer'  => $groups->count(),
+                    'assign_products' => $assignProducts,
+                    'action'          => $action,
+                ];
+            }),
+            'has_more' => $hasMore,
+        ]);
+    }
+
+    /**
+     * 🔧 Halaman Detail: assign list per invoice, khusus mesin yang dipilih.
+     */
+    public function machineDetail(Request $request, $machine)
+    {
+        $machineKey  = $machine === 'none' ? 'none' : (int) $machine;
+        $machineName = $this->machineName($machineKey);
+
+        return view('erp.pages.production.assign-list.assign-list-detail', compact(
+            'machineKey',
+            'machineName'
+        ));
+    }
+
+    /**
+     * 🖨️ Cetak daftar kerja satu mesin ke printer thermal (struk).
+     */
+    public function printMachine(Request $request, $machine)
+    {
+        $machineKey  = $machine === 'none' ? 'none' : (int) $machine;
+        $machineName = $this->machineName($machineKey);
+
+        // 🔹 Default hanya yang masih berjalan, biar struk tidak ikut yang sudah selesai
+        $request->merge([
+            'progress_status' => $request->input('progress_status', 'progress'),
+        ]);
+
+        $machineId = $machineKey === 'none' ? null : $machineKey;
+
+        $assigns = $this->assignsGroupedByMachine($request, collect([$machineId]))
+            ->get($machineKey, collect());
+
+        // 🔧 Struk ikut listing: dikelompokkan per customer (tanpa nomor invoice)
+        $groups = $this->groupAssignsByCustomer($assigns);
+
+        // 🔧 Total qty = semua qty, KECUALI produk yang berperan secondary di
+        //    bundle yang dipesan. Satu produk bisa primary di bundle lain,
+        //    jadi rolenya dicek terhadap bundle di order item-nya.
+        $secondaryAssignIds = DB::table('order_progress_assigns as opa')
+            ->join('order_progress_items as opi', 'opi.id', '=', 'opa.order_progress_item_id')
+            ->join('order_items as oi', 'oi.id', '=', 'opi.order_item_id')
+            ->join('product_bundle_items as pbi', function ($join) {
+                $join->on('pbi.bundle_id', '=', 'oi.product_bundle_id')
+                    ->on('pbi.product_id', '=', 'opa.product_id')
+                    ->whereNull('pbi.deleted_at');
+            })
+            ->whereIn('opa.id', $assigns->pluck('id'))
+            ->where('pbi.role', 'secondary')
+            ->pluck('opa.id');
+
+        $totalQty = 0;
+
+        foreach ($assigns as $assign) {
+            if ($secondaryAssignIds->contains($assign->id)) {
+                continue;
+            }
+
+            $conversion = max((float) ($assign->progressItem?->unit_conversion_value ?? 1), 1);
+
+            $totalQty += (float) $assign->assigned_quantity / $conversion;
+        }
+
+        $paperWidth = (int) $request->input('paper', 80); // mm, 80 atau 58
+
+        return view('erp.pages.production.assign-list.print-machine-assign', compact(
+            'machineName',
+            'groups',
+            'totalQty',
+            'paperWidth'
+        ));
+    }
+
+    /**
+     * 🔧 Edit Assign per MESIN: semua assign mesin tsb dari berbagai invoice.
+     */
+    public function editByMachine(Request $request, $machine)
+    {
+        $machineKey  = $machine === 'none' ? 'none' : (int) $machine;
+        $machineId   = $machineKey === 'none' ? null : $machineKey;
+        $machineName = $this->machineName($machineKey);
+
+        $assigns = OrderProgressAssign::query()
+            ->when(
+                is_null($machineId),
+                fn($q) => $q->whereNull('machine_id'),
+                fn($q) => $q->where('machine_id', $machineId)
+            )
+            // 🔹 hanya yang belum full progress yang boleh diubah (data lama bisa NULL)
+            ->where(function ($q) {
+                $q->whereNull('change_quantity')
+                    ->orWhereColumn('change_quantity', '<', 'assigned_quantity');
+            })
+            ->with([
+                'progressItem.product',
+                'batch.orderProgress.order.customer',
+                'batch.orderProgress.order.customerAddress',
+            ])
+            ->get();
+
+        // 🔹 Batas maksimal per assign = sisa item + jatah assign ini sendiri
+        foreach ($assigns as $assign) {
+            $assign->max_quantity = $this->maxAssignableFor($assign);
+        }
+
+        $groups   = $this->groupAssignsByBatch($assigns);
+        $machines = Machine::where('active', 1)->orderBy('name')->get();
+
+        return view('erp.pages.production.assign-list.edit-assign-machine', compact(
+            'groups',
+            'machines',
+            'machineKey',
+            'machineName'
+        ));
+    }
+
+    /**
+     * 🔧 Simpan Edit Assign per mesin (qty, note, pindah mesin, hapus produk).
+     */
+    public function updateByMachine(Request $request, $machine)
+    {
+        $request->validate([
+            'items'                  => 'required|array',
+            'items.*.id'             => 'required|exists:order_progress_assigns,id',
+            'items.*.machine_id'     => 'nullable|exists:machines,id',
+            'items.*.assigned_quantity' => 'required_if:items.*.bypass,0|integer|min:0',
+            'items.*.note'           => 'nullable|string',
+            'items.*.bypass'         => 'nullable|boolean',
+        ]);
+
+        $machineKey = $machine === 'none' ? 'none' : (int) $machine;
+        $machineId  = $machineKey === 'none' ? null : $machineKey;
+
+        DB::beginTransaction();
+        try {
+            foreach ($request->items as $idx => $data) {
+                $assign = OrderProgressAssign::with('progressItem.product')->find($data['id']);
+
+                if (!$assign) {
+                    continue;
+                }
+
+                // ⛔ pastikan assign memang milik mesin ini
+                if ((is_null($machineId) && !is_null($assign->machine_id))
+                    || (!is_null($machineId) && (int) $assign->machine_id !== $machineId)
+                ) {
+                    DB::rollBack();
+                    return back()->with('error', "Produk {$assign->progressItem->product->name} bukan milik mesin ini.");
+                }
+
+                $productionStock = ProductionStock::firstOrCreate(
+                    [
+                        'product_id' => $assign->product_id,
+                        'production_warehouse_id' => 2,
+                    ],
+                    [
+                        'opening_stock' => 0,
+                        'available_quantity' => 0,
+                        'finished_product_stock' => 0,
+                        'canceled_product_stock' => 0,
+                    ]
+                );
+
+                // 🗑️ Hapus assign kalau dicentang delete → kembalikan stok
+                if (!empty($data['bypass']) && (int) $data['bypass'] === 1) {
+                    $restoreQty = (int) $assign->assigned_quantity;
+
+                    $productionStock->increment('available_quantity', $restoreQty);
+                    $productionStock->increment('pending_waiting_list', $restoreQty);
+
+                    $assign->forceDelete();
+                    continue;
+                }
+
+                $newQty = (int) $data['assigned_quantity'];
+
+                if ($newQty <= 0) {
+                    continue;
+                }
+
+                $maxQty = $this->maxAssignableFor($assign);
+
+                if ($newQty > $maxQty) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        "items.$idx.assigned_quantity" => "Assigned quantity ($newQty) melebihi sisa yang boleh diassign ($maxQty) untuk produk {$assign->progressItem->product->name}.",
+                    ]);
+                }
+
+                $oldQty = (int) $assign->assigned_quantity;
+                $diff   = $newQty - $oldQty;
+
+                if ($diff > 0) {
+                    $productionStock->decrement('available_quantity', $diff);
+                    $productionStock->decrement('pending_waiting_list', $diff);
+                } elseif ($diff < 0) {
+                    $restoreQty = abs($diff);
+                    $productionStock->increment('available_quantity', $restoreQty);
+                    $productionStock->increment('pending_waiting_list', $restoreQty);
+                }
+
+                $assign->update([
+                    // 🔹 produk boleh dipindah ke mesin lain
+                    'machine_id'        => !empty($data['machine_id']) ? (int) $data['machine_id'] : $assign->machine_id,
+                    'assigned_quantity' => $newQty,
+                    'note'              => $data['note'] ?? null,
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect('/erp/productions/waiting-list/assign-list')
+                ->with('success', 'Assign berhasil diperbarui.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 🔹 Qty maksimal yang boleh dipakai satu assign = sisa item (di luar assign ini)
+     *    ditambah jatah assign ini sendiri. Semua dalam satuan base.
+     */
+    private function maxAssignableFor(OrderProgressAssign $assign): int
+    {
+        $item = $assign->progressItem;
+
+        if (!$item) {
+            return (int) $assign->assigned_quantity;
+        }
+
+        $conversion = (float) ($item->unit_conversion_value ?? 1);
+
+        if ($conversion <= 0) {
+            $conversion = 1;
+        }
+
+        $baseQuantity = (float) ($item->quantity ?? 0) * $conversion;
+
+        $totals = DB::table('order_progress_assigns')
+            ->where('order_progress_item_id', $item->id)
+            ->whereNull('deleted_at')
+            ->selectRaw('
+                COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
+                COALESCE(SUM(completed_quantity),0) AS total_completed,
+                COALESCE(SUM(defect_quantity),0)    AS total_defect,
+                COALESCE(SUM(reject_quantity),0)    AS total_reject
+            ')
+            ->first();
+
+        $activeAll = max(
+            ((float) $totals->total_assigned) - (
+                (float) $totals->total_completed +
+                (float) $totals->total_defect +
+                (float) $totals->total_reject
+            ),
+            0
+        );
+
+        $activeThis = max(
+            ((float) $assign->assigned_quantity) - (
+                (float) $assign->completed_quantity +
+                (float) $assign->defect_quantity +
+                (float) $assign->reject_quantity
+            ),
+            0
+        );
+
+        $activeOther = max($activeAll - $activeThis, 0);
+
+        $remaining = max($baseQuantity - ((float) ($item->completed_quantity ?? 0) + $activeOther), 0);
+
+        return (int) $remaining;
+    }
+
+    private function machineName($machineKey): string
+    {
+        if ($machineKey === 'none') {
+            return 'Tanpa Mesin';
+        }
+
+        return Machine::withTrashed()->findOrFail($machineKey)->name;
+    }
+
+    /**
+     * 🔹 Ambil assign (yang lolos filter listing) untuk sekumpulan mesin,
+     *    dikelompokkan per mesin. Key 'none' = assign tanpa mesin.
+     */
+    private function assignsGroupedByMachine(Request $request, $machineIds)
+    {
+        $machineIds  = collect($machineIds);
+        $ids         = $machineIds->filter(fn($id) => !is_null($id))->values();
+        $includeNull = $machineIds->contains(null);
+
+        if ($ids->isEmpty() && !$includeNull) {
+            return collect();
+        }
+
+        return OrderProgressAssign::query()
+            ->whereIn('assign_batch_id', $this->filteredBatchQuery($request)->toBase())
+            // 🔧 produk yang sudah selesai tidak ikut di tab Progress (dan sebaliknya)
+            ->tap(fn($q) => $this->applyAssignStateFilter($q, $request, 'order_progress_assigns'))
+            ->where(function ($q) use ($ids, $includeNull) {
+                if ($ids->isNotEmpty()) {
+                    $q->orWhereIn('machine_id', $ids);
+                }
+
+                if ($includeNull) {
+                    $q->orWhereNull('machine_id');
+                }
+            })
+            ->with([
+                'progressItem.product',
+                'progressItem.designItem',
+                'batch.orderProgress.order.customer',
+                'batch.orderProgress.order.customerAddress',
+                // 🔹 dipakai untuk kontak (WhatsApp) di kolom Customer
+                'batch.orderProgress.order.customerAccount',
+            ])
+            ->get()
+            ->groupBy(fn($assign) => $assign->machine_id ?? 'none');
+    }
+
+    /**
+     * 🔹 Kelompokkan assign per CUSTOMER. Customer yang sama dari beberapa
+     *    invoice digabung jadi satu blok di listing Assign List.
+     */
+    private function groupAssignsByCustomer($assigns)
+    {
+        return collect($assigns)
+            ->groupBy(function ($assign) {
+                $order = $assign->batch?->orderProgress?->order;
+
+                // fallback ke order id kalau customer tidak ada, biar tidak tergabung asal
+                return $order?->customer_id
+                    ? 'customer-' . $order->customer_id
+                    : 'order-' . ($order?->id ?? 0);
+            })
+            ->map(function ($items) {
+                $order = $items->first()->batch?->orderProgress?->order;
+
+                return [
+                    'order'   => $order, // dipakai untuk nama customer, kontak & alamat
+                    'assigns' => $items->values(),
+                    // 🔧 produk yang sama digabung jadi satu baris
+                    'lines'   => $this->mergeAssignLines($items),
+                ];
+            })
+            ->sortBy(fn($group) => strtolower(optional($group['order'])?->customer?->name ?? ''))
+            ->values();
+    }
+
+    /**
+     * 🔹 Gabungkan assign dengan produk (dan satuan) yang sama jadi satu baris:
+     *    qty dijumlah, note & preview digabung.
+     */
+    private function mergeAssignLines($assigns)
+    {
+        return collect($assigns)
+            ->groupBy(fn($assign) => $assign->product_id . '|' . ($assign->progressItem?->unit_name ?? ''))
+            ->map(function ($items) {
+                $first = $items->first();
+
+                $qty = $items->sum(function ($assign) {
+                    $conversion = max((float) ($assign->progressItem?->unit_conversion_value ?? 1), 1);
+
+                    return (float) $assign->assigned_quantity / $conversion;
+                });
+
+                // 🔹 preview design dari semua assign yang digabung (tanpa duplikat file)
+                $images = [];
+
+                foreach ($items as $assign) {
+                    $raw = $assign->progressItem?->designItem?->preview_image;
+
+                    foreach (json_decode($raw ?? '[]', true) ?? [] as $image) {
+                        $images[$image['file'] ?? json_encode($image)] = $image;
+                    }
+                }
+
+                $notes = $items->pluck('note')
+                    ->map(fn($note) => trim((string) $note))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                return [
+                    'product' => $first->progressItem?->product?->name ?? '-',
+                    'qty'     => $qty,
+                    'unit'    => $first->progressItem?->unit_name,
+                    'note'    => $notes->isNotEmpty() ? $notes->implode(' | ') : null,
+                    'images'  => array_values($images),
+                ];
+            })
+            ->sortBy('product')
+            ->values();
+    }
+
+    /**
+     * 🔹 Kelompokkan assign per batch (satu invoice = satu blok di tabel customer).
+     */
+    private function groupAssignsByBatch($assigns)
+    {
+        return collect($assigns)
+            ->groupBy('assign_batch_id')
+            ->map(fn($items) => [
+                'batch'   => $items->first()->batch,
+                'assigns' => $items->values(),
+            ])
+            ->sortBy(fn($group) => optional($group['batch'])->assign_date . '|' . optional($group['batch'])->id)
+            ->values();
+    }
+
+    /**
+     * 🔹 Query string filter listing, dipakai untuk link Print & Detail.
+     */
+    private function listingQueryString(Request $request): string
+    {
+        $params = array_filter(
+            $request->only([
+                'filter',
+                'start_date',
+                'end_date',
+                'progress_status',
+                'search_type',
+                'search_keyword',
+                'search_product',
+            ]),
+            fn($value) => $value !== null && $value !== ''
+        );
+
+        return $params ? '?' . http_build_query($params) : '';
     }
 
     public function AssignSummary(Request $request)

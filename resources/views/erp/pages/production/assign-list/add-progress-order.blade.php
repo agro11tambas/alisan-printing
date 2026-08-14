@@ -72,6 +72,20 @@
                                         </div>
                                     </div>
                                     <div class="row mb-2">
+                                        <div class="col-lg-2 fw-semibold">Mesin:</div>
+                                        <div class="col-lg-10 fw-semibold">
+                                            @php
+                                                // 🔧 mesin per produk, data lama fallback ke mesin batch
+                                                $batchMachineNames = $batch->assigns
+                                                    ->map(fn($assign) => $assign->machine->name ?? null)
+                                                    ->filter()
+                                                    ->unique()
+                                                    ->values();
+                                            @endphp
+                                            {{ $batchMachineNames->isNotEmpty() ? $batchMachineNames->implode(', ') : $batch->machine->name ?? '-' }}
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
                                         <div class="col-lg-2 fw-semibold">
                                             <span class="text-primary">Order Note:</span>
                                         </div>
@@ -121,12 +135,13 @@
                                 <thead>
                                     <tr>
                                         <th>Product</th>
+                                        <th>Mesin</th>
                                         <th>Assigned Qty</th>
                                         <th>Completed</th>
                                         <th>Reject</th>
                                         <th>Defect</th>
                                         {{-- <th>Remaining</th> --}}
-                                        <th>Operator</th>
+                                        <th style="width: 20%;">Operator</th>
                                         <th>Note</th>
                                     </tr>
                                 </thead>
@@ -137,6 +152,7 @@
                                         @endphp
                                         <tr>
                                             <td>{{ $assign->progressItem->product->name ?? '-' }}</td>
+                                            <td>{{ $assign->machine->name ?? ($batch->machine->name ?? '-') }}</td>
                                             <td>{{ number_format($assign->assigned_quantity, 0, ',', '.') }}
                                             </td>
                                             <td>
@@ -159,7 +175,20 @@
                                             {{-- <td><span
                                                     class="text-muted">{{ number_format($remaining, 0, ',', '.') }}</span>
                                             </td> --}}
-                                            <td>{{ $assign->operator->name ?? '-' }}</td>
+                                            <td>
+                                                <select name="items[{{ $index }}][operator_id]"
+                                                    class="form-select operator-field" data-select2-selector="tag">
+                                                    <option value="">-- Choose Operator --</option>
+                                                    @foreach ($operators as $op)
+                                                        <option value="{{ $op->id }}"
+                                                            {{ old("items.$index.operator_id") == $op->id ? 'selected' : '' }}>
+                                                            {{ $op->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                <small class="text-danger error-operator d-none">Operator wajib
+                                                    dipilih</small>
+                                            </td>
                                             <td>
                                                 <input type="text" name="items[{{ $index }}][note]"
                                                     class="form-control" placeholder="Catatan singkat">
@@ -227,18 +256,48 @@
                 }
             }
 
+            // 🔧 Total isian satu baris (completed + reject + defect)
+            function rowTotal(row) {
+                let total = 0;
+
+                row.find(
+                    'input[name$="[completed_quantity]"], input[name$="[reject_quantity]"], input[name$="[defect_quantity]"]'
+                ).each(function() {
+                    total += parseInt($(this).val().replace(/\./g, '')) || 0;
+                });
+
+                return total;
+            }
+
+            // 🔧 Baris yang totalnya 0 (bypass) → operatornya otomatis dikosongkan
+            function syncOperator(row) {
+                const operator = row.find('.operator-field');
+
+                if (rowTotal(row) <= 0) {
+                    if (operator.val()) {
+                        operator.val('').trigger('change');
+                    }
+                    row.find('.error-operator').addClass('d-none');
+                }
+            }
+
             $(document).on('input',
                 'input[name$="[completed_quantity]"], input[name$="[reject_quantity]"], input[name$="[defect_quantity]"]',
                 function(e) {
                     const input = $(this);
+                    const row = input.closest('tr');
                     const raw = input.val().replace(/\./g, '');
-                    if (raw === '') return;
+
+                    if (raw === '') {
+                        syncOperator(row);
+                        return;
+                    }
 
                     const formatted = formatNumber(raw);
                     input.val(formatted);
 
-                    const row = input.closest('tr');
                     checkLimit(row);
+                    syncOperator(row);
                 });
 
             $(document).on('focus',
@@ -253,7 +312,47 @@
                     if ($(this).val().trim() === '') $(this).val('0');
                 });
 
-            $('#progressForm').on('submit', function() {
+            $('#progressForm').on('submit', function(e) {
+                let valid = true;
+                let anyFilled = false;
+
+                $('.error-operator').addClass('d-none');
+
+                // 🔧 Operator hanya wajib untuk baris yang diisi.
+                //    Baris 0 (bypass) dilewati dan tidak disimpan ke database.
+                $('tbody tr').has('.operator-field').each(function() {
+                    const row = $(this);
+
+                    if (rowTotal(row) <= 0) return;
+
+                    anyFilled = true;
+
+                    if (row.find('.operator-field').val() === '') {
+                        row.find('.error-operator').removeClass('d-none');
+                        valid = false;
+                    }
+                });
+
+                if (!valid) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Tidak Valid!',
+                        text: 'Operator wajib dipilih untuk produk yang diisi progressnya.',
+                    });
+                    return;
+                }
+
+                if (!anyFilled) {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Tidak Valid!',
+                        text: 'Minimal satu produk harus diisi progressnya.',
+                    });
+                    return;
+                }
+
                 $('input[name$="[completed_quantity]"], input[name$="[reject_quantity]"], input[name$="[defect_quantity]"]')
                     .each(function() {
                         this.value = this.value.replace(/\./g, '');

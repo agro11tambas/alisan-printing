@@ -2,18 +2,20 @@
 
 @push('styles')
     <style>
-        #assignMachineTable {
+        @media (max-width: 768px) {
+
+            #assignBatchTable td.desktop-only,
+            #assignBatchTable th.desktop-only {
+                display: none !important;
+            }
+        }
+
+        #assignBatchTable {
             width: 100% !important;
             min-width: 0;
         }
 
-        #assignMachineTable_wrapper .dataTables_scrollBody {
-            background-image: none !important;
-            height: 60vh !important;
-            overflow-y: auto !important;
-        }
-
-        #assignSummaryTable_wrapper .dataTables_scrollBody {
+        #assignBatchTable_wrapper .dataTables_scrollBody {
             background-image: none !important;
             height: 60vh !important;
             overflow-y: auto !important;
@@ -26,50 +28,18 @@
             max-height: calc(100vh - 260px) !important;
         }
 
-        #assignMachineTable tbody tr {
+        #assignBatchTable tbody tr {
             animation: fadeIn 0.3s ease-in;
-        }
-
-        /* Kolom mesin */
-        #assignMachineTable td.machine-cell {
-            background-color: #eef2ff;
-            border-top: 2px solid #3454d1;
-            color: #3454d1;
-            font-weight: 700;
-            font-size: 14px;
-            letter-spacing: .3px;
-            text-transform: uppercase;
-            vertical-align: top;
-            white-space: nowrap;
-        }
-
-        #assignMachineTable td {
-            vertical-align: top;
-        }
-
-        .machine-assign-table {
-            font-size: 13px;
-        }
-
-        .machine-assign-table th {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: .3px;
-            color: #6c757d;
         }
 
         .static-action-menu {
             padding: 6px;
-            min-width: 620px;
-        }
-
-        #assignBatchTable td {
-            vertical-align: top;
+            min-width: 260px;
         }
 
         .action-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: 1fr;
             gap: 8px 8px;
         }
 
@@ -92,13 +62,27 @@
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">
             <div class="page-header-title">
-                <h5 class="m-b-10">Assign List</h5>
+                <h5 class="m-b-10">Assign List — {{ $machineName }}</h5>
             </div>
             <ul class="breadcrumb">
                 <li class="breadcrumb-item"><a href="/erp/welcome">Home</a></li>
                 <li class="breadcrumb-item">Production</li>
-                <li class="breadcrumb-item">Assign List</li>
+                <li class="breadcrumb-item"><a href="/erp/productions/waiting-list/assign-list">Assign List</a></li>
+                <li class="breadcrumb-item">{{ $machineName }}</li>
             </ul>
+        </div>
+        <div class="page-header-right ms-auto">
+            <div class="page-header-right-items">
+                <div class="d-flex align-items-center gap-2">
+                    <a href="/erp/productions/waiting-list/assign-list" class="btn btn-light-brand">
+                        <i class="feather-arrow-left me-2"></i><span>Back</span>
+                    </a>
+                    <a href="/erp/productions/assign-list/machine/{{ $machineKey }}/print" target="_blank"
+                        class="btn btn-primary">
+                        <i class="feather-printer me-2"></i><span>Print</span>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 @endsection
@@ -186,63 +170,19 @@
                                 </div>
                             </div>
                         </div>
-                        <ul class="nav nav-tabs mb-2" id="assignTabs" role="tablist">
-                            <li class="nav-item">
-                                <a class="nav-link active" id="assign-list-tab" data-bs-toggle="tab" href="#assign-list"
-                                    role="tab">
-                                    Assign List
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" id="assign-summary-tab" data-bs-toggle="tab" href="#assign-summary"
-                                    role="tab">
-                                    Assign Summary
-                                </a>
-                            </li>
-                        </ul>
 
                         <div class="table-responsive">
-                            <div class="tab-content">
-                                {{-- Tab 1: Assign List --}}
-                                <div class="tab-pane fade show active" id="assign-list" role="tabpanel">
-                                    {{-- 🔧 Status Progress → grouping per mesin --}}
-                                    <table class="table table-hover bg-transparent" id="assignMachineTable">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 12%;">Mesin</th>
-                                                <th>Assign List</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody></tbody>
-                                    </table>
-
-                                    {{-- 🔧 Status Completed → design lama, per invoice --}}
-                                    <table class="table table-hover bg-transparent" id="assignBatchTable">
-                                        <thead>
-                                            <tr>
-                                                <th>Invoice Number</th>
-                                                <th>Customer</th>
-                                                <th>Assign List</th>
-                                                <th>Order Notes</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody></tbody>
-                                    </table>
-                                </div>
-
-                                {{-- Tab 2: Assign Summary --}}
-                                <div class="tab-pane fade" id="assign-summary" role="tabpanel">
-                                    <table class="table table-hover bg-transparent" id="assignSummaryTable">
-                                        <thead>
-                                            <tr>
-                                                <th style="60%">Product</th>
-                                                <th style="20%">SKU</th>
-                                                <th style="20%">Total Assigned Qty</th>
-                                            </tr>
-                                        </thead>
-                                    </table>
-                                </div>
-                            </div>
+                            <table class="table table-hover bg-transparent" id="assignBatchTable">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice Number</th>
+                                        <th>Customer</th>
+                                        <th>Assign List</th>
+                                        <th>Order Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -264,7 +204,9 @@
                     </div>
 
                     <div class="modal-body">
-                        <p class="fw-semibold mb-1">Yakin ingin menghapus batch ini?</p>
+                        <p class="fw-semibold mb-1">
+                            Yakin ingin menghapus batch ini?
+                        </p>
                         <p class="text-muted mb-2">
                             Semua data <strong>assign</strong> di dalam batch ini juga akan ikut terhapus.
                         </p>
@@ -311,38 +253,15 @@
 
 @push('scripts')
     <script>
+        // 🔧 Halaman detail: assign list per invoice, khusus mesin ini
+        const MACHINE_KEY = @json($machineKey);
+
         $(document).ready(function() {
 
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
 
-            const machineTable = $('#assignMachineTable').DataTable({
-                processing: false,
-                serverSide: false,
-                scrollY: '60vh',
-                scrollCollapse: true,
-                paging: false,
-                searching: false,
-                info: false,
-                lengthChange: false,
-                ordering: false,
-                order: [],
-                data: [],
-                columns: [{
-                        data: 'machine',
-                        className: 'machine-cell'
-                    },
-                    {
-                        data: 'assign_products'
-                    }
-                ],
-                language: {
-                    processing: '<div class="spinner-border text-primary" role="status"></div>'
-                }
-            });
-
-            // 🔧 Tabel design lama untuk status Completed (per invoice, tanpa mesin)
             const batchTable = $('#assignBatchTable').DataTable({
                 processing: false,
                 serverSide: false,
@@ -373,54 +292,23 @@
                 }
             });
 
-            const $machineWrapper = $('#assignMachineTable').closest('.dataTables_wrapper');
-            const $batchWrapper = $('#assignBatchTable').closest('.dataTables_wrapper');
-
-            // 🔧 Completed → design lama, selain itu → grouping per mesin
-            function isCompletedMode() {
-                return $('#progress_status').val() === 'completed';
-            }
-
-            function currentTable() {
-                return isCompletedMode() ? batchTable : machineTable;
-            }
-
-            function applyMode() {
-                if (isCompletedMode()) {
-                    $machineWrapper.addClass('d-none');
-                    $batchWrapper.removeClass('d-none');
-                    batchTable.columns.adjust();
-                } else {
-                    $batchWrapper.addClass('d-none');
-                    $machineWrapper.removeClass('d-none');
-                    machineTable.columns.adjust();
-                }
-            }
-
             let currentRequest = null;
 
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                // 🚫 Batalkan request sebelumnya kalau masih jalan
                 if (currentRequest) {
                     currentRequest.abort();
                 }
 
-                const completedMode = isCompletedMode();
-                const table = currentTable();
-                const pageSize = completedMode ? 50 : 20;
-                const url = completedMode ?
-                    `/erp/productions/waiting-list/assign-list/data` :
-                    `/erp/productions/waiting-list/assign-list/machines`;
-
                 currentRequest = $.ajax({
-                    url: url,
+                    url: `/erp/productions/waiting-list/assign-list/data`,
                     type: 'GET',
                     data: {
-                        start: currentPage * pageSize,
-                        length: pageSize,
+                        start: currentPage * 50,
+                        length: 50,
+                        machine_id: MACHINE_KEY,
                         filter: $('#filter').val(),
                         start_date: $('#start_date').val(),
                         end_date: $('#end_date').val(),
@@ -431,11 +319,11 @@
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
-                            if (table.rows().count() === 0) {
-                                table.rows.add(response.data).draw(false);
+                            if (batchTable.rows().count() === 0) {
+                                batchTable.rows.add(response.data).draw(false);
                             } else {
-                                let newNodes = table.rows.add(response.data).nodes();
-                                $(table.table().body()).append(newNodes);
+                                let newNodes = batchTable.rows.add(response.data).nodes();
+                                $(batchTable.table().body()).append(newNodes);
                             }
                             currentPage++;
                             hasMoreData = !!response.has_more;
@@ -457,39 +345,31 @@
                 });
             }
 
-            applyMode();
             loadMoreData();
 
-            $machineWrapper.find('.dataTables_scrollBody')
-                .add($batchWrapper.find('.dataTables_scrollBody'))
-                .on('scroll', function() {
-                    const scrollTop = $(this).scrollTop();
-                    const scrollHeight = $(this)[0].scrollHeight;
-                    const clientHeight = $(this).height();
+            $('.dataTables_scrollBody').on('scroll', function() {
+                const scrollTop = $(this).scrollTop();
+                const scrollHeight = $(this)[0].scrollHeight;
+                const clientHeight = $(this).height();
 
-                    // Load earlier (70%) without delay
-                    if (scrollTop + clientHeight >= scrollHeight * 0.70) {
-                        loadMoreData();
-                    }
-                });
+                if (scrollTop + clientHeight >= scrollHeight * 0.70) {
+                    loadMoreData();
+                }
+            });
 
             function resetAndReload() {
                 currentPage = 0;
                 hasMoreData = true;
-                machineTable.clear().draw();
                 batchTable.clear().draw();
-                applyMode();
                 loadMoreData();
             }
 
-            // 🔹 Klik baris invoice (mode Completed) → tampilkan action button
+            // 🔹 Klik baris → tampilkan tombol aksi (Add Progress / Edit / Delete)
             $('#assignBatchTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('.preview-btn').length) return;
-
+                if ($(e.target).closest('td.dt-control').length) return;
                 let $tr = $(this);
                 if ($tr.hasClass('action-row')) return;
                 if (!batchTable.row($tr).data()) return;
-
                 let row = batchTable.row($tr);
                 $('#assignBatchTable tbody tr').removeClass('action-shown').next('.action-row').remove();
 
@@ -499,12 +379,12 @@
                     let actionHtml = row.data().action;
                     let colCount = $tr.find('td').length;
                     let $actionRow = $(`
-                        <tr class="action-row">
-                            <td colspan="${colCount}">
-                                <div class="d-flex justify-content-center py-1">${actionHtml}</div>
-                            </td>
-                        </tr>
-                    `);
+                <tr class="action-row">
+                    <td colspan="${colCount}">
+                        <div class="d-flex justify-content-center py-1">${actionHtml}</div>
+                    </td>
+                </tr>
+            `);
                     $tr.after($actionRow);
                     $tr.addClass('action-shown');
                 }
@@ -515,39 +395,6 @@
                 $('#assignBatchTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            // 🔹 Klik baris mesin → tampilkan action button (Print / Detail)
-            $('#assignMachineTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('.preview-btn').length) return;
-
-                let $tr = $(this);
-                if ($tr.hasClass('action-row')) return;
-                if (!machineTable.row($tr).data()) return;
-
-                let row = machineTable.row($tr);
-                $('#assignMachineTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-
-                if ($tr.hasClass('action-shown')) {
-                    $tr.removeClass('action-shown');
-                } else {
-                    let actionHtml = row.data().action;
-                    let colCount = $tr.find('td').length;
-                    let $actionRow = $(`
-                        <tr class="action-row">
-                            <td colspan="${colCount}">
-                                <div class="d-flex justify-content-center py-1">${actionHtml}</div>
-                            </td>
-                        </tr>
-                    `);
-                    $tr.after($actionRow);
-                    $tr.addClass('action-shown');
-                }
-            });
-
-            $(document).on('click', function(e) {
-                if ($(e.target).closest('#assignMachineTable').length) return;
-                $('#assignMachineTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-            });
-
             // ==========================
             // 🔹 FILTER HANDLER
             // ==========================
@@ -555,7 +402,6 @@
             $('#filter').on('change', function() {
                 const val = $(this).val();
 
-                // Kalau custom range → tampilkan input tanggal, tapi JANGAN reload dulu
                 if (val === 'custom') {
                     $('.custom-range').removeClass('d-none');
                     return;
@@ -569,96 +415,32 @@
                 resetAndReload();
             });
 
-            // Dropdown: auto reload
             $('#progress_status, #search_type').on('change', function() {
                 resetAndReload();
             });
 
-            // Keyword search → ENTER only
             $('#search_keyword, #search_product').on('keypress', function(e) {
-                if (e.which === 13) { // ENTER
+                if (e.which === 13) {
                     e.preventDefault();
                     resetAndReload();
                 }
             });
 
-            // Jika user menghapus text (kosong), reload otomatis
             $('#search_keyword, #search_product').on('input', function() {
                 if ($(this).val().trim() === '') {
                     resetAndReload();
                 }
             });
-
-            let summaryTableInitialized = false;
-            let summaryTable = null;
-
-            function initAssignSummaryTable() {
-                if (summaryTableInitialized) return;
-
-                summaryTable = $('#assignSummaryTable').DataTable({
-                    processing: true,
-                    serverSide: false,
-                    ajax: {
-                        url: "/erp/productions/waiting-list/assign-list/summary",
-                        data: function(d) {
-                            d.filter = $('#filter').val();
-                            d.start_date = $('#start_date').val();
-                            d.end_date = $('#end_date').val();
-                            d.search_type = $('#search_type').val();
-                            d.search_keyword = $('#search_keyword').val();
-                            d.product = $('#search_product').val();
-                        }
-                    },
-                    columns: [{
-                            data: 'product_name'
-                        },
-                        {
-                            data: 'sku'
-                        },
-                        {
-                            data: 'total_assigned_qty'
-                        },
-                    ],
-                    order: [
-                        [2, 'desc']
-                    ],
-                    paging: false,
-                    searching: false,
-                    info: false,
-                    scrollY: '60vh',
-                    scrollCollapse: true,
-                });
-
-                summaryTableInitialized = true;
-            }
-
-            // Jika tab summary dibuka
-            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
-                if ($(e.target).attr('href') === '#assign-summary') {
-                    if (!summaryTableInitialized) {
-                        initAssignSummaryTable();
-                    } else {
-                        summaryTable.ajax.reload();
-                    }
-                }
-            });
-
-            $('#filter, #start_date, #end_date, #search_product')
-                .on('change keyup', function() {
-                    if (summaryTableInitialized) {
-                        summaryTable.ajax.reload();
-                    }
-                });
-
         });
 
-        // === DELETE BATCH (mode Completed / design lama) ===
         $(document).on('click', '.btn-open-delete-modal', function() {
             const batchId = $(this).data('id');
             const batchCode = $(this).data('code');
 
             $('#formDeleteAssign').attr('action', `/erp/productions/assign-list/delete/${batchId}`);
+
             $('#modalDeleteAssign .modal-title').text(`Hapus Assign Batch ${batchCode}`);
+
             $('#delete_batch_id').val(batchId);
 
             $('#modalDeleteAssign').modal('show');
@@ -667,6 +449,21 @@
         $('#formDeleteAssign').on('submit', function() {
             $('#btnConfirmDelete').prop('disabled', true).html(
                 '<span class="spinner-border spinner-border-sm me-2"></span> Menghapus...');
+        });
+
+        document.addEventListener('click', function(e) {
+            const el = e.target.closest('.assign-disabled');
+
+            if (el) {
+                const title = el.getAttribute('data-title') || 'Action';
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Tidak dapat ' + title,
+                    text: 'Assign ini sudah full progress, tidak bisa diubah lagi!',
+                    confirmButtonText: 'OK'
+                });
+            }
         });
 
         // === SHOW PREVIEW MODAL ===

@@ -272,6 +272,11 @@
                         </div>
 
                         <div class="mb-2">
+                            <label class="form-label">Mesin</label>
+                            <input type="text" id="machine_name" name="machine_name" class="form-control" readonly>
+                        </div>
+
+                        <div class="mb-2">
                             <label class="form-label">Operator</label>
                             <input type="text" id="operator_name" name="operator_name" class="form-control" readonly>
                         </div>
@@ -437,6 +442,7 @@
             $('#completed_quantity').val($(this).data('quantity'));
             $('#defect_quantity').val($(this).data('defect'));
             $('#reject_quantity').val($(this).data('reject'));
+            $('#machine_name').val($(this).data('machine'));
             $('#operator_name').val($(this).data('operator'));
             $('#notes').val($(this).data('note'));
             $('#editHistoryModal').modal('show');

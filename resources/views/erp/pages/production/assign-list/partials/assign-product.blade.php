@@ -2,10 +2,11 @@
     <table class="table table-small table-bordered">
         <thead>
             <tr>
-                <th style="width: 20%;">Operator</th>
-                <th style="width: 15%;">Preview</th>
-                <th style="width: 20%;">Product</th>
-                <th style="width: 20%;">Assigned</th>
+                <th style="width: 13%;">Preview</th>
+                <th style="width: 22%;">Product</th>
+                <th style="width: 13%;">Mesin</th>
+                <th style="width: 15%;">Operator</th>
+                <th style="width: 17%;">Assigned</th>
                 {{-- <th style="width: 10%;">Defect Product</th>
                 <th style="width: 10%;">Reject Product</th> --}}
                 <th style="width: 10%;">Note</th>
@@ -20,17 +21,20 @@
                     if ($assign->progressItem?->designItem?->preview_image) {
                         $images = json_decode($assign->progressItem->designItem->preview_image, true) ?? [];
                     }
+
+                    // 🔧 Operator dipilih saat input progress, jadi diambil dari history.
+                    //    Data lama masih menyimpan operator di assign.
+                    $operatorNames = $assign->histories
+                        ->map(fn($history) => $history->operators?->name)
+                        ->filter()
+                        ->unique()
+                        ->values();
+
+                    if ($operatorNames->isEmpty() && $assign->operator) {
+                        $operatorNames = collect([$assign->operator->name]);
+                    }
                 @endphp
                 <tr>
-                    <td>
-                        <span class="fw-bold text-dark">
-                            @if ($assign->operator)
-                                {{ $assign->operator->name }}
-                            @else
-                                -
-                            @endif
-                        </span>
-                    </td>
                     {{-- PREVIEW BUTTON --}}
                     <td>
                         @if (!empty($images))
@@ -46,6 +50,15 @@
                     </td>
                     <td>
                         <span class="fw-bold text-dark">{{ $assign->progressItem?->product?->name ?? '-' }}
+                        </span>
+                    </td>
+                    <td>
+                        {{-- 🔧 mesin per produk --}}
+                        <span class="fw-bold text-dark">{{ $assign->machine?->name ?? '-' }}</span>
+                    </td>
+                    <td>
+                        <span class="fw-bold text-dark">
+                            {{ $operatorNames->isNotEmpty() ? $operatorNames->implode(', ') : '-' }}
                         </span>
                     </td>
                     <td><span
