@@ -93,6 +93,36 @@ class EcommerceBundlePreloadTest extends TestCase
         );
     }
 
+    /**
+     * Preload harus mencocokkan pasangan persis, bukan "primary ada di daftar A
+     * DAN secondary ada di daftar B". Dengan pencocokan longgar, meminta
+     * (1,2) dan (3,4) ikut menarik bundle (1,4) — dan di endpoint katalog,
+     * daftar A dan B berisi hampir seluruh produk sehingga hampir semua bundle
+     * ikut terhidrasi lengkap dengan eager load-nya.
+     */
+    public function test_preloading_does_not_hydrate_pairs_that_were_not_asked_for(): void
+    {
+        DB::table('product_bundles')->insert(['id' => 30, 'name' => 'Gelas + Segel']);
+        DB::table('product_bundle_items')->insert([
+            ['bundle_id' => 30, 'product_id' => 1, 'role' => 'primary'],
+            ['bundle_id' => 30, 'product_id' => 4, 'role' => 'secondary'],
+        ]);
+
+        $service = new EcommercePricingService();
+
+        $service->preloadBundlesForPairs([[1, 2], [3, 4]]);
+
+        $queries = $this->countQueries(function () use ($service) {
+            $service->bundleForPair(1, 4);
+        });
+
+        $this->assertGreaterThan(
+            0,
+            $queries,
+            'Bundle (1,4) ikut dimuat padahal tidak diminta: preload masih memakai perkalian silang.'
+        );
+    }
+
     public function test_a_pair_not_included_in_the_preload_still_works(): void
     {
         $service = new EcommercePricingService();

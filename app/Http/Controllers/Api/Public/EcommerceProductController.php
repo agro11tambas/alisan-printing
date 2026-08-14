@@ -4,30 +4,46 @@ namespace App\Http\Controllers\Api\Public;
 
 use App\Http\Controllers\Controller;
 use App\Models\EcommerceProduct;
+use App\Services\EcommerceCatalogCache;
 use App\Services\EcommercePricingService;
 
 class EcommerceProductController extends Controller
 {
-    public function __construct(private EcommercePricingService $pricingService)
-    {
+    /**
+     * @var array<string, string|null>
+     */
+    private array $imageUrlMemo = [];
+
+    public function __construct(
+        private EcommercePricingService $pricingService,
+        private EcommerceCatalogCache $catalogCache,
+    ) {
     }
 
     public function index()
     {
-        $products = EcommerceProduct::with($this->relations())
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->get();
+        // Katalog penuh dibangun sekali lalu dipakai ulang sampai admin
+        // menyimpan perubahan. Website memanggil endpoint ini berkali-kali dan
+        // sering berbarengan; tanpa cache tiap panggilan membangun ulang
+        // seluruh katalog dan salinannya menumpuk di memori server.
+        $data = $this->catalogCache->remember('products:index', function () {
+            $products = EcommerceProduct::with($this->relations())
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get();
 
-        // Muat seluruh bundle sekaligus sebelum memformat. Tanpa ini setiap
-        // kombinasi varian menembak query bundle-nya sendiri.
-        $this->pricingService->preloadBundlesForPairs(
-            $this->bundlePairs($products)
-        );
+            // Muat seluruh bundle sekaligus sebelum memformat. Tanpa ini setiap
+            // kombinasi varian menembak query bundle-nya sendiri.
+            $this->pricingService->preloadBundlesForPairs(
+                $this->bundlePairs($products)
+            );
+
+            return $products->map(fn ($product) => $this->formatProduct($product))->all();
+        });
 
         return response()->json([
             'success' => true,
-            'data' => $products->map(fn ($product) => $this->formatProduct($product)),
+            'data' => $data,
         ]);
     }
 
@@ -55,28 +71,36 @@ class EcommerceProductController extends Controller
 
     public function show($slug)
     {
-        $product = EcommerceProduct::with($this->relations())
-            ->where('slug', $slug)
-            ->where('is_active', true)
-            ->first();
+        $data = $this->catalogCache->remember('products:show:'.$slug, function () use ($slug) {
+            $product = EcommerceProduct::with($this->relations())
+                ->where('slug', $slug)
+                ->where('is_active', true)
+                ->first();
 
-        if (!$product) {
+            if (!$product) {
+                return null;
+            }
+
+            // index() sudah melakukan ini, show() belum: tanpa preload, formatProduct()
+            // menembak satu query bundle per kombinasi varian. Satu halaman detail
+            // produk tercatat 480 query di log produksi karena baris ini tidak ada.
+            $this->pricingService->preloadBundlesForPairs(
+                $this->bundlePairs(collect([$product]))
+            );
+
+            return $this->formatProduct($product);
+        });
+
+        if ($data === null) {
             return response()->json([
                 'success' => false,
                 'message' => 'Product not found',
             ], 404);
         }
 
-        // index() sudah melakukan ini, show() belum: tanpa preload, formatProduct()
-        // menembak satu query bundle per kombinasi varian. Satu halaman detail
-        // produk tercatat 480 query di log produksi karena baris ini tidak ada.
-        $this->pricingService->preloadBundlesForPairs(
-            $this->bundlePairs(collect([$product]))
-        );
-
         return response()->json([
             'success' => true,
-            'data' => $this->formatProduct($product),
+            'data' => $data,
         ]);
     }
 
@@ -94,21 +118,30 @@ class EcommerceProductController extends Controller
         ];
     }
 
+    /**
+     * Hasilnya diingat per request. Tiap panggilan melakukan sampai dua
+     * file_exists(), dan katalog penuh memanggilnya ribuan kali untuk gambar
+     * yang banyak berulang (produk ERP yang sama dipakai di banyak varian).
+     */
     private function resolveImageUrl($path)
     {
         if (empty($path) || str_starts_with($path, 'http')) {
             return $path;
         }
 
+        if (array_key_exists($path, $this->imageUrlMemo)) {
+            return $this->imageUrlMemo[$path];
+        }
+
         if (file_exists(public_path('storage/' . $path))) {
-            return asset('storage/' . $path);
+            return $this->imageUrlMemo[$path] = asset('storage/' . $path);
         }
 
         if (file_exists(public_path('uploads/' . $path))) {
-            return asset('uploads/' . $path);
+            return $this->imageUrlMemo[$path] = asset('uploads/' . $path);
         }
 
-        return asset('storage/' . $path);
+        return $this->imageUrlMemo[$path] = asset('storage/' . $path);
     }
 
     private function formatProduct(EcommerceProduct $product): array

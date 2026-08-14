@@ -6,6 +6,7 @@ use App\Models\EcommerceProduct;
 use App\Models\PriceMode;
 use App\Models\ProductBundle;
 use App\Models\Products;
+use Illuminate\Support\Facades\DB;
 
 class EcommercePricingService
 {
@@ -35,21 +36,55 @@ class EcommercePricingService
             return;
         }
 
-        $primaryIds = array_unique(array_column($pending, 0));
-        $secondaryIds = array_unique(array_column($pending, 1));
+        $wanted = [];
+        foreach ($pending as $pair) {
+            $wanted[$pair[0].':'.$pair[1]] = true;
+        }
 
-        $bundles = ProductBundle::with([
-            'items.product',
-            'baseUnit',
-            'unitConversions.prices.priceMode',
-        ])
-            ->whereHas('items', fn ($query) => $query
-                ->where('role', 'primary')
-                ->whereIn('product_id', $primaryIds))
-            ->whereHas('items', fn ($query) => $query
-                ->where('role', 'secondary')
-                ->whereIn('product_id', $secondaryIds))
-            ->get();
+        // Pasangan dicocokkan di tabel item dulu, baru bundle-nya dimuat.
+        //
+        // Dua whereHas di ProductBundle berarti "primary ada di daftar A DAN
+        // secondary ada di daftar B" — bukan "pasangannya persis (A1,B1)".
+        // Untuk satu produk itu tidak terasa, tapi endpoint katalog memanggil
+        // ini dengan daftar berisi hampir seluruh produk, sehingga hampir semua
+        // bundle ikut terambil lengkap dengan lima eager load-nya dan memori
+        // request membengkak. Join di bawah hanya membaca kolom id, lalu
+        // menyaring pasangan yang benar-benar diminta sebelum hidrasi.
+        $bundleIds = DB::table('product_bundle_items as primary_item')
+            ->join(
+                'product_bundle_items as secondary_item',
+                'primary_item.bundle_id',
+                '=',
+                'secondary_item.bundle_id'
+            )
+            ->where('primary_item.role', 'primary')
+            ->where('secondary_item.role', 'secondary')
+            ->whereNull('primary_item.deleted_at')
+            ->whereNull('secondary_item.deleted_at')
+            ->whereIn('primary_item.product_id', array_unique(array_column($pending, 0)))
+            ->whereIn('secondary_item.product_id', array_unique(array_column($pending, 1)))
+            ->get([
+                'primary_item.bundle_id as bundle_id',
+                'primary_item.product_id as primary_product_id',
+                'secondary_item.product_id as secondary_product_id',
+            ])
+            ->filter(fn ($row) => isset(
+                $wanted[$row->primary_product_id.':'.$row->secondary_product_id]
+            ))
+            ->pluck('bundle_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        $bundles = $bundleIds === []
+            ? collect()
+            : ProductBundle::with([
+                'items.product',
+                'baseUnit',
+                'unitConversions.prices.priceMode',
+            ])
+                ->whereIn('id', $bundleIds)
+                ->get();
 
         foreach ($bundles as $bundle) {
             $primary = $bundle->items->firstWhere('role', 'primary');

@@ -66,6 +66,15 @@ return [
         'url' => env('WEBSITE_REVALIDATE_URL', env('FRONTEND_WEBSITE_URL')),
         'secret' => env('WEBSITE_REVALIDATE_SECRET'),
         'timeout' => (int) env('WEBSITE_REVALIDATE_TIMEOUT', 5),
+        'connect_timeout' => (int) env('WEBSITE_REVALIDATE_CONNECT_TIMEOUT', 3),
+
+        /*
+         * Umur cache jawaban API katalog publik. Cache dikosongkan tiap admin
+         * menyimpan produk/kategori, jadi TTL ini hanya jaring pengaman kalau
+         * ada perubahan data yang tidak lewat ERP. Isi 0 untuk mematikannya.
+         */
+        'catalog_cache_ttl' => (int) env('WEBSITE_CATALOG_CACHE_TTL', 300),
+        'catalog_cache_store' => env('WEBSITE_CATALOG_CACHE_STORE', 'file'),
     ],
 
 ];

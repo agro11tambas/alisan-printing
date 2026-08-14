@@ -24,6 +24,10 @@ class WebsiteRevalidator
 
     private bool $flushRegistered = false;
 
+    public function __construct(private EcommerceCatalogCache $catalogCache)
+    {
+    }
+
     public function product(?string $slug = null): void
     {
         $this->queue(array_filter([
@@ -45,6 +49,11 @@ class WebsiteRevalidator
     {
         $this->queuedPaths = array_values(array_unique(array_merge($this->queuedPaths, $paths)));
 
+        // Cache katalog ERP dikosongkan sekarang juga, bukan ditunda seperti
+        // ping ke website: begitu admin menyimpan, request berikutnya harus
+        // sudah membaca data baru.
+        $this->catalogCache->flush();
+
         if ($this->flushRegistered) {
             return;
         }
@@ -64,6 +73,11 @@ class WebsiteRevalidator
             return;
         }
 
+        // Dikosongkan sekali lagi di sini. queue() jalan di dalam transaksi,
+        // jadi request lain yang kebetulan membangun ulang cache sebelum commit
+        // masih bisa menyimpan data lama; titik ini sudah lewat commit.
+        $this->catalogCache->flush();
+
         $baseUrl = rtrim((string) config('services.website.url'), '/');
         $secret = (string) config('services.website.secret');
 
@@ -73,7 +87,13 @@ class WebsiteRevalidator
         }
 
         try {
+            // connect_timeout wajib disebut. timeout() hanya membatasi durasi
+            // request setelah koneksi terbentuk; batas membangun koneksinya
+            // ikut default Guzzle, dan kalau host tujuan diam (paket di-drop,
+            // bukan ditolak) proses menunggu sampai TCP timeout OS — menahan
+            // satu worker PHP bermenit-menit.
             $response = Http::timeout((int) config('services.website.timeout', 5))
+                ->connectTimeout((int) config('services.website.connect_timeout', 3))
                 ->withHeaders(['X-Revalidate-Secret' => $secret])
                 ->post($baseUrl . '/api/revalidate', ['paths' => $paths]);
 
