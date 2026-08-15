@@ -356,6 +356,13 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::middleware(['web.auth', 'subpermission:waiting-list'])->group(function () {
             Route::get('/erp/productions/waiting-list/data', [WaitingListController::class, 'dataWaitingList']);
             Route::get('/erp/productions/waiting-list', [WaitingListController::class, 'getWaitingList']);
+
+            // 🔧 Waiting List versi lama (kolom Customer design lama)
+            Route::get('/erp/productions/waiting-list-old', [WaitingListController::class, 'getWaitingListOld']);
+
+            // 🔧 Add Assign versi lama: pilih Operator per produk, bukan Mesin
+            Route::get('/erp/productions/waiting-list-old/add-assign/{id}', [OrderProgressAssignController::class, 'createOld']);
+            Route::post('/erp/productions/waiting-list-old/assign/{id}', [OrderProgressAssignController::class, 'storeOld']);
             // Route::get('/erp/complete-list/data', [WaitingListController::class, 'dataCompleteList']);
             // Route::get('/erp/complete-list', [WaitingListController::class, 'getCompleteList']);
             // Route::put('/erp/mark-as-complete-list/{id}', [WaitingListController::class, 'markAsCompleteList']);

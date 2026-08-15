@@ -18,6 +18,18 @@ class WaitingListController extends Controller
         return view('erp.pages.production.waiting-list.waiting-list');
     }
 
+    /**
+     * 🔧 Waiting List versi lama.
+     *
+     * Data & filternya sama persis dengan halaman Waiting List, cuma kolom
+     * Customer-nya pakai tampilan lama (cabang di atas, nama customer di bawah).
+     * Dipicu lewat parameter `legacy` di dataWaitingList().
+     */
+    public function getWaitingListOld()
+    {
+        return view('erp.pages.production.waiting-list-old.waiting-list-old');
+    }
+
     public function dataWaitingList(Request $request)
     {
         $length = (int) $request->input('length', 15);
@@ -152,7 +164,10 @@ class WaitingListController extends Controller
             ->take($length)
             ->get();
 
-        $mappedData = $data->map(function ($progress) {
+        // 🔧 Halaman Waiting List Old: kolom Customer & action button versi lama
+        $legacy = $request->boolean('legacy');
+
+        $mappedData = $data->map(function ($progress) use ($legacy) {
             // $orderCreatedAt = optional($progress->order)->created_at;
             // $date = $orderCreatedAt ? Carbon::parse($orderCreatedAt)->format('d M y H:i') : '-';
             $orderDate = optional($progress->order)->order_date;
@@ -192,17 +207,27 @@ class WaitingListController extends Controller
                 <small class="text-muted">' . $date . '</small>
             </div>';
 
-            // 🔧 Nama customer + kontak + branch. Alamat lengkap tidak ditampilkan.
-            $customerContact = \App\Support\PhoneNumber::toLocalIndonesian($progress->order?->order_whatsapp_number);
-            $customerBranch = $progress->order?->customerAddress?->business_name;
+            if ($legacy) {
+                // 🔧 Versi lama: cabang (business name) di atas, nama customer di bawah.
+                $customerHtml = '
+                    <div style="white-space:normal; word-break:break-word; max-width:180px;">
+                        <div class="fw-semibold">' . e($progress->order?->customerAddress?->business_name ?? '-') . '</div>
+                        <small class="text-muted">' . e($progress->order?->customer?->name ?? '-') . '</small>
+                    </div>
+                ';
+            } else {
+                // 🔧 Nama customer + kontak + branch. Alamat lengkap tidak ditampilkan.
+                $customerContact = \App\Support\PhoneNumber::toLocalIndonesian($progress->order?->order_whatsapp_number);
+                $customerBranch = $progress->order?->customerAddress?->business_name;
 
-            $customerHtml = '
-                <div style="white-space:normal; word-break:break-word; max-width:180px;">
-                    <div class="fw-semibold">' . e($progress->order?->customer?->name ?? '-') . '</div>
-                    <small class="text-muted d-block">' . e($customerContact ?: '-') . '</small>
-                    ' . ($customerBranch ? '<small class="text-muted d-block">' . e($customerBranch) . '</small>' : '') . '
-                </div>
-            ';
+                $customerHtml = '
+                    <div style="white-space:normal; word-break:break-word; max-width:180px;">
+                        <div class="fw-semibold">' . e($progress->order?->customer?->name ?? '-') . '</div>
+                        <small class="text-muted d-block">' . e($customerContact ?: '-') . '</small>
+                        ' . ($customerBranch ? '<small class="text-muted d-block">' . e($customerBranch) . '</small>' : '') . '
+                    </div>
+                ';
+            }
 
             $progressView = view('erp.pages.production.waiting-list.partials.product-progress', compact('progress'))->render();
             $shipping = e($progress->order->shipping_address ?? '-');
@@ -224,7 +249,12 @@ class WaitingListController extends Controller
                 return $assignedTotal >= $requiredQty;
             });
 
-            $actionButtons = view('erp.pages.production.waiting-list.partials.action-button', compact('progress', 'allCompleted'))->render();
+            // 🔧 Waiting List Old: Add Assign mengarah ke form assign Operator (versi lama)
+            $actionView = $legacy
+                ? 'erp.pages.production.waiting-list-old.partials.action-button'
+                : 'erp.pages.production.waiting-list.partials.action-button';
+
+            $actionButtons = view($actionView, compact('progress', 'allCompleted'))->render();
 
             $orderNotesValue = $progress->order?->notes;
 
