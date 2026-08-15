@@ -621,6 +621,17 @@ class OrderProgressAssignController extends Controller
     }
 
     /**
+     * 🔧 Assign List versi lama: satu baris per invoice (batch), tanpa grouping mesin.
+     *
+     * Datanya tetap diambil dari endpoint yang sama (dataAssignList), cuma
+     * di sini dipakai untuk semua status — bukan cuma tab Completed.
+     */
+    public function getAssignListOld()
+    {
+        return view('erp.pages.production.assign-list-old.assign-list-old');
+    }
+
+    /**
      * 🔧 Filter status di level PRODUK (assign):
      *    - progress  → produk yang progressnya belum penuh
      *    - completed → produk yang progressnya sudah penuh
@@ -897,7 +908,13 @@ class OrderProgressAssignController extends Controller
                 $hasOnlyProgressStatus = $batch->assigns
                     ->every(fn ($assign) => $assign->status === 'progress');
 
-                $action = view('erp.pages.production.assign-list.partials.assign-action-button', compact(
+                // 🔧 Halaman Assign List Old pakai action button versi lama
+                //    (Add Progress & Edit masih per batch, bukan per mesin).
+                $actionView = $request->boolean('legacy')
+                    ? 'erp.pages.production.assign-list-old.partials.assign-action-button'
+                    : 'erp.pages.production.assign-list.partials.assign-action-button';
+
+                $action = view($actionView, compact(
                     'batch',
                     'allCompleted',
                     'hasOnlyProgressStatus'
@@ -1041,8 +1058,8 @@ class OrderProgressAssignController extends Controller
         // 🔧 Struk ikut listing: dikelompokkan per customer (tanpa nomor invoice)
         $groups = $this->groupAssignsByCustomer($assigns);
 
-        // 🔧 Total qty = semua qty, KECUALI produk yang berperan secondary di
-        //    bundle yang dipesan. Satu produk bisa primary di bundle lain,
+        // 🔧 Produk secondary TETAP dicetak sebagai baris, tapi qty-nya tidak
+        //    dihitung ke TOTAL QTY. Satu produk bisa primary di bundle lain,
         //    jadi rolenya dicek terhadap bundle di order item-nya.
         $secondaryAssignIds = DB::table('order_progress_assigns as opa')
             ->join('order_progress_items as opi', 'opi.id', '=', 'opa.order_progress_item_id')

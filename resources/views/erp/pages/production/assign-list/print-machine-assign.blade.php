@@ -1,5 +1,15 @@
 @php
+    // 🔧 Dipakai untuk ukuran font & preview di layar saja.
+    //    Lebar saat CETAK sepenuhnya mengikuti kertas dari driver printer
+    //    (lihat @page size:auto + width:100% di bawah), bukan angka mm ini.
     $paperWidth = in_array((int) ($paperWidth ?? 80), [58, 80]) ? (int) $paperWidth : 80;
+
+    // 🔧 Jarak aman tepi KANAN saat cetak (mm).
+    //    Kepala printer thermal berhenti beberapa mm sebelum tepi kertas, jadi
+    //    kolom qty yang rata kanan ("500 Pcs") kepotong jadi "500 Pc".
+    //    Naikkan angka ini kalau masih ada huruf/angka terakhir yang hilang.
+    //    Bisa dites cepat lewat query string: ...?right_safe=8
+    $rightSafe = min(max((float) request()->input('right_safe', 6), 0), 20);
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -10,7 +20,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
         @page {
-            size: {{ $paperWidth }}mm auto;
+            /* 🔧 JANGAN kunci lebar halaman ke mm.
+               Kalau ukuran di sini beda dengan kertas yang dipilih di driver
+               printer, Chrome tetap menyusun konten selebar deklarasi ini lalu
+               sisi kanan dibuang. size:auto = ikut kertas asli dari driver. */
+            size: auto;
             margin: 0;
         }
 
@@ -37,11 +51,19 @@
         .receipt {
             width: {{ $paperWidth }}mm;
             margin: 8px auto;
-            padding: 2mm;
+            padding: 0 1mm;
             background: #fff;
-            font-size: {{ $paperWidth === 58 ? '12px' : '13px' }};
+            font-size: {{ $paperWidth === 58 ? '11px' : '12px' }};
             line-height: 1.3;
             font-weight: 700;
+        }
+
+        @media screen {
+
+            /* Preview di layar saja, tidak berpengaruh ke hasil cetak. */
+            .receipt {
+                box-shadow: 0 1px 4px rgba(0, 0, 0, .2);
+            }
         }
 
         .center {
@@ -49,7 +71,7 @@
         }
 
         .machine-name {
-            font-size: {{ $paperWidth === 58 ? '17px' : '20px' }};
+            font-size: {{ $paperWidth === 58 ? '15px' : '18px' }};
             font-weight: 900;
             text-transform: uppercase;
         }
@@ -72,9 +94,15 @@
 
         .row .qty {
             white-space: nowrap;
+            flex: 0 0 auto;
         }
 
         .product {
+            /* 🔧 min-width:0 wajib, kalau tidak flex item menolak menyusut dan
+               nama produk panjang mendorong qty keluar dari area cetak */
+            min-width: 0;
+            flex: 1 1 auto;
+            overflow-wrap: anywhere;
             word-break: break-word;
         }
 
@@ -89,12 +117,12 @@
         }
 
         .muted {
-            font-size: {{ $paperWidth === 58 ? '11px' : '12px' }};
+            font-size: {{ $paperWidth === 58 ? '10px' : '11px' }};
             font-weight: 400;
         }
 
         .total {
-            font-size: {{ $paperWidth === 58 ? '14px' : '16px' }};
+            font-size: {{ $paperWidth === 58 ? '13px' : '14px' }};
             font-weight: 900;
         }
 
@@ -115,13 +143,26 @@
         }
 
         @media print {
+
+            html,
             body {
                 background: #fff;
+                /* Ikut lebar kertas dari driver, bukan angka mm hardcode */
+                width: 100%;
+                max-width: 100%;
+                overflow-x: hidden;
             }
 
             .receipt {
+                /* 🔧 Lebar ikut kertas, tapi sisi kanan ditarik masuk
+                   {{ $rightSafe }}mm supaya kolom qty tidak masuk area yang
+                   tidak terjangkau kepala printer. Kiri tetap 0 karena di sana
+                   sudah ada margin fisik dari printer. */
                 margin: 0;
-                width: auto;
+                padding: 0 {{ $rightSafe }}mm 0 0;
+                width: 100%;
+                max-width: 100%;
+                box-shadow: none;
             }
 
             .toolbar {
@@ -139,7 +180,6 @@
 
     <div class="receipt">
         <div class="center">
-            <div>DAFTAR KERJA PRODUKSI</div>
             <div class="machine-name">{{ $machineName }}</div>
             <div class="muted">{{ now()->format('d/m/Y H:i') }}</div>
         </div>
@@ -148,21 +188,16 @@
 
         @forelse ($groups as $group)
             @php
-                // 🔧 Satu blok = satu customer: nama + kontak + alamat, tanpa nomor invoice
+                // 🔧 Satu blok = satu customer: nama + nama usaha, tanpa nomor invoice.
+                //    Nomor HP & alamat sengaja tidak dicetak.
                 $order = $group['order'];
                 $customerName = $order?->customer?->name;
-                $contact = \App\Support\PhoneNumber::toLocalIndonesian($order?->order_whatsapp_number);
-                $address = $order?->customerAddress?->address;
                 $businessName = $order?->customerAddress?->business_name;
             @endphp
 
             <div class="customer">{{ $customerName ?? '-' }}</div>
-            <div class="muted">{{ $contact ?: '-' }}</div>
             @if ($businessName)
                 <div class="muted">{{ $businessName }}</div>
-            @endif
-            @if ($address)
-                <div class="muted">{{ $address }}</div>
             @endif
 
             <div class="sep"></div>

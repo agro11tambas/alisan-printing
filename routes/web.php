@@ -385,6 +385,9 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::get('/erp/productions/waiting-list/assign-list/machines', [OrderProgressAssignController::class, 'dataAssignListMachines']);
             Route::get('/erp/productions/waiting-list/assign-list', [OrderProgressAssignController::class, 'getAssignList']);
 
+            // 🔧 Assign List versi lama (per invoice, tanpa grouping mesin)
+            Route::get('/erp/productions/waiting-list/assign-list-old', [OrderProgressAssignController::class, 'getAssignListOld']);
+
             // 🔧 Assign List per mesin: detail (per invoice) & cetak struk thermal
             Route::get('/erp/productions/assign-list/machine/{machine}/detail', [OrderProgressAssignController::class, 'machineDetail']);
             Route::get('/erp/productions/assign-list/machine/{machine}/print', [OrderProgressAssignController::class, 'printMachine']);
