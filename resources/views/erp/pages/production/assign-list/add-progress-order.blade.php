@@ -153,7 +153,8 @@
                                         <tr>
                                             <td>{{ $assign->progressItem->product->name ?? '-' }}</td>
                                             <td>{{ $assign->machine->name ?? ($batch->machine->name ?? '-') }}</td>
-                                            <td>{{ number_format($assign->assigned_quantity, 0, ',', '.') }}
+                                            <td data-assigned="{{ (int) $assign->assigned_quantity }}">
+                                                {{ number_format($assign->assigned_quantity, 0, ',', '.') }}
                                             </td>
                                             <td>
                                                 <input type="hidden" name="items[{{ $index }}][assign_id]"
@@ -227,7 +228,7 @@
             }
 
             function checkLimit(row) {
-                const assigned = parseInt(row.find('td:eq(1)').text().replace(/\./g, '')) || 0;
+                const assigned = parseInt(row.find('td[data-assigned]').data('assigned')) || 0;
                 const completed = parseInt(row.find('input[name$="[completed_quantity]"]').val().replace(/\./g,
                     '')) || 0;
                 const reject = parseInt(row.find('input[name$="[reject_quantity]"]').val().replace(/\./g, '')) || 0;
