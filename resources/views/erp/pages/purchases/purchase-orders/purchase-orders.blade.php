@@ -54,12 +54,10 @@
                     </a>
                 </div>
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    {{-- Tombol export disembunyikan sementara. Endpoint /erp/purchases/purchase-orders/export tetap aktif.
                     <a href="javascript:void(0)" id="btnExportPurchaseOrder" class="btn btn-light-brand">
                         <i class="feather-download me-2"></i>
                         <span>Export Excel</span>
                     </a>
-                    --}}
                     <a href="/erp/purchases/purchase-orders/create-purchase" class="btn btn-primary">
                         <i class="feather-plus me-2"></i>
                         <span>Create Purchase Order</span>
@@ -67,13 +65,11 @@
                 </div>
             </div>
             <div class="d-md-none d-flex align-items-center">
-                {{-- Tombol export disembunyikan sementara.
                 <a href="javascript:void(0)" id="btnExportPurchaseOrderMobile"
                     class="btn btn-light-brand transaction-list-mobile-action">
                     <i class="feather-download"></i>
                     <span>Export</span>
                 </a>
-                --}}
                 <a href="/erp/purchases/purchase-orders/create-purchase"
                     class="btn btn-primary transaction-list-mobile-action">
                     <i class="feather-plus"></i>
@@ -719,7 +715,9 @@
                     search_keyword: $('#search_keyword').val() || '',
                 });
 
-                window.location.href = "{{ url('/erp/purchases/purchase-orders/export') }}?" + params;
+                // Path relatif, bukan url(): absolute URL dari url() bisa jadi http://
+                // di belakang proxy SSL dan download-nya diblokir browser (mixed content).
+                window.location.href = "/erp/purchases/purchase-orders/export?" + params;
             });
 
             $('#apply-filter').on('click', function() {
