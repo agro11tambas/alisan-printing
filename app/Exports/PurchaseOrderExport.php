@@ -7,7 +7,6 @@ use App\Models\PurchaseItem;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
@@ -80,8 +79,8 @@ class PurchaseOrderExport extends BaseExcelExport
                 }
             });
 
-        $this->writeTotalRow($sheet, $row);
-        $this->finalizeSheet($sheet, count(self::HEADERS), $row, self::CURRENCY_COLUMNS);
+        $lastRow = $this->writeTotalRow($sheet, $row);
+        $this->finalizeSheet($sheet, count(self::HEADERS), $lastRow, self::CURRENCY_COLUMNS);
 
         if ($row >= 2) {
             foreach (self::QTY_COLUMNS as $column) {
@@ -162,10 +161,6 @@ class PurchaseOrderExport extends BaseExcelExport
                 $sheet->mergeCells($column.$firstRow.':'.$column.$currentRow);
             }
         }
-
-        $sheet->getStyle('A'.$firstRow.':Q'.$currentRow)
-            ->getAlignment()
-            ->setVertical(Alignment::VERTICAL_TOP);
 
         return $currentRow;
     }
@@ -309,10 +304,13 @@ class PurchaseOrderExport extends BaseExcelExport
             ->getStartColor()->setARGB('FF3D7AB8');
     }
 
-    private function writeTotalRow(Worksheet $sheet, int $lastDataRow): void
+    /**
+     * @return int baris terakhir tabel setelah baris TOTAL ditulis
+     */
+    private function writeTotalRow(Worksheet $sheet, int $lastDataRow): int
     {
         if ($lastDataRow < 2) {
-            return;
+            return $lastDataRow;
         }
 
         $totalRow = $lastDataRow + 1;
@@ -329,5 +327,7 @@ class PurchaseOrderExport extends BaseExcelExport
         $sheet->getStyle('N'.$totalRow.':Q'.$totalRow)
             ->getNumberFormat()
             ->setFormatCode(self::CURRENCY_FORMAT);
+
+        return $totalRow;
     }
 }

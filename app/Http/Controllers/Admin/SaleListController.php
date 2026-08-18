@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Exports\SaleListExport;
 use App\Http\Controllers\Controller;
+use App\Support\ExportPeriod;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -159,7 +160,12 @@ class SaleListController extends Controller
 
         $defaultAccount = Account::where('is_default', true)->first();
 
-        return view('erp.pages.sales.sale-list.sale-list', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount'));
+        // Tahun untuk dropdown periode di modal export.
+        $exportYears = ExportPeriod::yearOptions(
+            Order::where('status', 'sale list')->min('order_date')
+        );
+
+        return view('erp.pages.sales.sale-list.sale-list', compact('order_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'defaultAccount', 'exportYears'));
     }
 
     /**
@@ -240,6 +246,12 @@ class SaleListController extends Controller
 
     public function exportExcel(Request $request)
     {
+        $period = ExportPeriod::fromRequest($request);
+
+        if ($period === null && ExportPeriod::isRequested($request)) {
+            return back()->with('error', 'Periode export tidak valid. Silakan pilih ulang periodenya.');
+        }
+
         $user = Auth::user();
 
         $orders = Order::query()
@@ -255,9 +267,16 @@ class SaleListController extends Controller
             $orders->where('status_edited', 1);
         }
 
+        if ($period !== null) {
+            // Periode dari modal menggantikan filter tanggal halaman. Filter
+            // lain (pencarian, payment status) tetap ikut.
+            $request->merge(['filter' => null]);
+            $period->applyTo($orders, 'order_date');
+        }
+
         $this->applySaleListFilters($orders, $request);
 
-        $filename = 'sale-list-' . Carbon::now()->format('Ymd-His') . '.xlsx';
+        $filename = 'sale-list-' . ($period?->filenameSuffix() ?? Carbon::now()->format('Ymd-His')) . '.xlsx';
 
         return (new SaleListExport($orders))->download($filename);
     }

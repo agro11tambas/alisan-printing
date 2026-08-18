@@ -16,6 +16,7 @@ use App\Models\PurchaseItem;
 use App\Models\Supplier;
 use App\Services\PurchaseNumberService;
 use App\Services\UnitConversionService;
+use App\Support\ExportPeriod;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,12 @@ class PurchaseOrderController extends Controller
         $cashAccounts = Account::where('name', 'Cash')->get();
         $bankAccounts = Account::where('name', 'Bank')->get();
 
-        return view('erp.pages.purchases.purchase-orders.purchase-orders', compact('purchase_number', 'transactionTypes', 'cashAccounts', 'bankAccounts'));
+        // Tahun untuk dropdown periode di modal export.
+        $exportYears = ExportPeriod::yearOptions(
+            Purchase::where('status', 'Purchase Orders')->min('purchase_date')
+        );
+
+        return view('erp.pages.purchases.purchase-orders.purchase-orders', compact('purchase_number', 'transactionTypes', 'cashAccounts', 'bankAccounts', 'exportYears'));
     }
 
     /**
@@ -89,14 +95,27 @@ class PurchaseOrderController extends Controller
 
     public function exportExcel(Request $request)
     {
+        $period = ExportPeriod::fromRequest($request);
+
+        if ($period === null && ExportPeriod::isRequested($request)) {
+            return back()->with('error', 'Periode export tidak valid. Silakan pilih ulang periodenya.');
+        }
+
         $purchases = Purchase::query()
             ->where('status', 'Purchase Orders')
             ->orderByDesc('purchase_date')
             ->orderByDesc('id');
 
+        if ($period !== null) {
+            // Periode dari modal menggantikan filter tanggal halaman. Filter
+            // pencarian tetap ikut.
+            $request->merge(['filter' => null]);
+            $period->applyTo($purchases, 'purchase_date');
+        }
+
         $this->applyPurchaseOrderFilters($purchases, $request);
 
-        $filename = 'purchase-order-'.Carbon::now()->format('Ymd-His').'.xlsx';
+        $filename = 'purchase-order-'.($period?->filenameSuffix() ?? Carbon::now()->format('Ymd-His')).'.xlsx';
 
         return (new PurchaseOrderExport($purchases))->download($filename);
     }

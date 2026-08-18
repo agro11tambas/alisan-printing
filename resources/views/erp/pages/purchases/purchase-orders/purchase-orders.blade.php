@@ -54,7 +54,7 @@
                     </a>
                 </div>
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="javascript:void(0)" id="btnExportPurchaseOrder" class="btn btn-light-brand">
+                    <a href="javascript:void(0)" id="btnExportPurchaseOrder" class="btn btn-light-brand js-open-export-modal">
                         <i class="feather-download me-2"></i>
                         <span>Export Excel</span>
                     </a>
@@ -66,7 +66,7 @@
             </div>
             <div class="d-md-none d-flex align-items-center">
                 <a href="javascript:void(0)" id="btnExportPurchaseOrderMobile"
-                    class="btn btn-light-brand transaction-list-mobile-action">
+                    class="btn btn-light-brand transaction-list-mobile-action js-open-export-modal">
                     <i class="feather-download"></i>
                     <span>Export</span>
                 </a>
@@ -183,6 +183,11 @@
         </div>
     </div>
 @endsection
+
+@include('erp.pages.partials.export-period-modal', [
+    'exportUrl' => '/erp/purchases/purchase-orders/export',
+    'exportYears' => $exportYears,
+])
 
 @push('modals')
     <div class="modal fade" id="modalDeletePurchase" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
@@ -705,20 +710,17 @@
                     }, 100);
                 });
 
-            // Export Excel mengikuti filter yang sedang aktif di halaman
-            $('#btnExportPurchaseOrder, #btnExportPurchaseOrderMobile').on('click', function() {
-                const params = $.param({
+            // Dipakai modal export (erp.pages.partials.export-period-modal) supaya
+            // hasil download ikut filter yang sedang aktif di halaman.
+            window.buildExportParams = function() {
+                return {
                     filter: $('#filter').val() || '',
                     start_date: $('#start_date').val() || '',
                     end_date: $('#end_date').val() || '',
                     search_type: $('#search_type').val() || '',
                     search_keyword: $('#search_keyword').val() || '',
-                });
-
-                // Path relatif, bukan url(): absolute URL dari url() bisa jadi http://
-                // di belakang proxy SSL dan download-nya diblokir browser (mixed content).
-                window.location.href = "/erp/purchases/purchase-orders/export?" + params;
-            });
+                };
+            };
 
             $('#apply-filter').on('click', function() {
                 resetAndReload();

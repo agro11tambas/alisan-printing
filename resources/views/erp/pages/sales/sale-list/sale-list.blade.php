@@ -260,7 +260,7 @@
                     </a>
                 </div>
                 <div class="d-flex align-items-center gap-2 page-header-right-items-wrapper">
-                    <a href="javascript:void(0)" id="btnExportSaleList" class="btn btn-light-brand">
+                    <a href="javascript:void(0)" id="btnExportSaleList" class="btn btn-light-brand js-open-export-modal">
                         <i class="feather-download me-2"></i>
                         <span>Export Excel</span>
                     </a>
@@ -272,7 +272,7 @@
             </div>
             <div class="d-md-none d-flex align-items-center">
                 <a href="javascript:void(0)" id="btnExportSaleListMobile"
-                    class="btn btn-light-brand transaction-list-mobile-action">
+                    class="btn btn-light-brand transaction-list-mobile-action js-open-export-modal">
                     <i class="feather-download"></i>
                     <span>Export</span>
                 </a>
@@ -476,6 +476,11 @@
     </div>
     <iframe id="invoiceIframe" style="display:none;"></iframe>
 @endsection
+
+@include('erp.pages.partials.export-period-modal', [
+    'exportUrl' => '/erp/sales/sale-list/export',
+    'exportYears' => $exportYears,
+])
 
 @push('modals')
     <div class="modal fade" id="modalDeleteOrder" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
@@ -1113,9 +1118,10 @@
                 loadMoreData();
             }
 
-            // Export Excel mengikuti filter yang sedang aktif di halaman
-            $('#btnExportSaleList, #btnExportSaleListMobile').on('click', function() {
-                const params = $.param({
+            // Dipakai modal export (erp.pages.partials.export-period-modal) supaya
+            // hasil download ikut filter yang sedang aktif di halaman.
+            window.buildExportParams = function() {
+                return {
                     filter: $('#filter').val() || '',
                     start_date: $('#start_date').val() || '',
                     end_date: $('#end_date').val() || '',
@@ -1124,12 +1130,8 @@
                     payment_status: $('#search_payment_status').val() || '',
                     due_date_order: $('#due_date_order').val() || '',
                     show_edited: $('#edited-sale-list-tab').hasClass('active') ? 1 : 0,
-                });
-
-                // Path relatif, bukan url(): absolute URL dari url() bisa jadi http://
-                // di belakang proxy SSL dan download-nya diblokir browser (mixed content).
-                window.location.href = "/erp/sales/sale-list/export?" + params;
-            });
+                };
+            };
 
             // Event handlers untuk filter SALE LIST
             $('#filter').on('change', function() {

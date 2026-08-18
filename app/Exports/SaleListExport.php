@@ -6,7 +6,6 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class SaleListExport extends BaseExcelExport
@@ -63,8 +62,8 @@ class SaleListExport extends BaseExcelExport
                 }
             });
 
-        $this->writeTotalRow($sheet, $row);
-        $this->finalizeSheet($sheet, count(self::HEADERS), $row, self::CURRENCY_COLUMNS);
+        $lastRow = $this->writeTotalRow($sheet, $row);
+        $this->finalizeSheet($sheet, count(self::HEADERS), $lastRow, self::CURRENCY_COLUMNS);
 
         if ($row >= 2) {
             $sheet->getStyle('F2:F'.$row)->getNumberFormat()->setFormatCode('#,##0');
@@ -125,10 +124,6 @@ class SaleListExport extends BaseExcelExport
             foreach (self::ORDER_COLUMNS as $column) {
                 $sheet->mergeCells($column.$firstRow.':'.$column.$currentRow);
             }
-
-            $sheet->getStyle('A'.$firstRow.':N'.$currentRow)
-                ->getAlignment()
-                ->setVertical(Alignment::VERTICAL_TOP);
         }
 
         return $currentRow;
@@ -186,10 +181,13 @@ class SaleListExport extends BaseExcelExport
             ->getStartColor()->setARGB('FF2E5C8A');
     }
 
-    private function writeTotalRow(Worksheet $sheet, int $lastDataRow): void
+    /**
+     * @return int baris terakhir tabel setelah baris TOTAL ditulis
+     */
+    private function writeTotalRow(Worksheet $sheet, int $lastDataRow): int
     {
         if ($lastDataRow < 2) {
-            return;
+            return $lastDataRow;
         }
 
         $totalRow = $lastDataRow + 1;
@@ -206,5 +204,7 @@ class SaleListExport extends BaseExcelExport
         $sheet->getStyle('J'.$totalRow.':N'.$totalRow)
             ->getNumberFormat()
             ->setFormatCode(self::CURRENCY_FORMAT);
+
+        return $totalRow;
     }
 }

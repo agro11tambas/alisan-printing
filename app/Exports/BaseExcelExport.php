@@ -5,6 +5,8 @@ namespace App\Exports;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Color;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -15,6 +17,8 @@ abstract class BaseExcelExport
     protected const CURRENCY_FORMAT = '#,##0';
 
     protected const HEADER_COLOR = 'FF1F3864';
+
+    protected const BORDER_COLOR = 'FFB7C3D6';
 
     protected Spreadsheet $spreadsheet;
 
@@ -80,7 +84,8 @@ abstract class BaseExcelExport
     }
 
     /**
-     * Rapikan lebar kolom dan format angka setelah semua baris ditulis.
+     * Rapikan lebar kolom, perataan, garis, dan format angka setelah semua
+     * baris ditulis. $lastRow adalah baris terakhir tabel, termasuk baris TOTAL.
      *
      * @param  array<int, int>  $currencyColumns  Nomor kolom (1 = A) yang diformat ribuan.
      */
@@ -95,12 +100,29 @@ abstract class BaseExcelExport
             return;
         }
 
+        $lastColumn = Coordinate::stringFromColumnIndex($columnCount);
+
+        // Isi sel ditengahkan supaya sejajar dengan judul kolomnya. Rata tengah
+        // vertikal juga membuat sel yang di-merge duduk di tengah bloknya.
+        $sheet->getStyle('A2:'.$lastColumn.$lastRow)->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::VERTICAL_CENTER);
+
         foreach ($currencyColumns as $column) {
             $letter = Coordinate::stringFromColumnIndex($column);
-            $sheet->getStyle($letter.'2:'.$letter.$lastRow)
-                ->getNumberFormat()
-                ->setFormatCode(self::CURRENCY_FORMAT);
+            $range = $letter.'2:'.$letter.$lastRow;
+
+            $sheet->getStyle($range)->getNumberFormat()->setFormatCode(self::CURRENCY_FORMAT);
+
+            // Rupiah tetap rata kanan supaya satuan, ribuan, dan jutaan sejajar.
+            $sheet->getStyle($range)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         }
+
+        // Garis tipis: batas antar baris dan antar blok merge jadi kelihatan.
+        $sheet->getStyle('A1:'.$lastColumn.$lastRow)->getBorders()
+            ->getAllBorders()
+            ->setBorderStyle(Border::BORDER_THIN)
+            ->setColor(new Color(self::BORDER_COLOR));
     }
 
     /**
