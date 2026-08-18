@@ -254,10 +254,12 @@ class SaleListController extends Controller
 
         $user = Auth::user();
 
+        // Export diurut dari transaksi paling lama ke paling baru, kebalikan
+        // dari listing di halaman yang menaruh yang terbaru di atas.
         $orders = Order::query()
             ->where('status', 'sale list')
-            ->orderBy('order_date', 'desc')
-            ->orderBy('id', 'desc');
+            ->orderBy('order_date')
+            ->orderBy('id');
 
         if (in_array($user->role, ['Sales'])) {
             $orders->where('user_id', $user->id);

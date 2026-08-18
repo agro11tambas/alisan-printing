@@ -101,10 +101,12 @@ class PurchaseOrderController extends Controller
             return back()->with('error', 'Periode export tidak valid. Silakan pilih ulang periodenya.');
         }
 
+        // Export diurut dari transaksi paling lama ke paling baru, kebalikan
+        // dari listing di halaman yang menaruh yang terbaru di atas.
         $purchases = Purchase::query()
             ->where('status', 'Purchase Orders')
-            ->orderByDesc('purchase_date')
-            ->orderByDesc('id');
+            ->orderBy('purchase_date')
+            ->orderBy('id');
 
         if ($period !== null) {
             // Periode dari modal menggantikan filter tanggal halaman. Filter
