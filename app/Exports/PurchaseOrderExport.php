@@ -43,6 +43,9 @@ class PurchaseOrderExport extends BaseExcelExport
     /** Kolom angka rupiah (1 = A). */
     private const CURRENCY_COLUMNS = [13, 14, 16, 17];
 
+    /** Kolom teks panjang yang rata kiri: Supplier dan Nama Product. */
+    private const TEXT_COLUMNS = [3, 8];
+
     /** Kolom kuantitas. */
     private const QTY_COLUMNS = ['J', 'K', 'O'];
 
@@ -80,7 +83,7 @@ class PurchaseOrderExport extends BaseExcelExport
             });
 
         $lastRow = $this->writeTotalRow($sheet, $row);
-        $this->finalizeSheet($sheet, count(self::HEADERS), $lastRow, self::CURRENCY_COLUMNS);
+        $this->finalizeSheet($sheet, count(self::HEADERS), $lastRow, self::CURRENCY_COLUMNS, self::TEXT_COLUMNS);
 
         if ($row >= 2) {
             foreach (self::QTY_COLUMNS as $column) {

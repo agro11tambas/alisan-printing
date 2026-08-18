@@ -1,5 +1,10 @@
 @extends('erp.layouts.main')
 
+{{-- Action Defect hanya untuk Owner; role lain tidak melihat kolomnya sama sekali. --}}
+@php
+    $isOwner = auth()->check() && auth()->user()->role === 'Owner';
+@endphp
+
 @push('styles')
     <style>
         @media (max-width: 768px) {
@@ -102,7 +107,9 @@
                                         <th>Incoming Stock</th>
                                         <th>Outgoing Stock</th>
                                         <th>Stock In Today</th>
-                                        <th>Action</th>
+                                        @if ($isOwner)
+                                            <th>Action</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -118,6 +125,7 @@
 @endsection
 
 @push('modals')
+    @if ($isOwner)
     <!-- Modal Defect -->
     <div class="modal fade" id="defectModal" tabindex="-1">
         <div class="modal-dialog">
@@ -156,6 +164,7 @@
             </div>
         </div>
     </div>
+    @endif
 @endpush
 
 @push('scripts')
@@ -205,13 +214,15 @@
                     },
                     {
                         data: 'stock_in_today'
-                    },
-                    {
-                        data: 'action',
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center'
                     }
+                    @if ($isOwner)
+                        , {
+                            data: 'action',
+                            orderable: false,
+                            searchable: false,
+                            className: 'text-center'
+                        }
+                    @endif
                 ]
             });
 
@@ -310,6 +321,7 @@
 
         });
 
+        @if ($isOwner)
         $(document).on('click', '.btnDefect', function() {
             const id = $(this).data('id');
             const name = $(this).data('name');
@@ -347,5 +359,6 @@
                 }
             });
         });
+        @endif
     </script>
 @endpush

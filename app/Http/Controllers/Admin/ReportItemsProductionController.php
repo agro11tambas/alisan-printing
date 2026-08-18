@@ -343,19 +343,27 @@ class ReportItemsProductionController extends Controller
 
                 return number_format($assignToday, 0, ',', '.');
             })
-            ->addColumn('action', fn($item) => '
+            // Action Defect hanya untuk Owner. Role lain dapat sel kosong dan
+            // kolomnya memang tidak dirender di halaman.
+            ->addColumn('action', fn($item) => Auth::user()?->role === 'Owner' ? '
             <button type="button" class="btn btn-sm btn-outline-danger btnDefect" 
                 data-product-id="' . $item->product_id . '" 
                 data-name="' . e($item->product->name ?? '-') . '">
                 <i class="feather-alert-triangle me-1"></i> Defect
             </button>
-        ')
+        ' : '')
             ->rawColumns(['action'])
             ->make(true);
     }
 
     public function storeProduction(Request $request)
     {
+        if (Auth::user()?->role !== 'Owner') {
+            return response()->json([
+                'message' => 'Hanya Owner yang bisa mencatat produk defect.',
+            ], 403);
+        }
+
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'quantity'   => 'required|numeric|min:1',

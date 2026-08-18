@@ -35,6 +35,9 @@ class SaleListExport extends BaseExcelExport
     /** Kolom angka rupiah (1 = A). */
     private const CURRENCY_COLUMNS = [9, 10, 11, 12, 13, 14];
 
+    /** Kolom teks panjang yang rata kiri: Customer dan Nama Product. */
+    private const TEXT_COLUMNS = [3, 4];
+
     public function __construct(private Builder $query)
     {
         parent::__construct();
@@ -63,7 +66,7 @@ class SaleListExport extends BaseExcelExport
             });
 
         $lastRow = $this->writeTotalRow($sheet, $row);
-        $this->finalizeSheet($sheet, count(self::HEADERS), $lastRow, self::CURRENCY_COLUMNS);
+        $this->finalizeSheet($sheet, count(self::HEADERS), $lastRow, self::CURRENCY_COLUMNS, self::TEXT_COLUMNS);
 
         if ($row >= 2) {
             $sheet->getStyle('F2:F'.$row)->getNumberFormat()->setFormatCode('#,##0');

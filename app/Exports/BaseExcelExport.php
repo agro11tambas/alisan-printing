@@ -20,6 +20,9 @@ abstract class BaseExcelExport
 
     protected const BORDER_COLOR = 'FFB7C3D6';
 
+    /** Warna baris genap. Baris ganjil dibiarkan putih. */
+    protected const STRIPE_COLOR = 'FFE4E4E4';
+
     protected Spreadsheet $spreadsheet;
 
     public function __construct()
@@ -88,8 +91,9 @@ abstract class BaseExcelExport
      * baris ditulis. $lastRow adalah baris terakhir tabel, termasuk baris TOTAL.
      *
      * @param  array<int, int>  $currencyColumns  Nomor kolom (1 = A) yang diformat ribuan.
+     * @param  array<int, int>  $textColumns  Nomor kolom teks panjang yang dibiarkan rata kiri.
      */
-    protected function finalizeSheet(Worksheet $sheet, int $columnCount, int $lastRow, array $currencyColumns = []): void
+    protected function finalizeSheet(Worksheet $sheet, int $columnCount, int $lastRow, array $currencyColumns = [], array $textColumns = []): void
     {
         for ($column = 1; $column <= $columnCount; $column++) {
             $letter = Coordinate::stringFromColumnIndex($column);
@@ -102,8 +106,9 @@ abstract class BaseExcelExport
 
         $lastColumn = Coordinate::stringFromColumnIndex($columnCount);
 
-        // Isi sel ditengahkan supaya sejajar dengan judul kolomnya. Rata tengah
-        // vertikal juga membuat sel yang di-merge duduk di tengah bloknya.
+        // Rata tengah vertikal berlaku untuk semua sel, termasuk yang di-merge
+        // supaya isinya duduk di tengah bloknya. Horizontal: kolom pendek
+        // ditengahkan, sisanya diatur per kelompok di bawah.
         $sheet->getStyle('A2:'.$lastColumn.$lastRow)->getAlignment()
             ->setHorizontal(Alignment::HORIZONTAL_CENTER)
             ->setVertical(Alignment::VERTICAL_CENTER);
@@ -114,8 +119,25 @@ abstract class BaseExcelExport
 
             $sheet->getStyle($range)->getNumberFormat()->setFormatCode(self::CURRENCY_FORMAT);
 
-            // Rupiah tetap rata kanan supaya satuan, ribuan, dan jutaan sejajar.
+            // Rupiah rata kanan supaya satuan, ribuan, dan jutaan sejajar.
             $sheet->getStyle($range)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        }
+
+        foreach ($textColumns as $column) {
+            $letter = Coordinate::stringFromColumnIndex($column);
+
+            // Teks panjang (nama customer, nama produk) rata kiri: ditengahkan
+            // malah bikin awal kalimatnya tidak sejajar antar baris.
+            $sheet->getStyle($letter.'2:'.$letter.$lastRow)->getAlignment()
+                ->setHorizontal(Alignment::HORIZONTAL_LEFT);
+        }
+
+        // Selang-seling abu-abu/putih per baris supaya mata gampang mengikuti
+        // satu baris sampai kolom paling kanan.
+        for ($rowNumber = 2; $rowNumber <= $lastRow; $rowNumber += 2) {
+            $sheet->getStyle('A'.$rowNumber.':'.$lastColumn.$rowNumber)->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setARGB(self::STRIPE_COLOR);
         }
 
         // Garis tipis: batas antar baris dan antar blok merge jadi kelihatan.

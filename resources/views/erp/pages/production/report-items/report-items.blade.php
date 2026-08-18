@@ -1,5 +1,10 @@
 @extends('erp.layouts.main')
 
+{{-- Action Defect hanya untuk Owner; role lain tidak melihat kolomnya sama sekali. --}}
+@php
+    $isOwner = auth()->check() && auth()->user()->role === 'Owner';
+@endphp
+
 @push('styles')
     <style>
         @media (max-width: 768px) {
@@ -169,7 +174,9 @@
                                         <th>Assign Today</th>
                                         <th>Stock In Today</th>
                                         <th>Closing</th>
-                                        <th>Action</th>
+                                        @if ($isOwner)
+                                            <th>Action</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -186,6 +193,7 @@
 @endsection
 
 @push('modals')
+    @if ($isOwner)
     <div class="modal fade" id="defectModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -219,6 +227,7 @@
             </div>
         </div>
     </div>
+    @endif
 @endpush
 
 @push('scripts')
@@ -294,12 +303,14 @@
                     },
                     {
                         data: 'closing_stock_today'
-                    },
-                    {
-                        data: 'action',
-                        orderable: false,
-                        searchable: false
-                    },
+                    }
+                    @if ($isOwner)
+                        , {
+                            data: 'action',
+                            orderable: false,
+                            searchable: false
+                        }
+                    @endif
                 ],
             });
 
@@ -502,6 +513,7 @@
             });
         });
 
+        @if ($isOwner)
         // modal defect tetap sama
         $(document).on("click", ".btnDefect", function() {
             const id = $(this).data("product-id");
@@ -540,5 +552,6 @@
                 },
             });
         });
+        @endif
     </script>
 @endpush
