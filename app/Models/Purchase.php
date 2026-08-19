@@ -160,10 +160,10 @@ class Purchase extends Model
     }
 
     /**
-     * Hitung ulang approval_status PO mengikuti progress PL dan Stock In:
-     * Draft -> Approved (sudah verify, belum ada PL) -> Partial (sebagian qty
-     * sudah dibuatkan PL) -> Completed PL (semua qty sudah dibuatkan PL) ->
-     * Completed (semua PL-nya sudah stock in penuh).
+     * Hitung ulang approval_status PO mengikuti progress PL, Stock In, dan
+     * pembayaran: Draft -> Approved (sudah verify, belum ada PL) -> Partial
+     * (sebagian qty sudah dibuatkan PL) -> Completed PL (semua qty sudah
+     * dibuatkan PL) -> Completed (semua PL sudah stock in penuh DAN lunas).
      */
     public function syncApprovalProgress(): void
     {
@@ -183,13 +183,28 @@ class Purchase extends Model
             $allocated <= 0 => 'Approved',
             $ordered <= 0 || $allocated < $ordered => 'Partial',
             default => $listItems->every(fn (PurchaseItem $item) => $item->isFullyStockedIn())
-                ? 'Completed'
-                : 'Completed PL',
+                && $this->purchaseListsFullyPaid()
+                    ? 'Completed'
+                    : 'Completed PL',
         };
 
         if (($this->approval_status ?? null) !== $status) {
             $this->update(['approval_status' => $status]);
         }
+    }
+
+    /**
+     * Seluruh Purchase List anak sudah lunas (produk + freight).
+     * PL bernilai nol dianggap lunas karena tidak ada yang perlu dibayar.
+     */
+    public function purchaseListsFullyPaid(): bool
+    {
+        $lists = $this->purchaseLists()->get(['id', 'payment_status', 'total_amount']);
+
+        return $lists->isNotEmpty() && $lists->every(
+            fn ($list) => in_array($list->payment_status, ['Paid', 'Overpaid'], true)
+                || (float) $list->total_amount <= 0
+        );
     }
 
     /**

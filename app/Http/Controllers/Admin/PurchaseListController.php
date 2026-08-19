@@ -1875,6 +1875,11 @@ class PurchaseListController extends Controller
             $purchase->verified = false;
             $purchase->save();
 
+            // Status PO induk ikut pelunasan PL.
+            if ($purchase->parent_purchase_id) {
+                $this->refreshParentPurchaseProgress($purchase->parent_purchase_id);
+            }
+
             DB::commit();
 
             $paymentBadge = match (strtolower($purchase->payment_status)) {
@@ -2039,6 +2044,11 @@ class PurchaseListController extends Controller
             $purchase->transaction_group_id = $groupId;
             $purchase->verified = false;
             $purchase->save();
+
+            // Status PO induk ikut pelunasan PL.
+            if ($purchase->parent_purchase_id) {
+                $this->refreshParentPurchaseProgress($purchase->parent_purchase_id);
+            }
 
             DB::commit();
             $paymentBadge = match (strtolower($purchase->payment_status)) {
@@ -2238,6 +2248,11 @@ class PurchaseListController extends Controller
                 $purchase->verified = false;
                 $purchase->save();
 
+                // Pembayaran dihapus bisa membatalkan status Completed PO induk.
+                if ($purchase->parent_purchase_id) {
+                    $this->refreshParentPurchaseProgress($purchase->parent_purchase_id);
+                }
+
                 DB::commit();
 
                 // =====================================================
@@ -2338,6 +2353,11 @@ class PurchaseListController extends Controller
             }
 
             $purchase->save();
+
+            // Status PO induk ikut perubahan pembayaran PL.
+            if ($purchase->parent_purchase_id) {
+                $this->refreshParentPurchaseProgress($purchase->parent_purchase_id);
+            }
 
             DB::commit();
             if ($request->ajax()) {
