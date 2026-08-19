@@ -74,8 +74,8 @@
                                         <tbody>
                                             @foreach ($purchase->purchaseItems as $item)
                                                 <tr>
-                                                    <td class="mobile-card-title">{{ $item->purchaseProduct->name }}</td>
-                                                    @php($approved = $item->purchaseListItems->sum('quantity'))
+                                                    <td class="mobile-card-title">{{ $item->purchaseProduct?->name ?? $item->product_name ?? '-' }}</td>
+                                                    @php $approved = $item->purchaseListItems->sum('quantity'); @endphp
                                                     <td data-label="PO Qty">{{ number_format($item->quantity, 0, ',', '.') }} {{ $item->unit_name }}</td>
                                                     <td data-label="Verify ke PL">{{ number_format($approved, 0, ',', '.') }} {{ $item->unit_name }}</td>
                                                     <td class="fw-bold text-primary" data-label="Sisa">{{ number_format(max(0, $item->quantity - $approved), 0, ',', '.') }} {{ $item->unit_name }}</td>
@@ -164,7 +164,7 @@
                                         </div>
                                         <div class="col-6 d-flex">
                                             <span
-                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->approval_status === 'Approved' ? 'Verify' : ($purchase->approval_status ?? 'Draft') }}</span>
+                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->approval_status_label }}</span>
                                         </div>
                                     </div>
                                     <div class="row align-items-center mb-2 task-list-row">

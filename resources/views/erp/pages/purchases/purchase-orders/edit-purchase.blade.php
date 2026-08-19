@@ -134,6 +134,14 @@
     <div class="main-content transaction-form-page m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <div class="row">
             <div class="col-12">
+                @if ($hasPurchaseList)
+                    <div class="alert alert-warning">
+                        <i class="feather-alert-triangle me-2"></i>
+                        PO ini sudah memiliki Purchase List. Supplier dikunci, produk yang sudah dibuatkan
+                        Purchase List tidak dapat dihapus/diganti unitnya, dan qty-nya hanya boleh dinaikkan
+                        (minimal sebesar qty yang sudah dibuatkan Purchase List).
+                    </div>
+                @endif
                 <form action="/erp/purchases/purchase-orders/update/{{ $purchase->id }}" method="POST" id="purchaseForm">
                     @csrf
                     @method('PUT')
@@ -155,7 +163,9 @@
                                     <label for="suppliers" class="fw-semibold">Supplier:</label>
                                 </div>
                                 <div class="col-lg-10">
-                                    <select class="form-select form-control max-select" id="suppliers" name="suppliers">
+                                    <select class="form-select form-control max-select" id="suppliers"
+                                        name="{{ $hasPurchaseList ? 'suppliers_display' : 'suppliers' }}"
+                                        {{ $hasPurchaseList ? 'disabled' : '' }}>
                                         <option disabled selected hidden>Choose supplier</option>
                                         @foreach ($suppliers as $supplier)
                                             <option value="{{ $supplier->id }}"
@@ -164,6 +174,10 @@
                                             </option>
                                         @endforeach
                                     </select>
+                                    @if ($hasPurchaseList)
+                                        <input type="hidden" name="suppliers" value="{{ $purchase->supplier_id }}">
+                                        <small class="text-muted">Supplier dikunci karena PO sudah memiliki Purchase List.</small>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -184,13 +198,21 @@
 
                             <div id="product_list">
                                 @forelse ($purchase->purchaseItems as $index => $item)
-                                    <div class="product-item" data-index="{{ $index }}">
+                                    @php
+                                        // Qty item ini yang sudah dibuatkan Purchase List → jadi batas bawah edit.
+                                        $allocated = (float) ($allocations[$item->id] ?? 0);
+                                        $isLocked = $allocated > 0;
+                                    @endphp
+                                    <div class="product-item" data-index="{{ $index }}"
+                                        data-locked="{{ $isLocked ? 1 : 0 }}">
                                         <div class="product-grid">
                                             <input type="hidden" name="purchase_item_ids[]" value="{{ $item->id }}">
 
                                             <div class="form-group product-col-span-2">
                                                 <label>Product</label>
-                                                <select class="form-control select-product" name="product[]">
+                                                <select class="form-control select-product"
+                                                    name="{{ $isLocked ? 'product_display[]' : 'product[]' }}"
+                                                    {{ $isLocked ? 'disabled' : '' }}>
                                                     <option value="" disabled
                                                         {{ !$item->product_id ? 'selected hidden' : '' }}>
                                                         Pilih produk
@@ -202,11 +224,16 @@
                                                         </option>
                                                     @endforeach
                                                 </select>
+                                                @if ($isLocked)
+                                                    <input type="hidden" name="product[]" value="{{ $item->product_id }}">
+                                                @endif
                                             </div>
 
                                             <div class="form-group">
                                                 <label>Unit</label>
-                                                <select class="form-control select-unit" name="product_unit_id[]">
+                                                <select class="form-control select-unit"
+                                                    name="{{ $isLocked ? 'product_unit_id_display[]' : 'product_unit_id[]' }}"
+                                                    {{ $isLocked ? 'disabled' : '' }}>
                                                     <option value="" data-name="Pcs" data-ratio="1" data-conversion="1"
                                                         {{ !$item->product_unit_conversion_id ? 'selected' : '' }}>
                                                         Default Unit
@@ -222,6 +249,10 @@
                                                         </option>
                                                     @endforeach
                                                 </select>
+                                                @if ($isLocked)
+                                                    <input type="hidden" name="product_unit_id[]"
+                                                        value="{{ $item->product_unit_conversion_id }}">
+                                                @endif
 
                                                 <input type="hidden" name="unit_name[]" class="unit-name"
                                                     value="{{ $item->unit_name ?? 'Pcs' }}">
@@ -233,13 +264,21 @@
                                             <div class="form-group">
                                                 <label>Qty</label>
                                                 <input type="text" inputmode="numeric" name="qty[]"
-                                                    class="form-control qty"
+                                                    class="form-control qty" data-min-qty="{{ $allocated }}"
                                                     value="{{ number_format($item->quantity ?? 0, 0, ',', '.') }}">
+                                                @if ($isLocked)
+                                                    <small class="text-muted">
+                                                        Min {{ number_format($allocated, 0, ',', '.') }}
+                                                        {{ $item->unit_name ?? 'Pcs' }} (sudah dibuatkan PL)
+                                                    </small>
+                                                @endif
                                             </div>
 
                                             <div class="product-delete-col">
                                                 <label>&nbsp;</label>
-                                                <button type="button" class="btn btn-danger delete-row">
+                                                <button type="button" class="btn btn-danger delete-row"
+                                                    {{ $isLocked ? 'disabled' : '' }}
+                                                    @if ($isLocked) title="Item sudah dibuatkan Purchase List" @endif>
                                                     <i class="feather-trash-2"></i>
                                                 </button>
                                             </div>
@@ -544,6 +583,16 @@
                     if (!qty.val().trim() || qtyValue <= 0) {
                         isValid = false;
                         qty.addClass('is-invalid');
+                    }
+
+                    // Qty tidak boleh turun di bawah qty yang sudah dibuatkan Purchase List.
+                    const minQty = parseFloat(qty.data('min-qty')) || 0;
+                    if (minQty > 0 && qtyValue < minQty) {
+                        isValid = false;
+                        qty.addClass('is-invalid');
+                        qty.after(
+                            `<div class="invalid-feedback d-block">Qty minimal ${formatRibuan(minQty)} karena sudah dibuatkan Purchase List.</div>`
+                        );
                     }
                 });
 

@@ -519,6 +519,8 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::put('/erp/purchases/purchase-orders/update/{id}', [PurchaseOrderController::class, 'update']);
             Route::delete('/erp/purchases/purchase-orders/delete/{id}', [PurchaseOrderController::class, 'delete']);
             Route::post('/erp/purchases/purchase-orders/approve/{id}', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve');
+            Route::post('/erp/purchases/purchase-orders/force-delete/{id}', [PurchaseOrderController::class, 'forceDeleteOwner'])
+                ->name('purchases.purchase-orders.forceDeleteOwner');
             Route::get('/erp/purchases/purchase-orders/mark-as-purchase-list/{id}', [PurchaseOrderController::class, 'markAsPurchaseList']);
             Route::put('/erp/purchases/purchase-orders/mark-as-purchase-list/update/{id}', [PurchaseOrderController::class, 'updatePurchaseList'])->name('purchase-orders.update-purchase-list');
         });

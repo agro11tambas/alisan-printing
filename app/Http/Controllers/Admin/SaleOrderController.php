@@ -149,12 +149,8 @@ class SaleOrderController extends Controller
             }
         }
 
-        // 🔹 Hindari query count dua kali
-        $totalQuery = clone $orders;
-        $totalData = $totalQuery->count();
-
         // 🔹 Ambil data sesuai offset dan limit
-        $data = $orders->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($orders, $start, $length);
 
         // 🔹 Return format JSON ringan (lazy load style)
         return response()->json([
@@ -256,7 +252,7 @@ class SaleOrderController extends Controller
                     'action_mobile' => view('erp.pages.sales.sale-orders.partials.action-button-mobile', compact('order'))->render(),
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

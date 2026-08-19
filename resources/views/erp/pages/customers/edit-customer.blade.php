@@ -192,7 +192,7 @@
                                 </div>
                                 <div class="col-lg-10">
                                     <div id="addresses">
-                                        @php($primaryAddressIndex = (int) old('primary_address_index', $customer->addresses->search(fn ($item) => $item->is_default) ?: 0))
+                                        @php $primaryAddressIndex = (int) old('primary_address_index', $customer->addresses->search(fn ($item) => $item->is_default) ?: 0); @endphp
                                         @foreach ($customer->addresses as $index => $address)
                                             <div class="mb-2 row address-group">
                                                 <div class="col-lg-2">

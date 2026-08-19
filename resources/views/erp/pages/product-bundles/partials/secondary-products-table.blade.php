@@ -28,7 +28,7 @@
                                     {{ $item['secondary_name'] }}
                                     <div><small class="text-muted">{{ $item['sku'] }}</small></div>
                                 </td>
-                                @php($secondaryShown = true)
+                                @php $secondaryShown = true; @endphp
                             @endunless
                             <td class="fw-semibold text-primary">{{ $price->priceMode->name ?? '-' }}</td>
                             <td class="fw-semibold text-dark">{{ $unit->unit->name ?? '-' }}</td>
@@ -46,7 +46,7 @@
                                     {{ $item['secondary_name'] }}
                                     <div><small class="text-muted">{{ $item['sku'] }}</small></div>
                                 </td>
-                                @php($secondaryShown = true)
+                                @php $secondaryShown = true; @endphp
                             @endunless
                             <td class="text-muted">-</td>
                             <td class="fw-semibold text-dark">{{ $unit->unit->name ?? '-' }}</td>

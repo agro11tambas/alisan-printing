@@ -15,6 +15,7 @@ use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Supplier;
 use App\Services\PurchaseNumberService;
+use App\Services\PurchaseOrderForceDeleteService;
 use App\Services\UnitConversionService;
 use App\Support\ExportPeriod;
 use Carbon\Carbon;
@@ -79,6 +80,17 @@ class PurchaseOrderController extends Controller
             }
         }
 
+        // ✅ Filter PO Status: Progress (Draft/Verify/Partial/Purchase List) atau
+        // Completed (semua PL-nya sudah stock in). Berdiri sendiri, jadi bisa
+        // dipakai barengan dengan pencarian supplier/invoice.
+        if ($request->filled('po_status')) {
+            $statuses = $request->po_status === 'completed'
+                ? Purchase::APPROVAL_COMPLETED_STATUSES
+                : Purchase::APPROVAL_PROGRESS_STATUSES;
+
+            $purchases->whereIn('approval_status', $statuses);
+        }
+
         // ✅ Filter pencarian
         if ($request->filled('search_keyword')) {
             if ($request->search_type === 'supplier') {
@@ -128,23 +140,25 @@ class PurchaseOrderController extends Controller
         $start = (int) $request->input('start', 0);
 
         $purchases = Purchase::with([
-            'supplier',
-            'purchaseAccount',
-            'user',
-            'purchaseItems.purchaseProduct',
-            'purchaseItems.purchaseListItems.inventoryItems',
+            'supplier:id,name',
+            'purchaseAccount:id,type',
+            'user:id,name',
+            // Qty PL dan realisasi Stock In dihitung sebagai agregat di SQL.
+            // Versi lama memuat pohon purchaseListItems.inventoryItems sebagai
+            // model, jadi satu halaman PO ikut menghidrasi ribuan baris PL dan
+            // inventory hanya untuk dijumlahkan lagi di PHP.
+            'purchaseItems' => fn ($query) => $query
+                ->withSum('purchaseListItems as approved_quantity', 'quantity')
+                ->withSum('purchaseListInventoryItems as stock_in_base', 'stock_in'),
+            'purchaseItems.purchaseProduct:id,name,sku',
         ])
             ->where('status', 'Purchase Orders')
             ->orderByDesc('purchase_date');
 
         $this->applyPurchaseOrderFilters($purchases, $request);
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $purchases;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $purchases->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($purchases, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -177,11 +191,9 @@ class PurchaseOrderController extends Controller
                 $paymentMethod = e($purchase->payment_method ?? '-');
                 $items = $purchase->purchaseItems;
                 $products = $items->map(function ($item) {
-                    $approved = (float) $item->purchaseListItems->sum('quantity');
+                    $approved = (float) ($item->approved_quantity ?? 0);
                     $remaining = max(0, (float) $item->quantity - $approved);
-                    $stockInBase = (float) $item->purchaseListItems->sum(
-                        fn ($purchaseListItem) => $purchaseListItem->inventoryItems->sum('stock_in')
-                    );
+                    $stockInBase = (float) ($item->stock_in_base ?? 0);
                     $stockIn = $stockInBase / max(1, (float) ($item->unit_conversion_value ?? 1));
 
                     return [
@@ -204,10 +216,11 @@ class PurchaseOrderController extends Controller
                 };
 
                 $approvalStatus = $purchase->approval_status ?? 'Draft';
-                $approvalStatusLabel = $approvalStatus === 'Approved' ? 'Verify' : $approvalStatus;
+                $approvalStatusLabel = $purchase->approval_status_label;
                 $approvalBadgeClass = match (strtolower($approvalStatus)) {
                     'approved' => 'bg-soft-primary text-primary',
                     'partial' => 'bg-soft-warning text-warning',
+                    'completed pl' => 'bg-soft-info text-info',
                     'completed' => 'bg-soft-success text-success',
                     default => 'bg-soft-secondary text-secondary',
                 };
@@ -231,7 +244,7 @@ class PurchaseOrderController extends Controller
                     'user' => $purchase->user->name ?? '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -369,10 +382,10 @@ class PurchaseOrderController extends Controller
             'purchaseItems.productUnitConversion',
         ])->findOrFail($id);
 
-        if (($purchase->approval_status ?? 'Draft') !== 'Draft') {
-            return redirect('/erp/purchases/purchase-orders')
-                ->with('error', 'PO yang sudah di-verify tidak dapat diedit.');
-        }
+        // PO yang sudah di-verify tetap bisa diedit. Yang dikunci hanya bagian
+        // yang sudah terlanjur dibuatkan Purchase List.
+        $allocations = $purchase->allocatedQuantityPerItem();
+        $hasPurchaseList = $allocations->sum() > 0;
 
         $products = Products::with('unitConversions.unit')
             ->orderBy('name', 'asc')
@@ -384,6 +397,8 @@ class PurchaseOrderController extends Controller
             'purchase',
             'products',
             'suppliers',
+            'allocations',
+            'hasPurchaseList',
         ));
     }
 
@@ -420,10 +435,45 @@ class PurchaseOrderController extends Controller
         DB::beginTransaction();
 
         try {
-            $purchase = Purchase::with('purchaseItems')->findOrFail($id);
+            $purchase = Purchase::with('purchaseItems.purchaseProduct')->findOrFail($id);
 
-            if (($purchase->approval_status ?? 'Draft') !== 'Draft') {
-                throw new \RuntimeException('PO yang sudah di-verify tidak dapat diedit.');
+            // ===== 0️⃣ KUNCI BAGIAN YANG SUDAH DIBUATKAN PURCHASE LIST =====
+            // PO yang sudah di-verify tetap boleh diedit, tapi qty yang sudah
+            // dialokasikan ke Purchase List tidak boleh hilang atau berkurang.
+            $allocations = $purchase->allocatedQuantityPerItem();
+            $hasPurchaseList = $allocations->sum() > 0;
+
+            if ($hasPurchaseList && (int) $request->suppliers !== (int) $purchase->supplier_id) {
+                throw new \RuntimeException('Supplier tidak dapat diubah karena PO sudah memiliki Purchase List.');
+            }
+
+            $submittedQtyPerProduct = [];
+            foreach ($request->product as $index => $productId) {
+                $submittedQtyPerProduct[(int) $productId] =
+                    ($submittedQtyPerProduct[(int) $productId] ?? 0) + (float) ($request->qty[$index] ?? 0);
+            }
+
+            foreach ($purchase->purchaseItems as $item) {
+                $allocated = (float) ($allocations[$item->id] ?? 0);
+
+                if ($allocated <= 0) {
+                    continue;
+                }
+
+                $productName = $item->purchaseProduct->name ?? $item->product_name ?? 'Produk';
+                $submittedQty = $submittedQtyPerProduct[(int) $item->product_id] ?? null;
+
+                if ($submittedQty === null) {
+                    throw new \RuntimeException(
+                        "{$productName} sudah dibuatkan Purchase List, item tidak dapat dihapus dari PO."
+                    );
+                }
+
+                if ($submittedQty < $allocated) {
+                    throw new \RuntimeException(
+                        "Qty {$productName} tidak boleh kurang dari {$allocated} {$item->unit_name} yang sudah dibuatkan Purchase List."
+                    );
+                }
             }
 
             // ===== 1️⃣ HITUNG TOTAL & TAX =====
@@ -494,6 +544,18 @@ class PurchaseOrderController extends Controller
                 $unitConversionId = $unit['id'];
                 $unitConversionValue = $unit['factor'];
                 $unitName = $unit['unit_name'];
+
+                // Unit item yang sudah punya PL dikunci supaya qty PL tetap sepadan.
+                $existingItem = $purchase->purchaseItems->firstWhere('product_id', (int) $productId);
+                if ($existingItem
+                    && (float) ($allocations[$existingItem->id] ?? 0) > 0
+                    && (float) $existingItem->unit_conversion_value !== (float) $unitConversionValue
+                ) {
+                    $productName = $existingItem->purchaseProduct->name ?? $existingItem->product_name ?? 'Produk';
+                    throw new \RuntimeException(
+                        "Unit {$productName} tidak dapat diubah karena sudah dibuatkan Purchase List."
+                    );
+                }
 
                 $qtyBase = (float) $qty * $unitConversionValue;
 
@@ -570,6 +632,9 @@ class PurchaseOrderController extends Controller
                     $existingInventory->delete();
                 }
             }
+
+            // Qty PO bisa berubah, jadi progress PL/Stock In dihitung ulang.
+            $purchase->syncApprovalProgress();
 
             DB::commit();
 
@@ -651,6 +716,55 @@ class PurchaseOrderController extends Controller
         }
     }
 
+    /**
+     * Hapus permanen PO beserta seluruh Purchase List anaknya.
+     * Khusus Owner, pola sama dengan force delete di Purchase List.
+     */
+    public function forceDeleteOwner(
+        $id,
+        Request $request,
+        PurchaseOrderForceDeleteService $forceDeleteService
+    ) {
+        if (! auth()->check() || auth()->user()->role !== 'Owner') {
+            abort(403, 'Only Owner can force delete.');
+        }
+
+        $request->validate([
+            'delete_notes' => 'required|string|max:1000',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $purchase = Purchase::whereKey($id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $filesToDelete = $forceDeleteService->execute($purchase);
+
+            DB::commit();
+
+            foreach ($filesToDelete as $file) {
+                if (is_file($file)) {
+                    @unlink($file);
+                }
+            }
+
+            return redirect('/erp/purchases/purchase-orders')->with(
+                'success',
+                'Purchase Order beserta Purchase List-nya berhasil dihapus permanen. Stok, stock-in, inventory, dan transaksi akun telah dibalik.'
+            );
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Force delete purchase order failed: '.$e->getMessage(), [
+                'purchase_id' => $id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return back()->with('error', 'Gagal force delete: '.$e->getMessage());
+        }
+    }
+
     public function markAsPurchaseList($id)
     {
         $purchase = Purchase::with([
@@ -682,7 +796,7 @@ class PurchaseOrderController extends Controller
         );
 
         if ($purchase->purchaseItems->isEmpty()) {
-            $purchase->update(['approval_status' => 'Completed']);
+            $purchase->syncApprovalProgress();
 
             return redirect('/erp/purchases/purchase-orders')
                 ->with('error', 'Seluruh quantity PO sudah dibuatkan Purchase List.');
@@ -1269,14 +1383,6 @@ class PurchaseOrderController extends Controller
 
     private function refreshPurchaseOrderProgress(Purchase $order): void
     {
-        $items = $order->purchaseItems()->get();
-        $ordered = (float) $items->sum('quantity');
-        $allocated = (float) PurchaseItem::whereIn('source_purchase_item_id', $items->pluck('id'))->sum('quantity');
-
-        $order->update([
-            'approval_status' => $allocated <= 0
-                ? 'Approved'
-                : ($allocated >= $ordered ? 'Completed' : 'Partial'),
-        ]);
+        $order->syncApprovalProgress();
     }
 }

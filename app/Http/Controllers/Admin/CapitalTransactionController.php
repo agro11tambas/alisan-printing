@@ -62,12 +62,8 @@ class CapitalTransactionController extends Controller
             }
         }
 
-        // ✅ Hitung total sebelum pagination
-        $totalQuery = clone $capitalTransactions;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $capitalTransactions->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($capitalTransactions, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -109,7 +105,7 @@ class CapitalTransactionController extends Controller
                     'action' => $action,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

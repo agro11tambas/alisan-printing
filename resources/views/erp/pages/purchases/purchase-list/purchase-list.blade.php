@@ -745,16 +745,19 @@
                         data: 'total_amount_product'
                     },
                     {
-                        data: 'paid_amount_product'
+                        data: 'paid_amount_product',
+                        name: 'paid_amount_product'
                     },
                     {
                         data: 'total_amount_freight'
                     },
                     {
-                        data: 'paid_amount_freight'
+                        data: 'paid_amount_freight',
+                        name: 'paid_amount_freight'
                     },
                     {
-                        data: 'payment_status'
+                        data: 'payment_status',
+                        name: 'payment_status'
                     },
                     {
                         data: 'user'
@@ -1308,6 +1311,55 @@
                 });
             }
 
+            // Update satu baris tabel langsung dari respons mark as paid, tanpa
+            // reload halaman. Kolom dicari lewat nama kolom DataTables supaya
+            // tidak patah kalau urutan/visibilitas kolom berubah.
+            function updatePurchaseRow(purchaseId, payload) {
+                if (!payload) return false;
+
+                const row = dataTable.row(function(_, data) {
+                    return String(data.id) === String(purchaseId);
+                });
+
+                if (!row.node()) return false;
+
+                const rowNode = $(row.node());
+
+                const setCell = (columnName, html) => {
+                    if (html === undefined || html === null) return;
+
+                    const visibleIndex = dataTable.column(columnName + ':name').index('visible');
+                    if (visibleIndex === undefined || visibleIndex === null) return;
+
+                    rowNode.find('td').eq(visibleIndex).html(html);
+                };
+
+                setCell('paid_amount_product', payload.paid_amount_product_html);
+                setCell('paid_amount_freight', payload.paid_amount_freight_html);
+                setCell('payment_status', payload.payment_status_html);
+
+                // Data baris ikut diperbarui supaya menu aksi yang dibuka
+                // setelah ini memakai tombol terbaru (mis. "Mark as Paid"
+                // hilang begitu lunas).
+                const d = row.data();
+                d.paid_amount_product = payload.paid_amount_product_html ?? d.paid_amount_product;
+                d.paid_amount_freight = payload.paid_amount_freight_html ?? d.paid_amount_freight;
+                d.payment_status = payload.payment_status_html ?? d.payment_status;
+                if (payload.action_html) d.action = payload.action_html;
+                row.data(d);
+
+                // Kalau baris aksi baris ini sedang terbuka, isinya ikut diganti.
+                const $openActionRow = rowNode.next('.action-row');
+                if ($openActionRow.length && payload.action_html) {
+                    $openActionRow.find('td > div').html(payload.action_html);
+                }
+
+                rowNode.addClass('bg-success-subtle');
+                setTimeout(() => rowNode.removeClass('bg-success-subtle'), 1500);
+
+                return true;
+            }
+
             $('#markAsPurchaseFormProduct').on('submit', function(e) {
                 e.preventDefault();
 
@@ -1336,32 +1388,11 @@
                         $('#modalChangeStatusProduct').modal('hide');
                         form.reset();
 
-                        const purchaseId = $('#purchase_id_product').val();
-                        const row = dataTable.row(function(_, data) {
-                            return String(data.id) === String(purchaseId);
-                        });
-
-                        if (row.length) {
-                            const rowNode = $(row.node());
-                            const fmt = new Intl.NumberFormat('id-ID');
-
-                            rowNode.find('td:eq(4)').html(res.purchase
-                                .paid_amount_product_html);
-                            rowNode.find('td:eq(6)').html(res.purchase
-                                .paid_amount_freight_html);
-                            rowNode.find('td:eq(7)').html(res.purchase.payment_status_html);
-                            if (res.purchase.action_html) rowNode.find('td:last-child').html(res
-                                .purchase.action_html);
-
-                            let d = row.data();
-                            d.paid_amount_product = res.purchase.paid_amount_product_html;
-                            d.paid_amount_freight = res.purchase.paid_amount_freight_html;
-                            d.payment_status = res.purchase.payment_status_html;
-                            d.action = res.purchase.action_html;
-                            row.data(d).invalidate();
-
-                            rowNode.addClass('bg-success-subtle');
-                            setTimeout(() => rowNode.removeClass('bg-success-subtle'), 1500);
+                        // Kalau baris gagal di-update (mis. barisnya belum
+                        // ter-load), tabel di-refresh supaya status tetap
+                        // benar tanpa perlu reload halaman.
+                        if (!updatePurchaseRow($('#purchase_id_product').val(), res.purchase)) {
+                            resetAndReload();
                         }
                     },
                     error: function(xhr) {
@@ -1404,33 +1435,8 @@
                         $('#modalChangeStatusFreight').modal('hide');
                         form.reset();
 
-                        const purchaseId = $('#purchase_id_freight').val();
-                        const row = dataTable.row(function(_, data) {
-                            return String(data.id) === String(purchaseId);
-                        });
-
-                        if (row.length) {
-                            const rowNode = $(row.node());
-
-                            rowNode.find('td:eq(4)').html(res.purchase
-                                .paid_amount_product_html);
-                            rowNode.find('td:eq(6)').html(res.purchase
-                                .paid_amount_freight_html);
-                            rowNode.find('td:eq(7)').html(res.purchase.payment_status_html);
-
-                            if (res.purchase.action_html) {
-                                rowNode.find('td:last-child').html(res.purchase.action_html);
-                            }
-
-                            let d = row.data();
-                            d.paid_amount_product = res.purchase.paid_amount_product_html;
-                            d.paid_amount_freight = res.purchase.paid_amount_freight_html;
-                            d.payment_status = res.purchase.payment_status_html;
-                            d.action = res.purchase.action_html;
-                            row.data(d).invalidate();
-
-                            rowNode.addClass('bg-success-subtle');
-                            setTimeout(() => rowNode.removeClass('bg-success-subtle'), 1500);
+                        if (!updatePurchaseRow($('#purchase_id_freight').val(), res.purchase)) {
+                            resetAndReload();
                         }
                     },
                     error: function(xhr) {

@@ -1,6 +1,6 @@
 @extends('erp.layouts.main')
 
-@php($editing = $priceMode->exists)
+@php $editing = $priceMode->exists; @endphp
 
 @section('breadcrumb')
     <div class="page-header sticky-top">

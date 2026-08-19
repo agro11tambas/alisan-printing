@@ -190,11 +190,20 @@
                 });
             @endif
 
+            // Satu halaman = satu request. Angka besar (dulu 200) bikin request
+            // pertama berat dan lama, padahal layar cuma memuat belasan baris.
+            const PAGE_SIZE = 50;
+
             let allData = [];
             let currentPage = 0;
             let isLoading = false;
             let hasMoreData = true;
+            // Posisi scroll terakhir hanya dipulihkan sekali, dari data yang sudah
+            // ada. Versi lama memanggil loadMoreData() berulang sampai tabelnya
+            // cukup tinggi: membuka halaman produk bisa menembakkan belasan
+            // request 200 baris berturut-turut sebelum halaman terlihat.
             let savedScrollTop = parseInt(sessionStorage.getItem('product_scroll_top') || '0');
+            let scrollRestored = false;
 
             const savedSearch = sessionStorage.getItem('product_search');
             const savedCategory = sessionStorage.getItem('product_category');
@@ -280,8 +289,8 @@
                     url: "{{ url('/erp/products/data') }}",
                     type: 'GET',
                     data: {
-                        start: currentPage * 200,
-                        length: 200,
+                        start: currentPage * PAGE_SIZE,
+                        length: PAGE_SIZE,
                         search_keyword: $('#search_keyword').val() ? $('#search_keyword').val().trim() : '',
                         category_id: $('#category_id').val(),
                         tag_id: $('#tag_id').val()
@@ -300,18 +309,19 @@
                             }
                             currentPage++;
 
-                            setTimeout(() => {
-                                const scrollBody = $('.dataTables_scrollBody');
+                            if (savedScrollTop > 0 && !scrollRestored) {
+                                scrollRestored = true;
 
-                                if (savedScrollTop > 0) {
-                                    scrollBody.scrollTop(savedScrollTop);
+                                const restoreTo = savedScrollTop;
+                                savedScrollTop = 0;
 
-                                    if (scrollBody.scrollTop() < savedScrollTop &&
-                                        hasMoreData && !isLoading) {
-                                        loadMoreData();
-                                    }
-                                }
-                            }, 100);
+                                setTimeout(() => {
+                                    // Sebisanya saja: kalau baris yang dimuat belum
+                                    // setinggi posisi lama, biarkan. Sisanya ikut
+                                    // lazy load biasa begitu user menggulir.
+                                    $('.dataTables_scrollBody').scrollTop(restoreTo);
+                                }, 100);
+                            }
                         } else {
                             if (isNewSearch) {
                                 dataTable.draw(); // Draw the empty table

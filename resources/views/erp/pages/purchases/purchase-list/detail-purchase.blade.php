@@ -70,11 +70,11 @@
                                         <tbody>
                                             @foreach ($purchase->purchaseItems as $item)
                                                 <tr>
-                                                    <td>{{ $item->purchaseProduct->name }}</td>
+                                                    <td>{{ $item->purchaseProduct?->name ?? $item->product_name ?? '-' }}</td>
                                                     <td>Rp. {{ number_format($item->price, 0, ',', '.') }}</td>
                                                     <td>Rp. {{ number_format($item->freight, 0, ',', '.') }}</td>
                                                     <td>{{ number_format($item->quantity, 0, ',', '.') }}</td>
-                                                    @php($stockInInUnit = ($item->stock_in ?? 0) / max(1, $item->unit_conversion_value ?? 1))
+                                                    @php $stockInInUnit = ($item->stock_in ?? 0) / max(1, $item->unit_conversion_value ?? 1); @endphp
                                                     <td><span class="fw-bold text-success">{{ number_format($stockInInUnit, 0, ',', '.') }}/{{ number_format($item->quantity, 0, ',', '.') }}</span></td>
                                                     <td class="text-end">Rp.
                                                         {{ number_format($item->subtotal, 0, ',', '.') }}</td>
@@ -119,7 +119,7 @@
                                         </div>
                                         <div class="col-6 d-flex">
                                             <span
-                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->supplier->name }}</span>
+                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->supplier?->name ?? '-' }}</span>
                                         </div>
                                     </div>
                                     <div class="row align-items-center mb-2 task-list-row">
@@ -129,7 +129,7 @@
                                         </div>
                                         <div class="col-6 d-flex">
                                             <span
-                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->supplier->phone }}</span>
+                                                class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->supplier?->phone ?? '-' }}</span>
                                         </div>
                                     </div>
                                     <div class="row align-items-center mb-2 task-list-row">

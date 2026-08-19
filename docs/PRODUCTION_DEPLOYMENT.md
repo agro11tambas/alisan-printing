@@ -155,3 +155,38 @@ some point and the dumps are safe to delete:
 ```sh
 rm -rf storage/debugbar/*.json
 ```
+## Berapa banyak request yang ditembakkan satu halaman
+
+Semua daftar di ERP ini memakai lazy load: halaman kosong dulu, lalu JavaScript
+menarik `/data` sepotong demi sepotong. Yang menentukan berat sebuah halaman
+karena itu bukan hanya biaya satu request, tapi **berapa request yang berangkat
+sebelum halaman terlihat**. Di hosting dengan batas proses PHP, sepuluh request
+berurutan dari satu tab sudah cukup untuk memenuhi antrean dan membuat semua
+halaman lain ikut tersendat.
+
+Dua hal yang harus dijaga di setiap halaman daftar:
+
+- **Satu halaman = satu request.** Halaman Products dulu meminta 200 baris
+  sekaligus. Sekarang 50, sama seperti daftar lainnya, dan sisanya menyusul saat
+  digulir.
+- **Pemulihan posisi scroll tidak boleh memaksa pemuatan.** Products dan Product
+  Bundles menyimpan posisi scroll terakhir di `sessionStorage`, lalu memanggil
+  ulang pemuatan sampai tabelnya cukup tinggi untuk mencapai posisi itu. Buka
+  halaman produk setelah pernah menggulir jauh, dan satu kali buka bisa
+  menembakkan belasan request 200 baris berturut-turut. Sekarang posisinya
+  dipulihkan sekali dari data yang sudah ada saja.
+
+Kalau menambah halaman daftar baru, ikuti pola itu.
+
+## Ukuran response daftar
+
+Kolom `action` diisi HTML dropdown yang dirender per baris. Di Sale List
+dropdown desktop ~4,2 KB dan versi mobile ~2,8 KB per baris, jadi satu halaman
+50 baris membawa sekitar **345 KB HTML tombol** — markup yang isinya nyaris sama
+untuk semua baris, dan tidak terlihat sampai dropdown-nya diklik.
+
+Kompresi di `public/.htaccess` menekan angka itu di jaringan, tapi biaya render
+Blade (100 render per request di Sale List) dan encoding JSON-nya tetap dibayar
+di server. Ini pengeluaran terbesar berikutnya yang tersisa di endpoint daftar;
+memperbaikinya berarti membangun dropdown di sisi klien dari `id` baris, bukan
+mengirim markup jadi dari server.

@@ -289,7 +289,7 @@ class PurchaseOrderExport extends BaseExcelExport
             $purchaseOrder->purchase_number,
             Carbon::parse($purchaseOrder->purchase_date)->format('d/m/Y H:i'),
             $purchaseOrder->supplier->name ?? '-',
-            $purchaseOrder->approval_status ?: 'Draft',
+            $purchaseOrder->approval_status_label,
         ];
     }
 

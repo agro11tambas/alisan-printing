@@ -35,14 +35,13 @@
                 <span>Purchase Detail</span>
             </a>
         </li>
-        @if (($purchase->approval_status ?? 'Draft') === 'Draft')
+        {{-- PO tetap bisa diedit setelah verify; qty yang sudah dibuatkan PL dikunci di form edit. --}}
         <li>
             <a class="dropdown-item" href="/erp/purchases/purchase-orders/edit-purchase/{{ $purchase->id }}">
                 <i class="feather feather-edit-3 me-3"></i>
                 <span>Edit</span>
             </a>
         </li>
-        @endif
         <li>
             <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
                 data-bs-target="#modalDeletePurchase" data-id="{{ $purchase->id }}" data-name="{{ $purchase->name }}"
@@ -51,5 +50,20 @@
                 <span>Delete</span>
             </button>
         </li>
+
+        @php $isOwner = auth()->check() && auth()->user()->role === 'Owner'; @endphp
+
+        @if ($isOwner)
+        <li>
+            <button type="button" class="dropdown-item text-danger btn-force-delete-owner"
+                data-bs-toggle="modal" data-bs-target="#modalForceDeleteOwnerPurchaseOrder"
+                data-id="{{ $purchase->id }}"
+                data-name="{{ $purchase->purchase_number ?? 'Purchase Order #' . $purchase->id }}"
+                data-url="{{ route('purchases.purchase-orders.forceDeleteOwner', $purchase->id) }}">
+                <i class="feather feather-zap-off me-3"></i>
+                <span>Force Delete (Owner)</span>
+            </button>
+        </li>
+        @endif
     </ul>
 </div>

@@ -20,7 +20,7 @@
                 <td>Rp {{ number_format($item->price, 0, ',', '.') }}</td>
                 <td>Rp {{ number_format($item->freight, 0, ',', '.') }}</td>
                 <td>Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
-                @php($stockInInUnit = ($item->stock_in ?? 0) / max(1, $item->unit_conversion_value ?? 1))
+                @php $stockInInUnit = ($item->stock_in ?? 0) / max(1, $item->unit_conversion_value ?? 1); @endphp
                 <td><span class="fw-bold text-primary">{{ number_format($stockInInUnit, 0, ',', '.') }}/{{ number_format($item->quantity, 0, ',', '.') }}</span></td>
             </tr>
             @endforeach

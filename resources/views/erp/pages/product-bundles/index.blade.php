@@ -167,6 +167,7 @@
             let isLoading = false;
             let hasMoreData = true;
             let savedScrollTop = parseInt(sessionStorage.getItem('product_bundle_scroll_top') || '0');
+            let scrollRestored = false;
             let searchTimer = null;
 
             const savedSearchType = sessionStorage.getItem('product_bundle_search_type');
@@ -240,18 +241,20 @@
                                 $(dataTable.table().body()).append(newNodes);
                             }
                             currentPage++;
-                            setTimeout(() => {
-                                const scrollBody = $('.dataTables_scrollBody');
+                            // Posisi scroll lama dipulihkan sekali saja, dari data
+                            // yang sudah dimuat. Versi lama memanggil loadMoreData()
+                            // berulang sampai tabelnya cukup tinggi, jadi membuka
+                            // halaman ini bisa menembakkan banyak request sekaligus.
+                            if (savedScrollTop > 0 && !scrollRestored) {
+                                scrollRestored = true;
 
-                                if (savedScrollTop > 0) {
-                                    scrollBody.scrollTop(savedScrollTop);
+                                const restoreTo = savedScrollTop;
+                                savedScrollTop = 0;
 
-                                    if (scrollBody.scrollTop() < savedScrollTop &&
-                                        hasMoreData && !isLoading) {
-                                        loadMoreData();
-                                    }
-                                }
-                            }, 100);
+                                setTimeout(() => {
+                                    $('.dataTables_scrollBody').scrollTop(restoreTo);
+                                }, 100);
+                            }
                         } else {
                             if (isNewSearch) {
                                 dataTable.draw(); // Draw empty table

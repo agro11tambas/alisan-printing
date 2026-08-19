@@ -180,11 +180,15 @@ class DeliveryOrderController extends Controller
 
     public function getItems($id)
     {
-        $deliveryOrder = DeliveryOrder::with(['items.product'])->findOrFail($id);
+        // Qty terkirim dihitung sebagai agregat di query, bukan satu query per
+        // item di dalam map().
+        $deliveryOrder = DeliveryOrder::with([
+            'items.product:id,name',
+            'items' => fn ($query) => $query->withSum('deliveryListItems as already_shipped', 'shipped_quantity'),
+        ])->findOrFail($id);
 
         $items = $deliveryOrder->items->map(function ($item) {
-            // hitung qty yang sudah dikirim
-            $alreadyShipped = $item->deliveryListItems()->sum('shipped_quantity');
+            $alreadyShipped = (float) ($item->already_shipped ?? 0);
 
             return [
                 'id'              => $item->id,

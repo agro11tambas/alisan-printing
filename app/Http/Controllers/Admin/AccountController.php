@@ -37,17 +37,8 @@ class AccountController extends Controller
             $account->where('type', 'like', '%' . $request->type . '%');
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $account;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $account
-            ->orderBy('name', 'asc')
-            ->orderBy('id', 'asc')
-            ->skip($start)
-            ->take($length)
-            ->get();
+        [$data, $hasMore] = $this->lazyLoadPage($account->orderBy('name', 'asc')->orderBy('id', 'asc'), $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -79,7 +70,7 @@ class AccountController extends Controller
                     'action' => $action,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

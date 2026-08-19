@@ -250,7 +250,13 @@ class PurchaseListForceDeleteService
             ->all();
     }
 
-    private function reverseAndDeleteTransactions(int $purchaseId): array
+    /**
+     * Balikkan saldo akun lalu hapus permanen transaksi milik satu purchase.
+     * Public karena dipakai juga oleh PurchaseOrderForceDeleteService.
+     *
+     * @return array<int, string> File bukti bayar yang bisa dihapus setelah commit.
+     */
+    public function reverseAndDeleteTransactions(int $purchaseId): array
     {
         $filesToDelete = [];
         $transactions = AccountTransaction::where('purchase_id', $purchaseId)

@@ -31,13 +31,7 @@ class ProductUnitController extends Controller
             });
         }
 
-        $totalQuery = clone $productUnits;
-        $totalData = $totalQuery->count();
-
-        $data = $productUnits
-            ->skip($start)
-            ->take($length)
-            ->get();
+        [$data, $hasMore] = $this->lazyLoadPage($productUnits, $start, $length);
 
         return response()->json([
             'data' => $data->map(function ($unit) {
@@ -50,7 +44,7 @@ class ProductUnitController extends Controller
                     ])->render(),
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

@@ -95,12 +95,8 @@ class PurchaseReturnController extends Controller
             }
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $purchases;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $purchases->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($purchases, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -232,7 +228,7 @@ class PurchaseReturnController extends Controller
                     'action' => $actionHtml,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -293,12 +289,8 @@ class PurchaseReturnController extends Controller
             }
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $returns;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $returns->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($returns, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -373,7 +365,7 @@ class PurchaseReturnController extends Controller
                     'action' => $action,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -387,15 +379,23 @@ class PurchaseReturnController extends Controller
 
         $products = Products::orderBy('name', 'asc')->get();
 
-        // Hitung sisa qty return per item
-        $remainingItems = $purchase->purchaseItems->map(function ($item) use ($purchase) {
-            $returnedQty = PurchaseReturnItem::where('product_id', $item->product_id)
-                ->whereHas('purchaseReturn', function ($q) use ($purchase) {
-                    $q->where('purchase_id', $purchase->id);
-                })->sum('quantity');
+        // Hitung sisa qty return per item.
+        //
+        // Qty yang sudah diretur diambil sekali untuk semua produk sekaligus.
+        // Versi lama menjalankan satu query berisi whereHas untuk tiap item PO.
+        $returnedPerProduct = PurchaseReturnItem::query()
+            ->whereIn('product_id', $purchase->purchaseItems->pluck('product_id')->filter()->unique())
+            ->whereHas('purchaseReturn', fn ($q) => $q->where('purchase_id', $purchase->id))
+            ->selectRaw('product_id, SUM(quantity) as returned_quantity')
+            ->groupBy('product_id')
+            ->pluck('returned_quantity', 'product_id');
+
+        $remainingItems = $purchase->purchaseItems->map(function ($item) use ($returnedPerProduct) {
+            $returnedQty = (float) ($returnedPerProduct[$item->product_id] ?? 0);
 
             // qty yang belum direturn
             $item->remaining_qty = max(0, $item->quantity - $returnedQty);
+
             return $item;
         });
 

@@ -113,21 +113,41 @@ class SaleListController extends Controller
                 ],
             ]);
 
-        $dates = $pageOrders->map(fn(Order $order) => Carbon::parse($order->order_date));
-        $rangeStart = $dates->min()->copy()->startOfMonth();
-        $rangeEnd = $dates->max()->copy()->endOfMonth();
+        // Kandidat diambil per bulan yang benar-benar muncul di halaman ini.
+        //
+        // Versi lama memakai satu rentang min-max untuk semua customer
+        // sekaligus. Selama daftar diurut order_date itu aman (satu halaman
+        // jatuh di bulan yang sama), tapi begitu diurut per due date satu
+        // halaman bisa membentang bertahun-tahun — dan query kandidatnya ikut
+        // menarik seluruh order customer-customer itu sepanjang rentang tadi.
+        $customerIdsPerMonth = $groups
+            ->groupBy('month')
+            ->map(fn (Collection $monthGroups) => $monthGroups->pluck('customer_id')->unique()->values());
 
         $candidates = Order::query()
-            ->with('customerAddress:id,business_name')
             ->where('status', 'sale list')
-            ->whereIn('customer_id', $groups->pluck('customer_id')->unique())
-            ->whereBetween('order_date', [$rangeStart, $rangeEnd])
+            ->where(function ($query) use ($customerIdsPerMonth) {
+                foreach ($customerIdsPerMonth as $month => $customerIds) {
+                    $monthStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+
+                    $query->orWhere(fn ($monthQuery) => $monthQuery
+                        ->whereIn('customer_id', $customerIds)
+                        ->whereBetween('order_date', [$monthStart, $monthStart->copy()->endOfMonth()]));
+                }
+            })
             ->orderBy('order_date')
             ->orderBy('id')
             ->get(['id', 'customer_id', 'customer_address_id', 'order_date']);
 
-        return $groups->map(function (array $group) use ($candidates) {
-            $matches = $candidates->filter(function (Order $candidate) use ($group) {
+        // Nama business dipetakan sekali, bukan lewat eager load per kandidat.
+        // withTrashed() mengikuti relasi Order::customerAddress: order lama
+        // tetap menampilkan nama outlet walau alamatnya sudah dihapus.
+        $businessNames = CustomerAddresses::withTrashed()
+            ->whereIn('id', $candidates->pluck('customer_address_id')->filter()->unique()->values())
+            ->pluck('business_name', 'id');
+
+        return $groups->map(function (array $group) use ($candidates, $businessNames) {
+            $matches = $candidates->filter(function (Order $candidate) use ($group, $businessNames) {
                 if ((int) $candidate->customer_id !== (int) $group['customer_id']) {
                     return false;
                 }
@@ -137,7 +157,7 @@ class SaleListController extends Controller
                 }
 
                 return !$group['business_name']
-                    || $candidate->customerAddress?->business_name === $group['business_name'];
+                    || ($businessNames[$candidate->customer_address_id] ?? null) === $group['business_name'];
             })->values();
 
             $total = $matches->count();

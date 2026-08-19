@@ -61,7 +61,7 @@
         </script>
     @endif
 
-    @php($subTabActive = request('tab') === 'sub')
+    @php $subTabActive = request('tab') === 'sub'; @endphp
 
     <div class="main-content m-0 m-md-2 m-lg-2 p-0 p-md-0 p-lg-0 pt-1 pt-md-0">
         <ul class="nav nav-tabs mb-3" id="categoryModuleTabs" role="tablist">

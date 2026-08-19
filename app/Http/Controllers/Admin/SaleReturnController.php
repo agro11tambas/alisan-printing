@@ -140,12 +140,8 @@ class SaleReturnController extends Controller
             }
         }
 
-        // 🔹 Hindari query count dua kali
-        $totalQuery = clone $returns;
-        $totalData = $totalQuery->count();
-
         // 🔹 Ambil data sesuai offset dan limit
-        $data = $returns->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($returns, $start, $length);
 
         // 🔹 Return format JSON untuk lazy-load
         return response()->json([
@@ -289,7 +285,7 @@ class SaleReturnController extends Controller
                     )->render(),
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -310,12 +306,8 @@ class SaleReturnController extends Controller
             });
         }
 
-        // 🔹 Hindari query count dua kali
-        $totalQuery = clone $returns;
-        $totalData = $totalQuery->count();
-
         // 🔹 Ambil data sesuai offset dan limit
-        $data = $returns->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($returns, $start, $length);
 
         // 🔹 Return format JSON untuk lazy-load
         return response()->json([
@@ -378,7 +370,7 @@ class SaleReturnController extends Controller
                     'action' => $action,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

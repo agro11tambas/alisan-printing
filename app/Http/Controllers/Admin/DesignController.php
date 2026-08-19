@@ -128,12 +128,8 @@ class DesignController extends Controller
             $designs->where('status', $request->status);
         }
 
-        // ✅ Hindari query count dua kali
-        $totalQuery = clone $designs;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $designs->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($designs, $start, $length);
 
         // ✅ Format JSON ringan (lazy load)
         return response()->json([
@@ -249,7 +245,7 @@ class DesignController extends Controller
                     'created_at' => $orderCreatedAt,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

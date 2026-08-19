@@ -65,12 +65,8 @@ class ExpenseController extends Controller
             }
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $expense;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $expense->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($expense, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -99,7 +95,7 @@ class ExpenseController extends Controller
                     'action' => $action,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

@@ -87,12 +87,8 @@ class AccountListController extends Controller
             });
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $expense;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $expense->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($expense, $start, $length);
 
         // ✅ Format JSON (lazy-load)
         return response()->json([
@@ -107,7 +103,7 @@ class AccountListController extends Controller
                     'note' => $expense->note ?? '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -149,12 +145,8 @@ class AccountListController extends Controller
             });
         }
 
-        // 🔢 Hitung total data
-        $totalQuery = clone $deposit;
-        $totalData = $totalQuery->count();
-
         // 📌 Pagination manual
-        $data = $deposit->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($deposit, $start, $length);
 
         return response()->json([
             'data' => $data->map(function ($d) {
@@ -168,7 +160,7 @@ class AccountListController extends Controller
                     'note' => $d->note ?? '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -210,12 +202,8 @@ class AccountListController extends Controller
             });
         }
 
-        // ✅ Hitung total sebelum pagination
-        $totalQuery = clone $bank;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $bank->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($bank, $start, $length);
 
         // ✅ Return JSON ringan (lazy-load)
         return response()->json([
@@ -230,7 +218,7 @@ class AccountListController extends Controller
                     'note' => $bank->note ?? '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -273,12 +261,8 @@ class AccountListController extends Controller
             });
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $cash;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $cash->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($cash, $start, $length);
 
         // ✅ Return JSON ringan (lazy-load)
         return response()->json([
@@ -293,7 +277,7 @@ class AccountListController extends Controller
                     'note' => $cash->note ?? '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -336,12 +320,8 @@ class AccountListController extends Controller
             });
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $sale;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $sale->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($sale, $start, $length);
 
         // ✅ Return JSON ringan (lazy-load)
         return response()->json([
@@ -356,7 +336,7 @@ class AccountListController extends Controller
                     'note' => $sale->note ?? '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -398,12 +378,8 @@ class AccountListController extends Controller
             });
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $purchase;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $purchase->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($purchase, $start, $length);
 
         // ✅ Return JSON ringan (lazy-load)
         return response()->json([
@@ -418,7 +394,7 @@ class AccountListController extends Controller
                     'note' => $purchase->note ?? '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -461,12 +437,8 @@ class AccountListController extends Controller
             });
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $capital;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $capital->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($capital, $start, $length);
 
         // ✅ Return JSON ringan (lazy-load)
         return response()->json([
@@ -481,7 +453,7 @@ class AccountListController extends Controller
                     'note' => $capital->note ?? '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

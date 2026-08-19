@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PurchaseItem extends Model
@@ -43,7 +44,8 @@ class PurchaseItem extends Model
 
     public function purchaseProduct(): BelongsTo
     {
-        return $this->belongsTo(Products::class, 'product_id');
+        // withTrashed: produk yang sudah dihapus tetap tampil di dokumen lama.
+        return $this->belongsTo(Products::class, 'product_id')->withTrashed();
     }
 
     public function purchase(): BelongsTo
@@ -74,6 +76,41 @@ class PurchaseItem extends Model
     public function inventoryItems()
     {
         return $this->hasMany(InventoryItem::class, 'purchase_item_id');
+    }
+
+    /**
+     * Inventory item milik seluruh item Purchase List turunan item PO ini.
+     *
+     * Dipakai listing Purchase Order untuk menjumlahkan Stock In lewat satu
+     * withSum, bukan dengan memuat pohon purchaseListItems.inventoryItems dan
+     * menjumlahkannya di PHP.
+     */
+    public function purchaseListInventoryItems(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            InventoryItem::class,
+            self::class,
+            'source_purchase_item_id', // FK di purchase_items (item PL) -> item PO
+            'purchase_item_id',        // FK di inventory_items_2 -> item PL
+            'id',
+            'id'
+        );
+    }
+
+    /**
+     * Realisasi Stock In item PL ini (dalam satuan dasar/pcs).
+     * Diambil dari inventory item supaya ikut perubahan lewat edit history.
+     */
+    public function stockInBase(): float
+    {
+        return (float) $this->inventoryItems->sum('stock_in');
+    }
+
+    public function isFullyStockedIn(): bool
+    {
+        $target = (float) ($this->qty_base ?: $this->quantity);
+
+        return $target > 0 && $this->stockInBase() >= $target;
     }
 
     public function inventoryReturnItems()

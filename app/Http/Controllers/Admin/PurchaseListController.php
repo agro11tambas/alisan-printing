@@ -133,12 +133,8 @@ class PurchaseListController extends Controller
             }
         }
 
-        // ✅ Hitung total sebelum pagination
-        $totalQuery = clone $purchases;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $purchases->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($purchases, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -279,30 +275,7 @@ class PurchaseListController extends Controller
                 };
 
                 // ⚙️ Action Button Partial
-                $returnedQtyByProduct = $purchase->purchaseReturn
-                    ->flatMap(fn ($return) => $return->items)
-                    ->groupBy('product_id')
-                    ->map(fn ($items) => (float) $items->sum('quantity'));
-
-                $purchase->is_fully_returned = $purchase->purchaseItems->every(function ($item) use ($returnedQtyByProduct) {
-                    $returnedQty = $returnedQtyByProduct->get($item->product_id, 0);
-
-                    return $returnedQty >= $item->quantity;
-                });
-
-                $hasStockIn = $purchase->inventories
-                    ->where('status', 'Stock In')
-                    ->contains(fn ($inventory) => $inventory->items->contains(
-                        fn ($item) => (float) $item->stock_in > 0
-                    ));
-                $firstStockInInventory = $purchase->inventories
-                    ->first(fn ($inventory) => $inventory->stockIns->isNotEmpty());
-
-                $actionHtml = view('erp.pages.purchases.purchase-list.partials.action-button', compact(
-                    'purchase',
-                    'hasStockIn',
-                    'firstStockInInventory'
-                ))->render();
+                $actionHtml = $this->renderActionButton($purchase);
 
                 return [
                     'id' => $purchase->id,
@@ -335,7 +308,7 @@ class PurchaseListController extends Controller
                     'user' => $purchase->user->name ?? '-',
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -401,12 +374,8 @@ class PurchaseListController extends Controller
             });
         }
 
-        // ✅ Hitung total sebelum pagination
-        $totalQuery = clone $purchases;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $purchases->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($purchases, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -483,7 +452,7 @@ class PurchaseListController extends Controller
                     'action' => $action,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
@@ -1938,20 +1907,22 @@ class PurchaseListController extends Controller
                     'paid_amount_freight_html' => $paidFreightColumn,
                     'remaining_amount_html' => '<span class="text-danger">Rp '.number_format($remainingTotal, 0, ',', '.').'</span>',
                     'payment_status_html' => $paymentBadge,
-                    'action_html' => view('erp.pages.purchases.purchase-list.partials.action-button', [
-                        'purchase' => $purchase,
-                    ])->render(),
+                    'action_html' => $this->renderActionButton($purchase),
                 ],
             ]);
-
-            return back()->with('success', 'Pembayaran produk berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
-            if ($request->ajax()) {
+
+            Log::error('Mark as paid product gagal', [
+                'purchase_id' => $request->purchase_id,
+                'message' => $e->getMessage(),
+            ]);
+
+            if ($request->expectsJson()) {
                 return response()->json([
-                    'status' => 'success',
-                    'message' => 'Pembayaran berhasil disimpan.',
-                ]);
+                    'status' => 'error',
+                    'message' => 'Gagal menyimpan pembayaran produk: '.$e->getMessage(),
+                ], 500);
             }
 
             return back()->with('error', 'Gagal menyimpan pembayaran produk: '.$e->getMessage());
@@ -2100,20 +2071,22 @@ class PurchaseListController extends Controller
                     'paid_amount_freight_html' => $paidFreightColumn,
                     'remaining_amount_html' => '<span class="text-danger">Rp '.number_format($remainingTotal, 0, ',', '.').'</span>',
                     'payment_status_html' => $paymentBadge,
-                    'action_html' => view('erp.pages.purchases.purchase-list.partials.action-button', [
-                        'purchase' => $purchase,
-                    ])->render(),
+                    'action_html' => $this->renderActionButton($purchase),
                 ],
             ]);
-
-            return back()->with('success', 'Pembayaran freight berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
-            if ($request->ajax()) {
+
+            Log::error('Mark as paid freight gagal', [
+                'purchase_id' => $request->purchase_id,
+                'message' => $e->getMessage(),
+            ]);
+
+            if ($request->expectsJson()) {
                 return response()->json([
-                    'status' => 'success',
-                    'message' => 'Pembayaran berhasil disimpan.',
-                ]);
+                    'status' => 'error',
+                    'message' => 'Gagal menyimpan pembayaran freight: '.$e->getMessage(),
+                ], 500);
             }
 
             return back()->with('error', 'Gagal menyimpan pembayaran freight: '.$e->getMessage());
@@ -2582,23 +2555,51 @@ class PurchaseListController extends Controller
         }
     }
 
+    /**
+     * Render tombol aksi satu baris Purchase List.
+     *
+     * Dipakai bersama oleh listing dan respons AJAX mark as paid. Sebelumnya
+     * respons AJAX me-render partial ini tanpa $hasStockIn/$firstStockInInventory,
+     * sehingga render-nya melempar error dan baris tabel tidak pernah ter-update.
+     */
+    private function renderActionButton(Purchase $purchase): string
+    {
+        $purchase->loadMissing([
+            'purchaseItems',
+            'purchaseReturn.items',
+            'inventories.items',
+            'inventories.stockIns',
+        ]);
+
+        $returnedQtyByProduct = $purchase->purchaseReturn
+            ->flatMap(fn ($return) => $return->items)
+            ->groupBy('product_id')
+            ->map(fn ($items) => (float) $items->sum('quantity'));
+
+        $purchase->is_fully_returned = $purchase->purchaseItems->every(function ($item) use ($returnedQtyByProduct) {
+            $returnedQty = $returnedQtyByProduct->get($item->product_id, 0);
+
+            return $returnedQty >= $item->quantity;
+        });
+
+        $hasStockIn = $purchase->inventories
+            ->where('status', 'Stock In')
+            ->contains(fn ($inventory) => $inventory->items->contains(
+                fn ($item) => (float) $item->stock_in > 0
+            ));
+
+        $firstStockInInventory = $purchase->inventories
+            ->first(fn ($inventory) => $inventory->stockIns->isNotEmpty());
+
+        return view('erp.pages.purchases.purchase-list.partials.action-button', compact(
+            'purchase',
+            'hasStockIn',
+            'firstStockInInventory'
+        ))->render();
+    }
+
     private function refreshParentPurchaseProgress(int $parentPurchaseId): void
     {
-        $parent = Purchase::with('purchaseItems')->find($parentPurchaseId);
-        if (! $parent) {
-            return;
-        }
-
-        $ordered = (float) $parent->purchaseItems->sum('quantity');
-        $allocated = (float) PurchaseItem::whereIn(
-            'source_purchase_item_id',
-            $parent->purchaseItems->pluck('id')
-        )->sum('quantity');
-
-        $parent->update([
-            'approval_status' => $allocated <= 0
-                ? 'Approved'
-                : ($allocated >= $ordered ? 'Completed' : 'Partial'),
-        ]);
+        Purchase::find($parentPurchaseId)?->syncApprovalProgress();
     }
 }

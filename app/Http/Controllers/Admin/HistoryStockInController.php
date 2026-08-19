@@ -416,6 +416,9 @@ class HistoryStockInController extends Controller
                 $waybillImagePath = 'uploads/waybill_image/' . $filename;
             }
 
+            // Dipakai untuk menghitung ulang status PO induk setelah Stock In.
+            $touchedPurchaseItemIds = [];
+
             foreach ($request->items as $itemData) {
                 $conv    = (float) ($itemData['unit_conversion_value'] ?? 1);
                 $addQty  = (int) $itemData['stock_in'];       // input user (kotak)
@@ -468,6 +471,8 @@ class HistoryStockInController extends Controller
                     ]);
 
                     if ($inventoryItem->purchase_item_id) {
+                        $touchedPurchaseItemIds[] = $inventoryItem->purchase_item_id;
+
                         $purchaseItem = PurchaseItem::find($inventoryItem->purchase_item_id);
                         if ($purchaseItem) {
                             $purchaseItem->increment('stock_in', $toAdd);
@@ -539,6 +544,9 @@ class HistoryStockInController extends Controller
                 }
             }
 
+            // PO induk jadi "Completed" hanya kalau semua PL-nya sudah stock in penuh.
+            Purchase::syncApprovalProgressFromPurchaseItems($touchedPurchaseItemIds);
+
             DB::commit();
             return redirect('/erp/inventory/stock-in')->with('success', 'Stock In berhasil ditambahkan');
         } catch (\Exception $e) {
@@ -594,8 +602,11 @@ class HistoryStockInController extends Controller
             'user_id'        => $request->user()->id,
         ]);
 
+        $touchedPurchaseItemIds = [];
+
         foreach ($request->items as $item) {
             $inventoryItem = InventoryItem::findOrFail($item['inventory_item_id']);
+            $touchedPurchaseItemIds[] = $inventoryItem->purchase_item_id;
 
             $oldValue = $inventoryItem->stock_in;
             $newValue = (int) $item['stock_in'];
@@ -648,6 +659,8 @@ class HistoryStockInController extends Controller
                 // ProductCostService::updateCostAndStock($product);
             }
         }
+
+        Purchase::syncApprovalProgressFromPurchaseItems($touchedPurchaseItemIds);
 
         return redirect('/erp/inventory/stock-in')
             ->with('success', 'Inventory Stock Out berhasil diupdate');
@@ -1019,6 +1032,8 @@ class HistoryStockInController extends Controller
             'stock_in' => $newQty,
             'notes'    => $request->notes,
         ]);
+
+        Purchase::syncApprovalProgressFromPurchaseItems([$inventoryItem->purchase_item_id]);
 
         return response()->json(['message' => 'History berhasil diperbarui']);
     }

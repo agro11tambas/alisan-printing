@@ -64,12 +64,8 @@ class StockOpnameProductionController extends Controller
             $stockOpname->where('status', $request->status);
         }
 
-        // ✅ Hindari query count dua kali
-        $totalQuery = clone $stockOpname;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $stockOpname->latest()->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($stockOpname->latest(), $start, $length);
 
         // ✅ Format JSON ringan (lazy load)
         return response()->json([
@@ -95,7 +91,7 @@ class StockOpnameProductionController extends Controller
                     ])->render(),
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

@@ -605,12 +605,8 @@ class InventoryController extends Controller
             }
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $inventory;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $inventory->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($inventory, $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -668,7 +664,7 @@ class InventoryController extends Controller
                     'action' => $actionHtml,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 

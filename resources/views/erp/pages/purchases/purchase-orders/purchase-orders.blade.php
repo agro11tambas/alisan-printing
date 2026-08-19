@@ -135,27 +135,31 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-lg-4">
-                                <label for="search_type" class="fw-semibold fs-12">Filter By</label>
-                                <div class="row g-3">
-                                    <div class="col-md-6">
+                            {{-- PO Status, Filter By, dan Search dirapatkan jadi satu
+                                 grup di kanan. --}}
+                            <div class="col-lg-6">
+                                <div class="row g-2 justify-content-end">
+                                    <div class="col-md-4">
+                                        <label for="search_po_status" class="fw-semibold fs-12">PO Status</label>
+                                        <select id="search_po_status" class="form-control"
+                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
+                                            <option value="progress" selected>Progress</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="search_type" class="fw-semibold fs-12">Filter By</label>
                                         <select id="search_type" class="form-control"
                                             style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
                                             <option value="supplier">Supplier</option>
                                             <option value="purchase_number">Invoice</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
+                                        <label class="fw-semibold fs-12">&nbsp;</label>
                                         <input type="text" id="search_keyword" name="search_keyword"
                                             class="form-control search-input"
                                             style="padding: 0.25rem 0.5rem; font-size: 0.875rem;" placeholder="Search..." />
-                                        <select id="search_payment_status" class="form-control search-input d-none"
-                                            style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">
-                                            <option value="">All</option>
-                                            <option value="Paid">Paid</option>
-                                            <option value="Unpaid">Unpaid</option>
-                                            <option value="Partially Paid">Partially Paid</option>
-                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -215,6 +219,42 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalForceDeleteOwnerPurchaseOrder" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" id="forceDeleteOwnerPurchaseOrderForm">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Force Delete Purchase Order (Owner)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-1">
+                            Anda akan menghapus Purchase Order
+                            <strong id="fd-po-number"></strong> secara permanen.
+                        </p>
+                        <div class="alert alert-warning py-2">
+                            Seluruh Purchase List anak PO ini ikut terhapus. Stock In akan dibalik sesuai tujuan
+                            stok, seluruh history stock-in dan inventory akan dihapus, serta transaksi pembayaran
+                            akan dibalik dari saldo akun.
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Delete Notes <span class="text-danger">*</span></label>
+                            <textarea name="delete_notes" class="form-control" rows="3" required
+                                placeholder="Alasan penghapusan..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="feather feather-zap-off me-2"></i>Force Delete
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalApprovePurchaseOrder" tabindex="-1"
         aria-labelledby="approvePurchaseOrderLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -229,7 +269,8 @@
                     <div class="modal-body">
                         <p class="mb-2">Verify Purchase Order <strong id="approvePurchaseNumber"></strong>?</p>
                         <div class="alert alert-warning mb-0">
-                            Setelah di-verify, PO tidak dapat diedit dan sudah dapat dibuatkan Purchase List.
+                            Setelah di-verify, PO sudah dapat dibuatkan Purchase List. PO masih bisa diedit,
+                            tapi qty yang sudah dibuatkan Purchase List tidak dapat dikurangi atau dihapus.
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -596,7 +637,7 @@
                         end_date: $('#end_date').val(),
                         search_type: $('#search_type').val(),
                         search_keyword: $('#search_keyword').val(),
-                        payment_status: $('#search_payment_status').val(),
+                        po_status: $('#search_po_status').val(),
                     },
                     success: function(response) {
                         if (response && response.data && response.data.length > 0) {
@@ -697,7 +738,7 @@
                 $('#purchaseOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            $('#filter, #apply-filter, #search_type, #search_payment_status, #start_date, #end_date')
+            $('#filter, #apply-filter, #search_type, #search_po_status, #start_date, #end_date')
                 .on('change keyup click', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
@@ -719,6 +760,7 @@
                     end_date: $('#end_date').val() || '',
                     search_type: $('#search_type').val() || '',
                     search_keyword: $('#search_keyword').val() || '',
+                    po_status: $('#search_po_status').val() || '',
                 };
             };
 
@@ -727,24 +769,8 @@
             });
 
             $('#search_type').on('change', function() {
-                const selected = $(this).val();
-                if (selected === 'payment_status') {
-                    $('#search_keyword').addClass('d-none').val('');
-                    $('#search_payment_status').removeClass('d-none');
-                } else {
-                    $('#search_keyword').removeClass('d-none');
-                    $('#search_payment_status').addClass('d-none').val('');
-                }
                 resetAndReload();
             });
-
-            // 
-            // $('#search_keyword').on('keyup', function() {
-            //     if ($('#search_type').val() !== 'payment_status') {
-            //         clearTimeout(searchTimeout);
-            //         searchTimeout = setTimeout(() => resetAndReload(), 400);
-            //     }
-            // });
 
             $('#search_keyword').on('keypress', function(e) {
                 if (e.which === 13) {
@@ -760,10 +786,8 @@
                 }
             });
 
-            $('#search_payment_status').on('change', function() {
-                if ($('#search_type').val() === 'payment_status') {
-                    resetAndReload();
-                }
+            $('#search_po_status').on('change', function() {
+                resetAndReload();
             });
 
             // ========== DELETE PURCHASE ORDER ==========
@@ -845,6 +869,15 @@
                 form.action = button.getAttribute('data-url');
                 numberHolder.textContent = button.getAttribute('data-number');
             });
+        });
+
+        // Force Delete (Owner): isi nomor PO dan arahkan form ke URL-nya.
+        $(document).on('click', '.btn-force-delete-owner', function() {
+            const id = $(this).data('id');
+            const name = $(this).data('name');
+
+            $('#fd-po-number').text(name || `Purchase Order #${id}`);
+            $('#forceDeleteOwnerPurchaseOrderForm').attr('action', $(this).data('url'));
         });
 
         $(document).on('shown.bs.modal', '#modalChangeStatus', function() {

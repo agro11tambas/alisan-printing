@@ -91,12 +91,8 @@ class MaterialRequestController extends Controller
             }
         }
 
-        // ✅ Hitung total data sebelum pagination
-        $totalQuery = clone $materialRequest;
-        $totalData = $totalQuery->count();
-
         // ✅ Ambil data sesuai offset dan limit
-        $data = $materialRequest->latest()->skip($start)->take($length)->get();
+        [$data, $hasMore] = $this->lazyLoadPage($materialRequest->latest(), $start, $length);
 
         // ✅ Format JSON ringan (lazy-load)
         return response()->json([
@@ -149,7 +145,7 @@ class MaterialRequestController extends Controller
                     'action' => $action,
                 ];
             }),
-            'has_more' => $totalData > ($start + $length),
+            'has_more' => $hasMore,
         ]);
     }
 
