@@ -225,8 +225,8 @@
                     url: "{{ url('/erp/productions/snapshot-report/data') }}",
                     type: "GET",
                     data: {
-                        start: currentPage * 200,
-                        length: 200,
+                        start: currentPage * 50,
+                        length: 50,
                         product_name: $("#product_name").val(),
                         snapshot_date: $("#snapshot_date").val(),
                     },
@@ -239,7 +239,7 @@
                             table.clear();
                             table.rows.add(allData).draw(false);
                             currentPage++;
-                            hasMoreData = true;
+                            hasMoreData = Boolean(res.has_more);
                             renderMobileCards(allData);
                         } else {
                             hasMoreData = false;

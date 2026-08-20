@@ -7,7 +7,6 @@ use App\Models\ProductionStock;
 use App\Models\ProductionStockSnapshot;
 use App\Models\Products;
 use Illuminate\Http\Request;
-use Yajra\DataTables\Facades\DataTables;
 
 class ProductionStockSnapshotController extends Controller
 {
@@ -63,57 +62,67 @@ class ProductionStockSnapshotController extends Controller
 
     public function dataSnapshotReport(Request $request)
     {
+        $length = max(1, min(50, (int) $request->input('length', 50)));
+        $start = max(0, (int) $request->input('start', 0));
         $date = $request->filled('snapshot_date')
             ? $request->snapshot_date
             : today()->toDateString();
-
-        $isToday = $date === today()->toDateString(); // 🔥
+        $isToday = $date === today()->toDateString();
 
         $stocks = ProductionStock::query()
-            ->whereHas('product', fn ($q) => $q->whereNull('products.deleted_at'))
+            ->whereHas('product', fn ($query) => $query->whereNull('products.deleted_at'))
             ->with('product')
-            ->when($request->filled('product_name'), function ($q) use ($request) {
+            ->when($request->filled('product_name'), function ($query) use ($request) {
                 $keyword = $request->product_name;
-                $q->whereHas('product', fn ($q2) => $q2->where('name', 'like', '%'.$keyword.'%')
+                $query->whereHas('product', fn ($productQuery) => $productQuery
+                    ->where('name', 'like', '%'.$keyword.'%')
                     ->orWhere('sku', 'like', '%'.$keyword.'%'));
             })
             ->orderBy(
                 Products::select('name')
                     ->whereColumn('products.id', 'production_stocks.product_id')
             )
+            ->skip($start)
+            ->take($length + 1)
             ->get();
 
-        $snapshots = ProductionStockSnapshot::whereDate('snapshot_date', $date)
+        $hasMore = $stocks->count() > $length;
+        $stocks = $stocks->take($length)->values();
+        $productIds = $stocks->pluck('product_id');
+
+        $snapshots = ProductionStockSnapshot::whereIn('product_id', $productIds)
+            ->whereDate('snapshot_date', $date)
             ->get()
             ->keyBy('product_id');
-
-        // closing_stock hari sebelumnya, dipakai sebagai opening kalau snapshot
-        // tanggal ini belum sempat dibuat oleh cron job.
         $previousClosings = ProductionStockSnapshot::previousClosingStocks($date);
 
-        $result = $stocks->map(function ($stock) use ($snapshots, $previousClosings, $date, $isToday) {
-            $snap = $snapshots->get($stock->product_id);
-            $productId = $stock->product_id;
+        $stockInByProduct = $isToday
+            ? ProductionStockSnapshot::stockInTodayByProduct($productIds, $date)
+            : collect();
+        $assignByProduct = $isToday
+            ? ProductionStockSnapshot::assignTodayByProduct($productIds, $date)
+            : collect();
+        $stockOpnameByProduct = $isToday
+            ? ProductionStockSnapshot::stockOpnameTodayByProduct($productIds, $date)
+            : collect();
 
-            // Opening: kalau snapshot hari ini sudah ada pakai nilai tersimpan (tidak pernah berubah),
-            // kalau belum ada ambil dari closing hari sebelumnya.
-            $openingStock = $snap !== null
-                ? (int) $snap->opening_stock
+        $result = $stocks->map(function ($stock) use ($snapshots, $previousClosings, $stockInByProduct, $assignByProduct, $stockOpnameByProduct, $date, $isToday) {
+            $snapshot = $snapshots->get($stock->product_id);
+            $productId = $stock->product_id;
+            $openingStock = $snapshot !== null
+                ? (int) $snapshot->opening_stock
                 : (int) ($previousClosings[$productId] ?? ($isToday ? ($stock->available_quantity ?? 0) : 0));
 
             if ($isToday) {
-                // 🔥 Real-time, dihitung ulang dari tabel sumber (rumus yang sama dengan stock:snapshot)
-                $stockInToday = ProductionStockSnapshot::stockInTodayFor($productId, $date);
-                $assignToday = ProductionStockSnapshot::assignTodayFor($productId, $date);
-                $stockOpnameToday = ProductionStockSnapshot::stockOpnameTodayFor($productId, $date);
+                $stockInToday = (int) ($stockInByProduct[$productId] ?? 0);
+                $assignToday = (int) ($assignByProduct[$productId] ?? 0);
+                $stockOpnameToday = (int) ($stockOpnameByProduct[$productId] ?? 0);
             } else {
-                // 📦 Dari snapshot tersimpan
-                $stockInToday = $snap?->stock_in_today ?? 0;
-                $assignToday = $snap?->assign_today ?? 0;
-                $stockOpnameToday = $snap?->stock_opname_today ?? 0;
+                $stockInToday = $snapshot?->stock_in_today ?? 0;
+                $assignToday = $snapshot?->assign_today ?? 0;
+                $stockOpnameToday = $snapshot?->stock_opname_today ?? 0;
             }
 
-            // Closing selalu turunan dari rumus: opening - assign today + stock in today + stock opname today
             $closingStock = ProductionStockSnapshot::calculateClosingStock(
                 $openingStock,
                 (int) $assignToday,
@@ -133,8 +142,9 @@ class ProductionStockSnapshotController extends Controller
             ];
         });
 
-        return DataTables::of($result)
-            ->addIndexColumn()
-            ->make(true);
+        return response()->json([
+            'data' => $result->values(),
+            'has_more' => $hasMore,
+        ]);
     }
 }

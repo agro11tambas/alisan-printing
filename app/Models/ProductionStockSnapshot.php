@@ -98,6 +98,28 @@ class ProductionStockSnapshot extends Model
         return (int) ($fromInventory ?? 0);
     }
 
+    public static function stockInTodayByProduct(iterable $productIds, CarbonInterface|string $date): Collection
+    {
+        $productIds = collect($productIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
+
+        if ($productIds->isEmpty()) {
+            return collect();
+        }
+
+        return DB::table('inventory_stock_in_histories_2 as h')
+            ->join('inventory_stock_ins_2 as s', 's.id', '=', 'h.inventory_stock_in_id')
+            ->join('inventory_items_2 as i', 'i.id', '=', 'h.inventory_item_id')
+            ->join('inventories_2 as inv', 'inv.id', '=', 'i.inventory_id')
+            ->whereIn('i.product_id', $productIds)
+            ->where('inv.status', 'Stock In Production')
+            ->whereNotNull('i.purchase_item_id')
+            ->whereNull('h.deleted_at')
+            ->whereNull('s.deleted_at')
+            ->whereDate('s.created_at', Carbon::parse($date)->toDateString())
+            ->groupBy('i.product_id')
+            ->selectRaw('i.product_id, SUM(h.stock_in) as total')
+            ->pluck('total', 'i.product_id');
+    }
     public static function assignTodayFor(int $productId, CarbonInterface|string $date): int
     {
         return (int) OrderProgressAssign::where('product_id', $productId)
@@ -106,6 +128,21 @@ class ProductionStockSnapshot extends Model
             ->sum('assigned_quantity');
     }
 
+    public static function assignTodayByProduct(iterable $productIds, CarbonInterface|string $date): Collection
+    {
+        $productIds = collect($productIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
+
+        if ($productIds->isEmpty()) {
+            return collect();
+        }
+
+        return OrderProgressAssign::query()
+            ->whereIn('product_id', $productIds)
+            ->whereDate('created_at', Carbon::parse($date)->toDateString())
+            ->groupBy('product_id')
+            ->selectRaw('product_id, SUM(assigned_quantity) as total')
+            ->pluck('total', 'product_id');
+    }
     public static function stockOpnameTodayFor(int $productId, CarbonInterface|string $date): int
     {
         return (int) StockOpnameProduction::where('product_id', $productId)
@@ -114,6 +151,21 @@ class ProductionStockSnapshot extends Model
             ->sum(fn (StockOpnameProduction $stockOpname) => $stockOpname->signedQuantity());
     }
 
+    public static function stockOpnameTodayByProduct(iterable $productIds, CarbonInterface|string $date): Collection
+    {
+        $productIds = collect($productIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
+
+        if ($productIds->isEmpty()) {
+            return collect();
+        }
+
+        return StockOpnameProduction::query()
+            ->whereIn('product_id', $productIds)
+            ->whereDate('date', Carbon::parse($date)->toDateString())
+            ->groupBy('product_id')
+            ->selectRaw("product_id, SUM(CASE WHEN LOWER(status) = 'loss' THEN -COALESCE(available_quantity, 0) ELSE COALESCE(available_quantity, 0) END) as total")
+            ->pluck('total', 'product_id');
+    }
     /**
      * Closing stock = opening stock - assign hari ini + stock in hari ini + stock opname hari ini.
      * stock_opname_today sudah bertanda (Loss bernilai negatif), jadi cukup ditambahkan.

@@ -11,6 +11,7 @@ use App\Models\ProductionStock;
 use App\Models\ProductionStockSnapshot;
 use App\Models\StockOpnameProduction;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -424,5 +425,45 @@ class ProductionStockSnapshotTest extends TestCase
 
         $this->assertSame(70, $snapshot->opening_stock);
         $this->assertSame(50, $snapshot->closing_stock); // 70 - 20 + 0
+    }
+    public function test_realtime_totals_are_aggregated_in_three_queries_for_all_products(): void
+    {
+        $inventory = Inventory::create(['status' => 'Stock In Production']);
+        $item = InventoryItem::create([
+            'inventory_id' => $inventory->id,
+            'product_id' => 1,
+            'purchase_item_id' => 99,
+        ]);
+        $stockIn = InventoryStockIn::create([
+            'inventory_id' => $inventory->id,
+            'change_date' => today()->toDateString(),
+        ]);
+        InventoryStockInHistory::create([
+            'inventory_stock_in_id' => $stockIn->id,
+            'inventory_item_id' => $item->id,
+            'stock_in' => 25,
+        ]);
+        OrderProgressAssign::create(['product_id' => 1, 'assigned_quantity' => 7]);
+        OrderProgressAssign::create(['product_id' => 2, 'assigned_quantity' => 4]);
+        StockOpnameProduction::create([
+            'product_id' => 2,
+            'production_warehouse_id' => 1,
+            'date' => today(),
+            'available_quantity' => 3,
+            'status' => 'Loss',
+        ]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $stockIns = ProductionStockSnapshot::stockInTodayByProduct([1, 2], today());
+        $assigns = ProductionStockSnapshot::assignTodayByProduct([1, 2], today());
+        $opnames = ProductionStockSnapshot::stockOpnameTodayByProduct([1, 2], today());
+
+        $this->assertCount(3, DB::getQueryLog());
+        $this->assertSame(25, (int) $stockIns[1]);
+        $this->assertSame(7, (int) $assigns[1]);
+        $this->assertSame(4, (int) $assigns[2]);
+        $this->assertSame(-3, (int) $opnames[2]);
     }
 }
