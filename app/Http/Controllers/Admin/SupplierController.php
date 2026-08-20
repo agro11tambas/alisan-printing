@@ -3,17 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Supplier;
+use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
 class SupplierController extends Controller
 {
     public function index()
     {
-        $suppliers = Supplier::all();
-
-        return view('erp.pages.suppliers.index', compact('suppliers'));
+        return view('erp.pages.suppliers.index');
     }
 
     public function data(Request $request)
@@ -21,7 +19,7 @@ class SupplierController extends Controller
         $suppliers = Supplier::query();
 
         if ($request->filled('name')) {
-            $suppliers->where('name', 'like', '%' . $request->name . '%');
+            $suppliers->where('name', 'like', '%'.$request->name.'%');
         }
 
         return DataTables::of($suppliers)
@@ -30,7 +28,7 @@ class SupplierController extends Controller
                 return $supplier->name;
             })
             ->addColumn('phone', function ($supplier) {
-                return '<strong>' . ($supplier->phone ?? '-') . '</strong>';
+                return '<strong>'.($supplier->phone ?? '-').'</strong>';
             })
             ->addColumn('action', function ($supplier) {
                 return view('erp.pages.suppliers.partials.action-button', compact('supplier'))->render();
@@ -85,6 +83,7 @@ class SupplierController extends Controller
     public function delete($id)
     {
         Supplier::findOrFail($id)->delete();
+
         return redirect('/erp/suppliers')->with('success', 'Supplier berhasil dihapus.');
     }
 }

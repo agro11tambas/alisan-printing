@@ -48,7 +48,7 @@ Run from the application directory after uploading the new release:
 
 ```sh
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-php artisan optimize:clear
+php artisan optimize:clear --except=cache
 php artisan migrate --force
 php artisan optimize
 php artisan queue:restart
@@ -60,6 +60,12 @@ The repository includes `scripts/deploy-production.sh` for the same sequence.
 dev dependencies on the server is what makes it available to run at all.
 
 `php artisan optimize` must complete successfully. It caches configuration, events, routes, and Blade views. Run it again after every `.env`, config, route, or view deployment.
+
+--except=cache is intentional: Laravel application cache contains the
+storefront catalogue payload. Clearing it on every deploy creates a cold-cache
+rebuild while production traffic is already arriving. Product/category saves
+invalidate that payload through its own version key, so deploy does not need to
+delete it.
 
 ## Web server
 

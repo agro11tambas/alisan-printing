@@ -3,16 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Discount;
-use App\Models\ProductBundle;
-use App\Models\ProductBundleItem;
-use App\Models\Products;
-use App\Models\ProductCategory;
 use App\Models\PriceMode;
-use Yajra\DataTables\Facades\DataTables;
+use App\Models\ProductCategory;
+use App\Models\Products;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Yajra\DataTables\Facades\DataTables;
 
 class DiscountController extends Controller
 {
@@ -20,13 +18,14 @@ class DiscountController extends Controller
     {
         return view('erp.pages.discounts.index');
     }
+
     public function dataDiscount()
     {
         $discount = Discount::with([
             'products:id,name',
             'categories:id,name',
             'priceModes:id,name',
-        ])->get();
+        ]);
 
         return DataTables::of($discount)
             ->addIndexColumn()
@@ -39,10 +38,10 @@ class DiscountController extends Controller
             ->addColumn('amount', function ($discount) {
                 if ($discount->type === 'Fixed Amount') {
                     // Jika tipe fixed amount, tampilkan dalam format rupiah
-                    return 'Rp ' . number_format($discount->amount, 0, ',', '.');
+                    return 'Rp '.number_format($discount->amount, 0, ',', '.');
                 } elseif ($discount->type === 'Percentage') {
                     // Jika tipe persentase, tambahkan tanda %
-                    return number_format($discount->amount, 0, ',', '.') . ' %';
+                    return number_format($discount->amount, 0, ',', '.').' %';
                 } else {
                     return '-';
                 }
@@ -56,7 +55,7 @@ class DiscountController extends Controller
                     return number_format($discount->minimum_qty_or_amount, 0, ',', '.');
                 } elseif ($discount->minimum_based_on === 'Purchase Amount') {
                     // Jika berdasarkan total pembelian
-                    return 'Rp ' . number_format($discount->minimum_qty_or_amount, 0, ',', '.');
+                    return 'Rp '.number_format($discount->minimum_qty_or_amount, 0, ',', '.');
                 } else {
                     return '-';
                 }
@@ -69,7 +68,7 @@ class DiscountController extends Controller
                     default => null,
                 };
 
-                if (!$label) {
+                if (! $label) {
                     return '-';
                 }
 
@@ -83,7 +82,7 @@ class DiscountController extends Controller
                     return e($label);
                 }
 
-                return e($label) . '<div class="fs-11 text-muted">' . e($targets->implode(', ')) . '</div>';
+                return e($label).'<div class="fs-11 text-muted">'.e($targets->implode(', ')).'</div>';
             })
             ->addColumn('start_date', function ($discount) {
                 return $discount->start_date;
@@ -110,6 +109,7 @@ class DiscountController extends Controller
         $products = Products::all();
         $categories = ProductCategory::all();
         $priceModes = PriceMode::active()->ordered()->get();
+
         return view('erp.pages.discounts.create-discount', compact('products', 'categories', 'priceModes'));
     }
 
@@ -163,7 +163,8 @@ class DiscountController extends Controller
             return redirect('/erp/discounts')->with('success', 'Discount created successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Failed to create discount. ' . $e->getMessage());
+
+            return redirect()->back()->with('error', 'Failed to create discount. '.$e->getMessage());
         }
     }
 
@@ -173,6 +174,7 @@ class DiscountController extends Controller
         $products = Products::all();
         $categories = ProductCategory::all();
         $priceModes = PriceMode::active()->ordered()->get();
+
         return view('erp.pages.discounts.edit-discount', compact('discount', 'products', 'categories', 'priceModes'));
     }
 
@@ -230,11 +232,13 @@ class DiscountController extends Controller
             }
 
             DB::commit();
+
             return redirect('/erp/discounts')->with('success', 'Discount updated successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Discount update failed: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'Failed to update discount. ' . $e->getMessage());
+            Log::error('Discount update failed: '.$e->getMessage());
+
+            return redirect()->back()->with('error', 'Failed to update discount. '.$e->getMessage());
         }
     }
 

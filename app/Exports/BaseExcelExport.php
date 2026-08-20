@@ -7,6 +7,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Color;
+use PhpOffice\PhpSpreadsheet\Style\Conditional;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -132,13 +133,17 @@ abstract class BaseExcelExport
                 ->setHorizontal(Alignment::HORIZONTAL_LEFT);
         }
 
-        // Selang-seling abu-abu/putih per baris supaya mata gampang mengikuti
-        // satu baris sampai kolom paling kanan.
-        for ($rowNumber = 2; $rowNumber <= $lastRow; $rowNumber += 2) {
-            $sheet->getStyle('A'.$rowNumber.':'.$lastColumn.$rowNumber)->getFill()
-                ->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()->setARGB(self::STRIPE_COLOR);
-        }
+        // Satu conditional-formatting rule menggantikan ribuan pemanggilan style
+        // per baris. Pada export besar, loop style sebelumnya jauh lebih mahal
+        // daripada query dan dapat menahan satu worker PHP puluhan menit.
+        $stripe = new Conditional;
+        $stripe->setConditionType(Conditional::CONDITION_EXPRESSION)
+            ->addCondition('MOD(ROW(),2)=0');
+        $stripe->getStyle()->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB(self::STRIPE_COLOR);
+        $sheet->getStyle('A2:'.$lastColumn.$lastRow)
+            ->setConditionalStyles([$stripe]);
 
         // Garis tipis: batas antar baris dan antar blok merge jadi kelihatan.
         $sheet->getStyle('A1:'.$lastColumn.$lastRow)->getBorders()

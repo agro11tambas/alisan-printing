@@ -237,15 +237,19 @@ class Purchase extends Model
             ->exists();
     }
 
-    public function getIsFullyReturnedAttribute()
+    public function getIsFullyReturnedAttribute(): bool
     {
-        // ambil total qty purchase
-        $totalPurchased = $this->purchaseItems()->sum('quantity');
+        $totalPurchased = $this->relationLoaded('purchaseItems')
+            ? (float) $this->purchaseItems->sum('quantity')
+            : (float) $this->purchaseItems()->sum('quantity');
 
-        // ambil total qty yang sudah direturn
-        $totalReturned = \App\Models\PurchaseReturnItem::whereHas('purchaseReturn', function ($q) {
-            $q->where('purchase_id', $this->id);
-        })->sum('quantity');
+        $totalReturned = $this->relationLoaded('purchaseReturn')
+            ? (float) $this->purchaseReturn
+                ->flatMap(fn ($return) => $return->relationLoaded('items') ? $return->items : $return->items()->get())
+                ->sum('quantity')
+            : (float) PurchaseReturnItem::whereHas('purchaseReturn', function ($query) {
+                $query->where('purchase_id', $this->id);
+            })->sum('quantity');
 
         return $totalPurchased > 0 && $totalPurchased <= $totalReturned;
     }

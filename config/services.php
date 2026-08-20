@@ -75,6 +75,8 @@ return [
          */
         'catalog_cache_ttl' => (int) env('WEBSITE_CATALOG_CACHE_TTL', 300),
         'catalog_cache_store' => env('WEBSITE_CATALOG_CACHE_STORE', 'file'),
+        'catalog_cache_defer_rebuild' => (bool) env('WEBSITE_CATALOG_CACHE_DEFER_REBUILD', true),
+        'catalog_cache_rebuild_lock' => (int) env('WEBSITE_CATALOG_CACHE_REBUILD_LOCK', 900),
     ],
 
 ];

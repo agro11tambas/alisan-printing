@@ -72,8 +72,14 @@ class SaleListExport extends BaseExcelExport
             $sheet->getStyle('F2:F'.$row)->getNumberFormat()->setFormatCode('#,##0');
         }
 
-        // Auto size mengabaikan isi merge cell, jadi kolom order diberi lebar tetap.
-        foreach (['A' => 22, 'B' => 17, 'C' => 28, 'M' => 14, 'N' => 16] as $column => $width) {
+        // Matikan auto-size untuk seluruh kolom. Writer akan memindai setiap sel
+        // untuk kolom yang masih auto-size; pada export ribuan item biaya ini
+        // sangat besar dan tidak memberi manfaat dibanding lebar yang stabil.
+        foreach ([
+            'A' => 22, 'B' => 17, 'C' => 28, 'D' => 42, 'E' => 12,
+            'F' => 12, 'G' => 14, 'H' => 14, 'I' => 16, 'J' => 16,
+            'K' => 16, 'L' => 16, 'M' => 14, 'N' => 16,
+        ] as $column => $width) {
             $sheet->getColumnDimension($column)->setAutoSize(false);
             $sheet->getColumnDimension($column)->setWidth($width);
         }

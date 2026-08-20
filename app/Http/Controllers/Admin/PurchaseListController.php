@@ -14,7 +14,6 @@ use App\Models\Products;
 use App\Models\Purchase;
 use App\Models\PurchaseEditHistory;
 use App\Models\PurchaseItem;
-use App\Models\PurchaseReturnItem;
 use App\Models\Supplier;
 use App\Services\ProductCostService;
 use App\Services\PurchaseListForceDeleteService;
@@ -64,6 +63,7 @@ class PurchaseListController extends Controller
 
         $purchases = Purchase::with([
             'supplier',
+            'user',
             'parentPurchase',
             'purchaseItems.purchaseProduct',
             'purchaseReturn.items',
@@ -1551,8 +1551,7 @@ class PurchaseListController extends Controller
         $id,
         Request $request,
         PurchaseListForceDeleteService $forceDeleteService
-    )
-    {
+    ) {
         if (! Auth::check() || Auth::user()->role !== 'Owner') {
             abort(403, 'Only Owner can force delete.');
         }

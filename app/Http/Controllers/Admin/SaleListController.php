@@ -4,59 +4,46 @@ namespace App\Http\Controllers\Admin;
 
 use App\Exports\SaleListExport;
 use App\Http\Controllers\Controller;
-use App\Support\ExportPeriod;
-use Illuminate\Http\Request;
-use App\Models\Order;
-use App\Models\OrderItem;
-use Carbon\Carbon;
-use Yajra\DataTables\Facades\DataTables;
-use Illuminate\Support\Str;
-use App\Models\Customers;
-use Illuminate\Support\Facades\DB;
-use App\Models\CustomerAddresses;
-use App\Models\Discount;
 use App\Models\Account;
 use App\Models\AccountTransaction;
-use App\Models\Products;
-use App\Models\PurchaseProduct;
-use App\Models\Inventory;
-use App\Models\InventoryItem;
-use App\Models\ProductCombination;
 use App\Models\Bank;
-use App\Models\CanceledProduct;
-use App\Models\DefectProduct;
+use App\Models\CustomerAddresses;
+use App\Models\Customers;
 use App\Models\DeliveryList;
-use App\Models\DeliveryListItem;
 use App\Models\DeliveryOrder;
 use App\Models\DeliveryOrderItem;
 use App\Models\Design;
 use App\Models\DesignItem;
+use App\Models\Discount;
 use App\Models\FinancialReport;
+use App\Models\Inventory;
 use App\Models\InventoryStock;
-use App\Models\InventoryStockIn;
-use App\Models\InventoryStockInHistory;
 use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\OrderEditHistory;
+use App\Models\OrderItem;
 use App\Models\OrderItemComponent;
 use App\Models\OrderProgress;
-use App\Models\OrderProgressAssign;
 use App\Models\OrderProgressAssignBatch;
 use App\Models\OrderProgressHistory;
-use App\Models\PriceMode;
 use App\Models\OrderProgressItem;
+use App\Models\PriceMode;
 use App\Models\ProductBundle;
-use App\Models\ProductBundleItem;
 use App\Models\ProductionStock;
-use App\Models\PurchaseItem;
+use App\Models\Products;
 use App\Models\SaleReturn;
 use App\Services\InvoiceNumberService;
-use App\Services\ProductCostService;
-use Illuminate\Validation\Rule;
+use App\Support\ExportPeriod;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class SaleListController extends Controller
 {
@@ -73,7 +60,7 @@ class SaleListController extends Controller
             return '<span class="text-muted">-</span>';
         }
 
-        return '<div class="d-flex flex-column align-items-center gap-1">' .
+        return '<div class="d-flex flex-column align-items-center gap-1">'.
             $modes->map(function ($mode) {
                 $badgeClass = match ($mode) {
                     'printing' => 'bg-soft-success text-success',
@@ -81,8 +68,8 @@ class SaleListController extends Controller
                     default => 'bg-soft-dark text-dark',
                 };
 
-                return '<span class="badge ' . $badgeClass . '">' . e(ucfirst($mode)) . '</span>';
-            })->implode('') .
+                return '<span class="badge '.$badgeClass.'">'.e(ucfirst($mode)).'</span>';
+            })->implode('').
             '</div>';
     }
 
@@ -105,7 +92,7 @@ class SaleListController extends Controller
         }
 
         $groups = $pageOrders
-            ->mapWithKeys(fn(Order $order) => [
+            ->mapWithKeys(fn (Order $order) => [
                 $this->monthlyOrderGroupKeyForOrder($order) => [
                     'customer_id' => $order->customer_id,
                     'business_name' => $order->customerAddress?->business_name,
@@ -156,13 +143,13 @@ class SaleListController extends Controller
                     return false;
                 }
 
-                return !$group['business_name']
+                return ! $group['business_name']
                     || ($businessNames[$candidate->customer_address_id] ?? null) === $group['business_name'];
             })->values();
 
             $total = $matches->count();
 
-            return $matches->mapWithKeys(fn(Order $candidate, int $index) => [
+            return $matches->mapWithKeys(fn (Order $candidate, int $index) => [
                 $candidate->id => [
                     'position' => $index + 1,
                     'total' => $total,
@@ -228,7 +215,7 @@ class SaleListController extends Controller
         if ($request->search_type === 'payment_status' && $request->filled('payment_status')) {
             if ($request->payment_status === 'Paid') {
                 $orders->whereIn('payment_status', ['Paid', 'Overpaid']);
-            } else if ($request->payment_status === 'Unpaid') {
+            } elseif ($request->payment_status === 'Unpaid') {
                 $orders->whereIn('payment_status', ['Unpaid', 'Partially Paid']);
             } else {
                 $orders->where('payment_status', $request->payment_status);
@@ -237,13 +224,13 @@ class SaleListController extends Controller
         // 🔹 Sort by due_date
         elseif ($request->search_type === 'due_date') {
             $direction = strtolower($request->due_date_order ?? 'asc');
-            $orders->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC")
+            $orders->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END ASC')
                 ->orderBy('due_date', $direction);
         }
         // 🔹 Pencarian keyword
         elseif ($request->filled('search_keyword')) {
             if ($request->search_type === 'customer') {
-                $keyword = '%' . $request->search_keyword . '%';
+                $keyword = '%'.$request->search_keyword.'%';
 
                 $orders->where(function ($q) use ($keyword) {
                     // Cari berdasarkan nama customer
@@ -257,7 +244,7 @@ class SaleListController extends Controller
                     });
                 });
             } else {
-                $orders->where('order_number', 'like', '%' . $request->search_keyword . '%');
+                $orders->where('order_number', 'like', '%'.$request->search_keyword.'%');
             }
         }
 
@@ -298,7 +285,7 @@ class SaleListController extends Controller
 
         $this->applySaleListFilters($orders, $request);
 
-        $filename = 'sale-list-' . ($period?->filenameSuffix() ?? Carbon::now()->format('Ymd-His')) . '.xlsx';
+        $filename = 'sale-list-'.($period?->filenameSuffix() ?? Carbon::now()->format('Ymd-His')).'.xlsx';
 
         return (new SaleListExport($orders))->download($filename);
     }
@@ -355,11 +342,11 @@ class SaleListController extends Controller
                     ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Sale Return</span></div>'
                     : '';
 
-                $orderNumber = $returnBadge . '
+                $orderNumber = $returnBadge.'
                 <div>
-                    <div>' . e($order->order_number) . $editedBadge . '</div>
-                    <small class="text-muted">' . $orderCreatedAt . '</small>,
-                    <small class="text-danger">Due: ' . $dueDate . '</small>
+                    <div>'.e($order->order_number).$editedBadge.'</div>
+                    <small class="text-muted">'.$orderCreatedAt.'</small>,
+                    <small class="text-danger">Due: '.$dueDate.'</small>
                 </div>';
 
                 $status = strtolower($order->payment_status);
@@ -383,7 +370,7 @@ class SaleListController extends Controller
                     $today = Carbon::now();
 
                     // overdue = due_date lewat dan belum Paid/Overpaid
-                    if ($today->gt($due) && !in_array($order->payment_status, ['Paid', 'Overpaid'])) {
+                    if ($today->gt($due) && ! in_array($order->payment_status, ['Paid', 'Overpaid'])) {
                         $isOverdue = true;
                     }
                 }
@@ -391,8 +378,8 @@ class SaleListController extends Controller
                 $paymentStatus = '
                     <div class="d-flex flex-column gap-1">
                         <div class="d-flex align-items-center gap-1">
-                            <div class="badge ' . $badge . '">' . ucfirst($status) . '</div>'
-                    . $verifiedIcon . '
+                            <div class="badge '.$badge.'">'.ucfirst($status).'</div>'
+                    .$verifiedIcon.'
                         </div>';
 
                 if ($isOverdue) {
@@ -404,10 +391,9 @@ class SaleListController extends Controller
 
                 $paymentStatus .= '</div>';
 
-                $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
+                $statusBadge = '<div class="badge bg-soft-dark text-dark">'.ucfirst($order->status).'</div>';
 
                 $modeBadge = $this->renderOrderItemModes($order);
-
 
                 $items = $order->orderItems
                     ->map(function ($item) use ($order) {
@@ -416,58 +402,58 @@ class SaleListController extends Controller
                         $requiredQtyBase = (float) ($item->qty_base ?: ($item->quantity * $unitConversionValue));
 
                         $deliveryData = $order->deliveryOrders
-                            ->flatMap(fn($deliveryOrder) => $deliveryOrder->items)
+                            ->flatMap(fn ($deliveryOrder) => $deliveryOrder->items)
                             ->where('order_item_id', $item->id);
 
                         $deliveryListItems = $deliveryData
-                            ->flatMap(fn($deliveryOrderItem) => $deliveryOrderItem->deliveryListItems);
+                            ->flatMap(fn ($deliveryOrderItem) => $deliveryOrderItem->deliveryListItems);
 
                         // ── SATUAN ──
                         if ($item->product) {
-                            $progressQty   = $deliveryData->sum('progress_qty');
-                            $readyQty      = $deliveryData->sum('ready_qty');
-                            $shippedQty    = $deliveryData->sum('shipped_qty');
-                            $deliveredQty  = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
-                            $onDeliveryQty = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
+                            $progressQty = $deliveryData->sum('progress_qty');
+                            $readyQty = $deliveryData->sum('ready_qty');
+                            $shippedQty = $deliveryData->sum('shipped_qty');
+                            $deliveredQty = $deliveryListItems->filter(fn ($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
+                            $onDeliveryQty = $deliveryListItems->filter(fn ($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
 
                             return [[
-                                'name'              => e($item->product->name) . ' <span class="badge bg-soft-success text-success">Satuan</span>',
-                                'sku'               => e($item->product->sku),
-                                'mode'              => $item->mode ?? '-',
-                                'unit_name'         => $item->unit_name ?? '-',
-                                'qty' => number_format($displayQty, 0, ',', '.') . ' ' . $item->unit_name,
-                                'price'             => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
-                                'progress_qty'      => number_format($progressQty, 0, ',', '.'),
-                                'ready_qty'         => number_format($readyQty, 0, ',', '.'),
-                                'shipped_qty'       => number_format($shippedQty, 0, ',', '.'),
-                                'delivered'         => number_format($deliveredQty, 0, ',', '.'),
-                                'on_delivery'       => number_format($onDeliveryQty, 0, ',', '.'),
-                                'raw_progress_qty'  => $progressQty,
+                                'name' => e($item->product->name).' <span class="badge bg-soft-success text-success">Satuan</span>',
+                                'sku' => e($item->product->sku),
+                                'mode' => $item->mode ?? '-',
+                                'unit_name' => $item->unit_name ?? '-',
+                                'qty' => number_format($displayQty, 0, ',', '.').' '.$item->unit_name,
+                                'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                                'progress_qty' => number_format($progressQty, 0, ',', '.'),
+                                'ready_qty' => number_format($readyQty, 0, ',', '.'),
+                                'shipped_qty' => number_format($shippedQty, 0, ',', '.'),
+                                'delivered' => number_format($deliveredQty, 0, ',', '.'),
+                                'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
+                                'raw_progress_qty' => $progressQty,
                                 'raw_delivered_qty' => $deliveredQty,
-                                'raw_qty'           => $requiredQtyBase,
-                                'is_bundle_header'  => false,
+                                'raw_qty' => $requiredQtyBase,
+                                'is_bundle_header' => false,
                             ]];
                         }
 
                         // ── BUNDLE ──
                         if ($item->productBundle) {
                             $bundleNames = $item->productBundle->items
-                                ->map(fn($b) => $b->product->name ?? '-')
+                                ->map(fn ($b) => $b->product->name ?? '-')
                                 ->implode(' + ');
 
-                            $bundleChildren = $item->productBundle->items->map(function ($bundleItem) use ($item, $deliveryData, $deliveryListItems) {
+                            $bundleChildren = $item->productBundle->items->map(function ($bundleItem) use ($deliveryData, $deliveryListItems) {
                                 $productId = $bundleItem->product->id ?? null;
 
-                                $productDeliveryData      = $deliveryData->filter(fn($d) => $d->product_id == $productId);
-                                $productDeliveryListItems = $deliveryListItems->filter(fn($d) => $d->deliveryOrderItem && $d->deliveryOrderItem->product_id == $productId);
+                                $productDeliveryData = $deliveryData->filter(fn ($d) => $d->product_id == $productId);
+                                $productDeliveryListItems = $deliveryListItems->filter(fn ($d) => $d->deliveryOrderItem && $d->deliveryOrderItem->product_id == $productId);
 
-                                $readyQty      = $productDeliveryData->sum('ready_qty');
-                                $deliveredQty  = $productDeliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
-                                $onDeliveryQty = $productDeliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
+                                $readyQty = $productDeliveryData->sum('ready_qty');
+                                $deliveredQty = $productDeliveryListItems->filter(fn ($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
+                                $onDeliveryQty = $productDeliveryListItems->filter(fn ($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
 
                                 return [
-                                    'ready_qty'   => number_format($readyQty, 0, ',', '.'),
-                                    'delivered'   => number_format($deliveredQty, 0, ',', '.'),
+                                    'ready_qty' => number_format($readyQty, 0, ',', '.'),
+                                    'delivered' => number_format($deliveredQty, 0, ',', '.'),
                                     'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
                                 ];
                             })->values()->toArray();
@@ -476,50 +462,48 @@ class SaleListController extends Controller
                                 return (int) str_replace('.', '', $child['delivered']);
                             });
                             $requiredBundleQty = $item->productBundle->items->sum(
-                                fn($bundleItem) => $requiredQtyBase * (float) ($bundleItem->quantity ?? 1)
+                                fn ($bundleItem) => $requiredQtyBase * (float) ($bundleItem->quantity ?? 1)
                             );
 
                             return [[
-                                'name'              => e($bundleNames) . ' <span class="badge bg-soft-primary text-primary">Bundle</span>',
-                                'sku'               => e($item->productBundle->sku ?? '-'),
-                                'mode'              => $item->mode ?? '-',
-                                'unit_name'         => $item->unit_name ?? '-',
-                                'qty' => number_format($displayQty, 0, ',', '.') . ' ' . $item->unit_name,
-                                'price'             => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
-                                'progress_qty'      => '-',
-                                'ready_qty'         => '-',
-                                'shipped_qty'       => '-',
-                                'delivered'         => '-',
-                                'on_delivery'       => '-',
-                                'raw_progress_qty'  => 0,
+                                'name' => e($bundleNames).' <span class="badge bg-soft-primary text-primary">Bundle</span>',
+                                'sku' => e($item->productBundle->sku ?? '-'),
+                                'mode' => $item->mode ?? '-',
+                                'unit_name' => $item->unit_name ?? '-',
+                                'qty' => number_format($displayQty, 0, ',', '.').' '.$item->unit_name,
+                                'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                                'progress_qty' => '-',
+                                'ready_qty' => '-',
+                                'shipped_qty' => '-',
+                                'delivered' => '-',
+                                'on_delivery' => '-',
+                                'raw_progress_qty' => 0,
                                 'raw_delivered_qty' => $totalDelivered,
-                                'raw_qty'           => $requiredBundleQty,
-                                'is_bundle_header'  => true,
-                                'bundle_children'   => $bundleChildren,
+                                'raw_qty' => $requiredBundleQty,
+                                'is_bundle_header' => true,
+                                'bundle_children' => $bundleChildren,
                             ]];
                         }
 
                         // ── FALLBACK ──
                         return [[
-                            'name'              => '-',
-                            'sku'               => '-',
-                            'qty'               => '0',
-                            'price'             => '0',
-                            'progress_qty'      => '0',
-                            'ready_qty'         => '0',
-                            'shipped_qty'       => '0',
-                            'delivered'         => '0',
-                            'on_delivery'       => '0',
-                            'raw_progress_qty'  => 0,
+                            'name' => '-',
+                            'sku' => '-',
+                            'qty' => '0',
+                            'price' => '0',
+                            'progress_qty' => '0',
+                            'ready_qty' => '0',
+                            'shipped_qty' => '0',
+                            'delivered' => '0',
+                            'on_delivery' => '0',
+                            'raw_progress_qty' => 0,
                             'raw_delivered_qty' => 0,
-                            'raw_qty'           => 0,
-                            'is_bundle_header'  => false,
+                            'raw_qty' => 0,
+                            'is_bundle_header' => false,
                         ]];
                     })
                     ->flatten(1)
                     ->values();
-
-
 
                 $isCompleted = $items->isNotEmpty() && $items->every(function ($i) {
                     $requiredQty = (float) ($i['raw_qty'] ?? 0);
@@ -557,19 +541,19 @@ class SaleListController extends Controller
                         <div style="white-space: normal; word-break: break-word; max-width:230px;">
 
                             <div class="d-flex align-items-center fw-semibold">
-                                ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+                                '.($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '').'
 
-                                ' . $customer . '
+                                '.$customer.'
 
                                 <span class="ms-1 text-primary fw-bold">
-                                    ' . $sequenceLabel . '
+                                    '.$sequenceLabel.'
                                 </span>
                             </div>
 
                         <div>
-                            <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
+                            <small class="text-muted">'.$customerAccount.' - '.$customerAccountNumber.'</small>
                         </div>
-                        <small class="text-muted">' . $businessName . '</small>
+                        <small class="text-muted">'.$businessName.'</small>
 
                         </div>
                     ',
@@ -577,52 +561,57 @@ class SaleListController extends Controller
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
 
                             <div class="d-flex fw-semibold">
-                                ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+                                '.($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '').'
 
                                 <div>
-                                    <small class="text-muted">' . $customer . '</small>
-                                    <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
-                                    <small class="text-muted">' . $businessName . '</small>
+                                    <small class="text-muted">'.$customer.'</small>
+                                    <small class="text-muted">'.$customerAccount.' - '.$customerAccountNumber.'</small>
+                                    <small class="text-muted">'.$businessName.'</small>
                                 </div>
 
                                 <div style="width:50px;">
                                     <small class="ms-1 text-primary fw-bold">
-                                        ' . $sequenceLabel . '
+                                        '.$sequenceLabel.'
                                     </small>
                                 </div>
-                            </div>                        
+                            </div>
                         </div>
                     ',
-                    'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
-                    'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
-                    'grand_total' => '<span class="text-primary fw-semibold">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
+                    'total_amount' => 'Rp '.number_format($order->total_amount, 0, ',', '.'),
+                    'discount' => '<span class="text-warning">Rp '.number_format($order->discount, 0, ',', '.').'</span>',
+                    'grand_total' => '<span class="text-primary fw-semibold">Rp '.number_format($order->grand_total, 0, ',', '.').'</span>',
                     'paid_amount' => '
-                        <div class="text-success fw-semibold">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</div>'
-                        . ($order->remaining_amount > 0
-                            ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</small>'
+                        <div class="text-success fw-semibold">Rp '.number_format($order->paid_amount, 0, ',', '.').'</div>'
+                        .($order->remaining_amount > 0
+                            ? '<small class="text-danger fw-semibold">Remaining: Rp '.number_format($order->remaining_amount, 0, ',', '.').'</small>'
                             : ''
                         ),
-                    'remaining_amount' => '<span class="text-danger">Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</span>',
+                    'remaining_amount' => '<span class="text-danger">Rp '.number_format($order->remaining_amount, 0, ',', '.').'</span>',
                     'payment_status' => $paymentStatus,
                     'status' => $statusBadge,
                     'payment_method' => e($order->payment_method ?? '-'),
                     'products' => $items,
                     'notes' => '
                         <div style="white-space: normal; word-break: break-word; max-width: 220px;">
-                            ' . e($order->notes ?? '-') . '
+                            '.e($order->notes ?? '-').'
                         </div>
                     ',
                     'whatsapp' => '
-                        <a href="https://wa.me/' . (
+                        <a href="https://wa.me/'.(
                         function ($phone) {
                             $num = preg_replace('/\D/', '', $phone ?? '');
-                            if (strpos($num, '0') === 0) $num = '62' . substr($num, 1);
-                            if (strpos($num, '62') !== 0) {
-                                if (strpos($num, '8') === 0) $num = '62' . $num;
+                            if (strpos($num, '0') === 0) {
+                                $num = '62'.substr($num, 1);
                             }
+                            if (strpos($num, '62') !== 0) {
+                                if (strpos($num, '8') === 0) {
+                                    $num = '62'.$num;
+                                }
+                            }
+
                             return $num;
                         }
-                    )($order->order_whatsapp_number) . '"
+                    )($order->order_whatsapp_number).'"
                             target="_blank"
                             class="btn btn-success btn-sm"
                             style="padding:6px 10px;">
@@ -690,11 +679,11 @@ class SaleListController extends Controller
                     ? '<div><span class="badge bg-soft-danger text-danger mb-1">Has Sale Return</span></div>'
                     : '';
 
-                $orderNumber = $returnBadge . '
+                $orderNumber = $returnBadge.'
                 <div>
-                    <div>' . e($order->order_number) . $editedBadge . '</div>
-                    <small class="text-muted">' . $orderCreatedAt . '</small>,
-                    <small class="text-danger">Due: ' . $dueDate . '</small>
+                    <div>'.e($order->order_number).$editedBadge.'</div>
+                    <small class="text-muted">'.$orderCreatedAt.'</small>,
+                    <small class="text-danger">Due: '.$dueDate.'</small>
                 </div>';
 
                 $status = strtolower($order->payment_status);
@@ -718,7 +707,7 @@ class SaleListController extends Controller
                     $today = Carbon::now();
 
                     // overdue = due_date lewat dan belum Paid/Overpaid
-                    if ($today->gt($due) && !in_array($order->payment_status, ['Paid', 'Overpaid'])) {
+                    if ($today->gt($due) && ! in_array($order->payment_status, ['Paid', 'Overpaid'])) {
                         $isOverdue = true;
                     }
                 }
@@ -726,8 +715,8 @@ class SaleListController extends Controller
                 $paymentStatus = '
                     <div class="d-flex flex-column gap-1">
                         <div class="d-flex align-items-center gap-1">
-                            <div class="badge ' . $badge . '">' . ucfirst($status) . '</div>'
-                    . $verifiedIcon . '
+                            <div class="badge '.$badge.'">'.ucfirst($status).'</div>'
+                    .$verifiedIcon.'
                         </div>';
 
                 if ($isOverdue) {
@@ -739,11 +728,9 @@ class SaleListController extends Controller
 
                 $paymentStatus .= '</div>';
 
-
-                $statusBadge = '<div class="badge bg-soft-dark text-dark">' . ucfirst($order->status) . '</div>';
+                $statusBadge = '<div class="badge bg-soft-dark text-dark">'.ucfirst($order->status).'</div>';
 
                 $modeBadge = $this->renderOrderItemModes($order);
-
 
                 $items = $order->orderItems
                     ->map(function ($item) use ($order) {
@@ -752,56 +739,56 @@ class SaleListController extends Controller
                         $displayQty = $requiredQtyBase;
 
                         $deliveryData = $order->deliveryOrders
-                            ->flatMap(fn($deliveryOrder) => $deliveryOrder->items)
+                            ->flatMap(fn ($deliveryOrder) => $deliveryOrder->items)
                             ->where('order_item_id', $item->id);
 
                         $deliveryListItems = $deliveryData
-                            ->flatMap(fn($deliveryOrderItem) => $deliveryOrderItem->deliveryListItems);
+                            ->flatMap(fn ($deliveryOrderItem) => $deliveryOrderItem->deliveryListItems);
 
                         // ── SATUAN ──
                         if ($item->product) {
-                            $progressQty   = $deliveryData->sum('progress_qty');
-                            $readyQty      = $deliveryData->sum('ready_qty');
-                            $shippedQty    = $deliveryData->sum('shipped_qty');
-                            $deliveredQty  = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
-                            $onDeliveryQty = $deliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
+                            $progressQty = $deliveryData->sum('progress_qty');
+                            $readyQty = $deliveryData->sum('ready_qty');
+                            $shippedQty = $deliveryData->sum('shipped_qty');
+                            $deliveredQty = $deliveryListItems->filter(fn ($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
+                            $onDeliveryQty = $deliveryListItems->filter(fn ($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
 
                             return [[
-                                'name'              => e($item->product->name) . ' <span class="badge bg-soft-success text-success">Satuan</span>',
-                                'sku'               => e($item->product->sku),
+                                'name' => e($item->product->name).' <span class="badge bg-soft-success text-success">Satuan</span>',
+                                'sku' => e($item->product->sku),
                                 'qty' => number_format($displayQty, 0, ',', '.'),
-                                'price'             => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
-                                'progress_qty'      => number_format($progressQty, 0, ',', '.'),
-                                'ready_qty'         => number_format($readyQty, 0, ',', '.'),
-                                'shipped_qty'       => number_format($shippedQty, 0, ',', '.'),
-                                'delivered'         => number_format($deliveredQty, 0, ',', '.'),
-                                'on_delivery'       => number_format($onDeliveryQty, 0, ',', '.'),
-                                'raw_progress_qty'  => $progressQty,
+                                'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                                'progress_qty' => number_format($progressQty, 0, ',', '.'),
+                                'ready_qty' => number_format($readyQty, 0, ',', '.'),
+                                'shipped_qty' => number_format($shippedQty, 0, ',', '.'),
+                                'delivered' => number_format($deliveredQty, 0, ',', '.'),
+                                'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
+                                'raw_progress_qty' => $progressQty,
                                 'raw_delivered_qty' => $deliveredQty,
-                                'raw_qty'           => $requiredQtyBase,
-                                'is_bundle_header'  => false,
+                                'raw_qty' => $requiredQtyBase,
+                                'is_bundle_header' => false,
                             ]];
                         }
 
                         // ── BUNDLE ──
                         if ($item->productBundle) {
                             $bundleNames = $item->productBundle->items
-                                ->map(fn($b) => $b->product->name ?? '-')
+                                ->map(fn ($b) => $b->product->name ?? '-')
                                 ->implode(' + ');
 
-                            $bundleChildren = $item->productBundle->items->map(function ($bundleItem) use ($item, $deliveryData, $deliveryListItems) {
+                            $bundleChildren = $item->productBundle->items->map(function ($bundleItem) use ($deliveryData, $deliveryListItems) {
                                 $productId = $bundleItem->product->id ?? null;
 
-                                $productDeliveryData      = $deliveryData->filter(fn($d) => $d->product_id == $productId);
-                                $productDeliveryListItems = $deliveryListItems->filter(fn($d) => $d->deliveryOrderItem && $d->deliveryOrderItem->product_id == $productId);
+                                $productDeliveryData = $deliveryData->filter(fn ($d) => $d->product_id == $productId);
+                                $productDeliveryListItems = $deliveryListItems->filter(fn ($d) => $d->deliveryOrderItem && $d->deliveryOrderItem->product_id == $productId);
 
-                                $readyQty      = $productDeliveryData->sum('ready_qty');
-                                $deliveredQty  = $productDeliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
-                                $onDeliveryQty = $productDeliveryListItems->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
+                                $readyQty = $productDeliveryData->sum('ready_qty');
+                                $deliveredQty = $productDeliveryListItems->filter(fn ($i) => $i->shipment && $i->shipment->status === 'Finished')->sum('shipped_quantity');
+                                $onDeliveryQty = $productDeliveryListItems->filter(fn ($i) => $i->shipment && $i->shipment->status !== 'Finished')->sum('shipped_quantity');
 
                                 return [
-                                    'ready_qty'   => number_format($readyQty, 0, ',', '.'),
-                                    'delivered'   => number_format($deliveredQty, 0, ',', '.'),
+                                    'ready_qty' => number_format($readyQty, 0, ',', '.'),
+                                    'delivered' => number_format($deliveredQty, 0, ',', '.'),
                                     'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
                                 ];
                             })->values()->toArray();
@@ -810,42 +797,42 @@ class SaleListController extends Controller
                                 return (int) str_replace('.', '', $child['delivered']);
                             });
                             $requiredBundleQty = $item->productBundle->items->sum(
-                                fn($bundleItem) => $requiredQtyBase * (float) ($bundleItem->quantity ?? 1)
+                                fn ($bundleItem) => $requiredQtyBase * (float) ($bundleItem->quantity ?? 1)
                             );
 
                             return [[
-                                'name'              => e($bundleNames) . ' <span class="badge bg-soft-primary text-primary">Bundle</span>',
-                                'sku'               => e($item->productBundle->sku ?? '-'),
+                                'name' => e($bundleNames).' <span class="badge bg-soft-primary text-primary">Bundle</span>',
+                                'sku' => e($item->productBundle->sku ?? '-'),
                                 'qty' => number_format($displayQty, 0, ',', '.'),
-                                'price'             => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
-                                'progress_qty'      => '-',
-                                'ready_qty'         => '-',
-                                'shipped_qty'       => '-',
-                                'delivered'         => '-',
-                                'on_delivery'       => '-',
-                                'raw_progress_qty'  => 0,
+                                'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                                'progress_qty' => '-',
+                                'ready_qty' => '-',
+                                'shipped_qty' => '-',
+                                'delivered' => '-',
+                                'on_delivery' => '-',
+                                'raw_progress_qty' => 0,
                                 'raw_delivered_qty' => $totalDelivered,
-                                'raw_qty'           => $requiredBundleQty,
-                                'is_bundle_header'  => true,
-                                'bundle_children'   => $bundleChildren,
+                                'raw_qty' => $requiredBundleQty,
+                                'is_bundle_header' => true,
+                                'bundle_children' => $bundleChildren,
                             ]];
                         }
 
                         // ── FALLBACK ──
                         return [[
-                            'name'              => '-',
-                            'sku'               => '-',
-                            'qty'               => '0',
-                            'price'             => '0',
-                            'progress_qty'      => '0',
-                            'ready_qty'         => '0',
-                            'shipped_qty'       => '0',
-                            'delivered'         => '0',
-                            'on_delivery'       => '0',
-                            'raw_progress_qty'  => 0,
+                            'name' => '-',
+                            'sku' => '-',
+                            'qty' => '0',
+                            'price' => '0',
+                            'progress_qty' => '0',
+                            'ready_qty' => '0',
+                            'shipped_qty' => '0',
+                            'delivered' => '0',
+                            'on_delivery' => '0',
+                            'raw_progress_qty' => 0,
                             'raw_delivered_qty' => 0,
-                            'raw_qty'           => 0,
-                            'is_bundle_header'  => false,
+                            'raw_qty' => 0,
+                            'is_bundle_header' => false,
                         ]];
                     })
                     ->flatten(1)
@@ -887,17 +874,17 @@ class SaleListController extends Controller
                         <div style="white-space: normal; word-break: break-word; max-width:230px;">
 
                             <div class="d-flex align-items-center fw-semibold">
-                                ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+                                '.($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '').'
 
-                                ' . $customer . '
+                                '.$customer.'
 
                                 <span class="ms-1 text-primary fw-bold">
-                                    ' . $sequenceLabel . '
+                                    '.$sequenceLabel.'
                                 </span>
                             </div>
 
-                        <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
-                        <small class="text-muted">' . $businessName . '</small>
+                        <small class="text-muted">'.$customerAccount.' - '.$customerAccountNumber.'</small>
+                        <small class="text-muted">'.$businessName.'</small>
 
                         </div>
                     ',
@@ -905,52 +892,57 @@ class SaleListController extends Controller
                         <div style="white-space: normal; word-break: break-word; max-width:180px;">
 
                             <div class="d-flex fw-semibold">
-                                ' . ($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '') . '
+                                '.($completeIcon ? '<i class="fa fa-check-circle text-success me-1"></i>' : '').'
 
                                 <div>
-                                    <small class="text-muted">' . $customer . '</small>
-                                    <small class="text-muted">' . $customerAccount . ' - ' . $customerAccountNumber . '</small>
-                                    <small class="text-muted">' . $businessName . '</small>
+                                    <small class="text-muted">'.$customer.'</small>
+                                    <small class="text-muted">'.$customerAccount.' - '.$customerAccountNumber.'</small>
+                                    <small class="text-muted">'.$businessName.'</small>
                                 </div>
 
                                 <div style="width:50px;">
                                     <small class="ms-1 text-primary fw-bold">
-                                        ' . $sequenceLabel . '
+                                        '.$sequenceLabel.'
                                     </small>
                                 </div>
-                            </div>                        
+                            </div>
                         </div>
                     ',
-                    'total_amount' => 'Rp ' . number_format($order->total_amount, 0, ',', '.'),
-                    'discount' => '<span class="text-warning">Rp ' . number_format($order->discount, 0, ',', '.') . '</span>',
-                    'grand_total' => '<span class="text-primary fw-semibold">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
+                    'total_amount' => 'Rp '.number_format($order->total_amount, 0, ',', '.'),
+                    'discount' => '<span class="text-warning">Rp '.number_format($order->discount, 0, ',', '.').'</span>',
+                    'grand_total' => '<span class="text-primary fw-semibold">Rp '.number_format($order->grand_total, 0, ',', '.').'</span>',
                     'paid_amount' => '
-                        <div class="text-success fw-semibold">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</div>'
-                        . ($order->remaining_amount > 0
-                            ? '<small class="text-danger fw-semibold">Remaining: Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</small>'
+                        <div class="text-success fw-semibold">Rp '.number_format($order->paid_amount, 0, ',', '.').'</div>'
+                        .($order->remaining_amount > 0
+                            ? '<small class="text-danger fw-semibold">Remaining: Rp '.number_format($order->remaining_amount, 0, ',', '.').'</small>'
                             : ''
                         ),
-                    'remaining_amount' => '<span class="text-danger">Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</span>',
+                    'remaining_amount' => '<span class="text-danger">Rp '.number_format($order->remaining_amount, 0, ',', '.').'</span>',
                     'payment_status' => $paymentStatus,
                     'status' => $statusBadge,
                     'payment_method' => e($order->payment_method ?? '-'),
                     'products' => $items,
                     'notes' => '
                         <div style="white-space: normal; word-break: break-word; max-width: 220px;">
-                            ' . e($order->notes ?? '-') . '
+                            '.e($order->notes ?? '-').'
                         </div>
                     ',
                     'whatsapp' => '
-                        <a href="https://wa.me/' . (
+                        <a href="https://wa.me/'.(
                         function ($phone) {
                             $num = preg_replace('/\D/', '', $phone ?? '');
-                            if (strpos($num, '0') === 0) $num = '62' . substr($num, 1);
-                            if (strpos($num, '62') !== 0) {
-                                if (strpos($num, '8') === 0) $num = '62' . $num;
+                            if (strpos($num, '0') === 0) {
+                                $num = '62'.substr($num, 1);
                             }
+                            if (strpos($num, '62') !== 0) {
+                                if (strpos($num, '8') === 0) {
+                                    $num = '62'.$num;
+                                }
+                            }
+
                             return $num;
                         }
-                    )($order->order_whatsapp_number) . '"
+                    )($order->order_whatsapp_number).'"
                             target="_blank"
                             class="btn btn-success btn-sm"
                             style="padding:6px 10px;">
@@ -972,10 +964,16 @@ class SaleListController extends Controller
     public function dataDeletedSaleList(Request $request)
     {
         $length = (int) $request->input('length', 50);
-        $start  = (int) $request->input('start', 0);
+        $start = (int) $request->input('start', 0);
 
         $orders = Order::onlyTrashed()
-            ->with(['customer'])
+            ->with([
+                'customer',
+                'deletedByUser',
+                'orderItems.product' => fn ($query) => $query->withTrashed(),
+                'orderItems.productBundle.items.product',
+                'deliveryOrders.items.deliveryListItems.shipment',
+            ])
             ->where('status', 'sale list')
             ->orderByDesc('deleted_at');
 
@@ -1012,7 +1010,7 @@ class SaleListController extends Controller
         // 🔹 Filter berdasarkan customer
         if ($request->search_type === 'customer' && $request->filled('search_keyword')) {
             $orders->whereHas('customer', function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->search_keyword . '%');
+                $q->where('name', 'like', '%'.$request->search_keyword.'%');
             });
         }
 
@@ -1027,9 +1025,9 @@ class SaleListController extends Controller
 
                 $orderNumber = '
                 <div>
-                    <div>' . e($order->order_number) . '</div>
-                    <small class="text-muted">' . $date . '</small>,
-                    <small class="text-danger">Due: ' . $dueDate . '</small>
+                    <div>'.e($order->order_number).'</div>
+                    <small class="text-muted">'.$date.'</small>,
+                    <small class="text-danger">Due: '.$dueDate.'</small>
                 </div>';
 
                 $status = strtolower($order->payment_status ?? 'unknown');
@@ -1041,77 +1039,61 @@ class SaleListController extends Controller
                     'partially paid' => 'bg-soft-warning text-warning',
                     default => 'bg-secondary',
                 };
-                $paymentStatus = '<div class="badge ' . $badge . '">' . ucfirst($status) . '</div>';
-
+                $paymentStatus = '<div class="badge '.$badge.'">'.ucfirst($status).'</div>';
 
                 // 🔹 Produk (mengikuti logika dataSaleList)
-                $items = $order->orderItems()
-                    ->with([
-                        'product' => fn($q) => $q->withTrashed(),
-                        'productBundle.items.product',
-                        'deliveryListItems.deliveryOrder'
-                    ])
-                    ->get()
+                $items = $order->orderItems
                     ->map(function ($item) use ($order) {
                         if ($item->product) {
                             $name = $item->product->name;
                             $sku = $item->product->sku;
                         } elseif ($item->productBundle) {
                             $bundleNames = $item->productBundle->items
-                                ->map(fn($b) => $b->product->name ?? '-')
+                                ->map(fn ($b) => $b->product->name ?? '-')
                                 ->implode(' + ');
                             $name = $bundleNames ?: '-';
-                            $sku  = $item->productBundle->sku ?? '-';
+                            $sku = $item->productBundle->sku ?? '-';
                         } else {
                             $name = '-';
-                            $sku  = '-';
+                            $sku = '-';
                         }
 
                         // 💡 gunakan $order langsung (bukan $item->order)
-                        $deliveryData = $order->deliveryOrders()
-                            ->with(['items' => function ($q) use ($item) {
-                                $q->where('order_item_id', $item->id);
-                            }])
-                            ->get()
-                            ->pluck('items')
-                            ->flatten();
+                        $deliveryData = $order->deliveryOrders
+                            ->flatMap(fn ($deliveryOrder) => $deliveryOrder->items)
+                            ->where('order_item_id', $item->id);
 
                         if ($item->productBundle) {
                             $progressQty = $deliveryData->first()->progress_qty ?? 0;
-                            $readyQty    = $deliveryData->first()->ready_qty ?? 0;
-                            $shippedQty  = $deliveryData->first()->shipped_qty ?? 0;
+                            $readyQty = $deliveryData->first()->ready_qty ?? 0;
+                            $shippedQty = $deliveryData->first()->shipped_qty ?? 0;
                         } else {
                             $progressQty = $deliveryData->sum('progress_qty');
-                            $readyQty    = $deliveryData->sum('ready_qty');
-                            $shippedQty  = $deliveryData->sum('shipped_qty');
+                            $readyQty = $deliveryData->sum('ready_qty');
+                            $shippedQty = $deliveryData->sum('shipped_qty');
                         }
 
-                        $deliveryListItems = $order->deliveryOrders()
-                            ->with(['items.deliveryListItems.shipment'])
-                            ->get()
-                            ->pluck('items')
-                            ->flatten()
-                            ->filter(fn($d) => $d->order_item_id === $item->id)
-                            ->flatMap(fn($d) => $d->deliveryListItems ?? collect());
+                        $deliveryListItems = $deliveryData
+                            ->flatMap(fn ($deliveryOrderItem) => $deliveryOrderItem->deliveryListItems);
 
                         $deliveredQty = $deliveryListItems
-                            ->filter(fn($i) => $i->shipment && $i->shipment->status === 'Finished')
+                            ->filter(fn ($i) => $i->shipment && $i->shipment->status === 'Finished')
                             ->sum('shipped_quantity');
 
                         $onDeliveryQty = $deliveryListItems
-                            ->filter(fn($i) => $i->shipment && $i->shipment->status !== 'Finished')
+                            ->filter(fn ($i) => $i->shipment && $i->shipment->status !== 'Finished')
                             ->sum('shipped_quantity');
 
                         return [
-                            'name'           => e($name),
-                            'sku'            => e($sku),
-                            'qty'            => number_format($item->quantity, 0, ',', '.'),
-                            'price'          => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
-                            'progress_qty'   => number_format($progressQty, 0, ',', '.'),
-                            'ready_qty'      => number_format($readyQty, 0, ',', '.'),
-                            'shipped_qty'    => number_format($shippedQty, 0, ',', '.'),
-                            'delivered'      => number_format($deliveredQty, 0, ',', '.'),
-                            'on_delivery'    => number_format($onDeliveryQty, 0, ',', '.'),
+                            'name' => e($name),
+                            'sku' => e($sku),
+                            'qty' => number_format($item->quantity, 0, ',', '.'),
+                            'price' => number_format($item->discount_price ?? $item->price ?? 0, 0, ',', '.'),
+                            'progress_qty' => number_format($progressQty, 0, ',', '.'),
+                            'ready_qty' => number_format($readyQty, 0, ',', '.'),
+                            'shipped_qty' => number_format($shippedQty, 0, ',', '.'),
+                            'delivered' => number_format($deliveredQty, 0, ',', '.'),
+                            'on_delivery' => number_format($onDeliveryQty, 0, ',', '.'),
                         ];
                     });
 
@@ -1120,22 +1102,22 @@ class SaleListController extends Controller
                 if (Auth::check() && Auth::user()->role === 'Owner') {
                     $action = '
                     <div class="d-flex gap-2">
-                        <button type="button" 
+                        <button type="button"
                             class="btn btn-success btn-sm me-1"
                             data-bs-toggle="modal"
                             data-bs-target="#modalRestoreOrder"
-                            data-id="' . $order->id . '" 
-                            data-name="' . e($order->order_number) . '"
-                            data-url="' . route('sales.restore', $order->id) . '">
+                            data-id="'.$order->id.'"
+                            data-name="'.e($order->order_number).'"
+                            data-url="'.route('sales.restore', $order->id).'">
                             Restore
                         </button>
-                        <button type="button" 
+                        <button type="button"
                             class="btn btn-danger btn-sm"
                             data-bs-toggle="modal"
                             data-bs-target="#modalForceDeleteOrder"
-                            data-id="' . $order->id . '" 
-                            data-name="' . e($order->order_number) . '"
-                            data-url="' . route('sales.forceDelete', $order->id) . '">
+                            data-id="'.$order->id.'"
+                            data-name="'.e($order->order_number).'"
+                            data-url="'.route('sales.forceDelete', $order->id).'">
                             Hapus Permanen
                         </button>
                     </div>
@@ -1143,22 +1125,21 @@ class SaleListController extends Controller
                 }
 
                 return [
-                    'id'               => $order->id,
-                    'order_number'     => $orderNumber,
-                    'customer'         => e($order->customer->name ?? '-'),
-                    'grand_total'      => '<span class="text-primary">Rp ' . number_format($order->grand_total, 0, ',', '.') . '</span>',
-                    'deleted_at'       => $order->deleted_at ? $order->deleted_at->format('j M y H:i') : '-',
-                    'deleted_by'       => e(optional($order->deletedByUser)->name ?? '-'),
-                    'delete_notes'     => e($order->delete_notes ?? '-'),
-                    'products'         => $items,
-                    'payment_status'   => $paymentStatus,
-                    'action'           => $action,
+                    'id' => $order->id,
+                    'order_number' => $orderNumber,
+                    'customer' => e($order->customer->name ?? '-'),
+                    'grand_total' => '<span class="text-primary">Rp '.number_format($order->grand_total, 0, ',', '.').'</span>',
+                    'deleted_at' => $order->deleted_at ? $order->deleted_at->format('j M y H:i') : '-',
+                    'deleted_by' => e(optional($order->deletedByUser)->name ?? '-'),
+                    'delete_notes' => e($order->delete_notes ?? '-'),
+                    'products' => $items,
+                    'payment_status' => $paymentStatus,
+                    'action' => $action,
                 ];
             }),
             'has_more' => $hasMore,
         ]);
     }
-
 
     public function create()
     {
@@ -1287,6 +1268,7 @@ class SaleListController extends Controller
             ->get();
         $priceModes = PriceMode::active()->orderBy('sort_order')->orderBy('name')->get();
         $modeDiscounts = Discount::modeDiscountsPayload();
+
         return view('erp.pages.sales.sale-list.create-order', compact(
             'customers',
             'productsJson',
@@ -1299,20 +1281,20 @@ class SaleListController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'order_date'           => 'required|date_format:Y-m-d\TH:i',
-            'due_date_option'      => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
-            'custom_due_date'      => 'nullable|date',
-            'customer_id'          => 'required|exists:customers,id',
-            'customer_account_id'  => 'required|exists:customer_accounts,id',
-            'customer_address_id'  => 'required|exists:customer_addresses,id',
-            'notes'                => 'nullable|string',
-            'product_type'         => 'required|array',
-            'product_type.*'       => 'in:satuan,bundle',
-            'product'              => 'required|array',
-            'product.*'            => 'required',
-            'qty'                  => 'required|array',
-            'qty.*'                => 'numeric|min:1',
-            'mode'   => 'required|array',
+            'order_date' => 'required|date_format:Y-m-d\TH:i',
+            'due_date_option' => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
+            'custom_due_date' => 'nullable|date',
+            'customer_id' => 'required|exists:customers,id',
+            'customer_account_id' => 'required|exists:customer_accounts,id',
+            'customer_address_id' => 'required|exists:customer_addresses,id',
+            'notes' => 'nullable|string',
+            'product_type' => 'required|array',
+            'product_type.*' => 'in:satuan,bundle',
+            'product' => 'required|array',
+            'product.*' => 'required',
+            'qty' => 'required|array',
+            'qty.*' => 'numeric|min:1',
+            'mode' => 'required|array',
             'mode.*' => ['required', Rule::exists('price_modes', 'slug')->where('is_active', true)],
             'price_before_discount' => 'required|array',
             'price_before_discount.*' => 'numeric|min:0',
@@ -1322,9 +1304,9 @@ class SaleListController extends Controller
             'price_after_discount.*' => 'numeric|min:0',
             'total_after_discount' => 'required|array',
             'total_after_discount.*' => 'numeric|min:0',
-            'sub_total'            => 'required|numeric|min:0',
-            'total_discount'       => 'required|numeric|min:0',
-            'total_amount'         => 'required|numeric|min:0',
+            'sub_total' => 'required|numeric|min:0',
+            'total_discount' => 'required|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0',
             'product_unit_id' => 'nullable|array',
             'product_unit_id.*' => 'nullable',
             'unit_conversion_value' => 'nullable|array',
@@ -1368,41 +1350,39 @@ class SaleListController extends Controller
 
             $addressModel = CustomerAddresses::find($request->customer_address_id);
 
-
             $order = Order::create([
-                'user_id'            => Auth::id(),
-                'customer_id'        => $request->customer_id,
+                'user_id' => Auth::id(),
+                'customer_id' => $request->customer_id,
                 'customer_account_id' => $request->customer_account_id,
                 'customer_address_id' => $request->customer_address_id,
-                'order_number'     => $orderNumber,
-                'order_date'       => $request->order_date,
-                'due_date'         => $dueDate,
-                'payment_method'   => $paymentMethod,
-                'status'           => $status,
-                'payment_status'   => ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid'),
-                'paid_amount'      => $paidAmount,
-                'business_name'    => $addressModel?->business_name,
+                'order_number' => $orderNumber,
+                'order_date' => $request->order_date,
+                'due_date' => $dueDate,
+                'payment_method' => $paymentMethod,
+                'status' => $status,
+                'payment_status' => ($paidAmount <= 0) ? 'Unpaid' : (($paidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid'),
+                'paid_amount' => $paidAmount,
+                'business_name' => $addressModel?->business_name,
                 'shipping_address' => $addressModel?->address,
-                'google_maps'      => $addressModel?->google_maps,
-                'notes'            => $request->notes,
+                'google_maps' => $addressModel?->google_maps,
+                'notes' => $request->notes,
                 'mode' => 'mixed',
-                'total_amount'     => $request->sub_total,
-                'grand_total'      => $request->total_amount,
-                'discount'         => $request->total_discount,
+                'total_amount' => $request->sub_total,
+                'grand_total' => $request->total_amount,
+                'discount' => $request->total_discount,
                 'remaining_amount' => $remainingAmount,
                 'discount_active' => (int) $request->input('discount_active_hidden', 1),
             ]);
 
-
             foreach ($request->product as $index => $productInputId) {
                 $type = strtolower($request->product_type[$index]);
-                $qty  = (float) $request->qty[$index];
+                $qty = (float) $request->qty[$index];
 
                 $itemMode = $request->mode[$index];
 
                 $unitConversionId = $request->product_unit_id[$index] ?? null;
 
-                if (!is_numeric($unitConversionId)) {
+                if (! is_numeric($unitConversionId)) {
                     $unitConversionId = null;
                 }
 
@@ -1422,38 +1402,36 @@ class SaleListController extends Controller
                     $fixedCostAtSale = $product?->fixed_cost ?? 0;
 
                     $orderItem = OrderItem::create([
-                        'order_id'             => $order->id,
-                        'product_id'           => $product->id,
-                        'product_bundle_id'    => null,
+                        'order_id' => $order->id,
+                        'product_id' => $product->id,
+                        'product_bundle_id' => null,
                         'product_unit_conversion_id' => $unitConversionId,
                         'product_bundle_unit_conversion_id' => null,
-                        'unit_name'                  => $unitName,
-                        'unit_conversion_value'      => $unitConversionValue,
-                        'qty_base'                   => $qtyBase,
-                        'status'               => $paymentMethod,
-                        'product_name'         => $product->name,
-                        'satuan'               => 'satuan',
-                        'mode'                 => $itemMode,
-                        'quantity'             => $qty,
-                        'completed_quantity'   => 0,
-                        'stock_out'            => 0,
-                        'price'                => $request->price_before_discount[$index],
-                        'subtotal'             => $request->total_before_discount[$index],
-                        'discount_price'       => $request->price_after_discount[$index],
+                        'unit_name' => $unitName,
+                        'unit_conversion_value' => $unitConversionValue,
+                        'qty_base' => $qtyBase,
+                        'status' => $paymentMethod,
+                        'product_name' => $product->name,
+                        'satuan' => 'satuan',
+                        'mode' => $itemMode,
+                        'quantity' => $qty,
+                        'completed_quantity' => 0,
+                        'stock_out' => 0,
+                        'price' => $request->price_before_discount[$index],
+                        'subtotal' => $request->total_before_discount[$index],
+                        'discount_price' => $request->price_after_discount[$index],
                         'total_after_discount' => $request->total_after_discount[$index],
                     ]);
 
-
                     OrderItemComponent::create([
-                        'order_item_id'    => $orderItem->id,
-                        'product_id'       => $product->id,
-                        'qty'                 => $qtyBase,
+                        'order_item_id' => $orderItem->id,
+                        'product_id' => $product->id,
+                        'qty' => $qtyBase,
                         'avg_cost_at_sale' => $avgCost,
                         'fixed_cost_at_sale' => $fixedCostAtSale,
-                        'total_cost'          => $avgCost * $qtyBase,
-                        'total_fixed_cost'    => $fixedCostAtSale * $qtyBase,
+                        'total_cost' => $avgCost * $qtyBase,
+                        'total_fixed_cost' => $fixedCostAtSale * $qtyBase,
                     ]);
-
 
                     $inventoryStock = InventoryStock::updateOrCreate(
                         [
@@ -1471,37 +1449,36 @@ class SaleListController extends Controller
                 } elseif ($type === 'bundle') {
                     $bundle = ProductBundle::with('items.product')->findOrFail($productInputId);
 
-
                     $bundleProductNames = $bundle->items->map(function ($item) {
                         return $item->product->name ?? '-';
                     })->implode(' + ');
 
                     $orderItem = OrderItem::create([
-                        'order_id'             => $order->id,
-                        'product_id'           => null,
-                        'product_bundle_id'    => $bundle->id,
+                        'order_id' => $order->id,
+                        'product_id' => null,
+                        'product_bundle_id' => $bundle->id,
                         'product_unit_conversion_id' => null,
                         'product_bundle_unit_conversion_id' => $unitConversionId,
                         'unit_name' => $unitName,
                         'unit_conversion_value' => $unitConversionValue,
                         'qty_base' => $qtyBase,
-                        'status'               => $paymentMethod,
-                        'product_name'         => $bundleProductNames,
-                        'satuan'               => 'bundle',
-                        'mode'                 => $itemMode,
-                        'quantity'             => $qty,
-                        'completed_quantity'   => 0,
-                        'stock_out'            => 0,
-                        'price'                => $request->price_before_discount[$index],
-                        'subtotal'             => $request->total_before_discount[$index],
-                        'discount_price'       => $request->price_after_discount[$index],
+                        'status' => $paymentMethod,
+                        'product_name' => $bundleProductNames,
+                        'satuan' => 'bundle',
+                        'mode' => $itemMode,
+                        'quantity' => $qty,
+                        'completed_quantity' => 0,
+                        'stock_out' => 0,
+                        'price' => $request->price_before_discount[$index],
+                        'subtotal' => $request->total_before_discount[$index],
+                        'discount_price' => $request->price_after_discount[$index],
                         'total_after_discount' => $request->total_after_discount[$index],
                     ]);
 
                     foreach ($bundle->items as $bundleItem) {
                         $component = $bundleItem->product;
 
-                        if (!$component) {
+                        if (! $component) {
                             continue;
                         }
 
@@ -1511,13 +1488,13 @@ class SaleListController extends Controller
                         $totalQty = $qty * ($bundleItem->quantity ?? 1);
 
                         OrderItemComponent::create([
-                            'order_item_id'       => $orderItem->id,
-                            'product_id'          => $component->id,
-                            'qty'                 => $totalQty,
-                            'avg_cost_at_sale'    => $avgCost,
-                            'fixed_cost_at_sale'  => $fixedCostAtSale,
-                            'total_cost'          => $avgCost * $totalQty,
-                            'total_fixed_cost'    => $fixedCostAtSale * $totalQty,
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $component->id,
+                            'qty' => $totalQty,
+                            'avg_cost_at_sale' => $avgCost,
+                            'fixed_cost_at_sale' => $fixedCostAtSale,
+                            'total_cost' => $avgCost * $totalQty,
+                            'total_fixed_cost' => $fixedCostAtSale * $totalQty,
                         ]);
 
                         $componentInventoryStock = InventoryStock::updateOrCreate(
@@ -1542,37 +1519,37 @@ class SaleListController extends Controller
                 ->get();
 
             $design = Design::create([
-                'order_id'            => $order->id,
-                'design_number'       => $orderNumber,
-                'date'                => now()->format('Y-m-d'),
-                'status'              => 'Pending',
-                'notes'               => null,
+                'order_id' => $order->id,
+                'design_number' => $orderNumber,
+                'date' => now()->format('Y-m-d'),
+                'status' => 'Pending',
+                'notes' => null,
                 'verification_status' => 'pending',
-                'verified_by'         => null,
-                'verified_at'         => null,
+                'verified_by' => null,
+                'verified_at' => null,
             ]);
 
             foreach ($orderItems as $orderItem) {
                 $qtyInput = $orderItem->quantity;
 
                 if ($orderItem->satuan === 'satuan') {
-                    if (!$orderItem->product_id) {
+                    if (! $orderItem->product_id) {
                         continue;
                     }
 
                     DesignItem::create([
-                        'design_id'           => $design->id,
-                        'order_item_id'       => $orderItem->id,
-                        'product_id'          => $orderItem->product_id,
-                        'quantity'            => $qtyInput,
-                        'completed_quantity'  => 0,
+                        'design_id' => $design->id,
+                        'order_item_id' => $orderItem->id,
+                        'product_id' => $orderItem->product_id,
+                        'quantity' => $qtyInput,
+                        'completed_quantity' => 0,
 
                         'product_unit_conversion_id' => $orderItem->product_unit_conversion_id,
                         'unit_name' => $orderItem->unit_name,
                         'unit_conversion_value' => $orderItem->unit_conversion_value,
 
-                        'design_file'         => null,
-                        'preview_image'       => null,
+                        'design_file' => null,
+                        'preview_image' => null,
                         'verification_status' => 'pending',
                     ]);
 
@@ -1580,31 +1557,31 @@ class SaleListController extends Controller
                 }
 
                 if ($orderItem->satuan === 'bundle') {
-                    if (!$orderItem->productBundle) {
+                    if (! $orderItem->productBundle) {
                         continue;
                     }
 
                     foreach ($orderItem->productBundle->items as $bundleItem) {
                         $bundleProduct = $bundleItem->product;
 
-                        if (!$bundleProduct) {
+                        if (! $bundleProduct) {
                             continue;
                         }
 
                         $componentQty = $qtyInput * ($bundleItem->quantity ?? 1);
 
                         DesignItem::create([
-                            'design_id'           => $design->id,
-                            'order_item_id'       => $orderItem->id,
-                            'product_id'          => $bundleProduct->id,
-                            'quantity'            => $componentQty,
-                            'completed_quantity'  => 0,
+                            'design_id' => $design->id,
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $bundleProduct->id,
+                            'quantity' => $componentQty,
+                            'completed_quantity' => 0,
                             'product_unit_conversion_id' => $orderItem->product_unit_conversion_id,
                             'unit_name' => $orderItem->unit_name,
                             'unit_conversion_value' => $orderItem->unit_conversion_value,
 
-                            'design_file'         => null,
-                            'preview_image'       => null,
+                            'design_file' => null,
+                            'preview_image' => null,
                             'verification_status' => 'pending',
                         ]);
                     }
@@ -1631,15 +1608,13 @@ class SaleListController extends Controller
             $saleAccount->closing_balance += $request->total_amount;
             $saleAccount->save();
 
-
             try {
                 $totalRevenue = $request->total_amount;
                 $totalCogs = 0;
                 $totalFixedCost = 0;
 
-
                 foreach ($order->orderItems as $orderItem) {
-                    if ($orderItem->product_id && !$orderItem->product_bundle_id) {
+                    if ($orderItem->product_id && ! $orderItem->product_bundle_id) {
 
                         $product = $orderItem->product;
                         $avgCost = $product->avg_cost ?? 0;
@@ -1668,8 +1643,8 @@ class SaleListController extends Controller
 
                         $costQty = $orderItem->qty_base ?? $orderItem->quantity;
 
-                        $totalCogs       += $bundleAvgCost * $costQty;
-                        $totalFixedCost  += $bundleFixedCost * $costQty;
+                        $totalCogs += $bundleAvgCost * $costQty;
+                        $totalFixedCost += $bundleFixedCost * $costQty;
                     }
                 }
 
@@ -1677,30 +1652,32 @@ class SaleListController extends Controller
                 $grossProfitAtFixedCost = $totalRevenue - $totalFixedCost;
 
                 FinancialReport::create([
-                    'date'             => $order->order_date,
+                    'date' => $order->order_date,
                     'transaction_type' => 'sale',
-                    'reference_id'     => $order->id,
-                    'reference_table'  => 'orders',
-                    'revenue'          => $totalRevenue,
-                    'cogs'             => $totalCogs,
-                    'cogs_fixed_cost'   => $totalFixedCost,
-                    'gross_profit'     => $grossProfit,
+                    'reference_id' => $order->id,
+                    'reference_table' => 'orders',
+                    'revenue' => $totalRevenue,
+                    'cogs' => $totalCogs,
+                    'cogs_fixed_cost' => $totalFixedCost,
+                    'gross_profit' => $grossProfit,
                     'gross_profit_at_fixed_cost' => $grossProfitAtFixedCost,
-                    'expense'          => 0,
-                    'net_profit'       => $grossProfit,
+                    'expense' => 0,
+                    'net_profit' => $grossProfit,
                     'net_profit_at_fixed_cost' => $grossProfitAtFixedCost,
-                    'notes'            => 'Auto-generated from Sale List',
+                    'notes' => 'Auto-generated from Sale List',
                 ]);
             } catch (\Exception $e) {
-                Log::error('Gagal menyimpan laporan keuangan untuk Order ID ' . $order->id . ': ' . $e->getMessage());
+                Log::error('Gagal menyimpan laporan keuangan untuk Order ID '.$order->id.': '.$e->getMessage());
             }
 
             DB::commit();
-            return redirect("/erp/sales/sale-list/")->with('success', 'Order berhasil disimpan.');
+
+            return redirect('/erp/sales/sale-list/')->with('success', 'Order berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error store order: ' . $e->getMessage());
-            return back()->with('error', 'Gagal menyimpan order: ' . $e->getMessage());
+            Log::error('Error store order: '.$e->getMessage());
+
+            return back()->with('error', 'Gagal menyimpan order: '.$e->getMessage());
         }
     }
 
@@ -1764,7 +1741,7 @@ class SaleListController extends Controller
             return [
                 'id' => $product->id,
                 'name' => $product->name,
-                'sku'  => $product->sku,
+                'sku' => $product->sku,
                 'price' => $product->price,
                 'sale_price' => $product->sale_price,
                 'base_unit_id' => $product->base_unit_id,
@@ -1775,7 +1752,7 @@ class SaleListController extends Controller
                         'id' => $cat->id,
                         'discounts' => $cat->discounts->map(function ($d) use ($cat) {
                             return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                        })->toArray()
+                        })->toArray(),
                     ];
                 })->toArray(),
                 'units' => $product->unitConversions->map(function ($conversion) {
@@ -1814,7 +1791,7 @@ class SaleListController extends Controller
                         'id' => $cat->id,
                         'discounts' => $cat->discounts->map(function ($d) use ($cat) {
                             return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                        })->toArray()
+                        })->toArray(),
                     ];
                 }
             }
@@ -1826,7 +1803,7 @@ class SaleListController extends Controller
             return [
                 'id' => $bundle->id,
                 'name' => $bundleName ?: $bundle->name,
-                'sku'  => $bundle->sku,
+                'sku' => $bundle->sku,
                 'price' => $bundle->price,
                 'base_unit_id' => $bundle->base_unit_id,
                 'discounts' => $bundleDiscounts,
@@ -1905,32 +1882,32 @@ class SaleListController extends Controller
     {
         // dd($request->all());
         $request->validate([
-            'order_date'              => 'required|date_format:Y-m-d\TH:i',
-            'due_date_option'         => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
-            'custom_due_date'         => 'nullable|date',
+            'order_date' => 'required|date_format:Y-m-d\TH:i',
+            'due_date_option' => 'nullable|string|in:none,today,1_week,1_month,3_months,custom',
+            'custom_due_date' => 'nullable|date',
             'customer_id' => 'required|exists:customers,id',
             'customer_account_id' => 'required|exists:customer_accounts,id',
             'customer_address_id' => 'required|exists:customer_addresses,id',
-            'notes'                   => 'nullable|string',
-            'product_type'            => 'required|array',
-            'product_type.*'          => 'in:satuan,bundle',
-            'product'                 => 'required|array',
-            'product.*'               => 'required',
-            'qty'                     => 'required|array',
-            'qty.*'                   => 'numeric|min:1',
-            'price_before_discount'   => 'required|array',
+            'notes' => 'nullable|string',
+            'product_type' => 'required|array',
+            'product_type.*' => 'in:satuan,bundle',
+            'product' => 'required|array',
+            'product.*' => 'required',
+            'qty' => 'required|array',
+            'qty.*' => 'numeric|min:1',
+            'price_before_discount' => 'required|array',
             'price_before_discount.*' => 'numeric|min:0',
-            'total_before_discount'   => 'required|array',
+            'total_before_discount' => 'required|array',
             'total_before_discount.*' => 'numeric|min:0',
-            'price_after_discount'    => 'required|array',
-            'price_after_discount.*'  => 'numeric|min:0',
-            'total_after_discount'    => 'required|array',
-            'total_after_discount.*'  => 'numeric|min:0',
-            'sub_total'               => 'required|numeric|min:0',
-            'total_discount'          => 'required|numeric|min:0',
-            'total_amount'            => 'required|numeric|min:0',
-            'edit_note'               => 'required|string|max:500',
-            'mode'   => 'required|array',
+            'price_after_discount' => 'required|array',
+            'price_after_discount.*' => 'numeric|min:0',
+            'total_after_discount' => 'required|array',
+            'total_after_discount.*' => 'numeric|min:0',
+            'sub_total' => 'required|numeric|min:0',
+            'total_discount' => 'required|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0',
+            'edit_note' => 'required|string|max:500',
+            'mode' => 'required|array',
             'mode.*' => ['required', 'exists:price_modes,slug'],
 
             'product_unit_id' => 'nullable|array',
@@ -1941,7 +1918,7 @@ class SaleListController extends Controller
 
             'unit_name' => 'nullable|array',
             'unit_name.*' => 'nullable|string',
-            'order_item_id'   => 'nullable|array',
+            'order_item_id' => 'nullable|array',
             'order_item_id.*' => 'nullable|exists:order_items,id',
         ]);
 
@@ -1956,21 +1933,21 @@ class SaleListController extends Controller
 
             $mapItems = function ($items) {
                 return $items->values()->mapWithKeys(function ($item, $index) {
-                    $key = 'item_' . ($item->id ?? $index);
+                    $key = 'item_'.($item->id ?? $index);
 
                     return [$key => [
-                        'id'              => $item->id,
-                        'product'         => $item->product_name,
-                        'satuan'          => $item->satuan,
-                        'mode'            => $item->mode,
-                        'product_id'      => $item->product_id,
-                        'bundle_id'       => $item->product_bundle_id,
-                        'quantity'        => (int) $item->quantity,
-                        'qty_base'        => (float) ($item->qty_base ?? $item->quantity),
-                        'price'           => (float) $item->price,
-                        'subtotal'        => (float) $item->subtotal,
-                        'discount_price'  => (float) $item->discount_price,
-                        'total'           => (float) $item->total_after_discount,
+                        'id' => $item->id,
+                        'product' => $item->product_name,
+                        'satuan' => $item->satuan,
+                        'mode' => $item->mode,
+                        'product_id' => $item->product_id,
+                        'bundle_id' => $item->product_bundle_id,
+                        'quantity' => (int) $item->quantity,
+                        'qty_base' => (float) ($item->qty_base ?? $item->quantity),
+                        'price' => (float) $item->price,
+                        'subtotal' => (float) $item->subtotal,
+                        'discount_price' => (float) $item->discount_price,
+                        'total' => (float) $item->total_after_discount,
                     ]];
                 });
             };
@@ -1995,7 +1972,7 @@ class SaleListController extends Controller
                 'remaining_amount',
                 'shipping_address',
                 'google_maps',
-                'notes'
+                'notes',
             ];
             $oldOrderData = Arr::only($oldOrderDataAll, $orderFieldsToTrack);
             $oldItemsData = $mapItems($order->orderItems); // keyed map
@@ -2007,25 +1984,25 @@ class SaleListController extends Controller
                     if ($item->satuan === 'satuan') {
                         return $item->product_unit_conversion_id === null
                             ? null
-                            : 'satuan_' . $item->product_unit_conversion_id;
+                            : 'satuan_'.$item->product_unit_conversion_id;
                     }
 
                     return $item->product_bundle_unit_conversion_id === null
                         ? null
-                        : 'bundle_' . $item->product_bundle_unit_conversion_id;
+                        : 'bundle_'.$item->product_bundle_unit_conversion_id;
                 })
                 ->values()
                 ->toArray();
 
             $newUnitKeys = collect($request->product_unit_id ?? [])
                 ->map(function ($v, $i) use ($request) {
-                    if (!is_numeric($v)) {
+                    if (! is_numeric($v)) {
                         return null;
                     }
 
                     $type = $request->product_type[$i] ?? null;
 
-                    return $type . '_' . $v;
+                    return $type.'_'.$v;
                 })
                 ->values()
                 ->toArray();
@@ -2040,7 +2017,7 @@ class SaleListController extends Controller
                     // Tidak ada perubahan product
                     json_encode($request->product) == json_encode(
                         $order->orderItems->map(function ($item) {
-                            return $item->satuan . '_' . ($item->satuan === 'satuan' ? $item->product_id : $item->product_bundle_id);
+                            return $item->satuan.'_'.($item->satuan === 'satuan' ? $item->product_id : $item->product_bundle_id);
                         })->values()->toArray()
                     )
                     // Tidak ada perubahan qty
@@ -2083,34 +2060,34 @@ class SaleListController extends Controller
 
                 // ===== Update header order Saja =====
                 $order->update([
-                    'order_date'          => $request->order_date,
-                    'due_date'            => $dueDate,
-                    'customer_id'         => $request->customer_id,
-                    'customer_account_id'  => $request->customer_account_id,
+                    'order_date' => $request->order_date,
+                    'due_date' => $dueDate,
+                    'customer_id' => $request->customer_id,
+                    'customer_account_id' => $request->customer_account_id,
                     'customer_address_id' => $request->customer_address_id,
-                    'business_name'       => $addressModel?->business_name,
-                    'shipping_address'    => $addressModel?->address,
-                    'google_maps'         => $addressModel?->google_maps,
-                    'notes'               => $request->notes,
+                    'business_name' => $addressModel?->business_name,
+                    'shipping_address' => $addressModel?->address,
+                    'google_maps' => $addressModel?->google_maps,
+                    'notes' => $request->notes,
                 ]);
 
                 // 🔥 CATAT HISTORY + FLAG EDITED
                 OrderEditHistory::create([
-                    'order_id'  => $order->id,
+                    'order_id' => $order->id,
                     'edited_by' => Auth::id(),
-                    'changes'   => [
-                        'type'   => 'header_only',
+                    'changes' => [
+                        'type' => 'header_only',
                         'fields' => [
-                            'order_date'          => ['old' => $oldOrderData['order_date'] ?? null,          'new' => $request->order_date],
-                            'customer_id'         => ['old' => $oldOrderData['customer_id'] ?? null,         'new' => $request->customer_id],
+                            'order_date' => ['old' => $oldOrderData['order_date'] ?? null,          'new' => $request->order_date],
+                            'customer_id' => ['old' => $oldOrderData['customer_id'] ?? null,         'new' => $request->customer_id],
                             'customer_account_id' => [
                                 'old' => $oldOrderData['customer_account_id'] ?? null,
-                                'new' => $request->customer_account_id
+                                'new' => $request->customer_account_id,
                             ],
                             'customer_address_id' => ['old' => $oldOrderData['customer_address_id'] ?? null, 'new' => $request->customer_address_id],
                         ],
                     ],
-                    'text'      => $request->edit_note,
+                    'text' => $request->edit_note,
                     'edited_at' => now(),
                 ]);
 
@@ -2118,7 +2095,7 @@ class SaleListController extends Controller
 
                 DB::commit();
 
-                return redirect("/erp/sales/sale-list/")
+                return redirect('/erp/sales/sale-list/')
                     ->with('success', 'Order berhasil diupdate (header saja).');
             }
 
@@ -2144,25 +2121,25 @@ class SaleListController extends Controller
                     if ($item->satuan === 'satuan') {
                         return $item->product_unit_conversion_id === null
                             ? null
-                            : 'satuan_' . $item->product_unit_conversion_id;
+                            : 'satuan_'.$item->product_unit_conversion_id;
                     }
 
                     return $item->product_bundle_unit_conversion_id === null
                         ? null
-                        : 'bundle_' . $item->product_bundle_unit_conversion_id;
+                        : 'bundle_'.$item->product_bundle_unit_conversion_id;
                 })
                 ->values()
                 ->toArray();
 
             $newUnits = collect($request->product_unit_id ?? [])
                 ->map(function ($v, $i) use ($request) {
-                    if (!is_numeric($v)) {
+                    if (! is_numeric($v)) {
                         return null;
                     }
 
                     $type = $request->product_type[$i] ?? null;
 
-                    return $type . '_' . $v;
+                    return $type.'_'.$v;
                 })
                 ->values()
                 ->toArray();
@@ -2178,21 +2155,21 @@ class SaleListController extends Controller
                 foreach ($request->product as $i => $newKey) {
                     $orderItemId = $request->order_item_id[$i] ?? null;
 
-                    if (!$orderItemId) {
+                    if (! $orderItemId) {
                         $isPriceOnlyUpdate = false;
                         break;
                     }
 
                     $oldItem = $order->orderItems->firstWhere('id', (int) $orderItemId);
 
-                    if (!$oldItem) {
+                    if (! $oldItem) {
                         $isPriceOnlyUpdate = false;
                         break;
                     }
 
                     $oldKey = $oldItem->satuan === 'satuan'
-                        ? 'satuan_' . $oldItem->product_id
-                        : 'bundle_' . $oldItem->product_bundle_id;
+                        ? 'satuan_'.$oldItem->product_id
+                        : 'bundle_'.$oldItem->product_bundle_id;
 
                     $newQty = (int) str_replace('.', '', $request->qty[$i]);
 
@@ -2208,7 +2185,7 @@ class SaleListController extends Controller
 
                 // ===== Hitung due_date sama seperti blok bawah =====
                 $orderDate = Carbon::parse($request->order_date);
-                $dueDate   = null;
+                $dueDate = null;
 
                 switch ($request->due_date_option) {
                     case 'today':
@@ -2235,17 +2212,17 @@ class SaleListController extends Controller
                 // ===== Update harga item =====
                 foreach ($order->orderItems as $index => $item) {
                     $item->update([
-                        'price'                => $request->price_before_discount[$index],
-                        'subtotal'             => $request->total_before_discount[$index],
-                        'discount_price'       => $request->price_after_discount[$index],
+                        'price' => $request->price_before_discount[$index],
+                        'subtotal' => $request->total_before_discount[$index],
+                        'discount_price' => $request->price_after_discount[$index],
                         'total_after_discount' => $request->total_after_discount[$index],
                     ]);
                 }
 
                 // ===== HITUNG ULANG PAYMENT =====
-                $newTotal   = $request->total_amount;
+                $newTotal = $request->total_amount;
                 $paidAmount = $order->paid_amount;
-                $remaining  = $newTotal - $paidAmount;
+                $remaining = $newTotal - $paidAmount;
 
                 if ($paidAmount <= 0) {
                     $paymentStatus = 'Unpaid';
@@ -2257,39 +2234,40 @@ class SaleListController extends Controller
 
                 // ===== Update HEADER juga (order_date, customer, address) =====
                 $order->update([
-                    'order_date'          => $request->order_date,
-                    'due_date'            => $dueDate,
-                    'customer_id'         => $request->customer_id,
-                    'customer_account_id'  => $request->customer_account_id,
+                    'order_date' => $request->order_date,
+                    'due_date' => $dueDate,
+                    'customer_id' => $request->customer_id,
+                    'customer_account_id' => $request->customer_account_id,
                     'customer_address_id' => $request->customer_address_id,
-                    'business_name'       => $addressModel?->business_name,
-                    'shipping_address'    => $addressModel?->address,
-                    'google_maps'         => $addressModel?->google_maps,
-                    'notes'               => $request->notes,
+                    'business_name' => $addressModel?->business_name,
+                    'shipping_address' => $addressModel?->address,
+                    'google_maps' => $addressModel?->google_maps,
+                    'notes' => $request->notes,
 
-                    'total_amount'       => $request->sub_total,
-                    'discount'           => $request->total_discount,
-                    'grand_total'        => $newTotal,
-                    'remaining_amount'   => $remaining,
-                    'payment_status'     => $paymentStatus,
-                    'discount_active'    => (int) $request->input('discount_active_hidden', 1),
+                    'total_amount' => $request->sub_total,
+                    'discount' => $request->total_discount,
+                    'grand_total' => $newTotal,
+                    'remaining_amount' => $remaining,
+                    'payment_status' => $paymentStatus,
+                    'discount_active' => (int) $request->input('discount_active_hidden', 1),
                 ]);
 
                 // 🔥 CATAT HISTORY + FLAG EDITED JUGA DI SINI
                 OrderEditHistory::create([
-                    'order_id'  => $order->id,
+                    'order_id' => $order->id,
                     'edited_by' => Auth::id(),
-                    'changes'   => [
+                    'changes' => [
                         'type' => 'price_only',
                     ],
-                    'text'      => $request->edit_note,
+                    'text' => $request->edit_note,
                     'edited_at' => now(),
                 ]);
 
                 $order->update(['status_edited' => true]);
 
                 DB::commit();
-                return redirect("/erp/sales/sale-list/")->with('success', 'Order berhasil diupdate (price only + header).');
+
+                return redirect('/erp/sales/sale-list/')->with('success', 'Order berhasil diupdate (price only + header).');
             }
 
             // ================== 🔥 CEK PERUBAHAN PRODUK (Bukan Penambahan) ==================
@@ -2298,19 +2276,19 @@ class SaleListController extends Controller
             foreach ($request->product as $i => $newProductValue) {
                 $orderItemId = $request->order_item_id[$i] ?? null;
 
-                if (!$orderItemId) {
+                if (! $orderItemId) {
                     continue; // item baru, bukan perubahan produk lama
                 }
 
                 $oldItem = $order->orderItems->firstWhere('id', (int) $orderItemId);
 
-                if (!$oldItem) {
+                if (! $oldItem) {
                     continue;
                 }
 
                 $oldProductValue = $oldItem->satuan === 'satuan'
-                    ? 'satuan_' . $oldItem->product_id
-                    : 'bundle_' . $oldItem->product_bundle_id;
+                    ? 'satuan_'.$oldItem->product_id
+                    : 'bundle_'.$oldItem->product_bundle_id;
 
                 if ($oldProductValue !== $newProductValue) {
                     $isProductChanged = true;
@@ -2330,6 +2308,7 @@ class SaleListController extends Controller
 
                 if ($hasProgressHistory) {
                     DB::rollBack();
+
                     return back()->with('error', 'Tidak dapat mengubah produk yang sudah ada karena sudah memiliki progress history produksi. Anda hanya bisa menambah produk baru.');
                 }
 
@@ -2339,6 +2318,7 @@ class SaleListController extends Controller
 
                 if ($hasAssign) {
                     DB::rollBack();
+
                     return back()->with('error', 'Tidak dapat mengubah produk yang sudah ada karena sudah memiliki progress assign produksi. Anda hanya bisa menambah produk baru.');
                 }
 
@@ -2346,16 +2326,18 @@ class SaleListController extends Controller
                     ->with('shipments')
                     ->get()
                     ->flatMap->shipments
-                    ->contains(fn($shipment) => $shipment->status === 'Finished');
+                    ->contains(fn ($shipment) => $shipment->status === 'Finished');
 
                 if ($hasFinishedDelivery) {
                     DB::rollBack();
+
                     return back()->with('error', 'Tidak dapat mengubah produk yang sudah ada karena sudah ada Delivery List yang selesai. Anda hanya bisa menambah produk baru.');
                 }
             }
 
             if (SaleReturn::where('sale_order_id', $order->id)->exists()) {
                 DB::rollBack(); // rollback supaya transaksi clear
+
                 return back()->with('error', 'Tidak bisa mengupdate order ini karena sudah ada Sale Return.');
             }
 
@@ -2384,37 +2366,37 @@ class SaleListController extends Controller
                     $dueDate = null; // none
             }
 
-            $oldPaidAmount   = $order->paid_amount;
-            $newPaidAmount   = $request->has('paid_amount')
+            $oldPaidAmount = $order->paid_amount;
+            $newPaidAmount = $request->has('paid_amount')
                 ? $request->paid_amount
                 : $order->paid_amount;
-            $additionalPay   = max(0, $newPaidAmount - $oldPaidAmount);
+            $additionalPay = max(0, $newPaidAmount - $oldPaidAmount);
             $remainingAmount = $request->total_amount - $newPaidAmount;
 
-            $status        = 'Sale List';
+            $status = 'Sale List';
             $paymentMethod = 'Sale Account';
             $addressModel = CustomerAddresses::find($request->customer_address_id);
 
             // ================== UPDATE ORDER HEADER ==================
             $order->update([
                 'customer_id' => $request->customer_id,
-                'customer_account_id'  => $request->customer_account_id,
+                'customer_account_id' => $request->customer_account_id,
                 'customer_address_id' => $request->customer_address_id,
-                'order_date'       => $request->order_date,
-                'due_date'         => $dueDate,
-                'payment_method'   => $paymentMethod,
-                'status'           => $status,
-                'payment_status'   => ($newPaidAmount <= 0) ? 'Unpaid' : (($newPaidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid'),
-                'paid_amount'      => $newPaidAmount,
-                'business_name'    => $addressModel?->business_name,
+                'order_date' => $request->order_date,
+                'due_date' => $dueDate,
+                'payment_method' => $paymentMethod,
+                'status' => $status,
+                'payment_status' => ($newPaidAmount <= 0) ? 'Unpaid' : (($newPaidAmount < $request->total_amount) ? 'Partially Paid' : 'Paid'),
+                'paid_amount' => $newPaidAmount,
+                'business_name' => $addressModel?->business_name,
                 'shipping_address' => $addressModel?->address,
-                'google_maps'      => $addressModel?->google_maps,
-                'notes'            => $request->notes,
-                'total_amount'     => $request->sub_total,
-                'grand_total'      => $request->total_amount,
-                'discount'         => $request->total_discount,
+                'google_maps' => $addressModel?->google_maps,
+                'notes' => $request->notes,
+                'total_amount' => $request->sub_total,
+                'grand_total' => $request->total_amount,
+                'discount' => $request->total_discount,
                 'remaining_amount' => $remainingAmount,
-                'discount_active'  => (int) $request->input('discount_active_hidden', 1),
+                'discount_active' => (int) $request->input('discount_active_hidden', 1),
             ]);
 
             // ================== SYNC ORDER ITEMS ==================
@@ -2429,7 +2411,7 @@ class SaleListController extends Controller
                 })
                 ->exists();
 
-            Log::debug("🔎 DEBUG Design Check", [
+            Log::debug('🔎 DEBUG Design Check', [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
                 'designVerified' => $designVerified ? 'TRUE' : 'FALSE',
@@ -2445,8 +2427,9 @@ class SaleListController extends Controller
             })
                 ->get()
                 ->groupBy('product_id')
-                ->map(fn($items) => $items->sum(function ($item) {
+                ->map(fn ($items) => $items->sum(function ($item) {
                     $conversion = (float) ($item->unit_conversion_value ?? 1);
+
                     return (float) $item->quantity * ($conversion > 0 ? $conversion : 1);
                 }));
 
@@ -2484,7 +2467,7 @@ class SaleListController extends Controller
 
                 $unitConversionId = $request->input("product_unit_id.$index");
 
-                if ($unitConversionId === '' || $unitConversionId === 'null' || !is_numeric($unitConversionId)) {
+                if ($unitConversionId === '' || $unitConversionId === 'null' || ! is_numeric($unitConversionId)) {
                     $unitConversionId = null;
                 }
 
@@ -2516,7 +2499,7 @@ class SaleListController extends Controller
                     $unitConversionValue = 1;
                 }
 
-                if (!$unitName) {
+                if (! $unitName) {
                     $unitName = 'Pcs';
                 }
 
@@ -2621,7 +2604,7 @@ class SaleListController extends Controller
 
                 if ($orderItem) {
                     $submittedItemIds[] = (int) $orderItem->id;
-                    $oldMode   = $orderItem->mode;
+                    $oldMode = $orderItem->mode;
                     // $diffQty   = $qty - $orderItem->quantity;
 
                     $oldProductIdForComponent = $orderItem->product_id;
@@ -2684,7 +2667,7 @@ class SaleListController extends Controller
                                 // 🔻 Kurangi pending_waiting_list produk lama
                                 $oldStock = \App\Models\ProductionStock::where([
                                     'product_id' => $oldProductId,
-                                    'production_warehouse_id' => $productionWarehouseId
+                                    'production_warehouse_id' => $productionWarehouseId,
                                 ])->lockForUpdate()->first();
 
                                 if ($oldStock) {
@@ -2699,13 +2682,13 @@ class SaleListController extends Controller
                                 $newStock = \App\Models\ProductionStock::firstOrCreate(
                                     [
                                         'product_id' => $newProductId,
-                                        'production_warehouse_id' => $productionWarehouseId
+                                        'production_warehouse_id' => $productionWarehouseId,
                                     ],
                                     [
                                         'pending_waiting_list' => 0,
                                         'available_quantity' => 0,
                                         'finished_product_stock' => 0,
-                                        'canceled_product_stock' => 0
+                                        'canceled_product_stock' => 0,
                                     ]
                                 );
 
@@ -2719,7 +2702,7 @@ class SaleListController extends Controller
                                 $stock = \App\Models\ProductionStock::firstOrCreate(
                                     [
                                         'product_id' => $oldProductId,
-                                        'production_warehouse_id' => $productionWarehouseId
+                                        'production_warehouse_id' => $productionWarehouseId,
                                     ],
                                     ['pending_waiting_list' => 0]
                                 );
@@ -2748,7 +2731,7 @@ class SaleListController extends Controller
 
                                 if ($oldBundle) {
                                     foreach ($oldBundle->items as $bi) {
-                                        if (!$bi->product_id) {
+                                        if (! $bi->product_id) {
                                             continue;
                                         }
 
@@ -2775,7 +2758,7 @@ class SaleListController extends Controller
 
                                 if ($newBundle) {
                                     foreach ($newBundle->items as $bi) {
-                                        if (!$bi->product_id) {
+                                        if (! $bi->product_id) {
                                             continue;
                                         }
 
@@ -2806,7 +2789,7 @@ class SaleListController extends Controller
 
                                 if ($bundle) {
                                     foreach ($bundle->items as $bi) {
-                                        if (!$bi->product_id) {
+                                        if (! $bi->product_id) {
                                             continue;
                                         }
 
@@ -2839,21 +2822,21 @@ class SaleListController extends Controller
 
                     // UPDATE ITEM DASAR (termasuk product_id / bundle_id)
                     $orderItem->update([
-                        'product_id'           => $type === 'satuan' ? $productId : null,
-                        'product_bundle_id'    => $type === 'bundle' ? $productId : null,
+                        'product_id' => $type === 'satuan' ? $productId : null,
+                        'product_bundle_id' => $type === 'bundle' ? $productId : null,
 
                         'product_unit_conversion_id' => $type === 'satuan' ? $unitConversionId : null,
                         'product_bundle_unit_conversion_id' => $type === 'bundle' ? $unitConversionId : null,
 
-                        'unit_name'             => $unitName,
+                        'unit_name' => $unitName,
                         'unit_conversion_value' => $unitConversionValue,
-                        'qty_base'              => $qtyBase,
+                        'qty_base' => $qtyBase,
 
-                        'mode'                 => $itemMode,
-                        'quantity'             => $qty,
-                        'price'                => $request->price_before_discount[$index],
-                        'subtotal'             => $request->total_before_discount[$index],
-                        'discount_price'       => $request->price_after_discount[$index],
+                        'mode' => $itemMode,
+                        'quantity' => $qty,
+                        'price' => $request->price_before_discount[$index],
+                        'subtotal' => $request->total_before_discount[$index],
+                        'discount_price' => $request->price_after_discount[$index],
                         'total_after_discount' => $request->total_after_discount[$index],
                     ]);
 
@@ -2871,7 +2854,7 @@ class SaleListController extends Controller
                         \App\Models\DesignItem::where('order_item_id', $orderItem->id)
                             ->update(array_merge([
                                 'verification_status' => 'pending',
-                                'completed_quantity'  => 0,
+                                'completed_quantity' => 0,
                             ], $unitData));
                     }
 
@@ -2885,7 +2868,7 @@ class SaleListController extends Controller
                     }
 
                     if ($isProductChanged) {
-                        Log::debug("🔄 UPDATE COMPONENT PRODUCT ID", [
+                        Log::debug('🔄 UPDATE COMPONENT PRODUCT ID', [
                             'order_item_id' => $orderItem->id,
                             'old_product_id' => $oldProductIdForComponent,
                             'new_product_id' => $productId,
@@ -2895,12 +2878,12 @@ class SaleListController extends Controller
                             $newProduct = \App\Models\Products::find($productId);
 
                             $orderItem->components()->update([
-                                'product_id'         => $newProduct->id,
-                                'qty'                => $qtyBase,
-                                'avg_cost_at_sale'   => $newProduct->avg_cost ?? 0,
+                                'product_id' => $newProduct->id,
+                                'qty' => $qtyBase,
+                                'avg_cost_at_sale' => $newProduct->avg_cost ?? 0,
                                 'fixed_cost_at_sale' => $newProduct->fixed_cost ?? 0,
-                                'total_cost'         => ($newProduct->avg_cost ?? 0) * $qtyBase,
-                                'total_fixed_cost'   => ($newProduct->fixed_cost ?? 0) * $qtyBase,
+                                'total_cost' => ($newProduct->avg_cost ?? 0) * $qtyBase,
+                                'total_fixed_cost' => ($newProduct->fixed_cost ?? 0) * $qtyBase,
                             ]);
 
                             Log::debug("✅ COMPONENT UPDATED to product {$newProduct->name}");
@@ -2912,19 +2895,19 @@ class SaleListController extends Controller
                             foreach ($bundle->items as $bundleItem) {
                                 $product = $bundleItem->product;
 
-                                if (!$product) {
+                                if (! $product) {
                                     continue;
                                 }
 
                                 $componentQty = $qtyBase * ($bundleItem->quantity ?? 1);
 
                                 $orderItem->components()->create([
-                                    'product_id'         => $product->id,
-                                    'qty'                => $componentQty,
-                                    'avg_cost_at_sale'   => $product->avg_cost ?? 0,
+                                    'product_id' => $product->id,
+                                    'qty' => $componentQty,
+                                    'avg_cost_at_sale' => $product->avg_cost ?? 0,
                                     'fixed_cost_at_sale' => $product->fixed_cost ?? 0,
-                                    'total_cost'         => ($product->avg_cost ?? 0) * $componentQty,
-                                    'total_fixed_cost'   => ($product->fixed_cost ?? 0) * $componentQty,
+                                    'total_cost' => ($product->avg_cost ?? 0) * $componentQty,
+                                    'total_fixed_cost' => ($product->fixed_cost ?? 0) * $componentQty,
                                 ]);
                             }
                         }
@@ -2948,8 +2931,8 @@ class SaleListController extends Controller
                                 $fixedCost = $component->fixed_cost_at_sale;
 
                                 $component->update([
-                                    'qty'              => $qtyBase,
-                                    'total_cost'       => $avgCost * $qtyBase,
+                                    'qty' => $qtyBase,
+                                    'total_cost' => $avgCost * $qtyBase,
                                     'total_fixed_cost' => $fixedCost * $qtyBase,
                                 ]);
                             }
@@ -2968,8 +2951,8 @@ class SaleListController extends Controller
                                     $fixedCost = $component->fixed_cost_at_sale;
 
                                     $component->update([
-                                        'qty'              => $componentQty,
-                                        'total_cost'       => $avgCost * $componentQty,
+                                        'qty' => $componentQty,
+                                        'total_cost' => $avgCost * $componentQty,
                                         'total_fixed_cost' => $fixedCost * $componentQty,
                                     ]);
                                 }
@@ -2980,7 +2963,7 @@ class SaleListController extends Controller
                     // 🧠 force refresh setelah update
                     $orderItem->refresh();
 
-                    Log::debug("🎯 FINAL COMPONENT COUNT", [
+                    Log::debug('🎯 FINAL COMPONENT COUNT', [
                         'order_item_id' => $orderItem->id,
                         'count' => $orderItem->components()->count(),
                     ]);
@@ -3108,22 +3091,22 @@ class SaleListController extends Controller
 
                         // Buat order item
                         $orderItem = OrderItem::create([
-                            'order_id'             => $order->id,
-                            'product_id'           => $product->id,
-                            'product_bundle_id'    => null,
+                            'order_id' => $order->id,
+                            'product_id' => $product->id,
+                            'product_bundle_id' => null,
                             'product_unit_conversion_id' => $unitConversionId,
                             'product_bundle_unit_conversion_id' => null,
-                            'unit_name'                  => $unitName,
-                            'unit_conversion_value'      => $unitConversionValue,
-                            'qty_base'                   => $qtyBase,
+                            'unit_name' => $unitName,
+                            'unit_conversion_value' => $unitConversionValue,
+                            'qty_base' => $qtyBase,
 
-                            'product_name'         => $product->name,
-                            'satuan'               => 'satuan',
-                            'mode'                 => $itemMode,
-                            'quantity'             => $qty,
-                            'price'                => $request->price_before_discount[$index],
-                            'subtotal'             => $request->total_before_discount[$index],
-                            'discount_price'       => $request->price_after_discount[$index],
+                            'product_name' => $product->name,
+                            'satuan' => 'satuan',
+                            'mode' => $itemMode,
+                            'quantity' => $qty,
+                            'price' => $request->price_before_discount[$index],
+                            'subtotal' => $request->total_before_discount[$index],
+                            'discount_price' => $request->price_after_discount[$index],
                             'total_after_discount' => $request->total_after_discount[$index],
                         ]);
 
@@ -3131,18 +3114,18 @@ class SaleListController extends Controller
 
                         // ✅ Buat komponen untuk produk satuan
                         $orderItem->components()->create([
-                            'product_id'         => $product->id,
-                            'qty'                => $qtyBase,
-                            'avg_cost_at_sale'   => $product->avg_cost ?? 0,
+                            'product_id' => $product->id,
+                            'qty' => $qtyBase,
+                            'avg_cost_at_sale' => $product->avg_cost ?? 0,
                             'fixed_cost_at_sale' => $product->fixed_cost ?? 0,
-                            'total_cost'         => ($product->avg_cost ?? 0) * $qtyBase,
-                            'total_fixed_cost'   => ($product->fixed_cost ?? 0) * $qtyBase,
+                            'total_cost' => ($product->avg_cost ?? 0) * $qtyBase,
+                            'total_fixed_cost' => ($product->fixed_cost ?? 0) * $qtyBase,
                         ]);
 
                         // Update stock_after_sales hanya di inventory_stocks
                         $inventoryStock = InventoryStock::firstOrCreate(
                             [
-                                'product_id'             => $product->id,
+                                'product_id' => $product->id,
                                 'inventory_warehouse_id' => $warehouseId,
                             ],
                             ['stock_after_sales' => 0]
@@ -3157,23 +3140,23 @@ class SaleListController extends Controller
 
                         // Buat order item untuk bundle
                         $orderItem = OrderItem::create([
-                            'order_id'             => $order->id,
-                            'product_id'           => null,
-                            'product_bundle_id'    => $bundle->id,
+                            'order_id' => $order->id,
+                            'product_id' => null,
+                            'product_bundle_id' => $bundle->id,
 
                             'product_unit_conversion_id' => null,
                             'product_bundle_unit_conversion_id' => $unitConversionId,
-                            'unit_name'                  => $unitName,
-                            'unit_conversion_value'      => $unitConversionValue,
-                            'qty_base'                   => $qtyBase,
+                            'unit_name' => $unitName,
+                            'unit_conversion_value' => $unitConversionValue,
+                            'qty_base' => $qtyBase,
 
-                            'product_name'         => $bundle->name,
-                            'satuan'               => 'bundle',
-                            'mode'                 => $itemMode,
-                            'quantity'             => $qty,
-                            'price'                => $request->price_before_discount[$index],
-                            'subtotal'             => $request->total_before_discount[$index],
-                            'discount_price'       => $request->price_after_discount[$index],
+                            'product_name' => $bundle->name,
+                            'satuan' => 'bundle',
+                            'mode' => $itemMode,
+                            'quantity' => $qty,
+                            'price' => $request->price_before_discount[$index],
+                            'subtotal' => $request->total_before_discount[$index],
+                            'discount_price' => $request->price_after_discount[$index],
                             'total_after_discount' => $request->total_after_discount[$index],
                         ]);
 
@@ -3182,7 +3165,7 @@ class SaleListController extends Controller
                         foreach ($bundle->items as $bundleItem) {
                             $componentProduct = $bundleItem->product;
 
-                            if (!$componentProduct) {
+                            if (! $componentProduct) {
                                 continue;
                             }
 
@@ -3191,17 +3174,17 @@ class SaleListController extends Controller
                             $componentStockQty = $qty * ($bundleItem->quantity ?? 1);
 
                             $orderItem->components()->create([
-                                'product_id'         => $componentProduct->id,
-                                'qty'                => $componentQty,
-                                'avg_cost_at_sale'   => $componentProduct->avg_cost ?? 0,
+                                'product_id' => $componentProduct->id,
+                                'qty' => $componentQty,
+                                'avg_cost_at_sale' => $componentProduct->avg_cost ?? 0,
                                 'fixed_cost_at_sale' => $componentProduct->fixed_cost ?? 0,
-                                'total_cost'         => ($componentProduct->avg_cost ?? 0) * $componentQty,
-                                'total_fixed_cost'   => ($componentProduct->fixed_cost ?? 0) * $componentQty,
+                                'total_cost' => ($componentProduct->avg_cost ?? 0) * $componentQty,
+                                'total_fixed_cost' => ($componentProduct->fixed_cost ?? 0) * $componentQty,
                             ]);
 
                             $inventoryStock = InventoryStock::firstOrCreate(
                                 [
-                                    'product_id'             => $bundleItem->product_id,
+                                    'product_id' => $bundleItem->product_id,
                                     'inventory_warehouse_id' => $warehouseId,
                                 ],
                                 ['stock_after_sales' => 0]
@@ -3218,7 +3201,7 @@ class SaleListController extends Controller
             }
 
             foreach ($existingItems as $item) {
-                if (!in_array((int) $item->id, $submittedItemIds, true)) {
+                if (! in_array((int) $item->id, $submittedItemIds, true)) {
 
                     if ($item->satuan === 'satuan') {
                         // $restoreQty = $item->qty_base ?? $item->quantity;
@@ -3278,7 +3261,7 @@ class SaleListController extends Controller
             $orderDiff = ['old' => [], 'new' => []];
             foreach ($newOrderData as $field => $newVal) {
                 $oldVal = $oldOrderData[$field] ?? null;
-                if ((string)$oldVal !== (string)$newVal) {
+                if ((string) $oldVal !== (string) $newVal) {
                     $orderDiff['old'][$field] = $oldVal;
                     $orderDiff['new'][$field] = $newVal;
                 }
@@ -3290,25 +3273,25 @@ class SaleListController extends Controller
                 $old = $oldItemsData[$key] ?? null;
                 $new = $newItemsData[$key] ?? null;
 
-                if ($old && !$new) {
+                if ($old && ! $new) {
                     // removed
                     $itemsDiff[] = [
-                        'product'      => $old['product'],
+                        'product' => $old['product'],
                         'old_quantity' => $old['quantity'],
                         'new_quantity' => 0,
-                        'old_total'    => $old['total'],
-                        'new_total'    => 0,
-                        'action'       => 'removed',
+                        'old_total' => $old['total'],
+                        'new_total' => 0,
+                        'action' => 'removed',
                     ];
-                } elseif (!$old && $new) {
+                } elseif (! $old && $new) {
                     // added
                     $itemsDiff[] = [
-                        'product'      => $new['product'],
+                        'product' => $new['product'],
                         'old_quantity' => 0,
                         'new_quantity' => $new['quantity'],
-                        'old_total'    => 0,
-                        'new_total'    => $new['total'],
-                        'action'       => 'added',
+                        'old_total' => 0,
+                        'new_total' => $new['total'],
+                        'action' => 'added',
                     ];
                 } else {
                     // maybe updated (qty/price/subtotal/discount/total)
@@ -3318,16 +3301,16 @@ class SaleListController extends Controller
                             $changed[$f] = ['old' => $old[$f], 'new' => $new[$f]];
                         }
                     }
-                    if (!empty($changed)) {
+                    if (! empty($changed)) {
                         $itemsDiff[] = [
                             'product' => $new['product'],
-                            'action'  => 'updated',
-                            'fields'  => $changed,
+                            'action' => 'updated',
+                            'fields' => $changed,
                             // ringkasan utama untuk tampilan cepat:
                             'old_quantity' => $old['quantity'],
                             'new_quantity' => $new['quantity'],
-                            'old_total'    => $old['total'],
-                            'new_total'    => $new['total'],
+                            'old_total' => $old['total'],
+                            'new_total' => $new['total'],
                         ];
                     }
                 }
@@ -3417,8 +3400,7 @@ class SaleListController extends Controller
             ]);
 
             $printingOrderItems = $order->orderItems->filter->usesProductionFlow();
-            $polosanOrderItems  = $order->orderItems->filter->usesPolosanFlow();
-
+            $polosanOrderItems = $order->orderItems->filter->usesPolosanFlow();
 
             // =======================================================
             // ITEM PRINTING -> MASUK DESIGN PENDING
@@ -3428,16 +3410,16 @@ class SaleListController extends Controller
 
                 if ($design) {
                     $design->update([
-                        'date'  => now()->format('Y-m-d'),
+                        'date' => now()->format('Y-m-d'),
                         'notes' => $request->notes ?? $design->notes,
                     ]);
                 } else {
                     $design = Design::create([
-                        'order_id'            => $order->id,
-                        'design_number'       => $order->order_number,
-                        'date'                => now()->format('Y-m-d'),
-                        'status'              => 'Pending',
-                        'notes'               => $request->notes ?? null,
+                        'order_id' => $order->id,
+                        'design_number' => $order->order_number,
+                        'date' => now()->format('Y-m-d'),
+                        'status' => 'Pending',
+                        'notes' => $request->notes ?? null,
                         'verification_status' => 'pending',
                     ]);
                 }
@@ -3445,8 +3427,8 @@ class SaleListController extends Controller
                 $design->load('items');
 
                 $existingDesignItems = $design->items
-                    ->filter(fn($item) => $item->orderItem?->usesProductionFlow())
-                    ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
+                    ->filter(fn ($item) => $item->orderItem?->usesProductionFlow())
+                    ->keyBy(fn ($item) => $item->order_item_id.'_'.$item->product_id);
 
                 $components = \App\Models\OrderItemComponent::whereIn(
                     'order_item_id',
@@ -3459,14 +3441,14 @@ class SaleListController extends Controller
 
                 foreach ($components as $component) {
                     $orderItem = $component->orderItem;
-                    if (!$orderItem || !$orderItem->usesProductionFlow()) {
+                    if (! $orderItem || ! $orderItem->usesProductionFlow()) {
                         continue;
                     }
 
                     $productId = $component->product_id;
-                    $qty       = $component->qty; // ini tetap qty_base untuk progress/stock
+                    $qty = $component->qty; // ini tetap qty_base untuk progress/stock
                     $designQty = $getDesignItemQuantity($component, $orderItem);
-                    $key       = "{$component->order_item_id}_{$productId}";
+                    $key = "{$component->order_item_id}_{$productId}";
 
                     $newDesignKeys[] = $key;
 
@@ -3474,25 +3456,25 @@ class SaleListController extends Controller
 
                     if ($existingDesignItems->has($key)) {
                         $existingDesignItems[$key]->update(array_merge([
-                            'quantity'            => $designQty,
+                            'quantity' => $designQty,
                             'verification_status' => 'pending',
                         ], $unitData));
                     } else {
                         DesignItem::create(array_merge([
-                            'design_id'           => $design->id,
-                            'order_item_id'       => $orderItem->id,
-                            'product_id'          => $productId,
-                            'quantity'            => $designQty,
-                            'completed_quantity'  => 0,
-                            'design_file'         => null,
-                            'preview_image'       => null,
+                            'design_id' => $design->id,
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $productId,
+                            'quantity' => $designQty,
+                            'completed_quantity' => 0,
+                            'design_file' => null,
+                            'preview_image' => null,
                             'verification_status' => 'pending',
                         ], $unitData));
                     }
                 }
 
                 foreach ($existingDesignItems as $key => $designItem) {
-                    if (!in_array($key, $newDesignKeys)) {
+                    if (! in_array($key, $newDesignKeys)) {
                         $designItem->delete();
                     }
                 }
@@ -3506,14 +3488,14 @@ class SaleListController extends Controller
                     ]);
 
                     $existingProgressItems = $orderProgress->items
-                        ->filter(fn($item) => $item->orderItem?->usesProductionFlow())
-                        ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
+                        ->filter(fn ($item) => $item->orderItem?->usesProductionFlow())
+                        ->keyBy(fn ($item) => $item->order_item_id.'_'.$item->product_id);
 
                     $newProgressKeys = [];
 
                     foreach ($components as $component) {
                         $orderItem = $component->orderItem;
-                        if (!$orderItem || !$orderItem->usesProductionFlow()) {
+                        if (! $orderItem || ! $orderItem->usesProductionFlow()) {
                             continue;
                         }
 
@@ -3522,8 +3504,8 @@ class SaleListController extends Controller
                         }
 
                         $productId = $component->product_id;
-                        $qty       = $component->qty;
-                        $key       = "{$component->order_item_id}_{$productId}";
+                        $qty = $component->qty;
+                        $key = "{$component->order_item_id}_{$productId}";
 
                         $newProgressKeys[] = $key;
 
@@ -3535,22 +3517,22 @@ class SaleListController extends Controller
                         if ($existingProgressItems->has($key)) {
                             $existingProgressItems[$key]->update([
                                 'design_item_id' => $designItem?->id,
-                                'quantity'       => $qty,
+                                'quantity' => $qty,
                             ]);
                         } else {
                             OrderProgressItem::create([
-                                'order_progress_id'  => $orderProgress->id,
-                                'design_item_id'     => $designItem?->id,
-                                'order_item_id'      => $orderItem->id,
-                                'product_id'         => $productId,
-                                'quantity'           => $qty,
+                                'order_progress_id' => $orderProgress->id,
+                                'design_item_id' => $designItem?->id,
+                                'order_item_id' => $orderItem->id,
+                                'product_id' => $productId,
+                                'quantity' => $qty,
                                 'completed_quantity' => 0,
                             ]);
                         }
                     }
 
                     foreach ($existingProgressItems as $key => $progressItem) {
-                        if (!in_array($key, $newProgressKeys)) {
+                        if (! in_array($key, $newProgressKeys)) {
                             $progressItem->delete();
                         }
                     }
@@ -3564,22 +3546,22 @@ class SaleListController extends Controller
 
                     if ($deliveryOrder) {
                         $deliveryOrder->update([
-                            'delivery_date'    => now()->format('Y-m-d'),
-                            'note'             => $request->notes ?? $deliveryOrder->note,
-                            'customer'         => $order->customer?->name ?? $deliveryOrder->customer,
+                            'delivery_date' => now()->format('Y-m-d'),
+                            'note' => $request->notes ?? $deliveryOrder->note,
+                            'customer' => $order->customer?->name ?? $deliveryOrder->customer,
                             'shipping_address' => $order->shipping_address ?? $deliveryOrder->shipping_address,
-                            'google_map_link'  => $order->google_maps ?? $deliveryOrder->google_map_link,
+                            'google_map_link' => $order->google_maps ?? $deliveryOrder->google_map_link,
                         ]);
 
                         $existingDoItems = $deliveryOrder->items
-                            ->filter(fn($item) => $item->orderItem?->usesProductionFlow())
-                            ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
+                            ->filter(fn ($item) => $item->orderItem?->usesProductionFlow())
+                            ->keyBy(fn ($item) => $item->order_item_id.'_'.$item->product_id);
 
                         $newDoKeys = [];
 
                         foreach ($components as $component) {
                             $orderItem = $component->orderItem;
-                            if (!$orderItem || !$orderItem->usesProductionFlow()) {
+                            if (! $orderItem || ! $orderItem->usesProductionFlow()) {
                                 continue;
                             }
 
@@ -3588,8 +3570,8 @@ class SaleListController extends Controller
                             }
 
                             $productId = $component->product_id;
-                            $qty       = $component->qty;
-                            $key       = "{$component->order_item_id}_{$productId}";
+                            $qty = $component->qty;
+                            $key = "{$component->order_item_id}_{$productId}";
 
                             $newDoKeys[] = $key;
 
@@ -3609,40 +3591,39 @@ class SaleListController extends Controller
                                     : $existingDoItem->ready_qty;
 
                                 $existingDoItem->update([
-                                    'order_progress_id'      => $orderProgress->id,
+                                    'order_progress_id' => $orderProgress->id,
                                     'order_progress_item_id' => $progressItem?->id,
-                                    'design_item_id'         => $progressItem?->design_item_id,
-                                    'status'                 => $existingDoItem->shipped_qty >= $qty ? 'Shipped' : 'Pending',
-                                    'progress_qty'           => $qty,
-                                    'ready_qty'              => $readyQty,
-                                    'note'                   => $request->notes ?? $existingDoItem->note,
+                                    'design_item_id' => $progressItem?->design_item_id,
+                                    'status' => $existingDoItem->shipped_qty >= $qty ? 'Shipped' : 'Pending',
+                                    'progress_qty' => $qty,
+                                    'ready_qty' => $readyQty,
+                                    'note' => $request->notes ?? $existingDoItem->note,
                                 ]);
                             } else {
                                 DeliveryOrderItem::create([
-                                    'delivery_order_id'      => $deliveryOrder->id,
-                                    'order_progress_id'      => $orderProgress->id,
-                                    'order_item_id'          => $orderItem->id,
+                                    'delivery_order_id' => $deliveryOrder->id,
+                                    'order_progress_id' => $orderProgress->id,
+                                    'order_item_id' => $orderItem->id,
                                     'order_progress_item_id' => $progressItem?->id,
-                                    'design_item_id'         => $progressItem?->design_item_id,
-                                    'product_id'             => $productId,
-                                    'status'                 => 'Pending',
-                                    'progress_qty'           => $qty,
-                                    'ready_qty'              => 0,
-                                    'shipped_qty'            => 0,
-                                    'note'                   => $request->notes ?? null,
+                                    'design_item_id' => $progressItem?->design_item_id,
+                                    'product_id' => $productId,
+                                    'status' => 'Pending',
+                                    'progress_qty' => $qty,
+                                    'ready_qty' => 0,
+                                    'shipped_qty' => 0,
+                                    'note' => $request->notes ?? null,
                                 ]);
                             }
                         }
 
                         foreach ($existingDoItems as $key => $doItem) {
-                            if (!in_array($key, $newDoKeys)) {
+                            if (! in_array($key, $newDoKeys)) {
                                 $doItem->delete();
                             }
                         }
                     }
                 }
             }
-
 
             // =======================================================
             // ITEM POLOSAN -> LANGSUNG APPROVED + COMPLETED + DELIVERY
@@ -3652,27 +3633,27 @@ class SaleListController extends Controller
 
                 if ($design) {
                     $design->update([
-                        'date'  => now()->format('Y-m-d'),
+                        'date' => now()->format('Y-m-d'),
                         'notes' => $request->notes ?? $design->notes,
                     ]);
                 } else {
                     $design = Design::create([
-                        'order_id'            => $order->id,
-                        'design_number'       => $order->order_number,
-                        'date'                => now()->format('Y-m-d'),
-                        'status'              => 'Verified',
-                        'notes'               => $request->notes ?? null,
+                        'order_id' => $order->id,
+                        'design_number' => $order->order_number,
+                        'date' => now()->format('Y-m-d'),
+                        'status' => 'Verified',
+                        'notes' => $request->notes ?? null,
                         'verification_status' => 'approved',
-                        'verified_by'         => Auth::id(),
-                        'verified_at'         => now(),
+                        'verified_by' => Auth::id(),
+                        'verified_at' => now(),
                     ]);
                 }
 
                 $design->load('items');
 
                 $existingDesignItems = $design->items
-                    ->filter(fn($item) => $item->orderItem?->usesPolosanFlow())
-                    ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
+                    ->filter(fn ($item) => $item->orderItem?->usesPolosanFlow())
+                    ->keyBy(fn ($item) => $item->order_item_id.'_'.$item->product_id);
 
                 $components = \App\Models\OrderItemComponent::whereIn(
                     'order_item_id',
@@ -3685,7 +3666,7 @@ class SaleListController extends Controller
 
                 foreach ($components as $component) {
                     $orderItem = $component->orderItem;
-                    if (!$orderItem || !$orderItem->usesPolosanFlow()) {
+                    if (! $orderItem || ! $orderItem->usesPolosanFlow()) {
                         continue;
                     }
 
@@ -3694,9 +3675,9 @@ class SaleListController extends Controller
                     }
 
                     $productId = $component->product_id;
-                    $qty       = $component->qty; // ini qty_base
+                    $qty = $component->qty; // ini qty_base
                     $designQty = $getDesignItemQuantity($component, $orderItem);
-                    $key       = "{$component->order_item_id}_{$productId}";
+                    $key = "{$component->order_item_id}_{$productId}";
 
                     $newDesignKeys[] = $key;
 
@@ -3706,25 +3687,25 @@ class SaleListController extends Controller
                         $designItem = $existingDesignItems[$key];
 
                         $designItem->update(array_merge([
-                            'quantity'            => $designQty,
+                            'quantity' => $designQty,
                             'verification_status' => 'approved',
                         ], $unitData));
                     } else {
                         DesignItem::create(array_merge([
-                            'design_id'           => $design->id,
-                            'order_item_id'       => $orderItem->id,
-                            'product_id'          => $productId,
-                            'quantity'            => $designQty,
-                            'completed_quantity'  => 0,
-                            'design_file'         => null,
-                            'preview_image'       => null,
+                            'design_id' => $design->id,
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $productId,
+                            'quantity' => $designQty,
+                            'completed_quantity' => 0,
+                            'design_file' => null,
+                            'preview_image' => null,
                             'verification_status' => 'approved',
                         ], $unitData));
                     }
                 }
 
                 foreach ($existingDesignItems as $key => $designItem) {
-                    if (!in_array($key, $newDesignKeys)) {
+                    if (! in_array($key, $newDesignKeys)) {
                         $designItem->delete();
                     }
                 }
@@ -3733,16 +3714,16 @@ class SaleListController extends Controller
 
                 if ($orderProgress) {
                     $orderProgress->update([
-                        'date'  => now()->format('Y-m-d'),
+                        'date' => now()->format('Y-m-d'),
                         'notes' => $request->notes ?? $orderProgress->notes,
                     ]);
                 } else {
                     $orderProgress = OrderProgress::create([
-                        'order_id'       => $order->id,
-                        'design_id'      => $design->id,
-                        'date'           => now()->format('Y-m-d'),
-                        'status'         => 'Completed',
-                        'notes'          => null,
+                        'order_id' => $order->id,
+                        'design_id' => $design->id,
+                        'date' => now()->format('Y-m-d'),
+                        'status' => 'Completed',
+                        'notes' => null,
                         'invoice_number' => $order->order_number,
                     ]);
                 }
@@ -3750,14 +3731,14 @@ class SaleListController extends Controller
                 $orderProgress->load('items');
 
                 $existingProgressItems = $orderProgress->items
-                    ->filter(fn($item) => $item->orderItem?->usesPolosanFlow())
-                    ->keyBy(fn($item) => $item->order_item_id . '_' . $item->product_id);
+                    ->filter(fn ($item) => $item->orderItem?->usesPolosanFlow())
+                    ->keyBy(fn ($item) => $item->order_item_id.'_'.$item->product_id);
 
                 $newProgressKeys = [];
 
                 foreach ($components as $component) {
                     $orderItem = $component->orderItem;
-                    if (!$orderItem || !$orderItem->usesPolosanFlow()) {
+                    if (! $orderItem || ! $orderItem->usesPolosanFlow()) {
                         continue;
                     }
 
@@ -3766,8 +3747,8 @@ class SaleListController extends Controller
                     }
 
                     $productId = $component->product_id;
-                    $qty       = $component->qty;
-                    $key       = "{$component->order_item_id}_{$productId}";
+                    $qty = $component->qty;
+                    $key = "{$component->order_item_id}_{$productId}";
 
                     $newProgressKeys[] = $key;
 
@@ -3778,26 +3759,26 @@ class SaleListController extends Controller
 
                     if ($existingProgressItems->has($key)) {
                         $existingProgressItems[$key]->update([
-                            'design_item_id'     => $designItem?->id,
-                            'quantity'           => $qty,
+                            'design_item_id' => $designItem?->id,
+                            'quantity' => $qty,
                             'completed_quantity' => $qty,
                         ]);
 
                         $progressItem = $existingProgressItems[$key];
                     } else {
                         $progressItem = OrderProgressItem::create([
-                            'order_progress_id'  => $orderProgress->id,
-                            'design_item_id'     => $designItem?->id,
-                            'order_item_id'      => $orderItem->id,
-                            'product_id'         => $productId,
-                            'quantity'           => $qty,
+                            'order_progress_id' => $orderProgress->id,
+                            'design_item_id' => $designItem?->id,
+                            'order_item_id' => $orderItem->id,
+                            'product_id' => $productId,
+                            'quantity' => $qty,
                             'completed_quantity' => $qty,
                         ]);
                     }
                 }
 
                 foreach ($existingProgressItems as $key => $progressItem) {
-                    if (!in_array($key, $newProgressKeys)) {
+                    if (! in_array($key, $newProgressKeys)) {
                         $progressItem->delete();
                     }
                 }
@@ -3888,16 +3869,16 @@ class SaleListController extends Controller
                 ->where('credit', '>', 0)
                 ->first();
 
-            if (!$existingSaleTx) {
+            if (! $existingSaleTx) {
                 AccountTransaction::create([
-                    'order_id'            => $order->id,
-                    'order_number'        => $order->order_number,
-                    'transaction_date'    => $request->order_date,
-                    'account_id'          => $saleAccount->id,
-                    'debit'               => 0,
-                    'credit'              => $request->total_amount,
-                    'note'                => $request->note ?? '',
-                    'particular'          => 'Sale Invoice',
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'transaction_date' => $request->order_date,
+                    'account_id' => $saleAccount->id,
+                    'debit' => 0,
+                    'credit' => $request->total_amount,
+                    'note' => $request->note ?? '',
+                    'particular' => 'Sale Invoice',
                     'transaction_group_id' => Str::uuid(),
                 ]);
                 $saleAccount->increment('closing_balance', $request->total_amount);
@@ -3905,7 +3886,7 @@ class SaleListController extends Controller
                 $diff = $request->total_amount - $existingSaleTx->credit;
                 $existingSaleTx->update([
                     'transaction_date' => $request->order_date,
-                    'credit'           => $request->total_amount,
+                    'credit' => $request->total_amount,
                 ]);
                 if ($diff != 0) {
                     $saleAccount->increment('closing_balance', $diff);
@@ -3917,14 +3898,14 @@ class SaleListController extends Controller
                 $cashBank = Account::findOrFail($request->cash_bank_account_id);
 
                 AccountTransaction::create([
-                    'order_id'            => $order->id,
-                    'order_number'        => $order->order_number,
-                    'transaction_date'    => $request->order_date,
-                    'account_id'          => $cashBank->id,
-                    'debit'               => $additionalPay,
-                    'credit'              => 0,
-                    'note'                => $request->note ?? '',
-                    'particular'          => 'Additional Payment',
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'transaction_date' => $request->order_date,
+                    'account_id' => $cashBank->id,
+                    'debit' => $additionalPay,
+                    'credit' => 0,
+                    'note' => $request->note ?? '',
+                    'particular' => 'Additional Payment',
                     'transaction_group_id' => Str::uuid(),
                 ]);
 
@@ -3943,7 +3924,7 @@ class SaleListController extends Controller
 
                 // Hitung ulang COGS & Fixed Cost berdasarkan produk dan bundle
                 foreach ($order->orderItems as $orderItem) {
-                    if ($orderItem->product_id && !$orderItem->product_bundle_id) {
+                    if ($orderItem->product_id && ! $orderItem->product_bundle_id) {
                         // Produk satuan
                         $product = $orderItem->product;
                         $avgCost = $product->avg_cost ?? 0;
@@ -3985,56 +3966,58 @@ class SaleListController extends Controller
                 if ($financialReport) {
                     // Update report lama
                     $financialReport->update([
-                        'date'                      => $order->order_date,
-                        'revenue'                   => $totalRevenue,
-                        'cogs'                      => $totalCogs,
-                        'cogs_fixed_cost'           => $totalFixedCost,
-                        'gross_profit'              => $grossProfit,
+                        'date' => $order->order_date,
+                        'revenue' => $totalRevenue,
+                        'cogs' => $totalCogs,
+                        'cogs_fixed_cost' => $totalFixedCost,
+                        'gross_profit' => $grossProfit,
                         'gross_profit_at_fixed_cost' => $grossProfitAtFixedCost,
-                        'expense'                   => 0,
-                        'net_profit'                => $netProfit,
-                        'net_profit_at_fixed_cost'  => $netProfitAtFixedCost,
-                        'notes'                     => 'Auto-updated from Sale List Edit',
+                        'expense' => 0,
+                        'net_profit' => $netProfit,
+                        'net_profit_at_fixed_cost' => $netProfitAtFixedCost,
+                        'notes' => 'Auto-updated from Sale List Edit',
                     ]);
                 } else {
                     // Buat baru kalau belum ada
                     FinancialReport::create([
-                        'date'                      => $order->order_date,
-                        'transaction_type'          => 'sale',
-                        'reference_id'              => $order->id,
-                        'reference_table'           => 'orders',
-                        'revenue'                   => $totalRevenue,
-                        'cogs'                      => $totalCogs,
-                        'cogs_fixed_cost'           => $totalFixedCost,
-                        'gross_profit'              => $grossProfit,
+                        'date' => $order->order_date,
+                        'transaction_type' => 'sale',
+                        'reference_id' => $order->id,
+                        'reference_table' => 'orders',
+                        'revenue' => $totalRevenue,
+                        'cogs' => $totalCogs,
+                        'cogs_fixed_cost' => $totalFixedCost,
+                        'gross_profit' => $grossProfit,
                         'gross_profit_at_fixed_cost' => $grossProfitAtFixedCost,
-                        'expense'                   => 0,
-                        'net_profit'                => $netProfit,
-                        'net_profit_at_fixed_cost'  => $netProfitAtFixedCost,
-                        'notes'                     => 'Auto-generated from Sale List Edit',
+                        'expense' => 0,
+                        'net_profit' => $netProfit,
+                        'net_profit_at_fixed_cost' => $netProfitAtFixedCost,
+                        'notes' => 'Auto-generated from Sale List Edit',
                     ]);
                 }
             } catch (\Exception $e) {
-                Log::error('Gagal update laporan keuangan untuk Order ID ' . $order->id . ': ' . $e->getMessage());
+                Log::error('Gagal update laporan keuangan untuk Order ID '.$order->id.': '.$e->getMessage());
             }
 
             // ===== 7) SIMPAN HISTORY & FLAG SUDAH EDIT
             OrderEditHistory::create([
-                'order_id'  => $order->id,
+                'order_id' => $order->id,
                 'edited_by' => Auth::id(),
-                'changes'   => $changes,
-                'text'      => $request->edit_note,
+                'changes' => $changes,
+                'text' => $request->edit_note,
                 'edited_at' => now(),
             ]);
 
             $order->update(['status_edited' => true]);
 
             DB::commit();
-            return redirect("/erp/sales/sale-list/")->with('success', 'Order berhasil diupdate.');
+
+            return redirect('/erp/sales/sale-list/')->with('success', 'Order berhasil diupdate.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error update order: ' . $e->getMessage());
-            return back()->with('error', 'Gagal mengupdate order: ' . $e->getMessage());
+            Log::error('Error update order: '.$e->getMessage());
+
+            return back()->with('error', 'Gagal mengupdate order: '.$e->getMessage());
         }
     }
 
@@ -4059,6 +4042,7 @@ class SaleListController extends Controller
             if ($hasProgressHistory) {
                 DB::rollBack();
                 $msg = 'Tidak dapat menghapus order ini karena sudah memiliki progress history produksi.';
+
                 return $this->deleteResponse($request, false, $msg);
             }
 
@@ -4072,6 +4056,7 @@ class SaleListController extends Controller
             if ($hasAssign) {
                 DB::rollBack();
                 $msg = 'Tidak dapat menghapus order ini karena sudah memiliki progress assign produksi.';
+
                 return $this->deleteResponse($request, false, $msg);
             }
 
@@ -4080,11 +4065,12 @@ class SaleListController extends Controller
             // =========================================================
             $hasFinishedDelivery = $order->deliveryOrders
                 ->flatMap->shipments
-                ->contains(fn($shipment) => $shipment->status === 'Finished');
+                ->contains(fn ($shipment) => $shipment->status === 'Finished');
 
             if ($hasFinishedDelivery) {
                 DB::rollBack();
                 $msg = 'Tidak bisa menghapus order ini karena sudah ada Delivery List.';
+
                 return $this->deleteResponse($request, false, $msg);
             }
 
@@ -4094,6 +4080,7 @@ class SaleListController extends Controller
             if (SaleReturn::where('sale_order_id', $order->id)->exists()) {
                 DB::rollBack();
                 $msg = 'Tidak bisa menghapus order ini karena sudah ada Sale Return.';
+
                 return $this->deleteResponse($request, false, $msg);
             }
 
@@ -4103,7 +4090,7 @@ class SaleListController extends Controller
             // 🔹 HANDLE PERUBAHAN STOK BERDASARKAN MODE
             // ======================================================
             if ($order->mode === 'printing') {
-                $progressItems = OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))
+                $progressItems = OrderProgressItem::whereHas('progress', fn ($q) => $q->where('order_id', $order->id))
                     ->get(['id', 'product_id', 'order_item_id', 'quantity']);
 
                 // 🔍 Cek apakah design verified
@@ -4112,7 +4099,9 @@ class SaleListController extends Controller
                     ->exists();
 
                 foreach ($progressItems as $progressItem) {
-                    if (!$progressItem->product_id || $progressItem->quantity <= 0) continue;
+                    if (! $progressItem->product_id || $progressItem->quantity <= 0) {
+                        continue;
+                    }
 
                     $productionStock = ProductionStock::firstOrCreate(
                         ['product_id' => $progressItem->product_id],
@@ -4129,7 +4118,6 @@ class SaleListController extends Controller
                     $productionStock->save();
                 }
             }
-
 
             // if ($order->mode === 'polosan') {
             //     foreach ($order->orderItems as $item) {
@@ -4169,7 +4157,9 @@ class SaleListController extends Controller
                     $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
                     if ($bundle) {
                         foreach ($bundle->items as $bundleItem) {
-                            if (!$bundleItem->product_id) continue;
+                            if (! $bundleItem->product_id) {
+                                continue;
+                            }
 
                             $inventoryStock = InventoryStock::firstOrCreate(
                                 ['product_id' => $bundleItem->product_id, 'inventory_warehouse_id' => $warehouseId],
@@ -4184,7 +4174,7 @@ class SaleListController extends Controller
             // ======================================================
             // 🔁 Handle progress assign rollback
             // ======================================================
-            $progressItems = OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))
+            $progressItems = OrderProgressItem::whereHas('progress', fn ($q) => $q->where('order_id', $order->id))
                 ->get(['id', 'product_id', 'order_item_id', 'quantity']);
 
             // 🔍 Cek apakah order ini punya design yang verified
@@ -4194,19 +4184,21 @@ class SaleListController extends Controller
 
             foreach ($progressItems as $progressItem) {
                 $qty = (int) $progressItem->quantity;
-                if ($qty <= 0 || !$progressItem->product_id) continue;
+                if ($qty <= 0 || ! $progressItem->product_id) {
+                    continue;
+                }
 
                 $productionStock = ProductionStock::firstOrCreate(
                     ['product_id' => $progressItem->product_id, 'production_warehouse_id' => 2],
                     [
-                        'available_quantity'     => 0,
+                        'available_quantity' => 0,
                         'finished_product_stock' => 0,
-                        'pending_waiting_list'   => 0,
+                        'pending_waiting_list' => 0,
                         'canceled_product_stock' => 0,
                     ]
                 );
 
-                $beforeAvail   = (int) $productionStock->available_quantity;
+                $beforeAvail = (int) $productionStock->available_quantity;
                 $beforePending = (int) $productionStock->pending_waiting_list;
 
                 // 🔹 Hanya decrement pending waiting list jika design sudah verified
@@ -4245,7 +4237,9 @@ class SaleListController extends Controller
             foreach ($transactions as $trx) {
 
                 $account = Account::find($trx->account_id);
-                if (!$account) continue;
+                if (! $account) {
+                    continue;
+                }
 
                 // ======================================================
                 // 🔹 Jika transaksi adalah Customer Deposit → ROLLBACK
@@ -4272,6 +4266,7 @@ class SaleListController extends Controller
                     $account->save();
 
                     $trx->delete();
+
                     continue;
                 }
 
@@ -4279,7 +4274,7 @@ class SaleListController extends Controller
                 // 🔹 BANK / CASH → TIDAK DIHAPUS, hanya ditandai
                 // ======================================================
                 $trx->order_id = null;
-                $trx->note = trim(($trx->note ?? '') . ' [Order deleted]');
+                $trx->note = trim(($trx->note ?? '').' [Order deleted]');
                 $trx->save();
             }
 
@@ -4315,7 +4310,7 @@ class SaleListController extends Controller
             OrderEditHistory::where('order_id', $order->id)->delete();
 
             $order->delete_notes = $request->input('delete_notes');
-            $order->deleted_by   = Auth::id();
+            $order->deleted_by = Auth::id();
             $order->save();
             $order->delete();
 
@@ -4324,11 +4319,13 @@ class SaleListController extends Controller
                 ->update(['deleted_at' => now()]);
 
             DB::commit();
+
             return $this->deleteResponse($request, true, 'Order berhasil dihapus.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Order delete failed: ' . $e->getMessage());
-            return $this->deleteResponse($request, false, 'Gagal menghapus order: ' . $e->getMessage());
+            Log::error('Order delete failed: '.$e->getMessage());
+
+            return $this->deleteResponse($request, false, 'Gagal menghapus order: '.$e->getMessage());
         }
     }
 
@@ -4336,7 +4333,7 @@ class SaleListController extends Controller
     {
         if ($request->expectsJson()) {
             return response()->json([
-                'status'  => $success ? 'success' : 'error',
+                'status' => $success ? 'success' : 'error',
                 'message' => $message,
             ], $success ? 200 : 400);
         }
@@ -4350,7 +4347,7 @@ class SaleListController extends Controller
 
     public function forceDeleteOwner($id, Request $request)
     {
-        if (!Auth::check() || Auth::user()->role !== 'Owner') {
+        if (! Auth::check() || Auth::user()->role !== 'Owner') {
             abort(403, 'Only Owner can force delete.');
         }
 
@@ -4363,17 +4360,18 @@ class SaleListController extends Controller
         DB::beginTransaction();
         try {
             $order = Order::with([
-                'orderItems.components.product'
+                'orderItems.components.product',
             ])->findOrFail($id);
 
             $hasSaleReturn = SaleReturn::where('sale_order_id', $order->id)->exists();
             if ($hasSaleReturn) {
                 DB::rollBack();
                 $msg = 'Tidak dapat menghapus order ini karena sudah memiliki sale return.';
+
                 return $this->deleteResponse($request, false, $msg);
             }
 
-            $inventoryWarehouseId  = $request->inventory_warehouse_id  ?? 1;
+            $inventoryWarehouseId = $request->inventory_warehouse_id ?? 1;
             $productionWarehouseId = $request->production_warehouse_id ?? 2;
 
             $hasProgressHistory = OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
@@ -4402,6 +4400,7 @@ class SaleListController extends Controller
                         Log::debug('Skip rollback SATUAN (already processed)', [
                             'product_id' => $item->product_id,
                         ]);
+
                         continue;
                     }
 
@@ -4417,13 +4416,13 @@ class SaleListController extends Controller
                     $assignedQty = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
                         $q->where('order_id', $order->id);
                     })
-                        ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
+                        ->whereHas('progressItem', fn ($q) => $q->where('product_id', $item->product_id))
                         ->sum('assigned_quantity');
 
                     $producedQty = \App\Models\OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
                         $q->where('order_id', $order->id);
                     })
-                        ->whereHas('progressItem', fn($q) => $q->where('product_id', $item->product_id))
+                        ->whereHas('progressItem', fn ($q) => $q->where('product_id', $item->product_id))
                         ->selectRaw('COALESCE(SUM(completed_quantity + defect_quantity + reject_quantity), 0) as total')
                         ->value('total');
 
@@ -4445,7 +4444,7 @@ class SaleListController extends Controller
                     $inventoryStock->save();
 
                     $skipProduction = (
-                        !$hasVerifiedDesign &&
+                        ! $hasVerifiedDesign &&
                         $assignedQty <= 0 &&
                         $producedQty <= 0 &&
                         $shippedQty <= 0
@@ -4455,15 +4454,15 @@ class SaleListController extends Controller
                     if ($order->mode !== 'polosan' && $skipProduction) {
 
                         Log::warning('SKIP rollback PRODUCTION SATUAN — order ini belum menyentuh produksi', [
-                            'order_id'   => $order->id,
+                            'order_id' => $order->id,
                             'product_id' => $item->product_id,
-                            'qty'        => $qty,
+                            'qty' => $qty,
                         ]);
 
                         $processedProducts[] = $item->product_id;
+
                         continue;
                     }
-
 
                     // ===============================================
                     // 4) Mulai ROLLBACK PRODUKSI, karena ada jejak
@@ -4471,9 +4470,9 @@ class SaleListController extends Controller
                     $ps = ProductionStock::firstOrCreate(
                         ['product_id' => $item->product_id, 'production_warehouse_id' => $productionWarehouseId],
                         [
-                            'available_quantity'     => 0,
+                            'available_quantity' => 0,
                             'finished_product_stock' => 0,
-                            'pending_waiting_list'   => 0,
+                            'pending_waiting_list' => 0,
                             'canceled_product_stock' => 0,
                         ]
                     );
@@ -4511,12 +4510,12 @@ class SaleListController extends Controller
                     $ps->save();
 
                     Log::debug('Force delete rollback SATUAN', [
-                        'order_id'          => $order->id,
-                        'product_id'        => $item->product_id,
-                        'qty'               => $qty,
-                        'avail'             => $ps->available_quantity,
-                        'pending'           => $ps->pending_waiting_list,
-                        'finish'            => $ps->finished_product_stock,
+                        'order_id' => $order->id,
+                        'product_id' => $item->product_id,
+                        'qty' => $qty,
+                        'avail' => $ps->available_quantity,
+                        'pending' => $ps->pending_waiting_list,
+                        'finish' => $ps->finished_product_stock,
                         'stock_after_sales' => $inventoryStock->stock_after_sales,
                     ]);
 
@@ -4530,15 +4529,19 @@ class SaleListController extends Controller
                  * 🧩 HANDLE PRODUK BUNDLE
                  * ------------------------------------------------------
                  */
-                if ($item->satuan !== 'bundle' || !$item->product_bundle_id) {
+                if ($item->satuan !== 'bundle' || ! $item->product_bundle_id) {
                     continue;
                 }
 
                 $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
-                if (!$bundle) continue;
+                if (! $bundle) {
+                    continue;
+                }
 
                 foreach ($bundle->items as $bundleItem) {
-                    if (!$bundleItem->product_id) continue;
+                    if (! $bundleItem->product_id) {
+                        continue;
+                    }
 
                     // Hitung total qty aktual komponen bundle
                     $componentQty = (float) $item->quantity * ($bundleItem->quantity ?? 1);
@@ -4551,8 +4554,8 @@ class SaleListController extends Controller
                      */
                     $inventoryStock = InventoryStock::firstOrCreate(
                         [
-                            'product_id'             => $bundleItem->product_id,
-                            'inventory_warehouse_id' => $inventoryWarehouseId
+                            'product_id' => $bundleItem->product_id,
+                            'inventory_warehouse_id' => $inventoryWarehouseId,
                         ],
                         ['stock_after_sales' => 0]
                     );
@@ -4569,13 +4572,13 @@ class SaleListController extends Controller
                         if ($order->mode === 'printing' && $hasVerifiedDesign) {
                             $ps = ProductionStock::firstOrCreate(
                                 [
-                                    'product_id'             => $bundleItem->product_id,
-                                    'production_warehouse_id' => $productionWarehouseId
+                                    'product_id' => $bundleItem->product_id,
+                                    'production_warehouse_id' => $productionWarehouseId,
                                 ],
                                 [
-                                    'available_quantity'     => 0,
+                                    'available_quantity' => 0,
                                     'finished_product_stock' => 0,
-                                    'pending_waiting_list'   => 0,
+                                    'pending_waiting_list' => 0,
                                     'canceled_product_stock' => 0,
                                 ]
                             );
@@ -4606,13 +4609,13 @@ class SaleListController extends Controller
                     $assignedQty = \App\Models\OrderProgressAssign::whereHas('progressItem.progress', function ($q) use ($order) {
                         $q->where('order_id', $order->id);
                     })
-                        ->whereHas('progressItem', fn($q) => $q->where('product_id', $bundleItem->product_id))
+                        ->whereHas('progressItem', fn ($q) => $q->where('product_id', $bundleItem->product_id))
                         ->sum('assigned_quantity');
 
                     $producedQty = \App\Models\OrderProgressHistory::whereHas('progressItem.progress', function ($q) use ($order) {
                         $q->where('order_id', $order->id);
                     })
-                        ->whereHas('progressItem', fn($q) => $q->where('product_id', $bundleItem->product_id))
+                        ->whereHas('progressItem', fn ($q) => $q->where('product_id', $bundleItem->product_id))
                         ->selectRaw('COALESCE(SUM(completed_quantity + defect_quantity + reject_quantity), 0) as total')
                         ->value('total');
 
@@ -4623,7 +4626,7 @@ class SaleListController extends Controller
                         ->sum('shipped_qty');
 
                     $skipProduction = (
-                        !$hasVerifiedDesign &&
+                        ! $hasVerifiedDesign &&
                         $assignedQty <= 0 &&
                         $producedQty <= 0 &&
                         $shippedQty <= 0
@@ -4632,16 +4635,16 @@ class SaleListController extends Controller
                     // ❗ MODE POLOSAN tidak boleh skip
                     if ($order->mode !== 'polosan' && $skipProduction) {
 
-                        Log::warning("SKIP rollback PRODUCTION BUNDLE — order belum menyentuh produksi", [
+                        Log::warning('SKIP rollback PRODUCTION BUNDLE — order belum menyentuh produksi', [
                             'order_id' => $order->id,
                             'component_id' => $bundleItem->product_id,
                             'componentQty' => $componentQty,
                         ]);
 
                         $processedProducts[] = $bundleItem->product_id;
+
                         continue;
                     }
-
 
                     /**
                      * ======================================================
@@ -4651,9 +4654,9 @@ class SaleListController extends Controller
                     $ps = ProductionStock::firstOrCreate(
                         ['product_id' => $bundleItem->product_id, 'production_warehouse_id' => $productionWarehouseId],
                         [
-                            'available_quantity'     => 0,
+                            'available_quantity' => 0,
                             'finished_product_stock' => 0,
-                            'pending_waiting_list'   => 0,
+                            'pending_waiting_list' => 0,
                             'canceled_product_stock' => 0,
                         ]
                     );
@@ -4714,9 +4717,9 @@ class SaleListController extends Controller
                 $q->where('order_id', $order->id);
             })->delete();
 
-            // 🔹 REJECT PRODUCT  
-            \App\Models\RejectProduct::whereHas('orderProgress', fn($q) => $q->where('order_id', $order->id))
-                ->orWhereHas('orderProgressBatch.orderProgress', fn($q) => $q->where('order_id', $order->id))
+            // 🔹 REJECT PRODUCT
+            \App\Models\RejectProduct::whereHas('orderProgress', fn ($q) => $q->where('order_id', $order->id))
+                ->orWhereHas('orderProgressBatch.orderProgress', fn ($q) => $q->where('order_id', $order->id))
                 ->delete();
 
             // ======================================================
@@ -4730,9 +4733,11 @@ class SaleListController extends Controller
             foreach ($transactions as $trx) {
 
                 $account = Account::find($trx->account_id);
-                if (!$account) continue;
+                if (! $account) {
+                    continue;
+                }
 
-                $debit  = (float) $trx->debit;
+                $debit = (float) $trx->debit;
                 $credit = (float) $trx->credit;
 
                 switch ($account->type) {
@@ -4794,15 +4799,15 @@ class SaleListController extends Controller
             // AccountTransaction::where('order_id', $order->id)->delete();
             $batches = OrderProgressAssignBatch::whereHas(
                 'orderProgress',
-                fn($q) => $q->where('order_id', $order->id)
+                fn ($q) => $q->where('order_id', $order->id)
             )->get();
 
             foreach ($batches as $batch) {
                 $batch->delete(); // 🔥 INI YANG MEMICU booted()
             }
 
-            OrderProgressHistory::whereHas('progressItem.progress', fn($q) => $q->where('order_id', $order->id))->delete();
-            OrderProgressItem::whereHas('progress', fn($q) => $q->where('order_id', $order->id))->delete();
+            OrderProgressHistory::whereHas('progressItem.progress', fn ($q) => $q->where('order_id', $order->id))->delete();
+            OrderProgressItem::whereHas('progress', fn ($q) => $q->where('order_id', $order->id))->delete();
             OrderProgress::where('order_id', $order->id)->delete();
             OrderItem::where('order_id', $order->id)->delete();
             OrderEditHistory::where('order_id', $order->id)->delete();
@@ -4821,16 +4826,22 @@ class SaleListController extends Controller
             // 🔹 Delivery Order dan List
             $deliveryOrders = DeliveryOrder::with(['items', 'shipments'])->where('order_id', $order->id)->get();
             foreach ($deliveryOrders as $do) {
-                if (method_exists($do, 'items')) $do->items()->delete();
-                if (method_exists($do, 'shipments')) $do->shipments()->delete();
+                if (method_exists($do, 'items')) {
+                    $do->items()->delete();
+                }
+                if (method_exists($do, 'shipments')) {
+                    $do->shipments()->delete();
+                }
                 $do->delete();
             }
 
             $deliveryLists = DeliveryList::with(['items'])
-                ->whereHas('deliveryOrder', fn($q) => $q->where('order_id', $order->id))
+                ->whereHas('deliveryOrder', fn ($q) => $q->where('order_id', $order->id))
                 ->get();
             foreach ($deliveryLists as $dl) {
-                if (method_exists($dl, 'items')) $dl->items()->delete();
+                if (method_exists($dl, 'items')) {
+                    $dl->items()->delete();
+                }
                 $dl->delete();
             }
 
@@ -4838,22 +4849,25 @@ class SaleListController extends Controller
              * 3️⃣ FORCE DELETE ORDER
              */
             $order->delete_notes = $request->input('delete_notes');
-            $order->deleted_by   = Auth::id();
+            $order->deleted_by = Auth::id();
             $order->saveQuietly();
             $order->delete();
 
             DB::commit();
+
             return redirect()->back()->with('success', 'Order berhasil dihapus total. Semua stok direset ke 0 (efek order hilang sepenuhnya).');
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Force delete owner failed: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return back()->with('error', 'Gagal force delete: ' . $e->getMessage());
+            Log::error('Force delete owner failed: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+            return back()->with('error', 'Gagal force delete: '.$e->getMessage());
         }
     }
 
     public function getSaleListDetail($id)
     {
         $order = Order::with('orderItems')->findOrFail($id);
+
         return view('erp.pages.sales.sale-list.detail-order', compact('order'));
     }
 
@@ -4871,9 +4885,9 @@ class SaleListController extends Controller
             'transaction_type' => 'required|exists:accounts,id',
             'note' => 'nullable|string',
             'particular' => 'nullable|string',
-            'payment_proof'        => 'nullable|array',
-            'payment_proof.*'      => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
-            'note_per_image'       => 'nullable|array',
+            'payment_proof' => 'nullable|array',
+            'payment_proof.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image' => 'nullable|array',
             'deposit_used' => 'nullable|numeric|min:0',
             'use_write_off_only' => 'nullable|boolean',
         ]);
@@ -4909,11 +4923,11 @@ class SaleListController extends Controller
                 throw new \RuntimeException('Customer deposit tidak mencukupi.');
             }
 
-            if (($paidAmount + $depositUsed) <= 0 && !$request->boolean('use_write_off_only')) {
+            if (($paidAmount + $depositUsed) <= 0 && ! $request->boolean('use_write_off_only')) {
                 throw new \RuntimeException('Isi pembayaran, gunakan customer deposit, atau pilih write off.');
             }
 
-            if ($paidAmount > 0 && !$request->filled('cash_bank_account_id')) {
+            if ($paidAmount > 0 && ! $request->filled('cash_bank_account_id')) {
                 throw new \RuntimeException('Pilih cash atau bank account untuk pembayaran.');
             }
 
@@ -4938,23 +4952,23 @@ class SaleListController extends Controller
             if ($request->hasFile('payment_proof')) {
                 $uploadPath = public_path('uploads/payment_proofs');
 
-                if (!file_exists($uploadPath)) {
+                if (! file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
 
                 foreach ($request->file('payment_proof') as $index => $file) {
-                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $fileName = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
                     $file->move($uploadPath, $fileName);
 
                     $uploadedProofs[] = [
-                        'file' => 'uploads/payment_proofs/' . $fileName,
+                        'file' => 'uploads/payment_proofs/'.$fileName,
                         'note' => $notes[$index] ?? '',
                     ];
                 }
             }
 
             // Simpan ke kolom proof (JSON)
-            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+            $proofJson = ! empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // Transaksi KREDIT (kas/bank berkurang)
             // ===============================
@@ -4969,7 +4983,7 @@ class SaleListController extends Controller
                     'debit' => $paidAmount,
                     'credit' => 0,
                     'note' => $request->note ?? '',
-                    'particular' => $saleAccount->name . ' - ' . $saleAccount->type,
+                    'particular' => $saleAccount->name.' - '.$saleAccount->type,
                     'transaction_group_id' => $bankGroupId,
                     'proof' => $proofJson,
                 ]);
@@ -5009,7 +5023,7 @@ class SaleListController extends Controller
             $order->paid_amount += $paidAmount + $depositUsed;
             $order->remaining_amount = max(0, $order->grand_total - $order->paid_amount);
 
-            // Kalau sebelumnya Unpaid, bisa ubah jadi Partially Paid atau Paid        
+            // Kalau sebelumnya Unpaid, bisa ubah jadi Partially Paid atau Paid
 
             // ===============================
             // 🔥 WRITE OFF (jika checkbox dicentang)
@@ -5037,7 +5051,7 @@ class SaleListController extends Controller
                         'debit' => $writeOffAmount,
                         'credit' => 0,
                         'note' => 'Write off remaining balance',
-                        'particular' => 'Write Off - ' . $order->order_number,
+                        'particular' => 'Write Off - '.$order->order_number,
                         'transaction_group_id' => $writeOffGroupId,
                         'proof' => $proofJson,
                     ]);
@@ -5063,11 +5077,10 @@ class SaleListController extends Controller
 
             if ($order->due_date) {
                 $due = Carbon::parse($order->due_date)->endOfDay();
-                if (now()->gt($due) && !in_array($order->payment_status, ['Paid', 'Overpaid'])) {
+                if (now()->gt($due) && ! in_array($order->payment_status, ['Paid', 'Overpaid'])) {
                     $isOverdue = true;
                 }
             }
-
 
             // =======================================
             // PAYMENT STATUS BADGE (beda kolom!)
@@ -5079,59 +5092,60 @@ class SaleListController extends Controller
                 default => 'bg-soft-dark text-dark',
             };
 
-            $paymentStatusHtml = '<span class="badge ' . $statusClass . '">' . ucfirst($order->payment_status) . '</span>';
+            $paymentStatusHtml = '<span class="badge '.$statusClass.'">'.ucfirst($order->payment_status).'</span>';
 
             if ($isOverdue) {
                 $paymentStatusHtml .= '<span class="badge bg-soft-danger text-danger ms-1">Overdue</span>';
             }
 
             DB::commit();
+
             return response()->json([
-                'status'  => 'success',
+                'status' => 'success',
                 'message' => 'Pembayaran berhasil disimpan.',
-                'order'   => [
-                    'id'               => $order->id,
-                    'order_number'     => $order->order_number,
-                    'customer'         => optional($order->customer)->name ?? '-',
-                    'grand_total'      => number_format($order->grand_total, 0, ',', '.'),
+                'order' => [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'customer' => optional($order->customer)->name ?? '-',
+                    'grand_total' => number_format($order->grand_total, 0, ',', '.'),
                     // 'paid_amount'      => number_format($order->paid_amount, 0, ',', '.'),
-                    'paid_amount' =>
-                    '<div class="text-success">Rp ' . number_format($order->paid_amount, 0, ',', '.') . '</div>
-                        <small class="text-danger">Remaining: Rp ' . number_format($order->remaining_amount, 0, ',', '.') . '</small>',
+                    'paid_amount' => '<div class="text-success">Rp '.number_format($order->paid_amount, 0, ',', '.').'</div>
+                        <small class="text-danger">Remaining: Rp '.number_format($order->remaining_amount, 0, ',', '.').'</small>',
                     // 'remaining_amount' => number_format($order->remaining_amount, 0, ',', '.'),
-                    'payment_status'   => $paymentStatusHtml,
-                    'mode'             => $order->mode,
-                    'notes'            => $order->notes,
-                    'created_at'       => $order->created_at->format('Y-m-d H:i:s'),
-                    'action'           => view('erp.pages.sales.sale-list.partials.action-button', [
-                        'order' => $order
+                    'payment_status' => $paymentStatusHtml,
+                    'mode' => $order->mode,
+                    'notes' => $order->notes,
+                    'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+                    'action' => view('erp.pages.sales.sale-list.partials.action-button', [
+                        'order' => $order,
                     ])->render(), // 🔥 ini penting
-                    'products'         => $order->orderItems->map(function ($item) {
+                    'products' => $order->orderItems->map(function ($item) {
                         return [
-                            'name'         => $item->product->name ?? '-',
-                            'sku'          => $item->product->sku ?? '-',
-                            'qty'          => $item->quantity,
-                            'price'        => number_format($item->price, 0, ',', '.'),
-                            'ready_qty'    => $item->ready_qty ?? 0,
+                            'name' => $item->product->name ?? '-',
+                            'sku' => $item->product->sku ?? '-',
+                            'qty' => $item->quantity,
+                            'price' => number_format($item->price, 0, ',', '.'),
+                            'ready_qty' => $item->ready_qty ?? 0,
                             'progress_qty' => $item->progress_qty ?? 0,
-                            'delivered'    => $item->delivered_qty ?? 0,
-                            'on_delivery'  => $item->on_delivery ?? 0,
+                            'delivered' => $item->delivered_qty ?? 0,
+                            'on_delivery' => $item->on_delivery ?? 0,
                         ];
                     }),
                 ],
             ]);
+
             return redirect()->back()->with('success', 'Pembayaran berhasil disimpan.');
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('MarkAsPaid Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            Log::error('MarkAsPaid Error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
             if ($request->ajax()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Gagal menyimpan pembayaran: ' . $e->getMessage(),
+                    'message' => 'Gagal menyimpan pembayaran: '.$e->getMessage(),
                 ], 500);
             }
 
-            return redirect()->back()->with('error', 'Gagal menyimpan pembayaran: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal menyimpan pembayaran: '.$e->getMessage());
         }
     }
 
@@ -5171,7 +5185,7 @@ class SaleListController extends Controller
             Log::debug('Order ID', ['order_id' => $orderId]);
             Log::debug('Image data length', ['length' => strlen($imageData)]);
 
-            if (!$uploadToken || !$uploadUrl) {
+            if (! $uploadToken || ! $uploadUrl) {
                 throw new \RuntimeException('Invoice image upload service is not configured.');
             }
 
@@ -5204,19 +5218,19 @@ class SaleListController extends Controller
             Log::debug('Response received', [
                 'status' => $response->status(),
                 'body' => $response->body(),
-                'headers' => $response->headers()
+                'headers' => $response->headers(),
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::error('Upload failed!', [
                     'status' => $response->status(),
-                    'body' => $response->body()
+                    'body' => $response->body(),
                 ]);
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Upload failed: ' . $response->body(),
-                    'status_code' => $response->status()
+                    'message' => 'Upload failed: '.$response->body(),
+                    'status_code' => $response->status(),
                 ], 500);
             }
 
@@ -5226,27 +5240,27 @@ class SaleListController extends Controller
             return response()->json([
                 'success' => true,
                 'url' => $result['url'],
-                'filename' => $result['filename']
+                'filename' => $result['filename'],
             ]);
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             Log::error('Connection error', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Connection error: ' . $e->getMessage()
+                'message' => 'Connection error: '.$e->getMessage(),
             ], 500);
         } catch (\Throwable $e) {
             Log::error('General error', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error: ' . $e->getMessage()
+                'message' => 'Error: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -5256,10 +5270,10 @@ class SaleListController extends Controller
         // Sanitize filename untuk keamanan
         $filename = basename($filename);
 
-        $filepath = storage_path('app/invoices/' . $filename);
+        $filepath = storage_path('app/invoices/'.$filename);
 
         // Cek apakah file ada
-        if (!file_exists($filepath)) {
+        if (! file_exists($filepath)) {
             abort(404, 'Invoice tidak ditemukan');
         }
 
@@ -5288,6 +5302,7 @@ class SaleListController extends Controller
     {
         $order = Order::with('orderItems')->findOrFail($id);
         $invoice = Invoice::with('termAndConditions')->first();
+
         return view('erp.pages.sales.invoice.index', compact('order', 'invoice'));
     }
 
@@ -5295,6 +5310,7 @@ class SaleListController extends Controller
     {
         $order = Order::with('orderItems')->findOrFail($id);
         $invoice = Invoice::with('termAndConditions')->first();
+
         return view('erp.pages.sales.invoice.invoice-image', compact('order', 'invoice'));
     }
 
@@ -5305,12 +5321,12 @@ class SaleListController extends Controller
         ]);
 
         $request->validate([
-            'order_id'            => 'required|exists:orders,id',
-            'return_amount'       => 'required|numeric|min:1',
+            'order_id' => 'required|exists:orders,id',
+            'return_amount' => 'required|numeric|min:1',
             'cash_bank_account_id' => 'required|exists:accounts,id',
-            'transaction_date'    => 'required|date',
+            'transaction_date' => 'required|date',
             // 'transaction_type'    => 'required|exists:accounts,id',
-            'note'                => 'nullable|string',
+            'note' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -5319,17 +5335,17 @@ class SaleListController extends Controller
 
             $groupId = Str::uuid();
             // $saleReturnAccount = Account::findOrFail($request->transaction_type);
-            $cashBankAccount   = Account::findOrFail($request->cash_bank_account_id);
+            $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
 
             // transaksi keluar dari kas/bank
             AccountTransaction::create([
-                'order_id'           => $order->id,
-                'order_number'       => $order->order_number,
-                'transaction_date'   => $request->transaction_date,
-                'account_id'         => $cashBankAccount->id,
-                'debit'              => 0,
-                'credit'             => $request->return_amount,
-                'note'               => $request->note ?? '',
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'transaction_date' => $request->transaction_date,
+                'account_id' => $cashBankAccount->id,
+                'debit' => 0,
+                'credit' => $request->return_amount,
+                'note' => $request->note ?? '',
                 // 'particular'         => $saleReturnAccount->name,
                 'transaction_group_id' => $groupId,
             ]);
@@ -5354,11 +5370,13 @@ class SaleListController extends Controller
             $order->save();
 
             DB::commit();
+
             return redirect()->back()->with('success', 'Return money berhasil diproses.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Return Money Failed', ['error' => $e->getMessage()]);
-            return redirect()->back()->with('error', 'Gagal return money: ' . $e->getMessage());
+
+            return redirect()->back()->with('error', 'Gagal return money: '.$e->getMessage());
         }
     }
 
@@ -5391,24 +5409,24 @@ class SaleListController extends Controller
         ]);
 
         $request->validate([
-            'transaction_date'      => 'required|date',
-            'paid_amount'           => 'required|numeric|min:0',
-            'cash_bank_account_id'  => 'required|exists:accounts,id',
-            'note'                  => 'nullable|string',
-            'payment_proof'        => 'nullable|array',
-            'payment_proof.*'      => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
-            'note_per_image'       => 'nullable|array',
+            'transaction_date' => 'required|date',
+            'paid_amount' => 'required|numeric|min:0',
+            'cash_bank_account_id' => 'required|exists:accounts,id',
+            'note' => 'nullable|string',
+            'payment_proof' => 'nullable|array',
+            'payment_proof.*' => 'file|mimes:jpg,jpeg,png,webp,pdf|max:4096',
+            'note_per_image' => 'nullable|array',
         ]);
 
         DB::beginTransaction();
         try {
             $transactions = AccountTransaction::where('transaction_group_id', $groupId)->get();
             if ($transactions->isEmpty()) {
-                throw new \Exception("Payment not found");
+                throw new \Exception('Payment not found');
             }
 
             $orderId = $transactions->first()->order_id;
-            $order   = Order::findOrFail($orderId);
+            $order = Order::findOrFail($orderId);
 
             foreach ($transactions as $trx) {
                 $trx->update(['verified' => false]);
@@ -5433,15 +5451,15 @@ class SaleListController extends Controller
 
             if ($request->hasFile('payment_proof')) {
                 $uploadPath = public_path('uploads/payment_proofs');
-                if (!file_exists($uploadPath)) {
+                if (! file_exists($uploadPath)) {
                     mkdir($uploadPath, 0755, true);
                 }
 
                 foreach ($request->file('payment_proof') as $index => $file) {
-                    $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $fileName = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
                     $file->move($uploadPath, $fileName);
 
-                    $path = 'uploads/payment_proofs/' . $fileName;
+                    $path = 'uploads/payment_proofs/'.$fileName;
                     $uploadedProofs[] = [
                         'file' => str_replace('\\', '/', $path),
                         'note' => $notes[$index] ?? '',
@@ -5458,7 +5476,7 @@ class SaleListController extends Controller
                 $uploadedProofs = $oldProofs;
             }
 
-            $proofJson = !empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
+            $proofJson = ! empty($uploadedProofs) ? json_encode($uploadedProofs) : null;
 
             // 🔹 Jika paid_amount = 0, hapus semua transaksi dalam group
             if ($request->paid_amount == 0) {
@@ -5481,12 +5499,12 @@ class SaleListController extends Controller
 
                 // 🔹 update paid_amount order dengan cara decrement
                 $newPaidAmount = max(0, $order->paid_amount - $oldPaid);
-                $newRemaining  = max(0, $order->grand_total - $newPaidAmount);
+                $newRemaining = max(0, $order->grand_total - $newPaidAmount);
 
                 $order->update([
-                    'paid_amount'      => $newPaidAmount,
+                    'paid_amount' => $newPaidAmount,
                     'remaining_amount' => $newRemaining,
-                    'payment_status'   => $newPaidAmount == 0
+                    'payment_status' => $newPaidAmount == 0
                         ? 'Unpaid'
                         : ($newPaidAmount < $order->grand_total ? 'Partially Paid' : 'Paid'),
                 ]);
@@ -5495,22 +5513,23 @@ class SaleListController extends Controller
 
                 if ($request->ajax()) {
                     return response()->json([
-                        'status'  => 'deleted',
+                        'status' => 'deleted',
                         'message' => 'Payment berhasil dihapus.',
-                        'group_id' => $groupId
+                        'group_id' => $groupId,
                     ]);
                 }
+
                 return redirect()->back()->with('success', 'Payment dihapus dan status order diperbarui.');
             }
 
             // 🔹 Jika paid_amount > 0 → jalankan update seperti biasa
             $oldDebit = $transactions->firstWhere('debit', '>', 0);
-            if (!$oldDebit) {
-                throw new \Exception("Debit transaction not found in this group");
+            if (! $oldDebit) {
+                throw new \Exception('Debit transaction not found in this group');
             }
 
             $oldAccount = $oldDebit->account;
-            $oldAmount  = $oldDebit->debit;
+            $oldAmount = $oldDebit->debit;
 
             // rollback saldo akun lama
             $oldAccount->decrement('closing_balance', $oldAmount);
@@ -5519,10 +5538,10 @@ class SaleListController extends Controller
             $cashBankAccount = Account::findOrFail($request->cash_bank_account_id);
             $oldDebit->update([
                 'transaction_date' => $request->transaction_date,
-                'account_id'       => $cashBankAccount->id,
-                'debit'            => $request->paid_amount,
-                'note'             => $request->note ?? '',
-                'proof'   => $proofJson,
+                'account_id' => $cashBankAccount->id,
+                'debit' => $request->paid_amount,
+                'note' => $request->note ?? '',
+                'proof' => $proofJson,
             ]);
 
             // update saldo akun baru
@@ -5542,7 +5561,7 @@ class SaleListController extends Controller
                 ->where('debit', '>', 0)
                 ->sum('debit');
 
-            $order->paid_amount      = $totalPaid;
+            $order->paid_amount = $totalPaid;
             $order->remaining_amount = max(0, $order->grand_total - $totalPaid);
 
             if ($order->paid_amount == 0) {
@@ -5560,25 +5579,27 @@ class SaleListController extends Controller
             DB::commit();
             if ($request->ajax()) {
                 return response()->json([
-                    'status'  => 'success',
+                    'status' => 'success',
                     'message' => 'Payment berhasil diperbarui.',
-                    'data'    => [
+                    'data' => [
                         'transaction_group_id' => $groupId,
-                        'transaction_date'     => \Carbon\Carbon::parse($request->transaction_date)->format('d-m-Y'),
-                        'paid_amount'          => number_format($request->paid_amount, 0, ',', '.'),
-                        'account_id'           => $cashBankAccount->id,
-                        'account_name'         => $cashBankAccount->name,
-                        'account_type'         => $cashBankAccount->type,
-                        'note'                 => $request->note ?? '',
-                        'proofs'               => $uploadedProofs, // array bukti [{file:'uploads/..', note:'..'}, ...]
-                        'verified'             => false,
+                        'transaction_date' => \Carbon\Carbon::parse($request->transaction_date)->format('d-m-Y'),
+                        'paid_amount' => number_format($request->paid_amount, 0, ',', '.'),
+                        'account_id' => $cashBankAccount->id,
+                        'account_name' => $cashBankAccount->name,
+                        'account_type' => $cashBankAccount->type,
+                        'note' => $request->note ?? '',
+                        'proofs' => $uploadedProofs, // array bukti [{file:'uploads/..', note:'..'}, ...]
+                        'verified' => false,
                     ],
                 ]);
             }
+
             return redirect()->back()->with('success', 'Payment berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal update payment: ' . $e->getMessage());
+
+            return redirect()->back()->with('error', 'Gagal update payment: '.$e->getMessage());
         }
     }
 
@@ -5620,7 +5641,7 @@ class SaleListController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Gagal verifikasi payment: ' . $e->getMessage(),
+                'message' => 'Gagal verifikasi payment: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -5651,7 +5672,7 @@ class SaleListController extends Controller
                 // 🔄 Kalau masih ada yang verified → order tetap true
                 // ❌ Kalau tidak ada yang verified → set false
                 Order::where('id', $orderId)->update([
-                    'verified' => $anyVerified
+                    'verified' => $anyVerified,
                 ]);
             }
 
@@ -5661,7 +5682,7 @@ class SaleListController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Gagal unverify payment: ' . $e->getMessage(),
+                'message' => 'Gagal unverify payment: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -5694,13 +5715,15 @@ class SaleListController extends Controller
                 ->forceDelete();
 
             DB::commit();
+
             return redirect()->back()->with('success', 'Order beserta item & relasinya berhasil dihapus permanen!');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Force delete order gagal', [
                 'order_id' => $id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return redirect()->back()->with('error', 'Gagal menghapus permanen order!');
         }
     }
@@ -5712,7 +5735,7 @@ class SaleListController extends Controller
         try {
             $order = Order::onlyTrashed()
                 ->with([
-                    'orderItems' => fn($q) => $q->withTrashed(),
+                    'orderItems' => fn ($q) => $q->withTrashed(),
                 ])
                 ->findOrFail($id);
 
@@ -5728,6 +5751,7 @@ class SaleListController extends Controller
 
             if ($hasStockIn) {
                 DB::rollBack();
+
                 return back()->with('error', 'Tidak bisa restore! Order ini sudah pernah masuk ke Warehouse (Stock In dari Canceled Product).');
             }
 
@@ -5754,7 +5778,9 @@ class SaleListController extends Controller
                     $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
                     if ($bundle) {
                         foreach ($bundle->items as $bundleItem) {
-                            if (!$bundleItem->product_id) continue;
+                            if (! $bundleItem->product_id) {
+                                continue;
+                            }
                             $inventoryStock = InventoryStock::firstOrCreate(
                                 ['product_id' => $bundleItem->product_id, 'inventory_warehouse_id' => $warehouseId],
                                 ['stock_after_sales' => 0]
@@ -5773,7 +5799,7 @@ class SaleListController extends Controller
                 // Saat delete printing → pending_waiting_list turun
                 // Saat restore → naikkan kembali pending_waiting_list
                 $progressItems = OrderProgressItem::withTrashed()
-                    ->whereHas('progress', fn($q) => $q->withTrashed()->where('order_id', $order->id))
+                    ->whereHas('progress', fn ($q) => $q->withTrashed()->where('order_id', $order->id))
                     ->get(['product_id', 'quantity']);
 
                 // 🔍 Cek apakah design verified
@@ -5782,14 +5808,16 @@ class SaleListController extends Controller
                     ->exists();
 
                 foreach ($progressItems as $progressItem) {
-                    if (!$progressItem->product_id || $progressItem->quantity <= 0) continue;
+                    if (! $progressItem->product_id || $progressItem->quantity <= 0) {
+                        continue;
+                    }
 
                     $productionStock = ProductionStock::firstOrCreate(
                         ['product_id' => $progressItem->product_id],
                         [
-                            'available_quantity'     => 0,
+                            'available_quantity' => 0,
                             'finished_product_stock' => 0,
-                            'pending_waiting_list'   => 0,
+                            'pending_waiting_list' => 0,
                             'canceled_product_stock' => 0,
                         ]
                     );
@@ -5816,7 +5844,9 @@ class SaleListController extends Controller
                         $bundle = ProductBundle::with('items.product')->find($item->product_bundle_id);
                         if ($bundle) {
                             foreach ($bundle->items as $bundleItem) {
-                                if (!$bundleItem->product_id) continue;
+                                if (! $bundleItem->product_id) {
+                                    continue;
+                                }
                                 $productionStock = ProductionStock::firstOrCreate(
                                     ['product_id' => $bundleItem->product_id],
                                     ['available_quantity' => 0]
@@ -5833,7 +5863,7 @@ class SaleListController extends Controller
             // ======================================================
             $transactions = AccountTransaction::withTrashed()
                 ->where('order_id', $order->id)
-                ->orWhere(function ($q) use ($order) {
+                ->orWhere(function ($q) {
                     $q->whereNull('order_id')
                         ->where('note', 'like', '%[Order deleted]%');
                 })
@@ -5845,9 +5875,11 @@ class SaleListController extends Controller
             foreach ($transactions as $trx) {
 
                 $account = Account::find($trx->account_id);
-                if (!$account) continue;
+                if (! $account) {
+                    continue;
+                }
 
-                $debit  = (float) $trx->debit;
+                $debit = (float) $trx->debit;
                 $credit = (float) $trx->credit;
 
                 // ======================================================
@@ -5867,6 +5899,7 @@ class SaleListController extends Controller
 
                     // restore soft delete
                     $trx->restore();
+
                     continue;
                 }
 
@@ -5882,6 +5915,7 @@ class SaleListController extends Controller
                     $account->save();
 
                     $trx->restore();
+
                     continue;
                 }
 
@@ -5897,6 +5931,7 @@ class SaleListController extends Controller
                     $trx->order_id = $order->id;
 
                     $trx->save();
+
                     continue;
                 }
             }
@@ -5910,14 +5945,16 @@ class SaleListController extends Controller
                 ->update(['deleted_at' => null]);
 
             DB::commit();
+
             return back()->with('success', 'Order berhasil direstore!');
         } catch (\Throwable $e) {
             DB::rollBack();
             Log::error('Restore order gagal', [
                 'order_id' => $id,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
-            return back()->with('error', 'Gagal mengembalikan order: ' . $e->getMessage());
+
+            return back()->with('error', 'Gagal mengembalikan order: '.$e->getMessage());
         }
     }
 }

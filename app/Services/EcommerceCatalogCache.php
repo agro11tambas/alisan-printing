@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Exceptions\CatalogCacheWarmingException;
 use Closure;
 use Illuminate\Contracts\Cache\LockProvider;
-use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Cache jawaban API katalog publik (/api/ecommerce/products).
@@ -26,12 +28,6 @@ class EcommerceCatalogCache
 {
     private const VERSION_KEY = 'ecommerce:catalog:version';
 
-    /** Umur lock pembangunan ulang; cukup panjang untuk katalog terbesar. */
-    private const REBUILD_LOCK_SECONDS = 120;
-
-    /** Lama request lain menunggu kalau belum ada salinan lama sama sekali. */
-    private const REBUILD_WAIT_SECONDS = 20;
-
     /** Salinan lama disimpan jauh lebih lama dari masa segarnya. */
     private const STALE_TTL_MULTIPLIER = 12;
 
@@ -46,9 +42,9 @@ class EcommerceCatalogCache
         }
 
         $store = $this->store();
-        $base = 'ecommerce:catalog:v'.$this->version().':'.$key;
-        $payloadKey = $base;
-        $freshKey = $base.':fresh';
+        $base = 'ecommerce:catalog:'.$key;
+        $payloadKey = $base.':payload';
+        $freshKey = $base.':fresh:v'.$this->version();
 
         $payload = $store->get($payloadKey);
 
@@ -62,43 +58,52 @@ class EcommerceCatalogCache
         // barengan membangun katalog penuh sendiri-sendiri, worker PHP-FPM
         // habis, dan seluruh halaman ERP ikut menunggu di belakangnya.
         $lock = $store->getStore() instanceof LockProvider
-            ? $store->getStore()->lock($base.':lock', self::REBUILD_LOCK_SECONDS)
+            ? $store->getStore()->lock($base.':lock', (int) config('services.website.catalog_cache_rebuild_lock', 900))
             : null;
 
-        if ($lock === null || $lock->get()) {
-            try {
-                return $this->build($store, $payloadKey, $freshKey, $ttl, $callback);
-            } finally {
-                $lock?->release();
-            }
+        if ($lock === null) {
+            return $this->build($store, $payloadKey, $freshKey, $ttl, $callback);
         }
 
-        // Request lain sedang membangun. Kalau masih ada salinan lama, pakai
-        // itu — katalog boleh telat beberapa detik, menahan request sampai
-        // menit-menitan tidak boleh.
-        if (is_array($payload)) {
-            return $payload['value'];
-        }
-
-        // Cache dingin, belum ada salinan sama sekali: tunggu yang sedang
-        // membangun, lalu baca hasilnya.
-        try {
-            $lock->block(self::REBUILD_WAIT_SECONDS);
-        } catch (LockTimeoutException) {
-            return $callback();
-        }
-
-        try {
-            $payload = $store->get($payloadKey);
-
+        if (! $lock->get()) {
+            // Jangan ikut membangun setelah timeout. Jalur lama membuat semua
+            // request cache-dingin membangun katalog besar secara bersamaan.
             if (is_array($payload)) {
                 return $payload['value'];
             }
 
-            return $this->build($store, $payloadKey, $freshKey, $ttl, $callback);
-        } finally {
-            $lock->release();
+            throw new CatalogCacheWarmingException;
         }
+
+        if (! (bool) config('services.website.catalog_cache_defer_rebuild', true)) {
+            try {
+                return $this->build($store, $payloadKey, $freshKey, $ttl, $callback);
+            } finally {
+                $lock->release();
+            }
+        }
+
+        // Bangun setelah response terkirim supaya request pemicu refresh tidak
+        // menjadi satu-satunya pengguna yang menunggu bermenit-menit.
+        $this->afterResponse(function () use ($store, $payloadKey, $freshKey, $ttl, $callback, $lock, $key): void {
+            try {
+                $this->build($store, $payloadKey, $freshKey, $ttl, $callback);
+            } catch (Throwable $e) {
+                Log::channel('performance')->error('performance.catalog_rebuild_failed', [
+                    'key' => $key,
+                    'exception' => $e::class,
+                    'message' => $e->getMessage(),
+                ]);
+            } finally {
+                $lock->release();
+            }
+        });
+
+        if (is_array($payload)) {
+            return $payload['value'];
+        }
+
+        throw new CatalogCacheWarmingException;
     }
 
     private function build(Repository $store, string $payloadKey, string $freshKey, int $ttl, Closure $callback): mixed
@@ -111,6 +116,11 @@ class EcommerceCatalogCache
         $store->put($freshKey, 1, $ttl);
 
         return $value;
+    }
+
+    protected function afterResponse(Closure $callback): void
+    {
+        app()->terminating($callback);
     }
 
     /**

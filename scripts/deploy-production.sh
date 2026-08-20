@@ -15,8 +15,11 @@ cd "$(dirname "$0")/.."
 echo "==> Install dependency produksi"
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
-echo "==> Bersihkan cache lama"
-php artisan optimize:clear
+echo "==> Bersihkan cache bootstrap tanpa mengosongkan cache data aplikasi"
+# cache:clear sengaja dilewati. Menghapus file cache katalog membuat request
+# pertama sesudah deploy membangun seluruh katalog dan pernah memenuhi worker.
+# Versioned invalidation tetap dijalankan aplikasi saat produk/kategori berubah.
+php artisan optimize:clear --except=cache
 
 echo "==> Jalankan migrasi"
 php artisan migrate --force
