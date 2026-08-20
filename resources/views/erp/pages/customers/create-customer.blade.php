@@ -132,7 +132,11 @@
                                                 </div>
                                             </div>
 
-                                            <div class="col-lg-2 d-flex">
+                                            <div class="col-lg-2 d-flex gap-1">
+                                                <button type="button" class="btn btn-success btn-lock-account"
+                                                    title="Kunci contact person">
+                                                    <i class="feather-check"></i>
+                                                </button>
                                                 <button type="button" class="btn btn-danger btn-remove-account">
                                                     <i class="feather-x"></i> Remove
                                                 </button>
@@ -161,27 +165,19 @@
                                                         placeholder="Branch Name">
                                                 </div>
                                             </div>
-                                            <div class="col-lg-4">
+                                            <div class="col-lg-5">
                                                 <div class="input-group">
                                                     <div class="input-group-text"><i class="feather-book"></i></div>
                                                     <textarea class="form-control" name="addresses[0][address]" placeholder="Address">{{ old('addresses.0.address') }}</textarea>
                                                 </div>
                                             </div>
-                                            <div class="col-lg-3">
+                                            <div class="col-lg-4">
                                                 <div class="input-group">
                                                     <div class="input-group-text"><i class="feather-map-pin"></i></div>
                                                     <input type="text" class="form-control"
                                                         name="addresses[0][google_maps]"
                                                         value="{{ old('addresses.0.google_maps') }}"
                                                         placeholder="Google Map">
-                                                </div>
-                                            </div>
-                                            <div class="col-lg-2 d-flex align-items-center">
-                                                <div class="form-check">
-                                                    <input class="form-check-input primary-address-radio" type="radio"
-                                                        name="primary_address_index" value="0" id="primary-address-0"
-                                                        {{ (int) old('primary_address_index', 0) === 0 ? 'checked' : '' }}>
-                                                    <label class="form-check-label" for="primary-address-0">Alamat Utama</label>
                                                 </div>
                                             </div>
                                             <div class="col-lg-1 d-flex">
@@ -192,6 +188,9 @@
                                     </div>
                                     <button type="button" class="btn btn-success mt-1" id="add-address"><i
                                             class="feather-plus"></i> Add Address</button>
+                                    <small class="d-block text-muted mt-1">
+                                        Alamat utama diatur sendiri oleh customer lewat website.
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -289,11 +288,6 @@
                     removeBtn.classList.remove('d-none');
                 }
             });
-
-            const primaryRadios = Array.from(document.querySelectorAll('.primary-address-radio'));
-            if (primaryRadios.length && !primaryRadios.some(radio => radio.checked)) {
-                primaryRadios[0].checked = true;
-            }
         }
 
         document.getElementById('add-address').addEventListener('click', function() {
@@ -306,23 +300,16 @@
                     <input type="text" class="form-control" name="addresses[${addressIndex}][business_name]" placeholder="Branch Name">
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-5">
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-book"></i></div>
                     <textarea class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address"></textarea>
                 </div>
             </div>
-            <div class="col-lg-3">
+            <div class="col-lg-4">
                 <div class="input-group">
                     <div class="input-group-text"><i class="feather-map-pin"></i></div>
                     <input type="text" class="form-control" name="addresses[${addressIndex}][google_maps]" placeholder="Google Map">
-                </div>
-            </div>
-            <div class="col-lg-2 d-flex align-items-center">
-                <div class="form-check">
-                    <input class="form-check-input primary-address-radio" type="radio"
-                        name="primary_address_index" value="${addressIndex}" id="primary-address-${addressIndex}">
-                    <label class="form-check-label" for="primary-address-${addressIndex}">Alamat Utama</label>
                 </div>
             </div>
             <div class="col-lg-1 d-flex">
@@ -472,7 +459,10 @@
                 </div>
             </div>
 
-            <div class="col-lg-2 d-flex">
+            <div class="col-lg-2 d-flex gap-1">
+                <button type="button" class="btn btn-success btn-lock-account" title="Kunci contact person">
+                    <i class="feather-check"></i>
+                </button>
                 <button type="button" class="btn btn-danger btn-remove-account">
                     <i class="feather-x"></i> Remove
                 </button>
@@ -482,6 +472,52 @@
             document.getElementById('accounts').appendChild(wrapper);
             accountIndex++;
             updateRemoveAccountButtons();
+        });
+
+        function setAccountLocked(row, locked) {
+            row.classList.toggle('account-locked', locked);
+
+            row.querySelectorAll('input').forEach(input => {
+                input.readOnly = locked;
+                input.classList.toggle('bg-light', locked);
+            });
+
+            const lockBtn = row.querySelector('.btn-lock-account');
+            if (!lockBtn) return;
+
+            lockBtn.classList.toggle('btn-success', !locked);
+            lockBtn.classList.toggle('btn-secondary', locked);
+            lockBtn.title = locked ? 'Buka kunci contact person' : 'Kunci contact person';
+            lockBtn.innerHTML = locked ? '<i class="feather-unlock"></i>' : '<i class="feather-check"></i>';
+        }
+
+        document.getElementById('accounts').addEventListener('click', function(e) {
+            const lockBtn = e.target.closest('.btn-lock-account');
+            if (!lockBtn) return;
+
+            const row = lockBtn.closest('.account-item');
+            const isLocked = row.classList.contains('account-locked');
+
+            if (isLocked) {
+                setAccountLocked(row, false);
+                return;
+            }
+
+            // Jangan kunci baris yang masih kosong.
+            let isValid = true;
+            row.querySelectorAll('input').forEach(input => {
+                const isEmpty = input.value.trim() === '';
+                input.classList.toggle('is-invalid', isEmpty);
+                if (isEmpty) isValid = false;
+            });
+
+            if (isValid) setAccountLocked(row, true);
+        });
+
+        document.getElementById('accounts').addEventListener('input', function(e) {
+            if (e.target.tagName === 'INPUT') {
+                e.target.classList.remove('is-invalid');
+            }
         });
 
         let accountToDelete = null;

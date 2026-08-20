@@ -217,12 +217,17 @@
                                                         {{ !$item->product_id ? 'selected hidden' : '' }}>
                                                         Pilih produk
                                                     </option>
-                                                    @foreach ($products as $product)
-                                                        <option value="{{ $product->id }}"
-                                                            {{ $item->product_id == $product->id ? 'selected' : '' }}>
-                                                            [{{ $product->sku }}] {{ $product->name }}
+                                                    {{-- Katalog produk dirender sekali saja di #product_item_template,
+                                                         lalu disalin ke tiap baris oleh fillProductOptions(). Kalau
+                                                         di-render di sini, biayanya jadi jumlah produk x jumlah baris
+                                                         item. Cukup opsi yang terpilih supaya nilainya kebaca sebelum
+                                                         JS jalan. --}}
+                                                    @if ($item->product_id)
+                                                        <option value="{{ $item->product_id }}" selected>
+                                                            [{{ optional($item->purchaseProduct)->sku }}]
+                                                            {{ optional($item->purchaseProduct)->name }}
                                                         </option>
-                                                    @endforeach
+                                                    @endif
                                                 </select>
                                                 @if ($isLocked)
                                                     <input type="hidden" name="product[]" value="{{ $item->product_id }}">
@@ -292,12 +297,8 @@
                                             <div class="form-group product-col-span-2">
                                                 <label>Product</label>
                                                 <select class="form-control select-product" name="product[]">
+                                                    {{-- Diisi fillProductOptions() dari #product_item_template. --}}
                                                     <option value="" disabled selected hidden>Pilih produk</option>
-                                                    @foreach ($products as $product)
-                                                        <option value="{{ $product->id }}">
-                                                            [{{ $product->sku }}] {{ $product->name }}
-                                                        </option>
-                                                    @endforeach
                                                 </select>
                                             </div>
 
@@ -413,6 +414,12 @@
             ];
         });
     @endphp
+
+    @include('erp.pages.partials.product-options-filler', [
+        'templateId' => 'product_item_template',
+        'containerSelector' => '#product_list',
+    ])
+
     <script>
         const productUnits = @json($productUnitsJson);
 
@@ -504,6 +511,10 @@
         });
 
         $(document).ready(function() {
+            // Katalog produk cuma ada di #product_item_template; salin ke tiap
+            // baris item sebelum select2 membaca isinya.
+            fillAllProductOptions();
+
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
@@ -554,7 +565,9 @@
                 $(this).find('.invalid-feedback').remove();
 
                 const date = $('#purchase_date');
-                const supplier = $('#suppliers');
+                // Baris/field yang terkunci dikirim lewat hidden input, jadi
+                // validasi harus melihat name-nya, bukan tag select-nya.
+                const supplier = $(this).find('[name="suppliers"]');
 
                 if (!date.val().trim()) {
                     isValid = false;
@@ -563,13 +576,13 @@
 
                 if (!supplier.val()) {
                     isValid = false;
-                    supplier.addClass('is-invalid');
+                    $('#suppliers').addClass('is-invalid');
                 }
 
                 $('.product-item').each(function() {
                     const $row = $(this);
 
-                    const product = $row.find('select[name="product[]"]');
+                    const product = $row.find('[name="product[]"]');
                     const qty = $row.find('input[name="qty[]"]');
                     const qtyValue = unformatRibuan(qty.val());
 
@@ -577,7 +590,8 @@
 
                     if (!product.val()) {
                         isValid = false;
-                        product.addClass('is-invalid');
+                        // Tandai kontrol yang kelihatan, bukan hidden input-nya.
+                        $row.find('.select-product').addClass('is-invalid');
                     }
 
                     if (!qty.val().trim() || qtyValue <= 0) {

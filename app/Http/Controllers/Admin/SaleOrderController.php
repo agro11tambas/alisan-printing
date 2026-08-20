@@ -1108,12 +1108,13 @@ class SaleOrderController extends Controller
         }
     }
 
-    public function delete($id)
+    public function delete($id, Request $request)
     {
         DB::beginTransaction();
 
         try {
             $order = Order::with('orderItems')->findOrFail($id);
+            $orderNumber = $order->order_number;
 
             // Hard delete semua order items
             OrderItem::where('order_id', $order->id)->forceDelete();
@@ -1128,9 +1129,25 @@ class SaleOrderController extends Controller
 
             DB::commit();
 
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'id' => $id,
+                    'message' => "Order {$orderNumber} berhasil dihapus.",
+                ]);
+            }
+
             return redirect()->back()->with('success', 'Order berhasil dihapus permanen.');
         } catch (\Exception $e) {
             DB::rollBack();
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal menghapus order: ' . $e->getMessage(),
+                ], 500);
+            }
+
             return back()->with('error', 'Gagal menghapus order: ' . $e->getMessage());
         }
     }

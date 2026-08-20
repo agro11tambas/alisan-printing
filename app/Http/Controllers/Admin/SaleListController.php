@@ -1716,26 +1716,49 @@ class SaleListController extends Controller
             'customerAddress',
         ])->findOrFail($id);
 
-        $products = Products::with([
-            'categories',
-            'discounts',
-            'categories.discounts',
-            'unitConversions.unit',
-            'unitConversions.prices.priceMode',
-        ])
+        // Kolomnya dipersempit seperti di create(): form cuma butuh field di bawah ini,
+        // sisanya cuma menambah memori dan ukuran JSON.
+        $products = Products::query()
+            ->select([
+                'id',
+                'name',
+                'sku',
+                'price',
+                'sale_price',
+                'base_unit_id',
+                'sale_unit_id',
+            ])
+            ->with([
+                'categories:id',
+                'discounts',
+                'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
+                'unitConversions.unit:id,name',
+                'unitConversions.prices:id,product_unit_conversion_id,price_mode_id,fixed_cost,margin,sale_price',
+                'unitConversions.prices.priceMode:id,name,slug',
+            ])
             ->orderBy('name', 'asc')
             ->get();
 
-        $productBundles = ProductBundle::with([
-            'items.product.categories.discounts',
-            'items.product.discounts',
+        $productBundles = ProductBundle::query()
+            ->select(['id', 'name', 'sku', 'price', 'base_unit_id'])
+            ->with([
+                'items:id,bundle_id,product_id,role',
+                'items.product:id,name,sku',
+                'items.product.categories:id',
+                'items.product.discounts',
 
-            'primaryItem.product',
-            'secondaryItems.product',
+                'primaryItem:id,bundle_id,product_id,role',
+                'primaryItem.product:id,name,sku',
+                'secondaryItems:id,bundle_id,product_id,role',
+                'secondaryItems.product:id,name,sku',
 
-            'unitConversions.unit',
-            'unitConversions.prices.priceMode',
-        ])->orderBy('name', 'asc')->get();
+                'unitConversions:id,product_bundle_id,unit_id,conversion_value,sale_price',
+                'unitConversions.unit:id,name',
+                'unitConversions.prices:id,product_bundle_unit_conversion_id,price_mode_id,fixed_cost,margin,sale_price',
+                'unitConversions.prices.priceMode:id,name,slug',
+            ])
+            ->orderBy('name', 'asc')
+            ->get();
 
         $productsJson = $products->map(function ($product) {
             return [
@@ -1843,7 +1866,12 @@ class SaleListController extends Controller
 
         $user = Auth::user();
 
-        $customers = Customers::with(['addresses', 'accounts'])
+        $customers = Customers::query()
+            ->select(['id', 'name', 'user_id'])
+            ->with([
+                'addresses:id,customer_id,business_name,address,google_maps',
+                'accounts:id,name,email,whatsapp_number',
+            ])
             ->when($user->role === 'Sales', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })

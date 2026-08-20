@@ -596,9 +596,15 @@ class MaterialRequestController extends Controller
 
     public function edit($id)
     {
-        $materialRequest = MaterialRequest::with('items')->findOrFail($id);
+        // items.product dipakai blade untuk label opsi yang sedang terpilih.
+        $materialRequest = MaterialRequest::with('items.product:id,name,sku')->findOrFail($id);
 
-        $products = Products::with(['categories', 'discounts', 'categories.discounts'])->orderBy('name', 'asc')->get();
+        // Yang dipakai halaman ini cuma id, name, dan sku. Kategori dan diskon
+        // tidak pernah disentuh, jadi tidak perlu ikut ditarik.
+        $products = Products::query()
+            ->select(['id', 'name', 'sku'])
+            ->orderBy('name', 'asc')
+            ->get();
 
         $productsJson = $products->map(function ($product) {
             return [

@@ -140,10 +140,7 @@ class CustomerController extends Controller
             'addresses.*.business_name' => 'nullable|string',
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
-            'primary_address_index' => 'nullable|integer|min:0',
         ]);
-
-        $primaryAddressIndex = $this->resolvePrimaryAddressIndex($request);
 
         DB::beginTransaction();
 
@@ -184,13 +181,19 @@ class CustomerController extends Controller
                 $customer->accounts()->attach($account->id);
             }
 
-            foreach ($request->addresses as $index => $addr) {
+            // Alamat utama diatur oleh customer sendiri lewat website, jadi ERP hanya
+            // menandai alamat pertama sebagai default awal supaya selalu ada satu.
+            $isFirstAddress = true;
+
+            foreach ($request->addresses as $addr) {
                 $customer->addresses()->create([
                     'business_name' => $addr['business_name'] ?? null,
                     'address' => $addr['address'],
                     'google_maps' => $addr['google_maps'],
-                    'is_default' => (int) $index === $primaryAddressIndex,
+                    'is_default' => $isFirstAddress,
                 ]);
+
+                $isFirstAddress = false;
             }
 
             DB::commit();
@@ -328,13 +331,17 @@ class CustomerController extends Controller
             'accounts.*.whatsapp_number' => 'nullable|string|distinct',
 
             'addresses' => 'required|array|min:1',
+            'addresses.*.id' => 'nullable|integer',
             'addresses.*.business_name' => 'nullable|string',
             'addresses.*.address' => 'required|string',
             'addresses.*.google_maps' => 'required|string',
-            'primary_address_index' => 'nullable|integer|min:0',
         ]);
 
-        $primaryAddressIndex = $this->resolvePrimaryAddressIndex($request);
+        // Alamat utama ditentukan customer lewat website, jadi pilihannya harus tetap
+        // bertahan walaupun alamat dirapikan ulang dari ERP.
+        $currentDefaultAddressId = $customer->addresses()
+            ->where('is_default', true)
+            ->value('id');
 
         DB::beginTransaction();
 
@@ -410,14 +417,28 @@ class CustomerController extends Controller
 
             $customer->addresses()->delete();
 
-            foreach ($request->addresses as $index => $addr) {
-                $customer->addresses()->create([
+            $defaultAddress = null;
+            $firstAddress = null;
+
+            foreach ($request->addresses as $addr) {
+                $address = $customer->addresses()->create([
                     'business_name' => $addr['business_name'] ?? null,
                     'address' => $addr['address'],
                     'google_maps' => $addr['google_maps'],
-                    'is_default' => (int) $index === $primaryAddressIndex,
+                    'is_default' => false,
                 ]);
+
+                $firstAddress ??= $address;
+
+                if ($currentDefaultAddressId && (int) ($addr['id'] ?? 0) === (int) $currentDefaultAddressId) {
+                    $defaultAddress = $address;
+                }
             }
+
+            // Kalau alamat utama pilihan customer sudah dihapus dari ERP, jatuh ke alamat pertama
+            // supaya customer tetap punya satu alamat utama.
+            $defaultAddress ??= $firstAddress;
+            $defaultAddress?->update(['is_default' => true]);
 
             DB::commit();
 
@@ -446,22 +467,6 @@ class CustomerController extends Controller
         $customer->delete();
 
         return redirect('/erp/customers')->with('success', 'Customer berhasil dihapus.');
-    }
-
-    private function resolvePrimaryAddressIndex(Request $request): int
-    {
-        $addresses = $request->input('addresses', []);
-        $primaryAddressIndex = $request->filled('primary_address_index')
-            ? (int) $request->input('primary_address_index')
-            : (int) array_key_first($addresses);
-
-        if (! array_key_exists($primaryAddressIndex, $addresses)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'primary_address_index' => 'Alamat utama yang dipilih tidak valid.',
-            ]);
-        }
-
-        return $primaryAddressIndex;
     }
 
     public function updateDeposit(Request $request, Customers $customer)

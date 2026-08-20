@@ -780,8 +780,16 @@
             $table.on('click', 'tbody tr', function(e) {
                 if ($(e.target).closest('td.dt-control').length) return;
 
+                // Klik di dalam menu action (tombol Delete, Edit, dll) jangan diproses di sini.
+                // Kalau diproses, baris menu ikut ke-remove sebelum Bootstrap sempat membaca
+                // tombolnya, jadi modal (delete / change status) tidak pernah terbuka lagi.
+                if ($(e.target).closest('.action-row').length) return;
+
                 const $tr = $(this);
                 const dt = $table.DataTable();
+
+                // Bukan baris data DataTable (mis. baris "No data available") -> abaikan
+                if (!dt.row($tr).data()) return;
 
                 $(`${tableSelector} tbody tr`)
                     .removeClass('action-shown action-active')
@@ -794,7 +802,7 @@
                 }
 
                 const row = dt.row($tr);
-                const actionHtml = row.data().action;
+                const actionHtml = row.data().action || '';
                 const colCount = $tr.find('td').length;
 
                 let menuPosition = 'left: 200px; transform:none;';
@@ -895,6 +903,19 @@
                 $('table.dataTable tbody tr.action-shown')
                     .removeClass('action-shown action-active')
                     .next('.action-row').remove();
+            });
+
+            // Safety net: kalau ada modal yang di-hide barengan SweetAlert / re-render tabel,
+            // kadang backdrop-nya nyangkut dan nutupin seluruh halaman (klik jadi mati,
+            // seolah harus refresh dulu). Bersihkan sisa backdrop setiap modal ditutup.
+            $(document).on('hidden.bs.modal', '.modal', function() {
+                if ($('.modal.show').length === 0) {
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open').css({
+                        'overflow': '',
+                        'padding-right': ''
+                    });
+                }
             });
         });
     </script>

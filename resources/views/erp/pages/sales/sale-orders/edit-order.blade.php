@@ -544,16 +544,16 @@
                                                     name="product[]">
                                                     <option value="" disabled hidden>Pilih produk</option>
 
-                                                    @foreach ($products as $prod)
-                                                        <option value="satuan_{{ $prod->id }}"
-                                                            {{ !$isBundle && $item->product_id == $prod->id ? 'selected' : '' }}
-                                                            data-price="{{ $prod->price }}"
-                                                            data-discounts='@json($prod->discounts ?? [])'
-                                                            data-categories='@json($prod->categories ?? [])'
-                                                            data-type="satuan" data-sku="{{ $prod->sku ?? '' }}">
-                                                            [{{ $prod->sku ?? '-' }}] {{ $prod->name }}
+                                                    {{-- Daftar produk diisi oleh JS populateProducts() dari `products`
+                                                         JSON saat document ready. Render seluruh katalog di sini
+                                                         percuma (langsung di-empty() JS) dan biayanya produk x baris
+                                                         item, jadi cukup opsi yang sedang terpilih supaya
+                                                         select.val() masih terbaca saat inisialisasi. --}}
+                                                    @if (!$isBundle && $item->product_id)
+                                                        <option value="satuan_{{ $item->product_id }}" selected>
+                                                            {{ optional($item->product)->name ?? '-' }}
                                                         </option>
-                                                    @endforeach
+                                                    @endif
                                                 </select>
 
                                                 <div class="bundle-wrapper {{ $isBundle ? '' : 'd-none' }}">

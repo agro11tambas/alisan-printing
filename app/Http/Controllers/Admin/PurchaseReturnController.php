@@ -599,13 +599,20 @@ class PurchaseReturnController extends Controller
             ->with(['purchaseItems.purchaseProduct'])
             ->first();
 
+        // Satu query untuk semua item, bukan satu query per item: purchase
+        // dengan puluhan baris sebelumnya menembak puluhan query di sini.
+        $returnedPerItem = PurchaseReturnItem::query()
+            ->whereIn('purchase_item_id', $purchase->purchaseItems->pluck('id'))
+            ->where('purchase_return_id', '!=', $purchaseReturn->id)
+            ->groupBy('purchase_item_id')
+            ->selectRaw('purchase_item_id, SUM(quantity) as returned_quantity')
+            ->pluck('returned_quantity', 'purchase_item_id');
+
         $expandedItems = collect();
 
         foreach ($purchase->purchaseItems as $item) {
             // Qty yang sudah direturn kecuali purchaseReturn ini
-            $returnedQty = PurchaseReturnItem::where('purchase_item_id', $item->id)
-                ->where('purchase_return_id', '!=', $purchaseReturn->id)
-                ->sum('quantity');
+            $returnedQty = (float) ($returnedPerItem[$item->id] ?? 0);
 
             // hitung sisa qty
             $item->remaining_qty = max(0, $item->quantity - $returnedQty);
@@ -613,8 +620,12 @@ class PurchaseReturnController extends Controller
             // cek apakah sudah ada di purchaseReturn ini
             $existingItem = $purchaseReturn->items->where('purchase_item_id', $item->id)->first();
 
-            $item->return_qty   = $existingItem->quantity ?? 0;
-            $item->return_price = $existingItem->price ?? $item->product->price;
+            $item->return_qty = $existingItem->quantity ?? 0;
+
+            // PurchaseItem tidak punya relasi `product` — yang ada `purchaseProduct`.
+            // Sebelumnya baris ini membaca properti dari null tiap kali item belum
+            // pernah direturn, jadi harganya kosong.
+            $item->return_price = $existingItem->price ?? optional($item->purchaseProduct)->price;
 
             $expandedItems->push($item);
         }

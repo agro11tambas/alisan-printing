@@ -246,14 +246,22 @@
                                                     <label>Product</label>
                                                     <select class="form-control select-product" name="product[]"
                                                         id="product_{{ $index }}">
-                                                        <option value="" disabled>Pilih produk</option>
-                                                        @foreach ($products as $product)
-                                                            <option value="{{ $product->id }}"
-                                                                data-price="{{ $product->price }}"
-                                                                {{ $product->id == $item->product_id ? 'selected' : '' }}>
-                                                                [{{ $product->sku }}] {{ $product->name }}
+                                                        <option value="" disabled
+                                                            {{ !$item->product_id ? 'selected hidden' : '' }}>
+                                                            Pilih produk
+                                                        </option>
+                                                        {{-- Katalog dirender sekali di #product_options_template lalu
+                                                             disalin fillAllProductOptions(). Di sini cukup opsi yang
+                                                             terpilih, supaya HTML tidak tumbuh sebesar jumlah produk
+                                                             dikali jumlah baris item. --}}
+                                                        @if ($item->product_id)
+                                                            <option value="{{ $item->product_id }}"
+                                                                data-price="{{ optional($item->purchaseProduct)->price }}"
+                                                                selected>
+                                                                [{{ optional($item->purchaseProduct)->sku }}]
+                                                                {{ optional($item->purchaseProduct)->name }}
                                                             </option>
-                                                        @endforeach
+                                                        @endif
                                                     </select>
                                                 </div>
 
@@ -290,6 +298,20 @@
                                         </div>
                                     @endforeach
                                 </div>
+
+                                {{-- Satu-satunya tempat katalog produk dirender penuh. Isi <template>
+                                     tidak ikut ter-submit dan tidak dirender browser; JS menyalinnya
+                                     ke tiap select saat halaman siap. --}}
+                                <template id="product_options_template">
+                                    <select class="select-product">
+                                        <option value="" disabled selected hidden>Pilih produk</option>
+                                        @foreach ($products as $product)
+                                            <option value="{{ $product->id }}" data-price="{{ $product->price }}">
+                                                [{{ $product->sku }}] {{ $product->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </template>
                             </div>
                             <div class="col-lg-12 mt-2">
                                 <div class="row justify-content-end">
@@ -361,6 +383,11 @@
 @endsection
 
 @push('scripts')
+    @include('erp.pages.partials.product-options-filler', [
+        'templateId' => 'product_options_template',
+        'containerSelector' => '#product_list',
+    ])
+
     <script>
         /* ===================== FORMAT / PARSING ===================== */
         function formatRibuan(value) {
@@ -436,6 +463,10 @@
         }
 
         $(document).ready(function() {
+            // Salin katalog dari <template> ke tiap baris sebelum select2
+            // membaca isi select-nya.
+            fillAllProductOptions();
+
             initSelect2('.select-product');
             initSelect2('#suppliers');
 

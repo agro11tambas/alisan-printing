@@ -83,13 +83,9 @@
                                                 <td>
                                                     <select class="form-select secondary-product-select"
                                                         name="secondary_product_ids[]" data-select2-selector="tag">
+                                                        {{-- Diisi refreshSecondaryOptions() dari productOptionsHtml. --}}
                                                         <option value="" disabled selected hidden>Pilih secondary
                                                             product</option>
-                                                        @foreach ($products as $product)
-                                                            <option value="{{ $product->id }}">
-                                                                {{ $product->name }} - {{ $product->sku }}
-                                                            </option>
-                                                        @endforeach
                                                     </select>
                                                 </td>
                                                 <td class="text-center">
@@ -292,12 +288,8 @@
                         <select class="form-select secondary-product-select"
                             name="secondary_product_ids[]"
                             data-select2-selector="tag">
+                            <!-- Diisi refreshSecondaryOptions() yang dipanggil tepat setelah baris ini ditambahkan. -->
                             <option value="" disabled selected hidden>Pilih secondary product</option>
-                            @foreach ($products as $product)
-                                <option value="{{ $product->id }}">
-                                    {{ $product->name }} - {{ $product->sku }}
-                                </option>
-                            @endforeach
                         </select>
                     </td>
                     <td class="text-center">

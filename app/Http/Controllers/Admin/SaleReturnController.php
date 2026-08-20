@@ -381,16 +381,44 @@ class SaleReturnController extends Controller
 
         $expandedItems = collect();
 
+        // Angka shipped dan returned diambil sekali untuk seluruh item, bukan
+        // satu query per item (dan per komponen bundle). Order dengan puluhan
+        // baris sebelumnya menembak ratusan query hanya untuk membuka halaman.
+        $orderItemIds = $order->orderItems->pluck('id');
+
+        $shippedPerItem = \App\Models\DeliveryOrderItem::query()
+            ->whereIn('order_item_id', $orderItemIds)
+            ->groupBy('order_item_id')
+            ->selectRaw('order_item_id, SUM(shipped_qty) as shipped')
+            ->pluck('shipped', 'order_item_id');
+
+        $shippedPerItemProduct = \App\Models\DeliveryOrderItem::query()
+            ->whereIn('order_item_id', $orderItemIds)
+            ->groupBy('order_item_id', 'product_id')
+            ->selectRaw('order_item_id, product_id, SUM(shipped_qty) as shipped')
+            ->get()
+            ->keyBy(fn ($row) => $row->order_item_id.':'.$row->product_id);
+
+        $returnedPerItem = \App\Models\SaleReturnItem::query()
+            ->whereIn('order_item_id', $orderItemIds)
+            ->groupBy('order_item_id')
+            ->selectRaw('order_item_id, COALESCE(SUM(canceled_quantity + defect_quantity), 0) as total_return')
+            ->pluck('total_return', 'order_item_id');
+
+        $returnedPerItemProduct = \App\Models\SaleReturnItem::query()
+            ->whereIn('order_item_id', $orderItemIds)
+            ->groupBy('order_item_id', 'product_id')
+            ->selectRaw('order_item_id, product_id, COALESCE(SUM(canceled_quantity + defect_quantity), 0) as total_return')
+            ->get()
+            ->keyBy(fn ($row) => $row->order_item_id.':'.$row->product_id);
+
         foreach ($order->orderItems as $item) {
             // 🔹 Hitung total sudah dikirim (shipped) untuk item ini
-            $totalShipped = \App\Models\DeliveryOrderItem::where('order_item_id', $item->id)
-                ->sum('shipped_qty');
+            $totalShipped = (float) ($shippedPerItem[$item->id] ?? 0);
 
             if ($item->product_id) {
                 // 🔹 Hitung total sudah diretur (gabungan canceled + defect)
-                $returnedQty = \App\Models\SaleReturnItem::where('order_item_id', $item->id)
-                    ->selectRaw('COALESCE(SUM(canceled_quantity + defect_quantity), 0) as total_return')
-                    ->value('total_return');
+                $returnedQty = (float) ($returnedPerItem[$item->id] ?? 0);
 
                 // 🔹 Remaining qty = shipped - returned
                 $item->remaining_qty = max(0, $totalShipped - $returnedQty);
@@ -398,16 +426,13 @@ class SaleReturnController extends Controller
                 $expandedItems->push($item);
             } elseif ($item->product_bundle_id) {
                 foreach ($item->productBundle->items as $bundleItem) {
+                    $key = $item->id.':'.$bundleItem->product_id;
+
                     // 🔹 Hitung total sudah dikirim (shipped)
-                    $totalShipped = \App\Models\DeliveryOrderItem::where('order_item_id', $item->id)
-                        ->where('product_id', $bundleItem->product_id)
-                        ->sum('shipped_qty');
+                    $totalShipped = (float) (optional($shippedPerItemProduct->get($key))->shipped ?? 0);
 
                     // 🔹 Hitung total sudah diretur (gabungan canceled + defect)
-                    $returnedQty = \App\Models\SaleReturnItem::where('order_item_id', $item->id)
-                        ->where('product_id', $bundleItem->product_id)
-                        ->selectRaw('COALESCE(SUM(canceled_quantity + defect_quantity), 0) as total_return')
-                        ->value('total_return');
+                    $returnedQty = (float) (optional($returnedPerItemProduct->get($key))->total_return ?? 0);
 
                     $expandedItems->push((object) [
                         'id'            => $item->id,
@@ -713,10 +738,27 @@ class SaleReturnController extends Controller
 
         $expandedItems = collect();
 
+        // Qty yang sudah diretur diambil sekali untuk seluruh item, bukan satu
+        // query per item (dan per komponen bundle).
+        $orderItemIds = $order->orderItems->pluck('id');
+
+        $returnedPerItem = SaleReturnItem::query()
+            ->whereIn('order_item_id', $orderItemIds)
+            ->where('sale_return_id', '!=', $saleReturn->id)
+            ->groupBy('order_item_id')
+            ->selectRaw('order_item_id, COALESCE(SUM(COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0)), 0) as total_return')
+            ->pluck('total_return', 'order_item_id');
+
+        $returnedPerItemProduct = SaleReturnItem::query()
+            ->whereIn('order_item_id', $orderItemIds)
+            ->where('sale_return_id', '!=', $saleReturn->id)
+            ->groupBy('order_item_id', 'product_id')
+            ->selectRaw('order_item_id, product_id, COALESCE(SUM(COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0)), 0) as total_return')
+            ->get()
+            ->keyBy(fn ($row) => $row->order_item_id.':'.$row->product_id);
+
         foreach ($order->orderItems as $item) {
-            $returnedQty = SaleReturnItem::where('order_item_id', $item->id)
-                ->where('sale_return_id', '!=', $saleReturn->id)
-                ->sum(DB::raw('COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0)'));
+            $returnedQty = (float) ($returnedPerItem[$item->id] ?? 0);
 
             if ($item->product_id) {
                 $existingItem = $saleReturn->items

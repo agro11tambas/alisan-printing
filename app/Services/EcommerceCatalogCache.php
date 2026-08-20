@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Closure;
+use Illuminate\Contracts\Cache\LockProvider;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 
@@ -24,6 +26,15 @@ class EcommerceCatalogCache
 {
     private const VERSION_KEY = 'ecommerce:catalog:version';
 
+    /** Umur lock pembangunan ulang; cukup panjang untuk katalog terbesar. */
+    private const REBUILD_LOCK_SECONDS = 120;
+
+    /** Lama request lain menunggu kalau belum ada salinan lama sama sekali. */
+    private const REBUILD_WAIT_SECONDS = 20;
+
+    /** Salinan lama disimpan jauh lebih lama dari masa segarnya. */
+    private const STALE_TTL_MULTIPLIER = 12;
+
     public function remember(string $key, Closure $callback): mixed
     {
         $ttl = (int) config('services.website.catalog_cache_ttl', 300);
@@ -34,11 +45,72 @@ class EcommerceCatalogCache
             return $callback();
         }
 
-        return $this->store()->remember(
-            'ecommerce:catalog:v'.$this->version().':'.$key,
-            $ttl,
-            $callback
-        );
+        $store = $this->store();
+        $base = 'ecommerce:catalog:v'.$this->version().':'.$key;
+        $payloadKey = $base;
+        $freshKey = $base.':fresh';
+
+        $payload = $store->get($payloadKey);
+
+        // Masih dalam masa segar: langsung pakai, tidak usah sentuh DB.
+        if (is_array($payload) && $store->get($freshKey) !== null) {
+            return $payload['value'];
+        }
+
+        // Kedaluwarsa. Hanya SATU request yang boleh membangun ulang katalog.
+        // Tanpa ini, setiap kali TTL habis semua request website yang masuk
+        // barengan membangun katalog penuh sendiri-sendiri, worker PHP-FPM
+        // habis, dan seluruh halaman ERP ikut menunggu di belakangnya.
+        $lock = $store->getStore() instanceof LockProvider
+            ? $store->getStore()->lock($base.':lock', self::REBUILD_LOCK_SECONDS)
+            : null;
+
+        if ($lock === null || $lock->get()) {
+            try {
+                return $this->build($store, $payloadKey, $freshKey, $ttl, $callback);
+            } finally {
+                $lock?->release();
+            }
+        }
+
+        // Request lain sedang membangun. Kalau masih ada salinan lama, pakai
+        // itu — katalog boleh telat beberapa detik, menahan request sampai
+        // menit-menitan tidak boleh.
+        if (is_array($payload)) {
+            return $payload['value'];
+        }
+
+        // Cache dingin, belum ada salinan sama sekali: tunggu yang sedang
+        // membangun, lalu baca hasilnya.
+        try {
+            $lock->block(self::REBUILD_WAIT_SECONDS);
+        } catch (LockTimeoutException) {
+            return $callback();
+        }
+
+        try {
+            $payload = $store->get($payloadKey);
+
+            if (is_array($payload)) {
+                return $payload['value'];
+            }
+
+            return $this->build($store, $payloadKey, $freshKey, $ttl, $callback);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function build(Repository $store, string $payloadKey, string $freshKey, int $ttl, Closure $callback): mixed
+    {
+        $value = $callback();
+
+        // Salinan disimpan jauh lebih lama dari penanda segarnya, supaya saat
+        // TTL habis masih ada yang bisa disajikan selagi dibangun ulang.
+        $store->put($payloadKey, ['value' => $value], $ttl * self::STALE_TTL_MULTIPLIER);
+        $store->put($freshKey, 1, $ttl);
+
+        return $value;
     }
 
     /**
@@ -48,9 +120,20 @@ class EcommerceCatalogCache
     public function flush(): void
     {
         $store = $this->store();
+        $current = $store->get(self::VERSION_KEY);
+
+        // Saat kunci versi belum ada, version() sudah menganggapnya 1. Menaikkan
+        // dari nol juga menghasilkan 1, jadi flush pertama setelah cache dibersihkan
+        // tidak menginvalidasi apa pun dan perubahan admin baru muncul setelah TTL
+        // habis. Mulai dari 2 supaya kunci lamanya benar-benar ditinggalkan.
+        if ($current === null) {
+            $store->forever(self::VERSION_KEY, 2);
+
+            return;
+        }
 
         if ($store->increment(self::VERSION_KEY) === false) {
-            $store->forever(self::VERSION_KEY, 1);
+            $store->forever(self::VERSION_KEY, (int) $current + 1);
         }
     }
 

@@ -92,14 +92,20 @@
                                                             name="secondary_product_ids[]" data-select2-selector="tag">
                                                             <option value="" disabled hidden>Pilih secondary product
                                                             </option>
-                                                            @foreach ($products as $product)
-                                                                <option value="{{ $product->id }}"
-                                                                    data-name="{{ $product->name }}"
-                                                                    data-sku="{{ $product->sku }}"
-                                                                    {{ $product->id == $item->product_id ? 'selected' : '' }}>
-                                                                    {{ $product->name }} - {{ $product->sku }}
+                                                            {{-- refreshSecondaryOptions() meng-empty() select ini saat
+                                                                 ready lalu mengisinya dari productOptionsHtml, jadi
+                                                                 me-render katalog di sini cuma menggandakan HTML
+                                                                 sebanyak jumlah baris. Cukup opsi yang terpilih supaya
+                                                                 nilainya kebaca sebelum JS jalan. --}}
+                                                            @if ($item->product_id)
+                                                                <option value="{{ $item->product_id }}"
+                                                                    data-name="{{ optional($item->product)->name }}"
+                                                                    data-sku="{{ optional($item->product)->sku }}"
+                                                                    selected>
+                                                                    {{ optional($item->product)->name }} -
+                                                                    {{ optional($item->product)->sku }}
                                                                 </option>
-                                                            @endforeach
+                                                            @endif
                                                         </select>
                                                     </td>
                                                     <td class="text-center">
@@ -115,15 +121,9 @@
                                                     <td>
                                                         <select class="form-select secondary-product-select"
                                                             name="secondary_product_ids[]" data-select2-selector="tag">
+                                                            {{-- Diisi refreshSecondaryOptions() dari productOptionsHtml. --}}
                                                             <option value="" disabled selected hidden>Pilih secondary
                                                                 product</option>
-                                                            @foreach ($products as $product)
-                                                                <option value="{{ $product->id }}"
-                                                                    data-name="{{ $product->name }}"
-                                                                    data-sku="{{ $product->sku }}">
-                                                                    {{ $product->name }} - {{ $product->sku }}
-                                                                </option>
-                                                            @endforeach
                                                         </select>
                                                     </td>
                                                     <td class="text-center">
@@ -328,14 +328,8 @@
                         <select class="form-select secondary-product-select"
                             name="secondary_product_ids[]"
                             data-select2-selector="tag">
+                            <!-- Diisi refreshSecondaryOptions() yang dipanggil tepat setelah baris ini ditambahkan. -->
                             <option value="" disabled selected hidden>Pilih secondary product</option>
-                            @foreach ($products as $product)
-                                <option value="{{ $product->id }}"
-                                    data-name="{{ $product->name }}"
-                                    data-sku="{{ $product->sku }}">
-                                    {{ $product->name }} - {{ $product->sku }}
-                                </option>
-                            @endforeach
                         </select>
                     </td>
                     <td class="text-center">

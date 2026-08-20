@@ -848,75 +848,99 @@
             });
 
             // ========== ACTION ROW ==========
-            $('#saleOrderTable tbody').on('click', 'tr', function(e) {
-                if ($(e.target).closest('td.dt-control').length) return;
+            // Handler-nya sudah disediakan global lewat initRowActionHandler('#saleOrderTable')
+            // di layout. Jangan didobel di sini: handler kedua ikut menghapus baris menu saat
+            // tombol di dalamnya diklik, sehingga tombol lepas dari DOM sebelum Bootstrap
+            // sempat membuka modal-nya.
 
-                let $tr = $(this);
-                let row = dataTable.row($tr);
+            // ========== DELETE ORDER ==========
+            function closeSaleOrderActionMenu() {
+                $('#saleOrderTable tbody tr')
+                    .removeClass('action-shown action-active')
+                    .next('.action-row').remove();
+                $('.sale-mobile-card').removeClass('active');
+            }
 
-                $('#saleOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
+            function removeSaleOrderRow(id) {
+                if (!id) return;
 
-                if ($tr.hasClass('action-shown')) {
-                    $tr.removeClass('action-shown');
-                } else {
-                    let actionHtml = row.data().action || '';
-                    let colCount = $tr.find('td').length;
+                id = String(id);
 
-                    let $actionRow = $(`
-                <tr class="action-row">
-                    <td colspan="${colCount}">
-                        <div class="d-flex justify-content-center">
-                            ${actionHtml}
-                        </div>
-                    </td>
-                </tr>
-            `);
+                // buang dari cache data
+                allData = allData.filter(item => String(item.id) !== id);
 
-                    $tr.after($actionRow);
-                    $tr.addClass('action-shown');
+                // buang dari DataTable
+                const $row = $('#saleOrderTable tbody tr').filter(function() {
+                    const rowData = dataTable.row(this).data();
+                    return rowData && String(rowData.id) === id;
+                });
+
+                if ($row.length) {
+                    dataTable.row($row).remove().draw(false);
                 }
-            });
 
-            $(document).on('click', function(e) {
-                if ($(e.target).closest('#saleOrderTable').length) return;
-                $('#saleOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
-            });
+                // buang dari tampilan mobile
+                $(`#saleOrderMobile .sale-mobile-card[data-id="${id}"]`).remove();
+
+                if (!allData.length) {
+                    $('#saleOrderMobile').html(
+                        '<div class="text-center text-muted py-2">No sale data</div>');
+                }
+            }
 
             $(document).on('submit', '#formDeleteOrder', function(e) {
                 e.preventDefault();
-                const form = $(this);
-                const url = form.attr('action');
+
+                const form = this;
+                const $form = $(form);
+                const $submitBtn = $form.find('button[type="submit"]');
+
+                // cegah double submit
+                if ($submitBtn.prop('disabled')) return;
+                $submitBtn.prop('disabled', true);
+
+                const url = $form.attr('action');
+                // id diambil dari tombol yang diklik; fallback ke potongan terakhir URL
+                const orderId = form.dataset.id || (url || '').split('/').pop();
                 const orderName = $('#OrderName').text();
 
                 $.ajax({
                     url: url,
                     type: 'POST',
-                    data: form.serialize(),
-                    success: function() {
-                        Swal.close();
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Berhasil!',
-                            text: `Order ${orderName} berhasil dihapus.`
+                    data: $form.serialize(),
+                    success: function(res) {
+                        // Tutup modal DULU, baru tampilkan notifikasi. Kalau dibalik,
+                        // backdrop modal sering nyangkut dan halaman jadi tidak bisa diklik.
+                        hideDeleteOrderModal(function() {
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: (res && res.message) ?
+                                    res.message :
+                                    `Order ${orderName} berhasil dihapus.`,
+                                timer: 1800,
+                                showConfirmButton: false
+                            });
                         });
 
-                        $('#modalDeleteOrder').modal('hide');
-                        $('#formDeleteOrder')[0].reset();
-
-                        // ✅ reload data baru biar aman (hapus data lama dari array)
-                        allData = [];
-                        currentPage = 0;
-                        hasMoreData = true;
-                        dataTable.clear().draw();
-                        loadMoreData();
+                        closeSaleOrderActionMenu();
+                        removeSaleOrderRow(orderId);
                     },
-                    error: function() {
-                        Swal.close();
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Gagal!',
-                            text: 'Terjadi kesalahan saat menghapus order.'
+                    error: function(xhr) {
+                        hideDeleteOrderModal(function() {
+                            Swal.close();
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal!',
+                                text: (xhr.responseJSON && xhr.responseJSON.message) ?
+                                    xhr.responseJSON.message :
+                                    'Terjadi kesalahan saat menghapus order.'
+                            });
                         });
+                    },
+                    complete: function() {
+                        $submitBtn.prop('disabled', false);
                     }
                 });
             });
@@ -984,19 +1008,89 @@
 
         });
 
+        // Tutup modal delete dengan aman: pakai instance Bootstrap, bersihkan sisa backdrop,
+        // lalu jalankan callback setelah modal benar-benar tertutup.
+        function hideDeleteOrderModal(callback) {
+            const modalEl = document.getElementById('modalDeleteOrder');
+
+            if (!modalEl) {
+                if (callback) callback();
+                return;
+            }
+
+            const done = function() {
+                // sisa backdrop / body lock yang nyangkut bikin halaman tidak bisa diklik
+                if (!document.querySelector('.modal.show')) {
+                    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.removeProperty('overflow');
+                    document.body.style.removeProperty('padding-right');
+                }
+                if (callback) callback();
+            };
+
+            const instance = (typeof bootstrap !== 'undefined' && bootstrap.Modal) ?
+                bootstrap.Modal.getInstance(modalEl) :
+                null;
+
+            if (!modalEl.classList.contains('show')) {
+                done();
+                return;
+            }
+
+            if (!instance) {
+                $(modalEl).modal('hide');
+                setTimeout(done, 400);
+                return;
+            }
+
+            modalEl.addEventListener('hidden.bs.modal', done, {
+                once: true
+            });
+
+            // fallback kalau event hidden tidak pernah datang (transisi ketimpa SweetAlert dll)
+            setTimeout(function() {
+                if (!modalEl.classList.contains('show')) return;
+                modalEl.classList.remove('show');
+                modalEl.style.display = 'none';
+                done();
+            }, 600);
+
+            instance.hide();
+        }
+
+        // Isi target form delete langsung dari tombol yang diklik (tidak cuma mengandalkan
+        // relatedTarget), supaya URL tidak pernah ketinggalan dari order yang sudah dihapus.
+        document.addEventListener('click', function(e) {
+            const button = e.target.closest('.btn-delete[data-bs-target="#modalDeleteOrder"]');
+            if (!button) return;
+
+            const form = document.getElementById('formDeleteOrder');
+            const nameHolder = document.getElementById('OrderName');
+            if (!form) return;
+
+            form.action = button.getAttribute('data-url') || '';
+            form.dataset.id = button.getAttribute('data-id') || '';
+            if (nameHolder) nameHolder.textContent = button.getAttribute('data-name') || '';
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = false;
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
             const modal = document.getElementById('modalDeleteOrder');
             const form = document.getElementById('formDeleteOrder');
             const nameHolder = document.getElementById('OrderName');
 
+            if (!modal || !form) return;
+
             modal.addEventListener('show.bs.modal', function(event) {
                 const button = event.relatedTarget;
-                const id = button.getAttribute('data-id');
-                const name = button.getAttribute('data-name');
-                const url = button.getAttribute('data-url');
+                if (!button) return;
 
-                form.action = url;
-                nameHolder.textContent = name;
+                form.action = button.getAttribute('data-url') || form.action;
+                form.dataset.id = button.getAttribute('data-id') || form.dataset.id;
+                if (nameHolder) nameHolder.textContent = button.getAttribute('data-name') || '';
             });
         });
 

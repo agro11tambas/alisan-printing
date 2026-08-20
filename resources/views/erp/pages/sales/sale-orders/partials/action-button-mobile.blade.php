@@ -49,7 +49,7 @@
         </li>
         <li>
             <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
-                data-bs-target="#modalDeleteOrder" data-id="{{ $order->id }}" data-name="{{ $order->name }}"
+                data-bs-target="#modalDeleteOrder" data-id="{{ $order->id }}" data-name="{{ $order->order_number }}"
                 data-url="{{ url('/erp/sales/sale-orders/delete/' . $order->id) }}">
                 <i class="feather feather-trash-2 me-3"></i>
                 <span>Delete</span>

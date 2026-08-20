@@ -281,15 +281,19 @@
 
                                                 <div class="form-group product-col-span-2">
                                                     <label>Product</label>
-                                                    <select class="form-control select-product" name="product_id[]">
+                                                    <select class="form-control select-product" name="product_id[]"
+                                                        data-row-price="{{ $item->price }}">
                                                         <option value="" disabled hidden>Pilih produk</option>
-                                                        @foreach ($products as $product)
-                                                            <option value="{{ $product->id }}"
-                                                                data-price="{{ $item->price }}"
-                                                                {{ $product->id == $item->product_id ? 'selected' : '' }}>
-                                                                [{{ $product->sku }}] {{ $product->name }}
+                                                        {{-- Katalog dirender sekali di #product_options_template lalu
+                                                             disalin fillAllProductOptions(), yang juga menempelkan
+                                                             data-row-price di atas ke tiap opsi. --}}
+                                                        @if ($item->product_id)
+                                                            <option value="{{ $item->product_id }}"
+                                                                data-price="{{ $item->price }}" selected>
+                                                                [{{ optional($item->product)->sku }}]
+                                                                {{ optional($item->product)->name }}
                                                             </option>
-                                                        @endforeach
+                                                        @endif
                                                     </select>
                                                 </div>
 
@@ -332,6 +336,20 @@
                                         </div>
                                     @endforeach
                                 </div>
+
+                                {{-- Satu-satunya tempat katalog produk dirender penuh. Isi <template>
+                                     tidak ikut ter-submit dan tidak dirender browser; JS menyalinnya
+                                     ke tiap select saat halaman siap. --}}
+                                <template id="product_options_template">
+                                    <select class="select-product">
+                                        <option value="" disabled selected hidden>Pilih produk</option>
+                                        @foreach ($products as $product)
+                                            <option value="{{ $product->id }}">
+                                                [{{ $product->sku }}] {{ $product->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </template>
                             </div>
                             <div class="col-lg-12 mt-2">
                                 <div class="row justify-content-end">
@@ -366,6 +384,11 @@
 @endsection
 
 @push('scripts')
+    @include('erp.pages.partials.product-options-filler', [
+        'templateId' => 'product_options_template',
+        'containerSelector' => '#product_list',
+    ])
+
     <script>
         const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
 
@@ -436,6 +459,10 @@
         }
 
         $(document).ready(function() {
+            // Salin katalog dari <template> ke tiap baris sebelum select2
+            // membaca isi select-nya.
+            fillAllProductOptions();
+
             $('.select-product').select2({
                 theme: 'bootstrap-5',
                 placeholder: 'Pilih produk',

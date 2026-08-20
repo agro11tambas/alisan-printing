@@ -179,18 +179,31 @@ class CustomerAccountController extends Controller
         ]);
 
         $phone = PhoneNumber::normalizeIndonesian($request->whatsapp_number);
+        $currentPhone = PhoneNumber::normalizeIndonesian($customerAccount->whatsapp_number);
+        $phoneIsUnchanged = $phone === $currentPhone;
 
-        if (CustomerAccount::findByEquivalentWhatsapp($phone, (int) $customerAccount->id)) {
+        $conflictingAccount = CustomerAccount::findByEquivalentWhatsapp($phone, (int) $customerAccount->id);
+
+        // Nomor yang tidak diubah tidak boleh memblokir perubahan data lain (misal ganti nama),
+        // walaupun ada account lama yang menyimpan nomor setara dengan format berbeda.
+        if ($conflictingAccount && ! $phoneIsUnchanged) {
             throw ValidationException::withMessages([
-                'whatsapp_number' => ['Nomor WhatsApp sudah digunakan oleh Customer Account lain.'],
+                'whatsapp_number' => ['Nomor WhatsApp sudah digunakan oleh Customer Account lain: ' . $conflictingAccount->name . '.'],
             ]);
         }
+
+        // Kalau nomornya tidak berubah tapi ada account kembar, pertahankan format lamanya
+        // supaya normalisasi tidak menabrak unique index milik account kembar tersebut.
+        $phoneToSave = $conflictingAccount && $phoneIsUnchanged
+            ? $customerAccount->whatsapp_number
+            : $phone;
+
         DB::beginTransaction();
 
         try {
             $customerAccount->update([
                 'name' => $request->name,
-                'whatsapp_number' => $phone,
+                'whatsapp_number' => $phoneToSave,
                 'auth_provider' => $customerAccount->auth_provider ?? 'phone',
                 'is_active' => $request->boolean('is_active'),
             ]);

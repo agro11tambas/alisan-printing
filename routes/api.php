@@ -52,6 +52,7 @@ Route::prefix('v1')->group(function () {
             Route::put('/password', [CustomerAuthController::class, 'changePassword']);
 
             Route::put('/addresses/{id}', [CustomerAuthController::class, 'updateAddress']);
+            Route::put('/addresses/{id}/default', [CustomerAuthController::class, 'setDefaultAddress']);
             Route::delete('/addresses/{id}', [CustomerAuthController::class, 'deleteAddress']);
         });
     });

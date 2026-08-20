@@ -96,13 +96,19 @@
                                                 <input type="hidden" name="item_id[]" value="{{ $item->id }}">
                                                 <td>
                                                     <select class="form-control select-product" name="product[]" required>
-                                                        <option value="" disabled hidden>Pilih produk</option>
-                                                        @foreach ($productsJson as $p)
-                                                            <option value="{{ $p['id'] }}"
-                                                                {{ $p['id'] == $item->product_id ? 'selected' : '' }}>
-                                                                [{{ $p['sku'] ?? '-' }}] {{ $p['name'] }}
+                                                        <option value="" disabled
+                                                            {{ !$item->product_id ? 'selected hidden' : '' }}>
+                                                            Pilih produk
+                                                        </option>
+                                                        {{-- Daftar produk diisi populateProducts() dari `products`
+                                                             JSON yang sudah ada di halaman ini. Kalau di-render di
+                                                             sini, biayanya jumlah produk dikali jumlah baris item. --}}
+                                                        @if ($item->product_id)
+                                                            <option value="{{ $item->product_id }}" selected>
+                                                                [{{ optional($item->product)->sku ?? '-' }}]
+                                                                {{ optional($item->product)->name }}
                                                             </option>
-                                                        @endforeach
+                                                        @endif
                                                     </select>
                                                 </td>
                                                 <td>
@@ -139,12 +145,25 @@
         const products = @json($productsJson);
 
         function populateProducts(selectEl) {
-            $(selectEl).empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
+            const select = $(selectEl);
+
+            // Baris yang sudah ada cuma membawa opsi terpilih dari server, jadi
+            // pilihannya diingat dulu sebelum daftarnya dibangun ulang.
+            const selected = select.val();
+
+            select.empty().append('<option value="" disabled selected hidden>Pilih produk</option>');
+
             products.forEach(item => {
-                $('<option>', {
+                const option = $('<option>', {
                     value: item.id,
                     text: `[${item.sku || '-'}] ${item.name}`
-                }).appendTo(selectEl);
+                });
+
+                if (selected && String(selected) === String(item.id)) {
+                    option.prop('selected', true);
+                }
+
+                option.appendTo(select);
             });
         }
 
@@ -164,6 +183,8 @@
             let rowCount = {{ count($materialRequest->items) }};
 
             $('select.select-product').each(function() {
+                // Isi daftar produknya dulu, baru select2 membaca isinya.
+                populateProducts(this);
                 initSelect2(this);
             });
 

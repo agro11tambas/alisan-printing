@@ -115,11 +115,13 @@ class CustomerExistingAccountLinkTest extends TestCase
     }
 
 
-    public function test_create_customer_marks_only_the_selected_address_as_default(): void
+    public function test_create_customer_marks_only_the_first_address_as_default(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
 
+        // Alamat utama dipilih customer sendiri lewat website, jadi ERP tidak lagi
+        // menentukannya dan input lama seperti primary_address_index harus diabaikan.
         $request = Request::create('/erp/customers/store', 'POST', [
             'name' => 'Outlet Dengan Cabang',
             'primary_address_index' => 1,
@@ -143,7 +145,7 @@ class CustomerExistingAccountLinkTest extends TestCase
         $defaultAddress = $customer->addresses()->where('is_default', true)->firstOrFail();
 
         $this->assertSame(1, $customer->addresses()->where('is_default', true)->count());
-        $this->assertSame('Cabang', $defaultAddress->business_name);
+        $this->assertSame('Pusat', $defaultAddress->business_name);
     }
 
     public function test_edit_customer_links_matching_existing_account_instead_of_creating_duplicate(): void

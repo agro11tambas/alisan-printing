@@ -173,7 +173,11 @@
                                                 </div>
                                             </div>
 
-                                            <div class="col-lg-2 d-flex">
+                                            <div class="col-lg-2 d-flex gap-1">
+                                                <button type="button" class="btn btn-success btn-lock-account"
+                                                    title="Kunci contact person">
+                                                    <i class="feather-check"></i>
+                                                </button>
                                                 <button type="button" class="btn btn-danger btn-remove-account">
                                                     <i class="feather-x"></i> Remove
                                                 </button>
@@ -192,9 +196,10 @@
                                 </div>
                                 <div class="col-lg-10">
                                     <div id="addresses">
-                                        @php $primaryAddressIndex = (int) old('primary_address_index', $customer->addresses->search(fn ($item) => $item->is_default) ?: 0); @endphp
                                         @foreach ($customer->addresses as $index => $address)
                                             <div class="mb-2 row address-group">
+                                                <input type="hidden" name="addresses[{{ $index }}][id]"
+                                                    value="{{ old("addresses.$index.id", $address->id) }}">
                                                 <div class="col-lg-2">
                                                     <div class="input-group">
                                                         <div class="input-group-text"><i class="feather-briefcase"></i>
@@ -205,13 +210,13 @@
                                                             placeholder="Branch Name">
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-4 mb-0">
+                                                <div class="col-lg-5 mb-0">
                                                     <div class="input-group">
                                                         <div class="input-group-text"><i class="feather-book"></i></div>
                                                         <textarea class="form-control" name="addresses[{{ $index }}][address]" placeholder="Address">{{ old("addresses.$index.address", $address->address) }}</textarea>
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-3 mb-0">
+                                                <div class="col-lg-4 mb-0">
                                                     <div class="input-group">
                                                         <div class="input-group-text"><i class="feather-map-pin"></i>
                                                         </div>
@@ -219,14 +224,6 @@
                                                             name="addresses[{{ $index }}][google_maps]"
                                                             value="{{ old("addresses.$index.google_maps", $address->google_maps) }}"
                                                             placeholder="Google Map">
-                                                    </div>
-                                                </div>
-                                                <div class="col-lg-2 d-flex align-items-center">
-                                                    <div class="form-check">
-                                                        <input class="form-check-input primary-address-radio" type="radio"
-                                                            name="primary_address_index" value="{{ $index }}" id="primary-address-{{ $index }}"
-                                                            {{ $primaryAddressIndex === $index ? 'checked' : '' }}>
-                                                        <label class="form-check-label" for="primary-address-{{ $index }}">Alamat Utama</label>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-1">
@@ -241,6 +238,9 @@
                                     <button type="button" class="btn btn-success mt-1" id="add-address">
                                         <i class="feather-plus"></i> Add Address
                                     </button>
+                                    <small class="d-block text-muted mt-1">
+                                        Alamat utama diatur sendiri oleh customer lewat website.
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -340,11 +340,6 @@
                     btn.classList.remove('d-none');
                 }
             });
-
-            const primaryRadios = Array.from(document.querySelectorAll('.primary-address-radio'));
-            if (primaryRadios.length && !primaryRadios.some(radio => radio.checked)) {
-                primaryRadios[0].checked = true;
-            }
         }
 
         document.getElementById('add-address').addEventListener('click', function() {
@@ -357,23 +352,16 @@
                         <input type="text" class="form-control" name="addresses[${addressIndex}][business_name]" placeholder="Branch Name">
                     </div>
                 </div>
-                <div class="col-lg-4 mb-0">
+                <div class="col-lg-5 mb-0">
                     <div class="input-group">
                         <div class="input-group-text"><i class="feather-book"></i></div>
                         <textarea class="form-control" name="addresses[${addressIndex}][address]" placeholder="Address"></textarea>
                     </div>
                 </div>
-                <div class="col-lg-3 mb-0">
+                <div class="col-lg-4 mb-0">
                     <div class="input-group">
                         <div class="input-group-text"><i class="feather-map-pin"></i></div>
                         <input type="text" class="form-control" name="addresses[${addressIndex}][google_maps]" placeholder="Google Map">
-                    </div>
-                </div>
-                <div class="col-lg-2 d-flex align-items-center">
-                    <div class="form-check">
-                        <input class="form-check-input primary-address-radio" type="radio"
-                            name="primary_address_index" value="${addressIndex}" id="primary-address-${addressIndex}">
-                        <label class="form-check-label" for="primary-address-${addressIndex}">Alamat Utama</label>
                     </div>
                 </div>
                 <div class="col-lg-1">
@@ -537,7 +525,10 @@
                                 </div>
                             </div>
 
-                        <div class="col-lg-2 d-flex">
+                        <div class="col-lg-2 d-flex gap-1">
+                            <button type="button" class="btn btn-success btn-lock-account" title="Kunci contact person">
+                                <i class="feather-check"></i>
+                            </button>
                             <button type="button" class="btn btn-danger btn-remove-account">
                                 <i class="feather-x"></i> Remove
                             </button>
@@ -547,6 +538,52 @@
                 document.getElementById('accounts').appendChild(wrapper);
                 accountIndex++;
                 updateRemoveAccountButtons();
+            });
+
+            function setAccountLocked(row, locked) {
+                row.classList.toggle('account-locked', locked);
+
+                row.querySelectorAll('input').forEach(input => {
+                    input.readOnly = locked;
+                    input.classList.toggle('bg-light', locked);
+                });
+
+                const lockBtn = row.querySelector('.btn-lock-account');
+                if (!lockBtn) return;
+
+                lockBtn.classList.toggle('btn-success', !locked);
+                lockBtn.classList.toggle('btn-secondary', locked);
+                lockBtn.title = locked ? 'Buka kunci contact person' : 'Kunci contact person';
+                lockBtn.innerHTML = locked ? '<i class="feather-unlock"></i>' : '<i class="feather-check"></i>';
+            }
+
+            document.getElementById('accounts').addEventListener('click', function(e) {
+                const lockBtn = e.target.closest('.btn-lock-account');
+                if (!lockBtn) return;
+
+                const row = lockBtn.closest('.account-item');
+                const isLocked = row.classList.contains('account-locked');
+
+                if (isLocked) {
+                    setAccountLocked(row, false);
+                    return;
+                }
+
+                // Jangan kunci baris yang masih kosong.
+                let isValid = true;
+                row.querySelectorAll('input').forEach(input => {
+                    const isEmpty = input.value.trim() === '';
+                    input.classList.toggle('is-invalid', isEmpty);
+                    if (isEmpty) isValid = false;
+                });
+
+                if (isValid) setAccountLocked(row, true);
+            });
+
+            document.getElementById('accounts').addEventListener('input', function(e) {
+                if (e.target.tagName === 'INPUT') {
+                    e.target.classList.remove('is-invalid');
+                }
             });
 
             let accountToDelete = null;

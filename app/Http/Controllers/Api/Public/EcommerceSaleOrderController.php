@@ -20,12 +20,41 @@ use App\Services\EcommercePricingService;
 use App\Services\InvoiceNumberService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class EcommerceSaleOrderController extends Controller
 {
+    /**
+     * Status order yang masih ditampilkan di halaman pesanan customer.
+     * Sale Order = belum diverifikasi, sisanya sudah jadi invoice dan
+     * dilanjutkan ke produksi / pengiriman.
+     */
+    private const CUSTOMER_VISIBLE_STATUSES = [
+        'Sale Order',
+        'Sale List',
+        'Waiting List',
+        'Complete List',
+        'Delivery',
+        'Delivered',
+    ];
+
+    /**
+     * Relasi yang dibutuhkan orderPayload(), termasuk assign waiting list dan
+     * delivery supaya tahap pesanan tidak menembak query per baris.
+     */
+    private const ORDER_PAYLOAD_RELATIONS = [
+        'customer',
+        'customerAccount',
+        'customerAddress',
+        'orderItems.product',
+        'orderProgress.items.assigns',
+        'deliveryOrders.items',
+        'deliveryOrders.shipments',
+    ];
+
     public function __construct(private EcommercePricingService $pricingService)
     {
     }
@@ -35,7 +64,7 @@ class EcommerceSaleOrderController extends Controller
         $account = $this->customerAccount($request);
         $customerIds = $this->accessibleCustomerIds($account);
 
-        $orders = Order::with(['orderItems.product', 'customer', 'customerAddress'])
+        $orders = Order::with(self::ORDER_PAYLOAD_RELATIONS)
             ->where(function ($query) use ($account, $customerIds) {
                 $query->where('customer_account_id', $account->id);
 
@@ -43,7 +72,7 @@ class EcommerceSaleOrderController extends Controller
                     $query->orWhereIn('customer_id', $customerIds);
                 }
             })
-            ->whereIn('status', ['Sale Order', 'Sale List'])
+            ->whereIn('status', self::CUSTOMER_VISIBLE_STATUSES)
             ->latest('order_date')
             ->paginate((int) $request->input('per_page', 10));
 
@@ -192,13 +221,10 @@ class EcommerceSaleOrderController extends Controller
                 }
             }
 
-            return $order->load([
-                'customer',
-                'customerAccount',
-                'customerAddress',
-                'orderItems.product',
-                'orderItems.components.product',
-            ]);
+            return $order->load(array_merge(
+                self::ORDER_PAYLOAD_RELATIONS,
+                ['orderItems.components.product']
+            ));
         });
 
         return response()->json([
@@ -216,13 +242,10 @@ class EcommerceSaleOrderController extends Controller
             abort(404);
         }
 
-        $order->load([
-            'customer',
-            'customerAccount',
-            'customerAddress',
-            'orderItems.product',
-            'orderItems.components.product',
-        ]);
+        $order->load(array_merge(
+            self::ORDER_PAYLOAD_RELATIONS,
+            ['orderItems.components.product']
+        ));
 
         return response()->json([
             'success' => true,
@@ -712,6 +735,7 @@ class EcommerceSaleOrderController extends Controller
             'remaining_amount' => (float) $order->remaining_amount,
             'mode' => $order->mode,
             'notes' => $order->notes,
+            'fulfillment' => $this->orderFulfillment($order),
             'customer' => [
                 'id' => $order->customer?->id,
                 'name' => $order->customer?->name,
@@ -739,5 +763,75 @@ class EcommerceSaleOrderController extends Controller
                 'total_after_discount' => (float) $item->total_after_discount,
             ])->values(),
         ];
+    }
+
+    /**
+     * Tahap pesanan versi customer, dipakai untuk tab di halaman keranjang:
+     *
+     * - waiting_verification : masih SO, admin belum mengubahnya jadi invoice.
+     * - processing           : sudah jadi invoice — assign waiting list sudah
+     *                          dibuat atau barang sedang diantar.
+     * - completed            : semua item pesanan sudah selesai diantar.
+     */
+    private function orderFulfillment(Order $order): array
+    {
+        $isVerified = $order->status !== 'Sale Order';
+
+        $hasProductionAssign = $order->orderProgress
+            ->flatMap
+            ->items
+            ->flatMap
+            ->assigns
+            ->isNotEmpty();
+
+        $shipments = $order->deliveryOrders->flatMap->shipments;
+        $isFullyDelivered = $isVerified && $this->orderIsFullyDelivered($order, $shipments);
+
+        return [
+            'stage' => match (true) {
+                !$isVerified => 'waiting_verification',
+                $isFullyDelivered => 'completed',
+                default => 'processing',
+            },
+            'is_verified' => $isVerified,
+            'has_production_assign' => $hasProductionAssign,
+            'is_on_delivery' => !$isFullyDelivered
+                && $shipments->contains(fn ($shipment) => $shipment->status !== 'Finished'),
+            'is_fully_delivered' => $isFullyDelivered,
+        ];
+    }
+
+    /**
+     * Selesai hanya kalau benar-benar semuanya sudah diantar: tiap baris
+     * delivery order terkirim penuh, semua surat jalan sudah diverifikasi, dan
+     * tidak ada item pesanan yang belum pernah masuk delivery order.
+     */
+    private function orderIsFullyDelivered(Order $order, Collection $shipments): bool
+    {
+        if ($shipments->isEmpty() || $shipments->contains(fn ($shipment) => $shipment->status !== 'Finished')) {
+            return false;
+        }
+
+        $deliveryItems = $order->deliveryOrders->flatMap->items;
+
+        if ($deliveryItems->isEmpty()) {
+            return false;
+        }
+
+        $everyRowDelivered = $deliveryItems->every(function ($deliveryItem) {
+            $target = (float) $deliveryItem->progress_qty;
+
+            return $target > 0 && (float) $deliveryItem->shipped_qty >= $target;
+        });
+
+        if (!$everyRowDelivered) {
+            return false;
+        }
+
+        $deliveredOrderItemIds = $deliveryItems->pluck('order_item_id')->filter()->unique();
+
+        return $order->orderItems->every(
+            fn (OrderItem $orderItem) => $deliveredOrderItemIds->contains($orderItem->id)
+        );
     }
 }

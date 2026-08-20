@@ -250,10 +250,18 @@ class CustomerAuthController extends Controller
 
         $validated['whatsapp_number'] = PhoneNumber::normalizeIndonesian($validated['whatsapp_number']);
 
-        if (CustomerAccount::findByEquivalentWhatsapp($validated['whatsapp_number'], (int) $user->id)) {
+        $phoneIsUnchanged = $validated['whatsapp_number'] === PhoneNumber::normalizeIndonesian($user->whatsapp_number);
+        $conflictingAccount = CustomerAccount::findByEquivalentWhatsapp($validated['whatsapp_number'], (int) $user->id);
+
+        // Nomor yang tidak diubah tidak boleh memblokir perubahan nama.
+        if ($conflictingAccount && ! $phoneIsUnchanged) {
             throw ValidationException::withMessages([
                 'whatsapp_number' => ['Nomor WhatsApp sudah digunakan oleh akun lain.'],
             ]);
+        }
+
+        if ($conflictingAccount && $phoneIsUnchanged) {
+            $validated['whatsapp_number'] = $user->whatsapp_number;
         }
 
         $user->update([
@@ -329,14 +337,54 @@ class CustomerAuthController extends Controller
             'business_name' => $validated['business_name'] ?? null,
             'address' => $validated['address'],
             'google_maps' => $validated['google_maps'] ?? null,
-            'is_default' => $validated['is_default'] ?? false,
         ]);
+
+        // Status alamat utama hanya berubah kalau memang dikirim, supaya update biasa
+        // tidak diam-diam melepas alamat utama yang sudah dipilih customer.
+        if ($request->has('is_default') && $validated['is_default']) {
+            $this->markAddressAsDefault($address);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Alamat berhasil diperbarui.',
             'data' => $user->load(['customer', 'customers.addresses']),
         ]);
+    }
+
+    public function setDefaultAddress(Request $request, $id)
+    {
+        $user = $request->user();
+        $address = \App\Models\CustomerAddresses::findOrFail($id);
+
+        $customerId = $address->customer_id;
+        if (! $user->customers()->where('customers.id', $customerId)->exists() && $user->customer_id != $customerId) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $this->markAddressAsDefault($address);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Alamat utama berhasil diperbarui.',
+            'data' => $user->load(['customer', 'customers.addresses']),
+        ]);
+    }
+
+    /**
+     * Hanya boleh ada satu alamat utama per customer.
+     */
+    private function markAddressAsDefault(\App\Models\CustomerAddresses $address): void
+    {
+        DB::transaction(function () use ($address) {
+            \App\Models\CustomerAddresses::query()
+                ->where('customer_id', $address->customer_id)
+                ->whereKeyNot($address->getKey())
+                ->where('is_default', true)
+                ->update(['is_default' => false]);
+
+            $address->update(['is_default' => true]);
+        });
     }
 
     public function deleteAddress(Request $request, $id)
