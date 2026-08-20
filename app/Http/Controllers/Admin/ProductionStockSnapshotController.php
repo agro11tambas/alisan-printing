@@ -106,7 +106,7 @@ class ProductionStockSnapshotController extends Controller
             ? ProductionStockSnapshot::stockOpnameTodayByProduct($productIds, $date)
             : collect();
 
-        $result = $stocks->map(function ($stock) use ($snapshots, $previousClosings, $stockInByProduct, $assignByProduct, $stockOpnameByProduct, $date, $isToday) {
+        $result = $stocks->map(function ($stock, $index) use ($snapshots, $previousClosings, $stockInByProduct, $assignByProduct, $stockOpnameByProduct, $date, $isToday, $start) {
             $snapshot = $snapshots->get($stock->product_id);
             $productId = $stock->product_id;
             $openingStock = $snapshot !== null
@@ -131,6 +131,7 @@ class ProductionStockSnapshotController extends Controller
             );
 
             return [
+                'DT_RowIndex' => $start + $index + 1,
                 'product_name' => $stock->product->name ?? '-',
                 'available_quantity' => number_format($stock->available_quantity ?? 0, 0, ',', '.'),
                 'snapshot_date' => \Carbon\Carbon::parse($date)->format('d/m/Y'),
