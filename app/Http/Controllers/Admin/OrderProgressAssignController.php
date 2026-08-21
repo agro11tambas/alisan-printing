@@ -86,77 +86,6 @@ class OrderProgressAssignController extends Controller
         ));
     }
 
-    /**
-     * 🔧 Add Assign versi lama (dipanggil dari Waiting List Old).
-     *
-     * Bedanya cuma satu: yang dipilih per produk adalah OPERATOR, bukan mesin.
-     * Perhitungan remaining/available-nya sama persis dengan create().
-     */
-    public function createOld($id)
-    {
-        $progress = OrderProgress::with(['items.product', 'order.customer'])
-            ->findOrFail($id);
-
-        $operators = Operator::where('active', 1)->orderBy('name')->get();
-
-        // 🔹 Generate assign code otomatis lewat service
-        $assignCode = AssignCode::generateAssignCode();
-
-        $productIds = $progress->items->pluck('product_id')->toArray();
-
-        $productionStocks = DB::table('production_stocks')
-            ->whereIn('product_id', $productIds)
-            ->pluck('available_quantity', 'product_id');
-
-        foreach ($progress->items as $item) {
-            $totals = DB::table('order_progress_assigns')
-                ->where('order_progress_item_id', $item->id)
-                ->selectRaw('
-                    COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
-                    COALESCE(SUM(completed_quantity),0) AS total_completed,
-                    COALESCE(SUM(defect_quantity),0)    AS total_defect,
-                    COALESCE(SUM(reject_quantity),0)    AS total_reject
-                ')
-                ->first();
-
-            $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
-
-            if ($unitConversionValue <= 0) {
-                $unitConversionValue = 1;
-            }
-
-            $baseQuantity = (float) ($item->quantity ?? 0) * $unitConversionValue;
-
-            $activeAssign = max(
-                ((float) $totals->total_assigned) - (
-                    (float) $totals->total_completed +
-                    (float) $totals->total_defect +
-                    (float) $totals->total_reject
-                ),
-                0
-            );
-
-            $remaining = max(
-                $baseQuantity - ((float) ($item->completed_quantity ?? 0) + $activeAssign),
-                0
-            );
-
-            $item->active_assign = $activeAssign;
-            $item->available_quantity = $remaining;
-            $item->remaining_quantity = $remaining;
-            $item->production_stock = $productionStocks[$item->product_id] ?? 0;
-
-            $item->base_quantity = $baseQuantity;
-            $item->base_available_quantity = $remaining;
-        }
-
-        return view('erp.pages.production.assign-list-old.add-assign', compact(
-            'progress',
-            'operators',
-            'assignCode'
-        ));
-    }
-
     public function store(Request $request, $id)
     {
         // dd($request->all());
@@ -369,149 +298,6 @@ class OrderProgressAssignController extends Controller
             DB::commit();
 
             return redirect('/erp/productions/waiting-list')
-                ->with('success', "Assign {$progress->order->order_number} berhasil ditambahkan.");
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return redirect()->back()
-                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * 🔧 Simpan assign versi lama (dari Waiting List Old).
-     *
-     * Operator dipilih per produk dan disimpan langsung di assign; mesin
-     * dikosongkan, jadi assign ini masuk grup "Tanpa Mesin" di Assign List baru.
-     * Tiap produk selalu jadi baris assign baru — tidak digabung seperti store().
-     */
-    public function storeOld(Request $request, $id)
-    {
-        $request->validate([
-            'assign_date' => 'required|date',
-            'note'        => 'nullable|string',
-            'items'       => 'required|array',
-            'items.*.order_progress_item_id' => 'required|exists:order_progress_items,id',
-            // 🟢 validasi operator & qty hanya wajib kalau tidak bypass
-            'items.*.operator_id'            => 'required_if:items.*.bypass,0|nullable|exists:operators,id',
-            'items.*.assigned_quantity'      => 'required_if:items.*.bypass,0|integer|min:0',
-            'items.*.note'                   => 'nullable|string',
-            'items.*.bypass'                 => 'nullable|boolean',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $progress = OrderProgress::findOrFail($id);
-
-            // 🟩 1. Buat satu batch assign baru
-            $batch = OrderProgressAssignBatch::create([
-                'order_progress_id' => $progress->id,
-                'machine_id'        => null,
-                'assign_code'       => $progress->order->order_number,
-                'assign_date'       => $request->assign_date,
-                'note'              => $request->note,
-                'created_by'        => Auth::id(),
-            ]);
-
-            // 🟩 2. Loop produk yang diassign
-            foreach ($request->items as $idx => $data) {
-                // 🟡 skip jika bypass dicentang
-                if (!empty($data['bypass']) && (int)$data['bypass'] === 1) {
-                    continue;
-                }
-
-                if (empty($data['assigned_quantity']) || (int)$data['assigned_quantity'] <= 0) {
-                    continue;
-                }
-
-                $item = OrderProgressItem::query()
-                    ->with(['assigns', 'product'])
-                    ->findOrFail($data['order_progress_item_id']);
-
-                $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
-
-                if ($unitConversionValue <= 0) {
-                    $unitConversionValue = 1;
-                }
-
-                $quantityBase = (int) ((float) ($item->quantity ?? 0) * $unitConversionValue);
-
-                $completed = (int) ($item->completed_quantity ?? 0);
-
-                $activeAssigned = (int) $item->assigns->sum(function ($assign) {
-                    return max(
-                        ((int) $assign->assigned_quantity)
-                            - ((int) $assign->completed_quantity)
-                            - ((int) $assign->defect_quantity)
-                            - ((int) $assign->reject_quantity),
-                        0
-                    );
-                });
-
-                $remainingAllowed = max($quantityBase - ($completed + $activeAssigned), 0);
-
-                $requestedAssignQty = (int) $data['assigned_quantity'];
-
-                if ($remainingAllowed <= 0) {
-                    DB::rollBack();
-                    return back()->with('error', "Produk {$item->product->name} sudah full assign, tidak bisa ditambahkan lagi.");
-                }
-
-                if ($requestedAssignQty > $remainingAllowed) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        "items.$idx.assigned_quantity" => "Assigned quantity ($requestedAssignQty) melebihi remaining ($remainingAllowed) untuk produk {$item->product->name}.",
-                    ]);
-                }
-
-                $productionStock = ProductionStock::firstOrCreate(
-                    [
-                        'product_id' => $item->product_id,
-                        'production_warehouse_id' => 2,
-                    ],
-                    [
-                        'opening_stock' => 0,
-                        'available_quantity' => 0,
-                        'finished_product_stock' => 0,
-                        'canceled_product_stock' => 0,
-                    ]
-                );
-
-                if (!Setting::isEnabled('allow_negative_stock')) {
-                    if ($productionStock->available_quantity <= 0) {
-                        throw \Illuminate\Validation\ValidationException::withMessages([
-                            "items.$idx.assigned_quantity" => "Stok available 0 untuk produk {$item->product->name}.",
-                        ]);
-                    }
-
-                    if ($requestedAssignQty > $productionStock->available_quantity) {
-                        throw \Illuminate\Validation\ValidationException::withMessages([
-                            "items.$idx.assigned_quantity" => "Assigned quantity ($requestedAssignQty) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
-                        ]);
-                    }
-                }
-
-                OrderProgressAssign::create([
-                    'assign_batch_id'        => $batch->id,
-                    'order_progress_item_id' => $item->id,
-                    'product_id'             => $item->product_id,
-                    'operator_id'            => $data['operator_id'] ?? null,
-                    'machine_id'             => null,
-                    'assigned_quantity'      => $requestedAssignQty,
-                    'completed_quantity'     => 0,
-                    'note'                   => $data['note'] ?? null,
-                ]);
-
-                $productionStock->decrement('available_quantity', $requestedAssignQty);
-                $productionStock->decrement('pending_waiting_list', $requestedAssignQty);
-            }
-
-            // 🔹 Kalau tidak ada satu pun produk yang diassign, batch kosong dibuang.
-            if ($batch->assigns()->count() === 0) {
-                $batch->forceDelete();
-            }
-
-            DB::commit();
-
-            return redirect('/erp/productions/waiting-list-old')
                 ->with('success', "Assign {$progress->order->order_number} berhasil ditambahkan.");
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -836,17 +622,6 @@ class OrderProgressAssignController extends Controller
     }
 
     /**
-     * 🔧 Assign List versi lama: satu baris per invoice (batch), tanpa grouping mesin.
-     *
-     * Datanya tetap diambil dari endpoint yang sama (dataAssignList), cuma
-     * di sini dipakai untuk semua status — bukan cuma tab Completed.
-     */
-    public function getAssignListOld()
-    {
-        return view('erp.pages.production.assign-list-old.assign-list-old');
-    }
-
-    /**
      * 🔧 Filter status di level PRODUK (assign):
      *    - progress  → produk yang progressnya belum penuh
      *    - completed → produk yang progressnya sudah penuh
@@ -1123,13 +898,7 @@ class OrderProgressAssignController extends Controller
                 $hasOnlyProgressStatus = $batch->assigns
                     ->every(fn ($assign) => $assign->status === 'progress');
 
-                // 🔧 Halaman Assign List Old pakai action button versi lama
-                //    (Add Progress & Edit masih per batch, bukan per mesin).
-                $actionView = $request->boolean('legacy')
-                    ? 'erp.pages.production.assign-list-old.partials.assign-action-button'
-                    : 'erp.pages.production.assign-list.partials.assign-action-button';
-
-                $action = view($actionView, compact(
+                $action = view('erp.pages.production.assign-list.partials.assign-action-button', compact(
                     'batch',
                     'allCompleted',
                     'hasOnlyProgressStatus'

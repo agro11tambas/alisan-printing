@@ -673,7 +673,7 @@
                                         <label>Mode</label>
                                         <select name="mode[]" class="form-control item-mode">
                                             @foreach ($priceModes as $priceMode)
-                                                <option value="{{ $priceMode->slug }}" @selected($priceMode->slug === 'printing')>
+                                                <option value="{{ $priceMode->slug }}" @selected($priceMode->slug === 'sablon')>
                                                     {{ $priceMode->name }}
                                                 </option>
                                             @endforeach
@@ -807,7 +807,7 @@
                                         <label>Mode</label>
                                         <select name="mode[]" class="form-control item-mode">
                                             @foreach ($priceModes as $priceMode)
-                                                <option value="{{ $priceMode->slug }}" @selected($priceMode->slug === 'printing')>
+                                                <option value="{{ $priceMode->slug }}" @selected($priceMode->slug === 'sablon')>
                                                     {{ $priceMode->name }}
                                                 </option>
                                             @endforeach
@@ -1043,8 +1043,9 @@
             }),
         ); ?>;
 
-        const products = @json($productsJson);
-        const bundles = @json($productBundlesJson);
+        {{-- Sudah berupa JSON string dari ErpCatalogPayload (di-cache), jadi dicetak apa adanya --}}
+        const products = {!! $productsJson !!};
+        const bundles = {!! $productBundlesJson !!};
         const modeDiscounts = @json($modeDiscounts ?? []);
 
         // 🔹 Diskon dengan Apply On = Mode: berlaku untuk baris yang mode-nya cocok
@@ -1443,7 +1444,7 @@
 
         $(document).on('change', '.item-mode', function() {
             $(this).css({
-                color: this.value === 'printing' ? '#198754' : '#dc3545',
+                color: this.value === 'sablon' ? '#0d6efd' : this.value === 'polosan' ? '#dc3545' : this.value === 'printing' ? '#198754' : '',
                 fontWeight: '600'
             });
 

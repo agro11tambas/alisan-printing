@@ -130,7 +130,7 @@
 
                                 @if ($isEdit && $category->image)
                                     <div class="mt-1" id="old-image-container">
-                                        <img src="{{ asset('storage/' . $category->image) }}" alt="Category Image"
+                                        <img src="{{ $category->image_url }}" alt="Category Image"
                                             style="max-width: 120px; border-radius: 8px;">
                                     </div>
                                 @endif

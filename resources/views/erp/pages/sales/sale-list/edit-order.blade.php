@@ -1131,8 +1131,9 @@
         const customerAddresses = @json($customerAddressesData);
         const customerAccounts = @json($customerAccountsData);
 
-        const products = @json($productsJson);
-        const bundles = @json($productBundlesJson);
+        {{-- Sudah berupa JSON string dari ErpCatalogPayload (di-cache), jadi dicetak apa adanya --}}
+        const products = {!! $productsJson !!};
+        const bundles = {!! $productBundlesJson !!};
         const modeDiscounts = @json($modeDiscounts ?? []);
 
         // 🔹 Diskon dengan Apply On = Mode: berlaku untuk baris yang mode-nya cocok

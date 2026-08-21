@@ -206,21 +206,13 @@
                                 <li class="nxl-item"><a
                                         class="nxl-link {{ request()->is('productions/waiting-list') || request()->is('productions/waiting-list/*') ? 'active' : '' }}"
                                         href="/erp/productions/waiting-list"><span class="">Waiting
-                                            List (New)</span></a></li>
-                                <li class="nxl-item"><a
-                                        class="nxl-link {{ request()->is('productions/waiting-list-old*') ? 'active' : '' }}"
-                                        href="/erp/productions/waiting-list-old"><span class="">Waiting
-                                            List (Old)</span></a></li>
+                                            List</span></a></li>
                             @endif
                             @if (Auth::user()->hasSubPermission('assign-list'))
                                 <li class="nxl-item"><a
                                         class="nxl-link {{ request()->is('productions/waiting-list/assign-list') || request()->is('productions/waiting-list/assign-list/*') ? 'active' : '' }}"
                                         href="/erp/productions/waiting-list/assign-list"><span class="">Assign
-                                            List (New)</span></a></li>
-                                <li class="nxl-item"><a
-                                        class="nxl-link {{ request()->is('productions/waiting-list/assign-list-old*') ? 'active' : '' }}"
-                                        href="/erp/productions/waiting-list/assign-list-old"><span class="">Assign
-                                            List (Old)</span></a></li>
+                                            List</span></a></li>
                             @endif
                             @if (Auth::user()->hasSubPermission('request-stocks'))
                                 <li class="nxl-item "><a

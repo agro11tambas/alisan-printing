@@ -28,8 +28,23 @@ class EcommerceCatalogCache
 {
     private const VERSION_KEY = 'ecommerce:catalog:version';
 
-    /** Salinan lama disimpan jauh lebih lama dari masa segarnya. */
-    private const STALE_TTL_MULTIPLIER = 12;
+    /**
+     * Umur salinan lama, terpisah dari masa segarnya.
+     *
+     * Sengaja panjang (default 7 hari). Kesegaran dikendalikan penanda `fresh`
+     * dan nomor versi dari flush(), bukan umur salinan ini — salinan lama cuma
+     * jaring pengaman supaya selalu ada yang bisa disajikan selagi katalog
+     * dibangun ulang.
+     *
+     * Sebelumnya 12x TTL (1 jam). Efeknya: kalau website sepi satu jam,
+     * salinannya hangus dan pengunjung berikutnya dapat 503, bukan halaman
+     * produk. Log produksi 21 Agustus 2026 pukul 05:00 menunjukkan persis itu
+     * terjadi di /api/v1/ecommerce/products.
+     */
+    private function staleTtl(int $ttl): int
+    {
+        return max($ttl * 12, (int) config('services.website.catalog_cache_stale_ttl', 604800));
+    }
 
     public function remember(string $key, Closure $callback): mixed
     {
@@ -112,10 +127,50 @@ class EcommerceCatalogCache
 
         // Salinan disimpan jauh lebih lama dari penanda segarnya, supaya saat
         // TTL habis masih ada yang bisa disajikan selagi dibangun ulang.
-        $store->put($payloadKey, ['value' => $value], $ttl * self::STALE_TTL_MULTIPLIER);
+        $store->put($payloadKey, ['value' => $value], $this->staleTtl($ttl));
         $store->put($freshKey, 1, $ttl);
 
         return $value;
+    }
+
+    /**
+     * Seperti remember(), tapi yang disimpan adalah JSON yang sudah jadi.
+     *
+     * Ini bukan penghematan kecil. Menyimpan array PHP berarti tiap cache hit
+     * harus unserialize() seluruh katalog jadi array bersarang di memori, lalu
+     * json_encode() lagi jadi string untuk response. Untuk payload yang
+     * ukurannya belasan MB, dua langkah itu makan detik-detikan CPU — per
+     * request, bahkan saat cache-nya kena. Itu yang membuat /api/v1/ecommerce/products
+     * tercatat 31–73 detik di produksi walau statusnya 200.
+     *
+     * Dengan JSON string, cache hit tinggal baca file lalu kirim byte-nya:
+     * tidak ada array yang dibangun, tidak ada encode ulang.
+     */
+    public function rememberJson(string $key, Closure $callback): string
+    {
+        $json = $this->remember($key, function () use ($callback) {
+            $encoded = json_encode($callback(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+            if ($encoded === false) {
+                throw new \RuntimeException('Gagal encode katalog: '.json_last_error_msg());
+            }
+
+            return $encoded;
+        });
+
+        // Salinan lama dari versi sebelumnya bisa saja masih berupa array.
+        return is_string($json) ? $json : (string) json_encode($json, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Tandai satu kunci sebagai tidak segar tanpa membuang salinannya.
+     *
+     * Dipakai command penghangat: request web tetap dilayani dari salinan lama
+     * selagi CLI membangun yang baru.
+     */
+    public function stale(string $key): void
+    {
+        $this->store()->forget('ecommerce:catalog:'.$key.':fresh:v'.$this->version());
     }
 
     protected function afterResponse(Closure $callback): void

@@ -978,6 +978,12 @@
                     return;
                 }
 
+                // Form delete Sale Order punya penguncian dan lifecycle AJAX sendiri.
+                // Jangan kunci tombol di handler global sebelum AJAX-nya berjalan.
+                if (form.id === 'formDeleteOrder') {
+                    return;
+                }
+
                 // Form-level validation and AJAX handlers run before this delegated handler.
                 if (event.defaultPrevented) {
                     delete form.dataset.submitting;
@@ -995,7 +1001,14 @@
                 const submitter = event.submitter
                     || form.querySelector('button[type="submit"], input[type="submit"]');
 
-                lockButton(submitter);
+                queueMicrotask(function() {
+                    if (event.defaultPrevented) {
+                        delete form.dataset.submitting;
+                        return;
+                    }
+
+                    lockButton(submitter);
+                });
             });
 
             document.addEventListener('invalid', function(event) {

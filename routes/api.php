@@ -61,6 +61,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/cart', [CustomerCartController::class, 'index']);
         Route::put('/cart', [CustomerCartController::class, 'sync']);
         Route::get('/sale-orders', [EcommerceSaleOrderController::class, 'index']);
+        // Didaftarkan sebelum /sale-orders/{order} supaya "sync" tidak ditelan
+        // route model binding dan berakhir 404.
+        Route::get('/sale-orders/sync', [EcommerceSaleOrderController::class, 'sync']);
         Route::get('/sale-orders/{order}', [EcommerceSaleOrderController::class, 'show']);
     });
 

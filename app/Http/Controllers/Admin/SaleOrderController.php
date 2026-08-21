@@ -57,7 +57,8 @@ class SaleOrderController extends Controller
             $modes->map(function ($mode) {
                 $badgeClass = match ($mode) {
                     'printing' => 'bg-soft-success text-success',
-                    'polosan' => 'bg-soft-primary text-primary',
+                    'polosan' => 'bg-soft-danger text-danger',
+                    'sablon' => 'bg-soft-primary text-primary',
                     default => 'bg-soft-dark text-dark',
                 };
 

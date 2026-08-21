@@ -609,7 +609,7 @@
                                         <select name="mode[]" class="form-control item-mode">
                                             @foreach ($priceModes as $priceMode)
                                                 <option value="{{ $priceMode->slug }}"
-                                                    {{ $priceMode->slug === 'printing' ? 'selected' : '' }}>
+                                                    {{ $priceMode->slug === 'sablon' ? 'selected' : '' }}>
                                                     {{ $priceMode->name }}
                                                 </option>
                                             @endforeach
@@ -711,7 +711,7 @@
                                         <select name="mode[]" class="form-control item-mode">
                                             @foreach ($priceModes as $priceMode)
                                                 <option value="{{ $priceMode->slug }}"
-                                                    {{ $priceMode->slug === 'printing' ? 'selected' : '' }}>
+                                                    {{ $priceMode->slug === 'sablon' ? 'selected' : '' }}>
                                                     {{ $priceMode->name }}
                                                 </option>
                                             @endforeach
@@ -1855,7 +1855,7 @@
 
         $(document).on('change', '.item-mode', function() {
             $(this).css({
-                color: '#198754',
+                color: this.value === 'sablon' ? '#0d6efd' : this.value === 'polosan' ? '#dc3545' : this.value === 'printing' ? '#198754' : '',
                 fontWeight: '600'
             });
 

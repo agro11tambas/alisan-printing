@@ -26,7 +26,11 @@ class EcommerceProductController extends Controller
         // menyimpan perubahan. Website memanggil endpoint ini berkali-kali dan
         // sering berbarengan; tanpa cache tiap panggilan membangun ulang
         // seluruh katalog dan salinannya menumpuk di memori server.
-        $data = $this->catalogCache->remember('products:index', function () {
+        // Yang disimpan JSON jadi, bukan array PHP: lihat rememberJson().
+        // Katalog ini payload-nya belasan MB, dan meng-unserialize lalu
+        // meng-encode ulang tiap request adalah biaya terbesar endpoint ini —
+        // jauh lebih besar dari query-nya sendiri.
+        $json = $this->catalogCache->rememberJson('products:index:json', function () {
             $products = EcommerceProduct::with($this->relations())
                 ->where('is_active', true)
                 ->orderBy('sort_order')
@@ -38,13 +42,13 @@ class EcommerceProductController extends Controller
                 $this->bundlePairs($products)
             );
 
-            return $products->map(fn ($product) => $this->formatProduct($product))->all();
+            return [
+                'success' => true,
+                'data' => $products->map(fn ($product) => $this->formatProduct($product))->all(),
+            ];
         });
 
-        return response()->json([
-            'success' => true,
-            'data' => $data,
-        ]);
+        return response($json)->header('Content-Type', 'application/json');
     }
 
     /**

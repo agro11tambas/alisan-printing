@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\CustomerAccount;
 use App\Models\CustomerAddresses;
 use App\Models\Customers;
+use App\Models\DeliveryList;
+use App\Models\DeliveryOrder;
+use App\Models\DeliveryOrderItem;
 use App\Models\Discount;
 use App\Models\EcommerceProduct;
 use App\Models\EcommerceVariantOption;
@@ -15,6 +18,7 @@ use App\Models\ProductBundleItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderItemComponent;
+use App\Models\OrderProgressAssign;
 use App\Models\Products;
 use App\Services\EcommercePricingService;
 use App\Services\InvoiceNumberService;
@@ -50,10 +54,16 @@ class EcommerceSaleOrderController extends Controller
         'customerAccount',
         'customerAddress',
         'orderItems.product',
+        'orderItems.productBundle.items',
         'orderProgress.items.assigns',
         'deliveryOrders.items',
         'deliveryOrders.shipments',
     ];
+
+    /** Memo gambar katalog per request, dipakai itemImageUrl(). */
+    private array $variantImages = [];
+    private array $combinationImages = [];
+    private array $imageUrlMemo = [];
 
     public function __construct(private EcommercePricingService $pricingService)
     {
@@ -251,6 +261,128 @@ class EcommerceSaleOrderController extends Controller
             'success' => true,
             'message' => 'Sale order retrieved successfully.',
             'data' => $this->orderPayload($order),
+        ]);
+    }
+
+    /**
+     * Sidik jari ringan daftar pesanan customer, dipakai website untuk polling.
+     *
+     * Website memanggil endpoint ini tiap beberapa detik. Selama `version`
+     * tidak berubah, tidak ada yang perlu diambil ulang; begitu admin menekan
+     * Mark as Sale List (atau ada perubahan produksi/pengiriman) `version`
+     * ikut berubah dan website tinggal memanggil ulang index() supaya pesanan
+     * pindah dari tab "menunggu verifikasi" ke "diproses".
+     *
+     * Query di sini sengaja hanya membaca kolom kunci dan beberapa agregat —
+     * tanpa relasi berat seperti orderPayload() — supaya aman dipanggil
+     * sesering itu oleh banyak customer sekaligus.
+     */
+    public function sync(Request $request)
+    {
+        $account = $this->customerAccount($request);
+        $customerIds = $this->accessibleCustomerIds($account);
+
+        $orders = Order::query()
+            ->select('id', 'order_number', 'status', 'updated_at')
+            ->where(function ($query) use ($account, $customerIds) {
+                $query->where('customer_account_id', $account->id);
+
+                if (!empty($customerIds)) {
+                    $query->orWhereIn('customer_id', $customerIds);
+                }
+            })
+            ->whereIn('status', self::CUSTOMER_VISIBLE_STATUSES)
+            ->orderBy('id')
+            ->get();
+
+        $orderIds = $orders->pluck('id')->all();
+
+        $parts = $orders->map(fn (Order $order) => implode(':', [
+            $order->id,
+            $order->status,
+            optional($order->updated_at)->getTimestamp() ?? 0,
+        ]))->all();
+
+        $parts[] = $this->progressFingerprint($orderIds);
+        $parts[] = $this->deliveryFingerprint($orderIds);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Sale order sync state retrieved successfully.',
+            'data' => [
+                'version' => sha1(implode('|', $parts)),
+                'server_time' => now()->toIso8601String(),
+                'orders' => $orders->map(fn (Order $order) => [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'status' => $order->status,
+                    'is_verified' => $order->status !== 'Sale Order',
+                    'updated_at' => optional($order->updated_at)->toIso8601String(),
+                ])->values(),
+            ],
+        ]);
+    }
+
+    /**
+     * Ikut menandai pembuatan assign produksi, supaya `has_production_assign`
+     * di payload pesanan tidak basi ketika website hanya melihat `version`.
+     *
+     * @param  array<int, int>  $orderIds
+     */
+    private function progressFingerprint(array $orderIds): string
+    {
+        if ($orderIds === []) {
+            return 'progress:-';
+        }
+
+        $assigns = OrderProgressAssign::query()
+            ->join('order_progress_items', 'order_progress_items.id', '=', 'order_progress_assigns.order_progress_item_id')
+            ->join('order_progresses_2', 'order_progresses_2.id', '=', 'order_progress_items.order_progress_id')
+            ->whereIn('order_progresses_2.order_id', $orderIds)
+            ->whereNull('order_progress_items.deleted_at')
+            ->whereNull('order_progresses_2.deleted_at')
+            ->selectRaw('COUNT(*) as total, MAX(order_progress_assigns.updated_at) as last_update')
+            ->first();
+
+        return 'progress:' . ($assigns->total ?? 0) . ':' . ($assigns->last_update ?? '-');
+    }
+
+    /**
+     * Perpindahan tab "diproses" -> "selesai" digerakkan surat jalan, dan itu
+     * tidak menyentuh kolom updated_at pesanan. Jadi jumlah kiriman, qty yang
+     * sudah terkirim, dan waktu perubahan terakhirnya ikut dihitung ke version.
+     *
+     * @param  array<int, int>  $orderIds
+     */
+    private function deliveryFingerprint(array $orderIds): string
+    {
+        if ($orderIds === []) {
+            return 'delivery:-';
+        }
+
+        $deliveryOrderIds = DeliveryOrder::whereIn('order_id', $orderIds)->pluck('id')->all();
+
+        if ($deliveryOrderIds === []) {
+            return 'delivery:-';
+        }
+
+        $items = DeliveryOrderItem::whereIn('delivery_order_id', $deliveryOrderIds)
+            ->selectRaw('COUNT(*) as total, COALESCE(SUM(shipped_qty), 0) as shipped, MAX(updated_at) as last_update')
+            ->first();
+
+        $shipments = DeliveryList::whereIn('delivery_order_id', $deliveryOrderIds)
+            ->selectRaw("COUNT(*) as total, SUM(CASE WHEN status = 'Finished' THEN 1 ELSE 0 END) as finished, MAX(updated_at) as last_update")
+            ->first();
+
+        return implode(':', [
+            'delivery',
+            count($deliveryOrderIds),
+            $items->total ?? 0,
+            $items->shipped ?? 0,
+            $items->last_update ?? '-',
+            $shipments->total ?? 0,
+            $shipments->finished ?? 0,
+            $shipments->last_update ?? '-',
         ]);
     }
 
@@ -719,6 +851,133 @@ class EcommerceSaleOrderController extends Controller
         return array_values(array_unique($customerIds));
     }
 
+    /**
+     * Gambar per baris pesanan, diambil dari katalog ecommerce supaya sama
+     * dengan yang dilihat customer di keranjang. Order item hanya menyimpan
+     * produk/bundle ERP: varian dicocokkan lewat product_id, bundle lewat
+     * pasangan produk isinya.
+     */
+    private function itemImageUrl(OrderItem $item): ?string
+    {
+        if ($item->product_bundle_id) {
+            $productIds = $item->productBundle?->items
+                ->pluck('product_id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all() ?? [];
+
+            $pairImage = $this->combinationImage($productIds);
+
+            if ($pairImage) {
+                return $this->resolveImageUrl($pairImage);
+            }
+
+            // Kombinasi tanpa foto sendiri: pakai foto produk utama bundle.
+            foreach ($productIds as $productId) {
+                $image = $this->variantImage($productId);
+                if ($image) {
+                    return $this->resolveImageUrl($image);
+                }
+            }
+
+            return null;
+        }
+
+        if (!$item->product_id) {
+            return null;
+        }
+
+        return $this->resolveImageUrl($this->variantImage((int) $item->product_id));
+    }
+
+    /**
+     * Kunci kombinasi: pasangan product_id diurutkan supaya cocok terlepas dari
+     * mana yang jadi produk utama dan mana tutupnya.
+     */
+    private function pairKey(array $productIds): string
+    {
+        sort($productIds);
+
+        return implode('-', $productIds);
+    }
+
+    /**
+     * Foto varian untuk satu produk ERP: foto varian sendiri kalau ada, kalau
+     * tidak foto utama produk ecommerce yang memuatnya. Hasilnya diingat per
+     * product_id supaya satu halaman pesanan cukup sekali query per produk.
+     */
+    private function variantImage(int $productId): ?string
+    {
+        if (array_key_exists($productId, $this->variantImages)) {
+            return $this->variantImages[$productId];
+        }
+
+        $options = EcommerceVariantOption::with('group.ecommerceProduct')
+            ->where('product_id', $productId)
+            ->get();
+
+        $image = $options->firstWhere(fn (EcommerceVariantOption $option) => (bool) $option->image)?->image
+            ?? $options->map(fn (EcommerceVariantOption $option) => $option->group?->ecommerceProduct?->main_image)
+                ->first(fn (?string $main) => (bool) $main);
+
+        return $this->variantImages[$productId] = $image;
+    }
+
+    /**
+     * Foto kombinasi untuk sepasang produk ERP (produk utama + tutupnya), yaitu
+     * gambar yang sama dengan yang dipilih keranjang untuk item bundle.
+     */
+    private function combinationImage(array $productIds): ?string
+    {
+        $key = $this->pairKey($productIds);
+
+        if (array_key_exists($key, $this->combinationImages)) {
+            return $this->combinationImages[$key];
+        }
+
+        $combinations = EcommerceVariantCombination::with(['productOption', 'lidOption', 'ecommerceProduct'])
+            ->whereHas('productOption', fn ($query) => $query->whereIn('product_id', $productIds))
+            ->whereHas('lidOption', fn ($query) => $query->whereIn('product_id', $productIds))
+            ->get()
+            ->filter(fn (EcommerceVariantCombination $combination) => $this->pairKey([
+                (int) $combination->productOption?->product_id,
+                (int) $combination->lidOption?->product_id,
+            ]) === $key);
+
+        $image = $combinations->firstWhere(fn (EcommerceVariantCombination $combination) => (bool) $combination->image)?->image
+            ?? $combinations->map(fn (EcommerceVariantCombination $combination) => $combination->ecommerceProduct?->main_image)
+                ->first(fn (?string $main) => (bool) $main);
+
+        return $this->combinationImages[$key] = $image;
+    }
+
+    /**
+     * Foto lama tersimpan di public/uploads, yang baru di public/storage, jadi
+     * keduanya dicek. Sama seperti resolver di controller produk/kategori.
+     */
+    private function resolveImageUrl(?string $path): ?string
+    {
+        if (empty($path) || str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        if (array_key_exists($path, $this->imageUrlMemo)) {
+            return $this->imageUrlMemo[$path];
+        }
+
+        if (file_exists(public_path('storage/' . $path))) {
+            return $this->imageUrlMemo[$path] = asset('storage/' . $path);
+        }
+
+        if (file_exists(public_path('uploads/' . $path))) {
+            return $this->imageUrlMemo[$path] = asset('uploads/' . $path);
+        }
+
+        return $this->imageUrlMemo[$path] = asset('storage/' . $path);
+    }
+
     private function orderPayload(Order $order): array
     {
         return [
@@ -755,6 +1014,7 @@ class EcommerceSaleOrderController extends Controller
                 'id' => $item->id,
                 'product_id' => $item->product_id,
                 'product_name' => $item->product_name,
+                'image_url' => $this->itemImageUrl($item),
                 'unit_name' => $item->unit_name,
                 'quantity' => (int) $item->quantity,
                 'mode' => $item->mode,

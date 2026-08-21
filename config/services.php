@@ -77,6 +77,10 @@ return [
         'catalog_cache_store' => env('WEBSITE_CATALOG_CACHE_STORE', 'file'),
         'catalog_cache_defer_rebuild' => (bool) env('WEBSITE_CATALOG_CACHE_DEFER_REBUILD', true),
         'catalog_cache_rebuild_lock' => (int) env('WEBSITE_CATALOG_CACHE_REBUILD_LOCK', 900),
+        // Umur salinan lama. Panjang dengan sengaja: kesegaran diatur flush()
+        // dan penanda `fresh`, ini cuma jaring pengaman supaya tidak pernah
+        // ada kondisi cache benar-benar kosong yang berujung 503 ke website.
+        'catalog_cache_stale_ttl' => (int) env('WEBSITE_CATALOG_CACHE_STALE_TTL', 604800),
     ],
 
 ];

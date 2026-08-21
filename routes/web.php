@@ -357,12 +357,6 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::get('/erp/productions/waiting-list/data', [WaitingListController::class, 'dataWaitingList']);
             Route::get('/erp/productions/waiting-list', [WaitingListController::class, 'getWaitingList']);
 
-            // 🔧 Waiting List versi lama (kolom Customer design lama)
-            Route::get('/erp/productions/waiting-list-old', [WaitingListController::class, 'getWaitingListOld']);
-
-            // 🔧 Add Assign versi lama: pilih Operator per produk, bukan Mesin
-            Route::get('/erp/productions/waiting-list-old/add-assign/{id}', [OrderProgressAssignController::class, 'createOld']);
-            Route::post('/erp/productions/waiting-list-old/assign/{id}', [OrderProgressAssignController::class, 'storeOld']);
             // Route::get('/erp/complete-list/data', [WaitingListController::class, 'dataCompleteList']);
             // Route::get('/erp/complete-list', [WaitingListController::class, 'getCompleteList']);
             // Route::put('/erp/mark-as-complete-list/{id}', [WaitingListController::class, 'markAsCompleteList']);
@@ -391,9 +385,6 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::get('/erp/productions/waiting-list/assign-list/data', [OrderProgressAssignController::class, 'dataAssignList']);
             Route::get('/erp/productions/waiting-list/assign-list/machines', [OrderProgressAssignController::class, 'dataAssignListMachines']);
             Route::get('/erp/productions/waiting-list/assign-list', [OrderProgressAssignController::class, 'getAssignList']);
-
-            // 🔧 Assign List versi lama (per invoice, tanpa grouping mesin)
-            Route::get('/erp/productions/waiting-list/assign-list-old', [OrderProgressAssignController::class, 'getAssignListOld']);
 
             // 🔧 Assign List per mesin: detail (per invoice) & cetak struk thermal
             Route::get('/erp/productions/assign-list/machine/{machine}/detail', [OrderProgressAssignController::class, 'machineDetail']);
@@ -801,3 +792,11 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::post('/erp/reset-stock', [StockResetController::class, 'reset'])->name('stock-reset.reset');
     });
 });
+
+// TEMP DEBUG (local only) - dihapus setelah investigasi delete sale order
+if (app()->environment('local')) {
+    Route::get('/__debug-login', function () {
+        \Illuminate\Support\Facades\Auth::loginUsingId(1);
+        return redirect('/erp/sales/sale-orders');
+    });
+}
