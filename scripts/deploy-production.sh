@@ -24,6 +24,9 @@ php artisan optimize:clear --except=cache
 echo "==> Jalankan migrasi"
 php artisan migrate --force
 
+echo "==> Pindahkan gambar kategori lama ke public uploads"
+php artisan ecommerce:migrate-category-images
+
 echo "==> Cache config, route, event, dan view"
 php artisan optimize
 

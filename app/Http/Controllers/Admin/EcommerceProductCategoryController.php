@@ -9,8 +9,6 @@ use App\Models\EcommerceProductCategory;
 use App\Services\WebsiteRevalidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -324,23 +322,13 @@ class EcommerceProductCategoryController extends Controller
             return $oldPath;
         }
 
-        if ($oldPath) {
-            $publicPath = public_path('uploads/' . $oldPath);
-
-            if (File::exists($publicPath)) {
-                File::delete($publicPath);
-            } else {
-                // Hapus file lama yang masih tersimpan lewat disk storage.
-                Storage::disk('public')->delete($oldPath);
-            }
+        if ($oldPath && file_exists(public_path('uploads/' . $oldPath))) {
+            unlink(public_path('uploads/' . $oldPath));
         }
 
-        $directory = public_path('uploads/ecommerce-categories');
-        File::ensureDirectoryExists($directory);
-
         $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        $file->move($directory, $filename);
+        $file->move(public_path('uploads/ecommerce-products'), $filename);
 
-        return 'ecommerce-categories/' . $filename;
+        return 'ecommerce-products/' . $filename;
     }
 }

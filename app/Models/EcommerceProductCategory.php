@@ -115,23 +115,9 @@ class EcommerceProductCategory extends Model
         return $slug;
     }
 
-    public function getImageUrlAttribute(): ?string
+    public function getImageUrlAttribute()
     {
-        if (! $this->image) {
-            return null;
-        }
-
-        if (str_starts_with($this->image, 'http')) {
-            return $this->image;
-        }
-
-        // Upload kategori baru disimpan langsung di public/uploads. Fallback
-        // storage dipertahankan agar gambar kategori lama tetap dapat dibuka.
-        if (file_exists(public_path('uploads/' . $this->image))) {
-            return asset('uploads/' . $this->image);
-        }
-
-        return asset('storage/' . $this->image);
+        return $this->image ? asset('uploads/' . $this->image) : null;
     }
 
     public function discounts()

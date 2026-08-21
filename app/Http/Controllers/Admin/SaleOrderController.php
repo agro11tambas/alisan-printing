@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+
+use App\Services\ErpCatalogPayload;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Order;
@@ -259,106 +261,114 @@ class SaleOrderController extends Controller
 
     public function create()
     {
-        $products = Products::query()
-            ->select([
-                'id',
-                'name',
-                'sku',
-                'price',
-                'sale_price',
-                'base_unit_id',
-                'sale_unit_id',
-            ])
-            ->with([
-                'discounts',
-                'categories:id',
-                'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
-                'unitConversions.unit:id,name',
-                'unitConversions.prices.priceMode',
-            ])
-            ->orderBy('name', 'asc')
-            ->get();
-        // Produk bundle + relasi produk di dalamnya
-        $productsJson = $products->map(function ($product) {
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'sku' => $product->sku,
-                'price' => $product->price,
-                'sale_price' => $product->sale_price,
-                'base_unit_id' => $product->base_unit_id,
-                'sale_unit_id' => $product->sale_unit_id,
-                'discounts' => $product->discounts->toArray(),
-                'categories' => $product->categories->map(function ($category) {
-                    return [
-                        'id' => $category->id,
-                        'discounts' => $category->discounts->map(function ($discount) use ($category) {
-                            return array_merge($discount->toArray(), [
-                                'category_id' => $category->id,
-                            ]);
-                        })->toArray(),
-                    ];
-                })->toArray(),
-                'units' => $product->unitConversions->map(function ($conversion) {
-                    return [
-                        'id' => $conversion->id,
-                        'unit_id' => $conversion->unit_id,
-                        'unit_name' => optional($conversion->unit)->name,
-                        'conversion_value' => $conversion->conversion_value,
-                        'sale_price' => $conversion->sale_price,
-                        'dynamic_prices' => $conversion->relationLoaded('prices')
-                            ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
-                            : [],
-                    ];
-                })->values()->toArray(),
-            ];
-        })->toArray();
-        // The form only needs bundle membership, not the full pricing/discount graph.
-        $productBundles = ProductBundle::query()
-            ->select(['id', 'base_unit_id', 'price'])
-            ->with([
-                'primaryItem:id,bundle_id,product_id,role',
-                'secondaryItems:id,bundle_id,product_id,role',
-                'secondaryItems.product:id,name,sku',
-                'unitConversions:id,product_bundle_id,unit_id,conversion_value,sale_price',
-                'unitConversions.unit:id,name',
-                'unitConversions.prices.priceMode',
-            ])
-            ->get();
+        // Blob katalog yang ditanam ke HTML halaman ini disimpan sebagai JSON
+        // jadi, supaya tiap page load tidak mengulang query katalog, hidrasi
+        // model, pemetaan array, lalu json_encode.
+        $catalogPayload = app(ErpCatalogPayload::class);
 
-        $productBundlesJson = $productBundles->map(function ($bundle) {
-            return [
-                'id' => $bundle->id,
-                'base_unit_id' => $bundle->base_unit_id,
-                'price' => $bundle->price,
-                'units' => $bundle->unitConversions->map(function ($conversion) {
-                    return [
-                        'id' => $conversion->id,
-                        'unit_id' => $conversion->unit_id,
-                        'unit_name' => optional($conversion->unit)->name,
-                        'conversion_value' => $conversion->conversion_value,
-                        'sale_price' => $conversion->sale_price,
-                        'dynamic_prices' => $conversion->relationLoaded('prices')
-                            ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
-                            : [],
-                    ];
-                })->values()->toArray(),
-                'primary_item' => $bundle->primaryItem ? [
-                    'product_id' => $bundle->primaryItem->product_id,
-                ] : null,
-                'secondary_items' => $bundle->secondaryItems->map(function ($item) {
-                    return [
-                        'product_id' => $item->product_id,
-                        'product' => $item->product ? [
-                            'id' => $item->product->id,
-                            'name' => $item->product->name,
-                            'sku' => $item->product->sku,
-                        ] : null,
-                    ];
-                })->values()->toArray(),
-            ];
-        })->toArray();
-        // $customers = Customers::with('addresses')->get();
+        $productsJson = $catalogPayload->json('sale-orders:create:products', function () {
+            $products = Products::query()
+                ->select([
+                    'id',
+                    'name',
+                    'sku',
+                    'price',
+                    'sale_price',
+                    'base_unit_id',
+                    'sale_unit_id',
+                ])
+                ->with([
+                    'discounts',
+                    'categories:id',
+                    'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
+                    'unitConversions.unit:id,name',
+                    'unitConversions.prices.priceMode',
+                ])
+                ->orderBy('name', 'asc')
+                ->get();
+                return $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'price' => $product->price,
+                    'sale_price' => $product->sale_price,
+                    'base_unit_id' => $product->base_unit_id,
+                    'sale_unit_id' => $product->sale_unit_id,
+                    'discounts' => $product->discounts->toArray(),
+                    'categories' => $product->categories->map(function ($category) {
+                        return [
+                            'id' => $category->id,
+                            'discounts' => $category->discounts->map(function ($discount) use ($category) {
+                                return array_merge($discount->toArray(), [
+                                    'category_id' => $category->id,
+                                ]);
+                            })->toArray(),
+                        ];
+                    })->toArray(),
+                    'units' => $product->unitConversions->map(function ($conversion) {
+                        return [
+                            'id' => $conversion->id,
+                            'unit_id' => $conversion->unit_id,
+                            'unit_name' => optional($conversion->unit)->name,
+                            'conversion_value' => $conversion->conversion_value,
+                            'sale_price' => $conversion->sale_price,
+                            'dynamic_prices' => $conversion->relationLoaded('prices')
+                                ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
+                                : [],
+                        ];
+                    })->values()->toArray(),
+                ];
+            })->toArray();
+        });
+
+        // The form only needs bundle membership, not the full pricing/discount graph.
+        $productBundlesJson = $catalogPayload->json('sale-orders:create:bundles', function () {
+            $productBundles = ProductBundle::query()
+                ->select(['id', 'base_unit_id', 'price'])
+                ->with([
+                    'primaryItem:id,bundle_id,product_id,role',
+                    'secondaryItems:id,bundle_id,product_id,role',
+                    'secondaryItems.product:id,name,sku',
+                    'unitConversions:id,product_bundle_id,unit_id,conversion_value,sale_price',
+                    'unitConversions.unit:id,name',
+                    'unitConversions.prices.priceMode',
+                ])
+                ->get();
+                return $productBundles->map(function ($bundle) {
+                return [
+                    'id' => $bundle->id,
+                    'base_unit_id' => $bundle->base_unit_id,
+                    'price' => $bundle->price,
+                    'units' => $bundle->unitConversions->map(function ($conversion) {
+                        return [
+                            'id' => $conversion->id,
+                            'unit_id' => $conversion->unit_id,
+                            'unit_name' => optional($conversion->unit)->name,
+                            'conversion_value' => $conversion->conversion_value,
+                            'sale_price' => $conversion->sale_price,
+                            'dynamic_prices' => $conversion->relationLoaded('prices')
+                                ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
+                                : [],
+                        ];
+                    })->values()->toArray(),
+                    'primary_item' => $bundle->primaryItem ? [
+                        'product_id' => $bundle->primaryItem->product_id,
+                    ] : null,
+                    'secondary_items' => $bundle->secondaryItems->map(function ($item) {
+                        return [
+                            'product_id' => $item->product_id,
+                            'product' => $item->product ? [
+                                'id' => $item->product->id,
+                                'name' => $item->product->name,
+                                'sku' => $item->product->sku,
+                            ] : null,
+                        ];
+                    })->values()->toArray(),
+                ];
+            })->toArray();
+            // $customers = Customers::with('addresses')->get();
+        });
         $user = Auth::user();
 
         $customers = Customers::query()
@@ -646,33 +656,8 @@ class SaleOrderController extends Controller
             }
         }
 
-        // 🔹 Ambil data produk dan bundle
-        $productBundles = ProductBundle::with([
-            'items.product.categories.discounts',
-            'items.product.discounts',
-
-            'primaryItem.product',
-            'secondaryItems.product',
-
-            'unitConversions.unit',
-            'unitConversions.prices.priceMode',
-        ])->orderBy('name', 'asc')->get();
-
-        // Kalau belum ada relasi diskon di bundle, beri array kosong
-        $productBundles->map(function ($bundle) {
-            $bundle->discounts = [];
-            return $bundle;
-        });
-
-        $products = Products::with([
-            'categories',
-            'discounts',
-            'categories.discounts',
-            'unitConversions.unit',
-            'unitConversions.prices.priceMode',
-        ])
-            ->orderBy('name', 'asc')
-            ->get();
+        // Blob katalog di-cache sebagai JSON jadi lewat ErpCatalogPayload.
+        $catalogPayload = app(ErpCatalogPayload::class);
 
         // $customers = Customers::with('addresses')->orderBy('name', 'asc')->get();
 
@@ -686,110 +671,137 @@ class SaleOrderController extends Controller
             ->get();
 
         // 🔹 JSON untuk produk tunggal
-        $productsJson = $products->map(function ($product) {
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'sku'  => $product->sku,
-                'price' => $product->price,
-                'sale_price' => $product->sale_price,
-                'base_unit_id' => $product->base_unit_id,
-                'sale_unit_id' => $product->sale_unit_id,
-                'discounts' => $product->discounts->toArray(),
-                'categories' => $product->categories->map(function ($cat) {
-                    return [
-                        'id' => $cat->id,
-                        'discounts' => $cat->discounts->map(function ($d) use ($cat) {
-                            return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                        })->toArray()
-                    ];
-                })->toArray(),
-                'units' => $product->unitConversions->map(function ($conversion) {
-                    return [
-                        'id' => $conversion->id,
-                        'unit_id' => $conversion->unit_id,
-                        'unit_name' => optional($conversion->unit)->name,
-                        'conversion_value' => $conversion->conversion_value,
-                        'sale_price' => $conversion->sale_price,
-                        'dynamic_prices' => $conversion->relationLoaded('prices')
-                            ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
-                            : [],
-                    ];
-                })->values()->toArray(),
-            ];
-        })->toArray();
+        $productsJson = $catalogPayload->json('sale-orders:edit:products', function () {
+            $products = Products::with([
+                'categories',
+                'discounts',
+                'categories.discounts',
+                'unitConversions.unit',
+                'unitConversions.prices.priceMode',
+            ])
+                ->orderBy('name', 'asc')
+                ->get();
+                return $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'sku'  => $product->sku,
+                    'price' => $product->price,
+                    'sale_price' => $product->sale_price,
+                    'base_unit_id' => $product->base_unit_id,
+                    'sale_unit_id' => $product->sale_unit_id,
+                    'discounts' => $product->discounts->toArray(),
+                    'categories' => $product->categories->map(function ($cat) {
+                        return [
+                            'id' => $cat->id,
+                            'discounts' => $cat->discounts->map(function ($d) use ($cat) {
+                                return array_merge($d->toArray(), ['category_id' => $cat->id]);
+                            })->toArray()
+                        ];
+                    })->toArray(),
+                    'units' => $product->unitConversions->map(function ($conversion) {
+                        return [
+                            'id' => $conversion->id,
+                            'unit_id' => $conversion->unit_id,
+                            'unit_name' => optional($conversion->unit)->name,
+                            'conversion_value' => $conversion->conversion_value,
+                            'sale_price' => $conversion->sale_price,
+                            'dynamic_prices' => $conversion->relationLoaded('prices')
+                                ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
+                                : [],
+                        ];
+                    })->values()->toArray(),
+                ];
+            })->toArray();
+        });
 
         // 🔹 JSON untuk produk bundle (gabungkan nama produk)
-        $productBundlesJson = $productBundles->map(function ($bundle) {
-            $bundleDiscounts = [];
-            $bundleCategories = [];
+        $productBundlesJson = $catalogPayload->json('sale-orders:edit:bundles', function () {
+            $productBundles = ProductBundle::with([
+                'items.product.categories.discounts',
+                'items.product.discounts',
 
-            foreach ($bundle->items as $item) {
-                $product = $item->product;
+                'primaryItem.product',
+                'secondaryItems.product',
 
-                // Diskon langsung dari produk
-                foreach ($product->discounts as $discount) {
-                    $bundleDiscounts[] = $discount;
+                'unitConversions.unit',
+                'unitConversions.prices.priceMode',
+            ])->orderBy('name', 'asc')->get();
+
+            // Kalau belum ada relasi diskon di bundle, beri array kosong
+            $productBundles->map(function ($bundle) {
+                $bundle->discounts = [];
+                return $bundle;
+            });
+                return $productBundles->map(function ($bundle) {
+                $bundleDiscounts = [];
+                $bundleCategories = [];
+
+                foreach ($bundle->items as $item) {
+                    $product = $item->product;
+
+                    // Diskon langsung dari produk
+                    foreach ($product->discounts as $discount) {
+                        $bundleDiscounts[] = $discount;
+                    }
+
+                    // Kategori + diskon kategori
+                    foreach ($product->categories as $cat) {
+                        $bundleCategories[] = [
+                            'id' => $cat->id,
+                            'discounts' => $cat->discounts->map(function ($d) use ($cat) {
+                                return array_merge($d->toArray(), ['category_id' => $cat->id]);
+                            })->toArray()
+                        ];
+                    }
                 }
 
-                // Kategori + diskon kategori
-                foreach ($product->categories as $cat) {
-                    $bundleCategories[] = [
-                        'id' => $cat->id,
-                        'discounts' => $cat->discounts->map(function ($d) use ($cat) {
-                            return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                        })->toArray()
-                    ];
-                }
-            }
+                // 🔹 Gabungkan nama-nama produk di dalam bundle
+                $bundleName = $bundle->items->map(function ($item) {
+                    return $item->product->name ?? '-';
+                })->implode(' + ');
 
-            // 🔹 Gabungkan nama-nama produk di dalam bundle
-            $bundleName = $bundle->items->map(function ($item) {
-                return $item->product->name ?? '-';
-            })->implode(' + ');
+                return [
+                    'id' => $bundle->id,
+                    'name' => $bundleName ?: $bundle->name, // fallback ke nama asli kalau kosong
+                    'sku'  => $bundle->sku,
+                    'price' => $bundle->price,
+                    'discounts' => $bundleDiscounts,
+                    'base_unit_id' => $bundle->base_unit_id,
+                    'categories' => $bundleCategories,
+                    'units' => $bundle->unitConversions->map(function ($conversion) {
+                        return [
+                            'id' => $conversion->id,
+                            'unit_id' => $conversion->unit_id,
+                            'unit_name' => optional($conversion->unit)->name,
+                            'conversion_value' => $conversion->conversion_value,
+                            'sale_price' => $conversion->sale_price,
+                            'dynamic_prices' => $conversion->relationLoaded('prices')
+                                ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
+                                : [],
+                        ];
+                    })->values()->toArray(),
+                    'primary_item' => $bundle->primaryItem ? [
+                        'product_id' => $bundle->primaryItem->product_id,
+                        'product' => $bundle->primaryItem->product,
+                    ] : null,
 
-            return [
-                'id' => $bundle->id,
-                'name' => $bundleName ?: $bundle->name, // fallback ke nama asli kalau kosong
-                'sku'  => $bundle->sku,
-                'price' => $bundle->price,
-                'discounts' => $bundleDiscounts,
-                'base_unit_id' => $bundle->base_unit_id,
-                'categories' => $bundleCategories,
-                'units' => $bundle->unitConversions->map(function ($conversion) {
-                    return [
-                        'id' => $conversion->id,
-                        'unit_id' => $conversion->unit_id,
-                        'unit_name' => optional($conversion->unit)->name,
-                        'conversion_value' => $conversion->conversion_value,
-                        'sale_price' => $conversion->sale_price,
-                        'dynamic_prices' => $conversion->relationLoaded('prices')
-                            ? $conversion->prices->mapWithKeys(fn ($price) => [$price->priceMode->slug => (float) $price->sale_price])->toArray()
-                            : [],
-                    ];
-                })->values()->toArray(),
-                'primary_item' => $bundle->primaryItem ? [
-                    'product_id' => $bundle->primaryItem->product_id,
-                    'product' => $bundle->primaryItem->product,
-                ] : null,
-
-                'secondary_items' => $bundle->secondaryItems->map(function ($item) {
-                    return [
-                        'product_id' => $item->product_id,
-                        'product' => $item->product,
-                    ];
-                })->values()->toArray(),
-            ];
-        })->toArray();
+                    'secondary_items' => $bundle->secondaryItems->map(function ($item) {
+                        return [
+                            'product_id' => $item->product_id,
+                            'product' => $item->product,
+                        ];
+                    })->values()->toArray(),
+                ];
+            })->toArray();
+        });
 
         $priceModes = PriceMode::active()->ordered()->get();
         $modeDiscounts = Discount::modeDiscountsPayload();
 
         return view('erp.pages.sales.sale-orders.edit-order', compact(
             'order',
-            'products',
             'customers',
-            'productBundles',
             'productsJson',
             'productBundlesJson',
             'dueDateOption',
