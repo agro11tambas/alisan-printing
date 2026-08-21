@@ -327,8 +327,8 @@ class EcommerceProductCategoryController extends Controller
         }
 
         $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        $file->move(public_path('uploads/ecommerce-products'), $filename);
+        $file->move(public_path('uploads/ecommerce-categories'), $filename);
 
-        return 'ecommerce-products/' . $filename;
+        return 'ecommerce-categories/' . $filename;
     }
 }

@@ -10,7 +10,9 @@ use Tests\TestCase;
 
 class MigrateEcommerceCategoryImagesTest extends TestCase
 {
-    private string $relativePath = 'ecommerce-products/category-migration-command-test.png';
+    private string $legacyPath = 'ecommerce-products/category-migration-command-test.png';
+
+    private string $publicPath = 'ecommerce-categories/category-migration-command-test.png';
 
     protected function setUp(): void
     {
@@ -52,7 +54,7 @@ class MigrateEcommerceCategoryImagesTest extends TestCase
         EcommerceProductCategory::create([
             'name' => 'Cup',
             'slug' => 'cup',
-            'image' => $this->relativePath,
+            'image' => $this->legacyPath,
         ]);
 
         File::ensureDirectoryExists(dirname($this->sourcePath()));
@@ -64,15 +66,16 @@ class MigrateEcommerceCategoryImagesTest extends TestCase
 
         $this->assertFileExists($this->destinationPath());
         $this->assertSame('category-image', File::get($this->destinationPath()));
+        $this->assertSame($this->publicPath, EcommerceProductCategory::firstOrFail()->image);
     }
 
     private function sourcePath(): string
     {
-        return storage_path('app/public/' . $this->relativePath);
+        return storage_path('app/public/' . $this->legacyPath);
     }
 
     private function destinationPath(): string
     {
-        return public_path('uploads/' . $this->relativePath);
+        return public_path('uploads/' . $this->publicPath);
     }
 }

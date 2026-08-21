@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\EcommerceProductCategory;
+use App\Services\WebsiteRevalidator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 
@@ -12,7 +13,7 @@ class MigrateEcommerceCategoryImages extends Command
 
     protected $description = 'Copy legacy ecommerce category images from storage into public uploads';
 
-    public function handle(): int
+    public function handle(WebsiteRevalidator $websiteRevalidator): int
     {
         $copied = 0;
         $existing = 0;
@@ -29,17 +30,26 @@ class MigrateEcommerceCategoryImages extends Command
                     return;
                 }
 
-                $destination = public_path('uploads/' . $image);
+                $filename = basename(str_replace('\\', '/', $image));
+                $newPath = 'ecommerce-categories/' . $filename;
+                $destination = public_path('uploads/' . $newPath);
 
                 if (File::exists($destination)) {
+                    if ($category->image !== $newPath) {
+                        $category->update(['image' => $newPath]);
+                    }
+
                     $existing++;
 
                     return;
                 }
 
-                $source = storage_path('app/public/' . $image);
+                $source = collect([
+                    public_path('uploads/' . $image),
+                    storage_path('app/public/' . $image),
+                ])->first(fn (string $path) => File::exists($path));
 
-                if (! File::exists($source)) {
+                if (! $source) {
                     $missing++;
                     $this->warn("Category {$category->id}: source image not found ({$image}).");
 
@@ -48,8 +58,11 @@ class MigrateEcommerceCategoryImages extends Command
 
                 File::ensureDirectoryExists(dirname($destination));
                 File::copy($source, $destination);
+                $category->update(['image' => $newPath]);
                 $copied++;
             });
+
+        $websiteRevalidator->categories();
 
         $this->info("Category images: {$copied} copied, {$existing} already public, {$missing} missing.");
 
