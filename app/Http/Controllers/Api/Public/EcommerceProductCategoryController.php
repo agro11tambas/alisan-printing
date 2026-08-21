@@ -76,8 +76,9 @@ class EcommerceProductCategoryController extends Controller
             return $image;
         }
 
-        if (str_starts_with($image, 'http')) {
-            // Already a full URL
+        if (str_starts_with($image, 'http')
+            && ! str_contains($image, '/ecommerce-products/')
+            && ! str_contains($image, '/ecommerce-categories/')) {
             return $image;
         }
 
@@ -85,16 +86,14 @@ class EcommerceProductCategoryController extends Controller
             return $this->imageUrlMemo[$image];
         }
 
-        if (file_exists(public_path('uploads/' . $image))) {
-            return $this->imageUrlMemo[$image] = asset('uploads/' . $image);
+        $path = parse_url($image, PHP_URL_PATH) ?: $image;
+        $filename = basename(str_replace('\\', '/', $path));
+        $categoryPath = 'ecommerce-categories/' . $filename;
+
+        if (file_exists(public_path('uploads/' . $categoryPath))) {
+            return $this->imageUrlMemo[$image] = asset('uploads/' . $categoryPath);
         }
 
-        if (file_exists(public_path('storage/' . $image))) {
-            return $this->imageUrlMemo[$image] = asset('storage/' . $image);
-        }
-
-        // Path kategori sekarang selalu mengarah ke public/uploads. Ini juga
-        // membuat URL konsisten walaupun filesystem production tidak bisa di-stat.
-        return $this->imageUrlMemo[$image] = asset('uploads/' . $image);
+        return $this->imageUrlMemo[$image] = asset('uploads/' . $categoryPath);
     }
 }

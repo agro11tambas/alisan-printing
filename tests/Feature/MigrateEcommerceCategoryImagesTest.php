@@ -51,11 +51,13 @@ class MigrateEcommerceCategoryImagesTest extends TestCase
 
     public function test_command_copies_legacy_category_image_to_public_uploads(): void
     {
-        EcommerceProductCategory::create([
+        $category = EcommerceProductCategory::create([
             'name' => 'Cup',
             'slug' => 'cup',
             'image' => $this->legacyPath,
         ]);
+
+        $this->assertStringEndsWith('/uploads/' . $this->publicPath, $category->image_url);
 
         File::ensureDirectoryExists(dirname($this->sourcePath()));
         File::put($this->sourcePath(), 'category-image');

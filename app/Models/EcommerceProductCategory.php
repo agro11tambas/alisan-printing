@@ -117,7 +117,22 @@ class EcommerceProductCategory extends Model
 
     public function getImageUrlAttribute()
     {
-        return $this->image ? asset('uploads/' . $this->image) : null;
+        $image = trim((string) $this->image);
+
+        if ($image === '') {
+            return null;
+        }
+
+        if (str_starts_with($image, 'http')
+            && ! str_contains($image, '/ecommerce-products/')
+            && ! str_contains($image, '/ecommerce-categories/')) {
+            return $image;
+        }
+
+        $path = parse_url($image, PHP_URL_PATH) ?: $image;
+        $filename = basename(str_replace('\\', '/', $path));
+
+        return asset('uploads/ecommerce-categories/' . $filename);
     }
 
     public function discounts()
