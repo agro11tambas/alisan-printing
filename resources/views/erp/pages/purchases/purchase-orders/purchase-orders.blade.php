@@ -207,7 +207,9 @@
                             aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p>Apakah Anda yakin ingin menghapus Purchase <strong id="purchaseName"></strong>?</p>
+                        <p>Apakah Anda yakin ingin menghapus Purchase Order <strong id="purchaseName"></strong>?</p>
+                        <p class="text-muted mb-1">Purchase List yang belum Stock In akan ikut dihapus dan stok
+                            incoming-nya dikembalikan.</p>
                         <p class="text-muted">Data yang dihapus tidak dapat dikembalikan.</p>
                     </div>
                     <div class="modal-footer">

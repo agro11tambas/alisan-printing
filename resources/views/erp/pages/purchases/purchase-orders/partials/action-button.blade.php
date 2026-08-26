@@ -42,14 +42,20 @@
                 <span>Edit</span>
             </a>
         </li>
-        <li>
-            <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
-                data-bs-target="#modalDeletePurchase" data-id="{{ $purchase->id }}" data-name="{{ $purchase->name }}"
-                data-url="{{ url('/erp/purchases/purchase-orders/delete/' . $purchase->id) }}">
-                <i class="feather feather-trash-2 me-3"></i>
-                <span>Delete</span>
-            </button>
-        </li>
+        {{-- PO yang sudah di-verify tetap boleh dihapus. Tombolnya baru hilang
+             kalau salah satu Purchase List anaknya sudah punya Stock In atau
+             sudah dibayar. --}}
+        @if (!($hasStockIn ?? false) && !($hasPaidPurchaseList ?? false))
+            <li>
+                <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
+                    data-bs-target="#modalDeletePurchase" data-id="{{ $purchase->id }}"
+                    data-name="{{ $purchase->purchase_number ?? $purchase->name }}"
+                    data-url="{{ url('/erp/purchases/purchase-orders/delete/' . $purchase->id) }}">
+                    <i class="feather feather-trash-2 me-3"></i>
+                    <span>Delete</span>
+                </button>
+            </li>
+        @endif
 
         @php $isOwner = auth()->check() && auth()->user()->role === 'Owner'; @endphp
 

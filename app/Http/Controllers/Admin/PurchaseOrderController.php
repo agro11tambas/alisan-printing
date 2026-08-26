@@ -152,6 +152,17 @@ class PurchaseOrderController extends Controller
                 ->withSum('purchaseListInventoryItems as stock_in_base', 'stock_in'),
             'purchaseItems.purchaseProduct:id,name,sku',
         ])
+            // PL anak yang sudah dibayar mengunci PO-nya. Dicek sebagai EXISTS
+            // di SQL supaya tidak perlu memuat PL-nya satu per satu.
+            ->withExists([
+                'purchaseLists as has_paid_purchase_list' => fn ($query) => $query
+                    ->where(fn ($paid) => $paid
+                        ->whereIn('payment_status', ['Paid', 'Partially Paid', 'Overpaid'])
+                        ->orWhere('paid_amount', '>', 0)
+                        ->orWhere('paid_amount_product', '>', 0)
+                        ->orWhere('paid_amount_freight', '>', 0)
+                    ),
+            ])
             ->where('status', 'Purchase Orders')
             ->orderByDesc('purchase_date');
 
@@ -226,7 +237,16 @@ class PurchaseOrderController extends Controller
                 };
 
                 // ⚙️ Action button partial
-                $actionHtml = view('erp.pages.purchases.purchase-orders.partials.action-button', compact('purchase'))->render();
+                // Realisasi Stock In sudah ikut ter-agregat di query listing
+                // (stock_in_base per purchase item), jadi cek ini gratis.
+                $hasStockIn = $items->contains(fn ($item) => (float) ($item->stock_in_base ?? 0) > 0);
+                $hasPaidPurchaseList = (bool) ($purchase->has_paid_purchase_list ?? false);
+
+                $actionHtml = view('erp.pages.purchases.purchase-orders.partials.action-button', compact(
+                    'purchase',
+                    'hasStockIn',
+                    'hasPaidPurchaseList'
+                ))->render();
 
                 return [
                     'id' => $purchase->id,
@@ -672,15 +692,64 @@ class PurchaseOrderController extends Controller
         return back()->with('success', 'Purchase Order berhasil di-verify dan siap dibuatkan Purchase List.');
     }
 
-    public function delete($id)
+    public function delete($id, Request $request, PurchaseOrderForceDeleteService $forceDeleteService)
     {
         DB::beginTransaction();
 
         try {
             $purchase = Purchase::with('purchaseItems')->findOrFail($id);
 
-            if ($purchase->purchaseLists()->exists()) {
-                throw new \RuntimeException('PO yang sudah memiliki Purchase List tidak dapat dihapus.');
+            // PO yang sudah di-verify tetap boleh dihapus. Yang mengunci
+            // penghapusan adalah Purchase List anaknya: begitu ada yang sudah
+            // Stock In atau sudah dibayar, PO-nya tidak boleh hilang.
+            $purchaseLists = Purchase::withTrashed()
+                ->where('parent_purchase_id', $purchase->id)
+                ->get();
+
+            $stockedInList = $purchaseLists->first(fn ($list) => $list->hasStockIn());
+
+            if ($stockedInList) {
+                throw new \RuntimeException(
+                    'PO ini tidak dapat dihapus karena Purchase List '
+                    .($stockedInList->purchase_number ?? $stockedInList->id).' sudah memiliki Stock In.'
+                );
+            }
+
+            // PL anak yang sudah dibayar (sebagian maupun lunas) juga mengunci
+            // PO-nya, supaya pembayaran yang sudah tercatat tidak ikut hilang.
+            // PL yang sudah di-soft delete pembayarannya sudah di-unlink, jadi
+            // tidak ikut mengunci (sama seperti cek di listing).
+            $paidList = $purchaseLists->whereNull('deleted_at')->first(fn ($list) => in_array($list->payment_status, ['Paid', 'Partially Paid', 'Overpaid'], true)
+                || (float) ($list->paid_amount ?? 0) > 0
+                || (float) ($list->paid_amount_product ?? 0) > 0
+                || (float) ($list->paid_amount_freight ?? 0) > 0
+            );
+
+            if ($paidList) {
+                throw new \RuntimeException(
+                    'PO ini tidak dapat dihapus karena Purchase List '
+                    .($paidList->purchase_number ?? $paidList->id).' sudah memiliki pembayaran.'
+                );
+            }
+
+            // Masih ada Purchase List (belum stock in) → hapus berikut anaknya
+            // supaya stok incoming dan transaksi akunnya ikut dibalik.
+            if ($purchaseLists->isNotEmpty()) {
+                $filesToDelete = $forceDeleteService->execute($purchase);
+
+                DB::commit();
+
+                foreach ($filesToDelete as $file) {
+                    if (is_file($file)) {
+                        @unlink($file);
+                    }
+                }
+
+                return $this->purchaseOrderDeleteResponse(
+                    $request,
+                    true,
+                    'Purchase Order beserta Purchase List-nya berhasil dihapus.'
+                );
             }
 
             $productIds = [];
@@ -707,13 +776,30 @@ class PurchaseOrderController extends Controller
 
             DB::commit();
 
-            return redirect()->back()->with('success', 'Purchase deleted permanently');
+            return $this->purchaseOrderDeleteResponse($request, true, 'Purchase Order berhasil dihapus.');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Purchase delete failed: '.$e->getMessage());
 
-            return redirect()->back()->with('error', 'Failed to delete purchase: '.$e->getMessage());
+            return $this->purchaseOrderDeleteResponse($request, false, $e->getMessage());
         }
+    }
+
+    /**
+     * Balasan hapus PO. Tabel PO menghapus barisnya lewat AJAX, jadi request
+     * JSON harus dapat JSON (dulu selalu redirect, sehingga pesan gagalnya
+     * tidak pernah kelihatan di layar).
+     */
+    private function purchaseOrderDeleteResponse(Request $request, bool $success, string $message)
+    {
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => $success ? 'success' : 'error',
+                'message' => $message,
+            ], $success ? 200 : 400);
+        }
+
+        return redirect()->back()->with($success ? 'success' : 'error', $message);
     }
 
     /**
