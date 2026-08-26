@@ -65,10 +65,20 @@
 
         .design-product-table th,
         .design-product-table td {
-            white-space: normal;
-            overflow-wrap: anywhere;
-            word-break: break-word;
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
             vertical-align: middle;
+        }
+
+        /* Nama produk panjang: turun ke baris berikutnya, bukan melebarkan kolom */
+        .design-product-table td.product-name {
+            max-width: 0;
+            /* dipaksa ikut lebar colgroup */
+            white-space: normal !important;
+            overflow-wrap: anywhere !important;
+            word-break: break-word !important;
+            line-height: 1.35;
         }
 
         #multiViewerContainer .image-item {

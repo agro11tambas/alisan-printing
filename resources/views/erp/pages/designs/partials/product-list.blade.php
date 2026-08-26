@@ -25,7 +25,7 @@
                         ($item->orderItem?->mode ? ucfirst(str_replace('-', ' ', $item->orderItem->mode)) : null);
                 @endphp
                 <tr>
-                    <td class="fw-semibold text-dark" title="{{ $item->product->name ?? '-' }}">
+                    <td class="fw-semibold text-dark product-name" title="{{ $item->product->name ?? '-' }}">
                         {{ $item->product->name ?? '-' }}
                         <small class="text-muted d-block fw-normal">Unit: {{ $unitName }}</small>
                     </td>
