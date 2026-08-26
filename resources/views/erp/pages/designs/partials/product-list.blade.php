@@ -1,8 +1,16 @@
-<div class="table-responsive">
-    <table class="table bg-transparent table-small table-bordered mb-0 align-middle">
+<div class="table-responsive design-product-wrapper">
+    <table class="table bg-transparent table-small table-bordered mb-0 align-middle design-product-table">
+        <colgroup>
+            <col class="col-product">
+            <col class="col-mode">
+            <col class="col-qty">
+            <col class="col-action">
+            <col class="col-note">
+        </colgroup>
         <thead>
             <tr>
                 <th>Product</th>
+                <th>Mode</th>
                 <th>Quantity</th>
                 <th>Preview / Upload</th>
                 <th>Note</th>
@@ -12,11 +20,21 @@
             @foreach ($design->items as $item)
                 @php
                     $unitName = $item->unit_name ?: $item->orderItem?->unit_name ?: '-';
+                    $modeName =
+                        $item->orderItem?->priceMode?->name ?:
+                        ($item->orderItem?->mode ? ucfirst(str_replace('-', ' ', $item->orderItem->mode)) : null);
                 @endphp
                 <tr>
-                    <td class="fw-semibold text-dark">
+                    <td class="fw-semibold text-dark" title="{{ $item->product->name ?? '-' }}">
                         {{ $item->product->name ?? '-' }}
                         <small class="text-muted d-block fw-normal">Unit: {{ $unitName }}</small>
+                    </td>
+                    <td>
+                        @if ($modeName)
+                            <span class="badge bg-soft-primary text-primary">{{ $modeName }}</span>
+                        @else
+                            <span class="text-muted">-</span>
+                        @endif
                     </td>
                     <td>{{ number_format($item->quantity, 0, ',', '.') }} {{ $unitName }}</td>
                     <td>

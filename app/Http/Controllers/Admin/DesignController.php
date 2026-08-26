@@ -35,7 +35,7 @@ class DesignController extends Controller
             'order.customerAccount',
             'order.customerAddress',
             'items.product',
-            'items.orderItem',
+            'items.orderItem.priceMode',
         ])
             ->whereHas('items')
             ->orderBy('created_at', 'desc');

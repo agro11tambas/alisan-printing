@@ -32,6 +32,45 @@
             animation: fadeIn 0.3s ease-in;
         }
 
+        /* Tabel produk di dalam kolom Products: lebar kolom fix, nama panjang tetap rapi */
+        #designListTable td .design-product-wrapper {
+            width: 100%;
+        }
+
+        .design-product-table {
+            table-layout: fixed;
+            width: 100%;
+            min-width: 560px;
+        }
+
+        .design-product-table col.col-product {
+            width: 34%;
+        }
+
+        .design-product-table col.col-mode {
+            width: 14%;
+        }
+
+        .design-product-table col.col-qty {
+            width: 16%;
+        }
+
+        .design-product-table col.col-action {
+            width: 20%;
+        }
+
+        .design-product-table col.col-note {
+            width: 16%;
+        }
+
+        .design-product-table th,
+        .design-product-table td {
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            vertical-align: middle;
+        }
+
         #multiViewerContainer .image-item {
             width: 100%;
         }
@@ -317,29 +356,34 @@
                 data: [],
                 columns: [{
                         data: 'design_number',
-                        name: 'design_number'
+                        name: 'design_number',
+                        width: '15%'
                     },
                     {
                         data: 'customer',
-                        name: 'customer'
+                        name: 'customer',
+                        width: '18%'
                     },
                     {
                         data: 'products',
                         name: 'products',
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        width: '45%'
                     },
                     {
                         data: 'order_note',
                         name: 'order_note',
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        width: '12%'
                     },
                     {
                         data: 'whatsapp',
                         name: 'whatsapp',
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        width: '10%'
                     },
                     {
                         data: 'created_at',
