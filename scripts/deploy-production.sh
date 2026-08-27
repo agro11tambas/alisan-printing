@@ -30,6 +30,12 @@ php artisan ecommerce:migrate-category-images
 echo "==> Cache config, route, event, dan view"
 php artisan optimize
 
+echo "==> Hangatkan cache katalog dari CLI"
+# Request web tidak boleh membangun katalog (lihat services.catalog_cache_web_rebuild).
+# Kalau cache-nya kosong sesudah deploy, storefront membalas 503 sampai cron
+# jalan. Bangun sekarang supaya tidak ada jeda itu.
+php artisan catalog:warm
+
 echo "==> Restart queue worker"
 php artisan queue:restart
 

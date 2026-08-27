@@ -77,6 +77,21 @@ return [
         'catalog_cache_store' => env('WEBSITE_CATALOG_CACHE_STORE', 'file'),
         'catalog_cache_defer_rebuild' => (bool) env('WEBSITE_CATALOG_CACHE_DEFER_REBUILD', true),
         'catalog_cache_rebuild_lock' => (int) env('WEBSITE_CATALOG_CACHE_REBUILD_LOCK', 900),
+
+        // Bolehkah request web membangun ulang katalog? Default TIDAK.
+        //
+        // Membangun katalog penuh memakan puluhan detik sampai menit. Kalau itu
+        // terjadi di proses web, satu proses PHP terpakai penuh selama itu, dan
+        // di shared hosting seluruh halaman ERP ikut mengantre di belakangnya.
+        // Access log produksi 27 Agustus 2026 mencatat /api/v1/ecommerce/products
+        // tertahan sampai berjam-jam, dengan sale-list 1.901 detik dan /erp/welcome
+        // 150 detik menumpuk di belakangnya.
+        //
+        // Yang membangun katalog adalah cron (`catalog:warm`, tiap 5 menit).
+        // Request web hanya menyajikan salinan yang sudah jadi — kalau tidak ada
+        // yang segar, salinan lama dipakai. Salinan lama jauh lebih baik daripada
+        // ERP berhenti untuk semua orang.
+        'catalog_cache_web_rebuild' => (bool) env('WEBSITE_CATALOG_CACHE_WEB_REBUILD', false),
         // Umur salinan lama. Panjang dengan sengaja: kesegaran diatur flush()
         // dan penanda `fresh`, ini cuma jaring pengaman supaya tidak pernah
         // ada kondisi cache benar-benar kosong yang berujung 503 ke website.

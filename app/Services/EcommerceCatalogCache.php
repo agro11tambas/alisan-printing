@@ -68,7 +68,28 @@ class EcommerceCatalogCache
             return $payload['value'];
         }
 
-        // Kedaluwarsa. Hanya SATU request yang boleh membangun ulang katalog.
+        // Kedaluwarsa. Sebelum apa pun: request web pada dasarnya TIDAK boleh
+        // membangun katalog. Membangunnya makan puluhan detik sampai menit, dan
+        // selama itu satu proses PHP terpakai penuh — di shared hosting seluruh
+        // halaman ERP ikut mengantre di belakangnya. Yang membangun adalah cron
+        // (`catalog:warm`). Kalau cron mati, yang terjadi cuma katalog agak
+        // basi, bukan ERP berhenti untuk semua orang.
+        if (! $this->mayRebuildHere()) {
+            if (is_array($payload)) {
+                return $payload['value'];
+            }
+
+            // Tidak ada salinan sama sekali. Ini kondisi yang harus berisik,
+            // bukan diam-diam ditambal dengan membangun di sini.
+            Log::channel('performance')->warning('performance.catalog_cache_empty', [
+                'key' => $payloadKey,
+                'hint' => 'Jalankan php artisan catalog:warm, dan pastikan cron scheduler hidup.',
+            ]);
+
+            throw new CatalogCacheWarmingException;
+        }
+
+        // Hanya SATU request yang boleh membangun ulang katalog.
         // Tanpa ini, setiap kali TTL habis semua request website yang masuk
         // barengan membangun katalog penuh sendiri-sendiri, worker PHP-FPM
         // habis, dan seluruh halaman ERP ikut menunggu di belakangnya.
@@ -171,6 +192,20 @@ class EcommerceCatalogCache
     public function stale(string $key): void
     {
         $this->store()->forget('ecommerce:catalog:'.$key.':fresh:v'.$this->version());
+    }
+
+    /**
+     * Boleh membangun katalog di proses ini?
+     *
+     * CLI selalu boleh — `catalog:warm` memang tugasnya itu, dan proses CLI
+     * tidak memakan jatah proses web. Request web hanya boleh kalau sengaja
+     * dinyalakan lewat WEBSITE_CATALOG_CACHE_WEB_REBUILD=true, misalnya saat
+     * menelusuri masalah data di produksi.
+     */
+    protected function mayRebuildHere(): bool
+    {
+        return app()->runningInConsole()
+            || (bool) config('services.website.catalog_cache_web_rebuild', false);
     }
 
     protected function afterResponse(Closure $callback): void

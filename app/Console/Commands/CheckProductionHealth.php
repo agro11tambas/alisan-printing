@@ -141,7 +141,7 @@ class CheckProductionHealth extends Command
             return 1;
         }
 
-        $minutes = Carbon::parse($lastRun)->diffInMinutes(now());
+        $minutes = (int) Carbon::parse($lastRun)->diffInMinutes(now());
 
         // Jadwalnya tiap 5 menit. 15 menit memberi ruang untuk rebuild yang lama
         // dan withoutOverlapping, tanpa menutupi cron yang benar-benar mati.
