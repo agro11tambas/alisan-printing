@@ -779,10 +779,12 @@ class SaleReturnController extends Controller
                 ]);
             } elseif ($item->product_bundle_id) {
                 foreach ($item->productBundle->items as $bundleItem) {
-                    $bundleReturnedQty = SaleReturnItem::where('order_item_id', $item->id)
-                        ->where('product_id', $bundleItem->product_id)
-                        ->where('sale_return_id', '!=', $saleReturn->id)
-                        ->sum(DB::raw('COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0)'));
+                    // Diambil dari agregat yang sudah dihitung sekali di atas.
+                    // Sebelumnya satu query per komponen bundle: order dengan 20
+                    // bundle berisi 10 komponen berarti 200 query untuk membuka
+                    // satu halaman edit retur.
+                    $bundleReturnedQty = (float) ($returnedPerItemProduct
+                        ->get($item->id.':'.$bundleItem->product_id)?->total_return ?? 0);
 
                     $existingItem = $saleReturn->items
                         ->where('order_item_id', $item->id)

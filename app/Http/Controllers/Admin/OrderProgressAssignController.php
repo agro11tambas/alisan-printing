@@ -37,16 +37,31 @@ class OrderProgressAssignController extends Controller
             ->whereIn('product_id', $productIds)
             ->pluck('available_quantity', 'product_id');
 
+        // Satu query agregat untuk seluruh baris item. Sebelumnya query ini
+        // dijalankan di dalam loop, jadi invoice dengan 60 item menembakkan 60
+        // query hanya untuk membuka halaman assign.
+        $assignTotals = DB::table('order_progress_assigns')
+            ->whereIn('order_progress_item_id', $progress->items->pluck('id'))
+            ->selectRaw('
+                order_progress_item_id,
+                COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
+                COALESCE(SUM(completed_quantity),0) AS total_completed,
+                COALESCE(SUM(defect_quantity),0)    AS total_defect,
+                COALESCE(SUM(reject_quantity),0)    AS total_reject
+            ')
+            ->groupBy('order_progress_item_id')
+            ->get()
+            ->keyBy('order_progress_item_id');
+
+        $emptyTotals = (object) [
+            'total_assigned'  => 0,
+            'total_completed' => 0,
+            'total_defect'    => 0,
+            'total_reject'    => 0,
+        ];
+
         foreach ($progress->items as $item) {
-            $totals = DB::table('order_progress_assigns')
-                ->where('order_progress_item_id', $item->id)
-                ->selectRaw('
-                    COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
-                    COALESCE(SUM(completed_quantity),0) AS total_completed,
-                    COALESCE(SUM(defect_quantity),0)    AS total_defect,
-                    COALESCE(SUM(reject_quantity),0)    AS total_reject
-                ')
-                ->first();
+            $totals = $assignTotals->get($item->id, $emptyTotals);
 
             $unitConversionValue = (float) ($item->unit_conversion_value ?? 1);
 
@@ -326,19 +341,31 @@ class OrderProgressAssignController extends Controller
             ->whereIn('product_id', $productIds)
             ->pluck('available_quantity', 'product_id'); // hasil: [product_id => qty]
 
+        // Satu query agregat untuk semua item di batch ini, bukan satu per baris.
+        $assignTotals = DB::table('order_progress_assigns')
+            ->whereIn('order_progress_item_id', $batch->assigns->pluck('order_progress_item_id')->filter()->unique())
+            ->selectRaw('
+                order_progress_item_id,
+                COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
+                COALESCE(SUM(completed_quantity),0) AS total_completed,
+                COALESCE(SUM(defect_quantity),0)    AS total_defect,
+                COALESCE(SUM(reject_quantity),0)    AS total_reject
+            ')
+            ->groupBy('order_progress_item_id')
+            ->get()
+            ->keyBy('order_progress_item_id');
+
+        $emptyTotals = (object) [
+            'total_assigned'  => 0,
+            'total_completed' => 0,
+            'total_defect'    => 0,
+            'total_reject'    => 0,
+        ];
+
         foreach ($batch->assigns as $assign) {
             $item = $assign->progressItem;
 
-            // Hitung total assign, completion dsb berdasarkan item
-            $totals = DB::table('order_progress_assigns')
-                ->where('order_progress_item_id', $item->id)
-                ->selectRaw('
-            COALESCE(SUM(assigned_quantity),0)  AS total_assigned,
-            COALESCE(SUM(completed_quantity),0) AS total_completed,
-            COALESCE(SUM(defect_quantity),0)    AS total_defect,
-            COALESCE(SUM(reject_quantity),0)    AS total_reject
-        ')
-                ->first();
+            $totals = $assignTotals->get($item->id, $emptyTotals);
 
             // $activeAssign = max(
             //     $totals->total_assigned - ($totals->total_completed + $totals->total_defect + $totals->total_reject),
