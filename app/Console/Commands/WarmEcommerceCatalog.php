@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Public\EcommerceProductController;
 use App\Services\EcommerceCatalogCache;
 use Illuminate\Console\Command;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -24,6 +25,12 @@ use Throwable;
  */
 class WarmEcommerceCatalog extends Command
 {
+    /**
+     * Kunci cap waktu jalan terakhir. Dibaca app:check-production untuk
+     * memastikan cron scheduler hidup.
+     */
+    public const LAST_RUN_KEY = 'catalog:warm:last-run';
+
     protected $signature = 'catalog:warm';
 
     protected $description = 'Bangun ulang cache katalog e-commerce (produk & kategori) dari CLI';
@@ -68,6 +75,13 @@ class WarmEcommerceCatalog extends Command
                 ]);
             }
         }
+
+        // Cap waktu ini satu-satunya bukti bahwa cron scheduler benar-benar
+        // jalan di server. Tanpa cron, command ini tidak pernah dipanggil,
+        // katalog basi tiap TTL habis, dan request web yang terpaksa
+        // membangunnya — menahan satu proses PHP selama menit-menitan.
+        // app:check-production membaca cap ini.
+        Cache::forever(self::LAST_RUN_KEY, now()->toIso8601String());
 
         return $failed === 0 ? self::SUCCESS : self::FAILURE;
     }

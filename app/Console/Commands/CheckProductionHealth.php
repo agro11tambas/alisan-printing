@@ -3,8 +3,10 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Carbon\Carbon;
 
 /**
  * Cek setelan yang membuat ERP lambat di produksi.
@@ -61,6 +63,7 @@ class CheckProductionHealth extends Command
         );
 
         $problems += $this->reportSessionTable();
+        $problems += $this->reportSchedulerHeartbeat();
         $problems += $this->checkPendingMigrations();
 
         $problems += $this->check(
@@ -104,6 +107,55 @@ class CheckProductionHealth extends Command
         $this->warn("Ditemukan {$problems} setelan yang perlu diperbaiki.");
 
         return self::FAILURE;
+    }
+
+    /**
+     * Cek cron scheduler lewat cap waktu yang ditulis catalog:warm.
+     *
+     * Ini pemeriksaan terpenting di sini. Tanpa cron, `catalog:warm` tidak
+     * pernah jalan, cache katalog basi tiap TTL habis, dan request web
+     * berikutnya yang membangun ulang seluruh katalog. Pembangunan itu terjadi
+     * di callback terminating — SETELAH response terkirim — jadi:
+     *
+     *   - access log mencatat request itu puluhan detik sampai menit
+     *   - LogSlowRequests tidak mencatat apa pun, karena ia berhenti mengukur
+     *     begitu response keluar
+     *   - CPU server terlihat santai, padahal satu proses PHP terpakai penuh
+     *
+     * Gejalanya di mata pengguna: SELURUH halaman ERP nge-buffer bersamaan,
+     * termasuk halaman yang tidak punya query sama sekali, tanpa jejak apa pun
+     * di log aplikasi. Persis kejadian 27 Agustus 2026, saat
+     * /api/v1/ecommerce/products tercatat 78 detik di access log.
+     */
+    private function reportSchedulerHeartbeat(): int
+    {
+        $lastRun = Cache::get(\App\Console\Commands\WarmEcommerceCatalog::LAST_RUN_KEY);
+
+        if (! $lastRun) {
+            $this->line('  <fg=red>MASALAH</> cron scheduler tidak terbukti jalan (catalog:warm belum pernah tercatat)');
+            $this->line('          → Pasang cron ini di server, tiap menit:');
+            $this->line('            * * * * * cd '.base_path().' && php artisan schedule:run >> /dev/null 2>&1');
+            $this->line('          → Tanpa itu, request web yang membangun katalog dan menahan proses PHP');
+            $this->line('            berpuluh detik. Semua halaman ERP ikut mengantre.');
+
+            return 1;
+        }
+
+        $minutes = Carbon::parse($lastRun)->diffInMinutes(now());
+
+        // Jadwalnya tiap 5 menit. 15 menit memberi ruang untuk rebuild yang lama
+        // dan withoutOverlapping, tanpa menutupi cron yang benar-benar mati.
+        if ($minutes > 15) {
+            $this->line("  <fg=red>MASALAH</> catalog:warm terakhir jalan {$minutes} menit lalu (jadwalnya tiap 5 menit)");
+            $this->line('          → Cron scheduler mati atau gagal. Cek: crontab -l');
+            $this->line('          → Selama mati, request web yang membangun katalog dan semua halaman ERP mengantre.');
+
+            return 1;
+        }
+
+        $this->line("  <fg=green>OK</>    cron scheduler jalan (catalog:warm {$minutes} menit lalu)");
+
+        return 0;
     }
 
     /**
