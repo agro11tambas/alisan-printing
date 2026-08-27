@@ -49,6 +49,8 @@ class LogSlowRequests
         $durationMs = (hrtime(true) - $startedAt) / 1_000_000;
         $thresholdMs = (float) config('app.slow_request_log_ms', 1000);
 
+        $this->watchWorkAfterResponse($request, $durationMs, $thresholdMs);
+
         if ($durationMs >= $thresholdMs) {
             usort($slowest, fn ($a, $b) => $b['ms'] <=> $a['ms']);
             arsort($shapes);
@@ -83,6 +85,54 @@ class LogSlowRequests
         }
 
         return $response;
+    }
+
+    /**
+     * Catat pekerjaan yang jalan SETELAH response terkirim.
+     *
+     * Ini titik buta yang sempat menyesatkan penelusuran berhari-hari pada
+     * Agustus 2026. Middleware ini berhenti mengukur begitu $next() kembali,
+     * padahal Laravel masih menjalankan terminating callback sesudahnya —
+     * dan selama itu proses PHP tetap terpakai penuh. Akibatnya sebuah request
+     * bisa tercatat "cepat" di sini sementara access log web server mencatatnya
+     * puluhan detik, karena access log menghitung sampai prosesnya benar-benar
+     * bebas.
+     *
+     * register_shutdown_function() jalan paling akhir, sesudah semua terminating
+     * callback selesai, jadi selisihnya terlihat.
+     */
+    private function watchWorkAfterResponse(Request $request, float $responseMs, float $thresholdMs): void
+    {
+        $path = $request->path();
+        $route = $request->route()?->getName();
+
+        register_shutdown_function(function () use ($path, $route, $responseMs, $thresholdMs): void {
+            if (! defined('LARAVEL_START')) {
+                return;
+            }
+
+            $totalMs = (microtime(true) - LARAVEL_START) * 1000;
+            $afterResponseMs = $totalMs - $responseMs;
+
+            // Yang menarik cuma pekerjaan sesudah response. Request yang memang
+            // lambat sedari awal sudah dicatat performance.slow_request.
+            if ($afterResponseMs < $thresholdMs) {
+                return;
+            }
+
+            Log::channel('performance')->warning('performance.work_after_response', [
+                'path' => $path,
+                'route' => $route,
+                // Waktu sampai response terkirim ke pengguna.
+                'response_ms' => round($responseMs, 2),
+                // Waktu yang dihabiskan SESUDAH itu, saat proses PHP masih
+                // terpakai tapi pengguna sudah dapat halamannya.
+                'after_response_ms' => round($afterResponseMs, 2),
+                // Angka inilah yang dilihat access log web server.
+                'total_ms' => round($totalMs, 2),
+                'memory_peak_mb' => round(memory_get_peak_usage(true) / 1_048_576, 2),
+            ]);
+        });
     }
 
     /**
