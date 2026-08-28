@@ -22,18 +22,14 @@ class SaleListExport extends BaseExcelExport
         'Unit',
         'Mode',
         'Unit Price',
-        'Total Amount',
-        'Diskon',
-        'Total',
-        'Diskon',
         'Grand Total',
     ];
 
     /** Kolom yang di-merge per order karena nilainya milik order, bukan per produk. */
-    private const ORDER_COLUMNS = ['A', 'B', 'C', 'M', 'N'];
+    private const ORDER_COLUMNS = ['A', 'B', 'C', 'J'];
 
     /** Kolom angka rupiah (1 = A). */
-    private const CURRENCY_COLUMNS = [9, 10, 11, 12, 13, 14];
+    private const CURRENCY_COLUMNS = [9, 10];
 
     /** Kolom teks panjang yang rata kiri: Customer dan Nama Product. */
     private const TEXT_COLUMNS = [3, 4];
@@ -78,7 +74,6 @@ class SaleListExport extends BaseExcelExport
         foreach ([
             'A' => 22, 'B' => 17, 'C' => 28, 'D' => 42, 'E' => 12,
             'F' => 12, 'G' => 14, 'H' => 14, 'I' => 16, 'J' => 16,
-            'K' => 16, 'L' => 16, 'M' => 14, 'N' => 16,
         ] as $column => $width) {
             $sheet->getColumnDimension($column)->setAutoSize(false);
             $sheet->getColumnDimension($column)->setWidth($width);
@@ -104,8 +99,7 @@ class SaleListExport extends BaseExcelExport
                 $invoice,
                 $orderDate,
                 $customer,
-                '-', '-', 0, '-', '-', 0, 0, 0, 0,
-                (float) $order->discount,
+                '-', '-', 0, '-', '-', 0,
                 (float) $order->grand_total,
             ]);
 
@@ -120,7 +114,6 @@ class SaleListExport extends BaseExcelExport
 
             if ($index === 0) {
                 array_unshift($values, $invoice, $orderDate, $customer);
-                $values[] = (float) $order->discount;
                 $values[] = (float) $order->grand_total;
             } else {
                 array_unshift($values, null, null, null);
@@ -139,7 +132,7 @@ class SaleListExport extends BaseExcelExport
     }
 
     /**
-     * Kolom D sampai L untuk satu order item.
+     * Kolom D sampai I untuk satu order item.
      */
     private function itemColumns(OrderItem $item): array
     {
@@ -153,30 +146,13 @@ class SaleListExport extends BaseExcelExport
             $type = 'Satuan';
         }
 
-        $quantity = (float) $item->quantity;
-        $unitPrice = (float) $item->price;
-        $totalAmount = (float) $item->subtotal;
-        $total = (float) $item->total_after_discount;
-
-        // Fallback bila kolom hasil kalkulasi belum terisi (data lama).
-        if ($totalAmount <= 0) {
-            $totalAmount = $unitPrice * $quantity;
-        }
-
-        if ($total <= 0) {
-            $total = (float) ($item->discount_price ?: $item->price) * $quantity;
-        }
-
         return [
             $name,
             $type,
-            $quantity,
+            (float) $item->quantity,
             $item->unit_name ?? '-',
             $item->mode ? ucfirst(strtolower($item->mode)) : '-',
-            $unitPrice,
-            $totalAmount,
-            $totalAmount - $total,
-            $total,
+            (float) $item->price,
         ];
     }
 
@@ -185,7 +161,7 @@ class SaleListExport extends BaseExcelExport
      */
     private function styleProductHeaderGroup(Worksheet $sheet): void
     {
-        $sheet->getStyle('D1:L1')->getFill()
+        $sheet->getStyle('D1:I1')->getFill()
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FF2E5C8A');
     }
@@ -202,15 +178,15 @@ class SaleListExport extends BaseExcelExport
         $totalRow = $lastDataRow + 1;
         $sheet->setCellValue('I'.$totalRow, 'TOTAL');
 
-        foreach (['J', 'K', 'L', 'M', 'N'] as $column) {
+        foreach (['J'] as $column) {
             $sheet->setCellValue(
                 $column.$totalRow,
                 '=SUM('.$column.'2:'.$column.$lastDataRow.')'
             );
         }
 
-        $sheet->getStyle('A'.$totalRow.':N'.$totalRow)->getFont()->setBold(true);
-        $sheet->getStyle('J'.$totalRow.':N'.$totalRow)
+        $sheet->getStyle('A'.$totalRow.':J'.$totalRow)->getFont()->setBold(true);
+        $sheet->getStyle('J'.$totalRow.':J'.$totalRow)
             ->getNumberFormat()
             ->setFormatCode(self::CURRENCY_FORMAT);
 
