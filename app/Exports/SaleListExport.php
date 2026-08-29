@@ -17,6 +17,7 @@ class SaleListExport extends BaseExcelExport
         'Order Date',
         'Customer',
         'Nama Product',
+        'SKU',
         'Type',
         'Qty',
         'Unit',
@@ -26,13 +27,13 @@ class SaleListExport extends BaseExcelExport
     ];
 
     /** Kolom yang di-merge per order karena nilainya milik order, bukan per produk. */
-    private const ORDER_COLUMNS = ['A', 'B', 'C', 'J'];
+    private const ORDER_COLUMNS = ['A', 'B', 'C', 'K'];
 
     /** Kolom angka rupiah (1 = A). */
-    private const CURRENCY_COLUMNS = [9, 10];
+    private const CURRENCY_COLUMNS = [10, 11];
 
-    /** Kolom teks panjang yang rata kiri: Customer dan Nama Product. */
-    private const TEXT_COLUMNS = [3, 4];
+    /** Kolom teks panjang yang rata kiri: Customer, Nama Product, dan SKU. */
+    private const TEXT_COLUMNS = [3, 4, 5];
 
     public function __construct(private Builder $query)
     {
@@ -51,8 +52,8 @@ class SaleListExport extends BaseExcelExport
         $this->query
             ->with([
                 'customer:id,name',
-                'orderItems.product:id,name',
-                'orderItems.productBundle:id',
+                'orderItems.product:id,name,sku',
+                'orderItems.productBundle:id,sku',
                 'orderItems.productBundle.items.product:id,name',
             ])
             ->chunk(self::CHUNK_SIZE, function ($orders) use ($sheet, &$row) {
@@ -65,15 +66,16 @@ class SaleListExport extends BaseExcelExport
         $this->finalizeSheet($sheet, count(self::HEADERS), $lastRow, self::CURRENCY_COLUMNS, self::TEXT_COLUMNS);
 
         if ($row >= 2) {
-            $sheet->getStyle('F2:F'.$row)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('G2:G'.$row)->getNumberFormat()->setFormatCode('#,##0');
         }
 
         // Matikan auto-size untuk seluruh kolom. Writer akan memindai setiap sel
         // untuk kolom yang masih auto-size; pada export ribuan item biaya ini
         // sangat besar dan tidak memberi manfaat dibanding lebar yang stabil.
         foreach ([
-            'A' => 22, 'B' => 17, 'C' => 28, 'D' => 42, 'E' => 12,
-            'F' => 12, 'G' => 14, 'H' => 14, 'I' => 16, 'J' => 16,
+            'A' => 22, 'B' => 17, 'C' => 28, 'D' => 42, 'E' => 18,
+            'F' => 12, 'G' => 12, 'H' => 14, 'I' => 14, 'J' => 16,
+            'K' => 16,
         ] as $column => $width) {
             $sheet->getColumnDimension($column)->setAutoSize(false);
             $sheet->getColumnDimension($column)->setWidth($width);
@@ -99,7 +101,7 @@ class SaleListExport extends BaseExcelExport
                 $invoice,
                 $orderDate,
                 $customer,
-                '-', '-', 0, '-', '-', 0,
+                '-', '-', '-', 0, '-', '-', 0,
                 (float) $order->grand_total,
             ]);
 
@@ -132,7 +134,7 @@ class SaleListExport extends BaseExcelExport
     }
 
     /**
-     * Kolom D sampai I untuk satu order item.
+     * Kolom D sampai J untuk satu order item.
      */
     private function itemColumns(OrderItem $item): array
     {
@@ -140,14 +142,17 @@ class SaleListExport extends BaseExcelExport
             $name = $item->productBundle->items
                 ->map(fn ($bundleItem) => $bundleItem->product->name ?? '-')
                 ->implode(' + ');
+            $sku = $item->productBundle->sku ?: '-';
             $type = 'Bundle';
         } else {
             $name = $item->product->name ?? ($item->product_name ?: '-');
+            $sku = $item->product->sku ?? '-';
             $type = 'Satuan';
         }
 
         return [
             $name,
+            $sku,
             $type,
             (float) $item->quantity,
             $item->unit_name ?? '-',
@@ -161,7 +166,7 @@ class SaleListExport extends BaseExcelExport
      */
     private function styleProductHeaderGroup(Worksheet $sheet): void
     {
-        $sheet->getStyle('D1:I1')->getFill()
+        $sheet->getStyle('D1:J1')->getFill()
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FF2E5C8A');
     }
@@ -176,17 +181,17 @@ class SaleListExport extends BaseExcelExport
         }
 
         $totalRow = $lastDataRow + 1;
-        $sheet->setCellValue('I'.$totalRow, 'TOTAL');
+        $sheet->setCellValue('J'.$totalRow, 'TOTAL');
 
-        foreach (['J'] as $column) {
+        foreach (['K'] as $column) {
             $sheet->setCellValue(
                 $column.$totalRow,
                 '=SUM('.$column.'2:'.$column.$lastDataRow.')'
             );
         }
 
-        $sheet->getStyle('A'.$totalRow.':J'.$totalRow)->getFont()->setBold(true);
-        $sheet->getStyle('J'.$totalRow.':J'.$totalRow)
+        $sheet->getStyle('A'.$totalRow.':K'.$totalRow)->getFont()->setBold(true);
+        $sheet->getStyle('K'.$totalRow.':K'.$totalRow)
             ->getNumberFormat()
             ->setFormatCode(self::CURRENCY_FORMAT);
 
