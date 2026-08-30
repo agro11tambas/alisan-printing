@@ -157,7 +157,8 @@ class SaleListExport extends BaseExcelExport
             (float) $item->quantity,
             $item->unit_name ?? '-',
             $item->mode ? ucfirst(strtolower($item->mode)) : '-',
-            (float) $item->price,
+            // Samakan dengan kolom Price di halaman Sale List.
+            (float) ($item->discount_price ?? $item->price ?? 0),
         ];
     }
 
