@@ -25,9 +25,6 @@ use Illuminate\Support\Facades\Log;
  */
 class ClientTimingController extends Controller
 {
-    /** Laporan di bawah ambang ini dibuang, supaya log tidak penuh oleh pemuatan normal. */
-    private const THRESHOLD_MS = 3000;
-
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -46,7 +43,9 @@ class ClientTimingController extends Controller
             'downlink_mbps' => 'nullable|numeric|min:0|max:10000',
         ]);
 
-        if ((float) $data['total_ms'] < self::THRESHOLD_MS) {
+        // Ambangnya dari config supaya bisa diturunkan sementara lewat
+        // CLIENT_TIMING_LOG_MS saat menelusuri, tanpa mengubah kode.
+        if ((float) $data['total_ms'] < (float) config('app.client_timing_log_ms', 3000)) {
             return response()->noContent();
         }
 

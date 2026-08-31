@@ -128,6 +128,13 @@ return [
     'slow_request_log_ms' => (float) env('SLOW_REQUEST_LOG_MS', 1000),
 
     /*
+     * Ambang laporan waktu muat dari browser pengguna (ClientTimingController).
+     * Pemuatan di bawah angka ini tidak dicatat, supaya log tidak penuh oleh
+     * pemuatan normal. Turunkan sementara saat mau memastikan alatnya bekerja.
+     */
+    'client_timing_log_ms' => (float) env('CLIENT_TIMING_LOG_MS', 3000),
+
+    /*
      * Catat relasi yang di-load satu per satu (N+1) ke channel log performance.
      * Dibaca lewat config, bukan env() langsung, karena env() tidak terbaca
      * ketika config sudah di-cache di produksi.

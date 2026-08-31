@@ -1356,9 +1356,10 @@
                         if (!nav) return;
 
                         var total = Math.round(nav.duration);
-                        // Ambang sengaja rendah di sisi klien; server yang
-                        // memutuskan mana yang layak dicatat.
-                        if (!total || total < 3000) return;
+                        // Ambang sama dengan sisi server, diatur lewat
+                        // CLIENT_TIMING_LOG_MS. Disaring di sini juga supaya
+                        // pemuatan normal tidak mengirim request sama sekali.
+                        if (!total || total < {{ (int) config('app.client_timing_log_ms', 3000) }}) return;
 
                         var resources = performance.getEntriesByType('resource') || [];
                         var slowest = null;
