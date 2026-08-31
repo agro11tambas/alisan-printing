@@ -261,7 +261,8 @@
                 };
                 reader.readAsDataURL(file);
             } else {
-                preview.src = '#';
+                // src = '#' membuat browser mengunduh ulang halaman ini.
+                preview.removeAttribute('src');
                 preview.classList.add('d-none');
             }
         });

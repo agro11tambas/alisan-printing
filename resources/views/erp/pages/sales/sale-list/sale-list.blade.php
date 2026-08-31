@@ -2560,7 +2560,8 @@
                 reader.readAsDataURL(file);
             } else {
                 previewWrapper.classList.add('d-none');
-                preview.src = '#';
+                // src = '#' membuat browser mengunduh ulang halaman ini.
+                preview.removeAttribute('src');
             }
         });
     </script>
