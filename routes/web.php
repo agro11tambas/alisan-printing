@@ -77,6 +77,11 @@ Route::post('/logout', [AuthController::class, 'logout']);
 
 Route::middleware(['web.auth', 'check.session'])->group(function () {
     Route::get('/erp/welcome', [WelcomeController::class, 'index']);
+
+    // Laporan waktu muat dari browser pengguna. Tidak ada instrumen lain di
+    // aplikasi ini yang bisa melihat jalur DNS/TLS/CDN/jaringan client.
+    Route::post('/erp/client-timing', [\App\Http\Controllers\Admin\ClientTimingController::class, 'store'])
+        ->name('client-timing.store');
     Route::middleware(['web.auth', 'permission:dashboard'])->group(function () {
         Route::get('/erp/dashboard', [DashboardController::class, 'getDashboard'])->name('dashboard');
         Route::get('/erp/dashboard/summary', [DashboardController::class, 'summary'])->name('dashboard.summary');

@@ -188,17 +188,13 @@
 
         @forelse ($groups as $group)
             @php
-                // 🔧 Satu blok = satu customer: nama customer + akun pemesan
-                //    (nama - nomor WhatsApp), lalu note dari sale list.
-                //    Alamat & nomor invoice sengaja tidak dicetak.
+                // 🔧 Satu blok = satu customer: nama customer + nama akun pemesan,
+                //    lalu note dari sale list.
+                //    Alamat, nomor invoice & nomor HP sengaja tidak dicetak.
                 $order = $group['order'];
                 $customerName = $order?->customer?->name;
                 $account = $order?->customerAccount;
-                $accountWhatsapp = \App\Support\PhoneNumber::toLocalIndonesian($account?->whatsapp_number);
-                $accountLabel = collect([$account?->name, $accountWhatsapp])
-                    ->map(fn($value) => trim((string) $value))
-                    ->filter()
-                    ->implode(' - ');
+                $accountLabel = trim((string) ($account?->name ?? ''));
                 $orderNotes = trim((string) ($order?->notes ?? ''));
             @endphp
 

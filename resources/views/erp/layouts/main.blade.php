@@ -1339,6 +1339,69 @@
     @endif
 
     @stack('scripts')
+
+    {{-- Ukur waktu muat dari sisi browser pengguna dan laporkan kalau lambat.
+         Instrumen lain di aplikasi ini semuanya mengukur dari dalam server, jadi
+         buta terhadap DNS, TLS, CDN, jaringan pengguna, dan waktu render. Hanya
+         browser pengguna yang bisa melihat bagian itu. Hasilnya masuk ke
+         storage/logs/performance-*.log sebagai performance.client_timing. --}}
+    <script>
+        (function reportClientTiming() {
+            // Menunggu 'load' supaya seluruh aset ikut terhitung, lalu ditunda
+            // sedikit agar laporan tidak ikut memperlambat halaman.
+            window.addEventListener('load', function () {
+                setTimeout(function () {
+                    try {
+                        var nav = performance.getEntriesByType('navigation')[0];
+                        if (!nav) return;
+
+                        var total = Math.round(nav.duration);
+                        // Ambang sengaja rendah di sisi klien; server yang
+                        // memutuskan mana yang layak dicatat.
+                        if (!total || total < 3000) return;
+
+                        var resources = performance.getEntriesByType('resource') || [];
+                        var slowest = null;
+                        resources.forEach(function (r) {
+                            if (!slowest || r.duration > slowest.duration) slowest = r;
+                        });
+
+                        var conn = navigator.connection || {};
+
+                        var payload = {
+                            path: location.pathname.slice(0, 255),
+                            total_ms: total,
+                            dns_ms: Math.round(nav.domainLookupEnd - nav.domainLookupStart),
+                            tcp_ms: Math.round(nav.connectEnd - nav.connectStart),
+                            tls_ms: nav.secureConnectionStart ? Math.round(nav.connectEnd - nav.secureConnectionStart) : 0,
+                            ttfb_ms: Math.round(nav.responseStart - nav.requestStart),
+                            download_ms: Math.round(nav.responseEnd - nav.responseStart),
+                            dom_ready_ms: Math.round(nav.domContentLoadedEventEnd),
+                            resource_count: resources.length,
+                            slowest_resource: slowest ? String(slowest.name).slice(0, 300) : null,
+                            slowest_resource_ms: slowest ? Math.round(slowest.duration) : null,
+                            connection: conn.effectiveType || null,
+                            downlink_mbps: typeof conn.downlink === 'number' ? conn.downlink : null
+                        };
+
+                        var token = document.querySelector('meta[name="csrf-token"]');
+
+                        fetch(@json(url('/erp/client-timing')), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': token ? token.getAttribute('content') : ''
+                            },
+                            body: JSON.stringify(payload),
+                            keepalive: true
+                        }).catch(function () {});
+                    } catch (e) {
+                        // Diagnostik tidak boleh merusak halaman.
+                    }
+                }, 1000);
+            });
+        })();
+    </script>
 </body>
 
 </html>
