@@ -1,9 +1,14 @@
 <nav class="nxl-navigation">
     <div class="navbar-wrapper">
         <div class="m-header" style="padding: 8px 15px !important; height: 60px !important;">
-            <a href="index.html" class="b-brand">
-                <img src="#" alt="" class="logo logo-lg">
-                <img src="#" alt="" class="logo logo-sm">
+            {{-- src="#" berarti "alamat halaman ini" bagi browser, bukan gambar
+                 kosong. Dua tag itu membuat setiap halaman ERP diunduh ulang dua
+                 kali sebagai gambar, lalu dibuang. Laporan waktu muat dari
+                 browser pengguna 31 Agustus 2026 menunjukkan /erp/welcome ikut
+                 termuat sebagai resource selama 2.069 ms karena ini. --}}
+            <a href="/erp/welcome" class="b-brand">
+                <img src="{{ asset('assets/images/logo-full.png') }}" alt="Alisan" class="logo logo-lg">
+                <img src="{{ asset('assets/images/logo-abbr.png') }}" alt="Alisan" class="logo logo-sm">
             </a>
         </div>
         <div class="navbar-content">

@@ -430,7 +430,7 @@
                     <div class="modal-dialog modal-dialog-centered modal-lg">
                         <div class="modal-content bg-dark">
                             <div class="modal-body p-0 text-center">
-                                <img id="lightboxImage" src="" class="img-fluid" />
+                                <img id="lightboxImage" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" class="img-fluid" />
                             </div>
                         </div>
                     </div>

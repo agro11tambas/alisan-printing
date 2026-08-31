@@ -76,7 +76,7 @@
                                         @endif
                                         <div>
                                             <p class="text-muted mb-1 small">Preview New Logo:</p>
-                                            <img id="logo-preview" src="#" alt="New Logo Preview"
+                                            <img id="logo-preview" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="New Logo Preview"
                                                 class="img-thumbnail d-none" style="max-height: 100px;">
                                         </div>
                                     </div>

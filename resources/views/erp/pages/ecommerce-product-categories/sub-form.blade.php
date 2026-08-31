@@ -136,7 +136,7 @@
                                 @endif
 
                                 <div class="mt-1" id="new-image-container" style="display:none;">
-                                    <img id="preview-image" src="#" alt="Preview"
+                                    <img id="preview-image" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Preview"
                                         style="max-width: 120px; border-radius: 8px;">
                                 </div>
                             </div>

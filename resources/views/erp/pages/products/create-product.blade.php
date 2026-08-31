@@ -66,7 +66,7 @@
                                         <input type="file" class="form-control" id="image" name="image"
                                             accept="image/*" value="{{ old('image') }}">
                                     </div>
-                                    <img id="preview-image" src="#" alt="Preview"
+                                    <img id="preview-image" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Preview"
                                         style="display:none; max-width: 100px; margin-top: 10px; border-radius: 10px" />
                                 </div>
                             </div> --}}

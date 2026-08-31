@@ -275,7 +275,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <img id="viewerImage" src="" alt="Preview" class="img-fluid rounded mb-2"
+                    <img id="viewerImage" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Preview" class="img-fluid rounded mb-2"
                         style="max-height: 70vh; object-fit: contain;">
                     <p id="viewerNote" class="text-muted fs-6"></p>
                 </div>

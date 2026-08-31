@@ -359,7 +359,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <img id="previewImageFull" src="" alt="Design Preview" class="img-fluid rounded mb-2"
+                    <img id="previewImageFull" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Design Preview" class="img-fluid rounded mb-2"
                         style="max-height:70vh;object-fit:contain;">
                     <p id="previewImageNote" class="text-muted fs-6 mb-0"></p>
                 </div>

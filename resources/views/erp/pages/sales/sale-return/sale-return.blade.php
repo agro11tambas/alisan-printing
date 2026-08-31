@@ -397,7 +397,7 @@
                                 <small class="text-danger d-none" id="error_payment_proof"></small>
                                 <div class="mt-1 d-none" id="proof_preview_wrapper">
                                     <p class="fw-semibold mb-1">Preview:</p>
-                                    <img id="proof_preview" src="#" alt="Proof Preview" class="img-thumbnail"
+                                    <img id="proof_preview" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Proof Preview" class="img-thumbnail"
                                         style="max-height: 200px;">
                                 </div>
                             </div>

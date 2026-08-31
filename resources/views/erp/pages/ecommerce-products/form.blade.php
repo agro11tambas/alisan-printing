@@ -353,7 +353,7 @@
                                     @endif
 
                                     <div class="mt-1 new-image-preview-wrap" style="display:none;">
-                                        <img src="#" alt="Preview" class="file-preview-image new-image-preview">
+                                        <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Preview" class="file-preview-image new-image-preview">
                                     </div>
                                 </div>
                             </div>
@@ -626,7 +626,7 @@
                                                     </div>
                                                 @endif
                                                 <div class="mt-2 new-image-preview-wrap" style="display:none; position: relative; z-index: 2;">
-                                                    <img src="#" alt="Preview" class="file-preview-image new-image-preview w-100 rounded" style="max-height:100px; object-fit:cover;">
+                                                    <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Preview" class="file-preview-image new-image-preview w-100 rounded" style="max-height:100px; object-fit:cover;">
                                                 </div>
                                             </div>
                                         </div>
@@ -971,7 +971,7 @@
 
                                 ${oldPreview}
                                 <div class="mt-2 new-image-preview-wrap" style="display:none; position: relative; z-index: 2;">
-                                    <img src="#" alt="Preview" class="file-preview-image new-image-preview w-100 rounded" style="max-height:80px; object-fit:cover;">
+                                    <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Preview" class="file-preview-image new-image-preview w-100 rounded" style="max-height:80px; object-fit:cover;">
                                 </div>
                             </td>
                             <td class="text-center align-middle">
@@ -1265,7 +1265,7 @@
                                 </div>
 
                                 <div class="mt-2 new-image-preview-wrap" style="display:none; position: relative; z-index: 2;">
-                                    <img src="#" alt="Preview" class="file-preview-image new-image-preview w-100 rounded" style="max-height:100px; object-fit:cover;">
+                                    <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Preview" class="file-preview-image new-image-preview w-100 rounded" style="max-height:100px; object-fit:cover;">
                                 </div>
                             </div>
                         </div>
