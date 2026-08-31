@@ -1,14 +1,21 @@
 <nav class="nxl-navigation">
     <div class="navbar-wrapper">
         <div class="m-header" style="padding: 8px 15px !important; height: 60px !important;">
-            {{-- src="#" berarti "alamat halaman ini" bagi browser, bukan gambar
-                 kosong. Dua tag itu membuat setiap halaman ERP diunduh ulang dua
-                 kali sebagai gambar, lalu dibuang. Laporan waktu muat dari
-                 browser pengguna 31 Agustus 2026 menunjukkan /erp/welcome ikut
-                 termuat sebagai resource selama 2.069 ms karena ini. --}}
+            {{-- Sebelumnya dua <img src="#"> di sini. Bagi browser "#" berarti
+                 alamat halaman yang sedang dibuka, bukan gambar kosong: setiap
+                 halaman ERP jadi diunduh ulang dua kali lalu dibuang. Laporan
+                 waktu muat dari browser pengguna 31 Agustus 2026 merekamnya —
+                 /erp/welcome termuat sebagai resource selama 2.069 ms padahal
+                 server menjawab dalam 93 ms.
+
+                 Diganti teks, bukan gambar: tidak ada request tambahan sama
+                 sekali, dan tidak bergantung pada file logo yang bisa berpindah.
+                 logo-lg tampil saat sidebar terbuka, logo-sm saat menyempit.
+                 Nama ditulis langsung, bukan config('app.name'): kalau APP_NAME
+                 di server tidak diisi, yang tampil jadi "Laravel". --}}
             <a href="/erp/welcome" class="b-brand">
-                <img src="{{ asset('assets/images/logo-full.png') }}" alt="Alisan" class="logo logo-lg">
-                <img src="{{ asset('assets/images/logo-abbr.png') }}" alt="Alisan" class="logo logo-sm">
+                <span class="logo logo-lg fw-bold fs-5">Alisan Printing</span>
+                <span class="logo logo-sm fw-bold fs-5">A</span>
             </a>
         </div>
         <div class="navbar-content">
