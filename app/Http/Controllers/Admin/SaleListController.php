@@ -1166,6 +1166,9 @@ class SaleListController extends Controller
                 ])
                 ->with([
                     'discounts',
+                    ...Discount::payloadRelations('discounts.'),
+                    'categories.discounts',
+                    ...Discount::payloadRelations('categories.discounts.'),
                     'categories:id',
                     'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
                     'unitConversions.unit:id,name',
@@ -1183,15 +1186,11 @@ class SaleListController extends Controller
                     'sale_price' => $product->sale_price,
                     'base_unit_id' => $product->base_unit_id,
                     'sale_unit_id' => $product->sale_unit_id,
-                    'discounts' => $product->discounts->toArray(),
+                    'discounts' => $product->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
                     'categories' => $product->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
-                            'discounts' => $category->discounts->map(function ($discount) use ($category) {
-                                return array_merge($discount->toArray(), [
-                                    'category_id' => $category->id,
-                                ]);
-                            })->toArray(),
+                            'discounts' => $category->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
                         ];
                     })->toArray(),
                     'units' => $product->unitConversions->map(function ($conversion) {
@@ -1724,6 +1723,9 @@ class SaleListController extends Controller
                 ->with([
                     'categories:id',
                     'discounts',
+                    ...Discount::payloadRelations('discounts.'),
+                    'categories.discounts',
+                    ...Discount::payloadRelations('categories.discounts.'),
                     'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
                     'unitConversions.unit:id,name',
                     'unitConversions.prices:id,product_unit_conversion_id,price_mode_id,fixed_cost,margin,sale_price',
@@ -1740,13 +1742,11 @@ class SaleListController extends Controller
                     'sale_price' => $product->sale_price,
                     'base_unit_id' => $product->base_unit_id,
                     'sale_unit_id' => $product->sale_unit_id,
-                    'discounts' => $product->discounts->toArray(),
+                    'discounts' => $product->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
                     'categories' => $product->categories->map(function ($cat) {
                         return [
                             'id' => $cat->id,
-                            'discounts' => $cat->discounts->map(function ($d) use ($cat) {
-                                return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                            })->toArray(),
+                            'discounts' => $cat->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
                         ];
                     })->toArray(),
                     'units' => $product->unitConversions->map(function ($conversion) {
@@ -1778,6 +1778,9 @@ class SaleListController extends Controller
                     'items.product:id,name,sku',
                     'items.product.categories:id',
                     'items.product.discounts',
+                    ...Discount::payloadRelations('items.product.discounts.'),
+                    'items.product.categories.discounts',
+                    ...Discount::payloadRelations('items.product.categories.discounts.'),
 
                     'primaryItem:id,bundle_id,product_id,role',
                     'primaryItem.product:id,name,sku',
@@ -1799,15 +1802,13 @@ class SaleListController extends Controller
                     $product = $item->product;
 
                     foreach ($product->discounts as $discount) {
-                        $bundleDiscounts[] = $discount;
+                        $bundleDiscounts[] = $discount->toDiscountPayload();
                     }
 
                     foreach ($product->categories as $cat) {
                         $bundleCategories[] = [
                             'id' => $cat->id,
-                            'discounts' => $cat->discounts->map(function ($d) use ($cat) {
-                                return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                            })->toArray(),
+                            'discounts' => $cat->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
                         ];
                     }
                 }

@@ -20,6 +20,7 @@ use App\Models\OrderItem;
 use App\Models\OrderItemComponent;
 use App\Models\OrderProgressAssign;
 use App\Models\Products;
+use App\Services\DiscountScopeMatcher;
 use App\Services\EcommercePricingService;
 use App\Services\InvoiceNumberService;
 use Carbon\Carbon;
@@ -697,7 +698,7 @@ class EcommerceSaleOrderController extends Controller
     private function applyDiscounts(array $lineItems): array
     {
         $today = now()->toDateString();
-        $discounts = Discount::with(['products:id', 'categories:id', 'ecommerceCategories:id'])
+        $discounts = Discount::with(['products:id', 'categories:id', 'ecommerceCategories:id', 'priceModes:id,slug'])
             ->where('is_active', 1)
             ->where(fn ($query) => $query->whereNull('start_date')->orWhereDate('start_date', '<=', $today))
             ->where(fn ($query) => $query->whereNull('end_date')->orWhereDate('end_date', '>=', $today))
@@ -719,14 +720,16 @@ class EcommerceSaleOrderController extends Controller
                     continue;
                 }
 
-                $appliesToProduct = $discount->apply_on === 'Product'
-                    && $discount->products->contains('id', $productId);
-                $appliesToErpCategory = $discount->apply_on === 'Category'
-                    && $discount->categories->pluck('id')->intersect($line['discount_category_ids'])->isNotEmpty();
-                $appliesToEcommerceCategory = $discount->apply_on_ecommerce === 'Category'
-                    && $discount->ecommerceCategories->pluck('id')->intersect($line['discount_ecommerce_category_ids'])->isNotEmpty();
+                // Semua scope "Apply On" harus cocok sekaligus. Konteks ecommerce
+                // punya datanya lengkap, jadi keempat scope bisa dinilai di sini.
+                $matches = DiscountScopeMatcher::matches($discount, [
+                    'product_id' => $productId,
+                    'category_ids' => $line['discount_category_ids'],
+                    'ecommerce_category_ids' => $line['discount_ecommerce_category_ids'],
+                    'mode' => $line['mode'] ?? null,
+                ], Discount::SCOPES);
 
-                if (!$appliesToProduct && !$appliesToErpCategory && !$appliesToEcommerceCategory) {
+                if (!$matches) {
                     continue;
                 }
 

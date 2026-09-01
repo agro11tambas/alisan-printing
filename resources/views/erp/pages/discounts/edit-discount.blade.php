@@ -138,16 +138,19 @@
                                     <label for="apply_on" class="fw-semibold">Apply On:</label>
                                 </div>
                                 <div class="col-lg-10 mb-0">
-                                    <select id="apply_on" name="apply_on" class="form-control">
-                                        <option value="" disabled>Choose Apply Type</option>
-                                        <option value="Product" {{ $discount->apply_on == 'Product' ? 'selected' : '' }}>
-                                            Product</option>
-                                        <option value="Category"
-                                            {{ $discount->apply_on == 'Category' ? 'selected' : '' }}>Product Category
-                                        </option>
-                                        <option value="Mode" {{ $discount->apply_on == 'Mode' ? 'selected' : '' }}>
-                                            Mode</option>
+                                    @php($selectedScopes = old('apply_on', $discount->apply_on_list))
+                                    <select id="apply_on" name="apply_on[]" class="form-control"
+                                        data-select2-selector="tag" multiple>
+                                        @foreach (['Product' => 'Product', 'Category' => 'Product Category', 'Mode' => 'Mode', 'EcommerceCategory' => 'Ecommerce Category'] as $value => $label)
+                                            <option value="{{ $value }}"
+                                                {{ in_array($value, (array) $selectedScopes) ? 'selected' : '' }}>
+                                                {{ $label }}</option>
+                                        @endforeach
                                     </select>
+                                    <div class="fs-11 text-muted mt-1">
+                                        Boleh pilih lebih dari satu. Kalau dipilih beberapa, diskon hanya berlaku
+                                        untuk baris yang memenuhi <strong>semua</strong> syarat sekaligus.
+                                    </div>
                                 </div>
                             </div>
                             <div id="product_group" class="row mb-2 align-items-center" style="display: none;">
@@ -195,7 +198,23 @@
                                     </select>
                                 </div>
                             </div>
-
+                            <div id="ecommerce_category_group" class="row mb-2 align-items-center"
+                                style="display: none;">
+                                <div class="col-lg-2">
+                                    <label for="ecommerce_categories" class="fw-semibold">Select Ecommerce
+                                        Category(ies):</label>
+                                </div>
+                                <div class="col-lg-10 mb-0">
+                                    <select name="ecommerce_categories[]" id="ecommerce_categories"
+                                        class="form-control" data-select2-selector="tag" multiple>
+                                        @foreach ($ecommerceCategories as $ecommerceCategory)
+                                            <option value="{{ $ecommerceCategory->id }}"
+                                                {{ $discount->ecommerceCategories->contains($ecommerceCategory->id) ? 'selected' : '' }}>
+                                                {{ $ecommerceCategory->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
 
                             <div class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
@@ -225,29 +244,26 @@
 
 @push('scripts')
     <script>
-        function toggleApplyOnFields(value) {
-            $('#product_group').hide();
-            $('#category_group').hide();
-            $('#mode_group').hide();
+        // Tiap scope punya satu blok target. Karena scope-nya bisa jamak,
+        // yang ditampilkan adalah gabungan blok dari semua scope terpilih.
+        const APPLY_ON_GROUPS = {
+            Product: '#product_group',
+            Category: '#category_group',
+            Mode: '#mode_group',
+            EcommerceCategory: '#ecommerce_category_group',
+        };
 
-            if (value === 'Product') {
-                $('#product_group').show();
-            } else if (value === 'Category') {
-                $('#category_group').show();
-            } else if (value === 'Mode') {
-                $('#mode_group').show();
-            }
+        function toggleApplyOnFields() {
+            const selected = $('#apply_on').val() || [];
+
+            Object.entries(APPLY_ON_GROUPS).forEach(([scope, selector]) => {
+                $(selector).toggle(selected.includes(scope));
+            });
         }
 
-
-
         $(document).ready(function() {
-            const applyOn = $('#apply_on').val();
-            toggleApplyOnFields(applyOn);
-
-            $('#apply_on').on('change', function() {
-                toggleApplyOnFields(this.value);
-            });
+            $('#apply_on').on('change', toggleApplyOnFields);
+            toggleApplyOnFields();
         });
 
         document.getElementById('discountForm').addEventListener('submit', function(e) {
@@ -276,10 +292,6 @@
                 {
                     selector: 'input[name="minimum_qty_or_amount"]',
                     message: 'Minimum Qty or Amount wajib diisi'
-                },
-                {
-                    selector: 'select[name="apply_on"]',
-                    message: 'Apply On wajib dipilih'
                 },
                 {
                     selector: 'select[name="status"]',
@@ -311,14 +323,34 @@
                 }
             });
 
-            const applyOnEl = form.querySelector('select[name="apply_on"]');
-            if (applyOnEl && applyOnEl.value === 'Mode') {
-                const modeEl = form.querySelector('select[name="price_modes[]"]');
-                if (modeEl && modeEl.selectedOptions.length === 0) {
-                    showError(modeEl, 'Mode wajib dipilih minimal satu');
+            // Apply On sekarang jamak, dan tiap scope terpilih wajib punya target.
+            const applyOnEl = form.querySelector('select[name="apply_on[]"]');
+            const selectedScopes = applyOnEl ? Array.from(applyOnEl.selectedOptions).map(o => o.value) : [];
+
+            if (selectedScopes.length === 0) {
+                showError(applyOnEl, 'Apply On wajib dipilih minimal satu');
+                isValid = false;
+            }
+
+            const targetRules = {
+                Product: ['select[name="products[]"]', 'Product wajib dipilih minimal satu'],
+                Category: ['select[name="categories[]"]', 'Product Category wajib dipilih minimal satu'],
+                Mode: ['select[name="price_modes[]"]', 'Mode wajib dipilih minimal satu'],
+                EcommerceCategory: ['select[name="ecommerce_categories[]"]',
+                    'Ecommerce Category wajib dipilih minimal satu'
+                ],
+            };
+
+            selectedScopes.forEach(scope => {
+                const rule = targetRules[scope];
+                if (!rule) return;
+
+                const el = form.querySelector(rule[0]);
+                if (el && el.selectedOptions.length === 0) {
+                    showError(el, rule[1]);
                     isValid = false;
                 }
-            }
+            });
 
             if (isValid) form.submit();
         });

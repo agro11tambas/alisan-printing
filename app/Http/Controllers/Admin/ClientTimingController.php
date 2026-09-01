@@ -36,6 +36,8 @@ class ClientTimingController extends Controller
             'ttfb_ms'       => 'nullable|numeric|min:0|max:1800000',
             'download_ms'   => 'nullable|numeric|min:0|max:1800000',
             'dom_ready_ms'  => 'nullable|numeric|min:0|max:1800000',
+            'dom_interactive_ms' => 'nullable|numeric|min:0|max:1800000',
+            'dcl_handlers_ms' => 'nullable|numeric|min:0|max:1800000',
             'resource_count' => 'nullable|integer|min:0|max:2000',
             'slowest_resource' => 'nullable|string|max:300',
             'slowest_resource_ms' => 'nullable|numeric|min:0|max:1800000',

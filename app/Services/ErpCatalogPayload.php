@@ -37,7 +37,11 @@ class ErpCatalogPayload
      */
     public function json(string $key, Closure $build): string
     {
-        $cacheKey = 'erp:catalog-payload:'.$key.':'.$this->version();
+        // v2: bentuk payload diskon berubah (apply_on jamak + daftar target).
+        // Naikkan angkanya tiap kali struktur blob berubah, supaya cache lama
+        // tidak ikut terpakai setelah deploy — cap versi katalog di bawah hanya
+        // mengikuti perubahan data, bukan perubahan kode.
+        $cacheKey = 'erp:catalog-payload:v2:'.$key.':'.$this->version();
 
         // Beberapa halaman memakai blob yang sama dua kali dalam satu request.
         if (isset($this->memo[$cacheKey])) {

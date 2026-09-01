@@ -279,6 +279,9 @@ class SaleOrderController extends Controller
                 ])
                 ->with([
                     'discounts',
+                    ...Discount::payloadRelations('discounts.'),
+                    'categories.discounts',
+                    ...Discount::payloadRelations('categories.discounts.'),
                     'categories:id',
                     'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
                     'unitConversions.unit:id,name',
@@ -295,15 +298,11 @@ class SaleOrderController extends Controller
                     'sale_price' => $product->sale_price,
                     'base_unit_id' => $product->base_unit_id,
                     'sale_unit_id' => $product->sale_unit_id,
-                    'discounts' => $product->discounts->toArray(),
+                    'discounts' => $product->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
                     'categories' => $product->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
-                            'discounts' => $category->discounts->map(function ($discount) use ($category) {
-                                return array_merge($discount->toArray(), [
-                                    'category_id' => $category->id,
-                                ]);
-                            })->toArray(),
+                            'discounts' => $category->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
                         ];
                     })->toArray(),
                     'units' => $product->unitConversions->map(function ($conversion) {
@@ -675,6 +674,9 @@ class SaleOrderController extends Controller
             $products = Products::with([
                 'categories',
                 'discounts',
+                ...Discount::payloadRelations('discounts.'),
+                'categories.discounts',
+                ...Discount::payloadRelations('categories.discounts.'),
                 'categories.discounts',
                 'unitConversions.unit',
                 'unitConversions.prices.priceMode',
@@ -690,13 +692,11 @@ class SaleOrderController extends Controller
                     'sale_price' => $product->sale_price,
                     'base_unit_id' => $product->base_unit_id,
                     'sale_unit_id' => $product->sale_unit_id,
-                    'discounts' => $product->discounts->toArray(),
+                    'discounts' => $product->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
                     'categories' => $product->categories->map(function ($cat) {
                         return [
                             'id' => $cat->id,
-                            'discounts' => $cat->discounts->map(function ($d) use ($cat) {
-                                return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                            })->toArray()
+                            'discounts' => $cat->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray()
                         ];
                     })->toArray(),
                     'units' => $product->unitConversions->map(function ($conversion) {
@@ -720,6 +720,9 @@ class SaleOrderController extends Controller
             $productBundles = ProductBundle::with([
                 'items.product.categories.discounts',
                 'items.product.discounts',
+                ...Discount::payloadRelations('items.product.discounts.'),
+                'items.product.categories.discounts',
+                ...Discount::payloadRelations('items.product.categories.discounts.'),
 
                 'primaryItem.product',
                 'secondaryItems.product',
@@ -742,16 +745,14 @@ class SaleOrderController extends Controller
 
                     // Diskon langsung dari produk
                     foreach ($product->discounts as $discount) {
-                        $bundleDiscounts[] = $discount;
+                        $bundleDiscounts[] = $discount->toDiscountPayload();
                     }
 
                     // Kategori + diskon kategori
                     foreach ($product->categories as $cat) {
                         $bundleCategories[] = [
                             'id' => $cat->id,
-                            'discounts' => $cat->discounts->map(function ($d) use ($cat) {
-                                return array_merge($d->toArray(), ['category_id' => $cat->id]);
-                            })->toArray()
+                            'discounts' => $cat->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray()
                         ];
                     }
                 }

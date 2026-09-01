@@ -1378,6 +1378,14 @@
                             ttfb_ms: Math.round(nav.responseStart - nav.requestStart),
                             download_ms: Math.round(nav.responseEnd - nav.responseStart),
                             dom_ready_ms: Math.round(nav.domContentLoadedEventEnd),
+                            // Dua angka ini memisahkan dua hal yang sangat berbeda:
+                            // dom_interactive = HTML selesai diurai dan seluruh
+                            // <script> selesai diunduh + dieksekusi.
+                            // dcl_handlers   = lama SELURUH $(document).ready()
+                            // berjalan. Kalau yang membengkak yang kedua, biang
+                            // lambatnya ada di kode kita, bukan di ukuran file JS.
+                            dom_interactive_ms: Math.round(nav.domInteractive),
+                            dcl_handlers_ms: Math.round(nav.domContentLoadedEventEnd - nav.domContentLoadedEventStart),
                             resource_count: resources.length,
                             slowest_resource: slowest ? String(slowest.name).slice(0, 300) : null,
                             slowest_resource_ms: slowest ? Math.round(slowest.duration) : null,

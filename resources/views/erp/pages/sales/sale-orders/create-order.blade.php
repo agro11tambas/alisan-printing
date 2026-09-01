@@ -909,6 +909,7 @@
 @endpush
 
 @push('scripts')
+    @include('erp.pages.sales.partials.discount-engine')
     <script>
         const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
 
@@ -946,36 +947,6 @@
 
         const products = {!! $productsJson !!};
         const bundles = {!! $productBundlesJson !!};
-        const modeDiscounts = @json($modeDiscounts ?? []);
-
-        // 🔹 Diskon dengan Apply On = Mode: berlaku untuk baris yang mode-nya cocok
-        function discountsForMode(mode) {
-            if (!mode) return [];
-            return modeDiscounts.filter(d => (d.price_mode_slugs || []).includes(mode));
-        }
-
-        // 🔹 Akumulasi qty & nominal dari semua baris dengan mode yang sama
-        function modeTotals(mode) {
-            let qty = 0,
-                amount = 0;
-
-            $('.product-item').each(function() {
-                const r = $(this);
-                if (r.find('select[name="mode[]"]').val() !== mode) return;
-
-                const rowQty = parseFloat((r.find('input[name="qty[]"]').val() || '').replace(/\./g, '')) || 0;
-                const rowPrice = parseFloat(r.find('input.price_before_discount').val()) || 0;
-
-                qty += rowQty;
-                amount += rowPrice * rowQty;
-            });
-
-            return {
-                qty,
-                amount
-            };
-        }
-
         @include('erp.pages.partials.sales-create-address-script')
 
         // const allProducts = [
@@ -1168,7 +1139,6 @@
 
         function calculateRow(row) {
             const selectedOption = row.find('select[name="product[]"] option:selected');
-            const itemMode = row.find('select[name="mode[]"]').val();
 
             // 🔹 Ambil harga dari hidden input (hasil edit user)
             let basePrice = row.find('input.price_before_discount').val();
@@ -1185,86 +1155,15 @@
                 }
             }
 
-            const discounts = selectedOption.data('discounts') || [];
-            const categories = selectedOption.data('categories') || [];
             const qty = parseFloat(row.find('input[name="qty[]"]').val().replace(/\./g, '')) || 0;
 
             const priceBeforeDiscount = basePrice;
             const totalBeforeDiscount = basePrice * qty;
 
-            let finalPrice = priceBeforeDiscount;
-            let allDiscounts = discountEnabled ? [...discounts] : [];
-
             // 🔥 Diskon cuma jalan kalau discountEnabled = true
-            if (discountEnabled && priceBeforeDiscount > 0) {
-                categories.forEach(cat => {
-                    if (cat.discounts) {
-                        allDiscounts = allDiscounts.concat(cat.discounts);
-                    }
-                });
-
-                allDiscounts = allDiscounts.concat(discountsForMode(itemMode));
-
-                allDiscounts.forEach(discount => {
-                    if (discount.mode && discount.mode !== itemMode) {
-                        return;
-                    }
-
-                    let eligible = false;
-
-                    if (discount.apply_on === 'Product') {
-                        if (discount.minimum_based_on === 'Quantity of Items' && qty >= discount
-                            .minimum_qty_or_amount) {
-                            eligible = true;
-                        } else if (discount.minimum_based_on === 'Purchase Amount' && totalBeforeDiscount >=
-                            discount.minimum_qty_or_amount) {
-                            eligible = true;
-                        }
-                    } else if (discount.apply_on === 'Category') {
-                        let totalQtyCategory = 0,
-                            totalAmountCategory = 0;
-
-                        $('select[name="product[]"]').each(function(i, el) {
-                            const opt = $(el).find('option:selected');
-                            const cats = opt.data('categories') || [];
-                            const price = parseFloat(opt.data('price')) || 0;
-                            const qtyVal = parseFloat($('input[name="qty[]"]').eq(i).val().replace(/\./g,
-                                '')) || 0;
-
-                            if (cats.some(c => c.id === discount.category_id)) {
-                                totalQtyCategory += qtyVal;
-                                totalAmountCategory += price * qtyVal;
-                            }
-                        });
-
-                        if (discount.minimum_based_on === 'Quantity of Items' && totalQtyCategory >= discount
-                            .minimum_qty_or_amount) {
-                            eligible = true;
-                        } else if (discount.minimum_based_on === 'Purchase Amount' && totalAmountCategory >=
-                            discount.minimum_qty_or_amount) {
-                            eligible = true;
-                        }
-                    } else if (discount.apply_on === 'Mode') {
-                        const totals = modeTotals(itemMode);
-
-                        if (discount.minimum_based_on === 'Quantity of Items' && totals.qty >= discount
-                            .minimum_qty_or_amount) {
-                            eligible = true;
-                        } else if (discount.minimum_based_on === 'Purchase Amount' && totals.amount >=
-                            discount.minimum_qty_or_amount) {
-                            eligible = true;
-                        }
-                    }
-
-                    if (eligible) {
-                        if (discount.type === 'Percentage') {
-                            finalPrice = priceBeforeDiscount - (priceBeforeDiscount * (discount.amount / 100));
-                        } else {
-                            finalPrice = Math.max(0, priceBeforeDiscount - discount.amount);
-                        }
-                    }
-                });
-            }
+            const finalPrice = (discountEnabled && priceBeforeDiscount > 0) ?
+                DiscountEngine.priceAfterDiscount(row, priceBeforeDiscount) :
+                priceBeforeDiscount;
 
             const totalAfterDiscount = finalPrice * qty;
 

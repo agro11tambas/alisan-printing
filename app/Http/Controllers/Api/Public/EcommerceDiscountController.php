@@ -25,8 +25,13 @@ class EcommerceDiscountController extends Controller
                     'minimum_qty_or_amount' => (float) $discount->minimum_qty_or_amount,
                     'start_date' => $discount->start_date,
                     'end_date' => $discount->end_date,
+                    // `apply_on` sekarang bisa berisi lebih dari satu scope,
+                    // dipisah koma, dan semuanya harus terpenuhi (AND).
+                    // `apply_on_list` dan `apply_on_ecommerce` adalah bentuk
+                    // turunannya — yang kedua dipertahankan untuk konsumen lama.
                     'apply_on' => $discount->apply_on,
-                    'apply_on_ecommerce' => $discount->apply_on_ecommerce,
+                    'apply_on_list' => $discount->apply_on_list,
+                    'apply_on_ecommerce' => $discount->appliesOn('EcommerceCategory') ? 'Category' : 'None',
                     'products' => $discount->products->pluck('id'),
                     'categories' => $discount->categories->pluck('id'),
                     'ecommerce_categories' => $discount->ecommerceCategories->pluck('id'),
