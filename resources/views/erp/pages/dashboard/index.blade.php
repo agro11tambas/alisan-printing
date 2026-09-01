@@ -1,5 +1,9 @@
 @extends('erp.layouts.main')
 
+{{-- Halaman ini tidak punya tabel maupun dropdown, jadi DataTables, Select2,
+     Lightbox, dan Scroller tidak perlu dimuat. Hemat ~175 KB JS + ~60 KB CSS. --}}
+@section('assets_mode', 'ringan')
+
 @section('breadcrumb')
     <div class="page-header sticky-top">
         <div class="page-header-left d-flex align-items-center">

@@ -41,6 +41,10 @@ class ClientTimingController extends Controller
             'resource_count' => 'nullable|integer|min:0|max:2000',
             'slowest_resource' => 'nullable|string|max:300',
             'slowest_resource_ms' => 'nullable|numeric|min:0|max:1800000',
+            // true berarti tab sempat berada di latar belakang selagi halaman
+            // dimuat. Browser memperlambat tab tersembunyi, jadi angka waktunya
+            // tidak mencerminkan kecepatan aplikasi.
+            'hidden_saat_muat' => 'nullable|boolean',
             'connection'    => 'nullable|string|max:50',
             'downlink_mbps' => 'nullable|numeric|min:0|max:10000',
         ]);

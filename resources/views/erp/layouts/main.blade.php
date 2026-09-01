@@ -17,14 +17,33 @@
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/bootstrap.min.css') }}">
 
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/vendors.min.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/dataTables.bs5.min.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/select2.min.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/select2-theme.min.css') }}">
+    {{-- DataTables, Select2, Lightbox, dan Scroller adalah bagian terberat dari
+         aset halaman ini: sekitar 60 KB CSS dan 175 KB JavaScript. Keduanya
+         dimuat di SEMUA halaman, termasuk yang tidak punya tabel maupun dropdown.
+
+         Laporan waktu muat dari browser pengguna 1 September 2026 menunjukkan
+         dom_interactive 987 ms pada halaman yang dokumennya sendiri sudah sampai
+         di 182 ms — hampir 800 ms habis mengunduh dan menjalankan JavaScript.
+
+         Halaman yang tidak membutuhkannya bisa melewatkannya dengan menulis
+         @section('assets_mode', 'ringan') di awal view. Yang tidak menulis apa
+         pun tetap memuat semuanya, jadi halaman lama tidak berubah perilaku. --}}
+    @php
+        $assetsRingan = trim($__env->yieldContent('assets_mode')) === 'ringan';
+    @endphp
+
+    @unless ($assetsRingan)
+        <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/dataTables.bs5.min.css') }}">
+        <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/select2.min.css') }}">
+        <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/select2-theme.min.css') }}">
+    @endunless
 
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/theme.min.css') }}">
 
-    <link href="{{ asset('assets/vendors/css/lightbox.min.css') }}" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('assets/vendors/css/scroller.dataTables.min.css') }}">
+    @unless ($assetsRingan)
+        <link href="{{ asset('assets/vendors/css/lightbox.min.css') }}" rel="stylesheet">
+        <link rel="stylesheet" href="{{ asset('assets/vendors/css/scroller.dataTables.min.css') }}">
+    @endunless
 
     <style>
         div.dataTables_wrapper .row:first-child {
@@ -749,13 +768,17 @@
     @stack('modals')
 
     <script src="{{ asset('assets/vendors/js/vendors.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/dataTables.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/dataTables.bs5.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/select2.min.js') }}"></script>
-    <script src="{{ asset('assets/vendors/js/select2-active.min.js') }}"></script>
+    @unless ($assetsRingan)
+        <script src="{{ asset('assets/vendors/js/dataTables.min.js') }}"></script>
+        <script src="{{ asset('assets/vendors/js/dataTables.bs5.min.js') }}"></script>
+        <script src="{{ asset('assets/vendors/js/select2.min.js') }}"></script>
+        <script src="{{ asset('assets/vendors/js/select2-active.min.js') }}"></script>
+    @endunless
     <script src="{{ asset('assets/js/common-init.min.js') }}"></script>
 
-    <script src="{{ asset('assets/vendors/js/lightbox.min.js') }}"></script>
+    @unless ($assetsRingan)
+        <script src="{{ asset('assets/vendors/js/lightbox.min.js') }}"></script>
+    @endunless
 
     @if (request()->is(
             'erp/sales/sale-orders',
@@ -769,7 +792,9 @@
     @endif
 
 
-    <script src="{{ asset('assets/vendors/js/dataTables.scroller.min.js') }}"></script>
+    @unless ($assetsRingan)
+        <script src="{{ asset('assets/vendors/js/dataTables.scroller.min.js') }}"></script>
+    @endunless
 
     <script>
         window.initRowActionHandler = function(tableSelector) {
@@ -1347,6 +1372,16 @@
          storage/logs/performance-*.log sebagai performance.client_timing. --}}
     <script>
         (function reportClientTiming() {
+            // Direkam sedini mungkin. Tab yang dibuka di latar belakang
+            // diperlambat browser: DOMContentLoaded bisa tertunda puluhan detik
+            // walaupun server dan jaringan sempurna. Tanpa penanda ini, kejadian
+            // seperti itu tidak bisa dibedakan dari aplikasi yang benar-benar
+            // lambat.
+            var hiddenSaatMuat = document.visibilityState === 'hidden';
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'hidden') hiddenSaatMuat = true;
+            });
+
             // Menunggu 'load' supaya seluruh aset ikut terhitung, lalu ditunda
             // sedikit agar laporan tidak ikut memperlambat halaman.
             window.addEventListener('load', function () {
@@ -1389,6 +1424,7 @@
                             resource_count: resources.length,
                             slowest_resource: slowest ? String(slowest.name).slice(0, 300) : null,
                             slowest_resource_ms: slowest ? Math.round(slowest.duration) : null,
+                            hidden_saat_muat: hiddenSaatMuat,
                             connection: conn.effectiveType || null,
                             downlink_mbps: typeof conn.downlink === 'number' ? conn.downlink : null
                         };
