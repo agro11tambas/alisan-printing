@@ -720,16 +720,19 @@ class EcommerceSaleOrderController extends Controller
                     continue;
                 }
 
-                // Semua scope "Apply On" harus cocok sekaligus. Konteks ecommerce
-                // punya datanya lengkap, jadi keempat scope bisa dinilai di sini.
-                $matches = DiscountScopeMatcher::matches($discount, [
+                // Semua scope "Apply On" harus cocok sekaligus.
+                $matchesApplyOn = DiscountScopeMatcher::matches($discount, [
                     'product_id' => $productId,
                     'category_ids' => $line['discount_category_ids'],
-                    'ecommerce_category_ids' => $line['discount_ecommerce_category_ids'],
                     'mode' => $line['mode'] ?? null,
-                ], Discount::SCOPES);
+                ], Discount::MATCHABLE_SCOPES);
 
-                if (!$matches) {
+                // Target ecommerce tetap kolom tersendiri di luar `apply_on`,
+                // dan hubungannya dengan `apply_on` tetap ATAU seperti semula.
+                $appliesToEcommerceCategory = $discount->apply_on_ecommerce === 'Category'
+                    && $discount->ecommerceCategories->pluck('id')->intersect($line['discount_ecommerce_category_ids'])->isNotEmpty();
+
+                if (!$matchesApplyOn && !$appliesToEcommerceCategory) {
                     continue;
                 }
 

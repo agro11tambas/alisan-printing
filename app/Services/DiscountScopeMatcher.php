@@ -12,17 +12,15 @@ use App\Models\Discount;
  * kena pada baris yang produknya ada di kategori terpilih DAN mode barisnya
  * ada di daftar mode terpilih.
  *
- * Tidak setiap konteks punya data untuk semua scope — form order ERP tidak
- * tahu apa-apa soal kategori ecommerce, misalnya. Scope yang tidak didukung
- * konteks dilewati, bukan dianggap gagal, supaya diskon "Category +
- * EcommerceCategory" tetap berperilaku seperti sebelumnya di ERP. Tapi kalau
- * SEMUA scope-nya di luar jangkauan konteks, diskon dianggap tidak berlaku —
- * tanpa penjaga ini diskon khusus ecommerce akan bocor ke semua baris ERP.
+ * Scope yang datanya tidak tersedia di konteks pemanggil dilewati, bukan
+ * dianggap gagal. Tapi kalau SEMUA scope-nya di luar jangkauan konteks, diskon
+ * dianggap tidak berlaku — tanpa penjaga itu diskon tanpa syarat yang bisa
+ * diuji akan bocor ke semua baris.
  */
 class DiscountScopeMatcher
 {
     /**
-     * @param  array{product_id?: int|null, category_ids?: array<int>, ecommerce_category_ids?: array<int>, mode?: string|null}  $line
+     * @param  array{product_id?: int|null, category_ids?: array<int>, mode?: string|null}  $line
      * @param  array<string>  $supportedScopes  Scope yang datanya tersedia di konteks ini.
      */
     public static function matches(Discount $discount, array $line, array $supportedScopes): bool
@@ -54,15 +52,13 @@ class DiscountScopeMatcher
     private static function scopeMatches(Discount $discount, string $scope, array $line): bool
     {
         return match ($scope) {
+            // "Product" tidak lagi bisa dipilih di form, tapi tetap dievaluasi
+            // supaya diskon lama yang memakainya tidak berubah perilakunya.
             'Product' => $discount->products
                 ->contains('id', (int) ($line['product_id'] ?? 0)),
             'Category' => $discount->categories
                 ->pluck('id')
                 ->intersect($line['category_ids'] ?? [])
-                ->isNotEmpty(),
-            'EcommerceCategory' => $discount->ecommerceCategories
-                ->pluck('id')
-                ->intersect($line['ecommerce_category_ids'] ?? [])
                 ->isNotEmpty(),
             'Mode' => ($line['mode'] ?? null) !== null
                 && $discount->priceModes->pluck('slug')->contains($line['mode']),

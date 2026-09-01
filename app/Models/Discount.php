@@ -12,14 +12,22 @@ class Discount extends Model
     protected $table = 'discounts';
 
     /**
-     * Scope "Apply On" yang bisa dipilih, dalam urutan baku penyimpanan.
+     * Scope "Apply On" yang bisa dipilih di form, dalam urutan baku penyimpanan.
      *
      * Satu diskon boleh memilih lebih dari satu. Semantiknya AND: baris order
      * baru kena diskon kalau cocok dengan SEMUA scope yang dipilih — misal
      * "Category + Mode" berarti produknya harus masuk kategori yang dipilih
      * DAN mode barisnya termasuk mode yang dipilih.
      */
-    public const SCOPES = ['Product', 'Category', 'Mode', 'EcommerceCategory'];
+    public const SCOPES = ['Category', 'Mode'];
+
+    /**
+     * Scope yang masih bisa dievaluasi, termasuk "Product" dari data lama.
+     *
+     * "Product" sudah tidak ditawarkan di form, tapi diskon lama yang masih
+     * memakainya tetap dihitung seperti biasa sampai diskonnya disimpan ulang.
+     */
+    public const MATCHABLE_SCOPES = ['Product', 'Category', 'Mode'];
 
     protected $fillable = [
         'name',
@@ -70,7 +78,7 @@ class Discount extends Model
     /**
      * Ubah input (array atau string koma) jadi daftar scope yang valid dan urut.
      */
-    public static function parseScopes($value): array
+    public static function parseScopes($value, array $allowed = self::MATCHABLE_SCOPES): array
     {
         $items = is_array($value)
             ? $value
@@ -79,14 +87,9 @@ class Discount extends Model
         $items = array_filter(array_map('trim', $items));
 
         return array_values(array_filter(
-            static::SCOPES,
+            $allowed,
             fn ($scope) => in_array($scope, $items, true)
         ));
-    }
-
-    public static function scopesToColumn($value): string
-    {
-        return implode(',', static::parseScopes($value));
     }
 
     /**
@@ -104,8 +107,8 @@ class Discount extends Model
     /**
      * Saring diskon yang punya scope tertentu di dalam daftar `apply_on`.
      *
-     * Dicocokkan per elemen (bukan LIKE polos) supaya "Category" tidak ikut
-     * kena baris yang scope-nya cuma "EcommerceCategory".
+     * Dicocokkan per elemen (bukan LIKE polos) supaya scope yang namanya
+     * mengandung nama scope lain tidak saling tertukar.
      */
     public function scopeHasApplyOn($query, string $scope)
     {
@@ -120,9 +123,9 @@ class Discount extends Model
     /**
      * Bentuk diskon yang dipakai form order (JS) dan evaluator di server.
      *
-     * Semua target dikirim sekaligus — produk, kategori, mode, kategori
-     * ecommerce — supaya penerimanya bisa menguji tiap scope tanpa perlu tahu
-     * lewat jalur mana diskon ini sampai.
+     * Semua target dikirim sekaligus — produk, kategori, mode — supaya
+     * penerimanya bisa menguji tiap scope tanpa perlu tahu lewat jalur mana
+     * diskon ini sampai.
      */
     public function toDiscountPayload(): array
     {
@@ -144,9 +147,6 @@ class Discount extends Model
             'category_ids' => $this->relationLoaded('categories')
                 ? $this->categories->pluck('id')->map(fn ($id) => (int) $id)->values()->all()
                 : [],
-            'ecommerce_category_ids' => $this->relationLoaded('ecommerceCategories')
-                ? $this->ecommerceCategories->pluck('id')->map(fn ($id) => (int) $id)->values()->all()
-                : [],
             'price_mode_slugs' => $this->relationLoaded('priceModes')
                 ? $this->priceModes->pluck('slug')->values()->all()
                 : [],
@@ -161,7 +161,6 @@ class Discount extends Model
         return [
             $prefix.'products:id',
             $prefix.'categories:id',
-            $prefix.'ecommerceCategories:id',
             $prefix.'priceModes:id,slug',
         ];
     }

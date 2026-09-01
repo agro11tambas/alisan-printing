@@ -133,7 +133,7 @@
                                 <div class="col-lg-10 mb-0">
                                     <select id="apply_on" name="apply_on[]" class="form-control"
                                         data-select2-selector="tag" multiple>
-                                        @foreach (['Product' => 'Product', 'Category' => 'Product Category', 'Mode' => 'Mode', 'EcommerceCategory' => 'Ecommerce Category'] as $value => $label)
+                                        @foreach (['Category' => 'Product Category', 'Mode' => 'Mode'] as $value => $label)
                                             <option value="{{ $value }}"
                                                 {{ in_array($value, (array) old('apply_on', [])) ? 'selected' : '' }}>
                                                 {{ $label }}</option>
@@ -143,19 +143,6 @@
                                         Boleh pilih lebih dari satu. Kalau dipilih beberapa, diskon hanya berlaku
                                         untuk baris yang memenuhi <strong>semua</strong> syarat sekaligus.
                                     </div>
-                                </div>
-                            </div>
-                            <div id="product_group" class="row mb-2 align-items-center" style="display: none;">
-                                <div class="col-lg-2">
-                                    <label for="products" class="fw-semibold">Select Product(s):</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <select name="products[]" id="products" class="form-control"
-                                        data-select2-selector="tag" multiple>
-                                        @foreach ($products as $product)
-                                            <option value="{{ $product->id }}">{{ $product->name }}</option>
-                                        @endforeach
-                                    </select>
                                 </div>
                             </div>
                             <div id="category_group" class="row mb-2 align-items-center" style="display: none;">
@@ -184,21 +171,6 @@
                                     </select>
                                 </div>
                             </div>
-                            <div id="ecommerce_category_group" class="row mb-2 align-items-center"
-                                style="display: none;">
-                                <div class="col-lg-2">
-                                    <label for="ecommerce_categories" class="fw-semibold">Select Ecommerce
-                                        Category(ies):</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <select name="ecommerce_categories[]" id="ecommerce_categories"
-                                        class="form-control" data-select2-selector="tag" multiple>
-                                        @foreach ($ecommerceCategories as $ecommerceCategory)
-                                            <option value="{{ $ecommerceCategory->id }}">
-                                                {{ $ecommerceCategory->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
                             </div>
 
                             <div class="row mb-2 align-items-center">
@@ -229,10 +201,8 @@
         // Tiap scope punya satu blok target. Karena scope-nya bisa jamak,
         // yang ditampilkan adalah gabungan blok dari semua scope terpilih.
         const APPLY_ON_GROUPS = {
-            Product: 'product_group',
             Category: 'category_group',
             Mode: 'mode_group',
-            EcommerceCategory: 'ecommerce_category_group',
         };
 
         function selectedApplyOn() {
@@ -323,12 +293,8 @@
             }
 
             const targetRules = {
-                Product: ['select[name="products[]"]', 'Product wajib dipilih minimal satu'],
                 Category: ['select[name="categories[]"]', 'Product Category wajib dipilih minimal satu'],
                 Mode: ['select[name="price_modes[]"]', 'Mode wajib dipilih minimal satu'],
-                EcommerceCategory: ['select[name="ecommerce_categories[]"]',
-                    'Ecommerce Category wajib dipilih minimal satu'
-                ],
             };
 
             selectedScopes.forEach(scope => {

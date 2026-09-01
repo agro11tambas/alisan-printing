@@ -6,10 +6,8 @@
     "Apply On" boleh lebih dari satu dan syaratnya digabung AND, jadi logikanya
     dikumpulkan di sini dan keempat form memanggil `DiscountEngine`.
 
-    Form order cuma tahu tiga scope: Product, Category, dan Mode. Scope
-    EcommerceCategory dilewati karena datanya memang tidak ada di halaman ini —
-    tapi kalau SEMUA scope diskon di luar jangkauan (mis. khusus ecommerce),
-    diskonnya tidak berlaku sama sekali di sini.
+    Scope yang bisa dipilih tinggal Category dan Mode. Scope Product masih
+    dievaluasi di sini demi diskon lama yang masih memakainya.
 
     Butuh variabel $modeDiscounts dari controller.
 --}}
@@ -17,7 +15,8 @@
     window.DiscountEngine = (function() {
         const MODE_DISCOUNTS = @json($modeDiscounts ?? []);
 
-        // Scope yang datanya tersedia di form order ERP.
+        // Scope yang datanya tersedia di form order ERP. "Product" sudah tidak
+        // ditawarkan di form diskon, tapi tetap dinilai untuk data lama.
         const SUPPORTED_SCOPES = ['Product', 'Category', 'Mode'];
 
         function toQty(value) {
@@ -126,7 +125,7 @@
             const info = rowInfo(row);
             const scopes = scopesOf(discount).filter(scope => SUPPORTED_SCOPES.includes(scope));
 
-            // Semua scope-nya di luar jangkauan form ini (mis. khusus ecommerce).
+            // Tidak ada scope yang bisa dinilai di form ini.
             if (scopes.length === 0) return false;
 
             if (!matchesScopes(discount, scopes, info)) return false;

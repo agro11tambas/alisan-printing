@@ -27,11 +27,10 @@ class EcommerceDiscountController extends Controller
                     'end_date' => $discount->end_date,
                     // `apply_on` sekarang bisa berisi lebih dari satu scope,
                     // dipisah koma, dan semuanya harus terpenuhi (AND).
-                    // `apply_on_list` dan `apply_on_ecommerce` adalah bentuk
-                    // turunannya — yang kedua dipertahankan untuk konsumen lama.
+                    // `apply_on_list` adalah bentuk terpecahnya.
                     'apply_on' => $discount->apply_on,
                     'apply_on_list' => $discount->apply_on_list,
-                    'apply_on_ecommerce' => $discount->appliesOn('EcommerceCategory') ? 'Category' : 'None',
+                    'apply_on_ecommerce' => $discount->apply_on_ecommerce,
                     'products' => $discount->products->pluck('id'),
                     'categories' => $discount->categories->pluck('id'),
                     'ecommerce_categories' => $discount->ecommerceCategories->pluck('id'),

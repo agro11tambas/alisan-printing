@@ -4,10 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Discount;
-use App\Models\EcommerceProductCategory;
 use App\Models\PriceMode;
 use App\Models\ProductCategory;
-use App\Models\Products;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +24,6 @@ class DiscountController extends Controller
             'products:id,name',
             'categories:id,name',
             'priceModes:id,name',
-            'ecommerceCategories:id,name',
         ]);
 
         return DataTables::of($discount)
@@ -73,10 +70,10 @@ class DiscountController extends Controller
                 // jadi tiap scope ditampilkan sebaris beserta targetnya.
                 $rows = collect($scopes)->map(function ($scope) use ($discount) {
                     [$label, $targets] = match ($scope) {
+                        // "Product" hanya muncul dari data lama; sudah tidak bisa dipilih lagi.
                         'Product' => ['Product', $discount->products->pluck('name')],
                         'Category' => ['Product Category', $discount->categories->pluck('name')],
                         'Mode' => ['Mode', $discount->priceModes->pluck('name')],
-                        'EcommerceCategory' => ['Ecommerce Category', $discount->ecommerceCategories->pluck('name')],
                         default => [$scope, collect()],
                     };
 
@@ -142,7 +139,7 @@ class DiscountController extends Controller
 
     public function edit($id)
     {
-        $discount = Discount::with(['products', 'categories', 'priceModes', 'ecommerceCategories'])
+        $discount = Discount::with(['categories', 'priceModes'])
             ->where('id', $id)
             ->first();
 
@@ -180,10 +177,8 @@ class DiscountController extends Controller
     private function formOptions(): array
     {
         return [
-            'products' => Products::all(),
             'categories' => ProductCategory::all(),
             'priceModes' => PriceMode::active()->ordered()->get(),
-            'ecommerceCategories' => EcommerceProductCategory::orderBy('name')->get(),
         ];
     }
 
@@ -211,25 +206,19 @@ class DiscountController extends Controller
             'end_date' => 'nullable|date',
             'apply_on' => 'required|array|min:1',
             'apply_on.*' => 'in:'.implode(',', Discount::SCOPES),
-            'products' => 'nullable|array',
-            'products.*' => 'exists:products,id',
             'categories' => 'nullable|array',
             'categories.*' => 'exists:product_categories,id',
             'price_modes' => 'nullable|array',
             'price_modes.*' => 'exists:price_modes,id',
-            'ecommerce_categories' => 'nullable|array',
-            'ecommerce_categories.*' => 'exists:ecommerce_product_categories,id',
             'status' => 'required|in:1,0',
         ]);
 
         $validator->after(function ($validator) use ($request) {
-            $scopes = Discount::parseScopes($request->input('apply_on', []));
+            $scopes = Discount::parseScopes($request->input('apply_on', []), Discount::SCOPES);
 
             $required = [
-                'Product' => ['products', 'Product wajib dipilih minimal satu'],
                 'Category' => ['categories', 'Product Category wajib dipilih minimal satu'],
                 'Mode' => ['price_modes', 'Mode wajib dipilih minimal satu'],
-                'EcommerceCategory' => ['ecommerce_categories', 'Ecommerce Category wajib dipilih minimal satu'],
             ];
 
             foreach ($scopes as $scope) {
@@ -246,7 +235,7 @@ class DiscountController extends Controller
 
     private function discountAttributes(array $validated): array
     {
-        $scopes = Discount::parseScopes($validated['apply_on']);
+        $scopes = Discount::parseScopes($validated['apply_on'], Discount::SCOPES);
 
         return [
             'name' => $validated['name'],
@@ -257,24 +246,24 @@ class DiscountController extends Controller
             'start_date' => $validated['start_date'] ?? null,
             'end_date' => $validated['end_date'] ?? null,
             'apply_on' => implode(',', $scopes),
-            // Dipertahankan supaya bentuk response API ecommerce tidak berubah.
-            'apply_on_ecommerce' => in_array('EcommerceCategory', $scopes, true) ? 'Category' : 'None',
             'is_active' => $validated['status'],
         ];
     }
 
     /**
      * Isi pivot untuk scope yang dipilih, kosongkan pivot untuk yang tidak.
+     *
+     * Pivot produk ikut dikosongkan: scope "Product" sudah tidak ada di form,
+     * jadi diskon lama yang memakainya kehilangan targetnya begitu disimpan ulang.
      */
     private function syncTargets(Discount $discount, array $validated): void
     {
-        $scopes = Discount::parseScopes($validated['apply_on']);
+        $scopes = Discount::parseScopes($validated['apply_on'], Discount::SCOPES);
 
         $map = [
             'Product' => ['products', 'products'],
             'Category' => ['categories', 'categories'],
             'Mode' => ['priceModes', 'price_modes'],
-            'EcommerceCategory' => ['ecommerceCategories', 'ecommerce_categories'],
         ];
 
         foreach ($map as $scope => [$relation, $field]) {
