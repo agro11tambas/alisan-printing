@@ -79,6 +79,12 @@ Route::post('/logout', [AuthController::class, 'logout']);
 Route::middleware(['web.auth', 'check.session'])->group(function () {
     Route::get('/erp/welcome', [WelcomeController::class, 'index']);
 
+    // Katalog produk disajikan sebagai file JavaScript tersendiri, bukan
+    // ditanam di HTML halaman order. URL-nya memuat cap versi katalog, jadi
+    // browser boleh menyimpannya selamanya.
+    Route::get('/erp/catalog-asset/{slug}.js', [\App\Http\Controllers\Admin\ErpCatalogAssetController::class, 'show'])
+        ->name('catalog-asset');
+
     // Laporan waktu muat dari browser pengguna. Tidak ada instrumen lain di
     // aplikasi ini yang bisa melihat jalur DNS/TLS/CDN/jaringan client.
     Route::post('/erp/client-timing', [\App\Http\Controllers\Admin\ClientTimingController::class, 'store'])

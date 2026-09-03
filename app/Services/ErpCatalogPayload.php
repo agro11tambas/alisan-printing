@@ -37,11 +37,7 @@ class ErpCatalogPayload
      */
     public function json(string $key, Closure $build): string
     {
-        // v2: bentuk payload diskon berubah (apply_on jamak + daftar target).
-        // Naikkan angkanya tiap kali struktur blob berubah, supaya cache lama
-        // tidak ikut terpakai setelah deploy — cap versi katalog di bawah hanya
-        // mengikuti perubahan data, bukan perubahan kode.
-        $cacheKey = 'erp:catalog-payload:v2:'.$key.':'.$this->version();
+        $cacheKey = $this->cacheKey($key);
 
         // Beberapa halaman memakai blob yang sama dua kali dalam satu request.
         if (isset($this->memo[$cacheKey])) {
@@ -64,13 +60,45 @@ class ErpCatalogPayload
     }
 
     /**
+     * Baca blob yang sudah tersimpan tanpa membangunnya kalau belum ada.
+     *
+     * Dipakai endpoint yang menyajikan katalog sebagai file JavaScript
+     * tersendiri. Endpoint itu tidak boleh membangun katalog: halaman yang
+     * memanggilnya baru saja membangunnya beberapa milidetik sebelumnya, dan
+     * membangun ulang di request web adalah persis biaya yang mau dihindari.
+     */
+    public function readJson(string $key): ?string
+    {
+        $json = Cache::get($this->cacheKey($key));
+
+        return is_string($json) ? $json : null;
+    }
+
+    /**
+     * Satu-satunya tempat kunci cache dibentuk.
+     *
+     * json() dan readJson() HARUS memakai kunci yang sama persis. Sempat tidak:
+     * readJson() melewatkan penanda "v2" dan akibatnya tidak pernah menemukan
+     * blob yang baru saja ditulis json().
+     *
+     * v2: bentuk payload diskon berubah (apply_on jamak + daftar target).
+     * Naikkan angkanya tiap kali struktur blob berubah, supaya cache lama tidak
+     * ikut terpakai setelah deploy — cap versi katalog hanya mengikuti perubahan
+     * data, bukan perubahan kode.
+     */
+    private function cacheKey(string $key): string
+    {
+        return 'erp:catalog-payload:v2:'.$key.':'.$this->version();
+    }
+
+    /**
      * Cap versi katalog.
      *
      * Dihitung sekali per request. Query-nya agregat murni (MAX + COUNT), jadi
      * biayanya tidak ikut tumbuh sebesar isi katalognya — beda jauh dengan
      * menarik seluruh baris beserta relasinya.
      */
-    private function version(): string
+    public function version(): string
     {
         if ($this->version !== null) {
             return $this->version;

@@ -14,6 +14,19 @@
 
     <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
 
+    {{-- HARUS jadi skrip pertama di halaman. Tab yang dibuka di latar belakang
+         diperlambat browser, dan DOMContentLoaded bisa tertunda puluhan detik
+         walaupun server menjawab dalam 200 ms. Penanda sebelumnya dipasang di
+         ujung <body>, jadi tab yang sempat tersembunyi lalu dibuka sebelum
+         skrip itu jalan tercatat "tidak tersembunyi" — dan lonjakan 30 detik
+         jadi tidak bisa dibedakan dari aplikasi yang benar-benar lambat. --}}
+    <script>
+        window.__erpHidden = document.visibilityState === 'hidden';
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') window.__erpHidden = true;
+        }, true);
+    </script>
+
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/css/bootstrap.min.css') }}">
 
     <link rel="stylesheet" type="text/css" href="{{ asset('assets/vendors/css/vendors.min.css') }}">
@@ -1377,7 +1390,8 @@
             // walaupun server dan jaringan sempurna. Tanpa penanda ini, kejadian
             // seperti itu tidak bisa dibedakan dari aplikasi yang benar-benar
             // lambat.
-            var hiddenSaatMuat = document.visibilityState === 'hidden';
+            // Dipasang di <head>, jadi menangkap keadaan sejak awal pemuatan.
+            var hiddenSaatMuat = window.__erpHidden === true || document.visibilityState === 'hidden';
             document.addEventListener('visibilitychange', function () {
                 if (document.visibilityState === 'hidden') hiddenSaatMuat = true;
             });

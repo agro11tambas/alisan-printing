@@ -1008,6 +1008,20 @@
 @endpush
 
 @push('scripts')
+    {{-- Katalog produk dimuat sebagai file tersendiri, bukan ditanam di HTML.
+         URL-nya memuat cap versi katalog, jadi browser menyimpannya permanen dan
+         hanya mengunduh ulang saat produk atau harga benar-benar berubah.
+
+         Sebelumnya kedua blob ini dicetak langsung ke dalam HTML halaman, dan
+         laporan waktu muat dari browser pengguna 3 September 2026 mencatat
+         akibatnya: download_ms 672-975 ms di halaman ini, sementara halaman lain
+         10-127 ms. Tag <script> biasa (tanpa defer/async) dieksekusi berurutan,
+         jadi window.__erpCatalog dijamin sudah terisi sebelum skrip di bawah. --}}
+    @php
+        $versiKatalog = app(\App\Services\ErpCatalogPayload::class)->version();
+    @endphp
+    <script src="{{ url('/erp/catalog-asset/sale-list-create-products.js') }}?v={{ $versiKatalog }}"></script>
+    <script src="{{ url('/erp/catalog-asset/sale-list-create-bundles.js') }}?v={{ $versiKatalog }}"></script>
     @include('erp.pages.sales.partials.discount-engine')
     <script>
         const isOwner = {{ Auth::user()->role === 'Owner' ? 'true' : 'false' }};
@@ -1044,9 +1058,9 @@
             }),
         ); ?>;
 
-        {{-- Sudah berupa JSON string dari ErpCatalogPayload (di-cache), jadi dicetak apa adanya --}}
-        const products = {!! $productsJson !!};
-        const bundles = {!! $productBundlesJson !!};
+        {{-- Diisi oleh dua <script src> di atas. --}}
+        const products = window.__erpCatalog['sale-list-create-products'];
+        const bundles = window.__erpCatalog['sale-list-create-bundles'];
 
         @include('erp.pages.partials.sales-create-address-script')
 
