@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CostSetting;
 use App\Services\FifoCostService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,41 @@ class FifoCostController extends Controller
 
     public function layers()
     {
-        return view('erp.pages.fifo-cost.cost-layers');
+        return view('erp.pages.fifo-cost.cost-layers', [
+            'startDate' => CostSetting::startDate()?->toDateString(),
+        ]);
+    }
+
+    /**
+     * Simpan tanggal mulai pembukuan FIFO, lalu hitung ulang.
+     *
+     * Dipakai setelah stok direset dan Opening Stock & Rate diisi ulang: tanpa
+     * tanggal ini, batch dari riwayat stock in lama akan ditumpuk di atas
+     * opening stock yang baru sehingga stoknya terhitung dua kali.
+     */
+    public function updateStartDate(Request $request)
+    {
+        $request->validate([
+            'start_date' => 'nullable|date',
+        ], [
+            'start_date.date' => 'Tanggal mulai pembukuan tidak valid.',
+        ]);
+
+        CostSetting::setStartDate($request->input('start_date'));
+
+        try {
+            app(FifoCostService::class)->rebuild();
+        } catch (\Throwable $e) {
+            Log::error('Rebuild FIFO setelah ubah tanggal mulai gagal: '.$e->getMessage());
+
+            return back()->with('error', 'Tanggal tersimpan, tapi perhitungan ulang gagal: '.$e->getMessage());
+        }
+
+        $message = $request->filled('start_date')
+            ? 'Pembukuan FIFO dimulai dari '.$request->input('start_date').'. Stock in dan penjualan sebelum tanggal itu tidak lagi dihitung.'
+            : 'Tanggal mulai dikosongkan. Seluruh riwayat kembali dihitung.';
+
+        return back()->with('success', $message);
     }
 
     public function dataLayers(Request $request)

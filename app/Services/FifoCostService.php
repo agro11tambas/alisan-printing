@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CostLayer;
+use App\Models\CostSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -105,6 +106,12 @@ class FifoCostService
 
     private array $orderCostBuffer = [];
 
+    /**
+     * Tanggal mulai pembukuan FIFO, atau null kalau seluruh riwayat dipakai.
+     * Dibaca sekali per rebuild.
+     */
+    private ?Carbon $startDate = null;
+
     private array $stats = [
         'layers' => 0,
         'order_items' => 0,
@@ -126,6 +133,8 @@ class FifoCostService
      */
     public function rebuild(?array $productIds = null): array
     {
+        $this->startDate = CostSetting::startDate();
+
         $scope = $productIds === null ? null : $this->expandScope($productIds);
 
         DB::transaction(function () use ($scope) {
@@ -347,27 +356,26 @@ class FifoCostService
         $now = now();
 
         // --- Opening stock: batch paling awal, harganya opening_rate. ---
-        DB::table('inventory_stocks')
-            ->select('product_id', DB::raw('SUM(opening_stock) AS qty'), DB::raw('AVG(opening_rate) AS rate'))
-            ->where('opening_stock', '>', 0)
-            ->when($scope !== null, fn ($query) => $query->whereIn('product_id', $scope))
-            ->groupBy('product_id')
-            ->orderBy('product_id')
-            ->get()
-            ->each(function ($row) use (&$rows, $now) {
-                $rows[] = [
-                    'product_id' => (int) $row->product_id,
-                    'source_type' => CostLayer::SOURCE_OPENING,
-                    'source_id' => null,
-                    'reference' => 'Opening Stock',
-                    'layer_date' => self::OPENING_DATE,
-                    'qty_in' => (float) $row->qty,
-                    'qty_remaining' => (float) $row->qty,
-                    'unit_cost' => (float) $row->rate,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
-            });
+        //
+        // Tanggalnya mengikuti tanggal mulai pembukuan kalau disetel, supaya
+        // stok awal duduk tepat di titik potongnya. Tanpa setelan itu dia
+        // memakai tanggal semu paling lampau agar selalu di depan antrian.
+        $openingDate = $this->startDate?->toDateTimeString() ?? self::OPENING_DATE;
+
+        foreach ($this->openingStocks($scope) as $productId => $opening) {
+            $rows[] = [
+                'product_id' => $productId,
+                'source_type' => CostLayer::SOURCE_OPENING,
+                'source_id' => null,
+                'reference' => 'Opening Stock',
+                'layer_date' => $openingDate,
+                'qty_in' => $opening['qty'],
+                'qty_remaining' => $opening['qty'],
+                'unit_cost' => $opening['rate'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
 
         // --- Pembelian: satu kejadian STOCK IN = satu batch. ---
         //
@@ -389,6 +397,10 @@ class FifoCostService
             ->where('pi.status', self::PURCHASE_ITEM_STATUS)
             ->where('h.stock_in', '>', 0)
             ->when($scope !== null, fn ($query) => $query->whereIn('ii.product_id', $scope))
+            // Stock in sebelum tanggal mulai pembukuan tidak dibuatkan batch:
+            // barangnya sudah terwakili oleh Opening Stock. Kalau tetap ikut,
+            // stoknya terhitung dua kali.
+            ->when($this->startDate !== null, fn ($query) => $query->whereDate('si.change_date', '>=', $this->startDate))
             ->orderBy('si.change_date')
             ->orderBy('h.id')
             ->select([
@@ -471,6 +483,53 @@ class FifoCostService
         }
 
         return array_values(array_filter($rows, fn ($row) => $row['qty_in'] > 0));
+    }
+
+    /**
+     * Stok awal per produk: kuantitas gudang DITAMBAH kuantitas produksi,
+     * dinilai dengan opening_rate milik gudang.
+     *
+     * Harga stok awal hanya dicatat sekali, di inventory_stocks.opening_rate.
+     * production_stocks tidak punya kolom harga sama sekali, jadi stok awal
+     * produksi dinilai dengan rate yang sama — barangnya memang produk yang
+     * sama, hanya beda tempat menyimpannya.
+     *
+     * @param  array<int>|null  $scope
+     * @return array<int, array{qty: float, rate: float}>
+     */
+    private function openingStocks(?array $scope): array
+    {
+        $opening = [];
+
+        DB::table('inventory_stocks')
+            ->select('product_id', DB::raw('SUM(opening_stock) AS qty'), DB::raw('AVG(opening_rate) AS rate'))
+            ->when($scope !== null, fn ($query) => $query->whereIn('product_id', $scope))
+            ->groupBy('product_id')
+            ->orderBy('product_id')
+            ->get()
+            ->each(function ($row) use (&$opening) {
+                $opening[(int) $row->product_id] = [
+                    'qty' => (float) $row->qty,
+                    'rate' => (float) $row->rate,
+                ];
+            });
+
+        DB::table('production_stocks')
+            ->select('product_id', DB::raw('SUM(opening_stock) AS qty'))
+            ->where('opening_stock', '>', 0)
+            ->when($scope !== null, fn ($query) => $query->whereIn('product_id', $scope))
+            ->groupBy('product_id')
+            ->orderBy('product_id')
+            ->get()
+            ->each(function ($row) use (&$opening) {
+                $productId = (int) $row->product_id;
+
+                $opening[$productId] ??= ['qty' => 0.0, 'rate' => 0.0];
+                $opening[$productId]['qty'] += (float) $row->qty;
+            });
+
+        // Produk yang stok awalnya nol tidak perlu batch kosong.
+        return array_filter($opening, fn ($item) => $item['qty'] > 0);
     }
 
     /**
@@ -626,6 +685,10 @@ class FifoCostService
             ->whereNull('o.deleted_at')
             ->where('o.status', self::SALE_ORDER_STATUS)
             ->tap(fn ($query) => $inScope($query, 'oi'))
+            // Penjualan sebelum tanggal mulai pembukuan tidak dihitung ulang:
+            // stok yang dipakainya sudah habis di periode lama, dan Opening
+            // Stock mewakili sisa setelah penjualan-penjualan itu.
+            ->when($this->startDate !== null, fn ($query) => $query->where('o.order_date', '>=', $this->startDate))
             ->select([
                 DB::raw("'sale' AS kind"),
                 'oi.id AS ref_id',
@@ -656,6 +719,9 @@ class FifoCostService
             ->whereNull('oi.deleted_at')
             ->whereNull('o.deleted_at')
             ->tap(fn ($query) => $inScope($query, 'oi'))
+            // Retur atas penjualan lama ikut dilewati, karena penjualan yang
+            // dibalikkannya memang tidak diputar ulang.
+            ->when($this->startDate !== null, fn ($query) => $query->where('o.order_date', '>=', $this->startDate))
             ->select([
                 DB::raw("'return' AS kind"),
                 'sri.id AS ref_id',

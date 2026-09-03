@@ -447,6 +447,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::get('/erp/hpp/batch-purchase', [FifoCostController::class, 'layers']);
             Route::get('/erp/hpp/batch-purchase/data', [FifoCostController::class, 'dataLayers']);
             Route::post('/erp/hpp/rebuild', [FifoCostController::class, 'rebuild'])->name('erp.hpp.rebuild');
+            Route::post('/erp/hpp/tanggal-mulai', [FifoCostController::class, 'updateStartDate'])->name('erp.hpp.start-date');
         });
 
         Route::middleware(['web.auth', 'subpermission:cost-consumptions'])->group(function () {

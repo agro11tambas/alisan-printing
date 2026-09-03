@@ -72,6 +72,32 @@
 
         <div class="row">
             <div class="col-lg-12">
+                <div class="card stretch stretch-full mb-2">
+                    <div class="card-body p-3">
+                        <form action="{{ route('erp.hpp.start-date') }}" method="POST" class="row g-3 align-items-end"
+                            onsubmit="return confirm('Ubah tanggal mulai pembukuan lalu hitung ulang seluruh HPP?')">
+                            @csrf
+                            <div class="col-lg-3">
+                                <label for="fifo_start_date" class="fw-semibold fs-12">Mulai Pembukuan FIFO</label>
+                                <input type="date" id="fifo_start_date" name="start_date" class="form-control"
+                                    style="padding: 0.25rem 0.5rem; font-size: 0.875rem;"
+                                    value="{{ $startDate }}">
+                            </div>
+                            <div class="col-lg-2">
+                                <button type="submit" class="btn btn-primary btn-sm">Simpan &amp; Hitung Ulang</button>
+                            </div>
+                            <div class="col-lg-7">
+                                <small class="text-muted">
+                                    Isi tanggal ini kalau kamu mereset stok lalu mengisi ulang Opening Stock &amp; Rate.
+                                    Opening stock dianggap kondisi pada tanggal tersebut, dan seluruh stock in maupun
+                                    penjualan sebelumnya tidak ikut dihitung — tanpa ini stoknya terhitung dua kali.
+                                    Kosongkan kalau ingin seluruh riwayat dipakai.
+                                </small>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
                 <div class="card stretch stretch-full">
                     <div class="card-body p-0">
                         <div class="row g-3 p-3">
