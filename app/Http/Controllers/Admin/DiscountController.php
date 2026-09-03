@@ -185,18 +185,14 @@ class DiscountController extends Controller
     /**
      * Aturan yang sama untuk create dan update.
      *
-     * `apply_on` sekarang daftar: boleh lebih dari satu scope, dan tiap scope
-     * yang dipilih wajib punya minimal satu target — kalau tidak, diskonnya
-     * tidak akan pernah kena baris mana pun karena syaratnya digabung AND.
+     * Scope-nya tidak lagi dipilih di form: tiap diskon selalu ber-scope
+     * "Category" + "Mode" sekaligus. Karena syaratnya digabung AND, kedua
+     * target wajib diisi — kalau salah satunya kosong, diskonnya tidak akan
+     * pernah kena baris mana pun.
      */
     private function validateDiscount(Request $request): array
     {
-        // Toleran terhadap kiriman lama yang masih mengirim satu nilai string.
-        $request->merge([
-            'apply_on' => array_values(array_filter((array) $request->input('apply_on', []))),
-        ]);
-
-        $validator = validator($request->all(), [
+        return validator($request->all(), [
             'name' => 'required|string|max:255',
             'type' => 'required|in:Percentage,Fixed Amount',
             'amount' => 'required|numeric|min:0',
@@ -204,39 +200,21 @@ class DiscountController extends Controller
             'minimum_qty_or_amount' => 'required|numeric|min:0',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
-            'apply_on' => 'required|array|min:1',
-            'apply_on.*' => 'in:'.implode(',', Discount::SCOPES),
-            'categories' => 'nullable|array',
+            'categories' => 'required|array|min:1',
             'categories.*' => 'exists:product_categories,id',
-            'price_modes' => 'nullable|array',
+            'price_modes' => 'required|array|min:1',
             'price_modes.*' => 'exists:price_modes,id',
             'status' => 'required|in:1,0',
-        ]);
-
-        $validator->after(function ($validator) use ($request) {
-            $scopes = Discount::parseScopes($request->input('apply_on', []), Discount::SCOPES);
-
-            $required = [
-                'Category' => ['categories', 'Product Category wajib dipilih minimal satu'],
-                'Mode' => ['price_modes', 'Mode wajib dipilih minimal satu'],
-            ];
-
-            foreach ($scopes as $scope) {
-                [$field, $message] = $required[$scope];
-
-                if (empty(array_filter((array) $request->input($field, [])))) {
-                    $validator->errors()->add($field, $message);
-                }
-            }
-        });
-
-        return $validator->validate();
+        ], [
+            'categories.required' => 'Product Category wajib dipilih minimal satu',
+            'categories.min' => 'Product Category wajib dipilih minimal satu',
+            'price_modes.required' => 'Mode wajib dipilih minimal satu',
+            'price_modes.min' => 'Mode wajib dipilih minimal satu',
+        ])->validate();
     }
 
     private function discountAttributes(array $validated): array
     {
-        $scopes = Discount::parseScopes($validated['apply_on'], Discount::SCOPES);
-
         return [
             'name' => $validated['name'],
             'type' => $validated['type'],
@@ -245,34 +223,23 @@ class DiscountController extends Controller
             'minimum_qty_or_amount' => $validated['minimum_qty_or_amount'],
             'start_date' => $validated['start_date'] ?? null,
             'end_date' => $validated['end_date'] ?? null,
-            'apply_on' => implode(',', $scopes),
+            // Scope-nya baku sekarang: selalu Category + Mode.
+            'apply_on' => implode(',', Discount::SCOPES),
             'is_active' => $validated['status'],
         ];
     }
 
     /**
-     * Isi pivot untuk scope yang dipilih, kosongkan pivot untuk yang tidak.
+     * Isi pivot kategori dan mode, kosongkan pivot produk.
      *
-     * Pivot produk ikut dikosongkan: scope "Product" sudah tidak ada di form,
-     * jadi diskon lama yang memakainya kehilangan targetnya begitu disimpan ulang.
+     * Scope "Product" sudah tidak ada di form, jadi diskon lama yang memakainya
+     * kehilangan targetnya begitu disimpan ulang.
      */
     private function syncTargets(Discount $discount, array $validated): void
     {
-        $scopes = Discount::parseScopes($validated['apply_on'], Discount::SCOPES);
-
-        $map = [
-            'Product' => ['products', 'products'],
-            'Category' => ['categories', 'categories'],
-            'Mode' => ['priceModes', 'price_modes'],
-        ];
-
-        foreach ($map as $scope => [$relation, $field]) {
-            $ids = in_array($scope, $scopes, true)
-                ? array_values(array_filter((array) ($validated[$field] ?? [])))
-                : [];
-
-            $discount->{$relation}()->sync($ids);
-        }
+        $discount->products()->sync([]);
+        $discount->categories()->sync(array_values(array_filter((array) ($validated['categories'] ?? []))));
+        $discount->priceModes()->sync(array_values(array_filter((array) ($validated['price_modes'] ?? []))));
     }
 
     private function calculateSalePrice($originalPrice, $type, $amount)

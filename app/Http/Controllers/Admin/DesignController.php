@@ -402,7 +402,7 @@ class DesignController extends Controller
             $design = Design::with([
                 'order.customer',
                 'items.product',
-                'items.orderItem',
+                'items.orderItem.priceMode',
             ])->whereKey($id)->lockForUpdate()->firstOrFail();
 
             $order = $design->order;
@@ -426,9 +426,11 @@ class DesignController extends Controller
                 return redirect()->back()->with('success', 'Design sudah diverifikasi sebelumnya.');
             }
 
-            // AMBIL PRINTING + POLOSAN
+            // Jangan hardcode slug mode. Mode itu dinamis dari tabel price_modes,
+            // begitu ada mode baru daftar hardcode langsung bikin verify gagal.
+            // Yang menentukan item ikut alur produksi adalah production_flow-nya.
             $verifyItems = $design->items->filter(function ($designItem) {
-                return in_array($designItem->orderItem?->mode, ['printing', 'polosan', 'sablon'], true);
+                return $designItem->orderItem?->usesProductionFlow() === true;
             });
 
             if ($verifyItems->isEmpty()) {

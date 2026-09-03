@@ -100,7 +100,7 @@ class ProductCostService
     {
         $productId = $product->id;
 
-        // === BAGIAN LAMA (AMBIL DATA PURCHASE, RETURN, INVENTORY) ===
+        // === STOK: dihitung seperti sebelumnya ===
         $accountItems = PurchaseItem::where('product_id', $productId)
             ->where('status', 'Purchase Account')
             ->get();
@@ -109,14 +109,7 @@ class ProductCostService
             ->where('status', 'Purchase Return')
             ->get();
 
-        $accountQty   = $accountItems->sum('stock_in');
-        $accountTotal = $accountItems->sum(fn($item) => ($item->price + $item->freight) * $item->stock_in);
-
-        $returnQty   = $returnItems->sum('stock_out');
-        $returnTotal = $returnItems->sum(fn($item) => ($item->price + $item->freight) * $item->stock_out);
-
-        $netQty   = $accountQty - $returnQty;
-        $netValue = $accountTotal - $returnTotal;
+        $netQty = $accountItems->sum('stock_in') - $returnItems->sum('stock_out');
 
         $inventoryItems = InventoryItem::where('product_id', $productId)->get();
         $stockInQty  = $inventoryItems->sum('stock_in');
@@ -135,32 +128,9 @@ class ProductCostService
         );
 
         $openingStock = $inventoryStock->opening_stock ?? 0;
-        $openingRate  = $inventoryStock->opening_rate ?? 0;
 
-        // === BAGIAN BARU: SELIPKAN STOK PRODUCTION KE STOK LAMA (STEP 4) ===
-        $productionQty = \App\Models\ProductionStock::where('product_id', $productId)
-            ->sum('available_quantity'); // stok produksi yang masih ada
-
-        // Stok lama = inventory + production
-        $companyOldQty   = ($openingStock + $stockInQty - $stockOutQty) + $productionQty;
-        $companyOldValue = ($openingStock * $openingRate) + $netValue + ($productionQty * $inventoryStock->avg_cost);
-
-        // Hitung pembelian baru (net purchase)
-        $purchaseQty = $netQty;        // pembelian terakhir
-        $purchaseValue = $netValue;    // total nilai pembelian terakhir
-
-        // Hitung total gabungan (stok lama + stok purchase)
-        $totalQty   = $companyOldQty + $purchaseQty;
-        $totalValue = $companyOldValue + $purchaseValue;
-
-        // AVG COST BARU (gabungan inventory + production + pembelian baru)
-        $avgCost = $totalQty > 0 ? round($totalValue / $totalQty, 2) : 0;
-
-        // Update inventory_stock
         $inventoryStock->update([
-            'inventory_stock' => $openingStock + $stockInQty - $stockOutQty + $purchaseQty,
-            // 'incoming_stock'  => 0,
-            'avg_cost'        => $avgCost,
+            'inventory_stock' => $openingStock + $stockInQty - $stockOutQty + $netQty,
         ]);
 
         // Hanya ubah stock_after_sales jika kosong
@@ -170,10 +140,18 @@ class ProductCostService
             $inventoryStock->update(['stock_after_sales' => $inventoryStock->inventory_stock]);
         }
 
-        // Update product avg_cost
-        $product->update([
-            'avg_cost' => $avgCost,
-        ]);
+        // === HARGA MODAL: bukan lagi rata-rata bergerak, tapi FIFO ===
+        //
+        // Rata-rata bergerak seumur hidup produk membuat satu pembelian mahal
+        // mencemari harga modal seluruh penjualan lama. FIFO memakan batch dari
+        // yang paling tua, jadi tiap penjualan dinilai dengan harga barang yang
+        // benar-benar dia ambil.
+        //
+        // products.avg_cost dan inventory_stocks.avg_cost dipertahankan nama
+        // kolomnya supaya layar dan laporan lama tetap jalan, tapi isinya kini
+        // harga rata-rata tertimbang dari SISA batch menurut FIFO — itulah nilai
+        // persediaan yang benar. Yang mengisinya adalah FifoCostService.
+        app(FifoCostService::class)->rebuild([$productId]);
     }
 
     public static function restoreStockAfterSales(Products $product, int $qty): void

@@ -16,3 +16,8 @@ Schedule::command('catalog:warm')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('orders:update-overdue')->daily();
 Schedule::command('stock:snapshot')->dailyAt('00:00');
 Schedule::command('stock:snapshot')->dailyAt('23:59');
+
+// Harga modal FIFO dihitung ulang dari nol tiap malam: satu purchase yang
+// diedit atau dibackdate mengubah alokasi seluruh penjualan sesudahnya, jadi
+// menghitung ulang lebih bisa dipercaya daripada menambal alokasi lama.
+Schedule::command('cost:rebuild-fifo')->dailyAt('01:00')->withoutOverlapping();

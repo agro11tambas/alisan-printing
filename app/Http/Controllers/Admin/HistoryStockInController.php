@@ -18,6 +18,8 @@ use Yajra\DataTables\Facades\DataTables;
 use App\Models\InventoryStockOutHistory;
 use App\Models\ProductionStock;
 use App\Services\ProductCostService;
+use App\Services\FifoCostService;
+use App\Support\UploadLimit;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -388,13 +390,15 @@ class HistoryStockInController extends Controller
         $request->validate([
             'change_date'                        => 'required|date',
             'waybill_number'                     => 'nullable|string',
-            'waybill_image'                      => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
+            'waybill_image'                      => UploadLimit::imageRule(),
             'items'                              => 'required|array',
             'items.*.product_id'                 => 'required|exists:products,id',
             'items.*.inventory_item_ids'         => 'required|array',
             'items.*.inventory_item_ids.*'       => 'exists:inventory_items_2,id',
             'items.*.stock_in'                   => 'required|integer|min:0',
             'items.*.unit_conversion_value' => 'required|numeric|min:1',
+        ], UploadLimit::imageMessages('waybill_image') + [
+            'items.required' => 'Tidak ada item yang terkirim. Ini biasanya terjadi kalau foto waybill terlalu besar sehingga seluruh form ditolak server — coba foto ulang dengan ukuran lebih kecil.',
         ]);
 
         DB::beginTransaction();
@@ -418,6 +422,9 @@ class HistoryStockInController extends Controller
 
             // Dipakai untuk menghitung ulang status PO induk setelah Stock In.
             $touchedPurchaseItemIds = [];
+
+            // Produk yang batch FIFO-nya perlu dibangun ulang setelah stock in.
+            $touchedProductIds = [];
 
             foreach ($request->items as $itemData) {
                 $conv    = (float) ($itemData['unit_conversion_value'] ?? 1);
@@ -507,16 +514,14 @@ class HistoryStockInController extends Controller
                         $inventoryStock->increment('inventory_stock', $toAdd);
                         $inventoryStock->increment('stock_after_sales', $toAdd);
 
-                        $purchaseItemForCost = $inventoryItem->purchaseItem ?? null;
-                        if ($purchaseItemForCost) {
-                            $cost       = $purchaseItemForCost->final_price;
-                            $newAvgCost = round(
-                                (($previousCost * $previousQty) + ($cost * $toAdd))
-                                    / max(1, $previousQty + $toAdd),
-                                3
-                            );
-                            $product->update(['avg_cost' => $newAvgCost]);
-                        }
+                        // Harga modal diserahkan ke FifoCostService setelah loop:
+                        // stock in inilah yang melahirkan batch FIFO barunya.
+                        //
+                        // Rumus lama di sini juga salah satuan: final_price adalah
+                        // harga per satuan BELI (mis. per Dus), sedangkan $toAdd
+                        // dihitung dalam satuan dasar (pcs), jadi keduanya tidak
+                        // sebanding dan avg_cost-nya melar sebesar isi per dus.
+                        $touchedProductIds[] = $productId;
                     } elseif ($inventory->canceled_product_id) {
                         $inventoryStock->increment('inventory_stock', $toAdd);
                         $inventoryStock->increment('stock_after_sales', $toAdd);
@@ -542,6 +547,13 @@ class HistoryStockInController extends Controller
 
                     $remaining -= $toAdd;
                 }
+            }
+
+            // Batch FIFO lahir dari stock in, jadi dibangun sekarang juga.
+            // Tanpa ini, batch baru tidak muncul di layar HPP sampai cron malam
+            // atau rebuild manual dijalankan.
+            if ($touchedProductIds !== []) {
+                app(FifoCostService::class)->rebuild(array_values(array_unique($touchedProductIds)));
             }
 
             // PO induk jadi "Completed" hanya kalau semua PL-nya sudah stock in penuh.

@@ -166,13 +166,22 @@ class DashboardController extends Controller
         $response['grossProfit'] = $response['totalSaleList'] - $response['totalPurchaseList'];
         $response['netProfit']   = $response['grossProfit'] - $response['totalExpenseAccount'];
 
+        // Harga modal per produk diambil dari sisa batch FIFO, bukan rata-rata
+        // bergerak: stok yang tersisa dinilai dengan harga pembelian yang
+        // benar-benar masih menempel padanya.
+        $fifoCost = DB::table('cost_layers')
+            ->select('product_id', DB::raw('SUM(qty_remaining * unit_cost) / NULLIF(SUM(qty_remaining), 0) AS unit_cost'))
+            ->groupBy('product_id');
+
         $inventoryValue = InventoryStock::join('products', 'products.id', '=', 'inventory_stocks.product_id')
+            ->leftJoinSub($fifoCost, 'fifo', 'fifo.product_id', '=', 'inventory_stocks.product_id')
             ->whereNull('products.deleted_at') // kalau soft delete
-            ->sum(DB::raw('inventory_stocks.inventory_stock * products.avg_cost'));
+            ->sum(DB::raw('inventory_stocks.inventory_stock * COALESCE(fifo.unit_cost, products.avg_cost)'));
 
         $productionValue = ProductionStock::join('products', 'products.id', '=', 'production_stocks.product_id')
+            ->leftJoinSub($fifoCost, 'fifo', 'fifo.product_id', '=', 'production_stocks.product_id')
             ->whereNull('products.deleted_at')
-            ->sum(DB::raw('production_stocks.available_quantity * products.avg_cost'));
+            ->sum(DB::raw('production_stocks.available_quantity * COALESCE(fifo.unit_cost, products.avg_cost)'));
 
         $response['inventoryValue'] = $inventoryValue;
         $response['productionValue'] = $productionValue;

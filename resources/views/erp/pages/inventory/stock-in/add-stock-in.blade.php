@@ -88,6 +88,8 @@
 @endsection
 
 @section('content')
+    @include('erp.pages.partials.validation-errors')
+
     @if (session('error'))
         <script>
             Swal.fire({

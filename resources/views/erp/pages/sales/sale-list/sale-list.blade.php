@@ -401,7 +401,7 @@
                                                 <th style="width:12%;">Payment</th>
                                                 <th style="width:8%;">User</th>
                                                 <th class="text-center" style="width:6%;">Mode</th>
-                                                <th style="width:12%;">Note</th>
+                                                <th style="width:12%;">Sale Note</th>
                                                 <th style="width:6%;">Chat</th>
                                             </tr>
                                         </thead>
@@ -426,7 +426,7 @@
                                                 <th>Payment</th>
                                                 <th>User</th>
                                                 <th class="text-center">Mode</th>
-                                                <th>Note</th>
+                                                <th>Sale Note</th>
                                             </tr>
                                         </thead>
                                     </table>

@@ -29,6 +29,7 @@ use App\Models\SaleReturnEditHistory;
 use Illuminate\Support\Str;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Log;
+use App\Services\FifoCostService;
 use App\Services\ProductCostService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
@@ -682,9 +683,12 @@ class SaleReturnController extends Controller
                 $returnDate = Carbon::parse($request->return_date);
                 $returnRevenue = (float) $grandTotal;
 
-                // 🔹 Ambil total COGS dari avg_cost_at_return yang disimpan di sale_return_items
-                $returnCogs = SaleReturnItem::where('sale_return_id', $saleReturn->id)
-                    ->sum(DB::raw('avg_cost_at_return * (COALESCE(canceled_quantity, 0) + COALESCE(defect_quantity, 0))'));
+                // 🔹 COGS retur diambil dari batch FIFO yang dimakan penjualan
+                // aslinya, bukan dari avg_cost saat retur dibuat. Rebuild dulu
+                // supaya baris retur ini masuk ke alokasi.
+                $fifo = app(FifoCostService::class);
+                $fifo->rebuildForOrder($saleReturn->sale_order_id);
+                $returnCogs = $fifo->costOfSaleReturn($saleReturn->id);
 
                 // 🔹 Karena ini retur, nilainya negatif (revenue & cogs berkurang)
                 $grossLoss = -1 * ($returnRevenue - $returnCogs);
@@ -1113,8 +1117,10 @@ class SaleReturnController extends Controller
                 $returnDate = Carbon::parse($request->return_date);
                 $returnRevenue = (float)$grandTotal;
 
-                $returnCogs = SaleReturnItem::where('sale_return_id', $saleReturn->id)
-                    ->sum(DB::raw('avg_cost_at_return * (COALESCE(canceled_quantity,0) + COALESCE(defect_quantity,0))'));
+                // COGS retur dari alokasi FIFO, sama seperti saat retur dibuat.
+                $fifo = app(FifoCostService::class);
+                $fifo->rebuildForOrder($saleReturn->sale_order_id);
+                $returnCogs = $fifo->costOfSaleReturn($saleReturn->id);
 
                 $grossLoss = -1 * ($returnRevenue - $returnCogs);
                 $netLoss = $grossLoss;

@@ -126,26 +126,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="row mb-2 align-items-center">
-                                <div class="col-lg-2">
-                                    <label for="apply_on" class="fw-semibold">Apply On:</label>
-                                </div>
-                                <div class="col-lg-10 mb-0">
-                                    <select id="apply_on" name="apply_on[]" class="form-control"
-                                        data-select2-selector="tag" multiple>
-                                        @foreach (['Category' => 'Product Category', 'Mode' => 'Mode'] as $value => $label)
-                                            <option value="{{ $value }}"
-                                                {{ in_array($value, (array) old('apply_on', [])) ? 'selected' : '' }}>
-                                                {{ $label }}</option>
-                                        @endforeach
-                                    </select>
-                                    <div class="fs-11 text-muted mt-1">
-                                        Boleh pilih lebih dari satu. Kalau dipilih beberapa, diskon hanya berlaku
-                                        untuk baris yang memenuhi <strong>semua</strong> syarat sekaligus.
-                                    </div>
-                                </div>
-                            </div>
-                            <div id="category_group" class="row mb-2 align-items-center" style="display: none;">
+                            <div id="category_group" class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="categories" class="fw-semibold">Select Category(ies):</label>
                                 </div>
@@ -153,12 +134,14 @@
                                     <select name="categories[]" id="categories" class="form-control"
                                         data-select2-selector="tag" multiple>
                                         @foreach ($categories as $category)
-                                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                            <option value="{{ $category->id }}"
+                                                {{ in_array($category->id, (array) old('categories', [])) ? 'selected' : '' }}>
+                                                {{ $category->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
                             </div>
-                            <div id="mode_group" class="row mb-2 align-items-center" style="display: none;">
+                            <div id="mode_group" class="row mb-2 align-items-center">
                                 <div class="col-lg-2">
                                     <label for="price_modes" class="fw-semibold">Select Mode(s):</label>
                                 </div>
@@ -166,11 +149,17 @@
                                     <select name="price_modes[]" id="price_modes" class="form-control"
                                         data-select2-selector="tag" multiple>
                                         @foreach ($priceModes as $priceMode)
-                                            <option value="{{ $priceMode->id }}">{{ $priceMode->name }}</option>
+                                            <option value="{{ $priceMode->id }}"
+                                                {{ in_array($priceMode->id, (array) old('price_modes', [])) ? 'selected' : '' }}>
+                                                {{ $priceMode->name }}</option>
                                         @endforeach
                                     </select>
+                                    <div class="fs-11 text-muted mt-1">
+                                        Diskon berlaku untuk baris yang memenuhi <strong>kedua</strong> syarat:
+                                        produknya masuk kategori terpilih <strong>dan</strong> modenya termasuk
+                                        mode terpilih.
+                                    </div>
                                 </div>
-                            </div>
                             </div>
 
                             <div class="row mb-2 align-items-center">
@@ -198,35 +187,6 @@
 
 @push('scripts')
     <script>
-        // Tiap scope punya satu blok target. Karena scope-nya bisa jamak,
-        // yang ditampilkan adalah gabungan blok dari semua scope terpilih.
-        const APPLY_ON_GROUPS = {
-            Category: 'category_group',
-            Mode: 'mode_group',
-        };
-
-        function selectedApplyOn() {
-            const el = document.getElementById('apply_on');
-            return el ? Array.from(el.selectedOptions).map(opt => opt.value) : [];
-        }
-
-        function toggleApplyOnFields() {
-            const selected = selectedApplyOn();
-
-            Object.entries(APPLY_ON_GROUPS).forEach(([scope, groupId]) => {
-                const group = document.getElementById(groupId);
-                if (group) {
-                    group.style.display = selected.includes(scope) ? 'flex' : 'none';
-                }
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // select2 tidak melempar event 'change' native, jadi didengarkan lewat jQuery.
-            $('#apply_on').on('change', toggleApplyOnFields);
-            toggleApplyOnFields();
-        });
-
         document.getElementById('discountForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
@@ -283,27 +243,16 @@
                 }
             });
 
-            // Apply On sekarang jamak, dan tiap scope terpilih wajib punya target.
-            const applyOnEl = this.querySelector('select[name="apply_on[]"]');
-            const selectedScopes = applyOnEl ? Array.from(applyOnEl.selectedOptions).map(o => o.value) : [];
+            // Scope-nya baku: kategori dan mode dua-duanya wajib diisi.
+            const targetRules = [
+                ['select[name="categories[]"]', 'Product Category wajib dipilih minimal satu'],
+                ['select[name="price_modes[]"]', 'Mode wajib dipilih minimal satu'],
+            ];
 
-            if (selectedScopes.length === 0) {
-                showError(applyOnEl, 'Apply On wajib dipilih minimal satu');
-                isValid = false;
-            }
-
-            const targetRules = {
-                Category: ['select[name="categories[]"]', 'Product Category wajib dipilih minimal satu'],
-                Mode: ['select[name="price_modes[]"]', 'Mode wajib dipilih minimal satu'],
-            };
-
-            selectedScopes.forEach(scope => {
-                const rule = targetRules[scope];
-                if (!rule) return;
-
-                const el = this.querySelector(rule[0]);
+            targetRules.forEach(([selector, message]) => {
+                const el = this.querySelector(selector);
                 if (el && el.selectedOptions.length === 0) {
-                    showError(el, rule[1]);
+                    showError(el, message);
                     isValid = false;
                 }
             });

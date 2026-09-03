@@ -87,6 +87,12 @@ class PermissionSubItemSeeder extends Seeder
                 ['name' => 'Defect', 'slug' => 'defect'],
                 ['name' => 'Reject', 'slug' => 'reject'],
             ],
+
+            // HPP FIFO Module
+            'fifo-cost' => [
+                ['name' => 'Batch Purchase (Snapshot)', 'slug' => 'cost-layers'],
+                ['name' => 'Rincian HPP Penjualan', 'slug' => 'cost-consumptions'],
+            ],
         ];
 
         foreach ($subItems as $parentSlug => $items) {

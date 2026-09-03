@@ -34,6 +34,7 @@ use App\Models\OrderProgressItem;
 use App\Models\ProductBundle;
 use App\Models\ProductBundleItem;
 use App\Models\PriceMode;
+use App\Services\FifoCostService;
 use App\Services\InvoiceNumberService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -1443,14 +1444,17 @@ class SaleOrderController extends Controller
 
             $order->load([
                 'orderItems.product',
+                'orderItems.priceMode',
                 'orderItems.productBundle.items.product',
             ]);
 
             // ================== HANDLE MODE PER ORDER ITEM ==================
             $orderItems = $order->orderItems;
 
-            $hasPrinting = $orderItems->contains(fn($item) => $item->mode === 'printing');
-            $hasPolosan  = $orderItems->contains(fn($item) => $item->mode === 'polosan');
+            // Jangan hardcode slug mode. Mode itu dinamis (printing, sablon, polosan, dst),
+            // yang menentukan masuk antrian design atau tidak adalah production_flow-nya.
+            $hasPrinting = $orderItems->contains(fn($item) => $item->usesProductionFlow());
+            $hasPolosan  = $orderItems->contains(fn($item) => $item->usesPolosanFlow());
 
             $design = null;
             $polosanDesignItems = [];
@@ -1488,7 +1492,7 @@ class SaleOrderController extends Controller
                             continue;
                         }
 
-                        DesignItem::create(array_merge([
+                        $designItem = DesignItem::create(array_merge([
                             'design_id'           => $design->id,
                             'order_item_id'       => $orderItem->id,
                             'product_id'          => $orderItem->product_id,
@@ -1499,8 +1503,12 @@ class SaleOrderController extends Controller
                             'completed_quantity'  => 0,
                             'design_file'         => null,
                             'preview_image'       => null,
-                            'verification_status' => 'pending',
+                            'verification_status' => $orderItem->usesPolosanFlow() ? 'approved' : 'pending',
                         ], $unitData));
+
+                        if ($orderItem->usesPolosanFlow()) {
+                            $polosanDesignItems[] = $designItem;
+                        }
 
                         continue;
                     }
@@ -1520,7 +1528,7 @@ class SaleOrderController extends Controller
                             // INI TETAP PAKAI QTY INPUT, BUKAN QTY_BASE
                             $componentQty = $qtyInput * ($bundleItem->quantity ?? 1);
 
-                            DesignItem::create(array_merge([
+                            $designItem = DesignItem::create(array_merge([
                                 'design_id'           => $design->id,
                                 'order_item_id'       => $orderItem->id,
                                 'product_id'          => $bundleProduct->id,
@@ -1530,8 +1538,12 @@ class SaleOrderController extends Controller
                                 'completed_quantity'  => 0,
                                 'design_file'         => null,
                                 'preview_image'       => null,
-                                'verification_status' => 'pending',
+                                'verification_status' => $orderItem->usesPolosanFlow() ? 'approved' : 'pending',
                             ], $unitData));
+
+                            if ($orderItem->usesPolosanFlow()) {
+                                $polosanDesignItems[] = $designItem;
+                            }
                         }
                     }
                 }
@@ -1599,34 +1611,23 @@ class SaleOrderController extends Controller
                     ->first();
 
                 $totalRevenue = $order->grand_total;
-                $totalCogs = 0;
                 $totalFixedCogs = 0;
 
-                // 🔹 Hitung total COGS dari produk dan bundle
+                // COGS memakai FIFO: order ini baru saja jadi Sale List, jadi
+                // batch pembeliannya dialokasikan sekarang.
+                $fifo = app(FifoCostService::class);
+                $fifo->rebuildForOrder($order->id);
+                $totalCogs = $fifo->costOfOrder($order->id);
+
                 foreach ($order->orderItems as $orderItem) {
                     if ($orderItem->product_id && !$orderItem->product_bundle_id) {
-                        // Produk satuan
-                        $product = $orderItem->product;
-                        $avgCost = $product->avg_cost ?? 0;
-                        $fixedCost = $product->fixed_cost ?? 0;
-                        $totalCogs += $avgCost * $orderItem->quantity;
-                        $totalFixedCogs += $fixedCost * $orderItem->quantity;
+                        $totalFixedCogs += ($orderItem->product->fixed_cost ?? 0) * $orderItem->quantity;
                     } elseif ($orderItem->product_bundle_id) {
-                        // Produk bundle
-                        $bundle = $orderItem->productBundle;
+                        $bundleFixedCost = $orderItem->productBundle->items->sum(
+                            fn ($bundleItem) => $bundleItem->product->fixed_cost ?? 0
+                        );
 
-                        $bundleAvgCost = $bundle->items->sum(function ($bundleItem) {
-                            $product = $bundleItem->product;
-                            return $product->avg_cost ?? 0;
-                        });
-
-                        $bundleFixedCost = $bundle->items->sum(function ($bundleItem) {
-                            $product = $bundleItem->product;
-                            return $product->fixed_cost ?? 0;
-                        });
-
-                        $totalCogs       += $bundleAvgCost * $orderItem->quantity;
-                        $totalFixedCogs  += $bundleFixedCost * $orderItem->quantity;
+                        $totalFixedCogs += $bundleFixedCost * $orderItem->quantity;
                     }
                 }
 

@@ -34,6 +34,7 @@ use App\Models\ProductBundle;
 use App\Models\ProductionStock;
 use App\Models\Products;
 use App\Models\SaleReturn;
+use App\Services\FifoCostService;
 use App\Services\InvoiceNumberService;
 use App\Support\ExportPeriod;
 use Carbon\Carbon;
@@ -1622,40 +1623,25 @@ class SaleListController extends Controller
 
             try {
                 $totalRevenue = $request->total_amount;
-                $totalCogs = 0;
                 $totalFixedCost = 0;
 
+                // COGS memakai FIFO: tiap baris dinilai dengan harga batch
+                // pembelian yang benar-benar dia ambil, bukan rata-rata
+                // bergerak seumur hidup produk.
+                $fifo = app(FifoCostService::class);
+                $fifo->rebuildForOrder($order->id);
+                $totalCogs = $fifo->costOfOrder($order->id);
+
                 foreach ($order->orderItems as $orderItem) {
+                    $costQty = $orderItem->qty_base ?? $orderItem->quantity;
+
                     if ($orderItem->product_id && ! $orderItem->product_bundle_id) {
-
-                        $product = $orderItem->product;
-                        $avgCost = $product->avg_cost ?? 0;
-                        $fixedCost = $product?->fixed_cost ?? 0;
-                        // $totalCogs += $avgCost * $orderItem->quantity;
-                        // $totalFixedCost += $fixedCost * $orderItem->quantity;
-                        $costQty = $orderItem->qty_base ?? $orderItem->quantity;
-
-                        $totalCogs += $avgCost * $costQty;
-                        $totalFixedCost += $fixedCost * $costQty;
+                        $totalFixedCost += ($orderItem->product?->fixed_cost ?? 0) * $costQty;
                     } elseif ($orderItem->product_bundle_id) {
+                        $bundleFixedCost = $orderItem->productBundle->items->sum(
+                            fn ($bundleItem) => ($bundleItem->product->fixed_cost ?? 0) * ($bundleItem->quantity ?? 1)
+                        );
 
-                        $bundle = $orderItem->productBundle;
-
-                        $bundleAvgCost = $bundle->items->sum(function ($bundleItem) {
-                            $product = $bundleItem->product;
-
-                            return ($product->avg_cost ?? 0) * ($bundleItem->quantity ?? 1);
-                        });
-
-                        $bundleFixedCost = $bundle->items->sum(function ($bundleItem) {
-                            $product = $bundleItem->product;
-
-                            return ($product->fixed_cost ?? 0) * ($bundleItem->quantity ?? 1);
-                        });
-
-                        $costQty = $orderItem->qty_base ?? $orderItem->quantity;
-
-                        $totalCogs += $bundleAvgCost * $costQty;
                         $totalFixedCost += $bundleFixedCost * $costQty;
                     }
                 }
@@ -3935,41 +3921,25 @@ class SaleListController extends Controller
                     ->first();
 
                 $totalRevenue = $request->total_amount;
-                $totalCogs = 0;
                 $totalFixedCost = 0;
 
-                // Hitung ulang COGS & Fixed Cost berdasarkan produk dan bundle
+                // COGS dihitung ulang dengan FIFO. Order yang diedit bisa
+                // mengubah alokasi batch penjualan lain di produk yang sama,
+                // jadi rebuild-nya per produk, bukan per baris.
+                $fifo = app(FifoCostService::class);
+                $fifo->rebuildForOrder($order->id);
+                $totalCogs = $fifo->costOfOrder($order->id);
+
                 foreach ($order->orderItems as $orderItem) {
+                    $costQty = $orderItem->qty_base ?? $orderItem->quantity;
+
                     if ($orderItem->product_id && ! $orderItem->product_bundle_id) {
-                        // Produk satuan
-                        $product = $orderItem->product;
-                        $avgCost = $product->avg_cost ?? 0;
-                        $fixedCost = $product->fixed_cost ?? 0;
-                        // $totalCogs += $avgCost * $orderItem->quantity;
-                        // $totalFixedCost += $fixedCost * $orderItem->quantity;
-                        $costQty = $orderItem->qty_base ?? $orderItem->quantity;
-
-                        $totalCogs += $avgCost * $costQty;
-                        $totalFixedCost += $fixedCost * $costQty;
+                        $totalFixedCost += ($orderItem->product->fixed_cost ?? 0) * $costQty;
                     } elseif ($orderItem->product_bundle_id) {
-                        // Produk bundle
-                        $bundle = $orderItem->productBundle;
+                        $bundleFixedCost = $orderItem->productBundle->items->sum(
+                            fn ($bundleItem) => ($bundleItem->product->fixed_cost ?? 0) * ($bundleItem->quantity ?? 1)
+                        );
 
-                        $bundleAvgCost = $bundle->items->sum(function ($bundleItem) {
-                            $product = $bundleItem->product;
-
-                            return ($product->avg_cost ?? 0) * ($bundleItem->quantity ?? 1);
-                        });
-
-                        $bundleFixedCost = $bundle->items->sum(function ($bundleItem) {
-                            $product = $bundleItem->product;
-
-                            return ($product->fixed_cost ?? 0) * ($bundleItem->quantity ?? 1);
-                        });
-
-                        $costQty = $orderItem->qty_base ?? $orderItem->quantity;
-
-                        $totalCogs += $bundleAvgCost * $costQty;
                         $totalFixedCost += $bundleFixedCost * $costQty;
                     }
                 }

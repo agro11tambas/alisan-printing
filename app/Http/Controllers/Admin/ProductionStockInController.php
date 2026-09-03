@@ -13,6 +13,8 @@ use App\Models\ProductionStock;
 use App\Models\Products;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Services\FifoCostService;
+use App\Support\UploadLimit;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -347,13 +349,15 @@ class ProductionStockInController extends Controller
         $request->validate([
             'change_date'                  => 'required|date',
             'waybill_number'               => 'nullable|string',
-            'waybill_image'                => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',
+            'waybill_image'                => UploadLimit::imageRule(),
             'items'                        => 'required|array',
             'items.*.product_id'           => 'required|exists:products,id',
             'items.*.inventory_item_ids'   => 'required|array',
             'items.*.inventory_item_ids.*' => 'exists:inventory_items_2,id',
             'items.*.stock_in'             => 'required|integer|min:0',
             'items.*.unit_conversion_value' => 'required|numeric|min:1',
+        ], UploadLimit::imageMessages('waybill_image') + [
+            'items.required' => 'Tidak ada item yang terkirim. Ini biasanya terjadi kalau foto waybill terlalu besar sehingga seluruh form ditolak server — coba foto ulang dengan ukuran lebih kecil.',
         ]);
 
         DB::beginTransaction();
@@ -377,6 +381,9 @@ class ProductionStockInController extends Controller
 
             // Dipakai untuk menghitung ulang status PO induk setelah Stock In.
             $touchedPurchaseItemIds = [];
+
+            // Produk yang batch FIFO-nya perlu dibangun ulang setelah stock in.
+            $touchedProductIds = [];
 
             foreach ($request->items as $itemData) {
                 $conv    = (float) ($itemData['unit_conversion_value'] ?? 1);
@@ -434,7 +441,6 @@ class ProductionStockInController extends Controller
                         }
                     }
 
-                    // Ambil sebelum increment
                     $productId    = $inventoryItem->product_id;
                     $product      = Products::findOrFail($productId);
                     $previousCost = $product->avg_cost ?? 0;
@@ -458,16 +464,17 @@ class ProductionStockInController extends Controller
                         $productionStock->decrement('incoming_stock', $toAdd);
                         $productionStock->increment('available_quantity', $toAdd);
 
-                        $purchaseItemForCost = $inventoryItem->purchaseItem ?? null;
-                        if ($purchaseItemForCost) {
-                            $cost = (float) $purchaseItemForCost->final_price / max(1, (float) $purchaseItemForCost->qty_base);
-                            $newAvgCost = round(
-                                (($previousCost * $previousQty) + ($cost * $toAdd))
-                                    / max(1, $previousQty + $toAdd),
-                                3
-                            );
-                            $product->update(['avg_cost' => $newAvgCost]);
-                        }
+                        // Harga modal tidak dihitung di sini lagi. Stock in inilah
+                        // yang melahirkan batch FIFO baru, jadi biar FifoCostService
+                        // yang menyusun batch-nya sekaligus mengisi avg_cost dari
+                        // sisa batch — dijalankan sekali setelah semua item selesai.
+                        //
+                        // Rumus lama di tempat ini juga salah: final_price adalah
+                        // harga per satuan BELI (mis. per Dus), tapi dibagi qty_base
+                        // (total pcs), bukan unit_conversion_value (isi per Dus).
+                        // Beli 5 Dus @6.110 isi 1.000 menghasilkan 6.110/5.000 = 1,22
+                        // per pcs, padahal seharusnya 6.110/1.000 = 6,11.
+                        $touchedProductIds[] = $productId;
                     } elseif ($inventory->canceled_product_id) {
                         $productionStock->increment('available_quantity', $toAdd);
 
@@ -483,6 +490,13 @@ class ProductionStockInController extends Controller
 
                     $remaining -= $toAdd;
                 }
+            }
+
+            // Batch FIFO lahir dari stock in, jadi dibangun sekarang juga.
+            // Tanpa ini, batch baru tidak muncul di layar HPP sampai cron malam
+            // atau rebuild manual dijalankan.
+            if ($touchedProductIds !== []) {
+                app(FifoCostService::class)->rebuild(array_values(array_unique($touchedProductIds)));
             }
 
             // PO induk jadi "Completed" hanya kalau semua PL-nya sudah stock in penuh.

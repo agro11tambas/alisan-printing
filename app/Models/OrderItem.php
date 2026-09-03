@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Schema;
 
@@ -112,6 +113,21 @@ class OrderItem extends Model
     public function components()
     {
         return $this->hasMany(OrderItemComponent::class, 'order_item_id');
+    }
+
+    /**
+     * Harga modal & margin FIFO baris ini. Diisi oleh command cost:rebuild-fifo,
+     * bukan saat order disimpan.
+     */
+    public function cost(): HasOne
+    {
+        return $this->hasOne(OrderItemCost::class, 'order_item_id');
+    }
+
+    /** Rincian batch pembelian yang dimakan baris ini. */
+    public function costConsumptions(): HasMany
+    {
+        return $this->hasMany(CostConsumption::class, 'order_item_id');
     }
 
     public function designItems()

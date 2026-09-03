@@ -62,6 +62,14 @@
             let rotation = 0;
             let processing = false;
 
+            // Batas upload PHP di server ini, dibaca langsung dari konfigurasinya
+            // supaya tidak meleset saat setelan hosting berbeda. Foto dari kamera
+            // HP hampir selalu lebih besar dari ini, jadi selalu dikecilkan dulu.
+            const MAX_UPLOAD_BYTES = {{ \App\Support\UploadLimit::maxKilobytes() * 1024 }};
+
+            // Skala tambahan yang dipakai kalau menurunkan kualitas saja belum cukup.
+            let extraScale = 1;
+
             function setProcessing(value) {
                 processing = value;
                 rotateButtons.forEach(button => button.disabled = value);
@@ -85,10 +93,20 @@
                         return;
                     }
 
-                    // Production membatasi upload 2 MB. Turunkan kualitas bertahap
-                    // supaya hasil rotasi tetap lolos validasi server.
-                    if (blob.size > 1.9 * 1024 * 1024 && quality > 0.55) {
+                    // Turunkan kualitas bertahap supaya file lolos batas server.
+                    if (blob.size > MAX_UPLOAD_BYTES && quality > 0.5) {
                         replaceUploadWithCanvas(quality - 0.1);
+                        return;
+                    }
+
+                    // Kualitas sudah mentok tapi masih kebesaran: perkecil
+                    // dimensinya lalu ulangi. Tanpa langkah ini, foto kamera
+                    // beresolusi tinggi tetap ditolak server dan form-nya gagal
+                    // tanpa penjelasan.
+                    if (blob.size > MAX_UPLOAD_BYTES && extraScale > 0.3) {
+                        extraScale *= 0.75;
+                        renderImage(true);
+
                         return;
                     }
 
@@ -109,7 +127,8 @@
                 const normalizedRotation = ((rotation % 360) + 360) % 360;
                 const swapsSides = normalizedRotation === 90 || normalizedRotation === 270;
                 const maxDimension = 2000;
-                const scale = Math.min(1, maxDimension / Math.max(sourceImage.naturalWidth, sourceImage.naturalHeight));
+                const scale = Math.min(1, maxDimension / Math.max(sourceImage.naturalWidth, sourceImage.naturalHeight)) *
+                    extraScale;
                 const imageWidth = Math.round(sourceImage.naturalWidth * scale);
                 const imageHeight = Math.round(sourceImage.naturalHeight * scale);
 
@@ -143,13 +162,18 @@
 
                 sourceFile = file;
                 rotation = 0;
+                extraScale = 1;
                 const imageUrl = URL.createObjectURL(file);
                 const image = new Image();
                 image.onload = function() {
                     URL.revokeObjectURL(imageUrl);
                     sourceImage = image;
                     editor.style.display = 'block';
-                    renderImage(false);
+
+                    // Foto langsung dikompres, tidak menunggu diputar. Sebelumnya
+                    // kompresi hanya jalan saat tombol putar ditekan, jadi foto
+                    // yang dikirim apa adanya bisa melebihi batas server.
+                    renderImage(file.size > MAX_UPLOAD_BYTES);
                 };
                 image.onerror = function() {
                     URL.revokeObjectURL(imageUrl);

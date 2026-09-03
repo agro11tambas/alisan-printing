@@ -36,6 +36,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Adjustment Module', 'slug' => 'adjustment'],
             ['name' => 'Design Module', 'slug' => 'design'],
             ['name' => 'Settings', 'slug' => 'settings'],
+            ['name' => 'HPP FIFO Module', 'slug' => 'fifo-cost'],
         ];
 
         foreach ($permissions as $permission) {

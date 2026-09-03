@@ -12,12 +12,11 @@ class Discount extends Model
     protected $table = 'discounts';
 
     /**
-     * Scope "Apply On" yang bisa dipilih di form, dalam urutan baku penyimpanan.
+     * Scope "Apply On" baku, dalam urutan penyimpanan.
      *
-     * Satu diskon boleh memilih lebih dari satu. Semantiknya AND: baris order
-     * baru kena diskon kalau cocok dengan SEMUA scope yang dipilih — misal
-     * "Category + Mode" berarti produknya harus masuk kategori yang dipilih
-     * DAN mode barisnya termasuk mode yang dipilih.
+     * Scope-nya tidak lagi dipilih di form: tiap diskon baru selalu memakai
+     * keduanya. Semantiknya AND — baris order kena diskon kalau produknya masuk
+     * kategori yang dipilih DAN mode barisnya termasuk mode yang dipilih.
      */
     public const SCOPES = ['Category', 'Mode'];
 

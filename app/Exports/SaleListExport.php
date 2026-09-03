@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class SaleListExport extends BaseExcelExport
@@ -23,14 +24,16 @@ class SaleListExport extends BaseExcelExport
         'Unit',
         'Mode',
         'Unit Price',
+        'Harga Modal',
+        'Margin',
         'Grand Total',
     ];
 
     /** Kolom yang di-merge per order karena nilainya milik order, bukan per produk. */
-    private const ORDER_COLUMNS = ['A', 'B', 'C', 'K'];
+    private const ORDER_COLUMNS = ['A', 'B', 'C', 'M'];
 
     /** Kolom angka rupiah (1 = A). */
-    private const CURRENCY_COLUMNS = [10, 11];
+    private const CURRENCY_COLUMNS = [10, 11, 12, 13];
 
     /** Kolom teks panjang yang rata kiri: Customer, Nama Product, dan SKU. */
     private const TEXT_COLUMNS = [3, 4, 5];
@@ -52,6 +55,9 @@ class SaleListExport extends BaseExcelExport
         $this->query
             ->with([
                 'customer:id,name',
+                // Harga modal FIFO sudah dihitung di muka oleh cost:rebuild-fifo,
+                // jadi export cukup membacanya, tidak menghitung ulang di sini.
+                'orderItems.cost',
                 'orderItems.product:id,name,sku',
                 'orderItems.productBundle:id,sku',
                 'orderItems.productBundle.items.product:id,name',
@@ -75,7 +81,7 @@ class SaleListExport extends BaseExcelExport
         foreach ([
             'A' => 22, 'B' => 17, 'C' => 28, 'D' => 42, 'E' => 18,
             'F' => 12, 'G' => 12, 'H' => 14, 'I' => 14, 'J' => 16,
-            'K' => 16,
+            'K' => 16, 'L' => 16, 'M' => 18,
         ] as $column => $width) {
             $sheet->getColumnDimension($column)->setAutoSize(false);
             $sheet->getColumnDimension($column)->setWidth($width);
@@ -102,6 +108,7 @@ class SaleListExport extends BaseExcelExport
                 $orderDate,
                 $customer,
                 '-', '-', '-', 0, '-', '-', 0,
+                0, 0,
                 (float) $order->grand_total,
             ]);
 
@@ -150,6 +157,9 @@ class SaleListExport extends BaseExcelExport
             $type = 'Satuan';
         }
 
+        // Samakan dengan kolom Price di halaman Sale List.
+        $unitPrice = (float) ($item->discount_price ?? $item->price ?? 0);
+
         return [
             $name,
             $sku,
@@ -157,8 +167,41 @@ class SaleListExport extends BaseExcelExport
             (float) $item->quantity,
             $item->unit_name ?? '-',
             $item->mode ? ucfirst(strtolower($item->mode)) : '-',
-            // Samakan dengan kolom Price di halaman Sale List.
-            (float) ($item->discount_price ?? $item->price ?? 0),
+            $unitPrice,
+            ...$this->costColumns($item, $unitPrice),
+        ];
+    }
+
+    /**
+     * Kolom Harga Modal dan Margin untuk satu item.
+     *
+     * Nilainya dari order_item_costs, hasil alokasi FIFO command
+     * cost:rebuild-fifo. Baris yang belum pernah dihitung ditulis 0 supaya
+     * kolomnya tetap bisa dijumlahkan, bukan bercampur teks.
+     *
+     * Harga Modal adalah rata-rata tertimbang batch yang termakan baris ini:
+     * kalau satu penjualan menghabiskan sisa batch lama lalu lanjut ke batch
+     * berikutnya, angkanya jatuh di antara kedua harga batch itu.
+     *
+     * Keduanya PER SATUAN JUAL, bukan dikali qty: jual 600 dengan modal 500
+     * memberi margin 100, berapa pun jumlah yang terjual. Satuannya sama dengan
+     * Unit Price di sebelahnya, jadi pada baris yang dijual per Dus ketiganya
+     * sama-sama harga per Dus.
+     */
+    private function costColumns(OrderItem $item, float $unitPrice): array
+    {
+        $cost = $item->cost;
+
+        if ($cost === null) {
+            return [0, 0];
+        }
+
+        $quantity = (float) $item->quantity;
+        $unitCost = $quantity > 0 ? $cost->total_cost / $quantity : $cost->unit_cost;
+
+        return [
+            $unitCost,
+            $unitPrice - $unitCost,
         ];
     }
 
@@ -167,7 +210,7 @@ class SaleListExport extends BaseExcelExport
      */
     private function styleProductHeaderGroup(Worksheet $sheet): void
     {
-        $sheet->getStyle('D1:J1')->getFill()
+        $sheet->getStyle('D1:L1')->getFill()
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FF2E5C8A');
     }
@@ -182,17 +225,18 @@ class SaleListExport extends BaseExcelExport
         }
 
         $totalRow = $lastDataRow + 1;
-        $sheet->setCellValue('J'.$totalRow, 'TOTAL');
+        $sheet->setCellValue('L'.$totalRow, 'TOTAL');
 
-        foreach (['K'] as $column) {
-            $sheet->setCellValue(
-                $column.$totalRow,
-                '=SUM('.$column.'2:'.$column.$lastDataRow.')'
-            );
-        }
+        // Harga Modal dan Margin sekarang harga per satuan, jadi tidak ikut
+        // dijumlahkan: menotal harga per satuan antar produk tidak berarti
+        // apa-apa. Yang ditotal hanya Grand Total.
+        $sheet->setCellValue(
+            'M'.$totalRow,
+            '=SUM(M2:M'.$lastDataRow.')'
+        );
 
-        $sheet->getStyle('A'.$totalRow.':K'.$totalRow)->getFont()->setBold(true);
-        $sheet->getStyle('K'.$totalRow.':K'.$totalRow)
+        $sheet->getStyle('A'.$totalRow.':M'.$totalRow)->getFont()->setBold(true);
+        $sheet->getStyle('M'.$totalRow)
             ->getNumberFormat()
             ->setFormatCode(self::CURRENCY_FORMAT);
 

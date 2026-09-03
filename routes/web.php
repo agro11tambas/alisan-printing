@@ -42,6 +42,7 @@ use App\Http\Controllers\Admin\OrderProgressAssignController;
 use App\Http\Controllers\Admin\ProductBundleController;
 use App\Http\Controllers\Admin\ProductionController;
 use App\Http\Controllers\Admin\ProductionStockInController;
+use App\Http\Controllers\Admin\FifoCostController;
 use App\Http\Controllers\Admin\ProductionStockSnapshotController;
 use App\Http\Controllers\Admin\ProductUnitController;
 use App\Http\Controllers\Admin\PriceModeController;
@@ -439,6 +440,18 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
         Route::middleware(['web.auth', 'subpermission:snapshot-report'])->group(function () {
             Route::get('/erp/productions/snapshot-report', [ProductionStockSnapshotController::class, 'getSnapshotReport']);
             Route::get('/erp/productions/snapshot-report/data', [ProductionStockSnapshotController::class, 'dataSnapshotReport']);
+        });
+
+        // === Modul HPP FIFO ===
+        Route::middleware(['web.auth', 'subpermission:cost-layers'])->group(function () {
+            Route::get('/erp/hpp/batch-purchase', [FifoCostController::class, 'layers']);
+            Route::get('/erp/hpp/batch-purchase/data', [FifoCostController::class, 'dataLayers']);
+            Route::post('/erp/hpp/rebuild', [FifoCostController::class, 'rebuild'])->name('erp.hpp.rebuild');
+        });
+
+        Route::middleware(['web.auth', 'subpermission:cost-consumptions'])->group(function () {
+            Route::get('/erp/hpp/rincian', [FifoCostController::class, 'consumptions']);
+            Route::get('/erp/hpp/rincian/data', [FifoCostController::class, 'dataConsumptions']);
         });
 
         // Stock in

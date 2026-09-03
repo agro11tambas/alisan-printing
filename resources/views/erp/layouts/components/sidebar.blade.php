@@ -405,6 +405,27 @@
                         </ul>
                     </li>
                 @endif
+                @if (Auth::check() && Auth::user()->hasPermission('fifo-cost'))
+                    <li class="nxl-item nxl-hasmenu">
+                        <a href="javascript:void(0)" class="nxl-link">
+                            <span class="nxl-micon"><i class="feather-layers"></i></span>
+                            <span class="nxl-mtext ">HPP FIFO</span><span class="nxl-arrow"><i
+                                    class="feather-chevron-right"></i></span>
+                        </a>
+                        <ul class="nxl-submenu">
+                            @if (Auth::user()->hasSubPermission('cost-layers'))
+                                <li class="nxl-item"><a
+                                        class="nxl-link {{ request()->is('hpp/batch-purchase*') ? 'active' : '' }}"
+                                        href="/erp/hpp/batch-purchase"><span class="">Batch Purchase</span></a></li>
+                            @endif
+                            @if (Auth::user()->hasSubPermission('cost-consumptions'))
+                                <li class="nxl-item"><a
+                                        class="nxl-link {{ request()->is('hpp/rincian*') ? 'active' : '' }}"
+                                        href="/erp/hpp/rincian"><span class="">Rincian HPP</span></a></li>
+                            @endif
+                        </ul>
+                    </li>
+                @endif
                 @if (Auth::check() && Auth::user()->hasPermission('financial-report'))
                     <li class="nxl-item nxl-hasmenu">
                         <a href="javascript:void(0)" class="nxl-link">
