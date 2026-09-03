@@ -45,6 +45,25 @@ class RebuildFifoCost extends Command
             );
         }
 
+        // Stok awal tanpa harga: penyebab paling sering harga modal jadi
+        // taksiran. Stok awalnya sengaja tidak dijadikan batch, karena batch
+        // berharga nol akan menelan penjualan awal dengan modal nol.
+        $noRate = $service->productsWithoutOpeningRate();
+
+        if ($noRate !== []) {
+            $this->newLine();
+            $this->warn(count($noRate).' produk punya stok awal tapi Opening Rate-nya masih 0, jadi stok awalnya tidak dinilai.');
+            $this->line('Isi Opening Rate di halaman Opening Stock & Rate, lalu jalankan perintah ini lagi. Contoh:');
+
+            foreach (array_slice($noRate, 0, 10, true) as $id => $name) {
+                $this->line('  - ['.$id.'] '.$name);
+            }
+
+            if (count($noRate) > 10) {
+                $this->line('  ... dan '.(count($noRate) - 10).' produk lain.');
+            }
+        }
+
         // Produk yang dijual tapi tidak pernah punya pembelian sama sekali:
         // modalnya tidak bisa dihitung dari mana pun, hanya bisa ditaksir.
         // Ini masalah data master, bukan masalah hitungan.

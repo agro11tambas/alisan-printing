@@ -112,6 +112,9 @@ class FifoCostService
      */
     private ?Carbon $startDate = null;
 
+    /** Produk yang punya stok awal tapi opening rate-nya belum diisi. */
+    private array $openingWithoutRate = [];
+
     private array $stats = [
         'layers' => 0,
         'order_items' => 0,
@@ -528,8 +531,24 @@ class FifoCostService
                 $opening[$productId]['qty'] += (float) $row->qty;
             });
 
-        // Produk yang stok awalnya nol tidak perlu batch kosong.
-        return array_filter($opening, fn ($item) => $item['qty'] > 0);
+        // Stok awal yang harganya belum diisi TIDAK dibuatkan batch.
+        //
+        // Opening rate 0 itu data yang belum diisi, bukan barang gratis. Kalau
+        // tetap dijadikan batch, dia duduk paling depan di antrian FIFO dan
+        // menelan penjualan-penjualan awal dengan modal nol — dan celakanya
+        // tidak ditandai taksiran, karena secara teknis batch-nya "ada".
+        // Dilewati saja: penjualannya akan jatuh ke harga taksiran dari batch
+        // pembelian yang diketahui, dan ketahuan sebagai baris yang perlu
+        // dibereskan.
+        $this->openingWithoutRate = [];
+
+        foreach ($opening as $productId => $item) {
+            if ($item['qty'] > 0 && $item['rate'] <= 0) {
+                $this->openingWithoutRate[] = $productId;
+            }
+        }
+
+        return array_filter($opening, fn ($item) => $item['qty'] > 0 && $item['rate'] > 0);
     }
 
     /**
@@ -1234,6 +1253,26 @@ class FifoCostService
                AND fr.reference_table = \'sale_returns\'
                AND fr.deleted_at IS NULL'
         );
+    }
+
+    /**
+     * Produk yang punya stok awal tapi Opening Rate-nya masih 0, sehingga stok
+     * awalnya tidak bisa dinilai. Ini penyebab paling sering harga modal jadi
+     * taksiran di sistem yang stok awalnya besar.
+     *
+     * @return array<int, string>
+     */
+    public function productsWithoutOpeningRate(): array
+    {
+        if ($this->openingWithoutRate === []) {
+            return [];
+        }
+
+        return DB::table('products')
+            ->whereIn('id', $this->openingWithoutRate)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
     }
 
     /**
