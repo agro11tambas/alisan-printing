@@ -404,17 +404,17 @@
                 ]
             });
 
-            let searchTimer = null;
+            let searchTimeout = null;
             let currentRequest = null;
+            // Naik tiap kali filter berubah. Respons dengan token lama dibuang,
+            // supaya data filter sebelumnya tidak ikut nempel ke tabel.
+            let requestToken = 0;
 
             function loadMoreData() {
                 if (isLoading || !hasMoreData) return;
                 isLoading = true;
 
-                // 🚫 Batalkan request lama jika masih jalan
-                if (currentRequest) {
-                    currentRequest.abort();
-                }
+                const token = requestToken;
 
                 currentRequest = $.ajax({
                     url: "{{ url('/erp/design/data') }}",
@@ -431,6 +431,10 @@
                         search_product: $('#search_product').val(),
                     },
                     success: function(response) {
+                        // Filter sudah berganti sejak request ini dikirim:
+                        // datanya milik filter lama, jangan digabung.
+                        if (token !== requestToken) return;
+
                         if (response && response.data && response.data.length > 0) {
                             allData = allData.concat(response.data);
                             table.clear();
@@ -441,10 +445,14 @@
                         }
                     },
                     complete: function() {
+                        if (token !== requestToken) return;
+
                         isLoading = false;
                         currentRequest = null;
                     },
                     error: function(xhr) {
+                        if (token !== requestToken) return;
+
                         if (xhr.statusText !== 'abort') {
                             console.error('AJAX Error:', xhr);
                         }
@@ -455,6 +463,16 @@
 
 
             function resetAndReload() {
+                // Batalkan request yang masih jalan dan tandai respons lamanya
+                // sebagai kedaluwarsa sebelum tabel dikosongkan.
+                requestToken++;
+
+                if (currentRequest) {
+                    currentRequest.abort();
+                    currentRequest = null;
+                }
+
+                isLoading = false;
                 allData = [];
                 currentPage = 0;
                 hasMoreData = true;
@@ -499,10 +517,6 @@
                 resetAndReload();
             });
 
-            $('#status').on('change', function() {
-                resetAndReload();
-            });
-
             // $('#search_keyword, #search_product').on('keyup input paste', function() {
             //     clearTimeout(searchTimeout);
             //     searchTimeout = setTimeout(() => {
@@ -523,10 +537,6 @@
             //     }, 300);
             // });
 
-
-            $('#search_type').on('change', function() {
-                resetAndReload();
-            });
 
             $('#search_keyword, #search_product').on('keypress', function(e) {
                 if (e.which === 13) {
