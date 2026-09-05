@@ -104,6 +104,53 @@
             /* Bold */
             color: #333 !important;
         }
+
+        /* Kartu pilihan design customer: satu grid rata, satu design terpilih. */
+        .picker-card {
+            cursor: pointer;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 6px;
+            height: 100%;
+            margin: 0;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+
+        .picker-card:hover {
+            border-color: #a5b4fc;
+        }
+
+        .picker-card.is-selected {
+            border-color: #4b49ac;
+            box-shadow: 0 0 0 2px rgba(75, 73, 172, .25);
+        }
+
+        .picker-card img {
+            width: 100%;
+            height: 110px;
+            object-fit: contain;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .picker-card .picker-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #333;
+            margin-top: 6px;
+        }
+
+        .picker-card .picker-meta {
+            font-size: 11px;
+            color: #8a94a6;
+        }
+
+        .picker-card .picker-title,
+        .picker-card .picker-meta {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     </style>
 @endpush
 
@@ -318,6 +365,47 @@
             </form>
         </div>
     </div>
+
+    @if (config('features.customer_design'))
+        <div class="modal fade" id="customerDesignPickerModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title text-white">Pilih Design Customer</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="picker_design_item_id">
+                        <div class="d-flex justify-content-between align-items-end flex-wrap gap-2 mb-3">
+                            <div>
+                                <div class="fw-semibold" id="pickerCustomerName">-</div>
+                                <small class="text-muted" id="pickerProductName"></small>
+                            </div>
+                            <input type="text" id="pickerSearch" class="form-control form-control-sm"
+                                style="max-width:240px;" placeholder="Cari judul design...">
+                        </div>
+                        <div id="pickerContainer" class="row g-2"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="d-flex flex-wrap align-items-end gap-2 w-100">
+                            <div class="flex-grow-1" style="min-width:220px;">
+                                <label for="pickerNote" class="form-label fw-semibold fs-12 mb-1">Catatan</label>
+                                <input type="text" id="pickerNote" class="form-control form-control-sm"
+                                    placeholder="Catatan untuk design ini (opsional)">
+                                <small class="text-muted d-block mt-1" id="pickerSelectedInfo">Belum ada design
+                                    dipilih</small>
+                            </div>
+                            <div class="d-flex gap-2 ms-auto">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                <button type="button" class="btn btn-primary" id="pickerApplyButton">Pasang ke
+                                    Design</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <div class="modal fade" id="multiImageViewerModal" tabindex="-1" aria-labelledby="multiImageViewerModalLabel"
         aria-hidden="true">
@@ -881,6 +969,182 @@
                 $('#viewerNote').text(note);
                 $('#imageViewerModal').modal('show');
             });
+            {{-- Modul Design Customer dimatikan: lihat config/features.php --}}
+            @if (config('features.customer_design'))
+
+                // ========== Pilih design dari katalog Design Customer ==========
+                let customerDesignCatalog = [];
+
+                function escapeHtml(value) {
+                    return $('<div>').text(value ?? '').html();
+                }
+
+                function updatePickerSelectedInfo() {
+                    const $checked = $('#pickerContainer .picker-image:checked');
+
+                    $('#pickerContainer .picker-card').removeClass('is-selected');
+
+                    if ($checked.length === 0) {
+                        $('#pickerSelectedInfo').text('Belum ada design dipilih');
+                        return;
+                    }
+
+                    $checked.closest('.picker-card').addClass('is-selected');
+                    $('#pickerSelectedInfo').text('Terpilih: ' + $checked.data('title'));
+                }
+
+                function renderCustomerDesignCatalog(keyword) {
+                    const container = $('#pickerContainer');
+                    const term = (keyword || '').trim().toLowerCase();
+
+                    container.empty();
+
+                    // Semua gambar diratakan jadi satu grid — judul design ikut di
+                    // tiap kartu, jadi tidak perlu bingkai per design yang bikin
+                    // modalnya melebar ke bawah.
+                    const cards = [];
+
+                    customerDesignCatalog.forEach(design => {
+                        const cocok = term === '' ||
+                            (design.title || '').toLowerCase().includes(term) ||
+                            (design.notes || '').toLowerCase().includes(term);
+
+                        if (!cocok) return;
+
+                        (Array.isArray(design.images) ? design.images : []).forEach((img, index) => {
+                            cards.push({
+                                designId: design.id,
+                                title: design.title,
+                                index: index,
+                                note: img.note || '',
+                                createdAt: design.created_at || '',
+                                url: ('/' + img.file).replace(/\/{2,}/g, '/')
+                            });
+                        });
+                    });
+
+                    if (cards.length === 0) {
+                        container.html(
+                            '<div class="col-12"><p class="text-muted mb-0">' +
+                            (customerDesignCatalog.length === 0 ?
+                                'Belum ada design untuk customer ini. Tambahkan lewat menu <strong>Design &rsaquo; Design Customer</strong>.' :
+                                'Tidak ada design yang cocok dengan pencarian.') +
+                            '</p></div>'
+                        );
+                        updatePickerSelectedInfo();
+                        return;
+                    }
+
+                    cards.forEach(card => {
+                        const inputId = `picker_${card.designId}_${card.index}`;
+                        const caption = card.note || card.createdAt;
+
+                        container.append(`
+                            <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+                                <label class="picker-card d-block" for="${inputId}">
+                                    <input type="radio" name="picker_choice" id="${inputId}"
+                                        class="picker-image d-none" data-design-id="${card.designId}"
+                                        data-index="${card.index}" data-title="${escapeHtml(card.title)}"
+                                        data-note="${escapeHtml(card.note)}">
+                                    <img src="${card.url}" alt="${escapeHtml(card.title)}">
+                                    <div class="picker-title" title="${escapeHtml(card.title)}">${escapeHtml(card.title)}</div>
+                                    <div class="picker-meta" title="${escapeHtml(caption)}">${escapeHtml(caption || '-')}</div>
+                                </label>
+                            </div>
+                        `);
+                    });
+
+                    updatePickerSelectedInfo();
+                }
+
+                $(document).on('click', '.pick-customer-design-btn', function(e) {
+                    e.stopPropagation();
+
+                    const itemId = $(this).data('id');
+
+                    $('#picker_design_item_id').val(itemId);
+                    $('#pickerProductName').text($(this).data('product') || '');
+                    $('#pickerSearch').val('');
+                    $('#pickerNote').val('');
+                    $('#pickerCustomerName').text('Memuat...');
+                    $('#pickerSelectedInfo').text('Belum ada design dipilih');
+                    $('#pickerContainer').html('<div class="col-12 text-muted">Memuat design customer...</div>');
+                    $('#customerDesignPickerModal').modal('show');
+
+                    $.get('/erp/design-items/' + itemId + '/customer-designs', function(res) {
+                        customerDesignCatalog = res.data || [];
+                        $('#pickerCustomerName').text(res.customer || 'Customer tidak diketahui');
+                        renderCustomerDesignCatalog('');
+                    }).fail(function(err) {
+                        $('#customerDesignPickerModal').modal('hide');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal',
+                            text: err.responseJSON?.message || 'Gagal memuat design customer.'
+                        });
+                    });
+                });
+
+                $('#pickerSearch').on('input', function() {
+                    renderCustomerDesignCatalog($(this).val());
+                });
+
+                // Radio, jadi memilih kartu lain otomatis melepas pilihan sebelumnya:
+                // satu design item hanya boleh memakai satu design customer.
+                $(document).on('change', '.picker-image', function() {
+                    updatePickerSelectedInfo();
+
+                    // Catatan bawaan gambar dipakai sebagai isian awal, masih bisa
+                    // ditimpa operator sebelum dipasang.
+                    $('#pickerNote').val($(this).data('note') || '');
+                });
+
+                $('#pickerApplyButton').on('click', function() {
+                    const $selected = $('#pickerContainer .picker-image:checked').first();
+
+                    if ($selected.length === 0) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Belum ada yang dipilih',
+                            text: 'Pilih satu design terlebih dahulu.'
+                        });
+                        return;
+                    }
+
+                    const $button = $(this);
+                    $button.prop('disabled', true);
+
+                    $.ajax({
+                        url: '/erp/design-items/' + $('#picker_design_item_id').val() + '/attach-customer-design',
+                        method: 'POST',
+                        data: {
+                            _token: $('meta[name="csrf-token"]').attr('content'),
+                            design_id: $selected.data('design-id'),
+                            index: $selected.data('index'),
+                            note: $('#pickerNote').val() || ''
+                        },
+                        success: function(res) {
+                            $('#customerDesignPickerModal').modal('hide');
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil',
+                                text: res.message
+                            });
+                            resetAndReload();
+                        },
+                        error: function(err) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal',
+                                text: err.responseJSON?.message || 'Gagal memasang design customer.'
+                            });
+                        },
+                        complete: function() {
+                            $button.prop('disabled', false);
+                        }
+                    });
+                });
+            @endif
         });
 
         $(document).on('click', '.preview-btn', function() {

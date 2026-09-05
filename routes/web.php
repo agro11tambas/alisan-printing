@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\CustomerDesignController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ExpenseController;
 use App\Http\Controllers\Admin\HistoryProgressOrderController;
@@ -357,11 +358,49 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
     });
 
     Route::middleware(['web.auth', 'permission:design'])->group(function () {
-        Route::get('/erp/design', [DesignController::class, 'getDesign'])->name('design');
-        Route::get('/erp/design/data', [DesignController::class, 'dataDesign']);
-        Route::post('/erp/design-items/{id}/upload', [DesignItemController::class, 'upload'])->name('design-items.upload');
-        Route::post('/erp/design/{id}/verify', [DesignController::class, 'verify'])->name('design.verify');
-        Route::post('/erp/design/{id}/unverify', [DesignController::class, 'unverify'])->name('design.unverify');
+        // Modul Design Customer dimatikan lewat config/features.php (env
+        // CUSTOMER_DESIGN_ENABLED). Route-nya ikut ditutup, bukan cuma menunya:
+        // menu yang disembunyikan tapi URL-nya masih hidup tetap bisa dibuka
+        // orang yang tahu alamatnya. Selama mati, blok Design kembali persis
+        // seperti sebelum modul ini ada — tanpa sub-permission baru, supaya
+        // halaman Design tidak bergantung pada data izin yang belum tentu terisi.
+        if (! config('features.customer_design')) {
+            Route::get('/erp/design', [DesignController::class, 'getDesign'])->name('design');
+            Route::get('/erp/design/data', [DesignController::class, 'dataDesign']);
+            Route::post('/erp/design-items/{id}/upload', [DesignItemController::class, 'upload'])->name('design-items.upload');
+            Route::post('/erp/design/{id}/verify', [DesignController::class, 'verify'])->name('design.verify');
+            Route::post('/erp/design/{id}/unverify', [DesignController::class, 'unverify'])->name('design.unverify');
+
+            return;
+        }
+
+        Route::middleware(['subpermission:design-list'])->group(function () {
+            Route::get('/erp/design', [DesignController::class, 'getDesign'])->name('design');
+            Route::get('/erp/design/data', [DesignController::class, 'dataDesign']);
+            Route::post('/erp/design-items/{id}/upload', [DesignItemController::class, 'upload'])->name('design-items.upload');
+            Route::get('/erp/design-items/{id}/customer-designs', [DesignItemController::class, 'customerDesigns'])
+                ->name('design-items.customer-designs');
+            Route::post('/erp/design-items/{id}/attach-customer-design', [DesignItemController::class, 'attachCustomerDesign'])
+                ->name('design-items.attach-customer-design');
+            Route::post('/erp/design/{id}/verify', [DesignController::class, 'verify'])->name('design.verify');
+            Route::post('/erp/design/{id}/unverify', [DesignController::class, 'unverify'])->name('design.unverify');
+        });
+
+        Route::middleware(['subpermission:design-customers'])->group(function () {
+            Route::get('/erp/design/customer-designs/data', [CustomerDesignController::class, 'data']);
+            Route::get('/erp/design/customer-designs/customers', [CustomerDesignController::class, 'customers'])
+                ->name('customer-designs.customers');
+            Route::get('/erp/design/customer-designs', [CustomerDesignController::class, 'index'])
+                ->name('customer-designs');
+            Route::post('/erp/design/customer-designs', [CustomerDesignController::class, 'store'])
+                ->name('customer-designs.store');
+            Route::get('/erp/design/customer-designs/{id}', [CustomerDesignController::class, 'show'])
+                ->name('customer-designs.show');
+            Route::post('/erp/design/customer-designs/{id}', [CustomerDesignController::class, 'update'])
+                ->name('customer-designs.update');
+            Route::delete('/erp/design/customer-designs/{id}', [CustomerDesignController::class, 'destroy'])
+                ->name('customer-designs.destroy');
+        });
     });
 
     Route::middleware(['web.auth', 'permission:production'])->group(function () {

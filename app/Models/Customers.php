@@ -73,6 +73,11 @@ class Customers extends Model
         return $this->hasMany(Order::class, 'customer_id');
     }
 
+    public function designs(): HasMany
+    {
+        return $this->hasMany(CustomerDesign::class, 'customer_id');
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

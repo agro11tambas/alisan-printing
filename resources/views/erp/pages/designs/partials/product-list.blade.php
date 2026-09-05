@@ -57,6 +57,13 @@
                                 data-bs-target="#uploadModal">
                                 <i class="feather-upload"></i> Upload
                             </button>
+
+                            @if (config('features.customer_design'))
+                                <button class="btn btn-sm btn-outline-secondary pick-customer-design-btn"
+                                    data-id="{{ $item->id }}" data-product="{{ $item->product->name ?? '-' }}">
+                                    <i class="feather-folder"></i> Design Customer
+                                </button>
+                            @endif
                         </div>
                     </td>
                     <td>

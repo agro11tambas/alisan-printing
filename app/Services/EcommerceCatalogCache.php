@@ -46,7 +46,12 @@ class EcommerceCatalogCache
         return max($ttl * 12, (int) config('services.website.catalog_cache_stale_ttl', 604800));
     }
 
-    public function remember(string $key, Closure $callback): mixed
+    /**
+     * @param  bool  $mayRebuildInWeb  Boleh dibangun langsung di request web.
+     *                                 Hanya untuk kunci yang membangunnya murah
+     *                                 — lihat mayRebuildHere().
+     */
+    public function remember(string $key, Closure $callback, bool $mayRebuildInWeb = false): mixed
     {
         $ttl = (int) config('services.website.catalog_cache_ttl', 300);
 
@@ -74,7 +79,7 @@ class EcommerceCatalogCache
         // halaman ERP ikut mengantre di belakangnya. Yang membangun adalah cron
         // (`catalog:warm`). Kalau cron mati, yang terjadi cuma katalog agak
         // basi, bukan ERP berhenti untuk semua orang.
-        if (! $this->mayRebuildHere()) {
+        if (! $this->mayRebuildHere($mayRebuildInWeb)) {
             if (is_array($payload)) {
                 return $payload['value'];
             }
@@ -111,7 +116,15 @@ class EcommerceCatalogCache
             throw new CatalogCacheWarmingException;
         }
 
-        if (! (bool) config('services.website.catalog_cache_defer_rebuild', true)) {
+        // Menunda hanya masuk akal kalau ada salinan lama yang bisa disajikan
+        // lebih dulu. Untuk kunci murah yang belum punya salinan sama sekali,
+        // menunda berarti request ini tetap dibalas 503 walaupun datanya sedang
+        // dibangun — persis kegagalan yang membuat halaman detail produk mati.
+        // Di situ bangun sekarang juga: biayanya satu baris, bukan katalog penuh.
+        $buildNow = ! (bool) config('services.website.catalog_cache_defer_rebuild', true)
+            || ($mayRebuildInWeb && ! is_array($payload));
+
+        if ($buildNow) {
             try {
                 return $this->build($store, $payloadKey, $freshKey, $ttl, $callback);
             } finally {
@@ -201,10 +214,18 @@ class EcommerceCatalogCache
      * tidak memakan jatah proses web. Request web hanya boleh kalau sengaja
      * dinyalakan lewat WEBSITE_CATALOG_CACHE_WEB_REBUILD=true, misalnya saat
      * menelusuri masalah data di produksi.
+     *
+     * Pengecualiannya kunci yang ditandai `$mayRebuildInWeb`. Larangan di atas
+     * lahir dari biaya membangun katalog PENUH (menit-menitan, payload belasan
+     * MB). Kunci per-produk tidak seperti itu: satu baris beserta relasinya,
+     * dengan bundle yang sudah di-preload. Menerapkan larangan yang sama ke
+     * kunci semurah itu berarti slug yang belum pernah dihangatkan membalas 503
+     * selamanya, karena tidak ada satu pun jalur yang akan mengisinya.
      */
-    protected function mayRebuildHere(): bool
+    protected function mayRebuildHere(bool $mayRebuildInWeb = false): bool
     {
-        return app()->runningInConsole()
+        return $mayRebuildInWeb
+            || app()->runningInConsole()
             || (bool) config('services.website.catalog_cache_web_rebuild', false);
     }
 

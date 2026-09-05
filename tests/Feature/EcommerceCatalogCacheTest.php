@@ -155,6 +155,40 @@ class EcommerceCatalogCacheTest extends TestCase
         }
     }
 
+    /**
+     * Regresi: seluruh halaman detail produk di website mati karena bug ini.
+     *
+     * Kunci `products:show:{slug}` tidak pernah ikut dihangatkan cron, dan
+     * request web dilarang membangun katalog, jadi kunci itu tidak punya salinan
+     * selamanya dan endpoint-nya membalas 503 terus-menerus. Kunci semurah ini
+     * harus dibangun di tempat saat belum ada salinannya, bukan ditunda —
+     * menunda berarti request pemicunya tetap dibalas 503.
+     */
+    public function test_kunci_murah_dibangun_langsung_saat_cache_dingin(): void
+    {
+        config(['services.website.catalog_cache_defer_rebuild' => true]);
+
+        $builds = 0;
+        $build = function () use (&$builds) {
+            $builds++;
+
+            return ['produk'];
+        };
+
+        $this->assertSame(
+            ['produk'],
+            $this->cache()->remember('products:show:cup-1', $build, mayRebuildInWeb: true),
+        );
+        $this->assertSame(1, $builds);
+
+        // Sudah tersimpan: panggilan berikutnya tidak membangun lagi.
+        $this->assertSame(
+            ['produk'],
+            $this->cache()->remember('products:show:cup-1', $build, mayRebuildInWeb: true),
+        );
+        $this->assertSame(1, $builds);
+    }
+
     public function test_ttl_nol_mematikan_cache(): void
     {
         config(['services.website.catalog_cache_ttl' => 0]);

@@ -196,12 +196,37 @@
                     </li>
                 @endif
                 @if (Auth::check() && Auth::user()->hasPermission('design'))
-                    <li class="nxl-item nxl-hasmenu">
-                        <a href="/erp/design" class="nxl-link {{ request()->is('/erp/design') ? 'active' : '' }}">
-                            <span class="nxl-micon"><i class="feather-box"></i></span>
-                            <span class="nxl-mtext ">Design</span><span class="nxl-arrow"></span>
-                        </a>
-                    </li>
+                    {{-- Selama modul Design Customer dimatikan, menu Design kembali jadi satu
+                         tautan langsung: submenu berisi satu item cuma menambah klik. --}}
+                    @if (!config('features.customer_design'))
+                        <li class="nxl-item">
+                            <a href="/erp/design" class="nxl-link {{ request()->is('erp/design') ? 'active' : '' }}">
+                                <span class="nxl-micon"><i class="feather-box"></i></span>
+                                <span class="nxl-mtext ">Design</span>
+                            </a>
+                        </li>
+                    @else
+                        <li class="nxl-item nxl-hasmenu">
+                            <a href="javascript:void(0);" class="nxl-link">
+                                <span class="nxl-micon"><i class="feather-box"></i></span>
+                                <span class="nxl-mtext ">Design</span><span class="nxl-arrow"><i
+                                        class="feather-chevron-right"></i></span>
+                            </a>
+                            <ul class="nxl-submenu">
+                                @if (Auth::user()->hasSubPermission('design-list'))
+                                    <li class="nxl-item"><a
+                                            class="nxl-link {{ request()->is('erp/design') ? 'active' : '' }}"
+                                            href="/erp/design"><span class="">Design</span></a></li>
+                                @endif
+                                @if (Auth::user()->hasSubPermission('design-customers'))
+                                    <li class="nxl-item"><a
+                                            class="nxl-link {{ request()->is('erp/design/customer-designs*') ? 'active' : '' }}"
+                                            href="/erp/design/customer-designs"><span class="">Design Customer</span></a>
+                                    </li>
+                                @endif
+                            </ul>
+                        </li>
+                    @endif
                 @endif
                 @if (Auth::check() &&
                         (Auth::user()->hasPermission('production') ||

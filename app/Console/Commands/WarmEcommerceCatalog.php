@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Http\Controllers\Api\Public\EcommerceProductCategoryController;
 use App\Http\Controllers\Api\Public\EcommerceProductController;
+use App\Models\EcommerceProduct;
 use App\Services\EcommerceCatalogCache;
 use Illuminate\Console\Command;
 use Illuminate\Http\Request;
@@ -48,6 +49,16 @@ class WarmEcommerceCatalog extends Command
             'categories:index:tree:json' => fn () => app(EcommerceProductCategoryController::class)
                 ->index(new Request(['tree' => 1])),
         ];
+
+        // Halaman detail produk memakai kunci tersendiri (`products:show:{slug}`),
+        // dan sebelumnya tidak satu pun ikut dihangatkan di sini. Karena request
+        // web dilarang membangun katalog, kunci-kunci itu tidak pernah terisi dan
+        // /api/v1/ecommerce/products/{slug} membalas 503 untuk SEMUA produk —
+        // seluruh halaman detail di website ikut mati. Dihangatkan di sini supaya
+        // pengunjung selalu dilayani dari salinan yang sudah jadi.
+        foreach (EcommerceProduct::where('is_active', true)->orderBy('sort_order')->pluck('slug') as $slug) {
+            $targets['products:show:'.$slug] = fn () => app(EcommerceProductController::class)->show($slug);
+        }
 
         $failed = 0;
 

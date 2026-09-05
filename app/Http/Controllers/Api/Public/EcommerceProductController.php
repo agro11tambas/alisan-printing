@@ -93,7 +93,11 @@ class EcommerceProductController extends Controller
             );
 
             return $this->formatProduct($product);
-        });
+            // Kunci ini boleh dibangun di request web: isinya satu produk, bukan
+            // katalog penuh. Tanpa penanda ini slug yang tidak ada di daftar
+            // penghangat tidak pernah punya salinan, dan endpoint ini membalas
+            // 503 selamanya.
+        }, mayRebuildInWeb: true);
 
         if ($data === null) {
             return response()->json([
