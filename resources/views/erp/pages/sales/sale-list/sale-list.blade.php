@@ -2580,14 +2580,17 @@
             let phone = String(rawPhone).replace(/[^0-9]/g, '');
             if (phone.startsWith('0')) phone = '62' + phone.substring(1);
 
-            // Pembuatan gambar invoice bergantung pada html2canvas DAN pada server
-            // gambar eksternal (services.image_upload). Sebelumnya, begitu salah
-            // satunya gagal seluruh aksi dibatalkan dan WhatsApp tidak pernah
-            // terbuka -- padahal yang benar-benar dibutuhkan admin cuma tautan
-            // invoice. Sekarang kegagalan gambar hanya menurunkan kualitas hasil:
-            // pesan tetap terkirim, isinya tautan halaman invoice.
-            let tautanInvoice = invoiceUrl;
-            let gambarBerhasil = false;
+            // invoiceUrl adalah halaman ERP internal -- di balik login, dan
+            // customer TIDAK bisa membukanya. Satu-satunya tautan yang layak
+            // dikirim ke customer adalah hasil upload ke server gambar.
+            //
+            // Versi sebelumnya memakai invoiceUrl sebagai cadangan saat upload
+            // gagal, jadi customer menerima pesan berisi tautan mati. Itu lebih
+            // buruk daripada tidak mengirim: admin mengira sudah terkirim.
+            // Sekarang, kalau gambarnya gagal, WhatsApp TIDAK dibuka dan admin
+            // diberi tahu alasannya.
+            let tautanInvoice = null;
+            let alasanGagal = null;
             let temp = null;
 
             try {
@@ -2635,13 +2638,25 @@
                 }
 
                 tautanInvoice = result.url;
-                gambarBerhasil = true;
             } catch (e) {
-                console.error('Gambar invoice gagal disiapkan, pakai tautan halaman invoice.', e);
+                console.error('Gagal menyiapkan gambar invoice.', e);
+                alasanGagal = e.message || 'Terjadi kesalahan saat menyiapkan invoice.';
             } finally {
                 // Elemen bayangan ini dulu hanya dibuang kalau semuanya sukses,
                 // jadi setiap kegagalan meninggalkan satu salinan invoice di DOM.
                 if (temp && temp.parentNode) temp.parentNode.removeChild(temp);
+            }
+
+            if (!tautanInvoice) {
+                const pesan = 'Invoice belum terkirim. ' + (alasanGagal || 'Gambar invoice gagal dibuat.');
+
+                if (window.Swal) {
+                    Swal.fire({ icon: 'error', title: 'Share invoice gagal', text: pesan });
+                } else {
+                    alert(pesan);
+                }
+
+                return;
             }
 
             const message = [
@@ -2667,14 +2682,6 @@
                 `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
                 '_blank'
             );
-
-            if (!gambarBerhasil && window.Swal) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'WhatsApp sudah dibuka',
-                    text: 'Gambar invoice gagal dibuat, jadi pesannya memakai tautan halaman invoice. Laporkan ke admin sistem kalau ini terus terjadi.'
-                });
-            }
         });
 
         $(document).on('click', '.btn-share-invoice-image', async function() {

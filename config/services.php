@@ -50,8 +50,16 @@ return [
     'image_upload' => [
         'token' => env('IMAGE_UPLOAD_TOKEN'),
         'url' => env('IMAGE_UPLOAD_URL', 'https://image.alisanprinting.com/upload12552.php'),
-        'timeout' => (int) env('IMAGE_UPLOAD_TIMEOUT', 15),
-        'connect_timeout' => (int) env('IMAGE_UPLOAD_CONNECT_TIMEOUT', 5),
+        /*
+         * Kembali ke 30 detik. Sempat diturunkan ke 15 detik supaya request
+         * yang menggantung tidak ikut membuat ERP terasa nge-buffer -- tapi
+         * gambar invoice hasil html2canvas scale:2 dikirim sebagai base64 dan
+         * ukurannya megabyte-an, jadi 15 detik membuat upload gagal justru pada
+         * invoice yang isinya banyak. Upload gagal = invoice tidak terkirim ke
+         * customer, dan itu jauh lebih mahal daripada satu request lambat.
+         */
+        'timeout' => (int) env('IMAGE_UPLOAD_TIMEOUT', 30),
+        'connect_timeout' => (int) env('IMAGE_UPLOAD_CONNECT_TIMEOUT', 10),
     ],
 
     /*
