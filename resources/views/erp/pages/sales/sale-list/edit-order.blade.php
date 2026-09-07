@@ -1942,11 +1942,18 @@
             }
         });
 
-        $('#confirmDisableDiscountBtn').on('click', function() {
+        $('#confirmDisableDiscountBtn').off('click').on('click', function() {
             $('#confirmDisableDiscountModal').modal('hide');
 
+            // Modal kedua HARUS menunggu modal pertama benar-benar tertutup.
+            // Bootstrap 5 butuh ~150ms untuk transisi tutup; kalau modal kedua
+            // dibuka di frame yang sama, backdrop modal pertama tertinggal di DOM
+            // dan seluruh halaman -- termasuk sidebar -- jadi tidak bisa diklik.
+            // Halaman create-order sudah memakai pola ini; edit-order belum.
             if (pendingToggleOff) {
-                $('#confirmResponsibilityModal').modal('show');
+                $('#confirmDisableDiscountModal').one('hidden.bs.modal', function() {
+                    $('#confirmResponsibilityModal').modal('show');
+                });
             }
         });
 
