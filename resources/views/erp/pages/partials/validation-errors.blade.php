@@ -2,7 +2,7 @@
     Menampilkan pesan validasi yang dikirim balik server.
 
     Tanpa ini, form yang ditolak validasi hanya tampak seperti halaman ter-refresh
-    tanpa penjelasan apa pun — penyebab paling sering: foto waybill melebihi batas
+    tanpa penjelasan apa pun — penyebab paling sering: foto surat jalan melebihi batas
     upload PHP, sehingga seluruh isi form ikut ditolak.
 --}}
 @if ($errors->any())

@@ -42,9 +42,12 @@
                             $images = json_decode($item->preview_image ?? '[]', true);
                         @endphp
 
+                        {{-- Baris ini cukup Preview + Upload. Tombol "Design Customer" dan
+                             "Hapus Preview" pindah ke dalam modal Upload supaya kolomnya
+                             tidak melebar dan aksinya terkumpul di satu tempat. --}}
                         <div class="d-flex flex-wrap align-items-center gap-2">
                             @if (!empty($images))
-                                <button class="btn btn-sm btn-outline-info preview-btn"
+                                <button class="btn btn-sm btn-outline-info preview-btn" data-id="{{ $item->id }}"
                                     data-images='@json($images)'
                                     data-product="{{ $item->product->name ?? '-' }}"
                                     data-order_note="{{ $design->order->notes ?? '-' }}">
@@ -53,17 +56,12 @@
                             @endif
 
                             <button class="btn btn-sm btn-outline-primary upload-btn" data-id="{{ $item->id }}"
+                                data-product="{{ $item->product->name ?? '-' }}"
+                                data-preview_count="{{ count($images ?? []) }}"
                                 data-order_note="{{ $design->order->notes ?? '-' }}" data-bs-toggle="modal"
                                 data-bs-target="#uploadModal">
                                 <i class="feather-upload"></i> Upload
                             </button>
-
-                            @if (config('features.customer_design'))
-                                <button class="btn btn-sm btn-outline-secondary pick-customer-design-btn"
-                                    data-id="{{ $item->id }}" data-product="{{ $item->product->name ?? '-' }}">
-                                    <i class="feather-folder"></i> Design Customer
-                                </button>
-                            @endif
                         </div>
                     </td>
                     <td>

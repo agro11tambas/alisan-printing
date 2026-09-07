@@ -163,7 +163,7 @@
                                     </div>
                                     <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
-                                            <label for="waybill_number" class="fw-semibold">Waybill Number:</label>
+                                            <label for="waybill_number" class="fw-semibold">Nomor Surat Jalan:</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
                                             <div class="input-group">
@@ -176,10 +176,27 @@
                                     </div>
                                     <div class="row mb-2 align-items-center">
                                         <div class="col-lg-2">
-                                            <label for="waybill_image" class="fw-semibold">Waybill Image</label>
+                                            <label for="waybill_image" class="fw-semibold">Foto Surat Jalan</label>
                                         </div>
                                         <div class="col-lg-10 mb-0">
-                                            @include('erp.pages.inventory.stock-in.partials.waybill-image-editor', ['capture' => true])
+                                            @include('erp.pages.inventory.stock-in.partials.waybill-image-editor', [
+                                                'capture' => true,
+                                                'slots' => 2,
+                                            ])
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2 align-items-center">
+                                        <div class="col-lg-2">
+                                            <label for="receipt_image" class="fw-semibold">Bukti Penerimaan Barang</label>
+                                        </div>
+                                        <div class="col-lg-10 mb-0">
+                                            @include('erp.pages.inventory.stock-in.partials.image-capture-editor', [
+                                                'key' => 'receipt',
+                                                'field' => 'receipt_image',
+                                                'label' => 'Bukti penerimaan barang',
+                                                'capture' => true,
+                                                'slots' => 2,
+                                            ])
                                         </div>
                                     </div>
                                     {{-- <div class="row mb-2 align-items-center">
@@ -436,14 +453,14 @@
                 // const waybillNumber = $('#waybill_number');
                 // if (!waybillNumber.val().trim()) {
                 //     isValid = false;
-                //     showError(waybillNumber[0], 'Waybill number wajib diisi');
+                //     showError(waybillNumber[0], 'Nomor surat jalan wajib diisi');
                 // }
 
                 const waybillImage = $('#waybill_image');
 
                 if (!waybillImage[0].files.length) {
                     isValid = false;
-                    showError(waybillImage[0], 'Waybill image wajib diupload');
+                    showError(waybillImage[0], 'Foto surat jalan wajib diupload');
                 }
 
                 if (!isValid) {

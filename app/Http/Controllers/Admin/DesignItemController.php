@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 
 class DesignItemController extends Controller
 {
+    private const UPLOAD_DIR = 'uploads/designs';
+
     // public function upload(Request $request, $id)
     // {
     //     $request->validate([
@@ -76,6 +78,117 @@ class DesignItemController extends Controller
         $item->save();
 
         return response()->json(['message' => 'Image(s) uploaded successfully!']);
+    }
+
+    /**
+     * Hapus preview design item: satu gambar (kirim `index`) atau semuanya.
+     *
+     * File fisiknya ikut dihapus hanya kalau berada di folder upload halaman
+     * Design. Preview yang dipasang lewat "Design Customer" menunjuk ke file
+     * milik katalog customer — file itu masih dipakai record CustomerDesign
+     * dan bisa dipakai design item lain, jadi di sini cukup dilepas
+     * referensinya.
+     */
+    public function destroyPreview(Request $request, $id)
+    {
+        $request->validate([
+            'index' => 'nullable|integer|min:0',
+        ]);
+
+        $item = DesignItem::findOrFail($id);
+
+        $images = $this->previewList($item);
+
+        if ($images === []) {
+            return response()->json([
+                'message' => 'Design item ini belum punya preview.',
+            ], 422);
+        }
+
+        $index = $request->input('index');
+
+        if ($index === null) {
+            $removed = $images;
+            $remaining = [];
+        } else {
+            $index = (int) $index;
+
+            if (! array_key_exists($index, $images)) {
+                return response()->json([
+                    'message' => 'Gambar yang dipilih tidak ditemukan pada preview ini.',
+                ], 422);
+            }
+
+            $removed = [$images[$index]];
+            $remaining = $images;
+            unset($remaining[$index]);
+            $remaining = array_values($remaining);
+        }
+
+        foreach ($removed as $image) {
+            $this->deleteOwnedPreviewFile($image['file']);
+        }
+
+        $item->preview_image = $remaining === [] ? null : json_encode($remaining);
+        $item->save();
+
+        return response()->json([
+            'message' => $index === null
+                ? 'Semua preview berhasil dihapus.'
+                : 'Preview berhasil dihapus.',
+            'remaining' => count($remaining),
+        ]);
+    }
+
+    /**
+     * Isi kolom preview_image yang sudah dipastikan berbentuk [{file, note}, ...].
+     *
+     * Kolomnya JSON bebas dan pernah diisi beberapa versi kode yang berbeda,
+     * jadi baris lama/rusak jangan sampai bikin penghapusan error.
+     *
+     * @return array<int, array{file: string, note: string}>
+     */
+    private function previewList(DesignItem $item): array
+    {
+        $images = json_decode($item->preview_image ?? '[]', true);
+
+        if (! is_array($images)) {
+            return [];
+        }
+
+        $clean = [];
+
+        foreach ($images as $image) {
+            if (! is_array($image) || empty($image['file'])) {
+                continue;
+            }
+
+            $clean[] = [
+                'file' => (string) $image['file'],
+                'note' => (string) ($image['note'] ?? ''),
+            ];
+        }
+
+        return $clean;
+    }
+
+    /**
+     * Buang file preview dari disk, tapi hanya yang memang milik halaman ini.
+     */
+    private function deleteOwnedPreviewFile(string $file): void
+    {
+        $file = ltrim(str_replace('\\', '/', $file), '/');
+
+        // `..` di path akan membawa unlink() keluar dari folder upload.
+        if (! str_starts_with($file, self::UPLOAD_DIR.'/') || str_contains($file, '..')) {
+            return;
+        }
+
+        $path = public_path($file);
+
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 
     /**

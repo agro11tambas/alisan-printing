@@ -1,0 +1,320 @@
+@php
+    // Partial upload foto yang bisa dipakai lebih dari sekali dalam satu halaman
+    // (foto surat jalan, bukti penerimaan barang, dst). Semua id diturunkan dari
+    // $key supaya dua instance pada satu form tidak saling menimpa.
+    $key = $key ?? 'waybill';
+    $field = $field ?? $key . '_image';
+    $captureLabel = $label ?? 'Foto';
+
+    // Form pemilik input ini, dipakai untuk men-disable tombol submit saat gambar diproses.
+    $captureFormId = $formId ?? 'stockInForm';
+
+    // Kalau satu form mengirim beberapa foto sekaligus, jatah tiap foto harus
+    // dibagi. Tanpa ini dua foto yang masing-masing pas di batas server tetap
+    // ditolak, karena post_max_size dihitung untuk seluruh request.
+    $imageSlots = max(1, (int) ($slots ?? 1));
+    $maxUploadBytes = (int) floor((\App\Support\UploadLimit::maxKilobytes() * 1024) / $imageSlots);
+@endphp
+<div class="input-group" id="{{ $key }}-file-input-group">
+    <input type="file" class="form-control" id="{{ $field }}" name="{{ $field }}" accept="image/*"
+        @if ($capture ?? false) capture="environment" @endif>
+</div>
+
+@if ($capture ?? false)
+    <div id="{{ $key }}-mobile-camera" class="d-none">
+        <button type="button" class="btn btn-primary w-100" id="open-{{ $key }}-camera">
+            <i class="feather-camera me-2"></i> Buka Kamera
+        </button>
+        <div id="{{ $key }}-camera-panel" class="d-none mt-2">
+            <div class="overflow-hidden rounded-3 bg-dark">
+                <video id="{{ $key }}-camera-video" class="w-100 d-block" playsinline muted
+                    style="max-height: 65vh; object-fit: cover;"></video>
+            </div>
+            <div class="d-flex gap-2 mt-2">
+                <button type="button" class="btn btn-primary flex-fill" id="capture-{{ $key }}-photo">
+                    <i class="feather-camera me-1"></i> Ambil Foto
+                </button>
+                <button type="button" class="btn btn-light flex-fill" id="cancel-{{ $key }}-camera">
+                    Batal
+                </button>
+            </div>
+        </div>
+        <small class="text-muted d-block mt-1">
+            {{ $captureLabel }} wajib difoto langsung menggunakan kamera belakang.
+        </small>
+    </div>
+@endif
+
+<div id="{{ $key }}-image-editor" class="mt-3" style="display: none;">
+    <div class="border rounded-3 bg-light p-2 text-center">
+        <canvas id="{{ $key }}-preview-canvas" class="mw-100 rounded-2"
+            style="max-height: 420px; object-fit: contain;"></canvas>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+        <button type="button" class="btn btn-sm btn-light-brand" id="rotate-{{ $key }}-left">
+            <i class="feather-rotate-ccw me-1"></i> Putar Kiri
+        </button>
+        <button type="button" class="btn btn-sm btn-light-brand" id="rotate-{{ $key }}-right">
+            <i class="feather-rotate-cw me-1"></i> Putar Kanan
+        </button>
+        <small class="text-muted" id="{{ $key }}-rotation-status">Posisi asli</small>
+    </div>
+</div>
+
+@push('scripts')
+    <script>
+        $(document).ready(function() {
+            const input = document.getElementById('{{ $field }}');
+            const canvas = document.getElementById('{{ $key }}-preview-canvas');
+            const context = canvas.getContext('2d');
+            const editor = document.getElementById('{{ $key }}-image-editor');
+            const status = document.getElementById('{{ $key }}-rotation-status');
+            const rotateButtons = document.querySelectorAll('#rotate-{{ $key }}-left, #rotate-{{ $key }}-right');
+            let sourceImage = null;
+            let sourceFile = null;
+            let rotation = 0;
+            let processing = false;
+
+            // Batas upload PHP di server ini, dibaca langsung dari konfigurasinya
+            // supaya tidak meleset saat setelan hosting berbeda. Foto dari kamera
+            // HP hampir selalu lebih besar dari ini, jadi selalu dikecilkan dulu.
+            const MAX_UPLOAD_BYTES = {{ $maxUploadBytes }};
+
+            // Skala tambahan yang dipakai kalau menurunkan kualitas saja belum cukup.
+            let extraScale = 1;
+
+            function setProcessing(value) {
+                processing = value;
+                rotateButtons.forEach(button => button.disabled = value);
+                document.querySelectorAll(
+                        '[type="submit"][form="{{ $captureFormId }}"], #{{ $captureFormId }} [type="submit"]')
+                    .forEach(button => button.disabled = value);
+                status.textContent = value ? 'Memproses gambar...' :
+                    (rotation === 0 ? 'Posisi asli' : `Diputar ${rotation}°`);
+            }
+
+            function rotatedFileName(file) {
+                const baseName = file.name.replace(/\.[^/.]+$/, '');
+                return `${baseName}_rotated.jpg`;
+            }
+
+            function replaceUploadWithCanvas(quality = 0.9) {
+                canvas.toBlob(function(blob) {
+                    if (!blob) {
+                        setProcessing(false);
+                        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gambar tidak dapat diputar.' });
+                        return;
+                    }
+
+                    // Turunkan kualitas bertahap supaya file lolos batas server.
+                    if (blob.size > MAX_UPLOAD_BYTES && quality > 0.5) {
+                        replaceUploadWithCanvas(quality - 0.1);
+                        return;
+                    }
+
+                    // Kualitas sudah mentok tapi masih kebesaran: perkecil
+                    // dimensinya lalu ulangi. Tanpa langkah ini, foto kamera
+                    // beresolusi tinggi tetap ditolak server dan form-nya gagal
+                    // tanpa penjelasan.
+                    if (blob.size > MAX_UPLOAD_BYTES && extraScale > 0.3) {
+                        extraScale *= 0.75;
+                        renderImage(true);
+
+                        return;
+                    }
+
+                    const rotatedFile = new File([blob], rotatedFileName(sourceFile), {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+                    const transfer = new DataTransfer();
+                    transfer.items.add(rotatedFile);
+                    input.files = transfer.files;
+                    setProcessing(false);
+                }, 'image/jpeg', quality);
+            }
+
+            function renderImage(updateUpload = false) {
+                if (!sourceImage || processing) return;
+
+                const normalizedRotation = ((rotation % 360) + 360) % 360;
+                const swapsSides = normalizedRotation === 90 || normalizedRotation === 270;
+                const maxDimension = 2000;
+                const scale = Math.min(1, maxDimension / Math.max(sourceImage.naturalWidth, sourceImage.naturalHeight)) *
+                    extraScale;
+                const imageWidth = Math.round(sourceImage.naturalWidth * scale);
+                const imageHeight = Math.round(sourceImage.naturalHeight * scale);
+
+                canvas.width = swapsSides ? imageHeight : imageWidth;
+                canvas.height = swapsSides ? imageWidth : imageHeight;
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.fillStyle = '#ffffff';
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.save();
+                context.translate(canvas.width / 2, canvas.height / 2);
+                context.rotate(normalizedRotation * Math.PI / 180);
+                context.drawImage(sourceImage, -imageWidth / 2, -imageHeight / 2, imageWidth, imageHeight);
+                context.restore();
+
+                status.textContent = normalizedRotation === 0 ? 'Posisi asli' : `Diputar ${normalizedRotation}°`;
+
+                if (!updateUpload) return;
+
+                setProcessing(true);
+                replaceUploadWithCanvas();
+            }
+
+            input.addEventListener('change', function() {
+                const file = input.files[0];
+                if (!file || !file.type.startsWith('image/')) {
+                    editor.style.display = 'none';
+                    sourceImage = null;
+                    sourceFile = null;
+                    return;
+                }
+
+                sourceFile = file;
+                rotation = 0;
+                extraScale = 1;
+                const imageUrl = URL.createObjectURL(file);
+                const image = new Image();
+                image.onload = function() {
+                    URL.revokeObjectURL(imageUrl);
+                    sourceImage = image;
+                    editor.style.display = 'block';
+
+                    // Foto langsung dikompres, tidak menunggu diputar. Sebelumnya
+                    // kompresi hanya jalan saat tombol putar ditekan, jadi foto
+                    // yang dikirim apa adanya bisa melebihi batas server.
+                    renderImage(file.size > MAX_UPLOAD_BYTES);
+                };
+                image.onerror = function() {
+                    URL.revokeObjectURL(imageUrl);
+                    editor.style.display = 'none';
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: 'File gambar tidak dapat dibaca.' });
+                };
+                image.src = imageUrl;
+            });
+
+            document.getElementById('rotate-{{ $key }}-left').addEventListener('click', function() {
+                if (processing) return;
+                rotation = (rotation + 270) % 360;
+                renderImage(true);
+            });
+
+            document.getElementById('rotate-{{ $key }}-right').addEventListener('click', function() {
+                if (processing) return;
+                rotation = (rotation + 90) % 360;
+                renderImage(true);
+            });
+        });
+    </script>
+
+    <script>
+        @if ($capture ?? false)
+            $(document).ready(function() {
+                const isMobile = window.matchMedia('(max-width: 767.98px)').matches;
+                if (!isMobile) return;
+
+                const fileGroup = document.getElementById('{{ $key }}-file-input-group');
+                const cameraWrapper = document.getElementById('{{ $key }}-mobile-camera');
+                const cameraPanel = document.getElementById('{{ $key }}-camera-panel');
+                const openButton = document.getElementById('open-{{ $key }}-camera');
+                const captureButton = document.getElementById('capture-{{ $key }}-photo');
+                const cancelButton = document.getElementById('cancel-{{ $key }}-camera');
+                const video = document.getElementById('{{ $key }}-camera-video');
+                const input = document.getElementById('{{ $field }}');
+                let cameraStream = null;
+
+                fileGroup.classList.add('d-none');
+                cameraWrapper.classList.remove('d-none');
+
+                function stopCamera() {
+                    if (cameraStream) {
+                        cameraStream.getTracks().forEach(track => track.stop());
+                        cameraStream = null;
+                    }
+                    video.srcObject = null;
+                    cameraPanel.classList.add('d-none');
+                    openButton.classList.remove('d-none');
+                }
+
+                async function startCamera() {
+                    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Kamera Tidak Tersedia',
+                            text: 'Kamera mobile hanya dapat digunakan melalui koneksi HTTPS.'
+                        });
+                        return;
+                    }
+
+                    try {
+                        cameraStream = await navigator.mediaDevices.getUserMedia({
+                            audio: false,
+                            video: {
+                                facingMode: { ideal: 'environment' }
+                            }
+                        });
+                        video.srcObject = cameraStream;
+                        await video.play();
+                        openButton.classList.add('d-none');
+                        cameraPanel.classList.remove('d-none');
+                    } catch (error) {
+                        stopCamera();
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Izin Kamera Diperlukan',
+                            text: 'Aktifkan izin kamera pada browser untuk mengambil foto {{ strtolower($captureLabel) }}.'
+                        });
+                    }
+                }
+
+                openButton.addEventListener('click', startCamera);
+                cancelButton.addEventListener('click', stopCamera);
+
+                captureButton.addEventListener('click', function() {
+                    if (!video.videoWidth || !video.videoHeight) return;
+
+                    const maxDimension = 2000;
+                    const scale = Math.min(1, maxDimension / Math.max(video.videoWidth, video.videoHeight));
+                    const photoCanvas = document.createElement('canvas');
+                    photoCanvas.width = Math.round(video.videoWidth * scale);
+                    photoCanvas.height = Math.round(video.videoHeight * scale);
+                    photoCanvas.getContext('2d').drawImage(
+                        video,
+                        0,
+                        0,
+                        photoCanvas.width,
+                        photoCanvas.height
+                    );
+
+                    photoCanvas.toBlob(function(blob) {
+                        if (!blob) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal',
+                                text: 'Foto {{ strtolower($captureLabel) }} tidak dapat diproses.'
+                            });
+                            return;
+                        }
+
+                        const file = new File([blob], `{{ $key }}_${Date.now()}.jpg`, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        const transfer = new DataTransfer();
+                        transfer.items.add(file);
+                        input.files = transfer.files;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+
+                        stopCamera();
+                        openButton.innerHTML = '<i class="feather-camera me-2"></i> Ambil Ulang Foto';
+                    }, 'image/jpeg', 0.9);
+                });
+
+                window.addEventListener('pagehide', stopCamera);
+            });
+        @endif
+    </script>
+@endpush

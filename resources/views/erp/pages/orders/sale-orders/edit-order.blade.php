@@ -102,7 +102,7 @@
                                                 @if($order->customer)
                                                 @foreach($order->customer->addresses as $index => $address)
                                                 <option value="{{ $address->id }}" data-map="{{ $address->google_maps }}"
-                                                    {{ $order->address_id == $address->id ? 'selected' : '' }}>
+                                                    {{ $order->customer_address_id == $address->id ? 'selected' : '' }}>
                                                     Alamat ke-{{ $index + 1 }} - {{ $address->address }}
                                                 </option>
                                                 @endforeach
@@ -380,7 +380,7 @@
         function updateAddresses(customerId) {
             const addresses = customerAddresses[customerId] || [];
             const $addressSelect = $('#addresses');
-            const selectedAddressId = "{{ $order->address_id ?? '' }}";
+            const selectedAddressId = "{{ $order->customer_address_id ?? '' }}";
 
             $addressSelect.empty().append('<option disabled hidden>Pilih alamat</option>');
 

@@ -284,8 +284,9 @@
                                         <th>Invoice</th>
                                         <th>Stock In Date</th>
                                         <th>Updated By</th>
-                                        <th>Waybill Number</th>
-                                        <th>Waybill Image</th>
+                                        <th>Nomor Surat Jalan</th>
+                                        <th>Foto Surat Jalan</th>
+                                        <th>Bukti Penerimaan Barang</th>
                                         <th>Histories</th>
                                     </tr>
                                 </thead>
@@ -389,6 +390,10 @@
                         name: 'waybill_image'
                     },
                     {
+                        data: 'receipt_image',
+                        name: 'receipt_image'
+                    },
+                    {
                         data: 'stock_in',
                         name: 'stock_in'
                     },
@@ -482,9 +487,13 @@
                         </div>
                         <div class="history-mobile-waybill">
                             <div class="history-mobile-waybill-number">
-                                <strong>Waybill:</strong> ${row.waybill_number || '-'}
+                                <strong>Surat Jalan:</strong> ${row.waybill_number || '-'}
                             </div>
                             <div class="history-mobile-waybill-image">${row.waybill_image ?? '-'}</div>
+                            <div class="history-mobile-waybill-number mt-2">
+                                <strong>Bukti Penerimaan Barang:</strong>
+                            </div>
+                            <div class="history-mobile-waybill-image">${row.receipt_image ?? '-'}</div>
                         </div>
                         <div class="history-mobile-items">${row.stock_in ?? '-'}</div>
                     </div>

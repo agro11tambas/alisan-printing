@@ -269,6 +269,7 @@
                             <div id="orderNoteBox" class="border rounded p-2 bg-light text-dark"
                                 style="white-space: pre-wrap; font-size: 14px;"></div>
                         </div>
+
                         <div class="mb-2">
                             <label class="form-label">Upload / Paste Screenshot (Multiple)</label>
 
@@ -290,6 +291,14 @@
                         </div> --}}
                     </div>
                     <div class="modal-footer">
+                        {{-- data-id diisi handler .upload-btn waktu modal dibuka, karena
+                             satu modal dipakai bergantian oleh semua design item. --}}
+                        @if (config('features.customer_design'))
+                            <button type="button" class="btn btn-outline-secondary pick-customer-design-btn"
+                                id="uploadPickCustomerDesign">
+                                <i class="feather-folder"></i> Design Customer
+                            </button>
+                        @endif
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">Upload</button>
                     </div>
@@ -423,6 +432,16 @@
                     </div>
                     <h6 class="fw-bold mb-2" id="multiViewerProduct"></h6>
                     <div id="multiViewerContainer" class="d-flex flex-column gap-3"></div>
+                </div>
+                <div class="modal-footer">
+                    {{-- Hapus per gambar ada di tiap kartu; tombol ini untuk
+                         mengosongkan preview item sekaligus. data-id diisi
+                         handler .preview-btn waktu modal dibuka. --}}
+                    <button type="button" class="btn btn-outline-danger delete-preview-btn"
+                        id="previewDeleteAll">
+                        <i class="feather-trash-2"></i> Hapus Semua Preview
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
                 </div>
             </div>
         </div>
@@ -683,6 +702,12 @@
 
                 $('#design_item_id').val(id);
 
+                // Modal ini dipakai bergantian oleh semua design item, jadi tombol
+                // di dalamnya harus diarahkan ulang ke item yang sedang dibuka.
+                const product = $(this).data('product') || '';
+
+                $('#uploadPickCustomerDesign').data('id', id).data('product', product);
+
                 $('#note').val(note || '');
 
                 $('#preview_image').val('');
@@ -812,10 +837,89 @@
                         Swal.fire({
                             icon: 'error',
                             title: 'Failed',
-                            text: err.responseJSON?.message || 'Upload failed.',
+                            text: ajaxErrorMessage(err, 'Upload gagal'),
                         });
                     }
                 });
+            });
+
+            // Hapus preview. Satu endpoint untuk dua kasus: tanpa `index`
+            // berarti buang semua gambar, dengan `index` cuma satu gambar.
+            // Indeks tidak pernah dipakai untuk menyusun path file — server
+            // membaca ulang path dari database — jadi aman dikirim dari klien.
+            function deletePreview($button, itemId, index, question) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Hapus preview?',
+                    text: question,
+                    showCancelButton: true,
+                    confirmButtonText: 'Hapus',
+                    cancelButtonText: 'Batal',
+                    confirmButtonColor: '#d33',
+                }).then(function(result) {
+                    // SweetAlert2 yang dibundel project ini versi lama: hasil
+                    // konfirmasinya `result.value`. `result.isConfirmed` baru ada
+                    // di v9+, dan kalau dipakai di sini nilainya selalu undefined
+                    // sehingga tombol Hapus tidak pernah mengirim request.
+                    const dikonfirmasi = result === true ||
+                        result?.isConfirmed === true ||
+                        result?.value === true;
+
+                    if (!dikonfirmasi) {
+                        return;
+                    }
+
+                    const payload = {
+                        _method: 'DELETE'
+                    };
+
+                    if (index !== null) {
+                        payload.index = index;
+                    }
+
+                    $button.prop('disabled', true);
+
+                    $.ajax({
+                        url: '/erp/design-items/' + itemId + '/preview',
+                        method: 'POST',
+                        data: payload,
+                        success: function(res) {
+                            hideModal('multiImageViewerModal');
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil',
+                                text: res.message,
+                            });
+                            resetAndReload();
+                        },
+                        error: function(err) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal',
+                                text: ajaxErrorMessage(err, 'Gagal menghapus preview'),
+                            });
+                        },
+                        complete: function() {
+                            $button.prop('disabled', false);
+                        }
+                    });
+                });
+            }
+
+            $(document).on('click', '.delete-preview-btn', function() {
+                const $button = $(this);
+                const count = $button.data('count') || 0;
+
+                deletePreview($button, $button.data('id'), null,
+                    'Semua preview (' + count + ' gambar) untuk ' + $button.data('product') +
+                    ' akan dihapus.');
+            });
+
+            $(document).on('click', '.preview-image-delete', function() {
+                const $button = $(this);
+
+                deletePreview($button, $button.data('id'), $button.data('index'),
+                    'Gambar ini akan dihapus dari preview.');
             });
 
             $(document).on('click', '.btn-verify', function() {
@@ -1060,10 +1164,19 @@
                 $(document).on('click', '.pick-customer-design-btn', function(e) {
                     e.stopPropagation();
 
-                    const itemId = $(this).data('id');
+                    // Picker dibuka di atas modal Upload, tidak menggantikannya:
+                    // menutup modal Upload dulu berarti menunggu transisi Bootstrap
+                    // selesai, dan di halaman ini transisi itu tidak selalu tuntas
+                    // sehingga picker-nya bisa tidak muncul sama sekali. Markup
+                    // picker berada setelah modal Upload di DOM, jadi ia otomatis
+                    // tampil di atas. Kalau ditutup lewat Batal, operator kembali ke
+                    // modal Upload yang masih terbuka.
+                    openCustomerDesignPicker($(this).data('id'), $(this).data('product') || '');
+                });
 
+                function openCustomerDesignPicker(itemId, product) {
                     $('#picker_design_item_id').val(itemId);
-                    $('#pickerProductName').text($(this).data('product') || '');
+                    $('#pickerProductName').text(product);
                     $('#pickerSearch').val('');
                     $('#pickerNote').val('');
                     $('#pickerCustomerName').text('Memuat...');
@@ -1080,10 +1193,10 @@
                         Swal.fire({
                             icon: 'error',
                             title: 'Gagal',
-                            text: err.responseJSON?.message || 'Gagal memuat design customer.'
+                            text: ajaxErrorMessage(err, 'Gagal memuat design customer')
                         });
                     });
-                });
+                }
 
                 $('#pickerSearch').on('input', function() {
                     renderCustomerDesignCatalog($(this).val());
@@ -1124,7 +1237,10 @@
                             note: $('#pickerNote').val() || ''
                         },
                         success: function(res) {
-                            $('#customerDesignPickerModal').modal('hide');
+                            // Preview item sudah diganti, jadi modal Upload di
+                            // belakang picker ikut ditutup — isinya sudah basi.
+                            hideModal('customerDesignPickerModal');
+                            hideModal('uploadModal');
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Berhasil',
@@ -1136,7 +1252,7 @@
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Gagal',
-                                text: err.responseJSON?.message || 'Gagal memasang design customer.'
+                                text: ajaxErrorMessage(err, 'Gagal memasang design customer')
                             });
                         },
                         complete: function() {
@@ -1148,6 +1264,7 @@
         });
 
         $(document).on('click', '.preview-btn', function() {
+            const itemId = $(this).data('id');
             const images = $(this).data('images');
             const product = $(this).data('product');
             const orderNote = $(this).data('order_note') || '-';
@@ -1158,16 +1275,33 @@
             $('#multiViewerProduct').text(product);
             $('#multiViewerOrderNote').text(orderNote || '-');
 
+            const count = Array.isArray(images) ? images.length : 0;
+
+            $('#previewDeleteAll')
+                .data('id', itemId)
+                .data('product', product)
+                .data('count', count)
+                .toggleClass('d-none', count === 0);
+
             if (Array.isArray(images) && images.length > 0) {
-                images.forEach(img => {
+                images.forEach((img, index) => {
                     const fileUrl = img.file ? `/${img.file}`.replace(/\/{2,}/g, '/') : '';
-                    const note = img.note || '-';
+                    const note = escapeHtml(img.note || '-');
+                    // Indeks gambar dipakai server untuk menentukan entri mana
+                    // yang dibuang, jadi urutannya harus sama persis dengan
+                    // isi kolom preview_image.
                     const itemHTML = `
                         <div class="image-item border rounded p-2">
-                            <img src="${fileUrl}" class="img-fluid rounded mb-1" 
-                                style="cursor:pointer;" 
+                            <img src="${fileUrl}" class="img-fluid rounded mb-1"
+                                style="cursor:pointer;"
                                 onclick="window.open('${fileUrl}', '_blank')">
-                            <p class="small text-muted mb-0">${note}</p>
+                            <div class="d-flex justify-content-between align-items-center gap-2">
+                                <p class="small text-muted mb-0">${note}</p>
+                                <button type="button" class="btn btn-sm btn-outline-danger preview-image-delete"
+                                    data-id="${itemId}" data-index="${index}">
+                                    <i class="feather-trash-2"></i> Hapus
+                                </button>
+                            </div>
                         </div>
                     `;
                     container.append(itemHTML);
@@ -1178,5 +1312,71 @@
 
             $('#multiImageViewerModal').modal('show');
         });
+
+        function escapeHtml(value) {
+            return $('<div>').text(value ?? '').html();
+        }
+
+        // Tutup modal lewat API native Bootstrap, dengan $(...).modal('hide')
+        // sebagai cadangan. Plugin jQuery-nya kadang tidak bereaksi kalau
+        // transisi modal sebelumnya tidak pernah selesai.
+        function hideModal(target) {
+            const el = typeof target === 'string' ? document.getElementById(target) : target;
+
+            if (!el) {
+                return;
+            }
+
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance(el).hide();
+
+                return;
+            }
+
+            $(el).modal('hide');
+        }
+
+        // Pesan error yang menyebutkan penyebabnya.
+        //
+        // Sebelumnya semua kegagalan tampil sebagai "Upload failed." karena
+        // hanya `responseJSON.message` yang dibaca. Respons yang tidak dibuat
+        // Laravel — 413 dari nginx, atau body kosong waktu upload melebihi
+        // post_max_size PHP — tidak punya JSON sama sekali, jadi penyebab yang
+        // paling sering terjadi justru yang paling tidak terlihat.
+        function ajaxErrorMessage(err, fallback) {
+            const status = err.status;
+            const json = err.responseJSON;
+
+            if (json?.message) {
+                return json.message;
+            }
+
+            // Error validasi Laravel: tampilkan pesan pertamanya.
+            if (json?.errors) {
+                const first = Object.values(json.errors)[0];
+                if (Array.isArray(first) && first.length) {
+                    return first[0];
+                }
+            }
+
+            if (status === 0) {
+                return 'Koneksi ke server terputus. Cek jaringan lalu ulangi.';
+            }
+
+            if (status === 403) {
+                return 'Akses ditolak (403). Akun ini belum punya izin untuk halaman Design.';
+            }
+
+            if (status === 419) {
+                return 'Sesi kedaluwarsa (419). Refresh halaman lalu ulangi.';
+            }
+
+            if (status === 413) {
+                return 'File terlalu besar (413) — ditolak web server sebelum sampai ke aplikasi. ' +
+                    'Kecilkan gambarnya, atau minta admin server menaikkan client_max_body_size.';
+            }
+
+            return (fallback || 'Terjadi kesalahan') + ' (HTTP ' + status + ' ' + (err.statusText || '') + ')';
+        }
     </script>
 @endpush

@@ -22,6 +22,7 @@ class InventoryStockIn extends Model
         'change_date',
         'waybill_number',
         'waybill_image',
+        'receipt_image',
         'status',
         'is_verified',
         'verified_by',

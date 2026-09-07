@@ -375,6 +375,56 @@ class HistoryStockInController extends Controller
     //     }
     // }
 
+    /**
+     * Simpan satu foto upload ke public/uploads/<folder> dan kembalikan path relatifnya.
+     * Dipakai foto surat jalan dan bukti penerimaan barang, supaya keduanya
+     * diperlakukan sama persis.
+     */
+    private function storeUploadedImage($image, string $folder): ?string
+    {
+        if (!$image) {
+            return null;
+        }
+
+        $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+        $uploadPath = base_path('public/uploads/' . $folder);
+
+        if (!file_exists($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
+
+        $image->move($uploadPath, $filename);
+
+        return 'uploads/' . $folder . '/' . $filename;
+    }
+
+    /** Thumbnail foto untuk kolom DataTables, atau '-' kalau tidak ada fotonya. */
+    private function imageThumbnail(?string $path, string $lightboxGroup, string $alt): string
+    {
+        if (!$path) {
+            return '-';
+        }
+
+        $imageUrl = asset($path);
+
+        return '<a href="' . $imageUrl . '" data-lightbox="' . $lightboxGroup . '">
+            <div style="
+                width: 90px;
+                aspect-ratio: 16 / 9;
+                overflow: hidden;
+                border-radius: 6px;
+                background: #f5f5f5;
+            ">
+                <img src="' . $imageUrl . '" alt="' . $alt . '" style="
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                ">
+            </div>
+        </a>';
+    }
+
     public function storeGrouped(Request $request, $supplierId, $year, $month)
     {
         // Bersihkan angka dari format ribuan
@@ -391,34 +441,21 @@ class HistoryStockInController extends Controller
             'change_date'                        => 'required|date',
             'waybill_number'                     => 'nullable|string',
             'waybill_image'                      => UploadLimit::imageRule(),
+            'receipt_image'                      => UploadLimit::imageRule(),
             'items'                              => 'required|array',
             'items.*.product_id'                 => 'required|exists:products,id',
             'items.*.inventory_item_ids'         => 'required|array',
             'items.*.inventory_item_ids.*'       => 'exists:inventory_items_2,id',
             'items.*.stock_in'                   => 'required|integer|min:0',
             'items.*.unit_conversion_value' => 'required|numeric|min:1',
-        ], UploadLimit::imageMessages('waybill_image') + [
-            'items.required' => 'Tidak ada item yang terkirim. Ini biasanya terjadi kalau foto waybill terlalu besar sehingga seluruh form ditolak server — coba foto ulang dengan ukuran lebih kecil.',
+        ], UploadLimit::imageMessages('waybill_image') + UploadLimit::imageMessages('receipt_image') + [
+            'items.required' => 'Tidak ada item yang terkirim. Ini biasanya terjadi kalau foto surat jalan terlalu besar sehingga seluruh form ditolak server — coba foto ulang dengan ukuran lebih kecil.',
         ]);
 
         DB::beginTransaction();
         try {
-            $waybillImagePath = null;
-            if ($request->hasFile('waybill_image')) {
-                $image = $request->file('waybill_image');
-
-                $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-
-                $uploadPath = base_path('public/uploads/waybill_image');
-
-                if (!file_exists($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
-                }
-
-                $image->move($uploadPath, $filename);
-
-                $waybillImagePath = 'uploads/waybill_image/' . $filename;
-            }
+            $waybillImagePath = $this->storeUploadedImage($request->file('waybill_image'), 'waybill_image');
+            $receiptImagePath = $this->storeUploadedImage($request->file('receipt_image'), 'receipt_image');
 
             // Dipakai untuk menghitung ulang status PO induk setelah Stock In.
             $touchedPurchaseItemIds = [];
@@ -466,6 +503,7 @@ class HistoryStockInController extends Controller
                         'notes'          => $request->notes ?? null,
                         'waybill_number' => $request->waybill_number,
                         'waybill_image'  => $waybillImagePath,
+                        'receipt_image'  => $receiptImagePath,
                         'status'         => 'Add Stock In',
                         'user_id'        => $request->user()->id,
                     ]);
@@ -586,12 +624,18 @@ class HistoryStockInController extends Controller
             'items.*.stock_in' => 'required|integer|min:0',
             'waybill_number' => 'nullable|string',
             'waybill_image' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+            'receipt_image' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         ]);
 
-        // kalau ada upload waybill
+        // kalau ada upload surat jalan / bukti penerimaan barang
         $waybillImagePath = null;
         if ($request->hasFile('waybill_image')) {
             $waybillImagePath = $request->file('waybill_image')->store('waybills', 'public');
+        }
+
+        $receiptImagePath = null;
+        if ($request->hasFile('receipt_image')) {
+            $receiptImagePath = $request->file('receipt_image')->store('receipts', 'public');
         }
 
         // update header inventory utama
@@ -610,6 +654,7 @@ class HistoryStockInController extends Controller
             'notes'          => $request->notes,
             'waybill_number' => $request->waybill_number,
             'waybill_image'  => $waybillImagePath,
+            'receipt_image'  => $receiptImagePath,
             'status'         => 'Edit Stock In',
             'user_id'        => $request->user()->id,
         ]);
@@ -863,35 +908,17 @@ class HistoryStockInController extends Controller
                 return $stockIn->waybill_number;
             })
             ->addColumn('waybill_image', function ($stockIn) {
-                if ($stockIn->waybill_image) {
-                    $imageUrl = asset($stockIn->waybill_image);
-
-                    return '<a href="' . $imageUrl . '" data-lightbox="waybill-' . $stockIn->id . '">
-                        <div style="
-                            width: 90px;
-                            aspect-ratio: 16 / 9;
-                            overflow: hidden;
-                            border-radius: 6px;
-                            background: #f5f5f5;
-                        ">
-                            <img src="' . $imageUrl . '" alt="Waybill Image" style="
-                                width: 100%;
-                                height: 100%;
-                                object-fit: cover;
-                                display: block;
-                            ">
-                        </div>
-                    </a>';
-                }
-
-                return '-';
+                return $this->imageThumbnail($stockIn->waybill_image, 'waybill-' . $stockIn->id, 'Foto Surat Jalan');
+            })
+            ->addColumn('receipt_image', function ($stockIn) {
+                return $this->imageThumbnail($stockIn->receipt_image, 'receipt-' . $stockIn->id, 'Bukti Penerimaan Barang');
             })
             ->addColumn('stock_in', function ($stockIn) {
                 return view('erp.pages.inventory.stock-in.partials.product-stock-in-history', [
                     "items" => $stockIn->histories
                 ])->render();
             })
-            ->rawColumns(['invoice_number', 'waybill_image', 'stock_in'])
+            ->rawColumns(['invoice_number', 'waybill_image', 'receipt_image', 'stock_in'])
             ->make(true);
     }
 

@@ -368,6 +368,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::get('/erp/design', [DesignController::class, 'getDesign'])->name('design');
             Route::get('/erp/design/data', [DesignController::class, 'dataDesign']);
             Route::post('/erp/design-items/{id}/upload', [DesignItemController::class, 'upload'])->name('design-items.upload');
+            Route::delete('/erp/design-items/{id}/preview', [DesignItemController::class, 'destroyPreview'])->name('design-items.preview.destroy');
             Route::post('/erp/design/{id}/verify', [DesignController::class, 'verify'])->name('design.verify');
             Route::post('/erp/design/{id}/unverify', [DesignController::class, 'unverify'])->name('design.unverify');
 
@@ -378,6 +379,7 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::get('/erp/design', [DesignController::class, 'getDesign'])->name('design');
             Route::get('/erp/design/data', [DesignController::class, 'dataDesign']);
             Route::post('/erp/design-items/{id}/upload', [DesignItemController::class, 'upload'])->name('design-items.upload');
+            Route::delete('/erp/design-items/{id}/preview', [DesignItemController::class, 'destroyPreview'])->name('design-items.preview.destroy');
             Route::get('/erp/design-items/{id}/customer-designs', [DesignItemController::class, 'customerDesigns'])
                 ->name('design-items.customer-designs');
             Route::post('/erp/design-items/{id}/attach-customer-design', [DesignItemController::class, 'attachCustomerDesign'])
