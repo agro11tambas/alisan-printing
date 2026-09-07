@@ -409,13 +409,34 @@
                 input.val(value.toLocaleString('id-ID'));
             });
 
-            // 🔥 INI YANG PENTING! PAKE submitHandler BUKAN on('submit')!
+            // Orang gudang menekan tombol simpan berkali-kali karena upload foto
+            // surat jalan lama dan layarnya diam saja. Versi lama cuma memasang
+            // penanda `formSubmitting`, tapi begitu penanda itu true setiap tap
+            // berikutnya justru LOLOS ke submit native -- jadi satu stock in bisa
+            // terkirim beberapa kali, tiap balasan server memunculkan satu popup
+            // "Berhasil!", dan stoknya tercatat dobel. Sekarang tap kedua ditolak
+            // mentah dan layarnya dikunci overlay loading.
             let formSubmitting = false;
 
-            $('#stockInForm').on('submit', function(e) {
-                if (formSubmitting) return true;
+            function setelTombolSimpan(nonaktif) {
+                $('[type="submit"][form="stockInForm"], #stockInForm [type="submit"]')
+                    .prop('disabled', nonaktif);
+            }
 
+            // Menekan Back bisa memulihkan halaman ini dari bfcache dalam keadaan
+            // terkunci. Tanpa ini form-nya tampak mati total dan orang gudang
+            // harus memuat ulang halaman sendiri.
+            window.addEventListener('pageshow', function(event) {
+                if (!event.persisted) return;
+                formSubmitting = false;
+                setelTombolSimpan(false);
+                if (typeof Swal !== 'undefined') Swal.close();
+            });
+
+            $('#stockInForm').on('submit', function(e) {
                 e.preventDefault();
+
+                if (formSubmitting) return;
 
                 let isValid = true;
 
@@ -471,7 +492,20 @@
                     }, 500);
                 } else {
                     formSubmitting = true;
-                    $(this).submit();
+                    setelTombolSimpan(true);
+
+                    Swal.fire({
+                        title: 'Menyimpan stock in...',
+                        text: 'Foto surat jalan sedang diupload. Jangan tutup atau muat ulang halaman.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    // submit() native, bukan $(this).submit(): yang versi jQuery
+                    // menjalankan ulang handler ini dan bikin submit berlapis.
+                    this.submit();
                 }
             });
         });

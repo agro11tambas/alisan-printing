@@ -1058,9 +1058,29 @@
             }),
         ); ?>;
 
-        {{-- Diisi oleh dua <script src> di atas. --}}
-        const products = window.__erpCatalog['sale-list-create-products'];
-        const bundles = window.__erpCatalog['sale-list-create-bundles'];
+        {{-- Diisi oleh dua <script src> di atas.
+
+             Dibaca defensif dengan sengaja. Sebelumnya baris ini langsung
+             mengindeks window.__erpCatalog; kalau file katalognya gagal dimuat
+             (offline sesaat, cache server kosong, aset diblokir proxy), yang
+             terjadi bukan "produk kosong" tapi TypeError di baris pertama —
+             dan seluruh skrip halaman ini berhenti di situ, jadi SEMUA
+             tombolnya mati tanpa satu pun pesan ke pengguna. --}}
+        const katalogErp = window.__erpCatalog || {};
+        const products = katalogErp['sale-list-create-products'] || [];
+        const bundles = katalogErp['sale-list-create-bundles'] || [];
+
+        if (!products.length) {
+            document.addEventListener('DOMContentLoaded', function () {
+                const pesan = 'Katalog produk gagal dimuat, jadi form ini belum bisa dipakai. Muat ulang halaman; kalau tetap begini, hubungi admin sistem.';
+
+                if (window.Swal) {
+                    Swal.fire({ icon: 'error', title: 'Katalog produk gagal dimuat', text: pesan });
+                } else {
+                    alert(pesan);
+                }
+            });
+        }
 
         @include('erp.pages.partials.sales-create-address-script')
 

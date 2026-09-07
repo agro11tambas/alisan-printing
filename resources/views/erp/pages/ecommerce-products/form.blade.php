@@ -602,19 +602,26 @@
                             </div>
                         </div>
 
-                        <div class="mb-4 mt-4 border border-start border-4 border-warning rounded p-3 shadow-sm bg-white" id="primaryImagesSection">
-                            <h6 class="fw-bold mb-3 text-warning" style="color: #d97706 !important;"><i class="bx bx-images me-2"></i>Primary Variant Images</h6>
-                            <div class="row g-3" id="primaryImagesList">
-                                @foreach ($groupRows[0]['options'] ?? [] as $optionIndex => $optionRow)
-                                    <div class="col-lg-2 col-md-3 col-sm-4 primary-image-card" data-option-index="{{ $optionIndex }}">
+                        {{-- Setiap variant group punya bagian gambarnya sendiri. Dulu hanya
+                             group pertama yang punya, sehingga gambar opsi tutup tidak bisa
+                             dilihat, diganti, apalagi dihapus dari form ini. --}}
+                        @foreach ($groupRows as $imageGroupIndex => $imageGroupRow)
+                        <div class="mb-4 mt-4 border border-start border-4 border-warning rounded p-3 shadow-sm bg-white variant-images-section"
+                            data-group-index="{{ $imageGroupIndex }}"
+                            @if ($imageGroupIndex === 0) id="primaryImagesSection" @endif>
+                            <h6 class="fw-bold mb-3 text-warning" style="color: #d97706 !important;"><i class="bx bx-images me-2"></i>{{ $imageGroupRow['name'] ?: 'Variant Group ' . ($imageGroupIndex + 1) }} Images</h6>
+                            <div class="row g-3 variant-images-list" data-group-index="{{ $imageGroupIndex }}"
+                                @if ($imageGroupIndex === 0) id="primaryImagesList" @endif>
+                                @foreach ($imageGroupRow['options'] ?? [] as $optionIndex => $optionRow)
+                                    <div class="col-lg-2 col-md-3 col-sm-4 primary-image-card" data-group-index="{{ $imageGroupIndex }}" data-option-index="{{ $optionIndex }}" data-product-id="{{ $optionRow['product_id'] ?? '' }}">
                                         <div class="card shadow-sm border mb-0 image-upload-zone" tabindex="0" style="position: relative; overflow: hidden; outline: none; transition: 0.2s;">
                                             <div class="card-body p-2 text-center preview-cell">
                                                 <h6 class="mb-2 primary-image-title fw-bold" style="font-size: 13px; position: relative; z-index: 2;">{{ $optionRow['alias'] ?: 'Option ' . ($optionIndex + 1) }}</h6>
-                                                
-                                                <input type="file" class="image-preview-input" 
-                                                    name="variant_groups[0][options][{{ $optionIndex }}][image]" accept="image/*"
+
+                                                <input type="file" class="image-preview-input"
+                                                    name="variant_groups[{{ $imageGroupIndex }}][options][{{ $optionIndex }}][image]" accept="image/*"
                                                     style="display: none;">
-                                                
+
                                                 <div class="upload-placeholder mt-2" style="{{ !empty($optionRow['image']) ? 'display:none;' : '' }}">
                                                     <i class="bx bx-cloud-upload text-muted mb-1" style="font-size: 2rem;"></i>
                                                     <p class="mb-0 text-muted" style="font-size: 11px;">Click to Paste<br>Dbl-Click to Browse</p>
@@ -623,6 +630,12 @@
                                                 @if (!empty($optionRow['image']))
                                                     <div class="mt-2 old-file-preview" style="position: relative; z-index: 2;">
                                                         <img src="{{ asset('uploads/' . $optionRow['image']) }}" alt="Option Image" class="file-preview-image w-100 rounded" style="max-height:100px; object-fit:cover;">
+                                                    </div>
+                                                    <div class="form-check mt-2 text-start" style="position: relative; z-index: 2;">
+                                                        <input class="form-check-input remove-option-image" type="checkbox" value="1"
+                                                            name="variant_groups[{{ $imageGroupIndex }}][options][{{ $optionIndex }}][remove_image]"
+                                                            id="removeImage_{{ $imageGroupIndex }}_{{ $optionIndex }}">
+                                                        <label class="form-check-label text-danger" style="font-size: 11px;" for="removeImage_{{ $imageGroupIndex }}_{{ $optionIndex }}">Hapus gambar</label>
                                                     </div>
                                                 @endif
                                                 <div class="mt-2 new-image-preview-wrap" style="display:none; position: relative; z-index: 2;">
@@ -634,6 +647,7 @@
                                 @endforeach
                             </div>
                         </div>
+                        @endforeach
 
                         <div class="mb-4 border border-start border-4 border-success rounded p-3 shadow-sm bg-white" id="variantCombinationsSection" style="display:none;">
                             <h6 class="fw-bold mb-3 text-success"><i class="bx bx-git-merge me-2"></i>Variant Combinations (PRODUCT OPTION + LID OPTION)</h6>
@@ -1072,7 +1086,10 @@
 
                     if (secondaries.length === 0) {
                         const lidGroup = $('.variant-group-item').eq(1);
-                        if (lidGroup.length) lidGroup.remove();
+                        if (lidGroup.length) {
+                            $(`.variant-images-section[data-group-index="${lidGroup.data('group-index')}"]`).remove();
+                            lidGroup.remove();
+                        }
                     } else {
                         let lidGroup = $('.variant-group-item').eq(1);
                         if (!lidGroup.length) {
@@ -1127,6 +1144,14 @@
 
                         });
 
+                        // Baris opsi tutup di-index ulang setiap fetch, jadi kartu gambarnya
+                        // harus ikut. Kalau tidak, unggahan bisa tersimpan ke opsi lain.
+                        syncImageCards(groupIndex, secondaries.map((sec, idx) => ({
+                            productId: sec.id,
+                            optionIndex: idx,
+                            title: [sec.name, sec.sku].filter(Boolean).join(' - ') || ('Option ' + (idx + 1)),
+                        })));
+
                         initSelect2(lidGroup);
                     }
 
@@ -1160,11 +1185,12 @@
                 scheduleSecondaryProductsFetch();
             });
 
-            $(document).on('input', '.variant-group-item[data-group-index="0"] .option-alias-input', function() {
+            $(document).on('input', '.variant-group-item .option-alias-input', function() {
                 const tr = $(this).closest('tr');
+                const groupIndex = tr.closest('.variant-group-item').data('group-index');
                 const optIndex = tr.data('option-index');
                 const val = $(this).val() || ('Option ' + (optIndex + 1));
-                $(`.primary-image-card[data-option-index="${optIndex}"] .primary-image-title`).text(val);
+                $(`.primary-image-card[data-group-index="${groupIndex}"][data-option-index="${optIndex}"] .primary-image-title`).text(val);
             });
 
             $(document).on('input', '.variant-group-item .option-alias-input', function() {
@@ -1248,15 +1274,15 @@
                 `;
             }
 
-            function primaryImageCardTemplate(optionIndex, title) {
+            function primaryImageCardTemplate(groupIndex, optionIndex, title) {
                 return `
-                    <div class="col-lg-2 col-md-3 col-sm-4 primary-image-card" data-option-index="${optionIndex}">
+                    <div class="col-lg-2 col-md-3 col-sm-4 primary-image-card" data-group-index="${groupIndex}" data-option-index="${optionIndex}">
                         <div class="card shadow-sm border mb-0 image-upload-zone" tabindex="0" style="position: relative; overflow: hidden; outline: none; transition: 0.2s;">
                             <div class="card-body p-2 text-center preview-cell">
                                 <h6 class="mb-2 primary-image-title fw-bold" style="font-size: 13px; position: relative; z-index: 2;">${escapeHtml(title)}</h6>
-                                
-                                <input type="file" class="image-preview-input" 
-                                    name="variant_groups[0][options][${optionIndex}][image]" accept="image/*"
+
+                                <input type="file" class="image-preview-input"
+                                    name="variant_groups[${groupIndex}][options][${optionIndex}][image]" accept="image/*"
                                     style="display: none;">
                                 
                                 <div class="upload-placeholder mt-2">
@@ -1271,6 +1297,58 @@
                         </div>
                     </div>
                 `;
+            }
+
+            // Menyusun ulang kartu gambar satu grup agar cocok dengan urutan barisnya.
+            // Kartu lama dicocokkan lewat product id supaya gambar yang sudah ada
+            // tetap menempel pada opsi yang sama meski indeksnya bergeser.
+            function syncImageCards(groupIndex, entries) {
+                let section = $(`.variant-images-section[data-group-index="${groupIndex}"]`);
+
+                if (!section.length) {
+                    $('#primaryImagesSection').after(`
+                        <div class="mb-4 mt-4 border border-start border-4 border-warning rounded p-3 shadow-sm bg-white variant-images-section" data-group-index="${groupIndex}">
+                            <h6 class="fw-bold mb-3 text-warning" style="color: #d97706 !important;"><i class="bx bx-images me-2"></i>Variant Group ${groupIndex + 1} Images</h6>
+                            <div class="row g-3 variant-images-list" data-group-index="${groupIndex}"></div>
+                        </div>
+                    `);
+                    section = $(`.variant-images-section[data-group-index="${groupIndex}"]`);
+                }
+
+                const list = section.find('.variant-images-list');
+                const existing = {};
+
+                list.find('.primary-image-card').each(function() {
+                    const productId = String($(this).data('product-id') || '');
+                    if (productId) {
+                        existing[productId] = $(this).detach();
+                    } else {
+                        $(this).remove();
+                    }
+                });
+
+                entries.forEach(function(entry) {
+                    const key = String(entry.productId);
+                    const card = existing[key]
+                        ? existing[key]
+                        : $(primaryImageCardTemplate(groupIndex, entry.optionIndex, entry.title));
+
+                    delete existing[key];
+
+                    card.attr('data-option-index', entry.optionIndex)
+                        .attr('data-product-id', key);
+                    card.find('.primary-image-title').text(entry.title);
+                    card.find('input[name]').each(function() {
+                        $(this).attr(
+                            'name',
+                            $(this).attr('name').replace(/\[options\]\[\d+\]/, '[options][' + entry.optionIndex + ']')
+                        );
+                    });
+
+                    list.append(card);
+                });
+
+                Object.values(existing).forEach((card) => card.remove());
             }
 
             function groupTemplate(groupIndex) {
@@ -1371,6 +1449,12 @@
 
             $(document).on('click', '.image-upload-zone', function(e) {
                 $(this).focus();
+            });
+
+            // Kotak "Hapus gambar" berada di dalam zona upload; tanpa ini klik/dbl-klik
+            // pada kotak ikut membuka dialog pilih file.
+            $(document).on('click dblclick', '.remove-option-image, .remove-option-image + label', function(e) {
+                e.stopPropagation();
             });
 
             $(document).on('dblclick', '.image-upload-zone', function(e) {
@@ -1505,9 +1589,8 @@
 
                 initSelect2(group.find('.variant-option-list tr:last'));
 
-                if (groupIndex === 0) {
-                    $('#primaryImagesList').append(primaryImageCardTemplate(optionIndex, 'Option ' + (optionIndex + 1)));
-                }
+                $(`.variant-images-list[data-group-index="${groupIndex}"]`)
+                    .append(primaryImageCardTemplate(groupIndex, optionIndex, 'Option ' + (optionIndex + 1)));
             });
 
             $(document).on('click', '.remove-variant-group', function(e) {
@@ -1533,8 +1616,9 @@
                 confirmRemoval('Apakah Anda yakin ingin menghapus opsi ini?', function() {
                     tr.remove();
 
+                    $(`.primary-image-card[data-group-index="${groupIndex}"][data-option-index="${optionIndex}"]`).remove();
+
                     if (groupIndex === 0) {
-                        $(`.primary-image-card[data-option-index="${optionIndex}"]`).remove();
                         scheduleSecondaryProductsFetch();
                     } else {
                         renderCombinations();

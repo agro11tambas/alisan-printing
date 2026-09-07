@@ -91,6 +91,7 @@ class EcommerceProductUpdateRequest extends FormRequest
             'variant_groups.*.options.*.allow_without_lid' => ['nullable', 'boolean'],
             'variant_groups.*.options.*.image' => ['nullable', 'image', 'max:4096'],
             'variant_groups.*.options.*.is_active' => ['nullable', 'boolean'],
+            'variant_groups.*.options.*.remove_image' => ['nullable', 'boolean'],
 
             'variant_combinations' => ['nullable', 'array'],
             'variant_combinations.*.id' => ['nullable', 'integer', 'exists:ecommerce_variant_combinations,id'],

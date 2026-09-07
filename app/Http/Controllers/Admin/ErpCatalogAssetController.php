@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\ErpCatalogPayload;
+use App\Services\ErpCatalogBlobs;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Sajikan katalog produk sebagai file JavaScript tersendiri.
@@ -30,35 +31,53 @@ class ErpCatalogAssetController extends Controller
      * Slug URL -> kunci blob. Sengaja daftar putih: tanpa ini, alamat ini bisa
      * dipakai membaca isi cache mana pun dengan menebak nama kunci.
      */
-    private const PETA = [
-        'sale-list-create-products' => 'sale-list:create:products',
-        'sale-list-create-bundles'  => 'sale-list:create:bundles',
-    ];
+    private const PETA = ErpCatalogBlobs::PETA_SLUG;
 
-    public function show(Request $request, string $slug)
+    public function show(Request $request, string $slug, ErpCatalogBlobs $blobs)
     {
         $kunci = self::PETA[$slug] ?? null;
 
         abort_if($kunci === null, 404);
 
-        $json = app(ErpCatalogPayload::class)->readJson($kunci);
+        // Idealnya blob sudah ada di cache: halaman yang memuat file ini baru
+        // saja membangunnya. Kalau ternyata tidak ada (cache dibersihkan, TTL
+        // habis, deploy baru, atau cache store beda proses), file ini WAJIB
+        // tetap membangunnya sendiri.
+        //
+        // Versi sebelumnya menjawab kondisi itu dengan skrip "reload sekali".
+        // Skrip itu tidak mendefinisikan window.__erpCatalog, jadi begitu
+        // reload-nya tidak menolong, baris pertama skrip halaman input order
+        // (`window.__erpCatalog['...']`) melempar TypeError dan seluruh blok
+        // <script> halaman itu berhenti — semua tombolnya mati tanpa pesan.
+        // Membangun ulang di sini memang membuat satu request jadi lambat;
+        // itu jauh lebih murah daripada halaman yang tidak bisa dipakai.
+        try {
+            $json = $blobs->json($kunci);
+        } catch (\Throwable $e) {
+            Log::error('Gagal membangun blob katalog ERP', [
+                'kunci' => $kunci,
+                'message' => $e->getMessage(),
+            ]);
 
-        // Blob belum ada di cache. Ini semestinya tidak terjadi: halaman yang
-        // memuat file ini baru saja membangunnya. Kalau tetap terjadi (cache
-        // dibersihkan tepat di antara keduanya), muat ulang halaman sekali
-        // supaya blobnya dibangun lagi — sekali, tidak berulang.
-        if ($json === null) {
-            return $this->js(
-                "if (!sessionStorage.getItem('erpCatalogReload')) {"
-                ."sessionStorage.setItem('erpCatalogReload','1');location.reload();}",
-                cacheable: false
-            );
+            $json = null;
         }
 
         $nama = json_encode($slug);
 
+        // Bahkan saat gagal, window.__erpCatalog harus tetap ada dan berisi
+        // array kosong untuk slug ini, supaya halaman pemakainya tidak mati
+        // total dan bisa menampilkan pesan yang benar.
+        if ($json === null) {
+            return $this->js(
+                'window.__erpCatalog = window.__erpCatalog || {};'
+                ."window.__erpCatalog[{$nama}] = [];"
+                ."window.__erpCatalogGagal = true;",
+                cacheable: false
+            );
+        }
+
         return $this->js(
-            "window.__erpCatalog = window.__erpCatalog || {};"
+            'window.__erpCatalog = window.__erpCatalog || {};'
             ."window.__erpCatalog[{$nama}] = {$json};",
             cacheable: true
         );

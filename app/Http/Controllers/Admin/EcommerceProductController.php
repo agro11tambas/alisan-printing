@@ -424,7 +424,8 @@ class EcommerceProductController extends Controller
                     'price' => $price,
                     'image' => $this->storeFile(
                         $request->file("variant_groups.$groupIndex.options.$optionIndex.image"),
-                        $oldImage
+                        $oldImage,
+                        (bool) ($optionData['remove_image'] ?? false)
                     ),
                     'is_active' => $optionData['is_active'] ?? false,
                     'allow_without_lid' => $optionData['allow_without_lid'] ?? false,
@@ -552,14 +553,18 @@ class EcommerceProductController extends Controller
             ->delete();
     }
 
-    private function storeFile($file, ?string $oldPath = null): ?string
+    private function storeFile($file, ?string $oldPath = null, bool $remove = false): ?string
     {
-        if (!$file) {
+        if (!$file && !$remove) {
             return $oldPath;
         }
 
         if ($oldPath && file_exists(public_path('uploads/' . $oldPath))) {
             unlink(public_path('uploads/' . $oldPath));
+        }
+
+        if (!$file) {
+            return null;
         }
 
         $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();

@@ -626,24 +626,11 @@
                 $('#modalUploadProof').modal('show');
             });
 
-            $('#formUploadProof').on('submit', function(e) {
-                let valid = true;
-                $('#error-proof_waybill, #error-proof_delivery').text('');
-
-                const waybill = $('input[name="proof_waybill"]').val();
-                const delivery = $('input[name="proof_delivery"]').val();
-
-                if (!waybill) {
-                    valid = false;
-                    $('#error-proof_waybill').text('Bukti surat jalan wajib diupload.');
-                }
-                if (!delivery) {
-                    valid = false;
-                    $('#error-proof_delivery').text('Bukti pengantaran wajib diupload.');
-                }
-
-                if (!valid) e.preventDefault();
-            });
+            {{-- Handler submit lama dihapus: modal ini sudah tidak punya input
+                 proof_waybill/proof_delivery (sekarang satu input #proof_camera),
+                 jadi validasinya selalu gagal dan cuma menulis pesan error nyasar
+                 di bawah field yang tidak ada. Validasi yang dipakai ada di
+                 handler fetch di bawah. --}}
 
             $(document).on('click', '.btn-verify', function() {
                 let name = $(this).data('name');
@@ -746,13 +733,49 @@
             e.target.value = '';
         });
 
+        // Kurir sering menekan Upload berkali-kali karena prosesnya lama dan
+        // layarnya diam saja. Tanpa kunci ini setiap tap mengirim satu request
+        // penuh, dan tiap request yang berhasil memunculkan satu popup
+        // "Berhasil!" -- itu yang terlihat sebagai popup beruntun. Kuncinya di
+        // sini, bukan cuma di atribut disabled tombol, supaya submit lewat
+        // keyboard atau tap ganda yang lolos tetap tertahan.
+        let sedangUploadBukti = false;
+
+        // Overlay ini merangkap dua fungsi: memberi tahu kurir bahwa prosesnya
+        // jalan, dan memblokir seluruh layar supaya tombol Upload tidak bisa
+        // ditekan lagi selama request berjalan.
+        function tampilkanLoadingUpload(teks) {
+            Swal.fire({
+                title: 'Mengunggah bukti...',
+                text: teks,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => Swal.showLoading()
+            });
+        }
+
+        // Swal.update() akan mematikan spinner-nya, jadi teksnya diganti
+        // langsung di DOM. Kalau elemennya tidak ketemu, upload tetap jalan --
+        // yang hilang cuma keterangan progresnya.
+        function perbaruiTeksLoading(teks) {
+            const el = typeof Swal.getHtmlContainer === 'function' ?
+                Swal.getHtmlContainer() :
+                document.querySelector('.swal2-html-container');
+            if (el) el.textContent = teks;
+        }
+
         document.getElementById('formUploadProof').addEventListener('submit', async function(e) {
             e.preventDefault();
 
+            if (sedangUploadBukti) return;
+
             if (photoFiles.length === 0) {
-                alert('Silakan ambil minimal 1 foto bukti.');
+                Swal.fire('Belum ada foto', 'Silakan ambil minimal 1 foto bukti.', 'warning');
                 return;
             }
+
+            sedangUploadBukti = true;
 
             const tombol = this.querySelector('button[type="submit"]');
             const labelAsli = tombol ? tombol.innerHTML : null;
@@ -761,13 +784,33 @@
                 tombol.innerHTML = 'Mengunggah...';
             }
 
+            // Dibuka duluan supaya layar langsung berubah begitu tombol ditekan.
+            // Kompresi foto di HP kelas bawah bisa makan beberapa detik per foto,
+            // dan justru jeda diam itu yang bikin kurir menekan tombol lagi.
+            tampilkanLoadingUpload(
+                photoFiles.length > 1 ?
+                `Menyiapkan foto 1 dari ${photoFiles.length}...` :
+                'Menyiapkan foto...'
+            );
+
+            let sukses = false;
+
             try {
                 const formData = new FormData(this);
 
+                let nomor = 0;
                 for (const file of photoFiles) {
+                    nomor++;
+                    perbaruiTeksLoading(
+                        photoFiles.length > 1 ?
+                        `Menyiapkan foto ${nomor} dari ${photoFiles.length}...` :
+                        'Menyiapkan foto...'
+                    );
                     const compressed = await compressImage(file, 0.6);
                     formData.append('proof_photos[]', compressed, compressed.name || file.name);
                 }
+
+                perbaruiTeksLoading('Mengirim ke server, jangan tutup halaman...');
 
                 const url = this.getAttribute('action');
                 const response = await fetch(url, {
@@ -781,8 +824,19 @@
                 });
 
                 if (response.ok) {
-                    Swal.fire('Berhasil!', 'Foto bukti berhasil diupload.', 'success')
-                        .then(() => location.reload());
+                    sukses = true;
+
+                    // Kunci sengaja TIDAK dilepas di sini. Halaman baru dimuat
+                    // ulang setelah kurir menekan OK, dan sepanjang jeda itu
+                    // tombol Upload harus tetap mati -- kalau tidak, tap
+                    // berikutnya mengirim foto yang sama sekali lagi.
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil!',
+                        text: 'Foto bukti berhasil diupload.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false
+                    }).then(() => location.reload());
                     return;
                 }
 
@@ -816,9 +870,14 @@
                 Swal.fire('Gagal!', err.message || 'Upload terputus. Periksa koneksi lalu coba lagi.',
                     'error');
             } finally {
-                if (tombol) {
-                    tombol.disabled = false;
-                    tombol.innerHTML = labelAsli;
+                // Hanya dibuka lagi kalau uploadnya gagal, supaya kurir bisa
+                // mengulang. Kalau berhasil, halaman sebentar lagi reload.
+                if (!sukses) {
+                    sedangUploadBukti = false;
+                    if (tombol) {
+                        tombol.disabled = false;
+                        tombol.innerHTML = labelAsli;
+                    }
                 }
             }
         });

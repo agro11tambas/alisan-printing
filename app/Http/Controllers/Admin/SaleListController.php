@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 
+use App\Services\ErpCatalogBlobs;
 use App\Services\ErpCatalogPayload;
 use App\Exports\SaleListExport;
 use App\Http\Controllers\Controller;
@@ -1147,125 +1148,20 @@ class SaleListController extends Controller
 
     public function create()
     {
-        // Blob katalog yang ditanam ke HTML halaman ini disimpan sebagai JSON
-        // jadi. Tanpa itu tiap page load mengulang seluruh rantai: query
-        // katalog, hidrasi ribuan model Eloquent, pemetaan array, lalu
-        // json_encode — dan itu biaya terbesar halaman ini, jauh melebihi
-        // query-nya sendiri.
-        $catalogPayload = app(ErpCatalogPayload::class);
+        // Blob katalog yang ditanam ke halaman ini disimpan sebagai JSON jadi.
+        // Tanpa itu tiap page load mengulang seluruh rantai: query katalog,
+        // hidrasi ribuan model Eloquent, pemetaan array, lalu json_encode --
+        // dan itu biaya terbesar halaman ini, jauh melebihi query-nya sendiri.
+        //
+        // Penyusunnya tinggal di ErpCatalogBlobs, bukan di sini, supaya
+        // endpoint /erp/catalog-asset/*.js bisa membangun blob yang sama saat
+        // cache-nya kosong. Sewaktu penyusun ini hanya ada di controller,
+        // endpoint itu tidak punya pilihan selain menyuruh browser reload --
+        // dan saat reload tidak menolong, halaman ini mati total.
+        $catalogBlobs = app(ErpCatalogBlobs::class);
 
-        $productsJson = $catalogPayload->json('sale-list:create:products', function () {
-            $products = Products::query()
-                ->select([
-                    'id',
-                    'name',
-                    'sku',
-                    'price',
-                    'sale_price',
-                    'base_unit_id',
-                    'sale_unit_id',
-                ])
-                ->with([
-                    'discounts',
-                    ...Discount::payloadRelations('discounts.'),
-                    'categories.discounts',
-                    ...Discount::payloadRelations('categories.discounts.'),
-                    'categories:id',
-                    'unitConversions:id,product_id,unit_id,conversion_value,sale_price',
-                    'unitConversions.unit:id,name',
-                    'unitConversions.prices:id,product_unit_conversion_id,price_mode_id,fixed_cost,margin,sale_price',
-                    'unitConversions.prices.priceMode:id,name,slug',
-                ])
-                ->orderBy('name', 'asc')
-                ->get();
-                return $products->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'sku' => $product->sku,
-                    'price' => $product->price,
-                    'sale_price' => $product->sale_price,
-                    'base_unit_id' => $product->base_unit_id,
-                    'sale_unit_id' => $product->sale_unit_id,
-                    'discounts' => $product->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
-                    'categories' => $product->categories->map(function ($category) {
-                        return [
-                            'id' => $category->id,
-                            'discounts' => $category->discounts->map(fn ($discount) => $discount->toDiscountPayload())->values()->toArray(),
-                        ];
-                    })->toArray(),
-                    'units' => $product->unitConversions->map(function ($conversion) {
-                        return [
-                            'id' => $conversion->id,
-                            'unit_id' => $conversion->unit_id,
-                            'unit_name' => optional($conversion->unit)->name,
-                            'conversion_value' => $conversion->conversion_value,
-                            'sale_price' => $conversion->sale_price,
-                            'prices' => $conversion->prices->map(fn ($price) => [
-                                'price_mode_id' => $price->price_mode_id,
-                                'mode' => $price->priceMode?->slug,
-                                'mode_name' => $price->priceMode?->name,
-                                'fixed_cost' => $price->fixed_cost,
-                                'margin' => $price->margin,
-                                'sale_price' => $price->sale_price,
-                            ])->values()->toArray(),
-                        ];
-                    })->values()->toArray(),
-                ];
-            })->toArray();
-        });
-
-        // The form only needs bundle membership, not the full pricing/discount graph.
-        $productBundlesJson = $catalogPayload->json('sale-list:create:bundles', function () {
-            $productBundles = ProductBundle::query()
-                ->select(['id', 'base_unit_id', 'price'])
-                ->with([
-                    'primaryItem:id,bundle_id,product_id,role',
-                    'secondaryItems:id,bundle_id,product_id,role',
-                    'secondaryItems.product:id,name,sku',
-                    'unitConversions:id,product_bundle_id,unit_id,conversion_value,sale_price',
-                    'unitConversions.unit:id,name',
-                    'unitConversions.prices.priceMode',
-                ])
-                ->get();
-                return $productBundles->map(function ($bundle) {
-                return [
-                    'id' => $bundle->id,
-                    'base_unit_id' => $bundle->base_unit_id,
-                    'price' => $bundle->price,
-                    'units' => $bundle->unitConversions->map(function ($conversion) {
-                        return [
-                            'id' => $conversion->id,
-                            'unit_id' => $conversion->unit_id,
-                            'unit_name' => optional($conversion->unit)->name,
-                            'conversion_value' => $conversion->conversion_value,
-                            'sale_price' => $conversion->sale_price,
-                            'prices' => $conversion->prices->map(fn ($price) => [
-                                'price_mode_id' => $price->price_mode_id,
-                                'mode' => $price->priceMode?->slug,
-                                'mode_name' => $price->priceMode?->name,
-                                'fixed_cost' => $price->fixed_cost,
-                                'margin' => $price->margin,
-                                'sale_price' => $price->sale_price,
-                            ])->values()->toArray(),
-                        ];
-                    })->values()->toArray(),
-                    'primary_item' => $bundle->primaryItem ? [
-                        'product_id' => $bundle->primaryItem->product_id,
-                    ] : null,
-                    'secondary_items' => $bundle->secondaryItems->map(function ($item) {
-                        return [
-                            'product_id' => $item->product_id,
-                            'product' => $item->product ? [
-                                'id' => $item->product->id,
-                                'name' => $item->product->name,
-                                'sku' => $item->product->sku,
-                            ] : null,
-                        ];
-                    })->values()->toArray(),
-                ];
-            })->toArray();
-        });
+        $productsJson = $catalogBlobs->json('sale-list:create:products');
+        $productBundlesJson = $catalogBlobs->json('sale-list:create:bundles');
         // $customers = Customers::with('addresses')->get();
         $user = Auth::user();
 

@@ -79,6 +79,7 @@ class EcommerceProductStoreRequest extends FormRequest
             'variant_groups.*.options.*.allow_without_lid' => ['nullable', 'boolean'],
             'variant_groups.*.options.*.image' => ['nullable', 'image', 'max:4096'],
             'variant_groups.*.options.*.is_active' => ['nullable', 'boolean'],
+            'variant_groups.*.options.*.remove_image' => ['nullable', 'boolean'],
 
             'variant_combinations' => ['nullable', 'array'],
             'variant_combinations.*.product_option_product_id' => ['nullable', 'integer'],
