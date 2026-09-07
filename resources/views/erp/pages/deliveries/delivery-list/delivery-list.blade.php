@@ -264,7 +264,8 @@
     </div>
 @endsection
 
-@push('styles')
+{{-- Modal, bukan CSS: stack 'styles' dirender di dalam <head>, dan <form> di dalam <head> itu HTML invalid -- di sebagian browser HP #formUploadProof belum ada saat script jalan, jadi tombol Upload kurir tidak bereaksi. --}}
+@push('modals')
     <div class="modal fade" id="modalUploadProof" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <form method="POST" enctype="multipart/form-data" id="formUploadProof">
@@ -663,30 +664,62 @@
             });
         });
 
+        // Kompresi foto kamera HP. Setiap langkah di sini bisa gagal di HP
+        // kelas bawah (memori canvas habis pada foto 12 MP, format HEIC tidak
+        // didukung, toBlob mengembalikan null). Versi sebelumnya tidak menangani
+        // satu pun kasus itu: promise-nya tidak pernah selesai, submit menggantung
+        // selamanya, dan kurir melihat tombol Upload yang seolah tidak berfungsi.
+        // Sekarang setiap kegagalan jatuh balik ke file aslinya -- foto lebih
+        // besar, tapi tetap terkirim.
         function compressImage(file, quality = 0.7) {
             return new Promise((resolve) => {
+                let selesai = false;
+                const beres = (hasil) => {
+                    if (selesai) return;
+                    selesai = true;
+                    resolve(hasil || file);
+                };
+
+                // Jaring pengaman terakhir: apa pun yang terjadi, jangan sampai
+                // submit menggantung tanpa batas.
+                setTimeout(() => beres(file), 15000);
+
                 const reader = new FileReader();
-                reader.readAsDataURL(file);
+                reader.onerror = () => beres(file);
                 reader.onload = event => {
                     const img = new Image();
-                    img.src = event.target.result;
+                    img.onerror = () => beres(file);
                     img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        const MAX_WIDTH = 1280;
-                        const scaleSize = MAX_WIDTH / img.width;
-                        canvas.width = MAX_WIDTH;
-                        canvas.height = img.height * scaleSize;
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        canvas.toBlob(
-                            (blob) => resolve(new File([blob], file.name, {
-                                type: 'image/jpeg'
-                            })),
-                            'image/jpeg',
-                            quality
-                        );
+                        try {
+                            const MAX_WIDTH = 1280;
+                            // Jangan perbesar foto yang sudah lebih kecil dari
+                            // MAX_WIDTH -- itu cuma menambah ukuran file.
+                            const scale = img.width > MAX_WIDTH ? MAX_WIDTH / img.width : 1;
+                            const canvas = document.createElement('canvas');
+                            canvas.width = Math.max(1, Math.round(img.width * scale));
+                            canvas.height = Math.max(1, Math.round(img.height * scale));
+
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return beres(file);
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                            canvas.toBlob(
+                                (blob) => {
+                                    if (!blob || !blob.size) return beres(file);
+                                    beres(new File([blob], 'proof.jpg', {
+                                        type: 'image/jpeg'
+                                    }));
+                                },
+                                'image/jpeg',
+                                quality
+                            );
+                        } catch (err) {
+                            beres(file);
+                        }
                     };
+                    img.src = event.target.result;
                 };
+                reader.readAsDataURL(file);
             });
         }
 
@@ -721,24 +754,72 @@
                 return;
             }
 
-            const formData = new FormData(this);
-
-            for (const file of photoFiles) {
-                const compressed = await compressImage(file, 0.6);
-                formData.append('proof_photos[]', compressed, file.name);
+            const tombol = this.querySelector('button[type="submit"]');
+            const labelAsli = tombol ? tombol.innerHTML : null;
+            if (tombol) {
+                tombol.disabled = true;
+                tombol.innerHTML = 'Mengunggah...';
             }
 
-            const url = this.getAttribute('action');
-            const response = await fetch(url, {
-                method: 'POST',
-                body: formData
-            });
+            try {
+                const formData = new FormData(this);
 
-            if (response.ok) {
-                Swal.fire('Berhasil!', 'Foto bukti berhasil diupload.', 'success').then(() => location
-                    .reload());
-            } else {
-                Swal.fire('Gagal!', 'Terjadi kesalahan saat upload.', 'error');
+                for (const file of photoFiles) {
+                    const compressed = await compressImage(file, 0.6);
+                    formData.append('proof_photos[]', compressed, compressed.name || file.name);
+                }
+
+                const url = this.getAttribute('action');
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    Swal.fire('Berhasil!', 'Foto bukti berhasil diupload.', 'success')
+                        .then(() => location.reload());
+                    return;
+                }
+
+                // Pesan generik bikin kegagalan upload tidak bisa ditelusuri sama
+                // sekali dari sisi kurir. Sesi habis, foto ditolak validasi, dan
+                // folder tujuan tidak bisa ditulis semuanya tampak sama persis.
+                let pesan = 'Terjadi kesalahan saat upload.';
+
+                if (response.status === 419) {
+                    pesan = 'Sesi login sudah kedaluwarsa. Muat ulang halaman lalu ulangi upload.';
+                } else if (response.status === 403) {
+                    pesan = 'Akun ini tidak punya akses upload bukti pengantaran.';
+                } else if (response.status === 413) {
+                    pesan = 'Ukuran foto terlalu besar untuk server. Ambil ulang foto atau kurangi jumlahnya.';
+                } else {
+                    try {
+                        const hasil = await response.json();
+                        if (hasil.errors) {
+                            pesan = Object.values(hasil.errors).flat().join('\n');
+                        } else if (hasil.message) {
+                            pesan = hasil.message;
+                        }
+                    } catch (err) {
+                        pesan = `Server menolak upload (kode ${response.status}).`;
+                    }
+                }
+
+                Swal.fire('Gagal!', pesan, 'error');
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Gagal!', err.message || 'Upload terputus. Periksa koneksi lalu coba lagi.',
+                    'error');
+            } finally {
+                if (tombol) {
+                    tombol.disabled = false;
+                    tombol.innerHTML = labelAsli;
+                }
             }
         });
 

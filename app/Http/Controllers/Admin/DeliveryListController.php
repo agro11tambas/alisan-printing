@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 
 class DeliveryListController extends Controller
@@ -582,30 +583,84 @@ class DeliveryListController extends Controller
     {
         $deliveryList = DeliveryList::findOrFail($id);
 
+        // webp ikut diterima: sebagian browser HP mengubah hasil kompresi canvas
+        // jadi webp, dan sebelumnya foto seperti itu ditolak validasi tanpa
+        // penjelasan yang sampai ke kurir.
         $request->validate([
             'proof_photos'   => 'required|array',
-            'proof_photos.*' => 'image|mimes:jpg,jpeg,png|max:10240', // max 10MB per foto
+            'proof_photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:10240', // max 10MB per foto
         ]);
+
+        $uploadPath = public_path('uploads/proof-photos');
+
+        // Folder ini tidak ikut di repo, jadi pada rilis baru ia belum ada.
+        // Sebelumnya hasil mkdir tidak diperiksa dan move() melempar exception
+        // mentah: kurir cuma dapat "Terjadi kesalahan saat upload" tanpa petunjuk
+        // bahwa masalahnya izin tulis di server.
+        if (! is_dir($uploadPath) && ! @mkdir($uploadPath, 0755, true) && ! is_dir($uploadPath)) {
+            Log::error('Folder bukti pengantaran tidak bisa dibuat', ['path' => $uploadPath]);
+
+            return $this->responsUploadProofGagal(
+                $request,
+                'Folder penyimpanan foto bukti tidak bisa dibuat di server. Hubungi admin sistem.'
+            );
+        }
+
+        if (! is_writable($uploadPath)) {
+            Log::error('Folder bukti pengantaran tidak bisa ditulis', ['path' => $uploadPath]);
+
+            return $this->responsUploadProofGagal(
+                $request,
+                'Folder penyimpanan foto bukti tidak bisa ditulis di server. Hubungi admin sistem.'
+            );
+        }
 
         $savedPhotos = [];
 
-        // ✅ simpan di folder uploads/proof-photos di luar /public
-        $uploadPath = public_path('uploads/proof-photos');
-        if (!file_exists($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
-        }
+        try {
+            foreach ($request->file('proof_photos', []) as $photo) {
+                $fileName = 'proof_'.time().'_'.uniqid().'.'.$photo->extension();
+                $photo->move($uploadPath, $fileName);
+                $savedPhotos[] = 'uploads/proof-photos/'.$fileName;
+            }
+        } catch (\Throwable $e) {
+            Log::error('Gagal menyimpan foto bukti pengantaran', [
+                'delivery_list_id' => $deliveryList->id,
+                'message' => $e->getMessage(),
+            ]);
 
-        foreach ($request->file('proof_photos', []) as $photo) {
-            $fileName = 'proof_' . time() . '_' . uniqid() . '.' . $photo->extension();
-            $photo->move($uploadPath, $fileName);
-            $savedPhotos[] = 'uploads/proof-photos/' . $fileName;
+            return $this->responsUploadProofGagal(
+                $request,
+                'Foto gagal disimpan di server: '.$e->getMessage()
+            );
         }
 
         // Simpan sebagai JSON array (biar bisa multi foto)
         $deliveryList->proof_photos = json_encode($savedPhotos);
         $deliveryList->save();
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Bukti berhasil diupload!',
+            ]);
+        }
+
         return back()->with('success', 'Bukti berhasil diupload!');
+    }
+
+    /**
+     * Kurir mengirim form ini lewat fetch(), jadi redirect balik tidak pernah
+     * terlihat olehnya. Kalau permintaannya JSON, alasan gagalnya harus ikut
+     * di body supaya muncul di layar HP.
+     */
+    private function responsUploadProofGagal(Request $request, string $pesan)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['success' => false, 'message' => $pesan], 500);
+        }
+
+        return back()->with('error', $pesan);
     }
 
 

@@ -324,9 +324,15 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
                 ->name('sales.sale-list.forceDeleteOwner')
                 ->middleware('web.auth');
 
-            Route::post('/erp/invoice/convert-to-image', [SaleListController::class, 'convertToImage'])->name('invoice.convert');
-            Route::get('/invoices/{filename}', [SaleListController::class, 'showInvoice'])->name('invoice.show');
         });
+
+        // Dipakai tombol "Share ke WA" di halaman Sale Order MAUPUN Sale List.
+        // Sebelumnya dua route ini terkunci di dalam grup subpermission:sale-list,
+        // jadi admin yang hanya punya akses sale-orders selalu kena 403 saat
+        // menekan tombolnya. Cakupannya dinaikkan ke permission:sales supaya
+        // cocok dengan tempat tombolnya benar-benar muncul.
+        Route::post('/erp/invoice/convert-to-image', [SaleListController::class, 'convertToImage'])->name('invoice.convert');
+        Route::get('/invoices/{filename}', [SaleListController::class, 'showInvoice'])->name('invoice.show');
 
         Route::middleware(['web.auth', 'subpermission:sale-returns'])->group(function () {
             Route::get('/erp/sales/sale-returns/data', [SaleReturnController::class, 'dataSaleReturns']);

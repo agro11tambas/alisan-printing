@@ -1157,11 +1157,25 @@
             let phone = String(rawPhone).replace(/[^0-9]/g, '');
             if (phone.startsWith('0')) phone = '62' + phone.substring(1);
 
+            // Pembuatan gambar invoice bergantung pada html2canvas DAN pada server
+            // gambar eksternal (services.image_upload). Sebelumnya, begitu salah
+            // satunya gagal seluruh aksi dibatalkan dan WhatsApp tidak pernah
+            // terbuka -- padahal yang benar-benar dibutuhkan admin cuma tautan
+            // invoice. Sekarang kegagalan gambar hanya menurunkan kualitas hasil:
+            // pesan tetap terkirim, isinya tautan halaman invoice.
+            let tautanInvoice = invoiceUrl;
+            let gambarBerhasil = false;
+            let temp = null;
+
             try {
-                // ???? ambil HTML invoice
+                if (typeof html2canvas !== 'function') {
+                    throw new Error('html2canvas belum termuat di halaman ini.');
+                }
+
+                // 🔹 ambil HTML invoice
                 const html = await fetch(invoiceUrl).then(r => r.text());
 
-                const temp = document.createElement('div');
+                temp = document.createElement('div');
                 temp.style.position = 'fixed';
                 temp.style.left = '-99999px';
                 temp.innerHTML = html;
@@ -1170,17 +1184,15 @@
                 const invoiceContent = temp.querySelector('#invoiceContent');
                 if (!invoiceContent) throw new Error('invoiceContent tidak ditemukan');
 
-                // ???? convert ke image
+                // 🔹 convert ke image
                 const canvas = await html2canvas(invoiceContent, {
                     scale: 2,
                     backgroundColor: '#ffffff'
                 });
 
-                document.body.removeChild(temp);
-
                 const imageData = canvas.toDataURL('image/jpeg', 0.95);
 
-                // ???? upload ke server
+                // 🔹 upload ke server
                 const response = await fetch('{{ route('invoice.convert') }}', {
                     method: 'POST',
                     headers: {
@@ -1195,33 +1207,50 @@
                 });
 
                 const result = await response.json();
-                if (!result.success) return;
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Gagal mengunggah gambar invoice.');
+                }
 
-                const message = [
-                    `Kepada *${business}*`,
-                    `Berikut Invoice *${invoiceNo}*`,
-                    result.url.replace('https://', ''),
-                    ``,
-                    `*1) Diwajibkan Melunasi Tagihan*`,
-                    `Terlebih dahulu sebelum proses produksi dimulai.`,
-                    ``,
-                    `*2) Setelah pembayaran diterima*`,
-                    `Produksi akan berjalan sesuai estimasi yang disepakati.`,
-                    ``,
-                    `*REKENING BCA*`,
-                    `Nomor: *0590712647*`,
-                    `Nama: *STEFAN LEWIS*`,
-                    ``,
-                    `*WAJIB:*`,
-                    `Mengirim bukti transfer setelah pembayaran`,
-                ].join('\n');
-                window.open(
-                    `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
-                    '_blank'
-                );
-
+                tautanInvoice = result.url;
+                gambarBerhasil = true;
             } catch (e) {
-                console.error(e);
+                console.error('Gambar invoice gagal disiapkan, pakai tautan halaman invoice.', e);
+            } finally {
+                // Elemen bayangan ini dulu hanya dibuang kalau semuanya sukses,
+                // jadi setiap kegagalan meninggalkan satu salinan invoice di DOM.
+                if (temp && temp.parentNode) temp.parentNode.removeChild(temp);
+            }
+
+            const message = [
+                `Kepada *${business}*`,
+                `Berikut Invoice *${invoiceNo}*`,
+                String(tautanInvoice).replace('https://', ''),
+                ``,
+                `*1) Diwajibkan Melunasi Tagihan*`,
+                `Terlebih dahulu sebelum proses produksi dimulai.`,
+                ``,
+                `*2) Setelah pembayaran diterima*`,
+                `Produksi akan berjalan sesuai estimasi yang disepakati.`,
+                ``,
+                `*REKENING BCA*`,
+                `Nomor: *0590712647*`,
+                `Nama: *STEFAN LEWIS*`,
+                ``,
+                `*WAJIB:*`,
+                `Mengirim bukti transfer setelah pembayaran`,
+            ].join('\n');
+
+            window.open(
+                `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+                '_blank'
+            );
+
+            if (!gambarBerhasil && window.Swal) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'WhatsApp sudah dibuka',
+                    text: 'Gambar invoice gagal dibuat, jadi pesannya memakai tautan halaman invoice. Laporkan ke admin sistem kalau ini terus terjadi.'
+                });
             }
         });
 
