@@ -51,6 +51,15 @@ use Illuminate\Validation\Rule;
 
 class SaleListController extends Controller
 {
+    private function renderOrderSourceBadge(Order $order): string
+    {
+        if ($order->isFromWebsite()) {
+            return '<span class="badge bg-soft-info text-info"><i class="ri-global-line me-1"></i>Website</span>';
+        }
+
+        return '<span class="badge bg-soft-secondary text-secondary"><i class="ri-store-2-line me-1"></i>Manual</span>';
+    }
+
     private function renderOrderItemModes(Order $order): string
     {
         $modes = $order->orderItems
@@ -352,6 +361,7 @@ class SaleListController extends Controller
                     <div>'.e($order->order_number).$editedBadge.'</div>
                     <small class="text-muted">'.$orderCreatedAt.'</small>,
                     <small class="text-danger">Due: '.$dueDate.'</small>
+                    <div class="mt-1">'.$this->renderOrderSourceBadge($order).'</div>
                 </div>';
 
                 $status = strtolower($order->payment_status);
@@ -689,6 +699,7 @@ class SaleListController extends Controller
                     <div>'.e($order->order_number).$editedBadge.'</div>
                     <small class="text-muted">'.$orderCreatedAt.'</small>,
                     <small class="text-danger">Due: '.$dueDate.'</small>
+                    <div class="mt-1">'.$this->renderOrderSourceBadge($order).'</div>
                 </div>';
 
                 $status = strtolower($order->payment_status);
@@ -1033,6 +1044,7 @@ class SaleListController extends Controller
                     <div>'.e($order->order_number).'</div>
                     <small class="text-muted">'.$date.'</small>,
                     <small class="text-danger">Due: '.$dueDate.'</small>
+                    <div class="mt-1">'.$this->renderOrderSourceBadge($order).'</div>
                 </div>';
 
                 $status = strtolower($order->payment_status ?? 'unknown');
@@ -1276,6 +1288,7 @@ class SaleListController extends Controller
                 'google_maps' => $addressModel?->google_maps,
                 'notes' => $request->notes,
                 'mode' => 'mixed',
+                'source' => 'manual',
                 'total_amount' => $request->sub_total,
                 'grand_total' => $request->total_amount,
                 'discount' => $request->total_discount,

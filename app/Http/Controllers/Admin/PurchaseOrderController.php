@@ -176,10 +176,25 @@ class PurchaseOrderController extends Controller
             'data' => $data->map(function ($purchase) {
                 $date = Carbon::parse($purchase->purchase_date)->format('j M y H:i');
 
+                // 🔥 Cek apakah Stock In seluruh item PO ini sudah selesai.
+                // stock_in_base sudah diagregat di query listing dalam satuan base,
+                // jadi pembandingnya qty_base (bukan quantity satuan beli).
+                $stockInCompleted = $purchase->purchaseItems->isNotEmpty()
+                    && $purchase->purchaseItems->every(function ($item) {
+                        $orderedBase = (float) ($item->qty_base
+                            ?? ($item->quantity * ($item->unit_conversion_value ?: 1)));
+
+                        return (float) ($item->stock_in_base ?? 0) >= $orderedBase;
+                    });
+
+                $completeIcon = $stockInCompleted
+                    ? ' <i class="fa fa-check-circle text-success ms-1" title="Stock In selesai"></i>'
+                    : '';
+
                 // 🧾 Nomor + Tanggal
                 $purchaseNumberHtml = '
                 <div>
-                    <div>'.e($purchase->purchase_number).'</div>
+                    <div>'.e($purchase->purchase_number).$completeIcon.'</div>
                     <small class="text-muted">'.$date.'</small>
                 </div>';
 

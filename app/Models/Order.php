@@ -32,6 +32,7 @@ class Order extends Model
         'shipping_address',
         'google_maps',
         'mode',
+        'source',
         'verified',
         'notes',
         'delivery_image',
@@ -47,6 +48,11 @@ class Order extends Model
         'due_date' => 'datetime',
         'deleted_at' => 'datetime',
     ];
+
+    public function isFromWebsite(): bool
+    {
+        return $this->source === 'website';
+    }
 
     public function customer(): BelongsTo
     {

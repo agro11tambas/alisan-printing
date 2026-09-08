@@ -178,6 +178,7 @@ class EcommerceSaleOrderController extends Controller
                 'discount' => $discountTotal,
                 'remaining_amount' => $remainingAmount,
                 'mode' => $orderMode,
+                'source' => 'website',
                 'discount_active' => $discountTotal > 0,
             ]);
 

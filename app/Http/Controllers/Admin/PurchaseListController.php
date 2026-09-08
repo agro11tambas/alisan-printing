@@ -157,13 +157,19 @@ class PurchaseListController extends Controller
                 $inventoryItems = $purchase->inventories
                     ->where('note', 'Purchase Account')
                     ->flatMap(fn ($inventory) => $inventory->items);
-                $stockInCompleted = $inventoryItems->every(
-                    fn ($item) => (float) $item->stock_in >= (float) $item->quantity
-                );
+                // stock_in dicatat dalam satuan base, jadi pembandingnya qty_base
+                // (bukan quantity yang masih dalam satuan beli).
+                $stockInCompleted = $inventoryItems->isNotEmpty()
+                    && $inventoryItems->every(function ($item) {
+                        $orderedBase = (float) ($item->qty_base
+                            ?? ($item->quantity * ($item->unit_conversion_value ?: 1)));
+
+                        return (float) $item->stock_in >= $orderedBase;
+                    });
 
                 // Icon centang
                 $completeIcon = $stockInCompleted
-                    ? ' <i class="fa fa-check-circle text-success ms-1"></i>'
+                    ? ' <i class="fa fa-check-circle text-success ms-1" title="Stock In selesai"></i>'
                     : '';
 
                 $parentOrderHtml = $purchase->parentPurchase
@@ -171,7 +177,7 @@ class PurchaseListController extends Controller
                     : '';
                 $purchaseNumberHtml = $returnBadge.'
                 <div>
-                    <div>'.e($purchase->purchase_number).$editedBadge.'</div>
+                    <div>'.e($purchase->purchase_number).$completeIcon.$editedBadge.'</div>
                     '.$parentOrderHtml.'
                     <small class="text-muted">'.$date.'</small>,
                     <small class="text-danger">Due: '.$dueDate.'</small>

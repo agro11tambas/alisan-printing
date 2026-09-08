@@ -70,6 +70,15 @@ class SaleOrderController extends Controller
             '</div>';
     }
 
+    private function renderOrderSourceBadge(Order $order): string
+    {
+        if ($order->isFromWebsite()) {
+            return '<span class="badge bg-soft-info text-info"><i class="ri-global-line me-1"></i>Website</span>';
+        }
+
+        return '<span class="badge bg-soft-secondary text-secondary"><i class="ri-store-2-line me-1"></i>Manual</span>';
+    }
+
     public function getSaleOrder()
     {
         $order_number = Order::first();
@@ -164,6 +173,7 @@ class SaleOrderController extends Controller
                 <div>
                     <div>' . e($order->order_number) . '</div>
                     <small class="text-muted">' . $date . '</small>
+                    <div class="mt-1">' . $this->renderOrderSourceBadge($order) . '</div>
                 </div>';
 
                 $paymentStatus = strtolower($order->payment_status);
@@ -462,6 +472,7 @@ class SaleOrderController extends Controller
                 'discount'         => $request->total_discount,
                 'remaining_amount' => $remainingAmount,
                 'mode'              => 'mixed',
+                'source'            => 'manual',
                 'discount_active' => (int) $request->input('discount_active_hidden', 1),
             ]);
 
