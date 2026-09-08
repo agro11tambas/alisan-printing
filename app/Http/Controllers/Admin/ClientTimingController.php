@@ -35,6 +35,18 @@ class ClientTimingController extends Controller
             'tls_ms'        => 'nullable|numeric|min:0|max:1800000',
             'ttfb_ms'       => 'nullable|numeric|min:0|max:1800000',
             'download_ms'   => 'nullable|numeric|min:0|max:1800000',
+            'response_end_ms' => 'nullable|numeric|min:0|max:1800000',
+            // Selisih antara HTML selesai diunduh dan HTML selesai diurai.
+            // Di kasus buffering 8 September 2026 angka inilah yang menampung
+            // hampir seluruh 30 detiknya, sementara server menjawab 200 ms.
+            'gap_parse_ms'  => 'nullable|numeric|min:0|max:1800000',
+            'fcp_ms'        => 'nullable|numeric|min:0|max:1800000',
+            // Aset yang ada di DOM tapi tidak punya entry Resource Timing:
+            // permintaannya tidak pernah selesai. Tidak terlihat oleh
+            // slowest_resource, dan justru ini tersangka utamanya.
+            'resource_menggantung' => 'nullable|string|max:900',
+            'resource_menggantung_count' => 'nullable|integer|min:0|max:100',
+            'nav_type'      => 'nullable|string|max:30',
             'dom_ready_ms'  => 'nullable|numeric|min:0|max:1800000',
             'dom_interactive_ms' => 'nullable|numeric|min:0|max:1800000',
             'dcl_handlers_ms' => 'nullable|numeric|min:0|max:1800000',

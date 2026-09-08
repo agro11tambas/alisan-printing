@@ -86,6 +86,19 @@
 
             </div>
             <div class="action-col">
+                @php
+                    // Purchase List anak: delete disembunyikan begitu barangnya sudah stock in
+                    // atau pembayarannya sudah jalan (Paid / Partially Paid / Overpaid).
+                    $isChildPurchase = (bool) $purchase->parent_purchase_id;
+                    $isPaymentStarted = in_array(
+                        $purchase->payment_status,
+                        ['Paid', 'Partially Paid', 'Overpaid'],
+                        true,
+                    );
+                    $canDelete = !($isChildPurchase && ($hasStockIn || $isPaymentStarted));
+                @endphp
+
+                @if ($canDelete)
                 <li>
                     <button type="button" class="dropdown-item btn-delete" data-bs-toggle="modal"
                         data-bs-target="#modalDeletePurchase" data-id="{{ $purchase->id }}"
@@ -96,6 +109,7 @@
                         <span>Delete</span>
                     </button>
                 </li>
+                @endif
 
                 @php $isOwner = auth()->check() && auth()->user()->role === 'Owner'; @endphp
 

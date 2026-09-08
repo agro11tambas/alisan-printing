@@ -9,6 +9,8 @@ use App\Models\FinancialReport;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
 use App\Models\InventoryStock;
+use App\Models\InventoryStockIn;
+use App\Models\InventoryStockInHistory;
 use App\Models\ProductionStock;
 use App\Models\Products;
 use App\Models\Purchase;
@@ -1460,6 +1462,14 @@ class PurchaseListController extends Controller
                 return $this->deleteResponse($request, false, $msg);
             }
 
+            // 🚫 Purchase List anak yang pembayarannya sudah jalan tidak boleh dihapus biasa
+            if ($parentPurchaseId && in_array($purchase->payment_status, ['Paid', 'Partially Paid', 'Overpaid'], true)) {
+                DB::rollBack();
+                $msg = 'Tidak dapat menghapus order ini karena pembayarannya sudah '.$purchase->payment_status.'.';
+
+                return $this->deleteResponse($request, false, $msg);
+            }
+
             // 🔁 Rollback stok incoming & stock-in
             foreach ($purchase->purchaseItems as $item) {
                 $stockInQty = InventoryItem::where('purchase_item_id', $item->id)
@@ -1515,11 +1525,27 @@ class PurchaseListController extends Controller
                 unlink(public_path('storage/'.$purchase->image));
             }
 
-            // 🔁 Hapus inventory kalau status Purchase List
+            // 🔁 Hapus inventory + stock in kalau status Purchase List.
+            // Stock in ikut dihapus hanya bila produknya memang masih kosong
+            // (belum ada satu pun stock_in), supaya riwayat penerimaan barang
+            // yang sudah terjadi tidak ikut hilang.
             if ($purchase->status === 'Purchase List') {
-                $warehouse = Inventory::where('purchase_id', $purchase->id)->first();
-                if ($warehouse) {
-                    InventoryItem::where('inventory_id', $warehouse->id)->delete();
+                $warehouses = Inventory::where('purchase_id', $purchase->id)->get();
+
+                foreach ($warehouses as $warehouse) {
+                    $inventoryItemIds = InventoryItem::where('inventory_id', $warehouse->id)->pluck('id');
+
+                    $hasReceivedStock = InventoryItem::whereIn('id', $inventoryItemIds)
+                        ->where('stock_in', '>', 0)
+                        ->exists();
+
+                    if ($hasReceivedStock) {
+                        continue;
+                    }
+
+                    $this->deleteEmptyStockIns($warehouse->id, $inventoryItemIds);
+
+                    InventoryItem::whereIn('id', $inventoryItemIds)->delete();
                     $warehouse->delete();
                 }
             }
@@ -2503,6 +2529,20 @@ class PurchaseListController extends Controller
                 ->whereIn('inventory_id', $inventories->pluck('id'))
                 ->restore();
 
+            // ✅ Kembalikan juga header stock in yang ikut terhapus saat delete
+            $restoredStockInIds = InventoryStockIn::withTrashed()
+                ->whereIn('inventory_id', $inventories->pluck('id'))
+                ->pluck('id');
+
+            if ($restoredStockInIds->isNotEmpty()) {
+                InventoryStockIn::withTrashed()
+                    ->whereIn('id', $restoredStockInIds)
+                    ->restore();
+                InventoryStockInHistory::withTrashed()
+                    ->whereIn('inventory_stock_in_id', $restoredStockInIds)
+                    ->restore();
+            }
+
             // ✅ Pastikan stok incoming dikembalikan
             foreach ($purchase->purchaseItems as $item) {
                 $warehouseId = $item->inventory_warehouse_id ?? 1;
@@ -2615,6 +2655,28 @@ class PurchaseListController extends Controller
             'hasStockIn',
             'firstStockInInventory'
         ))->render();
+    }
+
+    /**
+     * Soft delete header stock in beserta history-nya untuk satu inventory.
+     *
+     * Hanya dipanggil saat inventory-nya masih kosong (tidak ada stock_in),
+     * jadi tidak ada penerimaan barang yang hilang.
+     */
+    private function deleteEmptyStockIns(int $inventoryId, \Illuminate\Support\Collection $inventoryItemIds): void
+    {
+        $stockInIds = InventoryStockIn::where('inventory_id', $inventoryId)->pluck('id');
+
+        if ($stockInIds->isEmpty() && $inventoryItemIds->isEmpty()) {
+            return;
+        }
+
+        InventoryStockInHistory::where(function ($query) use ($stockInIds, $inventoryItemIds) {
+            $query->whereIn('inventory_stock_in_id', $stockInIds)
+                ->orWhereIn('inventory_item_id', $inventoryItemIds);
+        })->delete();
+
+        InventoryStockIn::whereIn('id', $stockInIds)->delete();
     }
 
     private function refreshParentPurchaseProgress(int $parentPurchaseId): void

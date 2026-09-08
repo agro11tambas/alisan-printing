@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\CostLayer;
 use App\Models\CostSetting;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -56,6 +58,17 @@ class FifoCostService
     private const SCOPE_EXPANSION_ROUNDS = 5;
 
     private const EPSILON = 0.00001;
+
+    /** Penanda bahwa ada rebuild penuh yang ditolak dari web dan menunggu cron. */
+    private const CACHE_REBUILD_TERTUNDA = 'fifo:rebuild-penuh-tertunda';
+
+    /**
+     * Scope terluas yang sempat dicapai expandScope() sebelum menyerah.
+     * Dipakai sebagai pengganti rebuild penuh ketika dipanggil dari web.
+     *
+     * @var array<int>
+     */
+    private array $scopeTerluas = [];
 
     /**
      * Antrian batch per produk selama replay berlangsung.
@@ -132,13 +145,41 @@ class FifoCostService
      * lama.
      *
      * @param  array<int>|null  $productIds  batasi ke produk tertentu; null = semua
+     * @param  bool|null  $izinkanRebuildPenuh  null = otomatis (hanya CLI yang boleh)
      * @return array<string, int> ringkasan jumlah baris yang dihasilkan
      */
-    public function rebuild(?array $productIds = null): array
+    public function rebuild(?array $productIds = null, ?bool $izinkanRebuildPenuh = null): array
     {
         $this->startDate = CostSetting::startDate();
 
         $scope = $productIds === null ? null : $this->expandScope($productIds);
+
+        // Rebuild penuh menghapus SELURUH ledger FIFO satu perusahaan lalu
+        // menyusunnya lagi dari nol. Di CLI itu wajar: cost:rebuild-fifo
+        // dijadwalkan tiap malam jam 01:00 justru untuk itu. Di dalam request
+        // web itu bencana -- satu user menekan Simpan, dan seluruh perusahaan
+        // ikut menunggu.
+        //
+        // Ini penyakit yang persis sama dengan rebuild katalog e-commerce dulu:
+        // kerja berat yang tempatnya di cron, diam-diam jatuh ke request web.
+        // Waktunya tidak kelihatan sebagai query lambat karena tersebar di
+        // ratusan query kecil, tapi beban servernya nyata dan semua modul ikut
+        // melambat.
+        //
+        // Jadi dari web kita tolak: pakai scope terluas yang sempat dicapai
+        // expandScope(), dan rebuild penuhnya dititipkan ke cron malam.
+        if ($scope === null && ! $this->bolehRebuildPenuh($izinkanRebuildPenuh)) {
+            $this->titipkanRebuildPenuhKeCron($productIds);
+
+            $scope = $this->scopeTerluas;
+
+            // Tidak ada satupun produk yang bisa dihitung sekarang. Menghapus
+            // seluruh ledger jelas bukan jawabannya; biarkan data lama berdiri
+            // sampai cron malam membangunnya ulang.
+            if ($scope === []) {
+                return $this->stats;
+            }
+        }
 
         DB::transaction(function () use ($scope) {
             $this->clear($scope);
@@ -162,7 +203,58 @@ class FifoCostService
     {
         $productIds = $this->productIdsOfOrders([$orderId]);
 
-        return $this->rebuild($productIds === [] ? null : $productIds);
+        // Dulu order tanpa produk yang bisa dikenali ikut mengirim null, dan
+        // null berarti rebuild penuh -- satu order aneh cukup untuk menghapus
+        // dan menyusun ulang ledger seluruh perusahaan di tengah request.
+        // Tidak ada produk berarti tidak ada yang perlu dihitung.
+        if ($productIds === []) {
+            return $this->stats;
+        }
+
+        return $this->rebuild($productIds);
+    }
+
+    /**
+     * Rebuild penuh hanya boleh dari CLI, kecuali pemanggilnya menyatakan
+     * secara eksplisit bahwa ia memang menginginkannya (tombol admin
+     * "Hitung Ulang HPP", yang memang tugasnya itu).
+     */
+    private function bolehRebuildPenuh(?bool $izinEksplisit): bool
+    {
+        if ($izinEksplisit !== null) {
+            return $izinEksplisit;
+        }
+
+        return app()->runningInConsole();
+    }
+
+    /**
+     * Catat bahwa ada rebuild penuh yang tertunda, supaya cron malam
+     * mengerjakannya dan supaya kejadiannya terlihat -- bukan hilang diam-diam.
+     */
+    private function titipkanRebuildPenuhKeCron(?array $productIds): void
+    {
+        Cache::forever(self::CACHE_REBUILD_TERTUNDA, now()->toIso8601String());
+
+        Log::channel('performance')->warning('performance.fifo_rebuild_ditunda', [
+            'alasan' => $productIds === null
+                ? 'pemanggil meminta rebuild penuh'
+                : 'scope melebar melewati '.self::SCOPE_EXPANSION_ROUNDS.' putaran',
+            'produk_diminta' => $productIds === null ? null : count($productIds),
+            'scope_terluas' => count($this->scopeTerluas),
+        ]);
+    }
+
+    /** Apakah ada rebuild penuh yang masih tertunda dari sisi web. */
+    public function rebuildPenuhTertunda(): ?string
+    {
+        return Cache::get(self::CACHE_REBUILD_TERTUNDA);
+    }
+
+    /** Dipanggil cron setelah rebuild penuh benar-benar selesai. */
+    public function tandaiRebuildPenuhSelesai(): void
+    {
+        Cache::forget(self::CACHE_REBUILD_TERTUNDA);
     }
 
     /**
@@ -216,6 +308,7 @@ class FifoCostService
     private function expandScope(array $productIds): ?array
     {
         $scope = array_values(array_unique(array_map('intval', $productIds)));
+        $this->scopeTerluas = $scope;
 
         if ($scope === []) {
             return null;
@@ -239,9 +332,12 @@ class FifoCostService
             }
 
             $scope = $expanded;
+            $this->scopeTerluas = $scope;
         }
 
         // Masih melebar: rebuild penuh saja, hasilnya pasti konsisten.
+        // Catatan: pemanggil dari web akan menolak null ini dan memakai
+        // scopeTerluas, lalu menitipkan rebuild penuhnya ke cron malam.
         return null;
     }
 

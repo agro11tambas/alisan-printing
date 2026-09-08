@@ -1416,10 +1416,45 @@
                             if (!slowest || r.duration > slowest.duration) slowest = r;
                         });
 
+                        // Resource yang MENGGANTUNG tidak pernah muncul di
+                        // getEntriesByType('resource'): entry-nya baru dibuat
+                        // ketika permintaannya selesai. Jadi selama ini justru
+                        // tersangka utamanya yang tidak terlihat — slowest_resource
+                        // hanya melaporkan yang terlambat DI ANTARA yang berhasil,
+                        // dan itu sebabnya log menunjukkan "tidak ada resource
+                        // lambat" padahal penguraian HTML tertahan 30 detik.
+                        // Di sini tag <script src> dan <link rel=stylesheet> yang
+                        // ada di DOM dibandingkan dengan entry yang tercatat;
+                        // selisihnya adalah aset yang tidak pernah selesai.
+                        var tercatat = {};
+                        resources.forEach(function (r) { tercatat[r.name] = true; });
+
+                        var menggantung = [];
+                        var tags = document.querySelectorAll('script[src], link[rel="stylesheet"][href]');
+                        for (var i = 0; i < tags.length && menggantung.length < 5; i++) {
+                            var aset = tags[i].src || tags[i].href;
+                            if (aset && !tercatat[aset]) menggantung.push(String(aset).slice(0, 200));
+                        }
+
+                        // Celah yang selama ini tak terjelaskan: HTML selesai
+                        // diunduh di responseEnd (~200 ms) tapi domInteractive
+                        // baru tercapai puluhan detik kemudian. Dijadikan angka
+                        // tersendiri supaya tidak perlu dihitung manual dari log.
+                        var fcp = null;
+                        (performance.getEntriesByType('paint') || []).forEach(function (e) {
+                            if (e.name === 'first-contentful-paint') fcp = Math.round(e.startTime);
+                        });
+
                         var conn = navigator.connection || {};
 
                         var payload = {
                             path: location.pathname.slice(0, 255),
+                            response_end_ms: Math.round(nav.responseEnd),
+                            gap_parse_ms: Math.round(nav.domInteractive - nav.responseEnd),
+                            fcp_ms: fcp,
+                            resource_menggantung: menggantung.length ? menggantung.join(' | ').slice(0, 900) : null,
+                            resource_menggantung_count: menggantung.length,
+                            nav_type: nav.type || null,
                             total_ms: total,
                             dns_ms: Math.round(nav.domainLookupEnd - nav.domainLookupStart),
                             tcp_ms: Math.round(nav.connectEnd - nav.connectStart),

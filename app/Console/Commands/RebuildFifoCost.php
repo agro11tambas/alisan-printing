@@ -22,9 +22,15 @@ class RebuildFifoCost extends Command
     {
         $this->info('Membangun ulang cost layer FIFO...');
 
+        if ($tertunda = $service->rebuildPenuhTertunda()) {
+            $this->warn('Ada rebuild penuh yang ditunda dari request web sejak '.$tertunda.'. Dikerjakan sekarang.');
+        }
+
         $started = microtime(true);
-        $stats = $service->rebuild();
+        $stats = $service->rebuild(null, true);
         $elapsed = round(microtime(true) - $started, 2);
+
+        $service->tandaiRebuildPenuhSelesai();
 
         $this->table(
             ['Keterangan', 'Jumlah'],

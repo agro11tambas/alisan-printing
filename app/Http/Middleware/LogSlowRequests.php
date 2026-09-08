@@ -27,19 +27,30 @@ class LogSlowRequests
             $queryCount++;
             $databaseTimeMs += $query->time;
 
-            $sql = $this->shorten($query->sql);
-
-            // Query paling lambat: cukup simpan lima teratas supaya memori tidak
-            // ikut membengkak di request yang menembak ribuan query.
-            $slowest[] = ['sql' => $sql, 'ms' => round($query->time, 2)];
+            // String SQL sengaja TIDAK diolah di sini.
+            //
+            // Listener ini jalan untuk SETIAP query di SETIAP request, di semua
+            // modul. Satu simpan Sale List menembak 162 query, Stock In 210 —
+            // dan sebagian SQL-nya berukuran kilobyte karena whereIn-nya berisi
+            // ratusan id. Menjalankan dua preg_replace atas string sebesar itu,
+            // ratusan kali per request, membuat alat ukurnya sendiri jadi beban
+            // yang terasa. Pengolahan string ditunda ke titik pencatatan, yang
+            // hanya jalan untuk request yang memang melewati ambang.
+            //
+            // Menyimpan $query->sql apa adanya tidak menyalin stringnya: PHP
+            // memakai referensi sampai ada yang mengubahnya.
+            $slowest[] = ['sql' => $query->sql, 'ms' => round($query->time, 2)];
             if (count($slowest) > 25) {
                 usort($slowest, fn ($a, $b) => $b['ms'] <=> $a['ms']);
                 $slowest = array_slice($slowest, 0, 5);
             }
 
             // Query yang bentuknya sama dan diulang-ulang: itu tanda N+1.
-            // Dibatasi 200 bentuk supaya tidak jadi beban sendiri.
-            $shape = preg_replace('/\d+/', '?', $sql);
+            // Dikelompokkan lewat potongan SQL sebelum angka pertama muncul.
+            // strcspn() jalan di level C dan jauh lebih murah daripada regex,
+            // tapi tetap menyatukan query yang cuma beda id. Dipotong 200
+            // karakter supaya kunci array tidak ikut membengkak.
+            $shape = substr($query->sql, 0, min(200, strcspn($query->sql, '0123456789')));
             if (isset($shapes[$shape]) || count($shapes) < 200) {
                 $shapes[$shape] = ($shapes[$shape] ?? 0) + 1;
             }
@@ -49,7 +60,7 @@ class LogSlowRequests
         $durationMs = (hrtime(true) - $startedAt) / 1_000_000;
         $thresholdMs = (float) config('app.slow_request_log_ms', 1000);
 
-        $this->watchWorkAfterResponse($request, $durationMs, $thresholdMs);
+        $this->watchWorkAfterResponse($request, $durationMs, $thresholdMs, $bootstrapMs);
 
         if ($durationMs >= $thresholdMs) {
             usort($slowest, fn ($a, $b) => $b['ms'] <=> $a['ms']);
@@ -66,13 +77,17 @@ class LogSlowRequests
                 'bootstrap_ms' => $bootstrapMs,
                 'load_avg' => $this->loadAverage(),
                 'query_count' => $queryCount,
-                // Query paling lambat di request ini.
-                'slowest_queries' => array_slice($slowest, 0, 5),
+                // Query paling lambat di request ini. SQL-nya baru dipendekkan
+                // di sini, bukan di listener: cuma lima baris ini yang perlu.
+                'slowest_queries' => array_map(
+                    fn (array $q) => ['sql' => $this->shorten($q['sql']), 'ms' => $q['ms']],
+                    array_slice($slowest, 0, 5)
+                ),
                 // Bentuk query yang paling sering diulang. Angka tinggi di sini
                 // berarti N+1: satu query yang dijalankan ratusan kali.
                 'repeated_queries' => array_slice(
                     array_map(
-                        fn ($shape, $count) => ['sql' => $shape, 'count' => $count],
+                        fn ($shape, $count) => ['sql' => $this->shorten((string) $shape), 'count' => $count],
                         array_keys($shapes),
                         array_values($shapes)
                     ),
@@ -101,18 +116,26 @@ class LogSlowRequests
      * register_shutdown_function() jalan paling akhir, sesudah semua terminating
      * callback selesai, jadi selisihnya terlihat.
      */
-    private function watchWorkAfterResponse(Request $request, float $responseMs, float $thresholdMs): void
+    private function watchWorkAfterResponse(Request $request, float $responseMs, float $thresholdMs, ?float $bootstrapMs): void
     {
         $path = $request->path();
         $route = $request->route()?->getName();
 
-        register_shutdown_function(function () use ($path, $route, $responseMs, $thresholdMs): void {
+        register_shutdown_function(function () use ($path, $route, $responseMs, $thresholdMs, $bootstrapMs): void {
             if (! defined('LARAVEL_START')) {
                 return;
             }
 
             $totalMs = (microtime(true) - LARAVEL_START) * 1000;
-            $afterResponseMs = $totalMs - $responseMs;
+
+            // Boot framework HARUS ikut dikurangi. $totalMs dihitung dari
+            // LARAVEL_START, sedangkan $responseMs baru mulai menghitung saat
+            // middleware ini jalan — jadi tanpa koreksi ini waktu boot masuk
+            // dua kali dan tercatat seolah-olah "pekerjaan setelah response".
+            // Itu yang bikin log 8 September 2026 menampilkan after_response
+            // ~400 ms yang selalu kebetulan sama besar dengan bootstrap_ms:
+            // alarm palsu, padahal kerja sesudah response cuma puluhan ms.
+            $afterResponseMs = $totalMs - $responseMs - (float) $bootstrapMs;
 
             // Yang menarik cuma pekerjaan sesudah response. Request yang memang
             // lambat sedari awal sudah dicatat performance.slow_request.
@@ -128,6 +151,10 @@ class LogSlowRequests
                 // Waktu yang dihabiskan SESUDAH itu, saat proses PHP masih
                 // terpakai tapi pengguna sudah dapat halamannya.
                 'after_response_ms' => round($afterResponseMs, 2),
+                // Boot framework, dipisah supaya tidak lagi tersamar sebagai
+                // pekerjaan setelah response. Kalau yang besar justru ini,
+                // penyebabnya server (disk/CPU), bukan kode halaman.
+                'bootstrap_ms' => $bootstrapMs,
                 // Angka inilah yang dilihat access log web server.
                 'total_ms' => round($totalMs, 2),
                 'memory_peak_mb' => round(memory_get_peak_usage(true) / 1_048_576, 2),

@@ -84,6 +84,8 @@ class CheckProductionHealth extends Command
             'Jalankan: php artisan event:cache'
         );
 
+        $problems += $this->reportOpcache();
+
         $problems += $this->reportDirectorySize(
             'storage/debugbar',
             storage_path('debugbar'),
@@ -202,6 +204,62 @@ class CheckProductionHealth extends Command
      * jalan di server. Deploy yang gagal di langkah migrate mudah terlewat
      * karena aplikasinya tetap hidup, cuma tetap lambat.
      */
+    /**
+     * OPcache: hasil kompilasi PHP disimpan di memori supaya tiap request tidak
+     * perlu membaca dan mengurai ulang ribuan file.
+     *
+     * Kenapa ini diperiksa: log produksi 8 September 2026 menunjukkan
+     * bootstrap_ms — waktu boot framework, sebelum satu baris kode halaman
+     * jalan — berayun antara 37 ms dan 413 ms di request yang berbeda. Sepuluh
+     * kali lipat, di semua modul, tanpa pola per-halaman. Itu ciri khas
+     * OPcache mati atau kepenuhan: boot jadi bergantung pada seberapa sibuk
+     * disk server saat itu, dan itulah yang dirasakan pengguna sebagai
+     * "kadang-kadang nge-buffer di mana-mana".
+     *
+     * Catatan: CLI dan web bisa memakai php.ini berbeda. Kalau di sini OK tapi
+     * ERP masih tersendat, cocokkan lagi lewat phpinfo() dari sisi web.
+     */
+    private function reportOpcache(): int
+    {
+        if (! function_exists('opcache_get_status')) {
+            $this->line('  <fg=red>MASALAH</> OPcache tidak terpasang');
+            $this->line('          → Aktifkan ekstensi Zend OPcache di hPanel (PHP Configuration).');
+
+            return 1;
+        }
+
+        $status = @opcache_get_status(false);
+
+        if (! is_array($status) || ($status['opcache_enabled'] ?? false) !== true) {
+            $this->line('  <fg=red>MASALAH</> OPcache mati');
+            $this->line('          → Set opcache.enable=1 (dan opcache.enable_cli=1) di hPanel > PHP Configuration.');
+            $this->line('          → Tanpa ini PHP mengurai ulang ribuan file tiap request.');
+
+            return 1;
+        }
+
+        $memory = $status['memory_usage'] ?? [];
+        $terpakai = (float) ($memory['used_memory'] ?? 0);
+        $bebas = (float) ($memory['free_memory'] ?? 0);
+        $total = $terpakai + $bebas + (float) ($memory['wasted_memory'] ?? 0);
+        $restart = (int) ($status['opcache_statistics']['oom_restarts'] ?? 0);
+
+        // Kepenuhan sama buruknya dengan mati: OPcache membuang isinya dan
+        // seluruh aplikasi dikompilasi ulang dari nol.
+        if ($restart > 0) {
+            $this->line('  <fg=red>MASALAH</> OPcache kehabisan memori ('.$restart.' kali reset)');
+            $this->line('          → Naikkan opcache.memory_consumption (mis. 192 atau 256 MB).');
+
+            return 1;
+        }
+
+        $persen = $total > 0 ? round($terpakai / $total * 100) : 0;
+
+        $this->line('  <fg=green>OK</>    OPcache hidup (memori terpakai '.$persen.'%)');
+
+        return 0;
+    }
+
     private function checkPendingMigrations(): int
     {
         $migrator = $this->laravel->make('migrator');

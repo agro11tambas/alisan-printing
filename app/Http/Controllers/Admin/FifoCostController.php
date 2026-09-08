@@ -51,7 +51,7 @@ class FifoCostController extends Controller
         CostSetting::setStartDate($request->input('start_date'));
 
         try {
-            app(FifoCostService::class)->rebuild();
+            app(FifoCostService::class)->rebuild(null, true);
         } catch (\Throwable $e) {
             Log::error('Rebuild FIFO setelah ubah tanggal mulai gagal: '.$e->getMessage());
 
@@ -272,7 +272,7 @@ class FifoCostController extends Controller
     public function rebuild()
     {
         try {
-            $stats = app(FifoCostService::class)->rebuild();
+            $stats = app(FifoCostService::class)->rebuild(null, true);
         } catch (\Throwable $e) {
             Log::error('Rebuild FIFO gagal: '.$e->getMessage());
 
