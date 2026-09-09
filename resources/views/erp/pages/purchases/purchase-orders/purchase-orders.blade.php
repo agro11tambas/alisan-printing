@@ -691,6 +691,14 @@
                 loadMoreData();
             }
 
+            // 🔄 Refresh otomatis saat halaman dibuka lagi lewat tombol Back
+            // (bfcache): status PO bisa berubah dari halaman Purchase List anak.
+            window.addEventListener('pageshow', function(event) {
+                if (event.persisted) {
+                    resetAndReload();
+                }
+            });
+
             $('#purchaseOrderTable tbody').on('click', 'td.dt-control', function() {
                 let tr = $(this).closest('tr');
                 let row = dataTable.row(tr);

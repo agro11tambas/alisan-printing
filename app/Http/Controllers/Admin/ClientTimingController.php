@@ -37,9 +37,16 @@ class ClientTimingController extends Controller
             'download_ms'   => 'nullable|numeric|min:0|max:1800000',
             'response_end_ms' => 'nullable|numeric|min:0|max:1800000',
             // Selisih antara HTML selesai diunduh dan HTML selesai diurai.
-            // Di kasus buffering 8 September 2026 angka inilah yang menampung
-            // hampir seluruh 30 detiknya, sementara server menjawab 200 ms.
+            // Log 9 September 2026 menutup kemungkinan ini: gap_parse cuma
+            // 64 ms pada kejadian 30 detik. Penguraian HTML bukan penyebabnya.
             'gap_parse_ms'  => 'nullable|numeric|min:0|max:1800000',
+            // Pemecahan periode SEBELUM request berangkat — di situlah 30 detik
+            // itu berada (response_end 30.254 ms sementara ttfb+download 176 ms).
+            'fetch_start_ms' => 'nullable|numeric|min:0|max:1800000',
+            'queue_ms'      => 'nullable|numeric|min:0|max:1800000',
+            'redirect_ms'   => 'nullable|numeric|min:0|max:1800000',
+            'unload_ms'     => 'nullable|numeric|min:0|max:1800000',
+            'hidden_sekarang' => 'nullable|boolean',
             'fcp_ms'        => 'nullable|numeric|min:0|max:1800000',
             // Aset yang ada di DOM tapi tidak punya entry Resource Timing:
             // permintaannya tidak pernah selesai. Tidak terlihat oleh

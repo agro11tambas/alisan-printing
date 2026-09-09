@@ -1455,6 +1455,29 @@
                             resource_menggantung: menggantung.length ? menggantung.join(' | ').slice(0, 900) : null,
                             resource_menggantung_count: menggantung.length,
                             nav_type: nav.type || null,
+                            // Log 9 September 2026 membuktikan waktunya TIDAK
+                            // habis di server (ttfb 142 ms) dan TIDAK di
+                            // penguraian HTML (gap_parse 64 ms), melainkan
+                            // sebelum request-nya berangkat sama sekali:
+                            // response_end 30.254 ms padahal ttfb+download cuma
+                            // 176 ms. Empat angka di bawah memecah periode itu.
+                            //
+                            // fetch_start_ms besar  -> browser menunda navigasi
+                            //   (tab latar belakang, prerender, bfcache).
+                            // queue_ms besar        -> menunggu koneksi bebas;
+                            //   soket ke erpalisan.com habis dipakai request
+                            //   lain yang menggantung.
+                            // redirect_ms / unload_ms besar -> rantai redirect
+                            //   atau halaman sebelumnya lambat ditutup.
+                            fetch_start_ms: Math.round(nav.fetchStart),
+                            queue_ms: Math.round(nav.requestStart - nav.fetchStart),
+                            redirect_ms: nav.redirectEnd ? Math.round(nav.redirectEnd - nav.redirectStart) : 0,
+                            unload_ms: nav.unloadEventEnd ? Math.round(nav.unloadEventEnd - nav.unloadEventStart) : 0,
+                            // Tab yang tersembunyi SAAT INI. Berbeda dari
+                            // hidden_saat_muat, yang hanya bisa melihat sejak
+                            // <head> dieksekusi — yaitu sesudah penundaan di
+                            // atas selesai, sehingga buta terhadapnya.
+                            hidden_sekarang: document.visibilityState === 'hidden',
                             total_ms: total,
                             dns_ms: Math.round(nav.domainLookupEnd - nav.domainLookupStart),
                             tcp_ms: Math.round(nav.connectEnd - nav.connectStart),
@@ -1496,6 +1519,10 @@
             });
         })();
     </script>
+
+    {{-- Penampil foto dengan zoom (berlaku untuk semua modul) --}}
+    @include('erp.layouts.components.image-zoom-viewer')
+
 </body>
 
 </html>
