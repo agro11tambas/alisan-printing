@@ -684,6 +684,15 @@
             });
 
             function resetAndReload() {
+                // Request lama dibatalkan di sini, bukan di dalam loadMoreData.
+                // Kalau tidak, guard isLoading di loadMoreData menolak pemuatan
+                // ulang dan tabel tertinggal kosong sampai user scroll.
+                if (currentRequest) {
+                    currentRequest.abort();
+                    currentRequest = null;
+                }
+                isLoading = false;
+
                 allData = [];
                 currentPage = 0;
                 hasMoreData = true;
@@ -748,8 +757,11 @@
                 $('#purchaseOrderTable tbody tr').removeClass('action-shown').next('.action-row').remove();
             });
 
-            $('#filter, #apply-filter, #search_type, #search_po_status, #start_date, #end_date')
-                .on('change keyup click', function() {
+            // Hanya 'change'. Sebelumnya 'click' ikut di-bind, jadi sekadar
+            // membuka dropdown PO Status / Filter By sudah memicu reload tabel
+            // sebelum user sempat memilih apa pun.
+            $('#filter, #search_type, #search_po_status, #start_date, #end_date')
+                .on('change', function() {
                     clearTimeout(searchTimer);
                     searchTimer = setTimeout(() => {
                         if ($('#filter').val() === 'custom') {
@@ -778,10 +790,6 @@
                 resetAndReload();
             });
 
-            $('#search_type').on('change', function() {
-                resetAndReload();
-            });
-
             $('#search_keyword').on('keypress', function(e) {
                 if (e.which === 13) {
                     e.preventDefault();
@@ -794,10 +802,6 @@
                 if ($(this).val().trim() === '') {
                     resetAndReload();
                 }
-            });
-
-            $('#search_po_status').on('change', function() {
-                resetAndReload();
             });
 
             // ========== DELETE PURCHASE ORDER ==========

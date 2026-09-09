@@ -108,7 +108,14 @@ class ReportItemsProductionAndWarehouseController extends Controller
 
         $inventoryFlowQuery = DB::table('inventory_items_2')
             ->whereIn('product_id', $productIds)
-            ->whereNull('deleted_at');
+            ->whereNull('deleted_at')
+            // Item yang induk inventories_2-nya sudah dihapus tidak ikut
+            // dihitung. Penghapusan lama meninggalkan baris yatim, dan baris
+            // itu tetap lolos kalau yang diperiksa cuma deleted_at milik item.
+            ->whereExists(fn ($query) => $query->select(DB::raw(1))
+                ->from('inventories_2')
+                ->whereColumn('inventories_2.id', 'inventory_items_2.inventory_id')
+                ->whereNull('inventories_2.deleted_at'));
         $inventoryFlowQuery = $this->applyDateFilter($inventoryFlowQuery, $request);
         $inventoryFlowsByProduct = $inventoryFlowQuery
             ->selectRaw('product_id')

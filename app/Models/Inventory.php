@@ -103,4 +103,30 @@ class Inventory extends Model
         return $this->hasOne(InventoryStockOut::class, 'inventory_id')
             ->latest('verified_at'); // atau kolom waktu yang relevan
     }
+
+    /**
+     * Item ikut terhapus bersama induknya.
+     *
+     * Tanpa ini, Purchase::deleting yang memanggil inventories()->delete()
+     * meninggalkan inventory_items_2 hidup di bawah inventories_2 yang sudah
+     * terhapus. Baris yatim itu tetap terhitung oleh laporan yang hanya
+     * memeriksa deleted_at milik item, sehingga Incoming Stock membengkak
+     * dan tidak pernah bisa turun.
+     */
+    protected static function booted()
+    {
+        static::deleting(function (self $inventory) {
+            if ($inventory->isForceDeleting()) {
+                $inventory->items()->withTrashed()->forceDelete();
+
+                return;
+            }
+
+            $inventory->items()->delete();
+        });
+
+        static::restoring(function (self $inventory) {
+            $inventory->items()->withTrashed()->restore();
+        });
+    }
 }

@@ -58,12 +58,34 @@ class ReportItemsProductionController extends Controller
                     0
                 ) AS finished_product_stock_calc
             ")
+            // Barang yang sudah dipesan tapi belum masuk ke gudang produksi.
+            //
+            // Wajib ikut memeriksa inventories_2.deleted_at, bukan cuma milik
+            // item: penghapusan lama meninggalkan inventory_items_2 hidup di
+            // bawah inventories_2 yang sudah terhapus, dan baris yatim itu
+            // terhitung sebagai barang yang belum datang selamanya.
+            //
+            // qty_base, bukan remaining_stock_in -- plafon yang dipakai alur
+            // Stock In produksi memang qty_base - stock_in (lihat
+            // ProductionStockInController), sedangkan remaining_stock_in ikut
+            // diubah alur lain tanpa menyentuh stock_in.
+            //
+            // GREATEST dipasang per baris, bukan pada hasil penjumlahan, supaya
+            // satu baris minus tidak memakan baris lain yang benar.
             ->selectRaw("
-                COALESCE((SELECT SUM(requested_qty - received_qty) FROM material_request_items
+                COALESCE((SELECT SUM(GREATEST(requested_qty - received_qty, 0)) FROM material_request_items
                     WHERE product_id = production_stocks.product_id AND deleted_at IS NULL), 0)
-                + COALESCE((SELECT SUM(remaining_stock_in - stock_in) FROM inventory_items_2
-                    WHERE product_id = production_stocks.product_id AND deleted_at IS NULL
-                    AND purchase_item_id IS NOT NULL AND production_warehouse_id IS NOT NULL), 0)
+                + COALESCE((SELECT SUM(GREATEST(
+                        COALESCE(NULLIF(ii.qty_base, 0), ii.quantity * COALESCE(ii.unit_conversion_value, 1)) - ii.stock_in,
+                        0
+                    ))
+                    FROM inventory_items_2 ii
+                    INNER JOIN inventories_2 inv ON inv.id = ii.inventory_id
+                    WHERE ii.product_id = production_stocks.product_id
+                    AND ii.deleted_at IS NULL
+                    AND inv.deleted_at IS NULL
+                    AND ii.purchase_item_id IS NOT NULL
+                    AND ii.production_warehouse_id IS NOT NULL), 0)
                 AS incoming_stock_calc
             ")
             ->selectRaw("

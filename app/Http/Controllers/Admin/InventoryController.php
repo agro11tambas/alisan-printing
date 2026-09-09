@@ -792,6 +792,13 @@ class InventoryController extends Controller
         $inventoryFlowsByProduct = DB::table('inventory_items_2')
             ->whereIn('product_id', $productIds)
             ->whereNull('deleted_at')
+            // Item yang induk inventories_2-nya sudah dihapus tidak ikut
+            // dihitung. Penghapusan lama meninggalkan baris yatim, dan baris
+            // itu tetap lolos kalau yang diperiksa cuma deleted_at milik item.
+            ->whereExists(fn ($query) => $query->select(DB::raw(1))
+                ->from('inventories_2')
+                ->whereColumn('inventories_2.id', 'inventory_items_2.inventory_id')
+                ->whereNull('inventories_2.deleted_at'))
             ->groupBy('product_id')
             ->selectRaw(
                 'product_id,
