@@ -186,7 +186,7 @@
                                             <div class="input-group">
                                                 <input type="datetime-local" class="form-control" id="purchase_date"
                                                     name="purchase_date"
-                                                    value="{{ $purchase->purchase_date->format('Y-m-d\TH:i') }}">
+                                                    value="{{ old('purchase_date', now()->format('Y-m-d\TH:i')) }}">
                                             </div>
                                         </div>
                                     </div>
@@ -903,7 +903,7 @@
                         customDueDate.prop('readonly', true);
                         return;
                 }
-                const formatted = dueDate.toISOString().split('T')[0];
+                const formatted = dueDate.getFullYear() + '-' + String(dueDate.getMonth() + 1).padStart(2, '0') + '-' + String(dueDate.getDate()).padStart(2, '0');
                 customDueDate.val(formatted);
                 customDueDate.prop('readonly', true);
             }
