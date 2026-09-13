@@ -1142,18 +1142,30 @@ class SaleOrderController extends Controller
             $order = Order::with('orderItems')->findOrFail($id);
             $orderNumber = $order->order_number;
 
-            // Hard delete semua order items
-            OrderItem::where('order_id', $order->id)->forceDelete();
+            // Soft delete, bukan forceDelete: order yang "hilang" dari list
+            // harus tetap bisa ditelusuri dan dipulihkan dari database.
+            // Nomor invoice tetap aman karena InvoiceNumberService sudah
+            // menghitung order yang di-trash (withTrashed).
+            $orderItemIds = OrderItem::where('order_id', $order->id)->pluck('id');
+            OrderItemComponent::whereIn('order_item_id', $orderItemIds)->delete();
+            OrderItem::where('order_id', $order->id)->delete();
 
-            // Hard delete transaksi akun kalau ada
             if ($order->transaction_group_id) {
-                AccountTransaction::where('transaction_group_id', $order->transaction_group_id)->forceDelete();
+                AccountTransaction::where('transaction_group_id', $order->transaction_group_id)->delete();
             }
 
-            // Hard delete order
-            $order->forceDelete();
+            $order->delete();
 
             DB::commit();
+
+            Log::warning('sale_order.deleted', [
+                'order_id' => $order->id,
+                'order_number' => $orderNumber,
+                'source' => $order->source,
+                'deleted_by' => Auth::id(),
+                'deleted_by_name' => Auth::user()?->name,
+                'ip' => $request->ip(),
+            ]);
 
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
@@ -1163,7 +1175,7 @@ class SaleOrderController extends Controller
                 ]);
             }
 
-            return redirect()->back()->with('success', 'Order berhasil dihapus permanen.');
+            return redirect()->back()->with('success', 'Order berhasil dihapus.');
         } catch (\Exception $e) {
             DB::rollBack();
 

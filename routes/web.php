@@ -48,6 +48,7 @@ use App\Http\Controllers\Admin\ProductionStockSnapshotController;
 use App\Http\Controllers\Admin\ProductUnitController;
 use App\Http\Controllers\Admin\PriceModeController;
 use App\Http\Controllers\Admin\PurchaseDetailController;
+use App\Http\Controllers\Admin\FreightPaymentController;
 use App\Http\Controllers\Admin\PurchaseListController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
 use App\Http\Controllers\Admin\WelcomeController;
@@ -613,6 +614,21 @@ Route::middleware(['web.auth', 'check.session'])->group(function () {
             Route::post('/erp/purchases/purchase-list/force-delete/{id}', [PurchaseListController::class, 'forceDeleteOwner'])
                 ->name('purchases.purchase-list.forceDeleteOwner')
                 ->middleware('web.auth');
+        });
+
+        // Pembayaran ongkos angkut per surat jalan. Izinnya menempel ke
+        // purchase-list karena modulnya memang lanjutan dari halaman itu.
+        Route::middleware(['web.auth', 'subpermission:purchase-list'])->group(function () {
+            Route::get('/erp/purchases/freight-payments', [FreightPaymentController::class, 'index']);
+            Route::get('/erp/purchases/freight-payments/data', [FreightPaymentController::class, 'data']);
+            Route::get('/erp/purchases/freight-payments/detail', [FreightPaymentController::class, 'detail']);
+            Route::get('/erp/purchases/freight-payments/payment-history', [FreightPaymentController::class, 'paymentHistory']);
+            Route::put('/erp/purchases/freight-payments/update-payment/{groupId}', [FreightPaymentController::class, 'updatePayment'])
+                ->name('freight-payments.updatePayment');
+            Route::post('/erp/purchases/freight-payments/mark-as-paid', [FreightPaymentController::class, 'markAsPaid'])
+                ->name('freight-payments.markAsPaid');
+            Route::delete('/erp/purchases/freight-payments/payment/{id}', [FreightPaymentController::class, 'destroyPayment'])
+                ->name('freight-payments.destroyPayment');
         });
 
         Route::middleware(['web.auth', 'subpermission:purchase-returns'])->group(function () {

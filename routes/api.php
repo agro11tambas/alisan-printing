@@ -68,7 +68,12 @@ Route::prefix('v1')->group(function () {
     });
 
     // Public ecommerce API
-    Route::prefix('ecommerce')->group(function () {
+    //
+    // Dibatasi lajunya karena endpoint ini terbuka untuk siapa saja dan memakai
+    // kolam worker PHP yang sama dengan ERP. Tanpa batas, satu crawler yang
+    // menyapu katalog membuat seluruh halaman ERP mengantre. Batasnya longgar
+    // dan diatur di AppServiceProvider::batasiKatalogPublik().
+    Route::prefix('ecommerce')->middleware('throttle:katalog-publik')->group(function () {
         Route::post('/sale-orders', [EcommerceSaleOrderController::class, 'store']);
         Route::get('/products', [EcommerceProductController::class, 'index']);
         Route::get('/products/{slug}', [EcommerceProductController::class, 'show']);

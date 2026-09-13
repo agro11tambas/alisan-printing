@@ -43,7 +43,7 @@
 
         .product-grid {
             display: grid;
-            grid-template-columns: minmax(380px, 4fr) 130px 130px 130px 130px 130px 52px;
+            grid-template-columns: minmax(380px, 4fr) 130px 130px 130px 130px 52px;
             gap: 10px;
             align-items: start;
         }
@@ -321,7 +321,6 @@
                                     <div>Unit</div>
                                     <div>Qty</div>
                                     <div>Price</div>
-                                    <div>Freight</div>
                                     <div>Total</div>
                                     <div></div>
                                 </div>
@@ -391,13 +390,6 @@
                                                 </div>
 
                                                 <div class="form-group">
-                                                    <label>Freight</label>
-                                                    <input type="text" inputmode="numeric" name="freight[]"
-                                                        class="form-control freight"
-                                                        value="{{ number_format($item->freight ?? 0, 5, ',', '.') }}">
-                                                </div>
-
-                                                <div class="form-group">
                                                     <label>Total</label>
                                                     <input type="hidden" name="total[]" class="form-control total">
                                                     <input type="text" class="form-control total_display" readonly>
@@ -449,12 +441,6 @@
                                                 </div>
 
                                                 <div class="form-group">
-                                                    <label>Freight</label>
-                                                    <input type="text" inputmode="numeric" name="freight[]"
-                                                        class="form-control freight" value="0">
-                                                </div>
-
-                                                <div class="form-group">
                                                     <label>Total</label>
                                                     <input type="hidden" name="total[]" class="form-control total">
                                                     <input type="text" class="form-control total_display" readonly>
@@ -485,7 +471,6 @@
                                                     @foreach ($products as $product)
                                                         <option value="{{ $product->id }}"
                                                             data-price="{{ $product->last_price ?? 0 }}"
-                                                            data-freight="{{ $product->last_freight ?? 0 }}">
                                                             [{{ $product->sku }}] {{ $product->name }}
                                                         </option>
                                                     @endforeach
@@ -512,12 +497,6 @@
                                                 <label>Price</label>
                                                 <input type="text" inputmode="numeric" name="price[]"
                                                     class="form-control price" value="0">
-                                            </div>
-
-                                            <div class="form-group">
-                                                <label>Freight</label>
-                                                <input type="text" inputmode="numeric" name="freight[]"
-                                                    class="form-control freight" value="0">
                                             </div>
 
                                             <div class="form-group">
@@ -557,15 +536,6 @@
                                                             <input type="hidden" name="total_amount_product"
                                                                 id="total_amount_product">
                                                             <input type="text" id="total_amount_product_display"
-                                                                class="form-control border-0 bg-transparent p-0" readonly>
-                                                        </td>
-                                                    </tr>
-                                                    <tr class="single-item">
-                                                        <th class="fs-10 text-dark text-uppercase">Total Freight</th>
-                                                        <td class="">
-                                                            <input type="hidden" name="total_amount_freight"
-                                                                id="total_amount_freight">
-                                                            <input type="text" id="total_amount_freight_display"
                                                                 class="form-control border-0 bg-transparent p-0" readonly>
                                                         </td>
                                                     </tr>
@@ -671,9 +641,7 @@
         function updateRowTotal(row) {
             const qty = parseFloat(unformatRibuan(row.find(".qty").val())) || 0;
             const price = parseFloat(unformatRibuan(row.find(".price").val())) || 0;
-            const freight = parseFloat(unformatRibuan(row.find(".freight").val())) || 0;
-
-            const total = qty * (price + freight);
+            const total = qty * price;
 
             if (total > 0) {
                 const formatted = formatRibuan(total.toFixed(2));
@@ -728,22 +696,17 @@
             row.find('.unit-conversion-value').val(selected.data('conversion-value') || 1);
         });
 
-        // 4️⃣ Update fungsi calc_total untuk handle freight = 0
         function calc_total() {
-            let subtotalProduct = 0,
-                subtotalFreight = 0;
+            let subtotalProduct = 0;
 
             $('.product-item').each(function() {
                 const row = $(this);
 
                 const qty = parseFloat(unformatRibuan(row.find('.qty').val())) || 0;
                 const price = parseFloat(unformatRibuan(row.find('.price').val())) || 0;
-                const freight = parseFloat(unformatRibuan(row.find('.freight').val())) || 0;
-
                 subtotalProduct += qty * price;
-                subtotalFreight += qty * freight;
 
-                const totalRow = qty * (price + freight);
+                const totalRow = qty * price;
 
                 row.find('.total').val(totalRow > 0 ? totalRow.toFixed(2) : '');
                 row.find('.total_display').val(totalRow > 0 ? formatRibuan(totalRow.toFixed(2)) : '');
@@ -753,17 +716,15 @@
             const taxAmount = (subtotalProduct * taxPercent) / 100;
 
             const totalProduct = subtotalProduct + taxAmount;
-            const subTotal = subtotalProduct + subtotalFreight;
-            const grandTotal = totalProduct + subtotalFreight;
+            const subTotal = subtotalProduct;
+            const grandTotal = totalProduct;
 
             $("#total_amount_product").val(totalProduct.toFixed(2));
-            $("#total_amount_freight").val(subtotalFreight.toFixed(2));
             $("#sub_total").val(subTotal.toFixed(2));
             $("#tax_amount").val(taxAmount.toFixed(2));
             $("#total_amount").val(grandTotal.toFixed(2));
 
             $("#total_amount_product_display").val(formatRibuan(totalProduct.toFixed(2)));
-            $("#total_amount_freight_display").val(formatRibuan(subtotalFreight.toFixed(2)));
             $("#sub_total_display").val(formatRibuan(subTotal.toFixed(2)));
             $("#tax_amount_display").val(formatRibuan(taxAmount.toFixed(2)));
             $("#total_amount_display").val(formatRibuan(grandTotal.toFixed(2)));
@@ -789,7 +750,7 @@
             initSelect2('.select-product');
             initSelect2('#suppliers');
 
-            $('.price, .freight').each(function() {
+            $('.price').each(function() {
                 let val = $(this).val().trim();
                 if (val === '' || isNaN(unformatRibuan(val))) {
                     $(this).val('0');
@@ -845,7 +806,6 @@
                 const lastPrice = parseFloat(selectedOption.data('price')) || 0;
 
                 row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
-                row.find('.freight').val('');
 
                 fillProductUnits(row, units, null, selectedProduct?.purchase_unit_id);
                 updateRowTotal(row);
@@ -879,7 +839,7 @@
             $(document).on('input', '#tax_percent', calc_total);
 
             // $('#purchaseForm').on('submit', function() {
-            //     $('.qty, .price, .freight, .total').each(function() {
+            //     $('.qty, .price, .total').each(function() {
             //         const cleanVal = unformatRibuan($(this).val());
             //         $(this).val(cleanVal);
             //     });
@@ -907,16 +867,6 @@
             // ✅ AUTO CLEAR ANGKA 0 SAAT FOCUS (untuk semua field angka)
 
             // 🎯 Handler untuk FREIGHT - Clear 0 saat focus
-            $(document).on('focus', '.freight', function() {
-                const val = $(this).val().trim();
-                const num = unformatRibuan(val);
-
-                // Jika nilai 0, kosongkan field
-                if (num === 0) {
-                    $(this).val('');
-                }
-            });
-
             // 🎯 Handler untuk PRICE - Clear 0 saat focus (opsional)
             $(document).on('focus', '.price', function() {
                 const val = $(this).val().trim();
@@ -1165,7 +1115,6 @@
                 const unit = row.find('select[name="product_unit_id[]"]');
                 const qty = row.find('input[name="qty[]"]');
                 const price = row.find('input[name="price[]"]');
-                const freight = row.find('input[name="freight[]"]');
 
                 if (!product.val()) {
                     isValid = false;
@@ -1186,19 +1135,6 @@
                     isValid = false;
                     showError(unit[0], 'Unit wajib dipilih');
                 }
-
-                const freightVal = freight.val().trim();
-                if (freightVal === '' || freightVal === null) {
-                    isValid = false;
-                    showError(freight[0], 'Freight harus diisi (minimal 0)');
-                    freight.val('0');
-                } else {
-                    const freightNum = unformatRibuan(freightVal);
-                    if (isNaN(freightNum) || freightNum < 0) {
-                        isValid = false;
-                        showError(freight[0], 'Freight harus berupa angka valid (minimal 0)');
-                    }
-                }
             });
 
             // 🔹 Jika tidak valid, cegah submit
@@ -1217,7 +1153,7 @@
 
             let ok = true;
 
-            $('.qty, .price, .freight, .total').each(function() {
+            $('.qty, .price, .total').each(function() {
                 const val = $(this).val();
                 const num = parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
                 if (isNaN(num)) {
@@ -1234,24 +1170,7 @@
             }
         });
 
-        $(document).on('input', '.freight', function() {
-            let val = $(this).val().replace(/[^\d,]/g, '');
-
-            if (val === '0' || val === '0,00') {
-                $(this).val('0');
-                updateRowTotal($(this).closest('.product-item'));
-                return;
-            }
-
-            const parts = val.split(',');
-            let integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            // ✅ maksimal 5 angka di belakang koma
-            val = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 5)}` : integerPart;
-            $(this).val(val);
-            updateRowTotal($(this).closest('.product-item'));
-        });
-
-        $(document).on('blur', '.price, .freight, .qty', function() {
+        $(document).on('blur', '.price, .qty', function() {
             let val = $(this).val().trim();
             if (val === '' || val === null) {
                 $(this).val('0');

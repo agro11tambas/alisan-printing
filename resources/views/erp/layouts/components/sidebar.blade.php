@@ -323,6 +323,12 @@
                                         href="/erp/purchases/purchase-orders"><span class="">Purchase
                                             List</span></a></li>
                             @endif
+                            @if (Auth::user()->hasSubPermission('purchase-list'))
+                                <li class="nxl-item"><a
+                                        class="nxl-link {{ request()->is('purchases/freight-payments*') ? 'active' : '' }}"
+                                        href="/erp/purchases/freight-payments"><span class="">Freight
+                                            Payment</span></a></li>
+                            @endif
                             @if (Auth::user()->hasSubPermission('purchase-returns'))
                                 <li class="nxl-item"><a
                                         class="nxl-link {{ request()->is('purchases/purchase-returns*') ? 'active' : '' }}"

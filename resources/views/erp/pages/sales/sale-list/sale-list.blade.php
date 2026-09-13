@@ -2574,6 +2574,7 @@
             const invoiceUrl = btn.data('url');
             const business = btn.data('business');
             const invoiceNo = btn.data('invoice');
+            const orderDate = btn.data('order-date');
             const total = btn.data('total');
 
             const rawPhone = btn.attr('data-phone') ?? '';
@@ -2660,6 +2661,7 @@
             }
 
             const message = [
+                `Tanggal Order: *${orderDate}*`,
                 `Kepada *${business}*`,
                 `Berikut Invoice *${invoiceNo}*`,
                 String(tautanInvoice).replace('https://', ''),

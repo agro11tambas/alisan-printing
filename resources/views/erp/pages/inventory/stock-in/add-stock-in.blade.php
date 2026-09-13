@@ -228,6 +228,7 @@
                                         <th>Total Stock In</th>
                                         <th>Remaining</th>
                                         <th>Add Stock In</th>
+                                        <th>Freight / Unit</th>
                                         <th>Notes</th>
                                     </tr>
                                 </thead>
@@ -288,6 +289,14 @@
                                                         = {{ number_format($item->remaining, 0, ',', '.') }} Pcs
                                                     @endif
                                                 </small>
+                                            </td>
+                                            <td>
+                                                <input type="text" inputmode="numeric"
+                                                    name="items[{{ $index }}][freight]"
+                                                    class="form-control freight-input"
+                                                    value="{{ number_format($item->last_freight ?? 0, 0, ',', '.') }}"
+                                                    placeholder="Ongkos angkut per {{ $unit }}">
+                                                <small class="text-muted">Rp / {{ $unit }}</small>
                                             </td>
                                             <td>
                                                 <input type="text" name="items[{{ $index }}][notes]"
@@ -361,6 +370,14 @@
                                         @endif
                                     </small>
 
+                                    <div class="stockin-mobile-label">Freight / {{ $unit }}</div>
+                                    <input type="text" inputmode="numeric"
+                                        name="items[{{ $index }}][freight]"
+                                        class="form-control form-control-sm mb-1 freight-input"
+                                        value="{{ number_format($item->last_freight ?? 0, 0, ',', '.') }}"
+                                        placeholder="Ongkos angkut per {{ $unit }}">
+                                    <small class="text-muted d-block mb-1">Rp per {{ $unit }}, dikali jumlah stock in</small>
+
                                     <div class="stockin-mobile-label">Notes</div>
                                     <input type="text" name="items[{{ $index }}][notes]"
                                         class="form-control form-control-sm mb-1">
@@ -383,6 +400,25 @@
 
             $(document).on('blur', 'input[name^="items"][name$="[stock_in]"]', function() {
                 if ($(this).val().trim() === '') $(this).val('0');
+            });
+
+            // Freight diketik per satuan beli, sama seperti kolom freight lama di
+            // Purchase List. Formatnya ribuan supaya angka besar tetap terbaca;
+            // titiknya dibuang lagi sebelum submit oleh handler di bawah.
+            $(document).on('focus', '.freight-input', function() {
+                if ($(this).val() === '0') $(this).val('');
+            });
+
+            $(document).on('blur', '.freight-input', function() {
+                if ($(this).val().trim() === '') $(this).val('0');
+            });
+
+            $(document).on('input', '.freight-input', function() {
+                const raw = $(this).val().replace(/\./g, '');
+                if (raw === '') return;
+
+                const value = parseInt(raw) || 0;
+                $(this).val(value.toLocaleString('id-ID'));
             });
 
             $(document).on('input', 'input[name^="items"][name$="[stock_in]"]', function() {

@@ -9,6 +9,8 @@ use App\Models\AccountTransaction;
 use App\Models\Inventory;
 use App\Models\InventoryItem;
 use App\Models\InventoryStock;
+use App\Models\InventoryStockIn;
+use App\Models\InventoryStockInHistory;
 use App\Models\ProductionStock;
 use App\Models\Products;
 use App\Models\Purchase;
@@ -707,7 +709,7 @@ class PurchaseOrderController extends Controller
         return back()->with('success', 'Purchase Order berhasil di-verify dan siap dibuatkan Purchase List.');
     }
 
-    public function delete($id, Request $request, PurchaseOrderForceDeleteService $forceDeleteService)
+    public function delete($id, Request $request)
     {
         DB::beginTransaction();
 
@@ -747,57 +749,133 @@ class PurchaseOrderController extends Controller
                 );
             }
 
-            // Masih ada Purchase List (belum stock in) → hapus berikut anaknya
+            // Soft delete, bukan forceDelete: PO yang "hilang" dari list harus
+            // tetap bisa ditelusuri dan dipulihkan dari database. Nomor PO tetap
+            // aman karena PurchaseNumberService sudah menghitung yang di-trash.
+            // Purchase List anak (belum stock in & belum bayar) ikut di-soft
+            // delete dengan pola yang sama seperti hapus Purchase List biasa,
             // supaya stok incoming dan transaksi akunnya ikut dibalik.
-            if ($purchaseLists->isNotEmpty()) {
-                $filesToDelete = $forceDeleteService->execute($purchase);
+            $activeLists = $purchaseLists->whereNull('deleted_at');
 
-                DB::commit();
-
-                foreach ($filesToDelete as $file) {
-                    if (is_file($file)) {
-                        @unlink($file);
-                    }
-                }
-
-                return $this->purchaseOrderDeleteResponse(
-                    $request,
-                    true,
-                    'Purchase Order beserta Purchase List-nya berhasil dihapus.'
-                );
+            foreach ($activeLists as $purchaseList) {
+                $this->softDeletePurchase($purchaseList);
             }
 
-            $productIds = [];
-
-            foreach ($purchase->purchaseItems as $item) {
-                $productIds[] = $item->product_id;
-            }
-
-            // Hard delete semua purchase items
-            PurchaseItem::where('purchase_id', $purchase->id)->forceDelete();
-
-            // Hard delete transaksi akun kalau ada
-            if ($purchase->transaction_group_id) {
-                AccountTransaction::where('transaction_group_id', $purchase->transaction_group_id)->forceDelete();
-            }
-
-            // Hapus file image kalau ada
-            if ($purchase->image && file_exists(public_path('storage/'.$purchase->image))) {
-                unlink(public_path('storage/'.$purchase->image));
-            }
-
-            // Hard delete purchase
-            $purchase->forceDelete();
+            $this->softDeletePurchase($purchase);
 
             DB::commit();
 
-            return $this->purchaseOrderDeleteResponse($request, true, 'Purchase Order berhasil dihapus.');
+            Log::warning('purchase_order.deleted', [
+                'purchase_id' => $purchase->id,
+                'purchase_number' => $purchase->purchase_number,
+                'purchase_list_count' => $activeLists->count(),
+                'deleted_by' => auth()->id(),
+                'deleted_by_name' => auth()->user()?->name,
+                'ip' => $request->ip(),
+            ]);
+
+            $message = $activeLists->isNotEmpty()
+                ? 'Purchase Order beserta Purchase List-nya berhasil dihapus.'
+                : 'Purchase Order berhasil dihapus.';
+
+            return $this->purchaseOrderDeleteResponse($request, true, $message);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Purchase delete failed: '.$e->getMessage());
 
             return $this->purchaseOrderDeleteResponse($request, false, $e->getMessage());
         }
+    }
+
+    /**
+     * Soft delete satu purchase (PO maupun PL anak) beserta efek sampingnya:
+     * stok incoming dibalik, transaksi Purchase Account dibalik lalu di-soft
+     * delete, transaksi Cash/Bank hanya di-unlink, item & inventory kosong
+     * di-soft delete. Pola sama dengan PurchaseListController::delete.
+     */
+    private function softDeletePurchase(Purchase $purchase): void
+    {
+        $purchase->loadMissing('purchaseItems');
+
+        foreach ($purchase->purchaseItems as $item) {
+            if (! $item->product_id) {
+                continue;
+            }
+
+            $stockInQty = InventoryItem::where('purchase_item_id', $item->id)
+                ->where('stock_in', '>', 0)
+                ->sum('stock_in');
+            $quantityBase = $item->qty_base ?? ($item->quantity * ($item->unit_conversion_value ?: 1));
+            $incomingLeft = max(0, $quantityBase - $stockInQty);
+
+            $stock = $purchase->stock_destination === 'production'
+                ? ProductionStock::where('product_id', $item->product_id)
+                    ->where('production_warehouse_id', $item->production_warehouse_id ?? 2)
+                    ->first()
+                : InventoryStock::where('product_id', $item->product_id)
+                    ->where('inventory_warehouse_id', $item->inventory_warehouse_id ?? 1)
+                    ->first();
+
+            if ($stock && $incomingLeft > 0) {
+                $stock->incoming_stock = max(0, (float) $stock->incoming_stock - $incomingLeft);
+                $stock->save();
+            }
+        }
+
+        $transactions = AccountTransaction::where('purchase_id', $purchase->id)->get();
+
+        foreach ($transactions as $trx) {
+            $account = Account::find($trx->account_id);
+            if (! $account) {
+                continue;
+            }
+
+            if ($account->type === 'Purchase Account') {
+                $account->closing_balance -= $trx->debit;
+                $account->closing_balance += $trx->credit;
+                $trx->delete();
+            } else {
+                // Cash / Bank → jangan dihapus, hanya unlink
+                $trx->purchase_id = null;
+                $trx->note = trim(($trx->note ?? '').' [Purchase deleted]');
+                $trx->save();
+            }
+
+            $account->save();
+        }
+
+        PurchaseItem::where('purchase_id', $purchase->id)->delete();
+
+        // Inventory PL yang masih kosong (belum ada stock_in) ikut dihapus.
+        foreach (Inventory::where('purchase_id', $purchase->id)->get() as $inventory) {
+            $inventoryItemIds = InventoryItem::where('inventory_id', $inventory->id)->pluck('id');
+
+            $hasReceivedStock = InventoryItem::whereIn('id', $inventoryItemIds)
+                ->where('stock_in', '>', 0)
+                ->exists();
+
+            if ($hasReceivedStock) {
+                continue;
+            }
+
+            $stockInIds = InventoryStockIn::where('inventory_id', $inventory->id)->pluck('id');
+
+            if ($stockInIds->isNotEmpty() || $inventoryItemIds->isNotEmpty()) {
+                InventoryStockInHistory::where(function ($query) use ($stockInIds, $inventoryItemIds) {
+                    $query->whereIn('inventory_stock_in_id', $stockInIds)
+                        ->orWhereIn('inventory_item_id', $inventoryItemIds);
+                })->delete();
+
+                InventoryStockIn::whereIn('id', $stockInIds)->delete();
+            }
+
+            InventoryItem::whereIn('id', $inventoryItemIds)->delete();
+            $inventory->delete();
+        }
+
+        $purchase->deleted_by = auth()->id();
+        $purchase->save();
+        $purchase->delete();
     }
 
     /**
@@ -1257,8 +1335,10 @@ class PurchaseOrderController extends Controller
             'qty.*' => 'numeric|min:0',
             'price' => 'required|array',
             'price.*' => 'numeric|min:0',
-            'freight' => 'required|array',
-            'freight.*' => 'numeric|min:0',
+            // Freight tidak lagi diketik di sini — sekarang diisi waktu Stock In.
+            // Aturannya dibiarkan nullable supaya data lama tetap lolos validasi.
+            'freight' => 'nullable|array',
+            'freight.*' => 'nullable|numeric|min:0',
             'tax_percent' => 'nullable|numeric|min:0',
             'stock_destination' => 'required|in:warehouse,production',
             'waybill_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:10240',

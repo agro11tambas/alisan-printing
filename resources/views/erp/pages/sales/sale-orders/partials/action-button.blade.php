@@ -28,6 +28,7 @@
                 data-url="{{ url('/erp/sales/sale-orders/invoice/' . $order->id) }}"
                 data-phone="{{ $order->customer->phone }}" data-business="{{ $order->business_name }}"
                 data-invoice="{{ $order->order_number }}"
+                data-order-date="{{ optional($order->order_date ?? $order->created_at)->translatedFormat('d F Y') }}"
                 data-total="{{ number_format($order->grand_total, 0, ',', '.') }}">
                 <i class="feather feather-share-2 me-3"></i>
                 <span>Share ke WA</span>

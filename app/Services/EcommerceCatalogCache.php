@@ -57,7 +57,26 @@ class EcommerceCatalogCache
 
         // TTL 0 mematikan cache tanpa perlu ubah kode — untuk menelusuri
         // masalah data di produksi.
+        //
+        // Tapi jalur ini dulu melewati SELURUH pengaman: tanpa cache, tanpa
+        // lock, tanpa larangan membangun di web. Artinya setiap request web
+        // membangun katalog penuh sendiri-sendiri, berbarengan. Saklar
+        // "sementara" yang lupa dimatikan sudah cukup untuk melumpuhkan ERP,
+        // dan itu cocok dengan access log 10 September 2026: request /products
+        // dan /categories hidup 8-10 jam sambil menahan worker PHP.
+        //
+        // Sekarang larangannya diperiksa lebih dulu, bahkan saat cache mati.
         if ($ttl <= 0) {
+            if (! $this->mayRebuildHere($mayRebuildInWeb, $key)) {
+                Log::channel('performance')->warning('performance.catalog_cache_ttl_nol', [
+                    'key' => $key,
+                    'hint' => 'WEBSITE_CATALOG_CACHE_TTL=0 mematikan cache katalog. '
+                        .'Kembalikan ke 300 di .env produksi.',
+                ]);
+
+                throw new CatalogCacheWarmingException;
+            }
+
             return $callback();
         }
 
@@ -79,7 +98,7 @@ class EcommerceCatalogCache
         // halaman ERP ikut mengantre di belakangnya. Yang membangun adalah cron
         // (`catalog:warm`). Kalau cron mati, yang terjadi cuma katalog agak
         // basi, bukan ERP berhenti untuk semua orang.
-        if (! $this->mayRebuildHere($mayRebuildInWeb)) {
+        if (! $this->mayRebuildHere($mayRebuildInWeb, $key)) {
             if (is_array($payload)) {
                 return $payload['value'];
             }
@@ -157,7 +176,50 @@ class EcommerceCatalogCache
 
     private function build(Repository $store, string $payloadKey, string $freshKey, int $ttl, Closure $callback): mixed
     {
+        // Batas waktu keras.
+        //
+        // Access log produksi 10 September 2026 mencatat satu request
+        // /api/v1/ecommerce/categories hidup 36.070 detik — SEPULUH JAM — dan
+        // dua request /products masing-masing 9,4 dan 8,4 jam. Semuanya balas
+        // 200, jadi tidak pernah muncul sebagai error, dan tidak muncul di log
+        // Laravel karena pekerjaannya di terminating callback. Selama itu satu
+        // proses PHP terpakai penuh dan tidak pernah kembali ke kolam, sehingga
+        // request lain — termasuk 404 yang tidak menjalankan kode apa pun —
+        // mengantre sampai belasan menit. Itulah buffering yang dirasakan di
+        // semua modul ERP.
+        //
+        // Tidak ada pembangunan katalog yang sah butuh lebih dari beberapa
+        // menit. Kalau melewatinya, prosesnya nyangkut; lebih baik dia mati dan
+        // mengembalikan worker daripada menyandera seluruh ERP berjam-jam.
+        // Hanya berlaku di request web. Cron `catalog:warm` memang butuh 74-78
+        // detik untuk membangun katalog penuh, dan itu wajar — dia CLI, tidak
+        // memakai worker web, tidak ada yang menunggu di belakangnya. Membatasi
+        // cron justru akan membuat katalog tidak pernah selesai dibangun.
+        $anggaranDetik = app()->runningInConsole()
+            ? 0
+            : (int) config('services.website.catalog_cache_build_budget', 120);
+
+        if ($anggaranDetik > 0 && function_exists('set_time_limit')) {
+            @set_time_limit($anggaranDetik);
+        }
+
+        $mulai = microtime(true);
+
         $value = $callback();
+
+        $durasiMs = round((microtime(true) - $mulai) * 1000, 2);
+
+        // Dicatat SELALU, bukan hanya saat gagal: tanpa angka ini tidak ada
+        // cara mengetahui pembangunan katalog mulai melambat sebelum dia
+        // terlanjur menyandera worker berjam-jam.
+        if ($anggaranDetik > 0 && $durasiMs > $anggaranDetik * 1000 * 0.5) {
+            Log::channel('performance')->warning('performance.catalog_build_lambat', [
+                'key' => $payloadKey,
+                'durasi_ms' => $durasiMs,
+                'anggaran_ms' => $anggaranDetik * 1000,
+                'di_console' => app()->runningInConsole(),
+            ]);
+        }
 
         // Salinan disimpan jauh lebih lama dari penanda segarnya, supaya saat
         // TTL habis masih ada yang bisa disajikan selagi dibangun ulang.
@@ -222,10 +284,23 @@ class EcommerceCatalogCache
      * kunci semurah itu berarti slug yang belum pernah dihangatkan membalas 503
      * selamanya, karena tidak ada satu pun jalur yang akan mengisinya.
      */
-    protected function mayRebuildHere(bool $mayRebuildInWeb = false): bool
+    protected function mayRebuildHere(bool $mayRebuildInWeb = false, string $key = ''): bool
     {
+        if (app()->runningInConsole()) {
+            return true;
+        }
+
+        // Kunci indeks (products:index, categories:index) adalah katalog PENUH,
+        // belasan MB, dan itu yang tercatat menyandera worker sampai sepuluh jam
+        // di produksi 10 September 2026. Larangannya sengaja tidak bisa dibuka
+        // lewat config: setelan yang salah di .env produksi sudah pernah
+        // membuat masalah ini kambuh, dan tidak ada keadaan di mana membangun
+        // katalog penuh di dalam request web adalah pilihan yang benar.
+        if (str_contains($key, ':index:')) {
+            return false;
+        }
+
         return $mayRebuildInWeb
-            || app()->runningInConsole()
             || (bool) config('services.website.catalog_cache_web_rebuild', false);
     }
 

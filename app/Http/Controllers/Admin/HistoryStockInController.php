@@ -66,6 +66,7 @@ class HistoryStockInController extends Controller
                     'stock_in'              => $productItems->sum('stock_in'),        // pcs
                     'remaining'             => $productItems->sum('qty_base') - $productItems->sum('stock_in'), // pcs
                     'item_ids'              => $productItems->pluck('id')->toArray(),
+                    'last_freight'          => static::lastFreightFor($first->product_id),
                 ];
             })->values();
 
@@ -220,8 +221,48 @@ class HistoryStockInController extends Controller
                     'stock_in' => $productItems->sum('stock_in'),
                     'remaining' => $productItems->sum('qty_base') - $productItems->sum('stock_in'),
                     'item_ids' => $productItems->pluck('id')->toArray(),
+                    'last_freight' => static::lastFreightFor($first->product_id),
                 ];
             })->values();
+    }
+
+    /**
+     * Nilai awal kolom Freight di form Stock In: ongkos angkut terakhir yang
+     * dipakai produk ini. Sumber pertamanya stock in sebelumnya. Kalau produknya
+     * belum pernah di-stock-in dengan freight â data lama, waktu freight masih
+     * diketik di Purchase List â nilainya diambil dari purchase item terakhir
+     * yang freight-nya terisi, supaya perpindahan kolomnya tidak terasa.
+     *
+     * Sama seperti freight lama: satuannya per satuan BELI (mis. per Dus).
+     */
+    public static function lastFreightFor($productId): float
+    {
+        static $cache = [];
+
+        $productId = (int) $productId;
+
+        if (array_key_exists($productId, $cache)) {
+            return $cache[$productId];
+        }
+
+        $fromStockIn = DB::table('inventory_stock_in_histories_2 as h')
+            ->join('inventory_items_2 as ii', 'ii.id', '=', 'h.inventory_item_id')
+            ->whereNull('h.deleted_at')
+            ->where('ii.product_id', $productId)
+            ->where('h.freight', '>', 0)
+            ->orderByDesc('h.id')
+            ->value('h.freight');
+
+        if ($fromStockIn === null) {
+            $fromStockIn = DB::table('purchase_items')
+                ->whereNull('deleted_at')
+                ->where('product_id', $productId)
+                ->where('freight', '>', 0)
+                ->orderByDesc('id')
+                ->value('freight');
+        }
+
+        return $cache[$productId] = (float) ($fromStockIn ?? 0);
     }
 
     private function getTotalStockForAvg($productId)
@@ -434,6 +475,12 @@ class HistoryStockInController extends Controller
                 $cleaned = preg_replace('/[^0-9-]/', '', $item['stock_in']);
                 $items[$index]['stock_in'] = (int) $cleaned;
             }
+
+            // Freight diketik dengan pemisah ribuan, jadi titiknya dibuang dulu.
+            if (isset($item['freight'])) {
+                $cleanedFreight = preg_replace('/[^0-9.\-]/', '', str_replace('.', '', $item['freight']));
+                $items[$index]['freight'] = $cleanedFreight === '' ? 0 : (float) $cleanedFreight;
+            }
         }
         $request->merge(['items' => $items]);
 
@@ -447,6 +494,7 @@ class HistoryStockInController extends Controller
             'items.*.inventory_item_ids'         => 'required|array',
             'items.*.inventory_item_ids.*'       => 'exists:inventory_items_2,id',
             'items.*.stock_in'                   => 'required|integer|min:0',
+            'items.*.freight'                    => 'nullable|numeric|min:0',
             'items.*.unit_conversion_value' => 'required|numeric|min:1',
         ], UploadLimit::imageMessages('waybill_image') + UploadLimit::imageMessages('receipt_image') + [
             'items.required' => 'Tidak ada item yang terkirim. Ini biasanya terjadi kalau foto surat jalan terlalu besar sehingga seluruh form ditolak server — coba foto ulang dengan ukuran lebih kecil.',
@@ -467,6 +515,9 @@ class HistoryStockInController extends Controller
                 $conv    = (float) ($itemData['unit_conversion_value'] ?? 1);
                 $addQty  = (int) $itemData['stock_in'];       // input user (kotak)
                 $addBase = (int) round($addQty * $conv);       // pcs
+                // Ongkos angkut per satuan beli â arti yang sama dengan kolom
+                // freight lama di Purchase List, cuma pindah tempat inputnya.
+                $freight = (float) ($itemData['freight'] ?? 0);
 
                 if ($addQty <= 0) continue;
 
@@ -512,6 +563,7 @@ class HistoryStockInController extends Controller
                         'inventory_stock_in_id' => $stockIn->id,
                         'inventory_item_id'     => $inventoryItem->id,
                         'stock_in'              => $toAdd,
+                        'freight'               => $freight,
                         'notes'                 => $itemData['notes'] ?? null,
                     ]);
 

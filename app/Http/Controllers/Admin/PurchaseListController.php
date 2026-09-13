@@ -507,13 +507,6 @@ class PurchaseListController extends Controller
                     ->where('pi.price', '>', 0)
                     ->orderByDesc('pi.id')
                     ->limit(1),
-
-                'last_freight' => DB::table('purchase_items as pi')
-                    ->select('pi.freight')
-                    ->whereColumn('pi.product_id', 'products.id')
-                    ->where('pi.freight', '>', 0)
-                    ->orderByDesc('pi.id')
-                    ->limit(1),
             ])
             ->get();
 
@@ -524,7 +517,6 @@ class PurchaseListController extends Controller
                 'sku' => $product->sku,
                 'price' => $product->price,
                 'last_price' => $product->last_price,
-                'last_freight' => $product->last_freight,
                 'purchase_unit_id' => $product->purchase_unit_id,
 
                 'units' => $product->unitConversions->map(function ($conversion) {
@@ -578,15 +570,15 @@ class PurchaseListController extends Controller
             'qty.*' => 'numeric|min:1',
             'price' => 'required|array',
             'price.*' => 'numeric|min:0',
-            'freight' => 'required|array',
-            'freight.*' => 'numeric|min:0',
+            'freight' => 'nullable|array',
+            'freight.*' => 'nullable|numeric|min:0',
             'total' => 'required|array',
             'total.*' => 'numeric|min:0',
             'sub_total' => 'required|numeric|min:0',
             'tax_percent' => 'nullable|numeric|min:0',
             'tax_amount' => 'nullable|numeric|min:0',
             'total_amount_product' => 'required|numeric|min:0',
-            'total_amount_freight' => 'required|numeric|min:0',
+            'total_amount_freight' => 'nullable|numeric|min:0',
             'total_amount' => 'required|numeric|min:0',
             'stock_destination' => 'required|in:warehouse,production',
             'product_unit_id' => 'nullable|array',
@@ -615,7 +607,7 @@ class PurchaseListController extends Controller
             $paymentStatus = 'Unpaid';
 
             $totalProduct = $request->total_amount_product;
-            $totalFreight = $request->total_amount_freight;
+            $totalFreight = $request->total_amount_freight ?? 0;
             $taxPercent = $request->tax_percent ?? 0;
 
             $taxAmount = ($totalProduct * $taxPercent) / 100;
@@ -672,7 +664,7 @@ class PurchaseListController extends Controller
 
                 $qtyBase = $qty * $unitConversionValue;
                 $price = $request->price[$index];
-                $freight = $request->freight[$index];
+                $freight = $request->freight[$index] ?? 0;
                 $total = $request->total[$index];
 
                 $taxPercent = $request->tax_percent ?? 0;
@@ -878,13 +870,6 @@ class PurchaseListController extends Controller
                     ->where('pi.price', '>', 0)
                     ->orderByDesc('pi.id')
                     ->limit(1),
-
-                'last_freight' => DB::table('purchase_items as pi')
-                    ->select('pi.freight')
-                    ->whereColumn('pi.product_id', 'products.id')
-                    ->where('pi.freight', '>', 0)
-                    ->orderByDesc('pi.id')
-                    ->limit(1),
             ])
             ->get();
 
@@ -895,7 +880,6 @@ class PurchaseListController extends Controller
                 'sku' => $product->sku,
                 'price' => $product->price,
                 'last_price' => $product->last_price,
-                'last_freight' => $product->last_freight,
                 'purchase_unit_id' => $product->purchase_unit_id,
                 'units' => $product->unitConversions->map(function ($conversion) {
                     return [
@@ -937,15 +921,15 @@ class PurchaseListController extends Controller
             'qty.*' => 'numeric|min:1',
             'price' => 'required|array',
             'price.*' => 'numeric|min:0',
-            'freight' => 'required|array',
-            'freight.*' => 'numeric|min:0',
+            'freight' => 'nullable|array',
+            'freight.*' => 'nullable|numeric|min:0',
             'total' => 'required|array',
             'total.*' => 'numeric|min:0',
             'sub_total' => 'required|numeric|min:0',
             'tax_percent' => 'nullable|numeric|min:0',
             'tax_amount' => 'nullable|numeric|min:0',
             'total_amount_product' => 'required|numeric|min:0',
-            'total_amount_freight' => 'required|numeric|min:0',
+            'total_amount_freight' => 'nullable|numeric|min:0',
             'total_amount' => 'required|numeric|min:0',
             'note' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -1039,7 +1023,7 @@ class PurchaseListController extends Controller
 
             // ===== 3️⃣ HITUNG NILAI BARU
             $totalProduct = $request->total_amount_product;
-            $totalFreight = $request->total_amount_freight;
+            $totalFreight = $request->total_amount_freight ?? ($purchase->total_amount_freight ?? 0);
             $grandTotal = $totalProduct + $totalFreight;
 
             $paidProduct = $purchase->paid_amount_product ?? 0;
@@ -1102,7 +1086,8 @@ class PurchaseListController extends Controller
                 $qtyBase = $qty * $unitConversionValue;
 
                 $price = $request->price[$index] ?? 0;
-                $freight = $request->freight[$index] ?? 0;
+                $freight = $request->freight[$index]
+                    ?? ($existingItems->get($productId)->freight ?? 0);
                 $total = $request->total[$index] ?? 0;
 
                 if (! $productId) {

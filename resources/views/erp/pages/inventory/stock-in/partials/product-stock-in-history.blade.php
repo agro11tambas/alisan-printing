@@ -3,6 +3,7 @@
         <tr>
             <th>Produk</th>
             <th>Jumlah</th>
+            <th>Freight</th>
             <th>Catatan</th>
             <th>Action</th>
         </tr>
@@ -12,6 +13,7 @@
             <tr>
                 <td>{{ $item->inventoryItem->product->name ?? '-' }}</td>
                 <td>{{ number_format($item->stock_in, 0, ',', '.') }} pcs</td>
+                <td>Rp. {{ number_format($item->freight ?? 0, 0, ',', '.') }}</td>
                 <td>{{ $item->notes ?? '-' }}</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-primary edit-item" data-id="{{ $item->id }}"

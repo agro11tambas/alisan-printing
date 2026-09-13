@@ -38,10 +38,9 @@
             align-items: start;
         }
 
-        /* 🔹 Perbesar font untuk kolom Qty, Price, Freight, dan Total */
+        /* 🔹 Perbesar font untuk kolom Qty, Price, dan Total */
         .product-grid input.qty,
         .product-grid input.price,
-        .product-grid input.freight,
         .product-grid input.total {
             font-size: 16px !important;
             font-weight: 600;
@@ -63,7 +62,6 @@
         /* 🔹 Baris dengan Qty PL = 0 tidak ikut ke Purchase List ini */
         .product-item.row-skipped .product-name-display,
         .product-item.row-skipped .price,
-        .product-item.row-skipped .freight,
         .product-item.row-skipped .total {
             opacity: .55;
         }
@@ -299,7 +297,6 @@
                         <div>Remaining</div>
                         <div>Qty PL</div>
                         <div>Price</div>
-                        <div>Freight</div>
                         <div>Total</div>
                     </div>
 
@@ -366,12 +363,6 @@
                                     </div>
 
                                     <div class="form-group">
-                                        <label>Freight</label>
-                                        <input type="text" inputmode="numeric" name="freight[]"
-                                            class="form-control freight" value="0">
-                                    </div>
-
-                                    <div class="form-group">
                                         <label>Total</label>
                                         <input type="text" inputmode="numeric" name="total[]"
                                             class="form-control total" readonly value="0">
@@ -395,16 +386,6 @@
                                                 readonly>
                                             <input type="hidden" name="total_amount_product"
                                                 id="total_amount_product">
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <th>Total Freight</th>
-                                        <td>
-                                            <input type="text" id="total_amount_freight_display"
-                                                class="form-control"
-                                                readonly>
-                                            <input type="hidden" name="total_amount_freight"
-                                                id="total_amount_freight">
                                         </td>
                                     </tr>
                                     <tr>
@@ -572,9 +553,7 @@
             // ✅ Gunakan unformatRibuan untuk semua field supaya konsisten
             const qty = parseFloat(unformatRibuan(row.find(".qty").val())) || 0;
             const price = parseFloat(unformatRibuan(row.find(".price").val())) || 0;
-            const freight = parseFloat(unformatRibuan(row.find(".freight").val())) || 0;
-
-            const total = qty * (price + freight);
+            const total = qty * price;
 
             if (total > 0) {
                 row.find(".total").val(formatRibuan(total.toFixed(2)));
@@ -586,8 +565,7 @@
         }
 
         function calc_total() {
-            let subtotalProduct = 0,
-                subtotalFreight = 0;
+            let subtotalProduct = 0;
 
             $('#product_list .product-item').each(function() {
                 const row = $(this);
@@ -596,14 +574,12 @@
                 const qtyVal = row.find('.qty').val().toString().replace(/\./g, '');
                 const qty = parseFloat(qtyVal) || 0;
 
-                // ✅ Price & Freight boleh desimal
+                // ✅ Price boleh desimal
                 const price = parseFloat(unformatRibuan(row.find('.price').val())) || 0;
-                const freight = parseFloat(unformatRibuan(row.find('.freight').val())) || 0;
 
                 subtotalProduct += qty * price;
-                subtotalFreight += qty * freight;
 
-                const totalRow = qty * (price + freight);
+                const totalRow = qty * price;
                 row.find('.total').val(totalRow > 0 ? formatRibuan(totalRow.toFixed(2)) : '');
 
                 // Qty 0 = produk tidak ikut PL ini, sisanya tetap di PO.
@@ -614,17 +590,15 @@
             const taxAmount = (subtotalProduct * taxPercent) / 100;
 
             const totalProduct = subtotalProduct + taxAmount;
-            const grandTotal = totalProduct + subtotalFreight;
-            const subTotal = subtotalProduct + subtotalFreight;
+            const grandTotal = totalProduct;
+            const subTotal = subtotalProduct;
 
             $("#total_amount_product").val(totalProduct.toFixed(2));
-            $("#total_amount_freight").val(subtotalFreight.toFixed(2));
             $("#sub_total").val(subTotal.toFixed(2));
             $("#tax_amount").val(taxAmount.toFixed(2));
             $("#total_amount").val(grandTotal.toFixed(2));
 
             $("#total_amount_product_display").val(totalProduct > 0 ? formatRibuan(totalProduct.toFixed(0)) : '0');
-            $("#total_amount_freight_display").val(subtotalFreight > 0 ? formatRibuan(subtotalFreight.toFixed(0)) : '0');
             $("#sub_total_display").val(subTotal > 0 ? formatRibuan(subTotal.toFixed(0)) : '0');
             $("#tax_amount_display").val(taxAmount > 0 ? formatRibuan(taxAmount.toFixed(0)) : '0');
             $("#total_amount_display").val(grandTotal > 0 ? formatRibuan(grandTotal.toFixed(0)) : '0');
@@ -657,7 +631,7 @@
             });
 
             // Format awal
-            $('.qty, .price, .freight').each(function() {
+            $('.qty, .price').each(function() {
                 let val = $(this).val();
 
                 // kalau kosong/null/undefined → isi 0
@@ -699,7 +673,6 @@
 
                 const lastPrice = parseFloat(selectedOption.data('price')) || 0;
                 row.find('.price').val(formatRibuan(lastPrice.toFixed(2)));
-                row.find('.freight').val('0');
                 updateRowTotal(row);
 
                 if (!productId) return;
@@ -708,9 +681,7 @@
                     type: 'GET',
                     success: function(response) {
                         const price = response.price ? parseFloat(response.price) : lastPrice;
-                        const freight = response.freight ? parseFloat(response.freight) : 0;
                         row.find('.price').val(formatRibuan(price.toFixed(2)));
-                        row.find('.freight').val(formatRibuan(freight.toFixed(2)));
                         updateRowTotal(row);
                     },
                     error: function() {
@@ -760,7 +731,7 @@
             });
 
 
-            $(document).on('input', '.price, .freight', function() {
+            $(document).on('input', '.price', function() {
                 let val = $(this).val();
 
                 // Hanya izinkan angka dan koma
@@ -800,7 +771,7 @@
 
             // Tandai field yang dikosongkan otomatis saat fokus, supaya bisa dibedakan
             // dari field yang memang sengaja dikosongkan user (harus kena validasi required).
-            $(document).on('input', '.qty, .price, .freight', function() {
+            $(document).on('input', '.qty, .price', function() {
                 $(this).removeData('autoCleared');
             });
 
@@ -833,8 +804,8 @@
                 updateRowTotal(row);
             });
 
-            /* ==================== FOCUS & BLUR HANDLER - Price & Freight ==================== */
-            $(document).on('focus', '.price, .freight', function() {
+            /* ==================== FOCUS & BLUR HANDLER - Price ==================== */
+            $(document).on('focus', '.price', function() {
                 const val = unformatRibuan($(this).val());
                 if (val === 0 || $(this).val().trim() === '') {
                     $(this).data('autoCleared', true);
@@ -844,7 +815,7 @@
                 }
             });
 
-            $(document).on('blur', '.price, .freight', function() {
+            $(document).on('blur', '.price', function() {
                 let val = $(this).val().trim();
                 const row = $(this).closest('.product-item');
 
@@ -942,7 +913,7 @@
         }
 
         $(document).on("change input",
-            "#purchase_number, #purchase_date, #suppliers, #transaction_type, #stock_destination, select[name='product[]'], input[name='qty[]'], input[name='price[]'], input[name='freight[]']",
+            "#purchase_number, #purchase_date, #suppliers, #transaction_type, #stock_destination, select[name='product[]'], input[name='qty[]'], input[name='price[]']",
             function() {
                 if ($(this).hasClass("select2-hidden-accessible")) {
                     $(this).next('.select2').next('.invalid-feedback').remove();
@@ -1006,7 +977,6 @@
                 const product = row.find('input[name="product[]"]');
                 const qty = row.find('input[name="qty[]"]');
                 const price = row.find('input[name="price[]"]');
-                const freight = row.find('input[name="freight[]"]');
 
                 if (!product.val()) {
                     isValid = false;
@@ -1023,7 +993,7 @@
                 }
 
                 // Baris dengan qty 0 di-skip: produknya tetap jadi sisa PO dan bisa
-                // dibuatkan Purchase List anak berikutnya, jadi price/freight-nya
+                // dibuatkan Purchase List anak berikutnya, jadi harganya
                 // tidak perlu divalidasi.
                 if (qtyNumber <= 0) {
                     return;
@@ -1031,17 +1001,11 @@
 
                 hasPositiveQty = true;
 
-                // 🔹 Price & Freight boleh 0, tapi tidak boleh negatif
+                // 🔹 Price boleh 0, tapi tidak boleh negatif
                 const priceNumber = unformatRibuan((price.val() ?? '').trim());
                 if (priceNumber < 0) {
                     isValid = false;
                     showError(price[0], 'Price harus berupa angka valid (minimal 0)');
-                }
-
-                const freightNumber = unformatRibuan((freight.val() ?? '').trim());
-                if (freightNumber < 0) {
-                    isValid = false;
-                    showError(freight[0], 'Freight harus berupa angka valid (minimal 0)');
                 }
             });
 
@@ -1070,10 +1034,10 @@
 
             let ok = true;
 
-            $('.qty, .price, .freight, .total').each(function() {
+            $('.qty, .price, .total').each(function() {
                 const val = ($(this).val() ?? '').toString().trim();
 
-                // Field kosong (qty/price/freight/total baris yang di-skip) dianggap 0.
+                // Field kosong (qty/price/total baris yang di-skip) dianggap 0.
                 if (val === '') {
                     $(this).val((0).toFixed(5));
 

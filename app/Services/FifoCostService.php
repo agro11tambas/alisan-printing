@@ -505,6 +505,7 @@ class FifoCostService
             ->select([
                 'h.id AS history_id',
                 'h.stock_in AS stock_in',
+                'h.freight AS stock_in_freight',
                 'si.change_date AS change_date',
                 'ii.product_id AS product_id',
                 'ii.purchase_item_id AS purchase_item_id',
@@ -533,7 +534,15 @@ class FifoCostService
                         'layer_date' => $date,
                         'qty_in' => $qty,
                         'qty_remaining' => $qty,
-                        'unit_cost' => $this->baseUnitCost($history->final_price, $history->unit_conversion_value),
+                        // final_price sudah memuat freight untuk data lama, waktu
+                        // ongkos angkut masih diketik di Purchase List. Sejak
+                        // freight pindah ke Stock In, purchase item barunya
+                        // ber-freight 0 dan angkanya datang dari baris stock in
+                        // ini â jadi keduanya cukup dijumlah, tidak dobel.
+                        'unit_cost' => $this->baseUnitCost(
+                            (float) $history->final_price + (float) $history->stock_in_freight,
+                            $history->unit_conversion_value
+                        ),
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];

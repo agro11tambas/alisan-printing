@@ -246,8 +246,6 @@
                                                 <th data-column="supplier">Supplier</th>
                                                 <th data-column="total_amount_product">Product Total</th>
                                                 <th data-column="paid_amount_product">Product Paid</th>
-                                                <th data-column="total_amount_freight">Freight Total</th>
-                                                <th data-column="paid_amount_freight">Freight Paid</th>
                                                 <th data-column="payment_status">Status</th>
                                                 <th>User</th>
                                             </tr>
@@ -747,13 +745,6 @@
                     {
                         data: 'paid_amount_product',
                         name: 'paid_amount_product'
-                    },
-                    {
-                        data: 'total_amount_freight'
-                    },
-                    {
-                        data: 'paid_amount_freight',
-                        name: 'paid_amount_freight'
                     },
                     {
                         data: 'payment_status',

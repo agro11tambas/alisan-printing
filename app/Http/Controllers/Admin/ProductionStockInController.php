@@ -58,6 +58,7 @@ class ProductionStockInController extends Controller
                     'stock_in'              => $productItems->sum('stock_in'),
                     'remaining'             => $productItems->sum('qty_base') - $productItems->sum('stock_in'),
                     'item_ids'              => $productItems->pluck('id')->toArray(),
+                    'last_freight'          => HistoryStockInController::lastFreightFor($first->product_id),
                 ];
             })->values();
 
@@ -191,6 +192,7 @@ class ProductionStockInController extends Controller
                     'stock_in' => $productItems->sum('stock_in'),
                     'remaining' => $productItems->sum('qty_base') - $productItems->sum('stock_in'),
                     'item_ids' => $productItems->pluck('id')->toArray(),
+                    'last_freight' => HistoryStockInController::lastFreightFor($first->product_id),
                 ];
             })->values();
     }
@@ -393,6 +395,12 @@ class ProductionStockInController extends Controller
                 $cleaned = preg_replace('/[^0-9-]/', '', $item['stock_in']);
                 $items[$index]['stock_in'] = (int) $cleaned;
             }
+
+            // Freight diketik dengan pemisah ribuan, jadi titiknya dibuang dulu.
+            if (isset($item['freight'])) {
+                $cleanedFreight = preg_replace('/[^0-9.\-]/', '', str_replace('.', '', $item['freight']));
+                $items[$index]['freight'] = $cleanedFreight === '' ? 0 : (float) $cleanedFreight;
+            }
         }
         $request->merge(['items' => $items]);
 
@@ -406,6 +414,7 @@ class ProductionStockInController extends Controller
             'items.*.inventory_item_ids'   => 'required|array',
             'items.*.inventory_item_ids.*' => 'exists:inventory_items_2,id',
             'items.*.stock_in'             => 'required|integer|min:0',
+            'items.*.freight'              => 'nullable|numeric|min:0',
             'items.*.unit_conversion_value' => 'required|numeric|min:1',
         ], UploadLimit::imageMessages('waybill_image') + UploadLimit::imageMessages('receipt_image') + [
             'items.required' => 'Tidak ada item yang terkirim. Ini biasanya terjadi kalau foto surat jalan terlalu besar sehingga seluruh form ditolak server — coba foto ulang dengan ukuran lebih kecil.',
@@ -426,6 +435,8 @@ class ProductionStockInController extends Controller
                 $conv    = (float) ($itemData['unit_conversion_value'] ?? 1);
                 $addQty  = (int) $itemData['stock_in'];       // input user (kotak)
                 $addBase = (int) round($addQty * $conv);       // pcs
+                // Ongkos angkut per satuan beli, sama artinya dengan freight lama.
+                $freight = (float) ($itemData['freight'] ?? 0);
 
                 if ($addQty <= 0) continue;
 
@@ -467,6 +478,7 @@ class ProductionStockInController extends Controller
                         'inventory_stock_in_id' => $stockIn->id,
                         'inventory_item_id'     => $inventoryItem->id,
                         'stock_in'              => $toAdd,
+                        'freight'               => $freight,
                         'notes'                 => $itemData['notes'] ?? null,
                     ]);
 
@@ -907,7 +919,8 @@ class ProductionStockInController extends Controller
         $cost = 0;
         if ($inventoryItem->purchase_item_id) {
             $purchaseItem = PurchaseItem::find($inventoryItem->purchase_item_id);
-            $cost = $purchaseItem?->final_price ?? 0;
+            // Freight baru menempel di baris stock in, bukan lagi di purchase item.
+            $cost = ($purchaseItem?->final_price ?? 0) + (float) ($history->freight ?? 0);
         }
 
         if (($prevQty + $newQty) > 0) {

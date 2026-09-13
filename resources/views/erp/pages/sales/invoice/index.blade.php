@@ -305,6 +305,7 @@
 
                         const invoiceNo = '{{ $order->order_number }}';
                         const message = [
+                            `Tanggal Order: *{{ optional($order->order_date ?? $order->created_at)->translatedFormat('d F Y') }}*`,
                             `Berikut Invoice *${invoiceNo}*`,
                             result.url,
                             ``,

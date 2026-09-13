@@ -77,6 +77,17 @@ return [
         'connect_timeout' => (int) env('WEBSITE_REVALIDATE_CONNECT_TIMEOUT', 3),
 
         /*
+         * Batas permintaan per menit per IP untuk API katalog publik. Endpoint
+         * itu memakai kolam worker PHP yang sama dengan ERP, jadi lalu lintas
+         * crawler yang tak dibatasi membuat ERP mengantre.
+         *
+         * Longgar dengan sengaja: website Next.js merender di sisi server, jadi
+         * seluruh permintaannya datang dari satu IP. Turunkan kalau masih ada
+         * penyapuan; 0 mematikan pembatasan.
+         */
+        'api_rate_limit' => (int) env('ECOMMERCE_API_RATE_LIMIT', 300),
+
+        /*
          * Umur cache jawaban API katalog publik. Cache dikosongkan tiap admin
          * menyimpan produk/kategori, jadi TTL ini hanya jaring pengaman kalau
          * ada perubahan data yang tidak lewat ERP. Isi 0 untuk mematikannya.
@@ -84,6 +95,17 @@ return [
         'catalog_cache_ttl' => (int) env('WEBSITE_CATALOG_CACHE_TTL', 300),
         'catalog_cache_store' => env('WEBSITE_CATALOG_CACHE_STORE', 'file'),
         'catalog_cache_defer_rebuild' => (bool) env('WEBSITE_CATALOG_CACHE_DEFER_REBUILD', true),
+
+        /*
+         * Batas waktu (detik) membangun cache katalog DI DALAM REQUEST WEB.
+         * Tidak berlaku untuk CLI: cron catalog:warm memang butuh 74-78 detik.
+         *
+         * Ada supaya kejadian 10 September 2026 tidak terulang — request
+         * /api/v1/ecommerce/categories yang hidup 36.070 detik (sepuluh jam)
+         * sambil menahan satu worker PHP, membuat seluruh ERP mengantre.
+         * 0 mematikan batas ini.
+         */
+        'catalog_cache_build_budget' => (int) env('WEBSITE_CATALOG_CACHE_BUILD_BUDGET', 120),
         'catalog_cache_rebuild_lock' => (int) env('WEBSITE_CATALOG_CACHE_REBUILD_LOCK', 900),
 
         // Bolehkah request web membangun ulang katalog? Default TIDAK.
