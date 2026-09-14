@@ -58,7 +58,8 @@ class WaitingListController extends Controller
         }
 
         if ($request->filled('search_keyword')) {
-            $keyword = $request->search_keyword . '%';
+            // 🔍 cocok di mana saja dalam teks ("alisan" ketemu "Business Alisan" juga), sama seperti modul lain
+            $keyword = '%' . trim($request->search_keyword) . '%';
 
             if ($request->search_type === 'customer') {
                 $baseQuery->where(function ($q) use ($keyword) {

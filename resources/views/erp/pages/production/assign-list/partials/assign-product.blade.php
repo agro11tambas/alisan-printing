@@ -2,14 +2,15 @@
     <table class="table table-small table-bordered">
         <thead>
             <tr>
-                <th style="width: 13%;">Preview</th>
-                <th style="width: 22%;">Product</th>
-                <th style="width: 13%;">Mesin</th>
-                <th style="width: 15%;">Operator</th>
-                <th style="width: 17%;">Assigned</th>
+                <th style="width: 11%;">Preview</th>
+                <th style="width: 20%;">Product</th>
+                <th style="width: 12%;">Mesin</th>
+                <th style="width: 13%;">Operator</th>
+                <th style="width: 14%;">Assigned</th>
                 {{-- <th style="width: 10%;">Defect Product</th>
                 <th style="width: 10%;">Reject Product</th> --}}
-                <th style="width: 10%;">Note</th>
+                <th style="width: 15%;">Note</th>
+                <th style="width: 15%;">Design Note</th>
             </tr>
         </thead>
         <tbody>
@@ -21,6 +22,10 @@
                     if ($assign->progressItem?->designItem?->preview_image) {
                         $images = json_decode($assign->progressItem->designItem->preview_image, true) ?? [];
                     }
+
+                    // 🔹 design note dari kolom note design item
+                    //    (diisi otomatis dari catatan gambar saat upload preview)
+                    $designNote = trim((string) ($assign->progressItem?->designItem?->note ?? ''));
 
                     // 🔧 Operator dipilih saat input progress, jadi diambil dari history.
                     //    Data lama masih menyimpan operator di assign.
@@ -69,6 +74,7 @@
                     {{-- <td><span class="fw-bold text-danger">{{ number_format($assign->defect_quantity, 0, ',', '.') }}</span></td>
                 <td><span class="fw-bold text-warning">{{ number_format($assign->reject_quantity, 0, ',', '.') }}</span></td> --}}
                     <td><span class="fw-bold text-dark">{{ $assign->note ?? '-' }}</span></td>
+                    <td><span class="fw-bold text-dark">{{ $designNote !== '' ? $designNote : '-' }}</span></td>
                 </tr>
             @endforeach
         </tbody>

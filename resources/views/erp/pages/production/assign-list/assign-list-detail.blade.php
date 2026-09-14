@@ -13,6 +13,16 @@
         #assignBatchTable {
             width: 100% !important;
             min-width: 0;
+            table-layout: fixed;
+        }
+
+        /* teks panjang dibungkus ke bawah, tidak melebarkan kolom */
+        #assignBatchTable td,
+        #assignBatchTable .table-small td {
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            vertical-align: top;
         }
 
         #assignBatchTable_wrapper .dataTables_scrollBody {
@@ -175,10 +185,10 @@
                             <table class="table table-hover bg-transparent" id="assignBatchTable">
                                 <thead>
                                     <tr>
-                                        <th>Invoice Number</th>
-                                        <th>Customer</th>
-                                        <th>Assign List</th>
-                                        <th>Order Notes</th>
+                                        <th style="width: 15%;">Invoice Number</th>
+                                        <th style="width: 20%;">Customer</th>
+                                        <th style="width: 45%;">Assign List</th>
+                                        <th style="width: 20%;">Sale Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -238,7 +248,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-2">
-                        <label class="form-label fw-semibold">Order Note</label>
+                        <label class="form-label fw-semibold">Sale Note</label>
                         <div id="previewOrderNote" class="border rounded p-2 bg-light text-dark"
                             style="white-space: pre-wrap; font-size: 14px;"></div>
                     </div>

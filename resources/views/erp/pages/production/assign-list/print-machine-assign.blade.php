@@ -195,7 +195,8 @@
                 $customerName = $order?->customer?->name;
                 $account = $order?->customerAccount;
                 $accountLabel = trim((string) ($account?->name ?? ''));
-                $orderNotes = trim((string) ($order?->notes ?? ''));
+                // 🔹 sale note semua invoice di blok ini (dipisah koma), sama seperti listing
+                $orderNotes = trim((string) ($group['sale_notes'] ?? ''));
             @endphp
 
             <div class="customer">{{ $customerName ?? '-' }}</div>
@@ -216,6 +217,10 @@
                 </div>
                 @if ($line['note'])
                     <div class="note muted">- {{ $line['note'] }}</div>
+                @endif
+                {{-- 🔹 design note dari kolom note design item --}}
+                @if (!empty($line['design_note']))
+                    <div class="note muted">- Design: {{ $line['design_note'] }}</div>
                 @endif
             @endforeach
 

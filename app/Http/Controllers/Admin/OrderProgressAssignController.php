@@ -720,7 +720,8 @@ class OrderProgressAssignController extends Controller
         // }
 
         if ($request->filled('search_keyword')) {
-            $keyword = $request->search_keyword . '%';
+            // 🔍 cocok di mana saja dalam teks ("alisan" ketemu "Business Alisan" juga), sama seperti modul lain
+            $keyword = '%' . trim($request->search_keyword) . '%';
 
             if ($request->search_type === 'customer') {
                 $batches->where(function ($q) use ($keyword) {
@@ -1373,11 +1374,20 @@ class OrderProgressAssignController extends Controller
             ->map(function ($items) {
                 $order = $items->first()->batch?->orderProgress?->order;
 
+                // 🔹 sale note tiap invoice dalam blok ini; satu customer bisa
+                //    gabungan beberapa invoice, jadi dipisah koma
+                $saleNotes = $items
+                    ->map(fn($assign) => trim((string) ($assign->batch?->orderProgress?->order?->notes ?? '')))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
                 return [
-                    'order'   => $order, // dipakai untuk nama customer, kontak & alamat
-                    'assigns' => $items->values(),
+                    'order'      => $order, // dipakai untuk nama customer, kontak & alamat
+                    'assigns'    => $items->values(),
+                    'sale_notes' => $saleNotes->isNotEmpty() ? $saleNotes->implode(', ') : null,
                     // 🔧 produk yang sama digabung jadi satu baris
-                    'lines'   => $this->mergeAssignLines($items),
+                    'lines'      => $this->mergeAssignLines($items),
                 ];
             })
             ->sortBy(fn($group) => strtolower(optional($group['order'])?->customer?->name ?? ''))
@@ -1386,7 +1396,7 @@ class OrderProgressAssignController extends Controller
 
     /**
      * 🔹 Gabungkan assign dengan produk (dan satuan) yang sama jadi satu baris:
-     *    qty dijumlah, note & preview digabung.
+     *    qty dijumlah, note, design note & preview digabung.
      */
     private function mergeAssignLines($assigns)
     {
@@ -1418,12 +1428,21 @@ class OrderProgressAssignController extends Controller
                     ->unique()
                     ->values();
 
+                // 🔹 design note dari kolom note design item
+                //    (diisi otomatis dari catatan gambar saat upload preview)
+                $designNotes = $items
+                    ->map(fn($assign) => trim((string) ($assign->progressItem?->designItem?->note ?? '')))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
                 return [
-                    'product' => $first->progressItem?->product?->name ?? '-',
-                    'qty'     => $qty,
-                    'unit'    => $first->progressItem?->unit_name,
-                    'note'    => $notes->isNotEmpty() ? $notes->implode(' | ') : null,
-                    'images'  => array_values($images),
+                    'product'     => $first->progressItem?->product?->name ?? '-',
+                    'qty'         => $qty,
+                    'unit'        => $first->progressItem?->unit_name,
+                    'note'        => $notes->isNotEmpty() ? $notes->implode(' | ') : null,
+                    'design_note' => $designNotes->isNotEmpty() ? $designNotes->implode(' | ') : null,
+                    'images'      => array_values($images),
                 ];
             })
             ->sortBy('product')

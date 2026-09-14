@@ -236,7 +236,7 @@
                                         <th class="wd-250">Design Number</th>
                                         <th class="wd-350">Customer</th>
                                         <th>Products</th>
-                                        <th>Order Note</th>
+                                        <th>Sale Note</th>
                                         <th>Chat</th>
                                     </tr>
                                 </thead>
@@ -265,7 +265,7 @@
                     <div class="modal-body">
                         <input type="hidden" id="design_item_id" name="design_item_id">
                         <div class="mb-2">
-                            <label class="form-label fw-semibold">Order Note</label>
+                            <label class="form-label fw-semibold">Sale Note</label>
                             <div id="orderNoteBox" class="border rounded p-2 bg-light text-dark"
                                 style="white-space: pre-wrap; font-size: 14px;"></div>
                         </div>
@@ -426,7 +426,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-2">
-                        <label class="form-label fw-semibold">Order Note</label>
+                        <label class="form-label fw-semibold">Sale Note</label>
                         <div id="multiViewerOrderNote" class="border rounded p-2 bg-light text-dark"
                             style="white-space: pre-wrap; font-size: 14px;"></div>
                     </div>

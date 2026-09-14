@@ -75,6 +75,7 @@ class DesignItemController extends Controller
             $item->preview_image = json_encode($uploadedImages);
         }
 
+        $this->syncNoteFromPreview($item);
         $item->save();
 
         return response()->json(['message' => 'Image(s) uploaded successfully!']);
@@ -97,7 +98,7 @@ class DesignItemController extends Controller
 
         $item = DesignItem::findOrFail($id);
 
-        $images = $this->previewList($item);
+        $images = $item->previewList();
 
         if ($images === []) {
             return response()->json([
@@ -130,6 +131,7 @@ class DesignItemController extends Controller
         }
 
         $item->preview_image = $remaining === [] ? null : json_encode($remaining);
+        $this->syncNoteFromPreview($item);
         $item->save();
 
         return response()->json([
@@ -141,35 +143,19 @@ class DesignItemController extends Controller
     }
 
     /**
-     * Isi kolom preview_image yang sudah dipastikan berbentuk [{file, note}, ...].
+     * Salin catatan gambar ke kolom `note` design item.
      *
-     * Kolomnya JSON bebas dan pernah diisi beberapa versi kode yang berbeda,
-     * jadi baris lama/rusak jangan sampai bikin penghapusan error.
+     * Catatan aslinya tersimpan per gambar di dalam JSON `preview_image`, jadi
+     * sulit dibaca dari query biasa. Kolom `note` diisi gabungannya supaya
+     * halaman lain (mis. Assign List) cukup membaca satu kolom teks.
      *
-     * @return array<int, array{file: string, note: string}>
+     * Dipanggil setiap `preview_image` berubah: upload, pasang dari Design
+     * Customer, dan hapus preview — jadi note ikut kosong kalau gambarnya habis.
+     * Data lama diisi sekali lewat `php artisan design:sync-item-notes`.
      */
-    private function previewList(DesignItem $item): array
+    private function syncNoteFromPreview(DesignItem $item): void
     {
-        $images = json_decode($item->preview_image ?? '[]', true);
-
-        if (! is_array($images)) {
-            return [];
-        }
-
-        $clean = [];
-
-        foreach ($images as $image) {
-            if (! is_array($image) || empty($image['file'])) {
-                continue;
-            }
-
-            $clean[] = [
-                'file' => (string) $image['file'],
-                'note' => (string) ($image['note'] ?? ''),
-            ];
-        }
-
-        return $clean;
+        $item->note = $item->noteFromPreview();
     }
 
     /**
@@ -278,6 +264,7 @@ class DesignItemController extends Controller
             'file' => $image['file'],
             'note' => $note !== '' ? $note : ($image['note'] ?: $design->title),
         ]]);
+        $this->syncNoteFromPreview($item);
         $item->save();
 
         return response()->json([

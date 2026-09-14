@@ -201,7 +201,7 @@
                                         <th style="width: 15%">Order Number</th>
                                         <th style="width: 20%">Customer</th>
                                         <th style="width: 40%">Progress</th>
-                                        <th style="width: 25%">Order Notes</th>
+                                        <th style="width: 25%">Sale Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -292,7 +292,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-2">
-                        <label class="form-label fw-semibold">Order Note</label>
+                        <label class="form-label fw-semibold">Sale Note</label>
                         <div id="previewOrderNote" class="border rounded p-2 bg-light text-dark"
                             style="white-space: pre-wrap; font-size: 14px;"></div>
                     </div>
