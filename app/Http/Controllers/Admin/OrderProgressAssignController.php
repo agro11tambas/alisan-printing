@@ -212,33 +212,12 @@ class OrderProgressAssignController extends Controller
                     ]
                 );
 
-                // 🟥 Cek jika stok available 0 atau kurang dari requested
-                // if ($productionStock->available_quantity <= 0) {
-                //     throw \Illuminate\Validation\ValidationException::withMessages([
-                //         "items.$idx.assigned_quantity" => "Stok available 0 untuk produk {$item->product->name}.",
-                //     ]);
-                // }
-
-                // if ($requested > $productionStock->available_quantity) {
-                //     throw \Illuminate\Validation\ValidationException::withMessages([
-                //         "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
-                //     ]);
-                // }
-
-                if (!Setting::isEnabled('allow_negative_stock')) {
-                    if ($productionStock->available_quantity <= 0) {
-                        throw \Illuminate\Validation\ValidationException::withMessages([
-                            "items.$idx.assigned_quantity" => "Stok available 0 untuk produk {$item->product->name}.",
-                        ]);
-                    }
-
-                    if ($requestedAssignQty > $productionStock->available_quantity) {
-                        throw \Illuminate\Validation\ValidationException::withMessages([
-                            // "items.$idx.assigned_quantity" => "Assigned quantity ($requested) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
-                            "items.$idx.assigned_quantity" => "Assigned quantity ($requestedAssignQty) melebihi stok available ({$productionStock->available_quantity}) untuk produk {$item->product->name}.",
-                        ]);
-                    }
-                }
+                // 🟥 Cek stok (dilewati kalau setting allow_negative_stock aktif)
+                $productionStock->assertCanReduce(
+                    $requestedAssignQty,
+                    $item->product->name,
+                    "items.$idx.assigned_quantity"
+                );
 
                 // 🔧 Kalau produk ini sudah punya assign berjalan di mesin yang sama,
                 //    qty-nya digabung ke assign tersebut — tidak bikin baris baru.
@@ -557,6 +536,9 @@ class OrderProgressAssignController extends Controller
                         $diff   = $newQty - $oldQty;
 
                         if ($diff > 0) {
+                            // 🟥 Tambahan qty = assign baru → wajib lolos cek stok
+                            $productionStock->assertCanReduce($diff, $item->product->name, "items.$idx.assigned_quantity");
+
                             $productionStock->decrement('available_quantity', $diff);
                             $productionStock->decrement('pending_waiting_list', $diff);
                         } elseif ($diff < 0) {
@@ -573,6 +555,8 @@ class OrderProgressAssignController extends Controller
                     }
                 } else {
                     // 🆕 Buat baru
+                    $productionStock->assertCanReduce((int) $assignedQty, $item->product->name, "items.$idx.assigned_quantity");
+
                     OrderProgressAssign::create([
                         'assign_batch_id'        => $batch->id,
                         'order_progress_item_id' => $item->id,
@@ -1226,6 +1210,9 @@ class OrderProgressAssignController extends Controller
                 $diff   = $newQty - $oldQty;
 
                 if ($diff > 0) {
+                    // 🟥 Tambahan qty = assign baru → wajib lolos cek stok
+                    $productionStock->assertCanReduce($diff, $assign->progressItem->product->name, "items.$idx.assigned_quantity");
+
                     $productionStock->decrement('available_quantity', $diff);
                     $productionStock->decrement('pending_waiting_list', $diff);
                 } elseif ($diff < 0) {

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ProductionStock extends Model
 {
@@ -67,4 +68,36 @@ class ProductionStock extends Model
 
     //     return max($totalDesignQty - $totalCompletedQty, 0);
     // }
+
+    /**
+     * 🔒 Pastikan stok cukup sebelum available_quantity dikurangi sebanyak $qty.
+     *
+     * Dilewati kalau setting `allow_negative_stock` aktif. Stok dibaca ulang
+     * dengan lock baris supaya dua request paralel tidak sama-sama lolos cek
+     * lalu sama-sama mengurangi stok sampai minus.
+     *
+     * Wajib dipanggil di dalam transaction (lockForUpdate butuh transaction).
+     */
+    public function assertCanReduce(int $qty, string $productName, string $field = 'assigned_quantity'): void
+    {
+        if ($qty <= 0 || Setting::isEnabled('allow_negative_stock')) {
+            return;
+        }
+
+        $available = (int) static::whereKey($this->getKey())
+            ->lockForUpdate()
+            ->value('available_quantity');
+
+        if ($available <= 0) {
+            throw ValidationException::withMessages([
+                $field => "Stok available 0 untuk produk {$productName}.",
+            ]);
+        }
+
+        if ($qty > $available) {
+            throw ValidationException::withMessages([
+                $field => "Assigned quantity ($qty) melebihi stok available ($available) untuk produk {$productName}.",
+            ]);
+        }
+    }
 }

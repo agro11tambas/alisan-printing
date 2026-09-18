@@ -786,6 +786,12 @@ class HistoryProgressOrderController extends Controller
                 ]
             );
 
+            // 🟥 Cek setting allow_negative_stock: total stok yang akan dipotong di bawah
+            //    = deltaCompleted (kalau > 0) + deltaAssignedOnly (kalau > 0).
+            $deltaAssignedOnly = $deltaAssigned !== 0 ? $deltaAssigned - $deltaCompleted : 0;
+            $totalReduce = max($deltaCompleted, 0) + max($deltaAssignedOnly, 0);
+            $ps->assertCanReduce($totalReduce, $product->name, 'completed_quantity');
+
             if ($deltaCompleted !== 0) {
                 $ps->increment('finished_product_stock', $deltaCompleted);
 
@@ -891,6 +897,13 @@ class HistoryProgressOrderController extends Controller
                 'status' => 'success',
                 'message' => 'History, stok produksi, dan produk reject/defect berhasil diperbarui.'
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'status' => 'error',
+                'message' => collect($e->errors())->flatten()->first() ?? $e->getMessage(),
+            ], 422);
         } catch (\Throwable $e) {
             DB::rollBack();
 
