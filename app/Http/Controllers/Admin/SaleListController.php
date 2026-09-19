@@ -4280,6 +4280,15 @@ class SaleListController extends Controller
             $processedProducts = []; // penanda produk yang sudah rollback (hindari double)
             foreach ($order->orderItems as $item) {
 
+                // Mode dibaca per item, bukan per order: order 'mixed' isinya campuran,
+                // dan 'sablon' ikut alur produksi yang sama dengan 'printing'
+                // (design verified -> pending_waiting_list -> assign). Hanya 'polosan'
+                // yang memotong available_quantity saat order dibuat, jadi hanya polosan
+                // yang boleh mengembalikannya di sini. Sebelumnya sablon/mixed jatuh ke
+                // cabang polosan dan available_quantity naik padahal tidak pernah dipotong.
+                $itemMode = $item->mode ?: $order->mode;
+                $isPolosan = $itemMode === 'polosan';
+
                 /**
                  * 🧩 HANDLE PRODUK SATUAN
                  * ------------------------------------------------------
@@ -4346,7 +4355,7 @@ class SaleListController extends Controller
                     );
 
                     // ❗ MODE POLOSAN jangan pernah skip
-                    if ($order->mode !== 'polosan' && $skipProduction) {
+                    if (! $isPolosan && $skipProduction) {
 
                         Log::warning('SKIP rollback PRODUCTION SATUAN — order ini belum menyentuh produksi', [
                             'order_id' => $order->id,
@@ -4372,8 +4381,8 @@ class SaleListController extends Controller
                         ]
                     );
 
-                    if ($order->mode === 'printing') {
-                        // MODE PRINTING
+                    if (! $isPolosan) {
+                        // MODE PRINTING / SABLON (alur design -> pending -> assign)
                         if ($hasVerifiedDesign) {
                             // 1) Verified → turunkan pending by base qty
                             $ps->pending_waiting_list -= $qty;
@@ -4394,7 +4403,7 @@ class SaleListController extends Controller
                             }
                         }
                     } else {
-                        // MODE POLOSAN → kembalikan available by base qty
+                        // MODE POLOSAN → kembalikan available by base qty (hanya polosan yang memotongnya saat order dibuat)
                         $ps->available_quantity += $qty;
                     }
 
@@ -4464,7 +4473,7 @@ class SaleListController extends Controller
                             ->whereRaw('LOWER(status) = ?', ['verified'])
                             ->exists();
 
-                        if ($order->mode === 'printing' && $hasVerifiedDesign) {
+                        if (! $isPolosan && $hasVerifiedDesign) {
                             $ps = ProductionStock::firstOrCreate(
                                 [
                                     'product_id' => $bundleItem->product_id,
@@ -4528,7 +4537,7 @@ class SaleListController extends Controller
                     );
 
                     // ❗ MODE POLOSAN tidak boleh skip
-                    if ($order->mode !== 'polosan' && $skipProduction) {
+                    if (! $isPolosan && $skipProduction) {
 
                         Log::warning('SKIP rollback PRODUCTION BUNDLE — order belum menyentuh produksi', [
                             'order_id' => $order->id,
@@ -4556,7 +4565,7 @@ class SaleListController extends Controller
                         ]
                     );
 
-                    if ($order->mode === 'printing') {
+                    if (! $isPolosan) {
 
                         if ($hasVerifiedDesign) {
                             // 1) Verified — turunkan pending
