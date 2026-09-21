@@ -50,39 +50,32 @@ class FreightPaymentController extends Controller
      */
     public function data(Request $request)
     {
-        $bills = DB::table('inventory_stock_in_histories_2 as h')
-            ->join('inventory_stock_ins_2 as si', 'si.id', '=', 'h.inventory_stock_in_id')
-            ->join('inventory_items_2 as ii', 'ii.id', '=', 'h.inventory_item_id')
-            ->join('inventories_2 as inv', 'inv.id', '=', 'si.inventory_id')
-            ->leftJoin('purchases as pur', 'pur.id', '=', 'inv.purchase_id')
-            ->leftJoin('suppliers as s', 's.id', '=', 'pur.supplier_id')
-            ->whereNull('h.deleted_at')
-            ->whereNull('si.deleted_at')
-            ->whereNull('ii.deleted_at')
-            ->where('h.stock_in', '>', 0)
-            ->where('h.freight', '>', 0)
-            ->groupBy(DB::raw($this->waybillKeyExpression()))
-            ->selectRaw($this->waybillKeyExpression().' as waybill_key')
-            ->selectRaw('MAX(si.waybill_number) as waybill_number')
-            ->selectRaw('MAX(pur.supplier_id) as supplier_id')
-            ->selectRaw("MAX(COALESCE(s.name, '-')) as supplier_name")
-            ->selectRaw('MIN(si.change_date) as change_date')
-            ->selectRaw('GROUP_CONCAT(DISTINCT si.invoice_number ORDER BY si.invoice_number SEPARATOR ", ") as invoice_numbers')
-            ->selectRaw('SUM(h.stock_in / GREATEST(COALESCE(ii.unit_conversion_value, 1), 1) * h.freight) as total_freight');
+        $rows = $this->billRows();
 
         // Filter tanggal memakai preset yang sama persis dengan Purchase List,
         // cuma acuannya tanggal stock in (change_date), bukan tanggal purchase.
-        $this->applyDateFilter($bills, $request);
+        $this->applyDateFilter($rows, $request);
 
         if ($request->filled('search_keyword')) {
             $keyword = '%'.$request->input('search_keyword').'%';
 
             match ($request->input('search_type')) {
-                'supplier' => $bills->where('s.name', 'like', $keyword),
-                'invoice' => $bills->where('si.invoice_number', 'like', $keyword),
-                default => $bills->where('si.waybill_number', 'like', $keyword),
+                'supplier' => $rows->where('s.name', 'like', $keyword),
+                'invoice' => $rows->where('si.invoice_number', 'like', $keyword),
+                default => $rows->where('si.waybill_number', 'like', $keyword),
             };
         }
+
+        $bills = DB::query()
+            ->fromSub($rows, 'r')
+            ->groupBy('r.waybill_key')
+            ->select('r.waybill_key')
+            ->selectRaw('MAX(r.waybill_number) as waybill_number')
+            ->selectRaw('MAX(r.supplier_id) as supplier_id')
+            ->selectRaw('MAX(r.supplier_name) as supplier_name')
+            ->selectRaw('MIN(r.change_date) as change_date')
+            ->selectRaw('GROUP_CONCAT(DISTINCT r.invoice_number ORDER BY r.invoice_number SEPARATOR ", ") as invoice_numbers')
+            ->selectRaw('SUM(r.freight_amount) as total_freight');
 
         $paid = DB::table('freight_payments')
             ->whereNull('deleted_at')
@@ -567,11 +560,20 @@ class FreightPaymentController extends Controller
             "CONCAT('D-', COALESCE(DATE(si.change_date), DATE(si.created_at), 'NA'))))";
     }
 
-    private function billFor(string $waybillKey): ?object
+    /**
+     * Baris stock in yang punya freight, satu baris per item, sudah membawa
+     * kolom waybill_key.
+     *
+     * Kuncinya sengaja dihitung di sini lalu di-GROUP BY sebagai kolom oleh
+     * pemanggil, bukan langsung GROUP BY ekspresi CONCAT-nya. MySQL di server
+     * produksi (ONLY_FULL_GROUP_BY) menolak GROUP BY ekspresi mentah dengan
+     * error 1055 "pur.supplier_id isn't in GROUP BY", padahal versi terbaru
+     * di lokal menerimanya — jadi bug ini tidak pernah kelihatan waktu
+     * dikembangkan.
+     */
+    private function billRows()
     {
-        $expression = $this->waybillKeyExpression();
-
-        $bill = DB::table('inventory_stock_in_histories_2 as h')
+        return DB::table('inventory_stock_in_histories_2 as h')
             ->join('inventory_stock_ins_2 as si', 'si.id', '=', 'h.inventory_stock_in_id')
             ->join('inventory_items_2 as ii', 'ii.id', '=', 'h.inventory_item_id')
             ->join('inventories_2 as inv', 'inv.id', '=', 'si.inventory_id')
@@ -582,14 +584,29 @@ class FreightPaymentController extends Controller
             ->whereNull('ii.deleted_at')
             ->where('h.stock_in', '>', 0)
             ->where('h.freight', '>', 0)
-            ->whereRaw($expression.' = ?', [$waybillKey])
-            ->selectRaw($expression.' as waybill_key')
-            ->selectRaw('MAX(si.waybill_number) as waybill_number')
-            ->selectRaw('MAX(pur.supplier_id) as supplier_id')
-            ->selectRaw("MAX(COALESCE(s.name, '-')) as supplier_name")
-            ->selectRaw('GROUP_CONCAT(DISTINCT si.invoice_number ORDER BY si.invoice_number SEPARATOR ", ") as invoice_numbers')
-            ->selectRaw('SUM(h.stock_in / GREATEST(COALESCE(ii.unit_conversion_value, 1), 1) * h.freight) as total_freight')
-            ->groupBy(DB::raw($expression))
+            ->selectRaw($this->waybillKeyExpression().' as waybill_key')
+            ->addSelect([
+                'si.waybill_number',
+                'si.invoice_number',
+                'si.change_date',
+                'pur.supplier_id',
+            ])
+            ->selectRaw("COALESCE(s.name, '-') as supplier_name")
+            ->selectRaw('h.stock_in / GREATEST(COALESCE(ii.unit_conversion_value, 1), 1) * h.freight as freight_amount');
+    }
+
+    private function billFor(string $waybillKey): ?object
+    {
+        $bill = DB::query()
+            ->fromSub($this->billRows(), 'r')
+            ->where('r.waybill_key', $waybillKey)
+            ->groupBy('r.waybill_key')
+            ->select('r.waybill_key')
+            ->selectRaw('MAX(r.waybill_number) as waybill_number')
+            ->selectRaw('MAX(r.supplier_id) as supplier_id')
+            ->selectRaw('MAX(r.supplier_name) as supplier_name')
+            ->selectRaw('GROUP_CONCAT(DISTINCT r.invoice_number ORDER BY r.invoice_number SEPARATOR ", ") as invoice_numbers')
+            ->selectRaw('SUM(r.freight_amount) as total_freight')
             ->first();
 
         if ($bill === null) {
