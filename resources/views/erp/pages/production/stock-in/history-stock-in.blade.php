@@ -355,6 +355,8 @@
 
                     <div class="modal-body">
                         <input type="hidden" id="edit_id" name="id">
+                        {{-- Semua baris history yang digabung jadi satu baris tabel (pecahan FIFO antar PL) --}}
+                        <div id="edit_history_ids"></div>
 
                         <div class="mb-2">
                             <label class="form-label">Product</label>
@@ -365,6 +367,12 @@
                             <label class="form-label">Quantity (pcs)</label>
                             <input type="number" id="edit_quantity" name="quantity" class="form-control" min="0"
                                 required>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">Freight (Rp / satuan beli)</label>
+                            <input type="text" id="edit_freight" name="freight" class="form-control freight-input"
+                                inputmode="numeric" value="0">
                         </div>
 
                         <div class="mb-2">
@@ -481,15 +489,36 @@
                 const qty = $(this).data('qty');
                 const notes = $(this).data('notes');
                 const product = $(this).data('product');
+                const freight = parseInt($(this).data('freight')) || 0;
+                const ids = String($(this).data('ids') || id).split(',').filter(Boolean);
 
                 // Isi modal
                 $('#edit_id').val(id);
+                $('#edit_history_ids').html(
+                    ids.map(v => `<input type="hidden" name="history_ids[]" value="${v}">`).join('')
+                );
                 $('#product_name').val(product);
                 $('#edit_quantity').val(qty);
+                $('#edit_freight').val(freight.toLocaleString('id-ID'));
                 $('#edit_notes').val(notes || '');
 
                 // Tampilkan modal
                 $('#editHistoryModal').modal('show');
+            });
+
+            // Freight diformat ribuan, sama seperti di form Stock In; titiknya dibuang di server.
+            $(document).on('focus', '.freight-input', function() {
+                if ($(this).val() === '0') $(this).val('');
+            });
+
+            $(document).on('blur', '.freight-input', function() {
+                if ($(this).val().trim() === '') $(this).val('0');
+            });
+
+            $(document).on('input', '.freight-input', function() {
+                const raw = $(this).val().replace(/\./g, '');
+                if (raw === '') return;
+                $(this).val((parseInt(raw) || 0).toLocaleString('id-ID'));
             });
 
             // 🟢 Submit form

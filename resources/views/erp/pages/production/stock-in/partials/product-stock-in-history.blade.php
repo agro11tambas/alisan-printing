@@ -47,6 +47,7 @@
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-primary edit-item" data-id="{{ $item->id }}"
                         data-product="{{ $item->inventoryItem->product->name ?? '-' }}" data-qty="{{ $qty }}"
+                        data-ids="{{ implode(',', $item->merged_ids ?? [$item->id]) }}" data-freight="{{ (int) ($item->freight ?? 0) }}"
                         data-notes="{{ $item->notes }}">
                         Edit
                     </button>

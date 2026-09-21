@@ -665,6 +665,8 @@ class ProductionStockInController extends Controller
                     ->map(function ($items) {
                         $first = $items->first();
                         $first->merged_stock_in = $items->sum('stock_in');
+                        // Edit harus menyentuh semua baris yang digabung, bukan cuma yang pertama.
+                        $first->merged_ids = $items->pluck('id')->all();
                         return $first;
                     })
                     ->filter(fn($item) => $item->merged_stock_in > 0)
@@ -868,86 +870,138 @@ class ProductionStockInController extends Controller
 
     public function updateHistoryItem(Request $request, $id)
     {
+        // Freight diketik dengan pemisah ribuan, sama seperti di form Stock In.
+        if ($request->has('freight')) {
+            $cleanedFreight = preg_replace('/[^0-9.\-]/', '', str_replace('.', '', (string) $request->freight));
+            $request->merge(['freight' => $cleanedFreight === '' ? 0 : (float) $cleanedFreight]);
+        }
+
         $request->validate([
-            'quantity' => 'required|numeric|min:0',
-            'notes' => 'nullable|string',
+            'quantity'      => 'required|numeric|min:0',
+            'freight'       => 'nullable|numeric|min:0',
+            'notes'         => 'nullable|string',
+            'history_ids'   => 'nullable|array',
+            'history_ids.*' => 'integer',
         ]);
 
-        // Ambil history
         $history = InventoryStockInHistory::findOrFail($id);
 
-        // Ambil inventory item
-        $inventoryItem = $history->inventoryItem; // RELASI YANG BENAR
+        // Di tabel history, stock in satu produk dari beberapa Purchase List (hasil
+        // pecahan FIFO) digabung jadi satu baris. Edit harus mengubah semua baris
+        // gabungan itu; kalau cuma baris pertama, totalnya jadi salah.
+        $historyIds = collect($request->input('history_ids', []))
+            ->map(fn ($v) => (int) $v)
+            ->push((int) $history->id)
+            ->unique()
+            ->values();
 
-        if (!$inventoryItem) {
+        $histories = InventoryStockInHistory::with('inventoryItem')
+            ->whereIn('id', $historyIds)
+            ->orderBy('id')
+            ->get();
+
+        $productId = $history->inventoryItem?->product_id;
+
+        if (! $productId || $histories->contains(fn ($h) => ! $h->inventoryItem || (int) $h->inventoryItem->product_id !== (int) $productId)) {
             return response()->json(['message' => 'Inventory item tidak ditemukan'], 404);
         }
 
-        // Ambil inventory stock berdasarkan product_id + warehouse_id
-        $productionStock = productionStock::where('product_id', $inventoryItem->product_id)
-            ->where('production_warehouse_id', $inventoryItem->production_warehouse_id)
-            ->first();
+        $oldTotal = (int) $histories->sum('stock_in');
+        $newTotal = (int) $request->quantity;
+        $diff     = $newTotal - $oldTotal;
+        $freight  = $request->has('freight') ? (float) $request->freight : null;
 
-        if (!$productionStock) {
-            return response()->json(['message' => 'Production stock tidak ditemukan'], 404);
-        }
+        DB::beginTransaction();
+        try {
+            // Bagi selisih ke baris-baris gabungan: tambah ke baris yang masih punya
+            // sisa kapasitas (dari yang paling awal), kurangi mulai dari baris terakhir.
+            $remaining = $diff;
+            $rows      = $remaining >= 0 ? $histories->values() : $histories->reverse()->values();
+            $lastRow   = $rows->last();
 
-        // Hitung selisih
-        $oldQty = $history->stock_in;
-        $newQty = $request->quantity;
-        $diff   = $newQty - $oldQty;
+            foreach ($rows as $row) {
+                $delta = 0;
 
-        // Update inventory_item.stock_in
-        $inventoryItem->stock_in += $diff;
-        if ($inventoryItem->stock_in < 0) $inventoryItem->stock_in = 0;
-        $inventoryItem->save();
+                if ($remaining > 0) {
+                    $item   = $row->inventoryItem;
+                    $canAdd = max(0, (int) $item->qty_base - (int) $item->stock_in);
+                    $delta  = $row->is($lastRow) ? $remaining : min($remaining, $canAdd);
+                } elseif ($remaining < 0) {
+                    $delta = -min(-$remaining, (int) $row->stock_in);
+                }
 
-        // Update inventory_stocks
-        $productionStock->available_quantity += $diff;
+                $remaining -= $delta;
 
-        if ($productionStock->available_quantity < 0) $productionStock->available_quantity = 0;
+                if ($delta !== 0) {
+                    $this->applyHistoryDelta($row, $delta);
+                }
 
-        $product = Products::findOrFail($inventoryItem->product_id);
+                $data = [
+                    'stock_in' => (int) $row->stock_in + $delta,
+                    'notes'    => $request->notes,
+                ];
+                if ($freight !== null) {
+                    $data['freight'] = $freight;
+                }
+                $row->update($data);
+            }
 
-        // qty sebelum perubahan
-        $prevQty = max(
-            0,
-            $this->getTotalStockForAvg($inventoryItem->product_id) - $oldQty
-        );
+            // Batch FIFO dan avg_cost lahir dari baris history, jadi harus disusun ulang.
+            app(FifoCostService::class)->rebuild([(int) $productId]);
 
-        // avg cost lama dari PRODUCT
-        $prevCost = $product->avg_cost ?? 0;
-
-        // ambil COST (bukan price)
-        $cost = 0;
-        if ($inventoryItem->purchase_item_id) {
-            $purchaseItem = PurchaseItem::find($inventoryItem->purchase_item_id);
-            // Freight baru menempel di baris stock in, bukan lagi di purchase item.
-            $cost = ($purchaseItem?->final_price ?? 0) + (float) ($history->freight ?? 0);
-        }
-
-        if (($prevQty + $newQty) > 0) {
-            $newAvgCost = round(
-                (($prevQty * $prevCost) + ($newQty * $cost))
-                    / ($prevQty + $newQty),
-                3
+            Purchase::syncApprovalProgressFromPurchaseItems(
+                $histories->pluck('inventoryItem.purchase_item_id')->filter()->unique()->values()->all()
             );
 
-            $product->update([
-                'avg_cost' => $newAvgCost,
-            ]);
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            report($e);
+            return response()->json(['message' => 'Gagal memperbarui history: ' . $e->getMessage()], 500);
         }
 
-        $productionStock->save(); // ⬅️ INI WAJIB
-
-        // Update history
-        $history->update([
-            'stock_in' => $newQty,
-            'notes'    => $request->notes,
-        ]);
-
-        Purchase::syncApprovalProgressFromPurchaseItems([$inventoryItem->purchase_item_id]);
-
         return response()->json(['message' => 'History berhasil diperbarui']);
+    }
+
+    /**
+     * Terapkan selisih qty satu baris history ke inventory item, purchase item,
+     * dan production stock — kebalikan dari yang dilakukan storeGrouped().
+     */
+    private function applyHistoryDelta(InventoryStockInHistory $history, int $delta): void
+    {
+        $inventoryItem = $history->inventoryItem;
+
+        $inventoryItem->stock_in = max(0, (int) $inventoryItem->stock_in + $delta);
+        $inventoryItem->save();
+
+        if ($inventoryItem->purchase_item_id) {
+            $purchaseItem = PurchaseItem::find($inventoryItem->purchase_item_id);
+            if ($purchaseItem) {
+                $purchaseItem->stock_in = max(0, (int) $purchaseItem->stock_in + $delta);
+                $purchaseItem->save();
+            }
+        }
+
+        $productionStock = ProductionStock::firstOrCreate(
+            [
+                'product_id'              => $inventoryItem->product_id,
+                'production_warehouse_id' => $inventoryItem->production_warehouse_id ?? 2,
+            ],
+            [
+                'opening_stock'      => 0,
+                'available_quantity' => 0,
+                'incoming_stock'     => 0,
+            ]
+        );
+
+        $productionStock->available_quantity = max(0, (int) $productionStock->available_quantity + $delta);
+
+        // Stock in dari pembelian memindahkan incoming -> available, jadi editnya juga.
+        $inventory = $inventoryItem->inventory()->withTrashed()->first();
+        if ($inventory?->purchase_id) {
+            $productionStock->incoming_stock = max(0, (int) $productionStock->incoming_stock - $delta);
+        }
+
+        $productionStock->save();
     }
 }
