@@ -13,7 +13,8 @@
         </li>
         <li>
             <button type="button" class="dropdown-item btn-share-invoice-image" data-id="{{ $order->id }}"
-                data-url="{{ url('/erp/sales/sale-list/invoice/' . $order->id) }}"
+                data-url="{{ url('/erp/sales/sale-list/invoice-image/' . $order->id) }}"
+                data-invoice="{{ $order->order_number }}"
                 data-customer="{{ $order->customer->name }}">
                 <i class="feather feather-share-2 me-2"></i>
                 Share Invoice
@@ -21,8 +22,8 @@
         </li>
 
         <li>
-            <button type="button" class="dropdown-item btn-share-invoice" data-id="{{ $order->id }}"
-                data-url="{{ url('/erp/sales/sale-list/invoice/' . $order->id) }}">
+            <button type="button" class="dropdown-item btn-share-invoice-img" data-id="{{ $order->id }}"
+                data-url="{{ url('/erp/sales/sale-list/invoice-image/' . $order->id) }}">
                 <i class="feather feather-file-text me-2"></i>
                 Invoice
             </button>

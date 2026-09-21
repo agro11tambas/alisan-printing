@@ -95,7 +95,7 @@
             Swal.fire({
                 icon: 'error',
                 title: 'Gagal!',
-                text: "{{ session('error') }}",
+                text: @json(session('error')),
             });
         </script>
     @endif

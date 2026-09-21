@@ -3,6 +3,7 @@
         <li>
             <button type="button" class="dropdown-item btn-share-invoice-image" data-id="{{ $order->id }}"
                 data-url="{{ url('/erp/sales/sale-orders/invoice/' . $order->id) }}"
+                data-invoice="{{ $order->order_number }}"
                 data-customer="{{ $order->customer->name }}">
                 <i class="feather feather-share-2 me-3"></i>
                 <span>Share Invoice</span>

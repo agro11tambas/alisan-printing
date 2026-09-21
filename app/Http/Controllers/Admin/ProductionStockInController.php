@@ -556,6 +556,9 @@ class ProductionStockInController extends Controller
             return redirect('/erp/productions/stock-in')->with('success', 'Stock In berhasil ditambahkan');
         } catch (\Exception $e) {
             DB::rollBack();
+            // Tanpa ini kegagalan stock in tidak pernah masuk log, jadi di produksi
+            // (APP_DEBUG=false) tidak ada jejak apa pun untuk ditelusuri.
+            report($e);
             return back()->with('error', 'Stock In gagal: ' . $e->getMessage());
         }
     }

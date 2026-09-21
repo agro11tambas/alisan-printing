@@ -802,6 +802,7 @@
             'erp/sales/sale-returns/invoice/*'
         ))
         <script src="{{ asset('assets/vendors/js/html2canvas.min.js') }}"></script>
+        <script src="{{ asset('assets/js/share-invoice.js') }}?v={{ filemtime(public_path('assets/js/share-invoice.js')) }}"></script>
     @endif
 
 
