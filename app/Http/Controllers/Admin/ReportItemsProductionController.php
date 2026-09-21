@@ -7,6 +7,7 @@ use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\ProductionStock;
 use App\Models\Products;
+use App\Support\PendingWaitingList;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,24 +31,9 @@ class ReportItemsProductionController extends Controller
             ->with(['product', 'todaySnapshot'])
             ->select(
                 'production_stocks.*',
-                DB::raw('
-            GREATEST(
-                COALESCE((
-                    SELECT SUM(quantity * COALESCE(unit_conversion_value, 1))
-                    FROM design_items
-                    WHERE design_items.product_id = production_stocks.product_id
-                    AND design_items.deleted_at IS NULL
-                ),0)
-                -
-                COALESCE((
-                    SELECT SUM(assigned_quantity)
-                    FROM order_progress_assigns
-                    WHERE order_progress_assigns.product_id = production_stocks.product_id
-                    AND order_progress_assigns.deleted_at IS NULL
-                ),0),
-                0
-            ) AS pending_waiting_list_calc
-        ')
+                // Rumus waiting list dipusatkan di App\Support\PendingWaitingList
+                // supaya sama dengan laporan gabungan dan inventory.
+                DB::raw(PendingWaitingList::sqlExpression('production_stocks.product_id') . ' AS pending_waiting_list_calc')
             )
             ->selectRaw("
                 GREATEST(

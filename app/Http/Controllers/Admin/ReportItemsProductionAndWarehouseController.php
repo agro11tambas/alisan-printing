@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Products;
+use App\Support\PendingWaitingList;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -82,12 +83,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
             ->groupBy('product_id')
             ->pluck('total', 'product_id');
 
-        $designByProduct = DB::table('design_items')
-            ->whereIn('product_id', $productIds)
-            ->whereNull('deleted_at')
-            ->selectRaw('product_id, COALESCE(SUM(quantity * COALESCE(unit_conversion_value, 1)), 0) AS total')
-            ->groupBy('product_id')
-            ->pluck('total', 'product_id');
+        // Waiting list per produk, rumus bersama dengan laporan produksi.
+        $pendingByProduct = PendingWaitingList::byProduct($productIds);
 
         $assignedByProduct = DB::table('order_progress_assigns')
             ->whereIn('product_id', $productIds)
@@ -164,7 +161,7 @@ class ReportItemsProductionAndWarehouseController extends Controller
             $request,
             $completedByProduct,
             $deliveryOrderByProduct,
-            $designByProduct,
+            $pendingByProduct,
             $assignedByProduct,
             $polosanProductIds,
             $inventoryFlowsByProduct,
@@ -203,9 +200,8 @@ class ReportItemsProductionAndWarehouseController extends Controller
             $completed = (float) ($completedByProduct[$productId] ?? 0);
             $deliveryOrderShipped = (float) ($deliveryOrderByProduct[$productId] ?? 0);
             $finishedProductStock = max(0, $completed - $deliveryOrderShipped);
-            $designQuantity = (float) ($designByProduct[$productId] ?? 0);
+            $pendingWaitingList = (float) ($pendingByProduct[$productId] ?? 0);
             $assignedQuantity = (float) ($assignedByProduct[$productId] ?? 0);
-            $pendingWaitingList = max(0, $designQuantity - $assignedQuantity);
             $productionAvailable = (float) ($prod->available_quantity ?? 0);
             $inventoryStock = (float) ($inv->inventory_stock ?? 0);
             $stockAfterSales = $polosanProductIds->has($productId)
@@ -259,55 +255,6 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 // number_format($inv->stock_after_sales ?? 0, 0, ',', '.'),
                 'stock_after_sales' => (function () use ($product, $inv, $stockAfterSales) {
                     return number_format($stockAfterSales, 0, ',', '.');
-
-                    $productId = $product->id;
-
-                    // Inventory stock
-                    $inventoryStock = (int) ($inv->inventory_stock ?? 0);
-
-                    // Production stock (available stock)
-                    $productionAvailable = \App\Models\ProductionStock::where('product_id', $productId)
-                        ->sum('available_quantity');
-
-                    /**
-                     * HITUNG PENDING WAITING LIST
-                     * total design - total assigned
-                     */
-                    $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
-                        ->whereNull('deleted_at')
-                        ->selectRaw('COALESCE(SUM(quantity * COALESCE(unit_conversion_value, 1)), 0) as total')
-                        ->value('total');
-
-                    $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
-                        ->whereNull('deleted_at')
-                        ->sum('assigned_quantity');
-
-                    $pendingWaitingList = $totalDesignQty - $totalAssignedQty;
-                    if ($pendingWaitingList < 0) $pendingWaitingList = 0;
-
-                    /**
-                     * MODE CEK
-                     * Kalau ada order dengan mode = polosan → tidak mengurangi stock
-                     * Kalau printing → pakai formula baru
-                     */
-                    $isPolosan = \App\Models\OrderItem::where('product_id', $productId)
-                        ->whereHas(
-                            'order',
-                            fn($q) =>
-                            $q->where('status', 'sale list')
-                                ->where('mode', 'polosan')
-                        )
-                        ->exists();
-
-                    if ($isPolosan) {
-                        // POLOSAN = tidak dikurangi apa pun
-                        $final = $inventoryStock + $productionAvailable + $pendingWaitingList;
-                    } else {
-                        // PRINTING = inventory + production - pending waiting list
-                        $final = $inventoryStock + $productionAvailable - $pendingWaitingList;
-                    }
-
-                    return number_format($final, 0, ',', '.');
                 })(),
                 // hitung incoming stock aktual dari inventory_items_2
                 'incoming_stock' => (function () use ($product, $request, $inventoryFlow) {
@@ -470,22 +417,6 @@ class ReportItemsProductionAndWarehouseController extends Controller
                 // Pending Waiting List
                 'pending_waiting_list' => (function () use ($product, $pendingWaitingList) {
                     return number_format($pendingWaitingList, 0, ',', '.');
-
-                    $productId = $product->id;
-
-                    $totalDesignQty = \App\Models\DesignItem::where('product_id', $productId)
-                        ->whereNull('deleted_at')
-                        ->selectRaw('COALESCE(SUM(quantity * COALESCE(unit_conversion_value, 1)), 0) as total')
-                        ->value('total');
-
-                    $totalAssignedQty = \App\Models\OrderProgressAssign::where('product_id', $productId)
-                        ->whereNull('deleted_at')
-                        ->sum('assigned_quantity');
-
-                    $pending = $totalDesignQty - $totalAssignedQty;
-                    if ($pending < 0) $pending = 0;
-
-                    return number_format($pending, 0, ',', '.');
                 })(),
                 // Assigned Minus Completed
                 'assigned_minus_completed' => (function () use ($product, $assignedMinusCompleted) {

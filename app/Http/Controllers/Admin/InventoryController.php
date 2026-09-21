@@ -770,18 +770,8 @@ class InventoryController extends Controller
             ->groupBy('product_id')
             ->selectRaw('product_id, SUM(available_quantity) AS total')
             ->pluck('total', 'product_id');
-        $designQtyByProduct = \App\Models\DesignItem::query()
-            ->whereIn('product_id', $productIds)
-            ->whereNull('deleted_at')
-            ->groupBy('product_id')
-            ->selectRaw('product_id, SUM(quantity) AS total')
-            ->pluck('total', 'product_id');
-        $assignedQtyByProduct = \App\Models\OrderProgressAssign::query()
-            ->whereIn('product_id', $productIds)
-            ->whereNull('deleted_at')
-            ->groupBy('product_id')
-            ->selectRaw('product_id, SUM(assigned_quantity) AS total')
-            ->pluck('total', 'product_id');
+        // Waiting list per produk, rumus bersama dengan laporan items.
+        $pendingByProduct = \App\Support\PendingWaitingList::byProduct($productIds);
         $polosanProductIds = \App\Models\OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->whereIn('order_items.product_id', $productIds)
@@ -848,7 +838,7 @@ class InventoryController extends Controller
 
             //     return $formatted;
             // })
-            ->addColumn('stock_after_sales', function ($item) use ($productionStockByProduct, $designQtyByProduct, $assignedQtyByProduct, $polosanProductIds) {
+            ->addColumn('stock_after_sales', function ($item) use ($productionStockByProduct, $pendingByProduct, $polosanProductIds) {
 
                 $productId = $item->product_id;
 
@@ -858,18 +848,8 @@ class InventoryController extends Controller
                 // 2. Production stock (available_quantity)
                 $productionStock = (float) $productionStockByProduct->get($productId, 0);
 
-                /**
-                 * --------------------------------------------------
-                 * 3. PENDING WAITING LIST
-                 * pending = total design - total assigned
-                 * --------------------------------------------------
-                 */
-                $totalDesignQty = (float) $designQtyByProduct->get($productId, 0);
-
-                $totalAssignedQty = (float) $assignedQtyByProduct->get($productId, 0);
-
-                $pendingWaitingList = $totalDesignQty - $totalAssignedQty;
-                if ($pendingWaitingList < 0) $pendingWaitingList = 0;
+                // 3. Pending waiting list (lihat App\Support\PendingWaitingList)
+                $pendingWaitingList = (float) $pendingByProduct->get($productId, 0);
 
                 /**
                  * --------------------------------------------------
