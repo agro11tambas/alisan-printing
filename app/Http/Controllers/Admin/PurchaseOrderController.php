@@ -156,6 +156,10 @@ class PurchaseOrderController extends Controller
         ])
             // PL anak yang sudah dibayar mengunci PO-nya. Dicek sebagai EXISTS
             // di SQL supaya tidak perlu memuat PL-nya satu per satu.
+            // Total Amount PO = jumlah Product Total dari PL turunannya (harga
+            // realisasi), bukan nilai estimasi saat PO dibuat.
+            ->withCount('purchaseLists')
+            ->withSum('purchaseLists as purchase_list_product_total', 'total_amount_product')
             ->withExists([
                 'purchaseLists as has_paid_purchase_list' => fn ($query) => $query
                     ->where(fn ($paid) => $paid
@@ -203,8 +207,12 @@ class PurchaseOrderController extends Controller
                 // 👤 Supplier
                 $supplier = e($purchase->supplier->name ?? '-');
 
-                // 💰 Total Amount
-                $totalAmount = 'Rp '.number_format($purchase->total_amount, 0, ',', '.');
+                // 💰 Total Amount: Product Total dari PL turunan. PO yang belum
+                // punya PL memakai product total-nya sendiri (masih estimasi).
+                $totalAmountValue = ($purchase->purchase_lists_count ?? 0) > 0
+                    ? (float) ($purchase->purchase_list_product_total ?? 0)
+                    : (float) ($purchase->total_amount_product ?? 0);
+                $totalAmount = 'Rp '.number_format($totalAmountValue, 0, ',', '.');
 
                 // 🏷️ Payment Status Badge
                 $paymentStatus = strtolower($purchase->payment_status);
