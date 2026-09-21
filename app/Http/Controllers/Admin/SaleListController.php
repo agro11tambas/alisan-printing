@@ -5105,8 +5105,15 @@ class SaleListController extends Controller
             // DNS gagal cepat, bukan menggantung sampai batas total.
             $uploadStartedAt = hrtime(true);
 
+            // Handshake TLS ke server gambar kadang ditolak sesaat oleh sisi
+            // hosting-nya ("tlsv1 alert internal error"). Kegagalan koneksi
+            // seperti itu dicoba ulang dua kali sebelum dilaporkan ke user;
+            // respons HTTP (4xx/5xx) tidak diulang karena bukan masalah jaringan.
             $response = Http::connectTimeout((int) config('services.image_upload.connect_timeout', 5))
                 ->timeout((int) config('services.image_upload.timeout', 15))
+                ->retry(3, 1000, function (\Throwable $e) {
+                    return $e instanceof \Illuminate\Http\Client\ConnectionException;
+                }, false)
                 ->withHeaders([
                     'X-Upload-Token' => $uploadToken,
                 ])
@@ -5154,7 +5161,9 @@ class SaleListController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Connection error: '.$e->getMessage(),
+                'message' => 'Server gambar (image.alisanprinting.com) tidak bisa dihubungi setelah 3 kali percobaan. '
+                    .'Ini masalah di sisi server gambar/hosting, bukan di ERP. Coba lagi beberapa saat; '
+                    .'kalau terus gagal, cek firewall hosting server gambar. Detail: '.$e->getMessage(),
             ], 500);
         } catch (\Throwable $e) {
             Log::error('General error', [
