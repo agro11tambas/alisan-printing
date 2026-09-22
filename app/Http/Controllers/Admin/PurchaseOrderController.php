@@ -169,6 +169,13 @@ class PurchaseOrderController extends Controller
                         ->orWhere('paid_amount_freight', '>', 0)
                     ),
             ])
+            // Kebalikan dari purchaseListsFullyPaid(): dipakai untuk membedakan
+            // PO yang barangnya sudah lengkap tapi PL-nya belum lunas.
+            ->withExists([
+                'purchaseLists as has_unpaid_purchase_list' => fn ($query) => $query
+                    ->whereNotIn('payment_status', ['Paid', 'Overpaid'])
+                    ->where('total_amount', '>', 0),
+            ])
             ->where('status', 'Purchase Orders')
             ->orderByDesc('purchase_date');
 
@@ -252,14 +259,26 @@ class PurchaseOrderController extends Controller
                 };
 
                 $approvalStatus = $purchase->approval_status ?? 'Draft';
-                $approvalStatusLabel = $purchase->approval_status_label;
-                $approvalBadgeClass = match (strtolower($approvalStatus)) {
-                    'approved' => 'bg-soft-primary text-primary',
-                    'partial' => 'bg-soft-warning text-warning',
-                    'completed pl' => 'bg-soft-info text-info',
-                    'completed' => 'bg-soft-success text-success',
-                    default => 'bg-soft-secondary text-secondary',
-                };
+
+                // Dua hitungan di bawah sudah tersedia dari agregat query
+                // listing, jadi label & badge-nya tidak menambah query.
+                $fullyPaid = ($purchase->purchase_lists_count ?? 0) > 0
+                    && ! ($purchase->has_unpaid_purchase_list ?? false);
+                $awaitingPayment = $purchase->isAwaitingPurchaseListPayment($stockInCompleted, $fullyPaid);
+
+                $approvalStatusLabel = $purchase->approvalStatusLabel($stockInCompleted, $fullyPaid);
+                $approvalBadgeClass = $awaitingPayment
+                    ? 'bg-soft-warning text-warning'
+                    : match (strtolower($approvalStatus)) {
+                        'approved' => 'bg-soft-primary text-primary',
+                        'partial' => 'bg-soft-warning text-warning',
+                        'completed pl' => 'bg-soft-info text-info',
+                        'completed' => 'bg-soft-success text-success',
+                        default => 'bg-soft-secondary text-secondary',
+                    };
+                $approvalBadgeTitle = $awaitingPayment
+                    ? 'Stock In sudah lengkap. PO baru jadi Completed setelah seluruh Purchase List lunas.'
+                    : '';
 
                 // ⚙️ Action button partial
                 // Realisasi Stock In sudah ikut ter-agregat di query listing
@@ -284,7 +303,7 @@ class PurchaseOrderController extends Controller
                     'payment_method' => $paymentMethod,
                     'products' => $products,
                     'status' => $statusBadge,
-                    'approval_status' => '<div class="badge '.$approvalBadgeClass.'">'.e($approvalStatusLabel).'</div>',
+                    'approval_status' => '<div class="badge '.$approvalBadgeClass.'" title="'.e($approvalBadgeTitle).'">'.e($approvalStatusLabel).'</div>',
                     'action' => $actionHtml,
                     'user' => $purchase->user->name ?? '-',
                 ];

@@ -162,9 +162,13 @@
                                             <i class="feather-clock me-2"></i>
                                             <span class="fw-semibold">Status:</span>
                                         </div>
-                                        <div class="col-6 d-flex">
+                                        <div class="col-6 d-flex flex-column">
                                             <span
                                                 class="border-bottom border-bottom-dashed border-gray-5">{{ $purchase->approval_status_label }}</span>
+                                            @if ($purchase->isAwaitingPurchaseListPayment())
+                                                <small class="text-muted">Stock In sudah lengkap. Completed menunggu
+                                                    seluruh Purchase List lunas.</small>
+                                            @endif
                                         </div>
                                     </div>
                                     <div class="row align-items-center mb-2 task-list-row">

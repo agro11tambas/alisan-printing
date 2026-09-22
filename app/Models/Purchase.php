@@ -67,6 +67,14 @@ class Purchase extends Model
     ];
 
     /**
+     * "Completed PL" menutupi dua keadaan yang jauh berbeda: barangnya memang
+     * belum masuk semua, atau barangnya sudah lengkap tapi PL-nya belum lunas.
+     * Keadaan kedua dikasih label sendiri supaya di layar tidak terbaca seperti
+     * Stock In-nya yang belum beres.
+     */
+    public const LABEL_AWAITING_PAYMENT = 'Lengkap · Belum Lunas';
+
+    /**
      * PO dianggap masih berjalan selama belum semua Purchase List-nya stock in.
      */
     public const APPROVAL_PROGRESS_STATUSES = ['Draft', 'Approved', 'Partial', 'Completed PL'];
@@ -75,9 +83,51 @@ class Purchase extends Model
 
     public function getApprovalStatusLabelAttribute(): string
     {
+        return $this->approvalStatusLabel();
+    }
+
+    /**
+     * Sama dengan accessor di atas, tapi pemanggil yang sudah punya hasil
+     * hitungan (mis. listing yang mengagregat di SQL) bisa mengopernya supaya
+     * tidak ada query tambahan per baris.
+     */
+    public function approvalStatusLabel(?bool $stockInCompleted = null, ?bool $fullyPaid = null): string
+    {
+        if ($this->isAwaitingPurchaseListPayment($stockInCompleted, $fullyPaid)) {
+            return self::LABEL_AWAITING_PAYMENT;
+        }
+
         $status = $this->approval_status ?: 'Draft';
 
         return self::APPROVAL_STATUS_LABELS[$status] ?? $status;
+    }
+
+    /**
+     * Barangnya sudah masuk semua, yang menahan status Completed tinggal
+     * pembayaran PL. Syaratnya dibuat persis sama dengan cabang 'Completed'
+     * di syncApprovalProgress().
+     */
+    public function isAwaitingPurchaseListPayment(?bool $stockInCompleted = null, ?bool $fullyPaid = null): bool
+    {
+        if (($this->approval_status ?: 'Draft') !== 'Completed PL') {
+            return false;
+        }
+
+        return ($stockInCompleted ?? $this->purchaseListItemsFullyStockedIn())
+            && ! ($fullyPaid ?? $this->purchaseListsFullyPaid());
+    }
+
+    /**
+     * Seluruh item Purchase List anak sudah stock in penuh.
+     */
+    public function purchaseListItemsFullyStockedIn(): bool
+    {
+        $listItems = PurchaseItem::with('inventoryItems')
+            ->whereIn('source_purchase_item_id', $this->purchaseItems()->select('id'))
+            ->get();
+
+        return $listItems->isNotEmpty()
+            && $listItems->every(fn (PurchaseItem $item) => $item->isFullyStockedIn());
     }
 
     public function supplier()

@@ -285,11 +285,24 @@ class PurchaseOrderExport extends BaseExcelExport
      */
     private function purchaseOrderColumns(Purchase $purchaseOrder): array
     {
+        // Purchase List beserta stock in-nya sudah di-eager load, jadi label
+        // status dihitung dari situ — bukan lewat query ulang per baris.
+        $lists = $purchaseOrder->purchaseLists;
+        $listItems = $lists->flatMap(fn ($list) => $list->purchaseItems);
+
+        $stockInCompleted = $listItems->isNotEmpty()
+            && $listItems->every(fn ($item) => $item->isFullyStockedIn());
+
+        $fullyPaid = $lists->isNotEmpty() && $lists->every(
+            fn ($list) => in_array($list->payment_status, ['Paid', 'Overpaid'], true)
+                || (float) $list->total_amount <= 0
+        );
+
         return [
             $purchaseOrder->purchase_number,
             Carbon::parse($purchaseOrder->purchase_date)->format('d/m/Y H:i'),
             $purchaseOrder->supplier->name ?? '-',
-            $purchaseOrder->approval_status_label,
+            $purchaseOrder->approvalStatusLabel($stockInCompleted, $fullyPaid),
         ];
     }
 
