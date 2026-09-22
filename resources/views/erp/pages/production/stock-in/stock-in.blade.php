@@ -280,6 +280,7 @@
                                         <th class="wd-200">Number</th>
                                         <th class="wd-200">Supplier</th>
                                         <th>Stock In</th>
+                                        <th class="wd-100">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -315,7 +316,7 @@
                 lengthChange: false,
                 ordering: false,
                 order: [
-                    [3, 'desc']
+                    [4, 'desc']
                 ],
                 data: [],
                 columns: [
@@ -332,6 +333,9 @@
                     },
                     {
                         data: 'stock_in'
+                    },
+                    {
+                        data: 'status'
                     },
                     {
                         data: 'date',

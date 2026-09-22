@@ -22,6 +22,39 @@ class InventoryController extends Controller
         return view('erp.pages.inventory.stock-in.stock-in');
     }
 
+    /**
+     * Gabungkan item satu grup Stock In per produk. Ini yang tampil di kolom
+     * Qty / Stock In / Remaining, jadi status Completed wajib dihitung dari
+     * sini juga supaya tidak beda dengan angka yang dilihat user.
+     */
+    private function mergeStockInItems($inventories)
+    {
+        return $inventories->flatMap(fn($inv) => $inv->items)
+            ->groupBy('product_id')
+            ->map(function ($productItems) {
+                $first = $productItems->first();
+                return (object)[
+                    'product'               => $first->product,
+                    'unit_name'             => $first->unit_name ?? 'Pcs',
+                    'unit_conversion_value' => $first->unit_conversion_value ?? 1,
+                    'quantity'              => $productItems->sum('quantity'),
+                    'qty_base'              => $productItems->sum('qty_base'),
+                    'stock_in'              => $productItems->sum('stock_in'),
+                ];
+            })->values();
+    }
+
+    /**
+     * Grup dianggap selesai kalau Remaining setiap produknya sudah habis.
+     */
+    private function isStockInGroupCompleted($inventories): bool
+    {
+        $merged = $this->mergeStockInItems($inventories);
+
+        return $merged->isNotEmpty()
+            && $merged->every(fn($i) => $i->stock_in >= $i->qty_base);
+    }
+
     public function dataStockIn(Request $request)
     {
         $length = (int) $request->input('length', 15);
@@ -165,10 +198,11 @@ class InventoryController extends Controller
 
         if ($request->filled('progress_status')) {
             $grouped = $grouped->filter(function ($items) use ($request) {
-                // Cek apakah SEMUA items di semua invoice dalam group ini completed
-                $allCompleted = $items->every(function ($inv) {
-                    return $inv->items->every(fn($item) => $item->stock_in >= ($item->qty_base ?? $item->quantity));
-                });
+                // Dipakai rumus yang sama persis dengan kolom Remaining di layar
+                // (gabungan per produk se-grup), bukan per baris inventory item.
+                // Versi lama bisa menyatakan "belum completed" padahal Remaining
+                // yang dilihat user sudah 0.
+                $allCompleted = $this->isStockInGroupCompleted($items);
 
                 if ($request->progress_status === 'completed') {
                     return $allCompleted;
@@ -211,19 +245,7 @@ class InventoryController extends Controller
                     ->filter()->unique()->implode(', ');
 
                 // ✅ Merge items by product_id
-                $mergedItems = $items->flatMap(fn($inv) => $inv->items)
-                    ->groupBy('product_id')
-                    ->map(function ($productItems) {
-                        $first = $productItems->first();
-                        return (object)[
-                            'product'               => $first->product,
-                            'unit_name'             => $first->unit_name ?? 'Pcs',
-                            'unit_conversion_value' => $first->unit_conversion_value ?? 1,
-                            'quantity'              => $productItems->sum('quantity'),
-                            'qty_base'              => $productItems->sum('qty_base'),
-                            'stock_in'              => $productItems->sum('stock_in'),
-                        ];
-                    })->values();
+                $mergedItems = $this->mergeStockInItems($items);
 
                 $fakeInventory = (object)['items' => $mergedItems];
 
@@ -232,9 +254,13 @@ class InventoryController extends Controller
                     ['inventory' => $fakeInventory]
                 )->render();
 
-                $isCompleted      = $mergedItems->every(fn($i) => $i->stock_in >= $i->qty_base);
+                $isCompleted = $this->isStockInGroupCompleted($items);
 
-                $completeIcon = $isCompleted ? '<i class="fa fa-check-circle text-success ms-1"></i>' : '';
+                $completeIcon = $isCompleted ? ' <i class="fa fa-check-circle text-success ms-1" title="Stock In selesai"></i>' : '';
+
+                $statusBadge = $isCompleted
+                    ? '<span class="badge bg-soft-success text-success">Completed</span>'
+                    : '<span class="badge bg-soft-warning text-warning">Progress</span>';
 
                 // $actionHtml = $items->map(function ($inventory) {
                 //     return view('erp.pages.inventory.stock-in.partials.action-button-stock-in', compact('inventory'))->render();
@@ -247,7 +273,7 @@ class InventoryController extends Controller
 
                 $year = Carbon::parse($groupDate)->year;
                 $monthNumber = Carbon::parse($groupDate)->month;
-                $isGroupCompleted = $mergedItems->every(fn($i) => $i->stock_in >= $i->qty_base);
+                $isGroupCompleted = $isCompleted;
 
                 $actionHtml = view(
                     'erp.pages.inventory.stock-in.partials.action-button-stock-in',
@@ -279,7 +305,7 @@ class InventoryController extends Controller
                 $transactionDisplay = '
                     <div>
                         <div>' . $badge . '</div>
-                        <div class="fw-semibold">' . $numberHtml . '</div>
+                        <div class="fw-semibold">' . $numberHtml . $completeIcon . '</div>
                         <small class="text-muted">' . $monthLabel . ' (' . $items->count() . ' transactions)</small>
                     </div>
                 ';
@@ -292,11 +318,10 @@ class InventoryController extends Controller
                     'date_raw' => $groupDate,
                     'partner_name'       => $partner,
                     'stock_in'           => $stockInHtml,
+                    'status'             => $statusBadge,
                     'action'             => $actionHtml,
                     'transaction_mobile' => $numberHtml,
-                    'status_mobile'      => $isCompleted
-                        ? '<span class="badge bg-soft-success text-success">Completed</span>'
-                        : '<span class="badge bg-soft-warning text-warning">Progress</span>',
+                    'status_mobile'      => $statusBadge,
                     'meta_mobile'        => Carbon::parse($groupDate)->format('j M y')
                         . ' Â· ' . $items->count() . ' transactions',
                     'type_mobile'        => $badge,
