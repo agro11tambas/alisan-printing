@@ -196,7 +196,7 @@
                                     No Rek: <strong class="text-danger">{{ $invoice->account_number }}</strong></p>
                             </div>
                             <div class="text-end align-self-end">
-                                <h6 class="fs-13 fw-bold mt-1">Owner</h6>
+                                <h6 class="fs-13 fw-bold mt-1">Admin</h6>
                                 <p class="fs-11 fw-semibold text-muted">
                                     {{ date('d M Y, H:i', strtotime($order->created_at)) }}</p>
                             </div>
